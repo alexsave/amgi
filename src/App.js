@@ -9,6 +9,8 @@ function App() {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
 
+  const isDevelopment = process.env.NODE_ENV === 'development' || window.location.hostname === 'localhost';
+
   const generateCard = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -40,6 +42,56 @@ function App() {
       setError(err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const playAudio = async (audioUrl) => {
+    try {
+      console.log('Attempting to play audio from URL:', audioUrl);
+      
+      if (!audioUrl) {
+        throw new Error('No audio URL provided');
+      }
+
+      // In development, prepend the server URL
+      const fullAudioUrl = isDevelopment 
+        ? `http://localhost:8000${audioUrl}`
+        : audioUrl;
+
+      console.log('Creating new Audio object with URL:', fullAudioUrl);
+      const audio = new Audio(fullAudioUrl);
+
+      // Log audio metadata
+      audio.addEventListener('loadedmetadata', () => {
+        console.log('Audio metadata loaded:', {
+          duration: audio.duration,
+          type: audio.type,
+          readyState: audio.readyState,
+          networkState: audio.networkState
+        });
+      });
+
+      // Log audio errors
+      audio.addEventListener('error', (e) => {
+        console.error('Audio element error:', {
+          error: audio.error,
+          errorCode: audio.error?.code,
+          errorMessage: audio.error?.message,
+          networkState: audio.networkState,
+          src: audio.src
+        });
+      });
+
+      console.log('Attempting to play audio...');
+      await audio.play();
+      console.log('Audio playback started successfully');
+    } catch (err) {
+      console.error('Error playing audio:', {
+        errorName: err.name,
+        errorMessage: err.message,
+        errorStack: err.stack
+      });
+      setError(`Failed to play audio: ${err.message}`);
     }
   };
 
@@ -99,8 +151,9 @@ function App() {
                 <p>{card.frontText}</p>
                 <small>Language: {card.sourceLang}</small>
                 <button 
-                  onClick={() => new Audio(card.frontAudioUrl).play()}
+                  onClick={() => playAudio(card.frontAudioUrl)}
                   className="play-audio-btn"
+                  disabled={!card.frontAudioUrl}
                 >
                   🔊 Play Audio
                 </button>
@@ -110,8 +163,9 @@ function App() {
                 <p>{card.backText}</p>
                 <small>Language: {card.targetLang}</small>
                 <button 
-                  onClick={() => new Audio(card.backAudioUrl).play()}
+                  onClick={() => playAudio(card.backAudioUrl)}
                   className="play-audio-btn"
+                  disabled={!card.backAudioUrl}
                 >
                   🔊 Play Audio
                 </button>
