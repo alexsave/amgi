@@ -17,26 +17,12 @@ const FlashcardSchema = z.object({
     targetLang: z.string()
 });
 
-async function generateAudio(text, filename) {
-    try {
-        const mp3 = await openai.audio.speech.create({
-            model: "tts-1",
-            voice: "alloy",
-            input: text,
-        });
-
-        const buffer = await mp3.arrayBuffer();
-        const uint8Array = new Uint8Array(buffer);
-        await Deno.writeFile(`./audio/${filename}`, uint8Array);
-        return `/audio/${filename}`;
-    } catch (error) {
-        console.error('Error generating audio:', error);
-        throw new Error('Failed to generate audio');
-    }
-}
+const encoder = new TextEncoder();
 
 async function generateCards(userInput, sourceLang = 'en') {
+    console.log('Starting generateCards with input:', { userInput, sourceLang });
     try {
+        console.log('Requesting translation from OpenAI...');
         const completion = await openai.beta.chat.completions.parse({
             model: "gpt-4o",
             messages: [
@@ -57,83 +43,93 @@ Return just the translation pair with language codes.`
         });
 
         const card = completion.choices[0].message.parsed;
-        
-        // Generate unique filenames for audio files
-        const frontAudioFilename = `${Date.now()}-front.mp3`;
-        const backAudioFilename = `${Date.now()}-back.mp3`;
+        console.log('Received translation:', card);
 
-        // Generate audio for both front and back text
-        const [frontAudioUrl, backAudioUrl] = await Promise.all([
-            generateAudio(card.frontText, frontAudioFilename),
-            generateAudio(card.backText, backAudioFilename)
-        ]);
+        const stream = new ReadableStream({
+            async start(controller) {
+                try {
+                    // Send card data first
+                    controller.enqueue(encoder.encode(JSON.stringify({
+                        type: 'card',
+                        data: card
+                    }) + '\n'));
 
-        // Add the generated audio URLs to the response
-        return {
-            ...card,
-            frontAudioUrl,
-            backAudioUrl
-        };
+                    // Generate and send front audio
+                    console.log('Generating front audio...');
+                    const frontMp3 = await openai.audio.speech.create({
+                        model: "tts-1",
+                        voice: "alloy",
+                        input: card.frontText,
+                    });
+                    const frontBuffer = await frontMp3.arrayBuffer();
+                    console.log('Front audio generated');
+                    
+                    controller.enqueue(encoder.encode(JSON.stringify({
+                        type: 'audio',
+                        side: 'front',
+                        data: Array.from(new Uint8Array(frontBuffer))
+                    }) + '\n'));
+                    console.log('Front audio sent');
+
+                    // Generate and send back audio
+                    console.log('Generating back audio...');
+                    const backMp3 = await openai.audio.speech.create({
+                        model: "tts-1",
+                        voice: "alloy",
+                        input: card.backText,
+                    });
+                    const backBuffer = await backMp3.arrayBuffer();
+                    console.log('Back audio generated');
+                    
+                    controller.enqueue(encoder.encode(JSON.stringify({
+                        type: 'audio',
+                        side: 'back',
+                        data: Array.from(new Uint8Array(backBuffer))
+                    }) + '\n'));
+                    console.log('Back audio sent');
+
+                    controller.close();
+                    console.log('Stream closed');
+                } catch (error) {
+                    console.error('Error in stream:', error);
+                    controller.error(error);
+                }
+            }
+        });
+
+        return new Response(stream, {
+            headers: {
+                'Content-Type': 'text/event-stream',
+                'Cache-Control': 'no-cache',
+                'Connection': 'keep-alive',
+                'Access-Control-Allow-Origin': '*',
+            },
+        });
     } catch (error) {
-        console.error('Error generating cards:', error);
+        console.error('Error in generateCards:', error);
         throw new Error('Failed to generate flashcard content');
     }
 }
 
-// Ensure audio directory exists
-try {
-    await Deno.mkdir('./audio', { recursive: true });
-} catch (error) {
-    if (error?.code !== 'EEXIST') {
-        console.error('Error creating audio directory:', error);
-    }
-}
-
-// Serve static audio files
-async function serveAudioFile(req) {
-    const url = new URL(req.url);
-    if (url.pathname.startsWith('/audio/')) {
-        try {
-            const audioPath = `.${url.pathname}`;
-            const file = await Deno.readFile(audioPath);
-            return new Response(file, {
-                headers: {
-                    'Content-Type': 'audio/mpeg',
-                    'Access-Control-Allow-Origin': '*',
-                }
-            });
-        } catch (error) {
-            return new Response('Audio file not found', { status: 404 });
-        }
-    }
-    return null;
-}
-
 async function handler(req) {
+    console.log('Received request:', req.method, req.url);
     const origin = req.headers.get("Origin") || "http://localhost:3000";
     const headers = {
         "Access-Control-Allow-Origin": origin,
         "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
         "Access-Control-Allow-Headers": "*",
-        "Content-Type": "application/json",
     };
 
-    // Handle CORS preflight
     if (req.method === "OPTIONS") {
         return new Response(null, { headers });
     }
 
     const url = new URL(req.url);
-    
-    if (req.method === "GET" && req.url.includes('/audio/')) {
-        const audioResponse = await serveAudioFile(req);
-        if (audioResponse) return audioResponse;
-    }
 
     if (req.method === "POST" && url.pathname === "/api/generate_cards") {
-        console.log("Generating cards");
         try {
             const body = await req.json();
+            console.log('Received request body:', body);
             const { userInput, sourceLang } = body;
 
             if (!userInput) {
@@ -143,12 +139,9 @@ async function handler(req) {
                 );
             }
 
-            const cardData = await generateCards(userInput, sourceLang);
-            return new Response(
-                JSON.stringify(cardData),
-                { headers }
-            );
+            return await generateCards(userInput, sourceLang);
         } catch (error) {
+            console.error('Error handling request:', error);
             return new Response(
                 JSON.stringify({ error: error.message }), 
                 { status: 500, headers }

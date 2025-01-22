@@ -8,23 +8,41 @@ function App() {
   const [card, setCard] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [audioReady, setAudioReady] = useState({ front: false, back: false });
+  const [progress, setProgress] = useState({ text: false, front: false, back: false });
+  
+  // Use refs to maintain audio elements
+  const frontAudioRef = React.useRef(new Audio());
+  const backAudioRef = React.useRef(new Audio());
+  const blobUrlsRef = React.useRef({ front: null, back: null });
 
   const isDevelopment = process.env.NODE_ENV === 'development' || window.location.hostname === 'localhost';
 
   const generateCard = async (e) => {
     e.preventDefault();
+    console.log('Starting card generation...');
     setLoading(true);
     setError(null);
     setCard(null);
+    setAudioReady({ front: false, back: false });
+    setProgress({ text: false, front: false, back: false });
+
+    // Clean up old blob URLs
+    if (blobUrlsRef.current.front) {
+      URL.revokeObjectURL(blobUrlsRef.current.front);
+    }
+    if (blobUrlsRef.current.back) {
+      URL.revokeObjectURL(blobUrlsRef.current.back);
+    }
+    blobUrlsRef.current = { front: null, back: null };
 
     try {
+      console.log('Sending request to server...');
       const response = await fetch('http://localhost:8000/api/generate_cards', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          //'Access-Control-Allow-Origin': '*',
         },
-        //credentials: 'include',
         body: JSON.stringify({
           userInput,
           sourceLang,
@@ -33,67 +51,110 @@ function App() {
 
       if (!response.ok) {
         const errorData = await response.json();
+        console.error('Server returned error:', errorData);
         throw new Error(errorData.error || 'Failed to generate card');
       }
 
-      const data = await response.json();
-      setCard(data);
+      console.log('Starting to read stream...');
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+          console.log('Stream complete');
+          break;
+        }
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n').filter(line => line.trim());
+
+        for (const line of lines) {
+          try {
+            const data = JSON.parse(line);
+            console.log('Processing data type:', data.type);
+            
+            if (data.type === 'card') {
+              console.log('Setting card data:', data.data);
+              setCard(data.data);
+              setProgress(prev => ({ ...prev, text: true }));
+            } else if (data.type === 'audio') {
+              console.log(`Processing ${data.side} audio, size:`, data.data.length);
+              
+              const audioData = new Uint8Array(data.data);
+              const blob = new Blob([audioData], { type: 'audio/mpeg' });
+              const url = URL.createObjectURL(blob);
+              
+              if (data.side === 'front') {
+                console.log('Setting front audio with URL:', url);
+                frontAudioRef.current.src = url;
+                blobUrlsRef.current.front = url;
+                setAudioReady(prev => ({ ...prev, front: true }));
+              } else {
+                console.log('Setting back audio with URL:', url);
+                backAudioRef.current.src = url;
+                blobUrlsRef.current.back = url;
+                setAudioReady(prev => ({ ...prev, back: true }));
+              }
+
+              setProgress(prev => ({
+                ...prev,
+                [data.side]: true
+              }));
+
+              console.log(`Audio element updated for ${data.side}:`, {
+                side: data.side,
+                url: url,
+                audioSrc: data.side === 'front' ? frontAudioRef.current.src : backAudioRef.current.src
+              });
+            }
+          } catch (e) {
+            console.error('Error processing stream chunk:', e);
+          }
+        }
+      }
     } catch (err) {
+      console.error('Error in generateCard:', err);
       setError(err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  const playAudio = async (audioUrl) => {
+  const playAudio = async (side) => {
     try {
-      console.log('Attempting to play audio from URL:', audioUrl);
+      const audio = side === 'front' ? frontAudioRef.current : backAudioRef.current;
+      console.log(`Playing ${side} audio:`, audio);
       
-      if (!audioUrl) {
-        throw new Error('No audio URL provided');
+      if (!audio.src) {
+        throw new Error('No audio available');
       }
 
-      // In development, prepend the server URL
-      const fullAudioUrl = isDevelopment 
-        ? `http://localhost:8000${audioUrl}`
-        : audioUrl;
+      // Stop any currently playing audio
+      frontAudioRef.current.pause();
+      frontAudioRef.current.currentTime = 0;
+      backAudioRef.current.pause();
+      backAudioRef.current.currentTime = 0;
 
-      console.log('Creating new Audio object with URL:', fullAudioUrl);
-      const audio = new Audio(fullAudioUrl);
-
-      // Log audio metadata
-      audio.addEventListener('loadedmetadata', () => {
-        console.log('Audio metadata loaded:', {
-          duration: audio.duration,
-          type: audio.type,
-          readyState: audio.readyState,
-          networkState: audio.networkState
-        });
-      });
-
-      // Log audio errors
-      audio.addEventListener('error', (e) => {
-        console.error('Audio element error:', {
-          error: audio.error,
-          errorCode: audio.error?.code,
-          errorMessage: audio.error?.message,
-          networkState: audio.networkState,
-          src: audio.src
-        });
-      });
-
-      console.log('Attempting to play audio...');
+      // Play the selected audio
       await audio.play();
-      console.log('Audio playback started successfully');
     } catch (err) {
-      console.error('Error playing audio:', {
-        errorName: err.name,
-        errorMessage: err.message,
-        errorStack: err.stack
-      });
+      console.error('Error playing audio:', err);
       setError(`Failed to play audio: ${err.message}`);
     }
   };
+
+  // Clean up blob URLs when component unmounts
+  React.useEffect(() => {
+    return () => {
+      if (blobUrlsRef.current.front) {
+        URL.revokeObjectURL(blobUrlsRef.current.front);
+      }
+      if (blobUrlsRef.current.back) {
+        URL.revokeObjectURL(blobUrlsRef.current.back);
+      }
+    };
+  }, []);
 
   return (
     <div className="App">
@@ -143,6 +204,16 @@ function App() {
           </div>
         )}
 
+        {loading && (
+          <div className="progress">
+            <p>Generating: {' '}
+              {progress.text ? '✓ Text ' : '⋯ Text '}
+              {progress.front ? '✓ Front Audio ' : '⋯ Front Audio '}
+              {progress.back ? '✓ Back Audio' : '⋯ Back Audio'}
+            </p>
+          </div>
+        )}
+
         {card && (
           <div className="card-result">
             <div className="flashcard">
@@ -151,9 +222,9 @@ function App() {
                 <p>{card.frontText}</p>
                 <small>Language: {card.sourceLang}</small>
                 <button 
-                  onClick={() => playAudio(card.frontAudioUrl)}
+                  onClick={() => playAudio('front')}
                   className="play-audio-btn"
-                  disabled={!card.frontAudioUrl}
+                  disabled={!audioReady.front}
                 >
                   🔊 Play Audio
                 </button>
@@ -163,9 +234,9 @@ function App() {
                 <p>{card.backText}</p>
                 <small>Language: {card.targetLang}</small>
                 <button 
-                  onClick={() => playAudio(card.backAudioUrl)}
+                  onClick={() => playAudio('back')}
                   className="play-audio-btn"
-                  disabled={!card.backAudioUrl}
+                  disabled={!audioReady.back}
                 >
                   🔊 Play Audio
                 </button>
