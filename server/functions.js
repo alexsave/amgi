@@ -19,8 +19,8 @@ const FlashcardSchema = z.object({
 
 const encoder = new TextEncoder();
 
-async function generateCards(userInput, sourceLang = 'en') {
-    console.log('Starting generateCards with input:', { userInput, sourceLang });
+async function generateCards(userInput, targetLang) {
+    console.log('Starting generateCards with input:', { userInput, targetLang });
     try {
         console.log('Requesting translation from OpenAI...');
         const completion = await openai.beta.chat.completions.parse({
@@ -28,12 +28,12 @@ async function generateCards(userInput, sourceLang = 'en') {
             messages: [
                 { 
                     role: "system", 
-                    content: "You are a helpful language learning assistant that creates flashcard pairs with accurate translations." 
+                    content: "You are a helpful language learning assistant that creates flashcard pairs with accurate translations. First detect the source language of the input text. If the detected source language matches the requested target language, translate to English. Otherwise, translate to the requested target language." 
                 },
                 { 
                     role: "user", 
                     content: `Create a language learning flashcard pair for the following input. 
-If the source language is ${sourceLang}, translate to English. If it's English, translate to ${sourceLang}.
+First detect the language. If the detected language matches ${targetLang}, translate to English (en). Otherwise, translate to ${targetLang}.
 Input: ${userInput}
 
 Return just the translation pair with language codes.`
@@ -130,7 +130,7 @@ async function handler(req) {
         try {
             const body = await req.json();
             console.log('Received request body:', body);
-            const { userInput, sourceLang } = body;
+            const { userInput, targetLang } = body;
 
             if (!userInput) {
                 return new Response(
@@ -139,7 +139,14 @@ async function handler(req) {
                 );
             }
 
-            return await generateCards(userInput, sourceLang);
+            if (!targetLang) {
+                return new Response(
+                    JSON.stringify({ error: "targetLang is required" }), 
+                    { status: 400, headers }
+                );
+            }
+
+            return await generateCards(userInput, targetLang);
         } catch (error) {
             console.error('Error handling request:', error);
             return new Response(

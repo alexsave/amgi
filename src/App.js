@@ -4,7 +4,7 @@ import './App.css';
 
 function App() {
   const [userInput, setUserInput] = useState('');
-  const [sourceLang, setSourceLang] = useState('en');
+  const [targetLang, setTargetLang] = useState('ko');
   const [card, setCard] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -45,7 +45,7 @@ function App() {
         },
         body: JSON.stringify({
           userInput,
-          sourceLang,
+          targetLang,
         }),
       });
 
@@ -174,13 +174,12 @@ function App() {
           </div>
 
           <div className="form-group">
-            <label htmlFor="sourceLang">Source Language:</label>
+            <label htmlFor="targetLang">Target Language:</label>
             <select
-              id="sourceLang"
-              value={sourceLang}
-              onChange={(e) => setSourceLang(e.target.value)}
+              id="targetLang"
+              value={targetLang}
+              onChange={(e) => setTargetLang(e.target.value)}
             >
-              <option value="en">English</option>
               <option value="es">Spanish</option>
               <option value="fr">French</option>
               <option value="de">German</option>
@@ -190,6 +189,7 @@ function App() {
               <option value="ja">Japanese</option>
               <option value="ko">Korean</option>
               <option value="zh">Chinese</option>
+              <option value="en">English</option>
             </select>
           </div>
 
