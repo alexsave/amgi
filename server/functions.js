@@ -4,21 +4,23 @@ import { z } from "zod";
 import { zodResponseFormat } from "openai/helpers/zod";
 import "jsr:@std/dotenv/load";
 
+const ALLOWED_ORIGINS = ["http://localhost:3000"];
+
 const openai = new OpenAI({
     apiKey: Deno.env.get("OPEN_AI_KEY"),
 });
 
 const FlashcardSchema = z.object({
-    frontText: z.string().min(1),
-    backText: z.string().min(1),
-    sourceLang: z.string().min(2).max(5),
-    targetLang: z.string().min(2).max(5),
+    frontText: z.string(),
+    backText: z.string(),
+    sourceLang: z.string(),
+    targetLang: z.string()
 });
 
 async function generateCards(userInput, sourceLang = 'en') {
     try {
         const completion = await openai.beta.chat.completions.parse({
-            model: "gpt-4",
+            model: "gpt-4o",
             messages: [
                 { 
                     role: "system", 
@@ -44,11 +46,13 @@ Provide the translation with appropriate language codes.`
 }
 
 async function handler(req) {
-    const headers = new Headers({
-        "Access-Control-Allow-Origin": "*",
+    const origin = req.headers.get("Origin") || "http://localhost:3000";
+    const headers = {
+        "Access-Control-Allow-Origin": origin,
         "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type",
-    });
+        "Access-Control-Allow-Headers": "*",
+        "Content-Type": "application/json",
+    };
 
     // Handle CORS preflight
     if (req.method === "OPTIONS") {
@@ -58,6 +62,7 @@ async function handler(req) {
     const url = new URL(req.url);
     
     if (req.method === "POST" && url.pathname === "/api/generate_cards") {
+        console.log("Generating cards");
         try {
             const body = await req.json();
             const { userInput, sourceLang } = body;
@@ -65,19 +70,19 @@ async function handler(req) {
             if (!userInput) {
                 return new Response(
                     JSON.stringify({ error: "userInput is required" }), 
-                    { status: 400, headers: { ...headers, "Content-Type": "application/json" } }
+                    { status: 400, headers }
                 );
             }
 
             const cardData = await generateCards(userInput, sourceLang);
             return new Response(
                 JSON.stringify(cardData),
-                { headers: { ...headers, "Content-Type": "application/json" } }
+                { headers }
             );
         } catch (error) {
             return new Response(
                 JSON.stringify({ error: error.message }), 
-                { status: 500, headers: { ...headers, "Content-Type": "application/json" } }
+                { status: 500, headers }
             );
         }
     }
