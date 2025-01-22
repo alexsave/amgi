@@ -17,6 +17,24 @@ const FlashcardSchema = z.object({
     targetLang: z.string()
 });
 
+async function generateAudio(text, filename) {
+    try {
+        const mp3 = await openai.audio.speech.create({
+            model: "tts-1",
+            voice: "alloy",
+            input: text,
+        });
+
+        const buffer = await mp3.arrayBuffer();
+        const uint8Array = new Uint8Array(buffer);
+        await Deno.writeFile(`./audio/${filename}`, uint8Array);
+        return `/audio/${filename}`;
+    } catch (error) {
+        console.error('Error generating audio:', error);
+        throw new Error('Failed to generate audio');
+    }
+}
+
 async function generateCards(userInput, sourceLang = 'en') {
     try {
         const completion = await openai.beta.chat.completions.parse({
@@ -32,17 +50,63 @@ async function generateCards(userInput, sourceLang = 'en') {
 If the source language is ${sourceLang}, translate to English. If it's English, translate to ${sourceLang}.
 Input: ${userInput}
 
-Provide the translation with appropriate language codes.`
+Return just the translation pair with language codes.`
                 }
             ],
             response_format: zodResponseFormat(FlashcardSchema, "flashcard_generation"),
         });
 
-        return completion.choices[0].message.parsed;
+        const card = completion.choices[0].message.parsed;
+        
+        // Generate unique filenames for audio files
+        const frontAudioFilename = `${Date.now()}-front.mp3`;
+        const backAudioFilename = `${Date.now()}-back.mp3`;
+
+        // Generate audio for both front and back text
+        const [frontAudioUrl, backAudioUrl] = await Promise.all([
+            generateAudio(card.frontText, frontAudioFilename),
+            generateAudio(card.backText, backAudioFilename)
+        ]);
+
+        // Add the generated audio URLs to the response
+        return {
+            ...card,
+            frontAudioUrl,
+            backAudioUrl
+        };
     } catch (error) {
         console.error('Error generating cards:', error);
         throw new Error('Failed to generate flashcard content');
     }
+}
+
+// Ensure audio directory exists
+try {
+    await Deno.mkdir('./audio', { recursive: true });
+} catch (error) {
+    if (error?.code !== 'EEXIST') {
+        console.error('Error creating audio directory:', error);
+    }
+}
+
+// Serve static audio files
+async function serveAudioFile(req) {
+    const url = new URL(req.url);
+    if (url.pathname.startsWith('/audio/')) {
+        try {
+            const audioPath = `.${url.pathname}`;
+            const file = await Deno.readFile(audioPath);
+            return new Response(file, {
+                headers: {
+                    'Content-Type': 'audio/mpeg',
+                    'Access-Control-Allow-Origin': '*',
+                }
+            });
+        } catch (error) {
+            return new Response('Audio file not found', { status: 404 });
+        }
+    }
+    return null;
 }
 
 async function handler(req) {
@@ -61,6 +125,11 @@ async function handler(req) {
 
     const url = new URL(req.url);
     
+    if (req.method === "GET" && req.url.includes('/audio/')) {
+        const audioResponse = await serveAudioFile(req);
+        if (audioResponse) return audioResponse;
+    }
+
     if (req.method === "POST" && url.pathname === "/api/generate_cards") {
         console.log("Generating cards");
         try {

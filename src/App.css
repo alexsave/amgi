@@ -153,3 +153,23 @@ button:disabled {
     transform: rotate(360deg);
   }
 }
+
+.play-audio-btn {
+  margin-top: 10px;
+  padding: 8px 16px;
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.3s;
+}
+
+.play-audio-btn:hover {
+  background-color: #45a049;
+}
+
+.play-audio-btn:active {
+  background-color: #3d8b40;
+}

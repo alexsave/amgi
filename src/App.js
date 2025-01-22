@@ -98,11 +98,23 @@ function App() {
                 <h3>Front</h3>
                 <p>{card.frontText}</p>
                 <small>Language: {card.sourceLang}</small>
+                <button 
+                  onClick={() => new Audio(card.frontAudioUrl).play()}
+                  className="play-audio-btn"
+                >
+                  🔊 Play Audio
+                </button>
               </div>
               <div className="card-side">
                 <h3>Back</h3>
                 <p>{card.backText}</p>
                 <small>Language: {card.targetLang}</small>
+                <button 
+                  onClick={() => new Audio(card.backAudioUrl).play()}
+                  className="play-audio-btn"
+                >
+                  🔊 Play Audio
+                </button>
               </div>
             </div>
           </div>
