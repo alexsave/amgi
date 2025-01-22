@@ -173,3 +173,37 @@ button:disabled {
 .play-audio-btn:active {
   background-color: #3d8b40;
 }
+
+.file-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin: 20px 0;
+}
+
+.action-btn {
+  padding: 10px 20px;
+  background-color: #2196F3;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: background-color 0.3s;
+}
+
+.action-btn:hover {
+  background-color: #1976D2;
+}
+
+.action-btn:active {
+  background-color: #1565C0;
+}
+
+.action-btn:disabled {
+  background-color: #90CAF9;
+  cursor: not-allowed;
+}

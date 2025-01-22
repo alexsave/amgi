@@ -1,5 +1,5 @@
 import React from 'react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import './App.css';
 
 function App() {
@@ -10,13 +10,109 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [audioReady, setAudioReady] = useState({ front: false, back: false });
   const [progress, setProgress] = useState({ text: false, front: false, back: false });
+  const [lastLoadedFile, setLastLoadedFile] = useState(null);
   
   // Use refs to maintain audio elements
   const frontAudioRef = React.useRef(new Audio());
   const backAudioRef = React.useRef(new Audio());
   const blobUrlsRef = React.useRef({ front: null, back: null });
+  const fileInputRef = React.useRef(null);
 
   const isDevelopment = process.env.NODE_ENV === 'development' || window.location.hostname === 'localhost';
+
+  // Load last file path from localStorage on mount
+  useEffect(() => {
+    const savedFilePath = localStorage.getItem('lastLoadedFile');
+    if (savedFilePath) {
+      setLastLoadedFile(savedFilePath);
+      loadCardFromFile(savedFilePath);
+    }
+  }, []);
+
+  const saveCardToFile = async () => {
+    if (!card || !audioReady.front || !audioReady.back) {
+      setError('No card or audio data available to save');
+      return;
+    }
+
+    try {
+      // Get audio data as array buffers
+      const frontResponse = await fetch(frontAudioRef.current.src);
+      const backResponse = await fetch(backAudioRef.current.src);
+      const frontAudioBuffer = await frontResponse.arrayBuffer();
+      const backAudioBuffer = await backResponse.arrayBuffer();
+
+      // Create card data object
+      const cardData = {
+        ...card,
+        audioData: {
+          front: Array.from(new Uint8Array(frontAudioBuffer)),
+          back: Array.from(new Uint8Array(backAudioBuffer))
+        }
+      };
+
+      // Create blob and download
+      const blob = new Blob([JSON.stringify(cardData)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `flashcard-${Date.now()}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Error saving card:', err);
+      setError('Failed to save card: ' + err.message);
+    }
+  };
+
+  const loadCardFromFile = async (filePath) => {
+    try {
+      const file = filePath instanceof File ? filePath : await fetch(filePath).then(r => r.blob());
+      const text = await file.text();
+      const cardData = JSON.parse(text);
+
+      // Clean up existing audio URLs
+      if (blobUrlsRef.current.front) URL.revokeObjectURL(blobUrlsRef.current.front);
+      if (blobUrlsRef.current.back) URL.revokeObjectURL(blobUrlsRef.current.back);
+
+      // Create new audio blobs
+      const frontAudioBlob = new Blob([new Uint8Array(cardData.audioData.front)], { type: 'audio/mpeg' });
+      const backAudioBlob = new Blob([new Uint8Array(cardData.audioData.back)], { type: 'audio/mpeg' });
+
+      // Create and store new URLs
+      const frontUrl = URL.createObjectURL(frontAudioBlob);
+      const backUrl = URL.createObjectURL(backAudioBlob);
+      blobUrlsRef.current = { front: frontUrl, back: backUrl };
+
+      // Update audio elements
+      frontAudioRef.current.src = frontUrl;
+      backAudioRef.current.src = backUrl;
+
+      // Update state
+      const { audioData, ...cardWithoutAudio } = cardData;
+      setCard(cardWithoutAudio);
+      setAudioReady({ front: true, back: true });
+      
+      // Save file path to localStorage if it's a File object
+      if (filePath instanceof File) {
+        const savedPath = URL.createObjectURL(filePath);
+        localStorage.setItem('lastLoadedFile', savedPath);
+        setLastLoadedFile(savedPath);
+      }
+    } catch (err) {
+      console.error('Error loading card:', err);
+      setError('Failed to load card: ' + err.message);
+    }
+  };
+
+  const handleFileSelect = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      loadCardFromFile(file);
+    }
+  };
 
   const generateCard = async (e) => {
     e.preventDefault();
@@ -197,6 +293,29 @@ function App() {
             {loading ? 'Generating...' : 'Generate Flashcard'}
           </button>
         </form>
+
+        <div className="file-actions">
+          <button 
+            onClick={saveCardToFile} 
+            disabled={!card || !audioReady.front || !audioReady.back}
+            className="action-btn"
+          >
+            💾 Save Card
+          </button>
+          <input
+            type="file"
+            accept=".json"
+            onChange={handleFileSelect}
+            ref={fileInputRef}
+            style={{ display: 'none' }}
+          />
+          <button 
+            onClick={() => fileInputRef.current.click()}
+            className="action-btn"
+          >
+            📂 Load Card
+          </button>
+        </div>
 
         {error && (
           <div className="error-message">
