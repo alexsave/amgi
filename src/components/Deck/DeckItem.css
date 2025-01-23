@@ -1,45 +1,57 @@
 .deck-item {
-  background: white;
-  padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  margin-bottom: 15px;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  background: var(--dark-surface);
+  padding: 15px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
   cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s;
 }
 
 .deck-item:hover {
+  background: var(--dark-surface-hover);
   transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 
 .deck-info h3 {
+  color: var(--text-primary);
   margin: 0 0 5px 0;
-  color: #343a40;
 }
 
 .deck-info small {
-  color: #6c757d;
+  color: var(--text-secondary);
+  font-size: 0.9em;
 }
 
 .deck-item-actions {
   display: flex;
-  gap: 10px;
+  gap: 8px;
+  opacity: 0.6;
+  transition: opacity 0.2s ease;
+}
+
+.deck-item:hover .deck-item-actions {
+  opacity: 1;
 }
 
 .icon-btn {
-  background: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: var(--text-primary);
   border: none;
-  font-size: 1.2em;
+  padding: 6px;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
   cursor: pointer;
-  padding: 5px;
-  border-radius: 4px;
-  transition: background-color 0.2s;
+  transition: all 0.2s ease;
 }
 
 .icon-btn:hover {
-  background: #f8f9fa;
+  background: var(--dark-surface-hover);
+  color: var(--flame-orange);
 } 

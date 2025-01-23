@@ -127,6 +127,7 @@ export const DeckProvider = ({ children }) => {
 
   const value = {
     decks,
+    setDecks,
     currentDeck,
     mode,
     newCardsToday,

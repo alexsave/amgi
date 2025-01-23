@@ -15,24 +15,22 @@ function AppContent() {
 
   return (
     <div className="App">
-      <div className="container">
-        <h1>Flashcard Generator</h1>
-        
-        {mode === REVIEW_MODES.LIST && <DeckList />}
+      <h1>AMGI</h1>
+      
+      {mode === REVIEW_MODES.LIST && <DeckList />}
 
-        {mode === REVIEW_MODES.EDIT && currentDeck && (
-          <>
-            <div className="mode-header">
-              <button onClick={handleBackToList} className="back-btn">← Back to Decks</button>
-              <h2>Editing: {decks[currentDeck].name}</h2>
-            </div>
-            <CardForm />
-            <CardList />
-          </>
-        )}
+      {mode === REVIEW_MODES.EDIT && currentDeck && (
+        <>
+          <div className="mode-header">
+            <button onClick={handleBackToList} className="back-btn">← Back to Decks</button>
+            <h2>Editing: {decks[currentDeck].name}</h2>
+          </div>
+          <CardForm />
+          <CardList />
+        </>
+      )}
 
-        {mode === REVIEW_MODES.REVIEW && currentDeck && <ReviewMode />}
-      </div>
+      {mode === REVIEW_MODES.REVIEW && currentDeck && <ReviewMode />}
     </div>
   );
 }

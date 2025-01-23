@@ -4,6 +4,7 @@ import { REVIEW_MODES } from '../../utils/constants';
 import DeckItem from './DeckItem';
 import { sampleDeck } from '../../sampleDeck';
 import msgpack from 'msgpack-lite';
+import { PlusIcon, ArrowDownTrayIcon, Square3Stack3DIcon } from '@heroicons/react/24/outline';
 import './DeckList.css';
 
 const DeckList = () => {
@@ -75,24 +76,26 @@ const DeckList = () => {
 
   return (
     <div className="deck-management">
-      <h2>Decks</h2>
-      <div className="deck-actions">
-        <button onClick={handleCreateDeck} className="action-btn">
-          📁 New Deck
-        </button>
-        <input
-          type="file"
-          accept=".bin"
-          onChange={handleFileSelect}
-          ref={fileInputRef}
-          style={{ display: 'none' }}
-        />
-        <button onClick={handleImportClick} className="action-btn">
-          📥 Import Deck
-        </button>
-        <button onClick={loadSampleDeck} className="action-btn">
-          🎲 Load Sample Deck
-        </button>
+      <div className="deck-header">
+        <h2>Decks</h2>
+        <div className="deck-actions">
+          <button onClick={handleCreateDeck} className="action-btn" title="New Deck">
+            <PlusIcon className="h-5 w-5" />
+          </button>
+          <input
+            type="file"
+            accept=".bin"
+            onChange={handleFileSelect}
+            ref={fileInputRef}
+            style={{ display: 'none' }}
+          />
+          <button onClick={handleImportClick} className="action-btn" title="Import Deck">
+            <ArrowDownTrayIcon className="h-5 w-5" />
+          </button>
+          <button onClick={loadSampleDeck} className="action-btn" title="Load Sample Deck">
+            <Square3Stack3DIcon className="h-5 w-5" />
+          </button>
+        </div>
       </div>
       
       <div className="deck-list">

@@ -2,6 +2,7 @@ import React from 'react';
 import { useDeckContext } from '../../contexts/DeckContext';
 import { getDueCards } from '../../algorithms/spacedRepetition';
 import { MAX_NEW_CARDS_PER_DAY } from '../../utils/constants';
+import { SparklesIcon, TrashIcon, ArrowUpTrayIcon } from '@heroicons/react/24/outline';
 import msgpack from 'msgpack-lite';
 import './DeckItem.css';
 
@@ -81,21 +82,21 @@ const DeckItem = ({ id, deck, onDeckClick, onEditClick }) => {
           className="icon-btn"
           title="Edit Deck"
         >
-          ✏️
+          <SparklesIcon className="h-5 w-5" />
         </button>
         <button 
           onClick={handleExportClick}
           className="icon-btn"
           title="Export Deck"
         >
-          💾
+          <ArrowUpTrayIcon className="h-5 w-5" />
         </button>
         <button 
           onClick={handleDeleteClick}
           className="icon-btn"
           title="Delete Deck"
         >
-          🗑️
+          <TrashIcon className="h-5 w-5" />
         </button>
       </div>
     </div>
