@@ -92,9 +92,7 @@ const CardForm = () => {
           >
             {Object.entries(LANGUAGES).map(([code, { name, flag }]) => (
               <option key={code} value={code}>
-                <span className="language-option">
-                  {flag} {name}
-                </span>
+                {flag} {name}
               </option>
             ))}
           </select>

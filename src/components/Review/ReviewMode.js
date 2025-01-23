@@ -1,18 +1,22 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useDeckContext } from '../../contexts/DeckContext';
 import RecordingControls from './RecordingControls';
 import Timeline from './Timeline';
 import CardPreview from './CardPreview';
 import EvaluationResult from './EvaluationResult';
+import VoiceMode from './VoiceMode';
 import { useAudio } from '../../hooks/useAudio';
 import { useReview } from '../../hooks/useReview';
 import { useSpeechEvaluation } from '../../hooks/useSpeechEvaluation';
+import { LanguageIcon, MicrophoneIcon } from '@heroicons/react/24/solid';
 import './ReviewMode.css';
 
 const ReviewMode = () => {
   const { mode, currentDeck, decks, setMode } = useDeckContext();
   const audio = useAudio();
   const review = useReview();
+  const [isVoiceMode, setIsVoiceMode] = useState(false);
+  const [voiceChatResponse, setVoiceChatResponse] = useState(null);
   
   const currentCard = review.dueCards[review.currentCardIndex];
 
@@ -68,6 +72,48 @@ const ReviewMode = () => {
     setMode('list');
   };
 
+  const handleVoiceChat = async (audioBlob) => {
+    try {
+      const base64Audio = await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const base64 = reader.result.split(',')[1];
+          resolve(base64);
+        };
+        reader.readAsDataURL(audioBlob);
+      });
+
+      const response = await fetch('/api/voice_chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          audioBase64: base64Audio,
+          currentCard
+        })
+      });
+
+      const data = await response.json();
+      setVoiceChatResponse(data);
+
+      // Play the response audio if available
+      if (data.audio) {
+        const audioData = new Uint8Array(data.audio);
+        const blob = new Blob([audioData], { type: 'audio/mpeg' });
+        const url = URL.createObjectURL(blob);
+        audio.evaluationAudioRef.current.src = url;
+        audio.evaluationAudioRef.current.play()
+          .then(() => console.log('Started playing voice chat response'))
+          .catch(err => console.error('Error playing voice chat response:', err));
+        
+        audio.evaluationAudioRef.current.onended = () => {
+          URL.revokeObjectURL(url);
+        };
+      }
+    } catch (error) {
+      console.error('Error in voice chat:', error);
+    }
+  };
+
   if (!currentCard) {
     return (
       <div className="review-complete">
@@ -87,36 +133,54 @@ const ReviewMode = () => {
           ← Back to Decks
         </button>
         <h2>Reviewing: {decks[currentDeck].name}</h2>
+        <div className="voice-mode-switch-container">
+          <div 
+            onClick={() => setIsVoiceMode(!isVoiceMode)} 
+            className={`voice-mode-switch ${isVoiceMode ? 'active' : ''}`}
+          >
+            <div className="switch-icons">
+              <LanguageIcon className="icon text-icon" />
+              <MicrophoneIcon className="icon mic-icon" />
+            </div>
+            <div className="switch-handle"></div>
+          </div>
+        </div>
       </div>
 
       <div className="card-progress">
         Card {review.currentCardIndex + 1} of {review.dueCards.length}
       </div>
 
-      <CardPreview
-        currentCard={currentCard}
-        showAnswer={review.showAnswer}
-        audio={audio}
-      />
+      {isVoiceMode ? (
+        <VoiceMode currentCard={currentCard} />
+      ) : (
+        <>
+          <CardPreview
+            currentCard={currentCard}
+            showAnswer={review.showAnswer}
+            audio={audio}
+          />
 
-      <div className="review-controls">
-        <div className="attempts-counter">
-          Attempts: {review.attempts}/3
-        </div>
+          <div className="review-controls">
+            <div className="attempts-counter">
+              Attempts: {review.attempts}/3
+            </div>
 
-        <RecordingControls
-          isRecording={audio.isRecording}
-          isLoading={audio.isLoading}
-          onStartRecording={audio.startRecording}
-          onStopRecording={async () => {
-            const audioBlob = await audio.stopRecording();
-            if (!audioBlob) return;
-            await evaluateSpeech(audioBlob, currentCard);
-          }}
-        />
+            <RecordingControls
+              isRecording={audio.isRecording}
+              isLoading={audio.isLoading}
+              onStartRecording={audio.startRecording}
+              onStopRecording={async () => {
+                const audioBlob = await audio.stopRecording();
+                if (!audioBlob) return;
+                await evaluateSpeech(audioBlob, currentCard);
+              }}
+            />
 
-        <EvaluationResult result={review.evaluationResult} />
-      </div>
+            <EvaluationResult result={review.evaluationResult} />
+          </div>
+        </>
+      )}
 
       <Timeline
         cards={review.dueCards}

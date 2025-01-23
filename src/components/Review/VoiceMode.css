@@ -1,0 +1,25 @@
+.voice-mode {
+  width: 100%;
+  padding: 40px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.voice-interface {
+  width: 120px;
+  height: 120px;
+  border-radius: 60px;
+  background: var(--dark-surface);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border: 1px solid var(--border-color);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.large-mic-icon {
+  width: 48px;
+  height: 48px;
+  color: var(--flame-orange);
+} 
