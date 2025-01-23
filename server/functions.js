@@ -22,8 +22,30 @@ const encoder = new TextEncoder();
 const EvaluationResponseSchema = z.object({
     result: z.enum(['correct', 'incorrect', 'quit']),
     message: z.string(),
-    isCommand: z.boolean()
 });
+
+const evaluationTools = [{
+    "type": "function",
+    "function": {
+        "name": "evaluate_pronunciation",
+        "description": "Evaluate the pronunciation of a spoken phrase against an expected text.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "result": {
+                    "type": "string",
+                    "enum": ["correct", "incorrect", "quit"],
+                    "description": "The evaluation result"
+                },
+                "message": {
+                    "type": "string",
+                    "description": "Feedback message explaining the evaluation"
+                }
+            },
+            "required": ["result", "message"]
+        }
+    }
+}];
 
 async function generateCards(userInput, targetLang) {
     console.log('Starting generateCards with input:', { userInput, targetLang });
@@ -126,11 +148,9 @@ async function evaluateSpeech(audioBase64, expectedText, sourceLang, expectedAud
             messages: [
                 {
                     role: "system",
-                    content: `You are a language learning assistant evaluating pronunciation. First, check if the audio contains commands like "skip", "quit", "next", or "give up". If it does, respond with exactly "user skip".
+                    content: `You are a language learning assistant evaluating pronunciation. First, check if the audio contains commands like "skip", "quit", "next", or "give up". If it does, call evaluate_pronunciation with result "quit" and message "User requested to skip".
 
-If no command is detected, compare the pronunciation with the expected text "${expectedText}" in ${sourceLang}. If the pronunciation is good, respond with exactly "correct" followed by a brief praise. If the pronunciation needs improvement, respond with exactly "incorrect" followed by a brief explanation of what was wrong.
-
-Remember to start your response with either "correct", "incorrect", or "user skip".`
+If no command is detected, compare the pronunciation with the expected text "${expectedText}" in ${sourceLang}. If the pronunciation is good, call evaluate_pronunciation with result "correct" and a brief praise message. If the pronunciation needs improvement, call evaluate_pronunciation with result "incorrect" and a brief explanation of what was wrong.`
                 },
                 {
                     role: "user",
@@ -146,44 +166,37 @@ Remember to start your response with either "correct", "incorrect", or "user ski
                         { type: "input_audio", input_audio: { data: audioBase64, format: "mp3" }}
                     ]
                 }
-            ]
+            ],
+            tools: evaluationTools,
+            tool_choice: { type: "function", function: { name: "evaluate_pronunciation" } }
         });
 
         console.log('GPT-4 Audio raw response:', response);
-        const result = response.choices[0].message.audio?.transcript || '';
-        console.log('GPT-4 Audio transcript:', result);
+        console.log('GPT-4 Audio response message:', response.choices[0].message);
+        console.log('GPT-4 Audio data present:', !!response.choices[0].message.audio);
+        if (response.choices[0].message.audio) {
+            console.log('GPT-4 Audio data type:', typeof response.choices[0].message.audio);
+            console.log('GPT-4 Audio data keys:', Object.keys(response.choices[0].message.audio));
+            console.log('GPT-4 Audio data length:', response.choices[0].message.audio?.data?.length);
+        }
+        
+        const toolCall = response.choices[0].message.tool_calls?.[0];
+        if (!toolCall) {
+            throw new Error('No tool call in response');
+        }
 
-        // Parse the response
-        let evaluationResult;
-        if (result.toLowerCase().startsWith('correct')) {
-            evaluationResult = {
-                result: 'correct',
-                message: result.substring(7).trim(), // Remove "correct" and trim
-                isCommand: false
-            };
-        } else if (result.toLowerCase().startsWith('incorrect')) {
-            evaluationResult = {
-                result: 'incorrect',
-                message: result.substring(9).trim(), // Remove "incorrect" and trim
-                isCommand: false
-            };
-        } else if (result.toLowerCase().includes('user skip') || 
-                  result.toLowerCase().includes('skip') || 
-                  result.toLowerCase().includes('quit') || 
-                  result.toLowerCase().includes('next')) {
-            evaluationResult = {
-                result: 'quit',
-                message: 'User requested to skip',
-                isCommand: true
-            };
-        } else {
-            // Default case if response doesn't match expected format
-            console.warn('Unexpected response format:', result);
-            evaluationResult = {
-                result: 'incorrect',
-                message: 'Could not evaluate pronunciation clearly. Please try again.',
-                isCommand: false
-            };
+        const evaluation = JSON.parse(toolCall.function.arguments);
+        console.log('Parsed evaluation:', evaluation);
+
+        const evaluationResult = {
+            result: evaluation.result,
+            message: evaluation.message,
+            audio: response.choices[0].message.audio?.data
+        };
+        
+        console.log('Sending evaluation result with audio:', !!evaluationResult.audio);
+        if (evaluationResult.audio) {
+            console.log('Audio data length in result:', evaluationResult.audio.length);
         }
 
         return new Response(JSON.stringify(evaluationResult), {

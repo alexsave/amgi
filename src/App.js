@@ -384,6 +384,7 @@ function App() {
   const [evaluationResult, setEvaluationResult] = useState(null);
   const [attempts, setAttempts] = useState(0);
   const [showAnswer, setShowAnswer] = useState(false);
+  const [evaluationAudioRef] = useState(new Audio());
 
   // Reset attempts when moving to a new card
   useEffect(() => {
@@ -412,12 +413,36 @@ function App() {
 
   const handleEvaluationResult = (data) => {
     setEvaluationResult(data);
+    console.log('Received evaluation result:', data);
+    console.log('Audio data present:', !!data.audio);
     
-    if (data.isCommand || data.result === 'quit') {
+    // Play evaluation audio if available
+    if (data.audio) {
+      console.log('Audio data length:', data.audio.length);
+      console.log('Audio data type:', typeof data.audio);
+      const audioData = new Uint8Array(data.audio);
+      console.log('Created Uint8Array with length:', audioData.length);
+      const blob = new Blob([audioData], { type: 'audio/mpeg' });
+      console.log('Created audio blob with size:', blob.size);
+      const url = URL.createObjectURL(blob);
+      console.log('Created audio URL:', url);
+      evaluationAudioRef.src = url;
+      evaluationAudioRef.play()
+        .then(() => console.log('Started playing evaluation audio'))
+        .catch(err => console.error('Error playing evaluation audio:', err));
+      
+      // Clean up the URL when audio ends
+      evaluationAudioRef.onended = () => {
+        console.log('Evaluation audio finished playing, cleaning up URL');
+        URL.revokeObjectURL(url);
+      };
+    }
+    
+    if (data.result === 'quit') {
       setShowAnswer(true);
-      setTimeout(moveToNextCard, 2000);
+      setTimeout(moveToNextCard, 500); // Quick skip for quit commands
     } else if (data.result === 'correct') {
-      setTimeout(moveToNextCard, 1500);
+      setTimeout(moveToNextCard, 5000); // 5 second delay for correct answers
     } else {
       // Incorrect answer
       setAttempts(prev => {
