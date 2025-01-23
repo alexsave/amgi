@@ -1,7 +1,12 @@
 import React from 'react';
 import { useState, useEffect } from 'react';
 import msgpack from 'msgpack-lite';
+import vmsg from "vmsg";
 import './App.css';
+
+const recorder = new vmsg.Recorder({
+  wasmURL: "https://unpkg.com/vmsg@0.3.0/vmsg.wasm"
+});
 
 function App() {
   const [userInput, setUserInput] = useState('');
@@ -373,6 +378,154 @@ function App() {
     setMode('list');
   };
 
+  const [currentCardIndex, setCurrentCardIndex] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [evaluationResult, setEvaluationResult] = useState(null);
+  const [attempts, setAttempts] = useState(0);
+  const [showAnswer, setShowAnswer] = useState(false);
+
+  // Reset attempts when moving to a new card
+  useEffect(() => {
+    setAttempts(0);
+    setShowAnswer(false);
+    setEvaluationResult(null);
+
+    // Load audio for current card if in review mode
+    if (mode === 'review' && currentDeck && decks[currentDeck]?.cards[currentCardIndex]) {
+      loadCard(decks[currentDeck].cards[currentCardIndex]);
+    }
+  }, [currentCardIndex, mode, currentDeck]);
+
+  const moveToNextCard = () => {
+    if (currentCardIndex < decks[currentDeck].cards.length - 1) {
+      setCurrentCardIndex(prev => prev + 1);
+      setEvaluationResult(null);
+      setAttempts(0);
+      setShowAnswer(false);
+    } else {
+      // End of deck
+      setCurrentCardIndex(0);
+      handleBackToList();
+    }
+  };
+
+  const handleEvaluationResult = (data) => {
+    setEvaluationResult(data);
+    
+    if (data.isCommand || data.result === 'quit') {
+      setShowAnswer(true);
+      setTimeout(moveToNextCard, 2000);
+    } else if (data.result === 'correct') {
+      setTimeout(moveToNextCard, 1500);
+    } else {
+      // Incorrect answer
+      setAttempts(prev => {
+        const newAttempts = prev + 1;
+        if (newAttempts >= 3) {
+          setShowAnswer(true);
+          setTimeout(moveToNextCard, 2000);
+        }
+        return newAttempts;
+      });
+    }
+  };
+
+  const startRecording = async () => {
+    setIsLoading(true);
+    try {
+      await recorder.initAudio();
+      await recorder.initWorker();
+      recorder.startRecording();
+      setIsLoading(false);
+      setIsRecording(true);
+    } catch (e) {
+      console.error('Error starting recording:', e);
+      setError('Failed to start recording: ' + e.message);
+      setIsLoading(false);
+    }
+  };
+
+  const stopRecording = async () => {
+    try {
+      console.log('Stopping recording...');
+      const audioBlob = await recorder.stopRecording();
+      console.log('Got audio blob:', audioBlob);
+      setIsRecording(false);
+
+      if (audioBlob.size === 0) {
+        console.error('No audio data recorded');
+        setError('No audio data recorded. Please try again.');
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        console.log('User audio loaded');
+        const base64Audio = reader.result.split(',')[1];
+        console.log('User audio base64 length:', base64Audio?.length);
+        const currentCard = decks[currentDeck].cards[currentCardIndex];
+        console.log('Current card:', currentCard);
+        
+        try {
+          // Get the expected audio data
+          console.log('Fetching expected audio from:', backAudioRef.current.src);
+          const backAudioResponse = await fetch(backAudioRef.current.src);
+          const backAudioBlob = await backAudioResponse.blob();
+          console.log('Got expected audio blob:', backAudioBlob);
+          const backAudioReader = new FileReader();
+          
+          backAudioReader.onloadend = async () => {
+            console.log('Expected audio loaded');
+            const expectedAudioBase64 = backAudioReader.result.split(',')[1];
+            console.log('Expected audio base64 length:', expectedAudioBase64?.length);
+            
+            console.log('Sending evaluation request with:', {
+              audioBase64Length: base64Audio?.length,
+              expectedTextLength: currentCard.backText?.length,
+              sourceLang: currentCard.targetLang,
+              expectedAudioBase64Length: expectedAudioBase64?.length
+            });
+            
+            const response = await fetch('http://localhost:8000/api/evaluate_speech', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                audioBase64: base64Audio,
+                expectedText: currentCard.backText,
+                sourceLang: currentCard.targetLang,
+                expectedAudioBase64: expectedAudioBase64,
+                audioFormat: 'mp3'  // vmsg always produces MP3
+              }),
+            });
+
+            if (!response.ok) {
+              const errorData = await response.json();
+              console.error('Server error response:', errorData);
+              throw new Error('Failed to evaluate speech: ' + (errorData.error || 'Unknown error'));
+            }
+
+            const data = await response.json();
+            handleEvaluationResult(data);
+          };
+
+          backAudioReader.readAsDataURL(backAudioBlob);
+        } catch (err) {
+          console.error('Error evaluating speech:', err);
+          setError('Failed to evaluate speech: ' + err.message);
+        }
+      };
+
+      reader.readAsDataURL(audioBlob);
+    } catch (err) {
+      console.error('Error stopping recording:', err);
+      setError('Failed to stop recording: ' + err.message);
+      setIsRecording(false);
+    }
+  };
+
   return (
     <div className="App">
       <div className="container">
@@ -520,7 +673,67 @@ function App() {
               <h2>Reviewing: {decks[currentDeck].name}</h2>
             </div>
             <div className="review-mode">
-              <p>Review mode coming soon...</p>
+              {decks[currentDeck].cards.length > 0 ? (
+                <div className="review-card">
+                  <div className="card-progress">
+                    Card {currentCardIndex + 1} of {decks[currentDeck].cards.length}
+                  </div>
+                  
+                  <div className="flashcard">
+                    <div className="card-side">
+                      <h3>Front</h3>
+                      <p>{decks[currentDeck].cards[currentCardIndex].frontText}</p>
+                      <button 
+                        onClick={() => playAudio('front')}
+                        className="play-audio-btn"
+                      >
+                        🔊 Play Audio
+                      </button>
+                    </div>
+                    {showAnswer && (
+                      <div className="card-side">
+                        <h3>Answer</h3>
+                        <p>{decks[currentDeck].cards[currentCardIndex].backText}</p>
+                        <button 
+                          onClick={() => playAudio('back')}
+                          className="play-audio-btn"
+                        >
+                          🔊 Play Audio
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="review-controls">
+                    <div className="attempts-counter">
+                      Attempts: {attempts}/3
+                    </div>
+                    
+                    <button
+                      onClick={isRecording ? stopRecording : startRecording}
+                      className={`record-btn ${isRecording ? 'recording' : ''}`}
+                      disabled={showAnswer || isLoading}
+                    >
+                      {isLoading ? '⏳ Initializing...' : isRecording ? '⬛ Stop Recording' : '⚫ Start Recording'}
+                    </button>
+                    
+                    {evaluationResult && (
+                      <div className={`evaluation-result ${evaluationResult.result}`}>
+                        <div className="result-icon">
+                          {evaluationResult.result === 'correct' && '✅ Correct!'}
+                          {evaluationResult.result === 'incorrect' && '❌ Try again'}
+                          {evaluationResult.result === 'quit' && '⏭️ Skipped'}
+                        </div>
+                        <div className="result-message">
+                          {evaluationResult.message}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <p>No cards in this deck yet. Add some cards in edit mode first.</p>
+              )}
             </div>
           </>
         )}

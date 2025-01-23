@@ -92,6 +92,7 @@ button:disabled {
   gap: 2rem;
   justify-content: center;
   padding: 1rem;
+  min-height: 200px;
 }
 
 .card-side {
@@ -351,8 +352,114 @@ button:disabled {
 }
 
 .review-mode {
-  text-align: center;
-  padding: 2rem;
-  background-color: #f8f9fa;
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.review-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+.card-progress {
+  font-size: 1.1em;
+  color: #666;
+  margin-bottom: 10px;
+}
+
+.review-controls {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
+  margin-top: 20px;
+}
+
+.record-btn {
+  padding: 12px 24px;
+  font-size: 1.1em;
+  border: none;
+  border-radius: 25px;
+  cursor: pointer;
+  background-color: #f0f0f0;
+  transition: all 0.3s ease;
+}
+
+.record-btn.recording {
+  background-color: #ff4444;
+  color: white;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.attempts-counter {
+  font-size: 0.9em;
+  color: #666;
+  margin-bottom: 10px;
+}
+
+.record-btn:disabled {
+  background-color: #e0e0e0;
+  color: #999;
+  cursor: not-allowed;
+  animation: none;
+}
+
+.evaluation-result {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 15px;
   border-radius: 8px;
+  animation: fadeIn 0.3s ease;
+}
+
+.evaluation-result.correct {
+  background-color: #e7f7e7;
+  border: 1px solid #c3e6cb;
+}
+
+.evaluation-result.incorrect {
+  background-color: #ffe7e7;
+  border: 1px solid #f5c6cb;
+}
+
+.evaluation-result.quit {
+  background-color: #e7eeff;
+  border: 1px solid #b8daff;
+}
+
+.result-icon {
+  font-size: 1.2em;
+  font-weight: 600;
+}
+
+.result-message {
+  font-size: 0.9em;
+  color: #666;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }

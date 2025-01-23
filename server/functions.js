@@ -19,6 +19,12 @@ const FlashcardSchema = z.object({
 
 const encoder = new TextEncoder();
 
+const EvaluationResponseSchema = z.object({
+    result: z.enum(['correct', 'incorrect', 'quit']),
+    message: z.string(),
+    isCommand: z.boolean()
+});
+
 async function generateCards(userInput, targetLang) {
     console.log('Starting generateCards with input:', { userInput, targetLang });
     try {
@@ -111,6 +117,87 @@ Return just the translation pair with language codes.`
     }
 }
 
+async function evaluateSpeech(audioBase64, expectedText, sourceLang, expectedAudioBase64) {
+    try {
+        const response = await openai.chat.completions.create({
+            model: "gpt-4o-audio-preview",
+            modalities: ["text", "audio"],
+            audio: { voice: "alloy", format: "mp3" },
+            messages: [
+                {
+                    role: "system",
+                    content: `You are a language learning assistant evaluating pronunciation. First, check if the audio contains commands like "skip", "quit", "next", or "give up". If it does, respond with exactly "user skip".
+
+If no command is detected, compare the pronunciation with the expected text "${expectedText}" in ${sourceLang}. If the pronunciation is good, respond with exactly "correct" followed by a brief praise. If the pronunciation needs improvement, respond with exactly "incorrect" followed by a brief explanation of what was wrong.
+
+Remember to start your response with either "correct", "incorrect", or "user skip".`
+                },
+                {
+                    role: "user",
+                    content: [
+                        { type: "text", text: "Here is the correct pronunciation:" },
+                        { type: "input_audio", input_audio: { data: expectedAudioBase64, format: "mp3" }}
+                    ]
+                },
+                {
+                    role: "user",
+                    content: [
+                        { type: "text", text: "Evaluate this pronunciation:" },
+                        { type: "input_audio", input_audio: { data: audioBase64, format: "mp3" }}
+                    ]
+                }
+            ]
+        });
+
+        console.log('GPT-4 Audio raw response:', response);
+        const result = response.choices[0].message.audio?.transcript || '';
+        console.log('GPT-4 Audio transcript:', result);
+
+        // Parse the response
+        let evaluationResult;
+        if (result.toLowerCase().startsWith('correct')) {
+            evaluationResult = {
+                result: 'correct',
+                message: result.substring(7).trim(), // Remove "correct" and trim
+                isCommand: false
+            };
+        } else if (result.toLowerCase().startsWith('incorrect')) {
+            evaluationResult = {
+                result: 'incorrect',
+                message: result.substring(9).trim(), // Remove "incorrect" and trim
+                isCommand: false
+            };
+        } else if (result.toLowerCase().includes('user skip') || 
+                  result.toLowerCase().includes('skip') || 
+                  result.toLowerCase().includes('quit') || 
+                  result.toLowerCase().includes('next')) {
+            evaluationResult = {
+                result: 'quit',
+                message: 'User requested to skip',
+                isCommand: true
+            };
+        } else {
+            // Default case if response doesn't match expected format
+            console.warn('Unexpected response format:', result);
+            evaluationResult = {
+                result: 'incorrect',
+                message: 'Could not evaluate pronunciation clearly. Please try again.',
+                isCommand: false
+            };
+        }
+
+        return new Response(JSON.stringify(evaluationResult), {
+            headers: {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*',
+            }
+        });
+    } catch (error) {
+        console.error('Error evaluating speech:', error);
+        throw new Error('Failed to evaluate speech: ' + error.message);
+    }
+}
+
 async function handler(req) {
     console.log('Received request:', req.method, req.url);
     const origin = req.headers.get("Origin") || "http://localhost:3000";
@@ -149,6 +236,59 @@ async function handler(req) {
             return await generateCards(userInput, targetLang);
         } catch (error) {
             console.error('Error handling request:', error);
+            return new Response(
+                JSON.stringify({ error: error.message }), 
+                { status: 500, headers }
+            );
+        }
+    }
+
+    if (req.method === "POST" && url.pathname === "/api/evaluate_speech") {
+        try {
+            const body = await req.json();
+            const { audioBase64, expectedText, sourceLang, expectedAudioBase64, audioFormat } = body;
+            
+            console.log('Received evaluate_speech request with parameters:', {
+                hasAudioBase64: !!audioBase64,
+                hasExpectedText: !!expectedText,
+                hasSourceLang: !!sourceLang,
+                hasExpectedAudioBase64: !!expectedAudioBase64,
+                audioFormat,
+                sourceLang,
+                expectedTextLength: expectedText?.length,
+                audioBase64Length: audioBase64?.length,
+                expectedAudioBase64Length: expectedAudioBase64?.length
+            });
+
+            const missingParams = [];
+            if (!audioBase64) missingParams.push('audioBase64');
+            if (!expectedText) missingParams.push('expectedText');
+            if (!sourceLang) missingParams.push('sourceLang');
+            if (!expectedAudioBase64) missingParams.push('expectedAudioBase64');
+            if (!audioFormat) missingParams.push('audioFormat');
+
+            if (missingParams.length > 0) {
+                console.error('Missing required parameters:', missingParams);
+                return new Response(
+                    JSON.stringify({ 
+                        error: `Missing required parameters: ${missingParams.join(', ')}`,
+                        receivedParams: Object.keys(body)
+                    }), 
+                    { status: 400, headers }
+                );
+            }
+
+            // Convert audio format if needed
+            let processedAudioBase64 = audioBase64;
+            if (audioFormat === 'webm') {
+                // For now, we'll just pass the webm data and let OpenAI handle it
+                // In a production environment, we should convert webm to mp3 here
+                console.log('Received webm audio, passing through to OpenAI');
+            }
+
+            return await evaluateSpeech(processedAudioBase64, expectedText, sourceLang, expectedAudioBase64);
+        } catch (error) {
+            console.error('Error handling speech evaluation:', error);
             return new Response(
                 JSON.stringify({ error: error.message }), 
                 { status: 500, headers }
