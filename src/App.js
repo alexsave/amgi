@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import msgpack from 'msgpack-lite';
 import vmsg from "vmsg";
 import './App.css';
+import { sampleDeck } from './sampleDeck';
 
 const recorder = new vmsg.Recorder({
   wasmURL: "https://unpkg.com/vmsg@0.3.0/vmsg.wasm"
@@ -22,6 +23,8 @@ function App() {
   const [decks, setDecks] = useState({});
   const [deckFiles, setDeckFiles] = useState({});
   const [mode, setMode] = useState('list'); // 'list', 'edit', or 'review'
+  const [maxNewCardsPerDay] = useState(25); // Default limit for new cards per day
+  const [newCardsToday, setNewCardsToday] = useState(0);
   
   // Use refs to maintain audio elements
   const frontAudioRef = React.useRef(new Audio());
@@ -31,9 +34,14 @@ function App() {
 
   const isDevelopment = process.env.NODE_ENV === 'development' || window.location.hostname === 'localhost';
 
-  // Load decks from localStorage on mount
+  // Load all data from localStorage on mount
   useEffect(() => {
     const savedDecks = localStorage.getItem('decks');
+    const savedNewCardsToday = localStorage.getItem('newCardsToday');
+    const lastReviewDate = localStorage.getItem('lastReviewDate');
+    const today = new Date().toISOString().split('T')[0];
+
+    // Load decks
     if (savedDecks) {
       try {
         const decoded = JSON.parse(savedDecks);
@@ -47,7 +55,22 @@ function App() {
         console.error('Error loading decks:', err);
       }
     }
+
+    // Reset new cards count if it's a new day
+    if (lastReviewDate !== today) {
+      setNewCardsToday(0);
+      localStorage.setItem('lastReviewDate', today);
+      localStorage.setItem('newCardsToday', '0');
+    } else {
+      // Load saved new cards count
+      setNewCardsToday(parseInt(savedNewCardsToday || '0', 10));
+    }
   }, []);
+
+  // Save new cards count whenever it changes
+  useEffect(() => {
+    localStorage.setItem('newCardsToday', newCardsToday.toString());
+  }, [newCardsToday]);
 
   // Save decks to localStorage whenever they change
   useEffect(() => {
@@ -174,7 +197,12 @@ function App() {
           front: Array.from(new Uint8Array(frontAudioBuffer)),
           back: Array.from(new Uint8Array(backAudioBuffer))
         },
-        created: Date.now()
+        created: Date.now(),
+        interval: 1, // Days between reviews
+        easeFactor: 2.5, // Initial ease factor
+        repetitions: 0, // Number of times reviewed
+        lastReviewed: null,
+        nextReview: new Date().toISOString().split('T')[0] // Review new cards today
       };
 
       setDecks(prev => ({
@@ -386,35 +414,189 @@ function App() {
   const [showAnswer, setShowAnswer] = useState(false);
   const [evaluationAudioRef] = useState(new Audio());
 
-  // Reset attempts when moving to a new card
-  useEffect(() => {
-    setAttempts(0);
-    setShowAnswer(false);
-    setEvaluationResult(null);
+  // Add debug mode state
+  const [debugMode] = useState(true); // Temporary: set to true for testing intervals
+  
+  // Modified getDueCards to respect new cards limit
+  const getDueCards = (deckId) => {
+    const deck = decks[deckId];
+    if (!deck) return [];
 
-    // Load audio for current card if in review mode
-    if (mode === 'review' && currentDeck && decks[currentDeck]?.cards[currentCardIndex]) {
-      loadCard(decks[currentDeck].cards[currentCardIndex]);
-    }
-  }, [currentCardIndex, mode, currentDeck]);
+    const now = new Date();
+    
+    // Separate new and review cards
+    const newCards = deck.cards.filter(card => !card.lastReviewed);
+    const reviewCards = deck.cards.filter(card => {
+      if (!card.lastReviewed) return false;
+      
+      // If the card has a due timestamp (for cards due in minutes), check against that
+      if (card.dueTimestamp) {
+        return new Date(card.dueTimestamp) <= now;
+      }
+      
+      // Check against next review timestamp
+      if (!card.nextReview) return false;
+      return new Date(card.nextReview) <= now;
+    });
 
-  const moveToNextCard = () => {
-    if (currentCardIndex < decks[currentDeck].cards.length - 1) {
-      setCurrentCardIndex(prev => prev + 1);
-      setEvaluationResult(null);
-      setAttempts(0);
-      setShowAnswer(false);
-    } else {
-      // End of deck
-      setCurrentCardIndex(0);
-      handleBackToList();
-    }
+    // Limit new cards based on daily limit while preserving order
+    const availableNewCards = newCards.slice(0, maxNewCardsPerDay - newCardsToday);
+    
+    // Sort review cards by due date/timestamp
+    const sortedReviewCards = [...reviewCards].sort((a, b) => {
+      const aTime = a.dueTimestamp ? new Date(a.dueTimestamp) : new Date(a.nextReview);
+      const bTime = b.dueTimestamp ? new Date(b.dueTimestamp) : new Date(b.nextReview);
+      return aTime - bTime;
+    });
+    
+    // Return new cards first (in original order), then review cards (sorted by due time)
+    return [...availableNewCards, ...sortedReviewCards];
   };
 
+  // Update card scheduling
+  const updateCardScheduling = (cardId, quality) => {
+    console.log('Starting updateCardScheduling:', { cardId, quality });
+    
+    setDecks(prev => {
+      const newDecks = { ...prev };
+      const deck = newDecks[currentDeck];
+      const cardIndex = deck.cards.findIndex(c => c.created === cardId);
+      const card = deck.cards[cardIndex];
+      
+      console.log('Initial card state:', {
+        interval: card.interval,
+        repetitions: card.repetitions,
+        easeFactor: card.easeFactor,
+        lastReviewed: card.lastReviewed,
+        nextReview: card.nextReview
+      });
+
+      // Initialize or fix any missing/invalid values
+      if (typeof card.interval !== 'number' || isNaN(card.interval)) {
+        card.interval = 1;
+      }
+      if (typeof card.repetitions !== 'number' || isNaN(card.repetitions)) {
+        card.repetitions = 0;
+      }
+      if (typeof card.easeFactor !== 'number' || isNaN(card.easeFactor)) {
+        card.easeFactor = 2.5; // 250%
+      }
+
+      // If this is a new card being reviewed for the first time
+      if (!card.lastReviewed) {
+        console.log('First review of card');
+        setNewCardsToday(prev => prev + 1);
+      }
+
+      // Calculate late penalty/bonus
+      const now = new Date();
+      const dueDate = card.nextReview ? new Date(card.nextReview) : now;
+      const daysLate = Math.max(0, (now - dueDate) / (1000 * 60 * 60 * 24));
+      
+      if (quality === 'correct') { // Correct response
+        console.log('Correct response, updating intervals');
+        // Clear any due timestamp since it passed review
+        card.dueTimestamp = null;
+        
+        if (card.repetitions === 0) {
+          card.interval = 1; // First interval
+        } else if (card.repetitions === 1) {
+          card.interval = 6; // Second interval
+        } else {
+          // Calculate new interval with late bonus
+          const newInterval = Math.round(card.interval * card.easeFactor * (1 + 0.2 * daysLate));
+          console.log('Calculating new interval:', {
+            currentInterval: card.interval,
+            easeFactor: card.easeFactor,
+            daysLate,
+            newInterval
+          });
+          // Cap at 10 years
+          card.interval = Math.max(card.interval + 1, Math.min(newInterval, 365 * 10));
+        }
+        card.repetitions += 1;
+        
+        // Ensure minimum ease of 130%
+        card.easeFactor = Math.max(1.3, card.easeFactor);
+
+      } else { // Incorrect response
+        console.log('Incorrect response, resetting interval');
+        // Reset interval and reduce ease
+        card.interval = 1;
+        card.repetitions = 0;
+        
+        // Only decrease ease if not in learning phase (repetitions > 0)
+        if (card.repetitions > 0) {
+          card.easeFactor = Math.max(1.3, card.easeFactor - 0.2); // 20 percentage point decrease, minimum 130%
+        }
+        
+        // Set to be reviewed in 10 minutes
+        const dueTime = new Date();
+        dueTime.setMinutes(dueTime.getMinutes() + 10);
+        card.dueTimestamp = dueTime.toISOString();
+        console.log('Set due timestamp to:', card.dueTimestamp);
+      }
+
+      try {
+        // Calculate next review date
+        const nextDate = new Date();
+        nextDate.setDate(nextDate.getDate() + card.interval);
+        card.nextReview = nextDate.toISOString();
+        console.log('Set next review to:', card.nextReview);
+      } catch (err) {
+        console.error('Error calculating next review date:', err);
+        // Fallback to tomorrow
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        card.nextReview = tomorrow.toISOString();
+        console.log('Used fallback date:', card.nextReview);
+      }
+
+      card.lastReviewed = new Date().toISOString();
+      
+      console.log('Final card state:', {
+        interval: card.interval,
+        repetitions: card.repetitions,
+        easeFactor: card.easeFactor,
+        lastReviewed: card.lastReviewed,
+        nextReview: card.nextReview,
+        dueTimestamp: card.dueTimestamp
+      });
+
+      deck.cards[cardIndex] = card;
+      return newDecks;
+    });
+  };
+
+  // Update due cards more frequently to catch cards becoming due
+  useEffect(() => {
+    if (currentDeck && mode === 'review') {
+      const updateDueCards = () => {
+        const due = getDueCards(currentDeck);
+        setDueCards(due);
+      };
+
+      // Initial update
+      updateDueCards();
+
+      // Check for due cards every minute
+      const interval = setInterval(updateDueCards, 60000);
+      return () => clearInterval(interval);
+    }
+  }, [currentDeck, mode, decks]);
+
+  // Modify handleEvaluationResult to include spaced repetition
   const handleEvaluationResult = (data) => {
     setEvaluationResult(data);
     console.log('Received evaluation result:', data);
     console.log('Audio data present:', !!data.audio);
+    
+    // Simplified quality system - only correct/incorrect
+    const quality = data.result === 'correct' ? 'correct' : 'incorrect';
+
+    // Update card scheduling
+    const currentCard = decks[currentDeck].cards[currentCardIndex];
+    updateCardScheduling(currentCard.created, quality);
     
     // Play evaluation audio if available
     if (data.audio) {
@@ -442,7 +624,7 @@ function App() {
       setShowAnswer(true);
       setTimeout(moveToNextCard, 500); // Quick skip for quit commands
     } else if (data.result === 'correct') {
-      setTimeout(moveToNextCard, 5000); // 5 second delay for correct answers
+      setTimeout(moveToNextCard, 2000); // 2 second delay for correct answers
     } else {
       // Incorrect answer
       setAttempts(prev => {
@@ -551,6 +733,43 @@ function App() {
     }
   };
 
+  // Add state for due cards
+  const [dueCards, setDueCards] = useState([]);
+
+  // Reset attempts when moving to a new card
+  useEffect(() => {
+    setAttempts(0);
+    setShowAnswer(false);
+    setEvaluationResult(null);
+
+    // Load audio for current card if in review mode
+    if (mode === 'review' && dueCards.length > 0) {
+      loadCard(dueCards[currentCardIndex]);
+    }
+  }, [currentCardIndex, mode, dueCards]);
+
+  const moveToNextCard = () => {
+    if (currentCardIndex < dueCards.length - 1) {
+      setCurrentCardIndex(prev => prev + 1);
+      setEvaluationResult(null);
+      setAttempts(0);
+      setShowAnswer(false);
+    } else {
+      // End of deck
+      setCurrentCardIndex(0);
+      handleBackToList();
+    }
+  };
+
+  const loadSampleDeck = () => {
+    const id = Date.now().toString();
+    setDecks(prev => ({
+      ...prev,
+      [id]: sampleDeck
+    }));
+    setCurrentDeck(id);
+  };
+
   return (
     <div className="App">
       <div className="container">
@@ -573,47 +792,58 @@ function App() {
               <button onClick={() => fileInputRef.current.click()} className="action-btn">
                 📥 Import Deck
               </button>
+              <button onClick={loadSampleDeck} className="action-btn">
+                🎲 Load Sample Deck
+              </button>
             </div>
             
             <div className="deck-list">
-              {Object.entries(decks).map(([id, deck]) => (
-                <div 
-                  key={id} 
-                  className="deck-item"
-                  onClick={() => handleDeckClick(id)}
-                >
-                  <div className="deck-info">
-                    <h3>{deck.name}</h3>
-                    <small>{deck.cards.length} cards</small>
+              {Object.entries(decks).map(([id, deck]) => {
+                const newCount = deck.cards.filter(card => !card.lastReviewed).length;
+                const reviewCount = getDueCards(id).length - Math.min(newCount, maxNewCardsPerDay - newCardsToday);
+                return (
+                  <div 
+                    key={id} 
+                    className="deck-item"
+                    onClick={() => handleDeckClick(id)}
+                  >
+                    <div className="deck-info">
+                      <h3>{deck.name}</h3>
+                      <small>
+                        {deck.cards.length} cards (
+                        {reviewCount} review{reviewCount !== 1 ? 's' : ''}, {' '}
+                        {newCount} new)
+                      </small>
+                    </div>
+                    <div className="deck-item-actions">
+                      <button 
+                        onClick={(e) => handleEditClick(id, e)}
+                        className="icon-btn"
+                        title="Edit Deck"
+                      >
+                        ✏️
+                      </button>
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          exportDeckToFile(id, e);
+                        }}
+                        className="icon-btn"
+                        title="Export Deck"
+                      >
+                        💾
+                      </button>
+                      <button 
+                        onClick={(e) => deleteDeck(id, e)}
+                        className="icon-btn"
+                        title="Delete Deck"
+                      >
+                        🗑️
+                      </button>
+                    </div>
                   </div>
-                  <div className="deck-item-actions">
-                    <button 
-                      onClick={(e) => handleEditClick(id, e)}
-                      className="icon-btn"
-                      title="Edit Deck"
-                    >
-                      ✏️
-                    </button>
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        exportDeckToFile(id, e);
-                      }}
-                      className="icon-btn"
-                      title="Export Deck"
-                    >
-                      💾
-                    </button>
-                    <button 
-                      onClick={(e) => deleteDeck(id, e)}
-                      className="icon-btn"
-                      title="Delete Deck"
-                    >
-                      🗑️
-                    </button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
@@ -696,18 +926,24 @@ function App() {
             <div className="mode-header">
               <button onClick={handleBackToList} className="back-btn">← Back to Decks</button>
               <h2>Reviewing: {decks[currentDeck].name}</h2>
+              <div className="review-stats">
+                <small>
+                  New cards today: {newCardsToday}/{maxNewCardsPerDay}
+                </small>
+              </div>
             </div>
             <div className="review-mode">
-              {decks[currentDeck].cards.length > 0 ? (
+              {dueCards.length > 0 ? (
                 <div className="review-card">
                   <div className="card-progress">
-                    Card {currentCardIndex + 1} of {decks[currentDeck].cards.length}
+                    Card {currentCardIndex + 1} of {dueCards.length} due
+                    {!dueCards[currentCardIndex].lastReviewed && ' (New)'}
                   </div>
                   
                   <div className="flashcard">
                     <div className="card-side">
                       <h3>Front</h3>
-                      <p>{decks[currentDeck].cards[currentCardIndex].frontText}</p>
+                      <p>{dueCards[currentCardIndex].frontText}</p>
                       <button 
                         onClick={() => playAudio('front')}
                         className="play-audio-btn"
@@ -718,7 +954,7 @@ function App() {
                     {showAnswer && (
                       <div className="card-side">
                         <h3>Answer</h3>
-                        <p>{decks[currentDeck].cards[currentCardIndex].backText}</p>
+                        <p>{dueCards[currentCardIndex].backText}</p>
                         <button 
                           onClick={() => playAudio('back')}
                           className="play-audio-btn"
@@ -734,6 +970,23 @@ function App() {
                       Attempts: {attempts}/3
                     </div>
                     
+                    <div className="test-buttons">
+                      <button
+                        onClick={() => handleEvaluationResult({ result: 'correct', message: 'Test: Marked as correct' })}
+                        className="test-btn correct"
+                        disabled={showAnswer}
+                      >
+                        ✅ CORRECT
+                      </button>
+                      <button
+                        onClick={() => handleEvaluationResult({ result: 'incorrect', message: 'Test: Marked as incorrect' })}
+                        className="test-btn incorrect"
+                        disabled={showAnswer}
+                      >
+                        ❌ INCORRECT
+                      </button>
+                    </div>
+
                     <button
                       onClick={isRecording ? stopRecording : startRecording}
                       className={`record-btn ${isRecording ? 'recording' : ''}`}
@@ -757,8 +1010,94 @@ function App() {
                   </div>
                 </div>
               ) : (
-                <p>No cards in this deck yet. Add some cards in edit mode first.</p>
+                <div className="review-complete">
+                  <h3>Review Complete! 🎉</h3>
+                  <p>No more cards due for review at this time.</p>
+                  <button onClick={handleBackToList} className="back-btn">
+                    Return to Decks
+                  </button>
+                </div>
               )}
+            </div>
+
+            {/* Timeline visualization */}
+            <div className="timeline-container">
+              <div className="timeline">
+                <div className="timeline-line"></div>
+                <div 
+                  className="timeline-now"
+                  style={{ left: '0%' }}
+                ></div>
+                {(() => {
+                  const now = new Date();
+                  
+                  // Calculate max interval in the deck
+                  const intervals = decks[currentDeck].cards
+                    .filter(card => card.nextReview || card.lastReviewed)
+                    .map(card => {
+                      const reviewDate = new Date(card.nextReview || card.lastReviewed);
+                      return Math.abs((reviewDate - now) / (1000 * 60 * 60)); // hours
+                    });
+                  const maxHoursDiff = Math.max(...intervals, 24); // minimum 24h for scale
+                  const maxLogValue = Math.log2(maxHoursDiff + 1);
+                  
+                  console.log('Timeline scale:', {
+                    maxHoursDiff,
+                    maxLogValue,
+                    intervals: intervals.sort((a, b) => a - b)
+                  });
+
+                  return decks[currentDeck].cards.map((card) => {
+                    // Skip cards without a next review date
+                    if (!card.nextReview && !card.lastReviewed) return null;
+
+                    // Calculate time difference in hours
+                    const reviewDate = new Date(card.nextReview || card.lastReviewed);
+                    const hoursDiff = (reviewDate - now) / (1000 * 60 * 60);
+                    
+                    // Use logarithmic scale for position
+                    // Add 1 to handle negative values (past due cards)
+                    const logPosition = Math.log2(Math.abs(hoursDiff) + 1);
+                    
+                    // Calculate position percentage
+                    // Past due cards: 0-10%
+                    // Future cards: 10-100%
+                    let position;
+                    if (hoursDiff < 0) {
+                      // Past due cards in reverse log scale in 0-10% range
+                      position = 10 - (logPosition / maxLogValue) * 10;
+                    } else {
+                      // Future cards in log scale in 10-100% range
+                      position = 10 + (logPosition / maxLogValue) * 90;
+                    }
+                    
+                    // Clamp position between 0 and 100
+                    const clampedPosition = Math.max(0, Math.min(100, position));
+
+                    return (
+                      <div
+                        key={card.created}
+                        className={`timeline-card ${dueCards.length > 0 && card.created === dueCards[currentCardIndex]?.created ? 'current' : ''}`}
+                        style={{ left: `${clampedPosition}%` }}
+                        onClick={() => {
+                          const cardIdx = dueCards.findIndex(c => c.created === card.created);
+                          if (cardIdx !== -1) setCurrentCardIndex(cardIdx);
+                        }}
+                      >
+                        <div className="front-text">{card.frontText}</div>
+                        <div className="stats">
+                          Ease: {card.easeFactor?.toFixed(2) || 2.5}<br />
+                          Interval: {card.interval || 0} days<br />
+                          Next: {new Date(card.nextReview || card.lastReviewed).toLocaleDateString()}<br />
+                          {hoursDiff < 0 ? `${Math.abs(Math.round(hoursDiff))}h overdue` : 
+                           hoursDiff < 24 ? `in ${Math.round(hoursDiff)}h` :
+                           `in ${Math.round(hoursDiff / 24)}d`}
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
             </div>
           </>
         )}
