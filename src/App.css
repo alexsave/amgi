@@ -320,3 +320,39 @@ button:disabled {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+.mode-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.mode-header h2 {
+  margin: 0;
+}
+
+.back-btn {
+  padding: 0.5rem 1rem;
+  background-color: transparent;
+  color: #2196F3;
+  border: 1px solid #2196F3;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+}
+
+.back-btn:hover {
+  background-color: #2196F3;
+  color: white;
+}
+
+.review-mode {
+  text-align: center;
+  padding: 2rem;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+}

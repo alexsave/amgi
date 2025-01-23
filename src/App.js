@@ -16,6 +16,7 @@ function App() {
   const [currentDeck, setCurrentDeck] = useState(null);
   const [decks, setDecks] = useState({});
   const [deckFiles, setDeckFiles] = useState({});
+  const [mode, setMode] = useState('list'); // 'list', 'edit', or 'review'
   
   // Use refs to maintain audio elements
   const frontAudioRef = React.useRef(new Audio());
@@ -72,7 +73,8 @@ function App() {
     }
   };
 
-  const exportDeckToFile = async (deckId) => {
+  const exportDeckToFile = async (deckId, e) => {
+    e.stopPropagation();
     try {
       const deck = decks[deckId];
       if (!deck) throw new Error('Deck not found');
@@ -81,15 +83,35 @@ function App() {
       const encoded = msgpack.encode(deck);
       const blob = new Blob([encoded], { type: 'application/x-msgpack' });
       
-      // Download the file
-      const a = document.createElement('a');
-      const url = URL.createObjectURL(blob);
-      a.href = url;
-      a.download = `${deck.name.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}.bin`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      try {
+        // Use the file system access API if available
+        const handle = await window.showSaveFilePicker({
+          suggestedName: `${deck.name.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}.bin`,
+          types: [{
+            description: 'Flashcard Deck',
+            accept: {
+              'application/x-msgpack': ['.bin']
+            }
+          }]
+        });
+        
+        const writable = await handle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+      } catch (fsErr) {
+        // Only fallback if the API is not supported
+        if (fsErr.name !== 'AbortError') {
+          console.log('Falling back to legacy download method:', fsErr);
+          const a = document.createElement('a');
+          const url = URL.createObjectURL(blob);
+          a.href = url;
+          a.download = `${deck.name.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}.bin`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }
+      }
     } catch (err) {
       console.error('Error exporting deck:', err);
       setError('Failed to export deck: ' + err.message);
@@ -335,66 +357,95 @@ function App() {
     }
   };
 
+  const handleDeckClick = (id) => {
+    setCurrentDeck(id);
+    setMode('review'); // Default to review mode when clicking deck name
+  };
+
+  const handleEditClick = (id, e) => {
+    e.stopPropagation(); // Prevent deck click
+    setCurrentDeck(id);
+    setMode('edit');
+  };
+
+  const handleBackToList = () => {
+    setCurrentDeck(null);
+    setMode('list');
+  };
+
   return (
     <div className="App">
       <div className="container">
         <h1>Flashcard Generator</h1>
         
-        <div className="deck-management">
-          <h2>Decks</h2>
-          <div className="deck-actions">
-            <button onClick={createNewDeck} className="action-btn">
-              📁 New Deck
-            </button>
-            <input
-              type="file"
-              accept=".bin"
-              onChange={handleFileSelect}
-              ref={fileInputRef}
-              style={{ display: 'none' }}
-            />
-            <button onClick={() => fileInputRef.current.click()} className="action-btn">
-              📥 Import Deck
-            </button>
-          </div>
-          
-          <div className="deck-list">
-            {Object.entries(decks).map(([id, deck]) => (
-              <div 
-                key={id} 
-                className={`deck-item ${currentDeck === id ? 'selected' : ''}`}
-                onClick={() => setCurrentDeck(id)}
-              >
-                <div className="deck-info">
-                  <h3>{deck.name}</h3>
-                  <small>{deck.cards.length} cards</small>
+        {mode === 'list' && (
+          <div className="deck-management">
+            <h2>Decks</h2>
+            <div className="deck-actions">
+              <button onClick={createNewDeck} className="action-btn">
+                📁 New Deck
+              </button>
+              <input
+                type="file"
+                accept=".bin"
+                onChange={handleFileSelect}
+                ref={fileInputRef}
+                style={{ display: 'none' }}
+              />
+              <button onClick={() => fileInputRef.current.click()} className="action-btn">
+                📥 Import Deck
+              </button>
+            </div>
+            
+            <div className="deck-list">
+              {Object.entries(decks).map(([id, deck]) => (
+                <div 
+                  key={id} 
+                  className="deck-item"
+                  onClick={() => handleDeckClick(id)}
+                >
+                  <div className="deck-info">
+                    <h3>{deck.name}</h3>
+                    <small>{deck.cards.length} cards</small>
+                  </div>
+                  <div className="deck-item-actions">
+                    <button 
+                      onClick={(e) => handleEditClick(id, e)}
+                      className="icon-btn"
+                      title="Edit Deck"
+                    >
+                      ✏️
+                    </button>
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        exportDeckToFile(id, e);
+                      }}
+                      className="icon-btn"
+                      title="Export Deck"
+                    >
+                      💾
+                    </button>
+                    <button 
+                      onClick={(e) => deleteDeck(id, e)}
+                      className="icon-btn"
+                      title="Delete Deck"
+                    >
+                      🗑️
+                    </button>
+                  </div>
                 </div>
-                <div className="deck-item-actions">
-                  <button 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      exportDeckToFile(id);
-                    }}
-                    className="icon-btn"
-                    title="Export Deck"
-                  >
-                    💾
-                  </button>
-                  <button 
-                    onClick={(e) => deleteDeck(id, e)}
-                    className="icon-btn"
-                    title="Delete Deck"
-                  >
-                    🗑️
-                  </button>
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
-        {currentDeck && (
+        {mode === 'edit' && currentDeck && (
           <>
+            <div className="mode-header">
+              <button onClick={handleBackToList} className="back-btn">← Back to Decks</button>
+              <h2>Editing: {decks[currentDeck].name}</h2>
+            </div>
             <form onSubmit={generateCard} className="card-form">
               <div className="form-group">
                 <label htmlFor="userInput">Enter text to translate:</label>
@@ -462,6 +513,18 @@ function App() {
           </>
         )}
 
+        {mode === 'review' && currentDeck && (
+          <>
+            <div className="mode-header">
+              <button onClick={handleBackToList} className="back-btn">← Back to Decks</button>
+              <h2>Reviewing: {decks[currentDeck].name}</h2>
+            </div>
+            <div className="review-mode">
+              <p>Review mode coming soon...</p>
+            </div>
+          </>
+        )}
+
         {error && (
           <div className="error-message">
             Error: {error}
@@ -478,7 +541,7 @@ function App() {
           </div>
         )}
 
-        {card && (
+        {card && mode === 'edit' && (
           <div className="card-result">
             <div className="flashcard">
               <div className="card-side">
