@@ -3,7 +3,7 @@
 }
 
 .deck-cards h3 {
-  color: #343a40;
+  color: var(--text-primary);
   margin-bottom: 15px;
 }
 
@@ -14,36 +14,39 @@
 }
 
 .card-item {
-  background: white;
+  background: var(--dark-surface);
   padding: 15px;
   border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
   cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition: all 0.2s ease;
+  border: 1px solid var(--border-color);
 }
 
 .card-item:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  background: var(--dark-surface-hover);
+  border-color: var(--flame-orange);
 }
 
 .card-item span {
   display: block;
   font-weight: 500;
-  color: #343a40;
+  color: var(--text-primary);
   margin-bottom: 5px;
 }
 
 .card-item small {
   display: block;
-  color: #6c757d;
+  color: var(--text-secondary);
   margin-bottom: 10px;
 }
 
 .card-stats {
   margin-top: 10px;
   padding-top: 10px;
-  border-top: 1px solid #dee2e6;
+  border-top: 1px solid var(--border-color);
   font-size: 0.85em;
-  color: #6c757d;
+  color: var(--text-secondary);
 } 

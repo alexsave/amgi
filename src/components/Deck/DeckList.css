@@ -4,7 +4,7 @@
 }
 
 .deck-management h2 {
-  color: #343a40;
+  color: var(--text-primary);
   margin-bottom: 20px;
 }
 
@@ -16,25 +16,62 @@
 }
 
 .action-btn {
-  background: #007bff;
+  background: var(--flame-orange);
   color: white;
   border: none;
   padding: 10px 20px;
   border-radius: 4px;
   cursor: pointer;
   font-size: 1em;
-  transition: background-color 0.2s;
+  transition: all 0.2s ease;
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
 .action-btn:hover {
-  background: #0056b3;
+  background: var(--flame-orange-hover);
+  transform: translateY(-1px);
 }
 
 .deck-list {
   display: flex;
   flex-direction: column;
   gap: 15px;
+  background: var(--dark-surface);
+  padding: 15px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.deck-item {
+  background: var(--dark-surface);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 15px;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.deck-item:hover {
+  background: var(--dark-surface-hover);
+  border-color: var(--flame-orange);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.deck-item.selected {
+  background: var(--dark-surface-hover);
+  border-color: var(--flame-orange);
+}
+
+.deck-info h3 {
+  color: var(--text-primary);
+  margin: 0 0 5px 0;
+}
+
+.deck-info p {
+  color: var(--text-secondary);
+  margin: 0;
+  font-size: 0.9em;
 } 

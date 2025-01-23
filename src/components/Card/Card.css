@@ -1,52 +1,65 @@
 .flashcard {
-  background: white;
+  background: var(--dark-surface);
   border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
   padding: 20px;
   margin: 20px 0;
   display: flex;
   gap: 20px;
+  border: 1px solid var(--border-color);
 }
 
 .card-side {
   flex: 1;
   padding: 15px;
   border-radius: 4px;
-  background: #f8f9fa;
+  background: var(--dark-surface-hover);
+  border: 1px solid var(--border-color);
+  transition: all 0.2s ease;
+}
+
+.card-side:hover {
+  border-color: var(--flame-orange);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
 }
 
 .card-side h3 {
   margin-top: 0;
-  color: #343a40;
+  color: var(--text-primary);
 }
 
 .card-side p {
   font-size: 1.1em;
   margin: 10px 0;
+  color: var(--text-primary);
 }
 
 .card-side small {
-  color: #6c757d;
+  color: var(--text-secondary);
   display: block;
   margin: 5px 0;
 }
 
 .play-audio-btn {
-  background: #007bff;
+  background: var(--flame-orange);
   color: white;
   border: none;
   padding: 8px 16px;
   border-radius: 4px;
   cursor: pointer;
   margin-top: 10px;
-  transition: background-color 0.2s;
+  transition: all 0.2s ease;
 }
 
 .play-audio-btn:hover {
-  background: #0056b3;
+  background: var(--flame-orange-hover);
+  transform: translateY(-1px);
 }
 
 .play-audio-btn:disabled {
-  background: #ccc;
+  background: var(--dark-surface-hover);
+  color: var(--text-secondary);
   cursor: not-allowed;
+  transform: none;
 } 

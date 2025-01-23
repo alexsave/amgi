@@ -4,10 +4,11 @@
 }
 
 .card-form {
-  background: white;
+  background: var(--dark-surface);
   padding: 20px;
   border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--border-color);
 }
 
 .form-group {
@@ -17,7 +18,7 @@
 .form-group label {
   display: block;
   margin-bottom: 8px;
-  color: #343a40;
+  color: var(--text-primary);
   font-weight: 500;
 }
 
@@ -25,50 +26,73 @@
   width: 100%;
   min-height: 100px;
   padding: 10px;
-  border: 1px solid #ced4da;
+  border: 1px solid var(--border-color);
   border-radius: 4px;
   font-size: 1em;
   resize: vertical;
+  background: var(--dark-surface-hover);
+  color: var(--text-primary);
+  transition: all 0.2s ease;
+}
+
+.form-group textarea:focus {
+  border-color: var(--flame-orange);
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(255, 107, 53, 0.2);
 }
 
 .form-group select {
   width: 100%;
   padding: 8px;
-  border: 1px solid #ced4da;
+  border: 1px solid var(--border-color);
   border-radius: 4px;
   font-size: 1em;
+  background: var(--dark-surface-hover);
+  color: var(--text-primary);
+  transition: all 0.2s ease;
+}
+
+.form-group select:focus {
+  border-color: var(--flame-orange);
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(255, 107, 53, 0.2);
 }
 
 .card-form button[type="submit"] {
-  background: #28a745;
+  background: var(--flame-orange);
   color: white;
   border: none;
   padding: 10px 20px;
   border-radius: 4px;
   cursor: pointer;
   font-size: 1em;
-  transition: background-color 0.2s;
+  transition: all 0.2s ease;
 }
 
 .card-form button[type="submit"]:hover {
-  background: #218838;
+  background: var(--flame-orange-hover);
+  transform: translateY(-1px);
 }
 
 .card-form button[type="submit"]:disabled {
-  background: #ccc;
+  background: var(--dark-surface-hover);
+  color: var(--text-secondary);
   cursor: not-allowed;
+  transform: none;
 }
 
 .progress {
   margin: 20px 0;
   padding: 15px;
-  background: #f8f9fa;
+  background: var(--dark-surface-hover);
   border-radius: 4px;
   text-align: center;
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
 }
 
 .add-to-deck-btn {
-  background: #007bff;
+  background: var(--flame-orange);
   color: white;
   border: none;
   padding: 10px 20px;
@@ -77,14 +101,17 @@
   font-size: 1em;
   margin-top: 20px;
   width: 100%;
-  transition: background-color 0.2s;
+  transition: all 0.2s ease;
 }
 
 .add-to-deck-btn:hover {
-  background: #0056b3;
+  background: var(--flame-orange-hover);
+  transform: translateY(-1px);
 }
 
 .add-to-deck-btn:disabled {
-  background: #ccc;
+  background: var(--dark-surface-hover);
+  color: var(--text-secondary);
   cursor: not-allowed;
+  transform: none;
 } 
