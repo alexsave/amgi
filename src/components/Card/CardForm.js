@@ -4,6 +4,15 @@ import { useCardGeneration } from '../../hooks/useCardGeneration';
 import { useDeckManagement } from '../../hooks/useDeckManagement';
 import './CardForm.css';
 
+const LANGUAGES = {
+  ko: { name: 'Korean', flag: '🇰🇷' },
+  ja: { name: 'Japanese', flag: '🇯🇵' },
+  zh: { name: 'Chinese', flag: '🇨🇳' },
+  es: { name: 'Spanish', flag: '🇪🇸' },
+  de: { name: 'German', flag: '🇩🇪' },
+  it: { name: 'Italian', flag: '🇮🇹' },
+};
+
 const CardForm = () => {
   const [userInput, setUserInput] = useState('');
   const [targetLang, setTargetLang] = useState('ko');
@@ -64,12 +73,12 @@ const CardForm = () => {
     <div className="card-form-container">
       <form onSubmit={handleSubmit} className="card-form">
         <div className="form-group">
-          <label htmlFor="userInput">English Text:</label>
+          <label htmlFor="userInput">Source Text:</label>
           <textarea
             id="userInput"
             value={userInput}
             onChange={(e) => setUserInput(e.target.value)}
-            placeholder="Enter English text to translate..."
+            placeholder="Enter text to translate..."
             required
           />
         </div>
@@ -81,9 +90,13 @@ const CardForm = () => {
             value={targetLang}
             onChange={(e) => setTargetLang(e.target.value)}
           >
-            <option value="ko">Korean</option>
-            <option value="ja">Japanese</option>
-            <option value="zh">Chinese</option>
+            {Object.entries(LANGUAGES).map(([code, { name, flag }]) => (
+              <option key={code} value={code}>
+                <span className="language-option">
+                  {flag} {name}
+                </span>
+              </option>
+            ))}
           </select>
         </div>
 

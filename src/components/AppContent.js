@@ -13,6 +13,11 @@ function AppContent() {
     setMode(REVIEW_MODES.LIST);
   };
 
+  const handleCardClick = (card) => {
+    // For now, we'll just log the card. You can add more functionality later
+    console.log('Card clicked:', card);
+  };
+
   return (
     <div className="App">
       <h1>AMGI</h1>
@@ -26,7 +31,7 @@ function AppContent() {
             <h2>Editing: {decks[currentDeck].name}</h2>
           </div>
           <CardForm />
-          <CardList />
+          <CardList onCardClick={handleCardClick} />
         </>
       )}
 

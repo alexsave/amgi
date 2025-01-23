@@ -1,19 +1,26 @@
 .deck-management {
-  max-width: 800px;
+  max-width: 1000px;
   margin: 0 auto;
-  padding: 0 20px;
+  padding: 0 10px;
 }
 
 .deck-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 30px;
+  margin-bottom: 1rem;
 }
 
 .deck-management h2 {
   color: var(--text-primary);
   margin: 0;
+}
+
+.deck-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 1rem;
 }
 
 .deck-actions {
@@ -40,12 +47,6 @@
   background: var(--dark-surface-hover);
   border-color: var(--flame-orange);
   color: var(--flame-orange);
-}
-
-.deck-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
 }
 
 .deck-item {

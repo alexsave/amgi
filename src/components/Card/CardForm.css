@@ -1,38 +1,67 @@
 .card-form-container {
-  max-width: 800px;
+  max-width: 1000px;
   margin: 0 auto;
 }
 
 .card-form {
   background: var(--dark-surface);
-  padding: 20px;
+  padding: 1rem;
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
   border: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  margin: 0 auto;
+}
+
+.card-preview {
+  margin-top: 2rem;
+}
+
+.flashcard {
+  display: flex;
+  gap: 2rem;
+  justify-content: center;
+  padding: 1rem;
+  min-height: 200px;
+}
+
+.card-side {
+  flex: 1;
+  max-width: 300px;
+  padding: 1.5rem;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background-color: var(--dark-surface);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
 }
 
 .form-group {
-  margin-bottom: 20px;
+  margin-bottom: 1.5rem;
 }
 
 .form-group label {
   display: block;
-  margin-bottom: 8px;
+  margin-bottom: 0.5rem;
   color: var(--text-primary);
   font-weight: 500;
 }
 
 .form-group textarea {
-  width: 100%;
   min-height: 100px;
-  padding: 10px;
+  max-height: 300px;
+  padding: 0.75rem;
   border: 1px solid var(--border-color);
   border-radius: 4px;
-  font-size: 1em;
+  font-size: 1rem;
   resize: vertical;
   background: var(--dark-surface-hover);
   color: var(--text-primary);
   transition: all 0.2s ease;
+  overflow-y: auto;
+  line-height: 1.5;
 }
 
 .form-group textarea:focus {
@@ -43,19 +72,40 @@
 
 .form-group select {
   width: 100%;
-  padding: 8px;
+  padding: 0.75rem;
   border: 1px solid var(--border-color);
   border-radius: 4px;
-  font-size: 1em;
+  font-size: 1rem;
   background: var(--dark-surface-hover);
   color: var(--text-primary);
   transition: all 0.2s ease;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 1em;
+  padding-right: 2.5rem;
 }
 
-.form-group select:focus {
-  border-color: var(--flame-orange);
-  outline: none;
-  box-shadow: 0 0 0 2px rgba(255, 107, 53, 0.2);
+.form-group select option {
+  background: var(--dark-surface);
+  color: var(--text-primary);
+  padding: 0.5rem;
+}
+
+.language-option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.language-option img {
+  width: 1.5rem;
+  height: 1rem;
+  object-fit: cover;
+  border-radius: 2px;
 }
 
 .card-form button[type="submit"] {
