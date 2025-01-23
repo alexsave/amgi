@@ -1,0 +1,134 @@
+.review-mode {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.mode-header {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 30px;
+}
+
+.back-btn {
+  background: none;
+  border: none;
+  color: #007bff;
+  cursor: pointer;
+  font-size: 1em;
+  padding: 5px 10px;
+  transition: color 0.2s;
+}
+
+.back-btn:hover {
+  color: #0056b3;
+}
+
+.review-card {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.card-progress {
+  text-align: center;
+  color: #6c757d;
+  margin-bottom: 20px;
+}
+
+.review-controls {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #dee2e6;
+}
+
+.attempts-counter {
+  text-align: center;
+  color: #6c757d;
+  margin-bottom: 15px;
+}
+
+.test-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+  margin-bottom: 15px;
+}
+
+.test-btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1em;
+  transition: background-color 0.2s;
+}
+
+.test-btn.correct {
+  background: #28a745;
+  color: white;
+}
+
+.test-btn.correct:hover:not(:disabled) {
+  background: #218838;
+}
+
+.test-btn.incorrect {
+  background: #dc3545;
+  color: white;
+}
+
+.test-btn.incorrect:hover:not(:disabled) {
+  background: #c82333;
+}
+
+.test-btn:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+.evaluation-result {
+  text-align: center;
+  padding: 15px;
+  margin-top: 15px;
+  border-radius: 4px;
+}
+
+.evaluation-result.correct {
+  background: #d4edda;
+  color: #155724;
+}
+
+.evaluation-result.incorrect {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.evaluation-result.quit {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.result-icon {
+  font-size: 1.2em;
+  margin-bottom: 5px;
+}
+
+.review-complete {
+  text-align: center;
+  padding: 40px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.review-complete h3 {
+  color: #28a745;
+  margin-bottom: 15px;
+}
+
+.review-complete p {
+  color: #6c757d;
+  margin-bottom: 20px;
+} 

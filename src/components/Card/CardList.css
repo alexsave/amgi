@@ -1,0 +1,49 @@
+.deck-cards {
+  margin-top: 30px;
+}
+
+.deck-cards h3 {
+  color: #343a40;
+  margin-bottom: 15px;
+}
+
+.card-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 20px;
+}
+
+.card-item {
+  background: white;
+  padding: 15px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.card-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.card-item span {
+  display: block;
+  font-weight: 500;
+  color: #343a40;
+  margin-bottom: 5px;
+}
+
+.card-item small {
+  display: block;
+  color: #6c757d;
+  margin-bottom: 10px;
+}
+
+.card-stats {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #dee2e6;
+  font-size: 0.85em;
+  color: #6c757d;
+} 

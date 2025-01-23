@@ -1,0 +1,90 @@
+.card-form-container {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.card-form {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  color: #343a40;
+  font-weight: 500;
+}
+
+.form-group textarea {
+  width: 100%;
+  min-height: 100px;
+  padding: 10px;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  font-size: 1em;
+  resize: vertical;
+}
+
+.form-group select {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  font-size: 1em;
+}
+
+.card-form button[type="submit"] {
+  background: #28a745;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1em;
+  transition: background-color 0.2s;
+}
+
+.card-form button[type="submit"]:hover {
+  background: #218838;
+}
+
+.card-form button[type="submit"]:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+.progress {
+  margin: 20px 0;
+  padding: 15px;
+  background: #f8f9fa;
+  border-radius: 4px;
+  text-align: center;
+}
+
+.add-to-deck-btn {
+  background: #007bff;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1em;
+  margin-top: 20px;
+  width: 100%;
+  transition: background-color 0.2s;
+}
+
+.add-to-deck-btn:hover {
+  background: #0056b3;
+}
+
+.add-to-deck-btn:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+} 

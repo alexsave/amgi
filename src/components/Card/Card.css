@@ -1,0 +1,52 @@
+.flashcard {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  padding: 20px;
+  margin: 20px 0;
+  display: flex;
+  gap: 20px;
+}
+
+.card-side {
+  flex: 1;
+  padding: 15px;
+  border-radius: 4px;
+  background: #f8f9fa;
+}
+
+.card-side h3 {
+  margin-top: 0;
+  color: #343a40;
+}
+
+.card-side p {
+  font-size: 1.1em;
+  margin: 10px 0;
+}
+
+.card-side small {
+  color: #6c757d;
+  display: block;
+  margin: 5px 0;
+}
+
+.play-audio-btn {
+  background: #007bff;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-top: 10px;
+  transition: background-color 0.2s;
+}
+
+.play-audio-btn:hover {
+  background: #0056b3;
+}
+
+.play-audio-btn:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+} 

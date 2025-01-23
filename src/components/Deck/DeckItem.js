@@ -1,0 +1,105 @@
+import React from 'react';
+import { useDeckContext } from '../../contexts/DeckContext';
+import { getDueCards } from '../../algorithms/spacedRepetition';
+import { MAX_NEW_CARDS_PER_DAY } from '../../utils/constants';
+import msgpack from 'msgpack-lite';
+import './DeckItem.css';
+
+const DeckItem = ({ id, deck, onDeckClick, onEditClick }) => {
+  const { newCardsToday, deleteDeck } = useDeckContext();
+
+  const handleDeleteClick = (e) => {
+    e.stopPropagation();
+    if (window.confirm('Are you sure you want to delete this deck?')) {
+      deleteDeck(id);
+    }
+  };
+
+  const handleExportClick = async (e) => {
+    e.stopPropagation();
+    try {
+      // Encode deck data using MessagePack for smaller file size
+      const encoded = msgpack.encode(deck);
+      const blob = new Blob([encoded], { type: 'application/x-msgpack' });
+      
+      try {
+        // Use the file system access API if available
+        const handle = await window.showSaveFilePicker({
+          suggestedName: `${deck.name.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}.bin`,
+          types: [{
+            description: 'Flashcard Deck',
+            accept: {
+              'application/x-msgpack': ['.bin']
+            }
+          }]
+        });
+        
+        const writable = await handle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+      } catch (fsErr) {
+        // Only fallback if the API is not supported
+        if (fsErr.name !== 'AbortError') {
+          console.log('Falling back to legacy download method:', fsErr);
+          const a = document.createElement('a');
+          const url = URL.createObjectURL(blob);
+          a.href = url;
+          a.download = `${deck.name.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}.bin`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }
+      }
+    } catch (err) {
+      console.error('Error exporting deck:', err);
+      alert('Failed to export deck: ' + err.message);
+    }
+  };
+
+  // Calculate new and review counts
+  const newCount = deck.cards.filter(card => !card.lastReviewed).length;
+  const dueCards = getDueCards(deck, MAX_NEW_CARDS_PER_DAY, newCardsToday);
+  const reviewCount = dueCards.length - Math.min(newCount, MAX_NEW_CARDS_PER_DAY - newCardsToday);
+
+  return (
+    <div 
+      className="deck-item"
+      onClick={onDeckClick}
+    >
+      <div className="deck-info">
+        <h3>{deck.name}</h3>
+        <small>
+          {deck.cards.length} cards (
+          {reviewCount} review{reviewCount !== 1 ? 's' : ''}, {' '}
+          {newCount} new)
+        </small>
+      </div>
+      <div className="deck-item-actions">
+        <button 
+          onClick={onEditClick}
+          className="icon-btn"
+          title="Edit Deck"
+        >
+          ✏️
+        </button>
+        <button 
+          onClick={handleExportClick}
+          className="icon-btn"
+          title="Export Deck"
+        >
+          💾
+        </button>
+        <button 
+          onClick={handleDeleteClick}
+          className="icon-btn"
+          title="Delete Deck"
+        >
+          🗑️
+        </button>
+      </div>
+    </div>
+  );
+};
+
+export default DeckItem; 
