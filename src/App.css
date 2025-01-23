@@ -207,3 +207,116 @@ button:disabled {
   background-color: #90CAF9;
   cursor: not-allowed;
 }
+
+.deck-management {
+  margin-bottom: 2rem;
+  text-align: left;
+}
+
+.deck-actions {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 1rem;
+}
+
+.deck-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 10px;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.deck-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px;
+  background: white;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.deck-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.deck-item.selected {
+  border-color: #2196F3;
+  background-color: #e3f2fd;
+}
+
+.deck-info h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: #333;
+}
+
+.deck-info small {
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.deck-item-actions {
+  display: flex;
+  gap: 5px;
+}
+
+.icon-btn {
+  padding: 5px 10px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 1.2rem;
+  transition: transform 0.2s;
+}
+
+.icon-btn:hover {
+  transform: scale(1.1);
+}
+
+.deck-cards {
+  margin-top: 2rem;
+  text-align: left;
+}
+
+.card-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 15px;
+  margin-top: 1rem;
+}
+
+.card-item {
+  padding: 15px;
+  background: white;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.card-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.card-item span {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 5px;
+}
+
+.card-item small {
+  display: block;
+  color: #666;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

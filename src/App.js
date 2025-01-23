@@ -1,5 +1,6 @@
 import React from 'react';
 import { useState, useEffect } from 'react';
+import msgpack from 'msgpack-lite';
 import './App.css';
 
 function App() {
@@ -10,7 +11,11 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [audioReady, setAudioReady] = useState({ front: false, back: false });
   const [progress, setProgress] = useState({ text: false, front: false, back: false });
-  const [lastLoadedFile, setLastLoadedFile] = useState(null);
+  
+  // Deck state
+  const [currentDeck, setCurrentDeck] = useState(null);
+  const [decks, setDecks] = useState({});
+  const [deckFiles, setDeckFiles] = useState({});
   
   // Use refs to maintain audio elements
   const frontAudioRef = React.useRef(new Audio());
@@ -20,18 +25,111 @@ function App() {
 
   const isDevelopment = process.env.NODE_ENV === 'development' || window.location.hostname === 'localhost';
 
-  // Load last file path from localStorage on mount
+  // Load decks from localStorage on mount
   useEffect(() => {
-    const savedFilePath = localStorage.getItem('lastLoadedFile');
-    if (savedFilePath) {
-      setLastLoadedFile(savedFilePath);
-      loadCardFromFile(savedFilePath);
+    const savedDecks = localStorage.getItem('decks');
+    if (savedDecks) {
+      try {
+        const decoded = JSON.parse(savedDecks);
+        setDecks(decoded);
+        
+        const lastDeckId = localStorage.getItem('currentDeck');
+        if (lastDeckId && decoded[lastDeckId]) {
+          setCurrentDeck(lastDeckId);
+        }
+      } catch (err) {
+        console.error('Error loading decks:', err);
+      }
     }
   }, []);
 
-  const saveCardToFile = async () => {
-    if (!card || !audioReady.front || !audioReady.back) {
-      setError('No card or audio data available to save');
+  // Save decks to localStorage whenever they change
+  useEffect(() => {
+    if (Object.keys(decks).length > 0) {
+      localStorage.setItem('decks', JSON.stringify(decks));
+      if (currentDeck) {
+        localStorage.setItem('currentDeck', currentDeck);
+      }
+    }
+  }, [decks, currentDeck]);
+
+  const createNewDeck = () => {
+    const name = prompt('Enter deck name:');
+    if (name) {
+      const id = Date.now().toString();
+      const newDeck = {
+        name,
+        cards: [],
+        created: Date.now(),
+        lastModified: Date.now()
+      };
+      
+      setDecks(prev => ({
+        ...prev,
+        [id]: newDeck
+      }));
+      setCurrentDeck(id);
+    }
+  };
+
+  const exportDeckToFile = async (deckId) => {
+    try {
+      const deck = decks[deckId];
+      if (!deck) throw new Error('Deck not found');
+
+      // Encode deck data using MessagePack for smaller file size
+      const encoded = msgpack.encode(deck);
+      const blob = new Blob([encoded], { type: 'application/x-msgpack' });
+      
+      // Download the file
+      const a = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      a.href = url;
+      a.download = `${deck.name.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}.bin`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Error exporting deck:', err);
+      setError('Failed to export deck: ' + err.message);
+    }
+  };
+
+  const importDeckFromFile = async (file) => {
+    try {
+      const buffer = await file.arrayBuffer();
+      const deck = msgpack.decode(new Uint8Array(buffer));
+      
+      const id = Date.now().toString();
+      
+      // Update decks state
+      setDecks(prev => ({
+        ...prev,
+        [id]: {
+          ...deck,
+          lastModified: Date.now()
+        }
+      }));
+      
+      setCurrentDeck(id);
+      setError(null);
+    } catch (err) {
+      console.error('Error importing deck:', err);
+      setError('Failed to import deck: ' + err.message);
+    }
+  };
+
+  const handleFileSelect = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      importDeckFromFile(file);
+    }
+  };
+
+  const addCardToDeck = async () => {
+    if (!currentDeck || !card || !audioReady.front || !audioReady.back) {
+      setError('Please select a deck and generate a card first');
       return;
     }
 
@@ -42,37 +140,34 @@ function App() {
       const frontAudioBuffer = await frontResponse.arrayBuffer();
       const backAudioBuffer = await backResponse.arrayBuffer();
 
-      // Create card data object
+      // Create compressed card data
       const cardData = {
         ...card,
         audioData: {
           front: Array.from(new Uint8Array(frontAudioBuffer)),
           back: Array.from(new Uint8Array(backAudioBuffer))
-        }
+        },
+        created: Date.now()
       };
 
-      // Create blob and download
-      const blob = new Blob([JSON.stringify(cardData)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `flashcard-${Date.now()}.json`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      setDecks(prev => ({
+        ...prev,
+        [currentDeck]: {
+          ...prev[currentDeck],
+          cards: [...prev[currentDeck].cards, cardData],
+          lastModified: Date.now()
+        }
+      }));
+
+      setError(null);
     } catch (err) {
-      console.error('Error saving card:', err);
-      setError('Failed to save card: ' + err.message);
+      console.error('Error adding card to deck:', err);
+      setError('Failed to add card to deck: ' + err.message);
     }
   };
 
-  const loadCardFromFile = async (filePath) => {
+  const loadCard = async (cardData) => {
     try {
-      const file = filePath instanceof File ? filePath : await fetch(filePath).then(r => r.blob());
-      const text = await file.text();
-      const cardData = JSON.parse(text);
-
       // Clean up existing audio URLs
       if (blobUrlsRef.current.front) URL.revokeObjectURL(blobUrlsRef.current.front);
       if (blobUrlsRef.current.back) URL.revokeObjectURL(blobUrlsRef.current.back);
@@ -91,26 +186,12 @@ function App() {
       backAudioRef.current.src = backUrl;
 
       // Update state
-      const { audioData, ...cardWithoutAudio } = cardData;
+      const { audioData, created, ...cardWithoutAudio } = cardData;
       setCard(cardWithoutAudio);
       setAudioReady({ front: true, back: true });
-      
-      // Save file path to localStorage if it's a File object
-      if (filePath instanceof File) {
-        const savedPath = URL.createObjectURL(filePath);
-        localStorage.setItem('lastLoadedFile', savedPath);
-        setLastLoadedFile(savedPath);
-      }
     } catch (err) {
       console.error('Error loading card:', err);
       setError('Failed to load card: ' + err.message);
-    }
-  };
-
-  const handleFileSelect = (event) => {
-    const file = event.target.files[0];
-    if (file) {
-      loadCardFromFile(file);
     }
   };
 
@@ -240,82 +321,146 @@ function App() {
     }
   };
 
-  // Clean up blob URLs when component unmounts
-  React.useEffect(() => {
-    return () => {
-      if (blobUrlsRef.current.front) {
-        URL.revokeObjectURL(blobUrlsRef.current.front);
+  const deleteDeck = (deckId, e) => {
+    e.stopPropagation();
+    if (window.confirm('Are you sure you want to delete this deck?')) {
+      setDecks(prev => {
+        const newDecks = { ...prev };
+        delete newDecks[deckId];
+        return newDecks;
+      });
+      if (currentDeck === deckId) {
+        setCurrentDeck(null);
       }
-      if (blobUrlsRef.current.back) {
-        URL.revokeObjectURL(blobUrlsRef.current.back);
-      }
-    };
-  }, []);
+    }
+  };
 
   return (
     <div className="App">
       <div className="container">
         <h1>Flashcard Generator</h1>
         
-        <form onSubmit={generateCard} className="card-form">
-          <div className="form-group">
-            <label htmlFor="userInput">Enter text to translate:</label>
-            <textarea
-              id="userInput"
-              value={userInput}
-              onChange={(e) => setUserInput(e.target.value)}
-              required
-              placeholder="Enter text to translate..."
+        <div className="deck-management">
+          <h2>Decks</h2>
+          <div className="deck-actions">
+            <button onClick={createNewDeck} className="action-btn">
+              📁 New Deck
+            </button>
+            <input
+              type="file"
+              accept=".bin"
+              onChange={handleFileSelect}
+              ref={fileInputRef}
+              style={{ display: 'none' }}
             />
+            <button onClick={() => fileInputRef.current.click()} className="action-btn">
+              📥 Import Deck
+            </button>
           </div>
-
-          <div className="form-group">
-            <label htmlFor="targetLang">Target Language:</label>
-            <select
-              id="targetLang"
-              value={targetLang}
-              onChange={(e) => setTargetLang(e.target.value)}
-            >
-              <option value="es">Spanish</option>
-              <option value="fr">French</option>
-              <option value="de">German</option>
-              <option value="it">Italian</option>
-              <option value="pt">Portuguese</option>
-              <option value="ru">Russian</option>
-              <option value="ja">Japanese</option>
-              <option value="ko">Korean</option>
-              <option value="zh">Chinese</option>
-              <option value="en">English</option>
-            </select>
+          
+          <div className="deck-list">
+            {Object.entries(decks).map(([id, deck]) => (
+              <div 
+                key={id} 
+                className={`deck-item ${currentDeck === id ? 'selected' : ''}`}
+                onClick={() => setCurrentDeck(id)}
+              >
+                <div className="deck-info">
+                  <h3>{deck.name}</h3>
+                  <small>{deck.cards.length} cards</small>
+                </div>
+                <div className="deck-item-actions">
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      exportDeckToFile(id);
+                    }}
+                    className="icon-btn"
+                    title="Export Deck"
+                  >
+                    💾
+                  </button>
+                  <button 
+                    onClick={(e) => deleteDeck(id, e)}
+                    className="icon-btn"
+                    title="Delete Deck"
+                  >
+                    🗑️
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
-
-          <button type="submit" disabled={loading}>
-            {loading ? 'Generating...' : 'Generate Flashcard'}
-          </button>
-        </form>
-
-        <div className="file-actions">
-          <button 
-            onClick={saveCardToFile} 
-            disabled={!card || !audioReady.front || !audioReady.back}
-            className="action-btn"
-          >
-            💾 Save Card
-          </button>
-          <input
-            type="file"
-            accept=".json"
-            onChange={handleFileSelect}
-            ref={fileInputRef}
-            style={{ display: 'none' }}
-          />
-          <button 
-            onClick={() => fileInputRef.current.click()}
-            className="action-btn"
-          >
-            📂 Load Card
-          </button>
         </div>
+
+        {currentDeck && (
+          <>
+            <form onSubmit={generateCard} className="card-form">
+              <div className="form-group">
+                <label htmlFor="userInput">Enter text to translate:</label>
+                <textarea
+                  id="userInput"
+                  value={userInput}
+                  onChange={(e) => setUserInput(e.target.value)}
+                  required
+                  placeholder="Enter text to translate..."
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="targetLang">Target Language:</label>
+                <select
+                  id="targetLang"
+                  value={targetLang}
+                  onChange={(e) => setTargetLang(e.target.value)}
+                >
+                  <option value="es">Spanish</option>
+                  <option value="fr">French</option>
+                  <option value="de">German</option>
+                  <option value="it">Italian</option>
+                  <option value="pt">Portuguese</option>
+                  <option value="ru">Russian</option>
+                  <option value="ja">Japanese</option>
+                  <option value="ko">Korean</option>
+                  <option value="zh">Chinese</option>
+                  <option value="en">English</option>
+                </select>
+              </div>
+
+              <button type="submit" disabled={loading}>
+                {loading ? 'Generating...' : 'Generate Flashcard'}
+              </button>
+            </form>
+
+            <div className="file-actions">
+              <button 
+                onClick={addCardToDeck}
+                disabled={!card || !audioReady.front || !audioReady.back}
+                className="action-btn"
+              >
+                ➕ Add to Deck
+              </button>
+            </div>
+
+            {decks[currentDeck]?.cards.length > 0 && (
+              <div className="deck-cards">
+                <h3>Cards in Deck</h3>
+                <div className="card-list">
+                  {decks[currentDeck].cards.map((cardData, index) => (
+                    <div 
+                      key={cardData.created} 
+                      className="card-item"
+                      onClick={() => loadCard(cardData)}
+                    >
+                      <span>Card {index + 1}</span>
+                      <small>{cardData.frontText}</small>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        )}
 
         {error && (
           <div className="error-message">
