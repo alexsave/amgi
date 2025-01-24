@@ -16,6 +16,7 @@ const VoiceMode = () => {
   const [hasStarted, setHasStarted] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [audioScale, setAudioScale] = useState(0);
+  const [hasActiveResponse, setHasActiveResponse] = useState(false);
   const peerConnectionRef = useRef(null);
   const dataChannelRef = useRef(null);
   const audioElementRef = useRef(null);
@@ -82,13 +83,24 @@ const VoiceMode = () => {
           type: 'session.update',
           session: {
             instructions: `You are a friendly language learning tutor. First, give a brief welcome and explain that you'll help practice pronunciation.
-            For each card: pronounce the front text and wait for the user to respond with the translation.
-            If they say "again", repeat the front text.
-            If they say "skip", "idk", or "next", mark it as incorrect and skipped.
-            If they pronounce it incorrectly, mark it as incorrect and have them try again.
-            If they pronounce it correctly, mark it as correct and move to the next card.
+            For each card: clearly say the front text (${currentCard.frontText}) and wait for the user to respond with the TRANSLATION (${currentCard.backText}).
+            
+            After EVERY user response (except "again"), you must:
+            1. Evaluate their response using the evaluatePronunciation function:
+               - result="correct" if they correctly translate AND pronounce "${currentCard.backText}"
+               - result="incorrect" if they say anything else (wrong translation, wrong pronunciation, or if they repeat "${currentCard.frontText}")
+               - result="quit" if they say "skip", "idk", or "next"
+            2. After the function returns, give brief feedback based on the result
+            
+            Special cases:
+            - If they say "again", just repeat "${currentCard.frontText}" clearly
+            - For incorrect responses, encourage them to try again
+            - For correct responses, give quick praise before moving on
+            
+            Keep your responses friendly but concise. Focus on helping them learn.
+            
             When there are no more cards, give a brief goodbye and encouragement.
-            Current card - Front: "${currentCard.frontText}", Back: "${currentCard.backText}"`,
+            Current card - Front: "${currentCard.frontText}", Back (expected translation): "${currentCard.backText}"`,
             tools: [{
               type: 'function',
               name: 'evaluatePronunciation',
@@ -136,13 +148,14 @@ const VoiceMode = () => {
           }
         }));
 
-        // Start the interaction by having the AI pronounce the front text
+        // Start with a welcome message and introduce the first card
         dc.send(JSON.stringify({
           type: 'response.create',
           response: {
-            instructions: `Pronounce the front text: "${currentCard.frontText}" clearly and wait for the user's response.`
+            instructions: `Give a brief, friendly welcome and explain that you'll help them practice pronunciation and translation. Explain that you'll say a phrase, and they should respond with the correct translation. After the welcome, say "Let's start with our first card" and then clearly say: "${currentCard.frontText}" and wait for the user to respond with the translation.`
           }
         }));
+
       };
 
       dc.onclose = () => {
@@ -154,6 +167,7 @@ const VoiceMode = () => {
         const event = JSON.parse(e.data);
         if (event.type === 'response.text.delta') {
           setIsSpeaking(true);
+          setHasActiveResponse(true);
           // Clear any previous timeout
           if (window.speakingTimeoutId) {
             clearTimeout(window.speakingTimeoutId);
@@ -209,7 +223,37 @@ const VoiceMode = () => {
   const handleRealtimeEvent = (event) => {
     switch (event.type) {
       case 'response.text.delta':
+        setIsSpeaking(true);
+        setHasActiveResponse(true);
         setFeedback(prev => prev + event.delta);
+        // Stop recording if we were recording when AI starts speaking
+        if (isRecording) {
+          setIsRecording(false);
+          if (mediaStreamRef.current) {
+            // Mute the microphone
+            mediaStreamRef.current.getAudioTracks().forEach(track => {
+              track.enabled = false;
+            });
+          }
+          if (animationFrameRef.current) {
+            cancelAnimationFrame(animationFrameRef.current);
+          }
+          setAudioScale(0);
+        }
+        // Clear any previous timeout
+        if (window.speakingTimeoutId) {
+          clearTimeout(window.speakingTimeoutId);
+        }
+        // Set a timeout to mark speaking as done if no new delta arrives
+        window.speakingTimeoutId = setTimeout(() => {
+          setIsSpeaking(false);
+          // Re-enable microphone when AI stops speaking
+          if (mediaStreamRef.current) {
+            mediaStreamRef.current.getAudioTracks().forEach(track => {
+              track.enabled = true;
+            });
+          }
+        }, 500);
         break;
       case 'response.output_item.done':
         const { item } = event;
@@ -302,25 +346,17 @@ const VoiceMode = () => {
               }
             }));
 
-            // Request the next response
-            dataChannelRef.current?.send(JSON.stringify({
-              type: 'response.create'
-            }));
+            // Only request next response if there isn't an active one
+            if (!hasActiveResponse) {
+              dataChannelRef.current?.send(JSON.stringify({
+                type: 'response.create'
+              }));
+            }
           } else if (item.name === 'completeReview') {
             const args = JSON.parse(item.arguments);
             setFeedback(args.message);
             
-            // Clean up the session
-            if (mediaStreamRef.current) {
-              mediaStreamRef.current.getTracks().forEach(track => track.stop());
-            }
-            if (peerConnectionRef.current) {
-              peerConnectionRef.current.close();
-            }
-            setIsConnected(false);
-            setHasStarted(false);
-            
-            // Send function result back
+            // Send function result back first
             dataChannelRef.current?.send(JSON.stringify({
               type: 'conversation.item.create',
               item: {
@@ -329,6 +365,18 @@ const VoiceMode = () => {
                 output: JSON.stringify({ success: true })
               }
             }));
+            
+            // Then clean up the session
+            setTimeout(() => {
+              if (mediaStreamRef.current) {
+                mediaStreamRef.current.getTracks().forEach(track => track.stop());
+              }
+              if (peerConnectionRef.current) {
+                peerConnectionRef.current.close();
+              }
+              setIsConnected(false);
+              setHasStarted(false);
+            }, 500); // Give time for the last message to be sent
           } else if (item.name === 'getNextCard') {
             // Get the next card info from review hook
             const nextCardIndex = review.currentCardIndex + 1;
@@ -347,16 +395,25 @@ const VoiceMode = () => {
               }
             }));
 
-            // Request the next response
-            dataChannelRef.current?.send(JSON.stringify({
-              type: 'response.create'
-            }));
+            // Only request next response if there isn't an active one
+            if (!hasActiveResponse) {
+              dataChannelRef.current?.send(JSON.stringify({
+                type: 'response.create'
+              }));
+            }
           }
         }
         break;
+      case 'response.complete':
+        setHasActiveResponse(false);
+        setIsSpeaking(false);
+        break;
       case 'error':
         console.error('Realtime API Error:', event.error);
-        setFeedback('Error: ' + event.error);
+        setFeedback('Error: ' + event.error.message);
+        if (event.error.message === 'Conversation already has an active response') {
+          setHasActiveResponse(true);
+        }
         break;
       default:
         //console.log('Received event:', event);
@@ -550,16 +607,19 @@ const VoiceMode = () => {
 
   // Then add recording handlers
   const startRecording = async () => {
-    if (!isConnected) {
-      setFeedback('Not connected. Please wait...');
+    if (!isConnected || isSpeaking) {  // Add isSpeaking check
+      setFeedback(isSpeaking ? 'Please wait for AI to finish speaking...' : 'Not connected. Please wait...');
       return;
     }
 
     setIsRecording(true);
     setFeedback('Listening...');
 
-    // Set up audio visualization
+    // Ensure microphone is enabled
     if (mediaStreamRef.current) {
+      mediaStreamRef.current.getAudioTracks().forEach(track => {
+        track.enabled = true;
+      });
       setupAudioVisualization(mediaStreamRef.current);
     }
 
@@ -581,14 +641,17 @@ const VoiceMode = () => {
       }
       setAudioScale(0);
       
-      // Commit the audio buffer and create a response
+      // Commit the audio buffer
       dataChannelRef.current.send(JSON.stringify({
         type: 'input_audio_buffer.commit'
       }));
       
-      dataChannelRef.current.send(JSON.stringify({
-        type: 'response.create'
-      }));
+      // Only create a new response if there isn't an active one and AI isn't speaking
+      if (!hasActiveResponse && !isSpeaking) {
+        dataChannelRef.current.send(JSON.stringify({
+          type: 'response.create'
+        }));
+      }
       
       setFeedback('Processing...');
     }
@@ -625,13 +688,6 @@ const VoiceMode = () => {
       try {
         await setupWebRTC();
         setHasStarted(true);
-        // Start the session with welcome message
-        dataChannelRef.current?.send(JSON.stringify({
-          type: 'response.create',
-          response: {
-            instructions: 'Give a brief, friendly welcome and explain that you\'ll help them practice pronunciation. Then pronounce the first card.'
-          }
-        }));
       } catch (error) {
         setFeedback('Failed to connect: ' + error.message);
         setIsConnecting(false);
