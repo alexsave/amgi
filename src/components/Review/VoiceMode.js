@@ -258,6 +258,7 @@ const VoiceMode = () => {
       case 'response.output_item.done':
         const { item } = event;
         if (item.type === 'function_call') {
+          console.log('Received function call:', { name: item.name, arguments: JSON.parse(item.arguments) }, '- Processing user response and updating UI accordingly');
           if (item.name === 'evaluatePronunciation') {
             const args = JSON.parse(item.arguments);
             setFeedback(args.message);
@@ -268,86 +269,152 @@ const VoiceMode = () => {
               setTimeout(() => setButtonState('default'), 500);
               // Update card scheduling for correct answer
               review.updateCardScheduling(currentCard.created, 'correct');
-              setTimeout(() => {
-                review.moveToNextCard();
-                // Request OpenAI to introduce the next card
-                const nextCard = review.dueCards[review.currentCardIndex + 1];
-                if (nextCard && dataChannelRef.current) {
-                  dataChannelRef.current.send(JSON.stringify({
-                    type: 'response.create',
-                    response: {
-                      instructions: `Pronounce the front text: "${nextCard.frontText}" clearly and wait for the user's response.`
-                    }
-                  }));
-                } else if (dataChannelRef.current) {
-                  // No more cards, request a farewell message
-                  dataChannelRef.current.send(JSON.stringify({
-                    type: 'response.create',
-                    response: {
-                      instructions: 'Give a brief farewell message congratulating the user on completing their review session, then call the completeReview function.'
-                    }
-                  }));
+              review.moveToNextCard();
+              
+              // Get next card info
+              const nextCard = review.dueCards[review.currentCardIndex + 1];
+              
+              // Send the function result back with next card info
+              console.log('Sending function_call_output for evaluatePronunciation:', { result: args.result, hasNextCard: !!nextCard }, '- Correct answer, including next card info');
+              dataChannelRef.current?.send(JSON.stringify({
+                type: 'conversation.item.create',
+                item: {
+                  type: 'function_call_output',
+                  call_id: item.call_id,
+                  output: JSON.stringify({
+                    result: args.result,
+                    message: args.message,
+                    nextCard: nextCard ? {
+                      frontText: nextCard.frontText,
+                      backText: nextCard.backText
+                    } : null,
+                    hasMoreCards: review.currentCardIndex < review.dueCards.length - 1
+                  })
                 }
-              }, 2000);
+              }));
+              
+              // Request next response
+              console.log('Requesting next response after correct answer');
+              dataChannelRef.current?.send(JSON.stringify({
+                type: 'response.create'
+              }));
+
             } else if (args.result === 'incorrect') {
               setButtonState('error');
               setTimeout(() => setButtonState('default'), 500);
               // Update card scheduling for incorrect answer
               review.updateCardScheduling(currentCard.created, 'incorrect');
+              
               // Increment attempts
               review.setAttempts(prev => {
                 const newAttempts = prev + 1;
                 if (newAttempts >= 3) {
                   review.setShowAnswer(true);
-                  setTimeout(() => {
-                    review.moveToNextCard();
-                    // Request OpenAI to introduce the next card
-                    const nextCard = review.dueCards[review.currentCardIndex + 1];
-                    if (nextCard && dataChannelRef.current) {
-                      dataChannelRef.current.send(JSON.stringify({
-                        type: 'response.create',
-                        response: {
-                          instructions: `Pronounce the front text: "${nextCard.frontText}" clearly and wait for the user's response.`
-                        }
-                      }));
+                  review.moveToNextCard();
+                  
+                  // Get next card info after max attempts
+                  const nextCard = review.dueCards[review.currentCardIndex + 1];
+                  
+                  // Send function result with next card info after max attempts
+                  console.log('Sending function_call_output for evaluatePronunciation:', { result: 'skip', hasNextCard: !!nextCard }, '- Max attempts reached, moving to next card');
+                  dataChannelRef.current?.send(JSON.stringify({
+                    type: 'conversation.item.create',
+                    item: {
+                      type: 'function_call_output',
+                      call_id: item.call_id,
+                      output: JSON.stringify({
+                        result: 'skip',
+                        message: 'Moving to next card after maximum attempts',
+                        nextCard: nextCard ? {
+                          frontText: nextCard.frontText,
+                          backText: nextCard.backText
+                        } : null,
+                        hasMoreCards: review.currentCardIndex < review.dueCards.length - 1
+                      })
                     }
-                  }, 2000);
+                  }));
+                  
+                  // Request next response
+                  console.log('Requesting next response after max attempts');
+                  dataChannelRef.current?.send(JSON.stringify({
+                    type: 'response.create'
+                  }));
+                } else {
+                  // Just acknowledge the incorrect attempt
+                  console.log('Sending function_call_output for evaluatePronunciation:', { result: args.result }, '- Incorrect attempt');
+                  dataChannelRef.current?.send(JSON.stringify({
+                    type: 'conversation.item.create',
+                    item: {
+                      type: 'function_call_output',
+                      call_id: item.call_id,
+                      output: JSON.stringify({
+                        result: args.result,
+                        message: args.message
+                      })
+                    }
+                  }));
+                  
+                  // Request next response
+                  console.log('Requesting next response after incorrect attempt');
+                  dataChannelRef.current?.send(JSON.stringify({
+                    type: 'response.create'
+                  }));
                 }
                 return newAttempts;
               });
-            } else if (args.result === 'quit') {
+
+            } else if (args.result === 'quit' || args.result === 'skip') {
               setShowSkip(true);
               setTimeout(() => setShowSkip(false), 500);
               // Mark as incorrect and move to next card
               review.updateCardScheduling(currentCard.created, 'incorrect');
               review.setShowAnswer(true);
-              setTimeout(() => {
-                review.moveToNextCard();
-                // Request OpenAI to introduce the next card
-                const nextCard = review.dueCards[review.currentCardIndex + 1];
-                if (nextCard && dataChannelRef.current) {
-                  dataChannelRef.current.send(JSON.stringify({
-                    type: 'response.create',
-                    response: {
-                      instructions: `Pronounce the front text: "${nextCard.frontText}" clearly and wait for the user's response.`
-                    }
-                  }));
+              review.moveToNextCard();
+              
+              // Get next card info
+              const nextCard = review.dueCards[review.currentCardIndex + 1];
+              
+              // Send function result with next card info
+              console.log('Sending function_call_output for evaluatePronunciation:', { result: args.result, hasNextCard: !!nextCard }, '- Skipping to next card');
+              dataChannelRef.current?.send(JSON.stringify({
+                type: 'conversation.item.create',
+                item: {
+                  type: 'function_call_output',
+                  call_id: item.call_id,
+                  output: JSON.stringify({
+                    result: args.result,
+                    message: args.message,
+                    nextCard: nextCard ? {
+                      frontText: nextCard.frontText,
+                      backText: nextCard.backText
+                    } : null,
+                    hasMoreCards: review.currentCardIndex < review.dueCards.length - 1
+                  })
                 }
-              }, 500);
-            }
-            
-            // Send the function result back
-            dataChannelRef.current?.send(JSON.stringify({
-              type: 'conversation.item.create',
-              item: {
-                type: 'function_call_output',
-                call_id: item.call_id,
-                output: JSON.stringify({ result: args.result, message: args.message })
-              }
-            }));
-
-            // Only request next response if there isn't an active one
-            if (!hasActiveResponse) {
+              }));
+              
+              // Request next response
+              console.log('Requesting next response after skip');
+              dataChannelRef.current?.send(JSON.stringify({
+                type: 'response.create'
+              }));
+            } else if (args.result === 'again') {
+              // Just acknowledge the request to repeat
+              console.log('Sending function_call_output for evaluatePronunciation:', { result: args.result }, '- Repeating current card');
+              dataChannelRef.current?.send(JSON.stringify({
+                type: 'conversation.item.create',
+                item: {
+                  type: 'function_call_output',
+                  call_id: item.call_id,
+                  output: JSON.stringify({
+                    result: args.result,
+                    message: args.message
+                  })
+                }
+              }));
+              
+              // Request next response
+              console.log('Requesting next response after again');
               dataChannelRef.current?.send(JSON.stringify({
                 type: 'response.create'
               }));
@@ -357,6 +424,7 @@ const VoiceMode = () => {
             setFeedback(args.message);
             
             // Send function result back first
+            console.log('Sending function_call_output for completeReview - Finishing review session');
             dataChannelRef.current?.send(JSON.stringify({
               type: 'conversation.item.create',
               item: {
@@ -364,6 +432,12 @@ const VoiceMode = () => {
                 call_id: item.call_id,
                 output: JSON.stringify({ success: true })
               }
+            }));
+            
+            // Request final response
+            console.log('Requesting final response after review completion');
+            dataChannelRef.current?.send(JSON.stringify({
+              type: 'response.create'
             }));
             
             // Then clean up the session
@@ -382,6 +456,7 @@ const VoiceMode = () => {
             const nextCardIndex = review.currentCardIndex + 1;
             const nextCard = review.dueCards[nextCardIndex];
             
+            console.log('Sending function_call_output for getNextCard:', { hasNextCard: !!nextCard }, '- Providing next card information');
             dataChannelRef.current?.send(JSON.stringify({
               type: 'conversation.item.create',
               item: {
@@ -395,8 +470,9 @@ const VoiceMode = () => {
               }
             }));
 
-            // Only request next response if there isn't an active one
+            // only request next response if there isn't an active one
             if (!hasActiveResponse) {
+              console.log('sending response.create - no active response after getnextcard');
               dataChannelRef.current?.send(JSON.stringify({
                 type: 'response.create'
               }));
@@ -409,14 +485,14 @@ const VoiceMode = () => {
         setIsSpeaking(false);
         break;
       case 'error':
-        console.error('Realtime API Error:', event.error);
-        setFeedback('Error: ' + event.error.message);
-        if (event.error.message === 'Conversation already has an active response') {
+        console.error('realtime api error:', event.error);
+        setFeedback('error: ' + event.error.message);
+        if (event.error.message === 'conversation already has an active response') {
           setHasActiveResponse(true);
         }
         break;
       default:
-        //console.log('Received event:', event);
+        //console.log('received event:', event);
         break;
     }
   };
@@ -555,14 +631,6 @@ const VoiceMode = () => {
 
       frameCount++;
       if (frameCount % 60 === 0) { // Log every 60 frames
-        console.log('Visualization stats:', { 
-          frameCount, 
-          maxBarHeight, 
-          volume, 
-          hasSound,
-          isRecording, 
-          isSpeaking 
-        });
       }
 
       animationFrameRef.current = requestAnimationFrame(renderFrame);
