@@ -23,6 +23,8 @@ const VoiceMode = () => {
   const audioContextRef = useRef(null);
   const analyserRef = useRef(null);
   const animationFrameRef = useRef(null);
+  const canvasRef = useRef(null);
+  const canvasCtxRef = useRef(null);
 
   const setupWebRTC = useCallback(async () => {
     try {
@@ -52,6 +54,11 @@ const VoiceMode = () => {
       audioElementRef.current.autoplay = true;
       pc.ontrack = e => {
         audioElementRef.current.srcObject = e.streams[0];
+        // Set up visualization for AI output
+        if (audioContextRef.current && analyserRef.current) {
+          const outputSource = audioContextRef.current.createMediaStreamSource(e.streams[0]);
+          outputSource.connect(analyserRef.current);
+        }
       };
 
       // Add local audio track
@@ -59,12 +66,14 @@ const VoiceMode = () => {
       mediaStreamRef.current = stream;
       pc.addTrack(stream.getTracks()[0], stream);
 
+      // Initialize visualization
+      setupAudioVisualization(stream);
+
       // Set up data channel
       const dc = pc.createDataChannel("oai-events");
       dataChannelRef.current = dc;
 
       dc.onopen = () => {
-        console.log('Data channel opened');
         setIsConnected(true);
         setFeedback('Click the microphone to begin');
 
@@ -108,6 +117,20 @@ const VoiceMode = () => {
                 properties: {},
                 required: []
               }
+            }, {
+              type: 'function',
+              name: 'completeReview',
+              description: 'Called when the review session is complete.',
+              parameters: {
+                type: 'object',
+                properties: {
+                  message: {
+                    type: 'string',
+                    description: 'Final message to show to the user'
+                  }
+                },
+                required: ['message']
+              }
             }],
             tool_choice: 'auto'
           }
@@ -123,19 +146,31 @@ const VoiceMode = () => {
       };
 
       dc.onclose = () => {
-        console.log('Data channel closed');
         setIsConnected(false);
         setFeedback('Connection lost');
       };
 
       dc.onmessage = (e) => {
         const event = JSON.parse(e.data);
+        if (event.type === 'response.text.delta') {
+          setIsSpeaking(true);
+          // Clear any previous timeout
+          if (window.speakingTimeoutId) {
+            clearTimeout(window.speakingTimeoutId);
+          }
+          // Set a timeout to mark speaking as done if no new delta arrives
+          window.speakingTimeoutId = setTimeout(() => {
+            setIsSpeaking(false);
+          }, 500);
+        }
         handleRealtimeEvent(event);
       };
 
-      // Log ICE connection state changes
+      // Log ICE connection state changes only for problematic states
       pc.oniceconnectionstatechange = () => {
-        console.log('ICE connection state:', pc.iceConnectionState);
+        if (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'disconnected') {
+          console.error('ICE connection state:', pc.iceConnectionState);
+        }
       };
 
       // Create and set local description
@@ -198,6 +233,14 @@ const VoiceMode = () => {
                     type: 'response.create',
                     response: {
                       instructions: `Pronounce the front text: "${nextCard.frontText}" clearly and wait for the user's response.`
+                    }
+                  }));
+                } else if (dataChannelRef.current) {
+                  // No more cards, request a farewell message
+                  dataChannelRef.current.send(JSON.stringify({
+                    type: 'response.create',
+                    response: {
+                      instructions: 'Give a brief farewell message congratulating the user on completing their review session, then call the completeReview function.'
                     }
                   }));
                 }
@@ -263,6 +306,29 @@ const VoiceMode = () => {
             dataChannelRef.current?.send(JSON.stringify({
               type: 'response.create'
             }));
+          } else if (item.name === 'completeReview') {
+            const args = JSON.parse(item.arguments);
+            setFeedback(args.message);
+            
+            // Clean up the session
+            if (mediaStreamRef.current) {
+              mediaStreamRef.current.getTracks().forEach(track => track.stop());
+            }
+            if (peerConnectionRef.current) {
+              peerConnectionRef.current.close();
+            }
+            setIsConnected(false);
+            setHasStarted(false);
+            
+            // Send function result back
+            dataChannelRef.current?.send(JSON.stringify({
+              type: 'conversation.item.create',
+              item: {
+                type: 'function_call_output',
+                call_id: item.call_id,
+                output: JSON.stringify({ success: true })
+              }
+            }));
           } else if (item.name === 'getNextCard') {
             // Get the next card info from review hook
             const nextCardIndex = review.currentCardIndex + 1;
@@ -293,45 +359,196 @@ const VoiceMode = () => {
         setFeedback('Error: ' + event.error);
         break;
       default:
-        console.log('Received event:', event);
+        //console.log('Received event:', event);
+        break;
     }
   };
 
-  // Add audio visualization
+  // Add audio visualization first
   const setupAudioVisualization = useCallback((stream) => {
+    console.log('Setting up audio visualization');
     if (!audioContextRef.current) {
       audioContextRef.current = new AudioContext();
+      console.log('Created new AudioContext');
     }
     
     if (!analyserRef.current) {
       analyserRef.current = audioContextRef.current.createAnalyser();
       analyserRef.current.fftSize = 256;
+      console.log('Created new AnalyserNode with fftSize:', analyserRef.current.fftSize);
     }
 
+    // Create new source for each visualization
     const source = audioContextRef.current.createMediaStreamSource(stream);
     source.connect(analyserRef.current);
+    console.log('Connected audio source to analyser');
 
-    const updateVolume = () => {
-      if (!analyserRef.current) return;
+    // Set up canvas
+    const canvas = canvasRef.current;
+    if (!canvas) {
+      console.error('Canvas element not found');
+      return;
+    }
+    
+    // Set actual pixel dimensions
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    console.log('Canvas dimensions:', { width: canvas.width, height: canvas.height, dpr });
+    
+    const ctx = canvas.getContext('2d');
+    canvasCtxRef.current = ctx;
+    ctx.scale(dpr, dpr);
 
-      const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
+    const bufferLength = analyserRef.current.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+    const WIDTH = rect.width;
+    const HEIGHT = rect.height;
+    const barWidth = (WIDTH / bufferLength) * 2.5;
+    const barSpacing = 2;
+
+    console.log('Visualization parameters:', { 
+      bufferLength, 
+      WIDTH, 
+      HEIGHT, 
+      barWidth,
+      barSpacing
+    });
+
+    let frameCount = 0;
+    const renderFrame = () => {
+      if (!analyserRef.current || !canvasCtxRef.current) {
+        console.error('Missing analyser or canvas context');
+        return;
+      }
+
       analyserRef.current.getByteFrequencyData(dataArray);
 
+      // Calculate average for the circular visualization
       let sum = 0;
+      let hasSound = false;
       for (let i = 0; i < dataArray.length; i++) {
         sum += dataArray[i];
+        if (dataArray[i] > 5) { // Threshold to detect actual sound vs noise
+          hasSound = true;
+        }
       }
       const average = sum / dataArray.length;
-      const volume = Math.min(average / 128, 1); // Normalize to 0-1
-      setAudioScale(volume * 100);
+      const volume = Math.min(average / 128, 1);
+      
+      // Only update scale if there's actual sound
+      if (hasSound) {
+        setAudioScale(volume * 100);
+      }
 
-      animationFrameRef.current = requestAnimationFrame(updateVolume);
+      // Draw bar visualization
+      const ctx = canvasCtxRef.current;
+      ctx.clearRect(0, 0, WIDTH, HEIGHT);
+
+      let x = 0;
+      let maxBarHeight = 0;
+      for (let i = 0; i < bufferLength; i++) {
+        const barHeight = (dataArray[i] / 255.0) * HEIGHT * 0.8;
+        maxBarHeight = Math.max(maxBarHeight, barHeight);
+        
+        // Always set a color based on state and sound detection
+        if (hasSound) {
+          if (isRecording) {
+            // Rainbow gradient for recording
+            const hue = (i / bufferLength) * 360;
+            const lightness = 50 + (barHeight / HEIGHT) * 50;
+            ctx.fillStyle = `hsl(${hue}, 100%, ${lightness}%)`;
+          } else if (isSpeaking) {
+            // Flame orange for AI speaking
+            const intensity = barHeight / HEIGHT;
+            ctx.fillStyle = `rgba(255, 107, 53, ${0.5 + intensity * 0.5})`;
+          } else {
+            // Default color - soft blue gradient when idle
+            const intensity = barHeight / HEIGHT;
+            ctx.fillStyle = `rgba(100, 149, 237, ${0.3 + intensity * 0.3})`;
+          }
+        } else {
+          // Very dim color when no sound
+          ctx.fillStyle = 'rgba(100, 100, 100, 0.1)';
+        }
+        
+        // Draw bar with rounded corners
+        const barX = x + barSpacing;
+        const barY = HEIGHT - barHeight;
+        const barW = barWidth - barSpacing * 2;
+        const radius = Math.min(barW / 2, barHeight / 2, 4);
+
+        ctx.beginPath();
+        ctx.moveTo(barX + radius, barY);
+        ctx.lineTo(barX + barW - radius, barY);
+        ctx.quadraticCurveTo(barX + barW, barY, barX + barW, barY + radius);
+        ctx.lineTo(barX + barW, HEIGHT - radius);
+        ctx.quadraticCurveTo(barX + barW, HEIGHT, barX + barW - radius, HEIGHT);
+        ctx.lineTo(barX + radius, HEIGHT);
+        ctx.quadraticCurveTo(barX, HEIGHT, barX, HEIGHT - radius);
+        ctx.lineTo(barX, barY + radius);
+        ctx.quadraticCurveTo(barX, barY, barX + radius, barY);
+        ctx.closePath();
+        
+        ctx.fill();
+        
+        x += barWidth;
+      }
+
+      frameCount++;
+      if (frameCount % 60 === 0) { // Log every 60 frames
+        console.log('Visualization stats:', { 
+          frameCount, 
+          maxBarHeight, 
+          volume, 
+          hasSound,
+          isRecording, 
+          isSpeaking 
+        });
+      }
+
+      animationFrameRef.current = requestAnimationFrame(renderFrame);
     };
 
-    updateVolume();
+    console.log('Starting render loop');
+    renderFrame();
+
+    return () => {
+      console.log('Cleaning up visualization');
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+      source.disconnect();
+    };
+  }, [isRecording, isSpeaking]);
+
+  // Remove the mount effect since we'll initialize in setupWebRTC
+  useEffect(() => {
+    console.log('Mount effect - mediaStream:', !!mediaStreamRef.current);
+    if (mediaStreamRef.current) {
+      setupAudioVisualization(mediaStreamRef.current);
+    }
+  }, [setupAudioVisualization]);
+
+  // Remove the audio element handlers since we're tracking speaking state from events
+  useEffect(() => {
+    if (!audioElementRef.current) return;
+
+    const handleEnded = () => {
+      setIsSpeaking(false);
+    };
+
+    audioElementRef.current.addEventListener('ended', handleEnded);
+
+    return () => {
+      if (audioElementRef.current) {
+        audioElementRef.current.removeEventListener('ended', handleEnded);
+      }
+    };
   }, []);
 
-  // Update startRecording to include visualization
+  // Then add recording handlers
   const startRecording = async () => {
     if (!isConnected) {
       setFeedback('Not connected. Please wait...');
@@ -354,7 +571,6 @@ const VoiceMode = () => {
     }
   };
 
-  // Update stopRecording to cleanup visualization
   const stopRecording = () => {
     if (isRecording && dataChannelRef.current) {
       setIsRecording(false);
@@ -378,31 +594,6 @@ const VoiceMode = () => {
     }
   };
 
-  // Add audio element event handlers
-  useEffect(() => {
-    if (!audioElementRef.current) return;
-
-    const handlePlay = () => {
-      console.log('AI started speaking');
-      setIsSpeaking(true);
-    };
-
-    const handleEnded = () => {
-      console.log('AI finished speaking');
-      setIsSpeaking(false);
-    };
-
-    audioElementRef.current.addEventListener('play', handlePlay);
-    audioElementRef.current.addEventListener('ended', handleEnded);
-
-    return () => {
-      if (audioElementRef.current) {
-        audioElementRef.current.removeEventListener('play', handlePlay);
-        audioElementRef.current.removeEventListener('ended', handleEnded);
-      }
-    };
-  }, []);
-
   // Update cleanup effect
   useEffect(() => {
     return () => {
@@ -420,6 +611,9 @@ const VoiceMode = () => {
       }
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
+      }
+      if (window.speakingTimeoutId) {
+        clearTimeout(window.speakingTimeoutId);
       }
     };
   }, []);
@@ -455,13 +649,15 @@ const VoiceMode = () => {
   return (
     <div className="voice-mode">
       <div className="voice-interface">
+        <div className="visualization-container">
+          <canvas ref={canvasRef} className="audio-canvas" />
+        </div>
         <button 
           className={`mic-button ${isRecording ? 'recording' : ''} ${isSpeaking ? 'speaking' : ''} ${!isConnected && hasStarted ? 'disabled' : ''} ${buttonState}`}
           onClick={handleMicClick}
           disabled={(hasStarted && !isConnected) || isSpeaking || isConnecting}
           style={{ '--scale': `${audioScale}%` }}
         >
-          <div className="audio-visualizer" />
           <MicrophoneIcon className="large-mic-icon" />
         </button>
         {showSkip && (

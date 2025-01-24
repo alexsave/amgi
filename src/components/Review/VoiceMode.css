@@ -12,20 +12,19 @@
   width: 160px;
   height: 160px;
   border-radius: 80px;
-  background: var(--dark-surface);
+  background: transparent;
   display: flex;
   justify-content: center;
   align-items: center;
-  border: 1px solid var(--border-color);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
   position: relative;
+  z-index: 1;
 }
 
 .mic-button {
   width: 100%;
   height: 100%;
   border: none;
-  background: transparent;
+  background: var(--dark-surface);
   border-radius: 50%;
   cursor: pointer;
   transition: all 0.3s ease;
@@ -34,6 +33,9 @@
   align-items: center;
   padding: 0;
   position: relative;
+  border: 1px solid var(--border-color);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  z-index: 3;
 }
 
 .mic-button:not(.disabled):hover {
@@ -113,21 +115,26 @@
 }
 
 /* Audio visualization */
-.audio-visualizer {
+.visualization-container {
   position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  pointer-events: none;
-  opacity: 0.5;
-  transition: transform 0.1s ease-out;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 500px;
+  height: 160px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 80px;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  z-index: 2;
 }
 
-.mic-button.recording .audio-visualizer {
-  background: radial-gradient(circle, rgba(255,255,255,0.2) var(--scale), transparent calc(var(--scale) + 5%));
-}
-
-.mic-button.speaking .audio-visualizer {
-  background: radial-gradient(circle, rgba(var(--flame-orange-rgb), 0.2) var(--scale), transparent calc(var(--scale) + 5%));
+.audio-canvas {
+  width: 100%;
+  height: 100%;
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.2);
 }
 
 @keyframes pulse {
