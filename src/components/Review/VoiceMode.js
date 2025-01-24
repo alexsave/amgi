@@ -293,11 +293,13 @@ const VoiceMode = () => {
                 }
               }));
               
-              // Request next response
-              console.log('Requesting next response after correct answer');
-              dataChannelRef.current?.send(JSON.stringify({
-                type: 'response.create'
-              }));
+              // Request next response if no active response
+              if (!hasActiveResponse) {
+                console.log('Requesting next response after correct answer');
+                dataChannelRef.current?.send(JSON.stringify({
+                  type: 'response.create'
+                }));
+              }
 
             } else if (args.result === 'incorrect') {
               setButtonState('error');
@@ -334,11 +336,13 @@ const VoiceMode = () => {
                     }
                   }));
                   
-                  // Request next response
-                  console.log('Requesting next response after max attempts');
-                  dataChannelRef.current?.send(JSON.stringify({
-                    type: 'response.create'
-                  }));
+                  // Request next response if no active response
+                  if (!hasActiveResponse) {
+                    console.log('Requesting next response after max attempts');
+                    dataChannelRef.current?.send(JSON.stringify({
+                      type: 'response.create'
+                    }));
+                  }
                 } else {
                   // Just acknowledge the incorrect attempt
                   console.log('Sending function_call_output for evaluatePronunciation:', { result: args.result }, '- Incorrect attempt');
@@ -354,11 +358,13 @@ const VoiceMode = () => {
                     }
                   }));
                   
-                  // Request next response
-                  console.log('Requesting next response after incorrect attempt');
-                  dataChannelRef.current?.send(JSON.stringify({
-                    type: 'response.create'
-                  }));
+                  // Request next response if no active response
+                  if (!hasActiveResponse) {
+                    console.log('Requesting next response after incorrect attempt');
+                    dataChannelRef.current?.send(JSON.stringify({
+                      type: 'response.create'
+                    }));
+                  }
                 }
                 return newAttempts;
               });
@@ -393,11 +399,13 @@ const VoiceMode = () => {
                 }
               }));
               
-              // Request next response
-              console.log('Requesting next response after skip');
-              dataChannelRef.current?.send(JSON.stringify({
-                type: 'response.create'
-              }));
+              // Request next response if no active response
+              if (!hasActiveResponse) {
+                console.log('Requesting next response after skip');
+                dataChannelRef.current?.send(JSON.stringify({
+                  type: 'response.create'
+                }));
+              }
             } else if (args.result === 'again') {
               // Just acknowledge the request to repeat
               console.log('Sending function_call_output for evaluatePronunciation:', { result: args.result }, '- Repeating current card');
@@ -413,11 +421,13 @@ const VoiceMode = () => {
                 }
               }));
               
-              // Request next response
-              console.log('Requesting next response after again');
-              dataChannelRef.current?.send(JSON.stringify({
-                type: 'response.create'
-              }));
+              // Request next response if no active response
+              if (!hasActiveResponse) {
+                console.log('Requesting next response after again');
+                dataChannelRef.current?.send(JSON.stringify({
+                  type: 'response.create'
+                }));
+              }
             }
           } else if (item.name === 'completeReview') {
             const args = JSON.parse(item.arguments);
@@ -434,11 +444,13 @@ const VoiceMode = () => {
               }
             }));
             
-            // Request final response
-            console.log('Requesting final response after review completion');
-            dataChannelRef.current?.send(JSON.stringify({
-              type: 'response.create'
-            }));
+            // Request final response if no active response
+            if (!hasActiveResponse) {
+              console.log('Requesting final response after review completion');
+              dataChannelRef.current?.send(JSON.stringify({
+                type: 'response.create'
+              }));
+            }
             
             // Then clean up the session
             setTimeout(() => {
