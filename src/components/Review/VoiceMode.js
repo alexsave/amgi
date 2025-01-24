@@ -1,15 +1,28 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { MicrophoneIcon } from '@heroicons/react/24/solid';
+import { MicrophoneIcon, ForwardIcon } from '@heroicons/react/24/solid';
+import { useReview } from '../../hooks/useReview';
 import './VoiceMode.css';
 
-const VoiceMode = ({ currentCard }) => {
+const VoiceMode = () => {
+  const review = useReview();
+  const currentCard = review.dueCards[review.currentCardIndex];
+  
   const [isRecording, setIsRecording] = useState(false);
-  const [feedback, setFeedback] = useState('');
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [feedback, setFeedback] = useState('Click microphone to start');
   const [isConnected, setIsConnected] = useState(false);
+  const [buttonState, setButtonState] = useState('default'); // 'default', 'success', 'error'
+  const [showSkip, setShowSkip] = useState(false);
+  const [hasStarted, setHasStarted] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [audioScale, setAudioScale] = useState(0);
   const peerConnectionRef = useRef(null);
   const dataChannelRef = useRef(null);
   const audioElementRef = useRef(null);
   const mediaStreamRef = useRef(null);
+  const audioContextRef = useRef(null);
+  const analyserRef = useRef(null);
+  const animationFrameRef = useRef(null);
 
   const setupWebRTC = useCallback(async () => {
     try {
@@ -53,16 +66,58 @@ const VoiceMode = ({ currentCard }) => {
       dc.onopen = () => {
         console.log('Data channel opened');
         setIsConnected(true);
-        setFeedback('');
+        setFeedback('Click the microphone to begin');
 
-        // Set up initial session configuration
+        // Set up initial session configuration with function calling
         dc.send(JSON.stringify({
           type: 'session.update',
           session: {
-            instructions: `You are a helpful language learning tutor. The user is practicing with flashcards. 
-            The current card's front text is "${currentCard.frontText}" and back text is "${currentCard.backText}".
-            Help the user practice pronunciation, answer questions about the word/phrase, or provide examples.
-            Keep responses brief and focused.`,
+            instructions: `You are a friendly language learning tutor. First, give a brief welcome and explain that you'll help practice pronunciation.
+            For each card: pronounce the front text and wait for the user to respond with the translation.
+            If they say "again", repeat the front text.
+            If they say "skip", "idk", or "next", mark it as incorrect and skipped.
+            If they pronounce it incorrectly, mark it as incorrect and have them try again.
+            If they pronounce it correctly, mark it as correct and move to the next card.
+            When there are no more cards, give a brief goodbye and encouragement.
+            Current card - Front: "${currentCard.frontText}", Back: "${currentCard.backText}"`,
+            tools: [{
+              type: 'function',
+              name: 'evaluatePronunciation',
+              description: 'Evaluate the pronunciation of a spoken phrase against an expected text.',
+              parameters: {
+                type: 'object',
+                properties: {
+                  result: {
+                    type: 'string',
+                    enum: ['correct', 'incorrect', 'quit'],
+                    description: 'The evaluation result'
+                  },
+                  message: {
+                    type: 'string',
+                    description: 'Feedback message explaining the evaluation'
+                  }
+                },
+                required: ['result', 'message']
+              }
+            }, {
+              type: 'function',
+              name: 'getNextCard',
+              description: 'Get the next card in the deck.',
+              parameters: {
+                type: 'object',
+                properties: {},
+                required: []
+              }
+            }],
+            tool_choice: 'auto'
+          }
+        }));
+
+        // Start the interaction by having the AI pronounce the front text
+        dc.send(JSON.stringify({
+          type: 'response.create',
+          response: {
+            instructions: `Pronounce the front text: "${currentCard.frontText}" clearly and wait for the user's response.`
           }
         }));
       };
@@ -121,6 +176,118 @@ const VoiceMode = ({ currentCard }) => {
       case 'response.text.delta':
         setFeedback(prev => prev + event.delta);
         break;
+      case 'response.output_item.done':
+        const { item } = event;
+        if (item.type === 'function_call') {
+          if (item.name === 'evaluatePronunciation') {
+            const args = JSON.parse(item.arguments);
+            setFeedback(args.message);
+            
+            // Handle visual feedback based on result
+            if (args.result === 'correct') {
+              setButtonState('success');
+              setTimeout(() => setButtonState('default'), 500);
+              // Update card scheduling for correct answer
+              review.updateCardScheduling(currentCard.created, 'correct');
+              setTimeout(() => {
+                review.moveToNextCard();
+                // Request OpenAI to introduce the next card
+                const nextCard = review.dueCards[review.currentCardIndex + 1];
+                if (nextCard && dataChannelRef.current) {
+                  dataChannelRef.current.send(JSON.stringify({
+                    type: 'response.create',
+                    response: {
+                      instructions: `Pronounce the front text: "${nextCard.frontText}" clearly and wait for the user's response.`
+                    }
+                  }));
+                }
+              }, 2000);
+            } else if (args.result === 'incorrect') {
+              setButtonState('error');
+              setTimeout(() => setButtonState('default'), 500);
+              // Update card scheduling for incorrect answer
+              review.updateCardScheduling(currentCard.created, 'incorrect');
+              // Increment attempts
+              review.setAttempts(prev => {
+                const newAttempts = prev + 1;
+                if (newAttempts >= 3) {
+                  review.setShowAnswer(true);
+                  setTimeout(() => {
+                    review.moveToNextCard();
+                    // Request OpenAI to introduce the next card
+                    const nextCard = review.dueCards[review.currentCardIndex + 1];
+                    if (nextCard && dataChannelRef.current) {
+                      dataChannelRef.current.send(JSON.stringify({
+                        type: 'response.create',
+                        response: {
+                          instructions: `Pronounce the front text: "${nextCard.frontText}" clearly and wait for the user's response.`
+                        }
+                      }));
+                    }
+                  }, 2000);
+                }
+                return newAttempts;
+              });
+            } else if (args.result === 'quit') {
+              setShowSkip(true);
+              setTimeout(() => setShowSkip(false), 500);
+              // Mark as incorrect and move to next card
+              review.updateCardScheduling(currentCard.created, 'incorrect');
+              review.setShowAnswer(true);
+              setTimeout(() => {
+                review.moveToNextCard();
+                // Request OpenAI to introduce the next card
+                const nextCard = review.dueCards[review.currentCardIndex + 1];
+                if (nextCard && dataChannelRef.current) {
+                  dataChannelRef.current.send(JSON.stringify({
+                    type: 'response.create',
+                    response: {
+                      instructions: `Pronounce the front text: "${nextCard.frontText}" clearly and wait for the user's response.`
+                    }
+                  }));
+                }
+              }, 500);
+            }
+            
+            // Send the function result back
+            dataChannelRef.current?.send(JSON.stringify({
+              type: 'conversation.item.create',
+              item: {
+                type: 'function_call_output',
+                call_id: item.call_id,
+                output: JSON.stringify({ result: args.result, message: args.message })
+              }
+            }));
+
+            // Request the next response
+            dataChannelRef.current?.send(JSON.stringify({
+              type: 'response.create'
+            }));
+          } else if (item.name === 'getNextCard') {
+            // Get the next card info from review hook
+            const nextCardIndex = review.currentCardIndex + 1;
+            const nextCard = review.dueCards[nextCardIndex];
+            
+            dataChannelRef.current?.send(JSON.stringify({
+              type: 'conversation.item.create',
+              item: {
+                type: 'function_call_output',
+                call_id: item.call_id,
+                output: JSON.stringify(nextCard ? {
+                  frontText: nextCard.frontText,
+                  backText: nextCard.backText,
+                  hasMore: nextCardIndex < review.dueCards.length - 1
+                } : null)
+              }
+            }));
+
+            // Request the next response
+            dataChannelRef.current?.send(JSON.stringify({
+              type: 'response.create'
+            }));
+          }
+        }
+        break;
       case 'error':
         console.error('Realtime API Error:', event.error);
         setFeedback('Error: ' + event.error);
@@ -130,23 +297,41 @@ const VoiceMode = ({ currentCard }) => {
     }
   };
 
-  useEffect(() => {
-    setupWebRTC();
+  // Add audio visualization
+  const setupAudioVisualization = useCallback((stream) => {
+    if (!audioContextRef.current) {
+      audioContextRef.current = new AudioContext();
+    }
+    
+    if (!analyserRef.current) {
+      analyserRef.current = audioContextRef.current.createAnalyser();
+      analyserRef.current.fftSize = 256;
+    }
 
-    return () => {
-      // Cleanup
-      if (mediaStreamRef.current) {
-        mediaStreamRef.current.getTracks().forEach(track => track.stop());
+    const source = audioContextRef.current.createMediaStreamSource(stream);
+    source.connect(analyserRef.current);
+
+    const updateVolume = () => {
+      if (!analyserRef.current) return;
+
+      const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
+      analyserRef.current.getByteFrequencyData(dataArray);
+
+      let sum = 0;
+      for (let i = 0; i < dataArray.length; i++) {
+        sum += dataArray[i];
       }
-      if (peerConnectionRef.current) {
-        peerConnectionRef.current.close();
-      }
-      if (audioElementRef.current) {
-        audioElementRef.current.srcObject = null;
-      }
+      const average = sum / dataArray.length;
+      const volume = Math.min(average / 128, 1); // Normalize to 0-1
+      setAudioScale(volume * 100);
+
+      animationFrameRef.current = requestAnimationFrame(updateVolume);
     };
-  }, [setupWebRTC]);
 
+    updateVolume();
+  }, []);
+
+  // Update startRecording to include visualization
   const startRecording = async () => {
     if (!isConnected) {
       setFeedback('Not connected. Please wait...');
@@ -156,6 +341,11 @@ const VoiceMode = ({ currentCard }) => {
     setIsRecording(true);
     setFeedback('Listening...');
 
+    // Set up audio visualization
+    if (mediaStreamRef.current) {
+      setupAudioVisualization(mediaStreamRef.current);
+    }
+
     // Clear any existing audio buffer
     if (dataChannelRef.current) {
       dataChannelRef.current.send(JSON.stringify({
@@ -164,9 +354,16 @@ const VoiceMode = ({ currentCard }) => {
     }
   };
 
+  // Update stopRecording to cleanup visualization
   const stopRecording = () => {
     if (isRecording && dataChannelRef.current) {
       setIsRecording(false);
+      
+      // Stop audio visualization
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+      setAudioScale(0);
       
       // Commit the audio buffer and create a response
       dataChannelRef.current.send(JSON.stringify({
@@ -181,58 +378,106 @@ const VoiceMode = ({ currentCard }) => {
     }
   };
 
-  // Add audio processing
+  // Add audio element event handlers
   useEffect(() => {
-    if (!mediaStreamRef.current || !dataChannelRef.current || !isRecording) {
+    if (!audioElementRef.current) return;
+
+    const handlePlay = () => {
+      console.log('AI started speaking');
+      setIsSpeaking(true);
+    };
+
+    const handleEnded = () => {
+      console.log('AI finished speaking');
+      setIsSpeaking(false);
+    };
+
+    audioElementRef.current.addEventListener('play', handlePlay);
+    audioElementRef.current.addEventListener('ended', handleEnded);
+
+    return () => {
+      if (audioElementRef.current) {
+        audioElementRef.current.removeEventListener('play', handlePlay);
+        audioElementRef.current.removeEventListener('ended', handleEnded);
+      }
+    };
+  }, []);
+
+  // Update cleanup effect
+  useEffect(() => {
+    return () => {
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach(track => track.stop());
+      }
+      if (peerConnectionRef.current) {
+        peerConnectionRef.current.close();
+      }
+      if (audioElementRef.current) {
+        audioElementRef.current.srcObject = null;
+      }
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
+      }
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
+  }, []);
+
+  const handleMicClick = async () => {
+    if (!hasStarted) {
+      setIsConnecting(true);
+      setFeedback('Connecting...');
+      try {
+        await setupWebRTC();
+        setHasStarted(true);
+        // Start the session with welcome message
+        dataChannelRef.current?.send(JSON.stringify({
+          type: 'response.create',
+          response: {
+            instructions: 'Give a brief, friendly welcome and explain that you\'ll help them practice pronunciation. Then pronounce the first card.'
+          }
+        }));
+      } catch (error) {
+        setFeedback('Failed to connect: ' + error.message);
+        setIsConnecting(false);
+      }
       return;
     }
 
-    const mediaRecorder = new MediaRecorder(mediaStreamRef.current);
-    const chunks = [];
-
-    mediaRecorder.ondataavailable = (event) => {
-      if (event.data.size > 0) {
-        chunks.push(event.data);
-        // Convert to base64 and send
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          const base64Audio = reader.result.split(',')[1];
-          if (dataChannelRef.current?.readyState === 'open') {
-            dataChannelRef.current.send(JSON.stringify({
-              type: 'input_audio_buffer.append',
-              buffer: base64Audio
-            }));
-          }
-        };
-        reader.readAsDataURL(event.data);
-      }
-    };
-
-    mediaRecorder.start(100); // Send chunks every 100ms
-
-    return () => {
-      mediaRecorder.stop();
-    };
-  }, [isRecording]);
+    if (isRecording) {
+      stopRecording();
+    } else {
+      startRecording();
+    }
+  };
 
   return (
     <div className="voice-mode">
       <div className="voice-interface">
         <button 
-          className={`mic-button ${isRecording ? 'recording' : ''} ${!isConnected ? 'disabled' : ''}`}
-          onMouseDown={startRecording}
-          onMouseUp={stopRecording}
-          onMouseLeave={stopRecording}
-          disabled={!isConnected}
+          className={`mic-button ${isRecording ? 'recording' : ''} ${isSpeaking ? 'speaking' : ''} ${!isConnected && hasStarted ? 'disabled' : ''} ${buttonState}`}
+          onClick={handleMicClick}
+          disabled={(hasStarted && !isConnected) || isSpeaking || isConnecting}
+          style={{ '--scale': `${audioScale}%` }}
         >
+          <div className="audio-visualizer" />
           <MicrophoneIcon className="large-mic-icon" />
         </button>
+        {showSkip && (
+          <div className="skip-indicator show">
+            <ForwardIcon />
+          </div>
+        )}
       </div>
       {feedback && (
         <div className="feedback-message">
           {feedback}
         </div>
       )}
+      <div className="attempts-counter">
+        Attempts: {review.attempts}/3
+      </div>
     </div>
   );
 };
