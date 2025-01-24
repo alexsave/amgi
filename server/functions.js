@@ -47,6 +47,8 @@ const evaluationTools = [{
     }
 }];
 
+const OPENAI_REALTIME_URL = 'wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-10-01';
+
 async function generateCards(userInput, targetLang) {
     console.log('Starting generateCards with input:', { userInput, targetLang });
     try {
@@ -252,8 +254,156 @@ async function voiceChat(audioBase64, currentCard) {
     }
 }
 
-async function handler(req) {
-    console.log('Received request:', req.method, req.url);
+async function setupRealtimeVoiceConnection(ws) {
+    try {
+        const openaiWs = await connectToOpenAI();
+        setupOpenAIHandlers(openaiWs, ws);
+        return openaiWs;
+    } catch (error) {
+        console.error('Error setting up OpenAI connection:', error);
+        ws.send(JSON.stringify({
+            type: 'error',
+            error: 'Failed to connect to OpenAI'
+        }));
+    }
+}
+
+async function connectToOpenAI() {
+    const headers = {
+        'Authorization': `Bearer ${Deno.env.get("OPEN_AI_KEY")}`,
+        'OpenAI-Beta': 'realtime=v1'
+    };
+
+    return new WebSocket(OPENAI_REALTIME_URL, undefined, {
+        headers
+    });
+}
+
+function setupOpenAIHandlers(openaiWs, clientWs) {
+    const instructions = `You are a helpful language learning tutor. Help the user practice pronunciation, 
+    answer questions about words/phrases, and provide examples. Keep responses brief and focused.
+    If you hear "quit" or "exit", inform them they can toggle voice mode off.`;
+
+    openaiWs.onopen = () => {
+        console.log('Connected to OpenAI WebSocket');
+        // Basic settings for Realtime API
+        openaiWs.send(JSON.stringify({
+            type: 'session.update',
+            session: {
+                voice: 'shimmer',
+                instructions: instructions,
+                input_audio_transcription: { model: 'whisper-1' },
+                turn_detection: { type: 'server_vad' }
+            }
+        }));
+
+        // Set up function calling
+        openaiWs.send(JSON.stringify({
+            type: 'session.update',
+            session: {
+                tools: [{
+                    type: 'function',
+                    name: 'evaluatePronunciation',
+                    description: 'Evaluate the pronunciation of a spoken phrase against an expected text.',
+                    parameters: {
+                        type: 'object',
+                        properties: {
+                            result: {
+                                type: 'string',
+                                enum: ['correct', 'incorrect', 'quit'],
+                                description: 'The evaluation result'
+                            },
+                            message: {
+                                type: 'string',
+                                description: 'Feedback message explaining the evaluation'
+                            }
+                        },
+                        required: ['result', 'message']
+                    }
+                }],
+                tool_choice: 'auto'
+            }
+        }));
+    };
+
+    openaiWs.onmessage = async (event) => {
+        const message = JSON.parse(event.data);
+        
+        switch (message.type) {
+            case 'response.audio.delta':
+                // Forward audio to client
+                clientWs.send(JSON.stringify({
+                    type: 'audio',
+                    data: message.delta
+                }));
+                break;
+                
+            case 'response.output_item.done':
+                const { item } = message;
+                if (item.type === 'function_call' && item.name === 'evaluatePronunciation') {
+                    const args = JSON.parse(item.arguments);
+                    // Send evaluation result to client
+                    clientWs.send(JSON.stringify({
+                        type: 'evaluation',
+                        result: args.result,
+                        message: args.message
+                    }));
+                    
+                    // Request response generation
+                    openaiWs.send(JSON.stringify({ type: 'response.create' }));
+                }
+                break;
+                
+            case 'error':
+                console.error('OpenAI WebSocket Error:', message.error);
+                clientWs.send(JSON.stringify({
+                    type: 'error',
+                    error: message.error
+                }));
+                break;
+        }
+    };
+
+    openaiWs.onerror = (error) => {
+        console.error('OpenAI WebSocket error:', error);
+        clientWs.send(JSON.stringify({
+            type: 'error',
+            error: 'OpenAI connection error'
+        }));
+    };
+
+    return openaiWs;
+}
+
+async function generateEphemeralToken() {
+    try {
+        const response = await fetch("https://api.openai.com/v1/realtime/sessions", {
+            method: "POST",
+            headers: {
+                "Authorization": `Bearer ${Deno.env.get("OPEN_AI_KEY")}`,
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                model: "gpt-4o-realtime-preview-2024-12-17",
+                voice: "shimmer",
+            }),
+        });
+
+        if (!response.ok) {
+            throw new Error(`Failed to generate token: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        console.error('Error generating ephemeral token:', error);
+        throw error;
+    }
+}
+
+// Combine both HTTP and WebSocket handling
+Deno.serve({ port: 8000 }, async (req) => {
+    const url = new URL(req.url);
     const origin = req.headers.get("Origin") || "http://localhost:3000";
     const headers = {
         "Access-Control-Allow-Origin": origin,
@@ -261,14 +411,76 @@ async function handler(req) {
         "Access-Control-Allow-Headers": "*",
     };
 
+    // Handle WebSocket upgrade
+    if (req.headers.get("upgrade") === "websocket") {
+        const { socket, response } = Deno.upgradeWebSocket(req);
+        console.log('Client connected to WebSocket');
+        
+        try {
+            const openaiWs = await setupRealtimeVoiceConnection(socket);
+            
+            socket.onmessage = async (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    
+                    if (data.type === 'audio') {
+                        // Forward audio data to OpenAI
+                        openaiWs.send(JSON.stringify({
+                            type: 'input_audio_buffer.append',
+                            buffer: data.buffer
+                        }));
+                    }
+                } catch (error) {
+                    console.error('Error handling message:', error);
+                    socket.send(JSON.stringify({
+                        type: 'error',
+                        error: 'Failed to process message'
+                    }));
+                }
+            };
+            
+            socket.onclose = () => {
+                console.log('Client disconnected');
+                openaiWs?.close();
+            };
+            
+            socket.onerror = (error) => {
+                console.error('WebSocket error:', error);
+            };
+            
+            return response;
+        } catch (error) {
+            console.error('Error in WebSocket setup:', error);
+            return new Response('WebSocket setup failed', { status: 500 });
+        }
+    }
+
+    // Handle CORS preflight
     if (req.method === "OPTIONS") {
         return new Response(null, { headers });
     }
 
-    const url = new URL(req.url);
+    // Handle HTTP requests
+    try {
+        if (req.method === "GET" && url.pathname === "/api/realtime-token") {
+            try {
+                const token = await generateEphemeralToken();
+                return new Response(JSON.stringify(token), {
+                    headers: {
+                        ...headers,
+                        'Content-Type': 'application/json'
+                    }
+                });
+            } catch (error) {
+                console.error('Error generating token:', error);
+                return new Response(
+                    JSON.stringify({ error: error.message }), 
+                    { status: 500, headers }
+                );
+            }
+        }
 
-    if (req.method === "POST" && url.pathname === "/api/generate_cards") {
-        try {
+        if (req.method === "POST" && url.pathname === "/api/generate_cards") {
             const body = await req.json();
             console.log('Received request body:', body);
             const { userInput, targetLang } = body;
@@ -288,32 +500,12 @@ async function handler(req) {
             }
 
             return await generateCards(userInput, targetLang);
-        } catch (error) {
-            console.error('Error handling request:', error);
-            return new Response(
-                JSON.stringify({ error: error.message }), 
-                { status: 500, headers }
-            );
         }
-    }
 
-    if (req.method === "POST" && url.pathname === "/api/evaluate_speech") {
-        try {
+        if (req.method === "POST" && url.pathname === "/api/evaluate_speech") {
             const body = await req.json();
             const { audioBase64, expectedText, sourceLang, expectedAudioBase64, audioFormat } = body;
             
-            console.log('Received evaluate_speech request with parameters:', {
-                hasAudioBase64: !!audioBase64,
-                hasExpectedText: !!expectedText,
-                hasSourceLang: !!sourceLang,
-                hasExpectedAudioBase64: !!expectedAudioBase64,
-                audioFormat,
-                sourceLang,
-                expectedTextLength: expectedText?.length,
-                audioBase64Length: audioBase64?.length,
-                expectedAudioBase64Length: expectedAudioBase64?.length
-            });
-
             const missingParams = [];
             if (!audioBase64) missingParams.push('audioBase64');
             if (!expectedText) missingParams.push('expectedText');
@@ -322,7 +514,6 @@ async function handler(req) {
             if (!audioFormat) missingParams.push('audioFormat');
 
             if (missingParams.length > 0) {
-                console.error('Missing required parameters:', missingParams);
                 return new Response(
                     JSON.stringify({ 
                         error: `Missing required parameters: ${missingParams.join(', ')}`,
@@ -332,26 +523,10 @@ async function handler(req) {
                 );
             }
 
-            // Convert audio format if needed
-            let processedAudioBase64 = audioBase64;
-            if (audioFormat === 'webm') {
-                // For now, we'll just pass the webm data and let OpenAI handle it
-                // In a production environment, we should convert webm to mp3 here
-                console.log('Received webm audio, passing through to OpenAI');
-            }
-
-            return await evaluateSpeech(processedAudioBase64, expectedText, sourceLang, expectedAudioBase64);
-        } catch (error) {
-            console.error('Error handling speech evaluation:', error);
-            return new Response(
-                JSON.stringify({ error: error.message }), 
-                { status: 500, headers }
-            );
+            return await evaluateSpeech(audioBase64, expectedText, sourceLang, expectedAudioBase64);
         }
-    }
 
-    if (req.method === "POST" && url.pathname === "/api/voice_chat") {
-        try {
+        if (req.method === "POST" && url.pathname === "/api/voice_chat") {
             const body = await req.json();
             const { audioBase64, currentCard } = body;
 
@@ -363,16 +538,14 @@ async function handler(req) {
             }
 
             return await voiceChat(audioBase64, currentCard);
-        } catch (error) {
-            console.error('Error in voice chat endpoint:', error);
-            return new Response(
-                JSON.stringify({ error: error.message }), 
-                { status: 500, headers }
-            );
         }
+
+        return new Response("Not Found", { status: 404, headers });
+    } catch (error) {
+        console.error('Error handling request:', error);
+        return new Response(
+            JSON.stringify({ error: error.message }), 
+            { status: 500, headers }
+        );
     }
-
-    return new Response("Not Found", { status: 404, headers });
-}
-
-Deno.serve({ port: 8000 }, handler);
+});
