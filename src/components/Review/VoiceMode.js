@@ -304,70 +304,64 @@ const VoiceMode = () => {
             } else if (args.result === 'incorrect') {
               setButtonState('error');
               setTimeout(() => setButtonState('default'), 500);
-              // Update card scheduling for incorrect answer
               review.updateCardScheduling(currentCard.created, 'incorrect');
               
-              // Increment attempts
+              // Update attempts and handle max attempts case
+              let shouldMoveToNext = false;
+              let nextCard = null;
+
               review.setAttempts(prev => {
                 const newAttempts = prev + 1;
                 if (newAttempts >= 3) {
-                  review.setShowAnswer(true);
-                  review.moveToNextCard();
-                  
-                  // Get next card info after max attempts
-                  const nextCard = review.dueCards[review.currentCardIndex + 1];
-                  
-                  // Send function result with next card info after max attempts
-                  console.log('Sending function_call_output for evaluatePronunciation:', { result: 'skip', hasNextCard: !!nextCard }, '- Max attempts reached, moving to next card');
-                  dataChannelRef.current?.send(JSON.stringify({
-                    type: 'conversation.item.create',
-                    item: {
-                      type: 'function_call_output',
-                      call_id: item.call_id,
-                      output: JSON.stringify({
-                        result: 'skip',
-                        message: 'Moving to next card after maximum attempts',
-                        nextCard: nextCard ? {
-                          frontText: nextCard.frontText,
-                          backText: nextCard.backText
-                        } : null,
-                        hasMoreCards: review.currentCardIndex < review.dueCards.length - 1
-                      })
-                    }
-                  }));
-                  
-                  // Request next response if no active response
-                  if (!hasActiveResponse) {
-                    console.log('Requesting next response after max attempts');
-                    dataChannelRef.current?.send(JSON.stringify({
-                      type: 'response.create'
-                    }));
-                  }
-                } else {
-                  // Just acknowledge the incorrect attempt
-                  console.log('Sending function_call_output for evaluatePronunciation:', { result: args.result }, '- Incorrect attempt');
-                  dataChannelRef.current?.send(JSON.stringify({
-                    type: 'conversation.item.create',
-                    item: {
-                      type: 'function_call_output',
-                      call_id: item.call_id,
-                      output: JSON.stringify({
-                        result: args.result,
-                        message: args.message
-                      })
-                    }
-                  }));
-                  
-                  // Request next response if no active response
-                  if (!hasActiveResponse) {
-                    console.log('Requesting next response after incorrect attempt');
-                    dataChannelRef.current?.send(JSON.stringify({
-                      type: 'response.create'
-                    }));
-                  }
+                  shouldMoveToNext = true;
                 }
                 return newAttempts;
               });
+
+              // Handle max attempts case outside setState
+              if (shouldMoveToNext) {
+                review.setShowAnswer(true);
+                review.moveToNextCard();
+                nextCard = review.dueCards[review.currentCardIndex + 1];
+                
+                // Send function result with next card info after max attempts
+                dataChannelRef.current?.send(JSON.stringify({
+                  type: 'conversation.item.create',
+                  item: {
+                    type: 'function_call_output',
+                    call_id: item.call_id,
+                    output: JSON.stringify({
+                      result: 'skip',
+                      message: 'Moving to next card after maximum attempts',
+                      nextCard: nextCard ? {
+                        frontText: nextCard.frontText,
+                        backText: nextCard.backText
+                      } : null,
+                      hasMoreCards: review.currentCardIndex < review.dueCards.length - 1
+                    })
+                  }
+                }));
+              } else {
+                // Just acknowledge the incorrect attempt
+                dataChannelRef.current?.send(JSON.stringify({
+                  type: 'conversation.item.create',
+                  item: {
+                    type: 'function_call_output',
+                    call_id: item.call_id,
+                    output: JSON.stringify({
+                      result: args.result,
+                      message: args.message
+                    })
+                  }
+                }));
+              }
+
+              // Request next response if no active response
+              if (!hasActiveResponse) {
+                dataChannelRef.current?.send(JSON.stringify({
+                  type: 'response.create'
+                }));
+              }
 
             } else if (args.result === 'quit' || args.result === 'skip') {
               setShowSkip(true);
