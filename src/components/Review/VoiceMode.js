@@ -23,14 +23,8 @@ const VoiceMode = () => {
   const audioElementRef = useRef(null);
   const mediaStreamRef = useRef(null);
   const audioContextRef = useRef(null);
-  const analyserRef = useRef(null);
-  const aiAnalyserRef = useRef(null);
   const animationFrameRef = useRef(null);
   const aiAnimationFrameRef = useRef(null);
-  const canvasRef = useRef(null);
-  const aiCanvasRef = useRef(null);
-  const canvasCtxRef = useRef(null);
-  const aiCanvasCtxRef = useRef(null);
 
   const setupWebRTC = useCallback(async () => {
     try {
@@ -664,9 +658,7 @@ const VoiceMode = () => {
               isRecording={isRecording}
               isSpeaking={false}
               isAiOutput={false}
-              canvasRef={canvasRef}
               audioContextRef={audioContextRef}
-              analyserRef={analyserRef}
               animationFrameRef={animationFrameRef}
               onVolumeChange={setAudioScale}
             />
@@ -677,9 +669,7 @@ const VoiceMode = () => {
               isRecording={false}
               isSpeaking={isSpeaking}
               isAiOutput={true}
-              canvasRef={aiCanvasRef}
               audioContextRef={audioContextRef}
-              analyserRef={aiAnalyserRef}
               animationFrameRef={aiAnimationFrameRef}
             />
           </div>

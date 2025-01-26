@@ -6,12 +6,13 @@ const AudioVisualizer = ({
   isRecording, 
   isSpeaking, 
   isAiOutput,
-  canvasRef,
   audioContextRef,
-  analyserRef,
   animationFrameRef,
   onVolumeChange
 }) => {
+  const analyserRef = useRef(null);
+  const canvasRef = useRef(null);
+
   const setupAudioVisualization = () => {
     if (!audioStream) return;
 
