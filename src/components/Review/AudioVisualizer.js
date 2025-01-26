@@ -3,8 +3,7 @@ import './AudioVisualizer.css';
 
 const AudioVisualizer = ({ 
   audioStream, 
-  isRecording, 
-  isSpeaking, 
+  isLive,
   isAiOutput,
   audioContextRef,
   animationFrameRef,
@@ -92,15 +91,17 @@ const AudioVisualizer = ({
         
         // Set color based on state and sound detection
         if (hasSound) {
-          if (!isAiOutput && isRecording) {
-            // Rainbow gradient for user recording
-            const hue = (i / bufferLength) * 360;
-            const lightness = 50 + (barHeight / HEIGHT) * 50;
-            ctx.fillStyle = `hsl(${hue}, 100%, ${lightness}%)`;
-          } else if (isAiOutput && isSpeaking) {
-            // Flame orange for AI speaking
-            const intensity = barHeight / HEIGHT;
-            ctx.fillStyle = `rgba(255, 107, 53, ${0.5 + intensity * 0.5})`;
+          if (isLive) {
+            if (isAiOutput) {
+              // Rainbow gradient for user recording
+              const hue = (i / bufferLength) * 360;
+              const lightness = 50 + (barHeight / HEIGHT) * 50;
+              ctx.fillStyle = `hsl(${hue}, 100%, ${lightness}%)`;
+            } else {
+              // Flame orange for user recording
+              const intensity = barHeight / HEIGHT;
+              ctx.fillStyle = `rgba(255, 107, 53, ${0.5 + intensity * 0.5})`;
+            }
           } else {
             // Default colors
             const intensity = barHeight / HEIGHT;
@@ -157,7 +158,7 @@ const AudioVisualizer = ({
     return () => {
       if (cleanup) cleanup();
     };
-  }, [audioStream, isRecording, isSpeaking]);
+  }, [audioStream, isLive]);
 
   return (
     <canvas ref={canvasRef} className="audio-canvas" />

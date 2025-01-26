@@ -655,8 +655,7 @@ const VoiceMode = () => {
           <div className="visualizer user">
             <AudioVisualizer
               audioStream={mediaStreamRef.current}
-              isRecording={isRecording}
-              isSpeaking={false}
+              isLive={isRecording}
               isAiOutput={false}
               audioContextRef={audioContextRef}
               animationFrameRef={animationFrameRef}
@@ -666,8 +665,7 @@ const VoiceMode = () => {
           <div className="visualizer ai">
             <AudioVisualizer
               audioStream={audioElementRef.current?.srcObject}
-              isRecording={false}
-              isSpeaking={isSpeaking}
+              isLive={isSpeaking}
               isAiOutput={true}
               audioContextRef={audioContextRef}
               animationFrameRef={aiAnimationFrameRef}
