@@ -23,9 +23,13 @@ const VoiceMode = () => {
   const mediaStreamRef = useRef(null);
   const audioContextRef = useRef(null);
   const analyserRef = useRef(null);
+  const aiAnalyserRef = useRef(null);
   const animationFrameRef = useRef(null);
+  const aiAnimationFrameRef = useRef(null);
   const canvasRef = useRef(null);
+  const aiCanvasRef = useRef(null);
   const canvasCtxRef = useRef(null);
+  const aiCanvasCtxRef = useRef(null);
 
   const setupWebRTC = useCallback(async () => {
     try {
@@ -56,10 +60,7 @@ const VoiceMode = () => {
       pc.ontrack = e => {
         audioElementRef.current.srcObject = e.streams[0];
         // Set up visualization for AI output
-        if (audioContextRef.current && analyserRef.current) {
-          const outputSource = audioContextRef.current.createMediaStreamSource(e.streams[0]);
-          outputSource.connect(analyserRef.current);
-        }
+        setupAudioVisualization(e.streams[0], true);
       };
 
       // Add local audio track
@@ -68,7 +69,7 @@ const VoiceMode = () => {
       pc.addTrack(stream.getTracks()[0], stream);
 
       // Initialize visualization
-      setupAudioVisualization(stream);
+      setupAudioVisualization(stream, false);
 
       // Set up data channel
       const dc = pc.createDataChannel("oai-events");
@@ -221,7 +222,25 @@ const VoiceMode = () => {
   }, [currentCard]);
 
   const handleRealtimeEvent = (event) => {
+    console.log('handleRealtimeEvent - event:', event);
     switch (event.type) {
+      case 'output_audio_buffer.audio_started':
+        if (mediaStreamRef.current) {
+          mediaStreamRef.current.getAudioTracks().forEach(track => {
+            track.enabled = false;
+          });
+        }
+        break;
+
+      case 'output_audio_buffer.audio_stopped':
+        console.log('input_audio_buffer.speech_stopped - unmuting microphone');
+        if (mediaStreamRef.current) {
+          mediaStreamRef.current.getAudioTracks().forEach(track => {
+            track.enabled = true;
+          });
+        }
+        break;
+
       case 'response.text.delta':
         setIsSpeaking(true);
         setHasActiveResponse(true);
@@ -229,12 +248,6 @@ const VoiceMode = () => {
         // Stop recording if we were recording when AI starts speaking
         if (isRecording) {
           setIsRecording(false);
-          if (mediaStreamRef.current) {
-            // Mute the microphone
-            mediaStreamRef.current.getAudioTracks().forEach(track => {
-              track.enabled = false;
-            });
-          }
           if (animationFrameRef.current) {
             cancelAnimationFrame(animationFrameRef.current);
           }
@@ -247,12 +260,6 @@ const VoiceMode = () => {
         // Set a timeout to mark speaking as done if no new delta arrives
         window.speakingTimeoutId = setTimeout(() => {
           setIsSpeaking(false);
-          // Re-enable microphone when AI stops speaking
-          if (mediaStreamRef.current) {
-            mediaStreamRef.current.getAudioTracks().forEach(track => {
-              track.enabled = true;
-            });
-          }
         }, 500);
         break;
       case 'response.output_item.done':
@@ -503,29 +510,31 @@ const VoiceMode = () => {
     }
   };
 
-  // Add audio visualization first
-  const setupAudioVisualization = useCallback((stream) => {
-    console.log('Setting up audio visualization');
+  // Set up audio visualization first
+  const setupAudioVisualization = useCallback((stream, isAiOutput = false) => {
+    console.log(`Setting up ${isAiOutput ? 'AI' : 'user'} audio visualization`);
     if (!audioContextRef.current) {
       audioContextRef.current = new AudioContext();
       console.log('Created new AudioContext');
     }
     
-    if (!analyserRef.current) {
-      analyserRef.current = audioContextRef.current.createAnalyser();
-      analyserRef.current.fftSize = 256;
-      console.log('Created new AnalyserNode with fftSize:', analyserRef.current.fftSize);
+    // Create or get the appropriate analyser
+    const analyser = isAiOutput ? aiAnalyserRef : analyserRef;
+    if (!analyser.current) {
+      analyser.current = audioContextRef.current.createAnalyser();
+      analyser.current.fftSize = 256;
+      console.log(`Created new AnalyserNode for ${isAiOutput ? 'AI' : 'user'} with fftSize:`, analyser.current.fftSize);
     }
 
-    // Create new source for each visualization
+    // Create new source for visualization
     const source = audioContextRef.current.createMediaStreamSource(stream);
-    source.connect(analyserRef.current);
-    console.log('Connected audio source to analyser');
+    source.connect(analyser.current);
+    console.log(`Connected ${isAiOutput ? 'AI' : 'user'} audio source to analyser`);
 
     // Set up canvas
-    const canvas = canvasRef.current;
+    const canvas = isAiOutput ? aiCanvasRef.current : canvasRef.current;
     if (!canvas) {
-      console.error('Canvas element not found');
+      console.error(`${isAiOutput ? 'AI' : 'User'} canvas element not found`);
       return;
     }
     
@@ -534,37 +543,32 @@ const VoiceMode = () => {
     const rect = canvas.getBoundingClientRect();
     canvas.width = rect.width * dpr;
     canvas.height = rect.height * dpr;
-    console.log('Canvas dimensions:', { width: canvas.width, height: canvas.height, dpr });
     
     const ctx = canvas.getContext('2d');
-    canvasCtxRef.current = ctx;
+    if (isAiOutput) {
+      aiCanvasCtxRef.current = ctx;
+    } else {
+      canvasCtxRef.current = ctx;
+    }
     ctx.scale(dpr, dpr);
 
-    const bufferLength = analyserRef.current.frequencyBinCount;
+    const bufferLength = analyser.current.frequencyBinCount;
     const dataArray = new Uint8Array(bufferLength);
     const WIDTH = rect.width;
     const HEIGHT = rect.height;
     const barWidth = (WIDTH / bufferLength) * 2.5;
     const barSpacing = 2;
 
-    console.log('Visualization parameters:', { 
-      bufferLength, 
-      WIDTH, 
-      HEIGHT, 
-      barWidth,
-      barSpacing
-    });
-
     let frameCount = 0;
     const renderFrame = () => {
-      if (!analyserRef.current || !canvasCtxRef.current) {
-        console.error('Missing analyser or canvas context');
+      if (!analyser.current || !ctx) {
+        console.error(`Missing ${isAiOutput ? 'AI' : 'user'} analyser or canvas context`);
         return;
       }
 
-      analyserRef.current.getByteFrequencyData(dataArray);
+      analyser.current.getByteFrequencyData(dataArray);
 
-      // Calculate average for the circular visualization
+      // Calculate average for visualization
       let sum = 0;
       let hasSound = false;
       for (let i = 0; i < dataArray.length; i++) {
@@ -576,40 +580,39 @@ const VoiceMode = () => {
       const average = sum / dataArray.length;
       const volume = Math.min(average / 128, 1);
       
-      // Only update scale if there's actual sound
-      if (hasSound) {
+      // Only update scale if there's actual sound and it's user audio
+      if (hasSound && !isAiOutput) {
         setAudioScale(volume * 100);
       }
 
       // Draw bar visualization
-      const ctx = canvasCtxRef.current;
       ctx.clearRect(0, 0, WIDTH, HEIGHT);
 
       let x = 0;
-      let maxBarHeight = 0;
       for (let i = 0; i < bufferLength; i++) {
         const barHeight = (dataArray[i] / 255.0) * HEIGHT * 0.8;
-        maxBarHeight = Math.max(maxBarHeight, barHeight);
         
-        // Always set a color based on state and sound detection
+        // Set color based on state and sound detection
         if (hasSound) {
-          if (isRecording) {
-            // Rainbow gradient for recording
+          if (!isAiOutput && isRecording) {
+            // Rainbow gradient for user recording
             const hue = (i / bufferLength) * 360;
             const lightness = 50 + (barHeight / HEIGHT) * 50;
             ctx.fillStyle = `hsl(${hue}, 100%, ${lightness}%)`;
-          } else if (isSpeaking) {
+          } else if (isAiOutput && isSpeaking) {
             // Flame orange for AI speaking
             const intensity = barHeight / HEIGHT;
             ctx.fillStyle = `rgba(255, 107, 53, ${0.5 + intensity * 0.5})`;
           } else {
-            // Default color - soft blue gradient when idle
+            // Default colors
             const intensity = barHeight / HEIGHT;
-            ctx.fillStyle = `rgba(100, 149, 237, ${0.3 + intensity * 0.3})`;
+            ctx.fillStyle = isAiOutput 
+              ? `rgba(255, 107, 53, ${0.3 + intensity * 0.3})` // AI color
+              : `rgba(100, 149, 237, ${0.3 + intensity * 0.3})`; // User color
           }
         } else {
           // Very dim color when no sound
-          ctx.fillStyle = 'rgba(100, 100, 100, 0.1)';
+          ctx.fillStyle = `rgba(100, 100, 100, 0.1)`;
         }
         
         // Draw bar with rounded corners
@@ -636,29 +639,39 @@ const VoiceMode = () => {
       }
 
       frameCount++;
-      if (frameCount % 60 === 0) { // Log every 60 frames
+      
+      // Store animation frame reference in appropriate ref
+      if (isAiOutput) {
+        aiAnimationFrameRef.current = requestAnimationFrame(renderFrame);
+      } else {
+        animationFrameRef.current = requestAnimationFrame(renderFrame);
       }
-
-      animationFrameRef.current = requestAnimationFrame(renderFrame);
     };
 
-    console.log('Starting render loop');
     renderFrame();
 
     return () => {
-      console.log('Cleaning up visualization');
-      if (animationFrameRef.current) {
+      if (isAiOutput && aiAnimationFrameRef.current) {
+        cancelAnimationFrame(aiAnimationFrameRef.current);
+      } else if (!isAiOutput && animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
       source.disconnect();
     };
   }, [isRecording, isSpeaking]);
 
+  // Update the WebRTC setup to handle AI audio visualization
+  useEffect(() => {
+    if (mediaStreamRef.current) {
+      setupAudioVisualization(mediaStreamRef.current, false);
+    }
+  }, [setupAudioVisualization]);
+
   // Remove the mount effect since we'll initialize in setupWebRTC
   useEffect(() => {
     console.log('Mount effect - mediaStream:', !!mediaStreamRef.current);
     if (mediaStreamRef.current) {
-      setupAudioVisualization(mediaStreamRef.current);
+      setupAudioVisualization(mediaStreamRef.current, false);
     }
   }, [setupAudioVisualization]);
 
@@ -694,7 +707,7 @@ const VoiceMode = () => {
       mediaStreamRef.current.getAudioTracks().forEach(track => {
         track.enabled = true;
       });
-      setupAudioVisualization(mediaStreamRef.current);
+      setupAudioVisualization(mediaStreamRef.current, false);
     }
 
     // Clear any existing audio buffer
@@ -749,6 +762,9 @@ const VoiceMode = () => {
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
+      if (aiAnimationFrameRef.current) {
+        cancelAnimationFrame(aiAnimationFrameRef.current);
+      }
       if (window.speakingTimeoutId) {
         clearTimeout(window.speakingTimeoutId);
       }
@@ -780,7 +796,12 @@ const VoiceMode = () => {
     <div className="voice-mode">
       <div className="voice-interface">
         <div className="visualization-container">
-          <canvas ref={canvasRef} className="audio-canvas" />
+          <div className="visualizer user">
+            <canvas ref={canvasRef} className="audio-canvas" />
+          </div>
+          <div className="visualizer ai">
+            <canvas ref={aiCanvasRef} className="audio-canvas" />
+          </div>
         </div>
         <button 
           className={`mic-button ${isRecording ? 'recording' : ''} ${isSpeaking ? 'speaking' : ''} ${!isConnected && hasStarted ? 'disabled' : ''} ${buttonState}`}

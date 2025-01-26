@@ -122,19 +122,35 @@
   transform: translate(-50%, -50%);
   width: 500px;
   height: 160px;
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+  align-items: center;
+  z-index: 2;
+}
+
+.visualizer {
+  flex: 1;
+  height: 100%;
   background: rgba(0, 0, 0, 0.3);
   border-radius: 80px;
   overflow: hidden;
   border: 1px solid var(--border-color);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-  z-index: 2;
+}
+
+.visualizer.user {
+  background: rgba(100, 149, 237, 0.1); /* Soft blue tint for user */
+}
+
+.visualizer.ai {
+  background: rgba(255, 107, 53, 0.1); /* Flame orange tint for AI */
 }
 
 .audio-canvas {
   width: 100%;
   height: 100%;
   opacity: 1;
-  background: rgba(0, 0, 0, 0.2);
 }
 
 @keyframes pulse {
