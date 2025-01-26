@@ -222,7 +222,6 @@ const VoiceMode = () => {
   }, [currentCard]);
 
   const handleRealtimeEvent = (event) => {
-    console.log('handleRealtimeEvent - event:', event);
     switch (event.type) {
       case 'output_audio_buffer.audio_started':
         if (mediaStreamRef.current) {
@@ -300,6 +299,20 @@ const VoiceMode = () => {
                 }
               }));
               
+              // If this was the last card, call completeReview
+              if (!nextCard) {
+                dataChannelRef.current?.send(JSON.stringify({
+                  type: 'conversation.item.create',
+                  item: {
+                    type: 'function_call',
+                    name: 'completeReview',
+                    arguments: JSON.stringify({
+                      message: 'Great job! You have completed all your cards for now. Keep up the good work!'
+                    })
+                  }
+                }));
+              }
+              
               // Request next response if no active response
               if (!hasActiveResponse) {
                 console.log('Requesting next response after correct answer');
@@ -348,6 +361,20 @@ const VoiceMode = () => {
                     })
                   }
                 }));
+
+                // If this was the last card, call completeReview
+                if (!nextCard) {
+                  dataChannelRef.current?.send(JSON.stringify({
+                    type: 'conversation.item.create',
+                    item: {
+                      type: 'function_call',
+                      name: 'completeReview',
+                      arguments: JSON.stringify({
+                        message: 'Great job! You have completed all your cards for now. Keep up the good work!'
+                      })
+                    }
+                  }));
+                }
               } else {
                 // Just acknowledge the incorrect attempt
                 dataChannelRef.current?.send(JSON.stringify({
@@ -399,6 +426,20 @@ const VoiceMode = () => {
                   })
                 }
               }));
+              
+              // If this was the last card, call completeReview
+              if (!nextCard) {
+                dataChannelRef.current?.send(JSON.stringify({
+                  type: 'conversation.item.create',
+                  item: {
+                    type: 'function_call',
+                    name: 'completeReview',
+                    arguments: JSON.stringify({
+                      message: 'Great job! You have completed all your cards for now. Keep up the good work!'
+                    })
+                  }
+                }));
+              }
               
               // Request next response if no active response
               if (!hasActiveResponse) {
