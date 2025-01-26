@@ -1,6 +1,11 @@
 import OpenAI from "openai";
 import { z } from "zod";
 import { zodResponseFormat } from "openai/helpers/zod";
+import "jsr:@std/dotenv/load";
+
+const openai = new OpenAI({
+    apiKey: Deno.env.get("OPEN_AI_KEY"),
+});
 
 const FlashcardSchema = z.object({
     frontText: z.string(),

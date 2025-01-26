@@ -2,8 +2,7 @@ import OpenAI from "openai";
 import "jsr:@std/dotenv/load";
 import { generateCards } from "./cards/cards.js";
 import { evaluateSpeech } from "./speech/speech.js";
-import { voiceChat } from "./voice/voice.js";
-import { generateEphemeralToken, setupRealtimeVoiceConnection } from "./realtime/realtime.js";
+import { generateEphemeralToken } from "./realtime/realtime.js";
 
 const ALLOWED_ORIGINS = ["http://localhost:3000"];
 
@@ -20,50 +19,6 @@ Deno.serve({ port: 8000 }, async (req) => {
         "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
         "Access-Control-Allow-Headers": "*",
     };
-
-    // Handle WebSocket upgrade
-    if (req.headers.get("upgrade") === "websocket") {
-        const { socket, response } = Deno.upgradeWebSocket(req);
-        console.log('Client connected to WebSocket');
-        
-        try {
-            const openaiWs = await setupRealtimeVoiceConnection(socket);
-            
-            socket.onmessage = async (event) => {
-                try {
-                    const data = JSON.parse(event.data);
-                    
-                    if (data.type === 'audio') {
-                        // Forward audio data to OpenAI
-                        openaiWs.send(JSON.stringify({
-                            type: 'input_audio_buffer.append',
-                            buffer: data.buffer
-                        }));
-                    }
-                } catch (error) {
-                    console.error('Error handling message:', error);
-                    socket.send(JSON.stringify({
-                        type: 'error',
-                        error: 'Failed to process message'
-                    }));
-                }
-            };
-            
-            socket.onclose = () => {
-                console.log('Client disconnected');
-                openaiWs?.close();
-            };
-            
-            socket.onerror = (error) => {
-                console.error('WebSocket error:', error);
-            };
-            
-            return response;
-        } catch (error) {
-            console.error('Error in WebSocket setup:', error);
-            return new Response('WebSocket setup failed', { status: 500 });
-        }
-    }
 
     // Handle CORS preflight
     if (req.method === "OPTIONS") {
@@ -134,20 +89,6 @@ Deno.serve({ port: 8000 }, async (req) => {
             }
 
             return await evaluateSpeech(audioBase64, expectedText, sourceLang, expectedAudioBase64);
-        }
-
-        if (req.method === "POST" && url.pathname === "/api/voice_chat") {
-            const body = await req.json();
-            const { audioBase64, currentCard } = body;
-
-            if (!audioBase64 || !currentCard) {
-                return new Response(
-                    JSON.stringify({ error: "audioBase64 and currentCard are required" }), 
-                    { status: 400, headers }
-                );
-            }
-
-            return await voiceChat(audioBase64, currentCard);
         }
 
         return new Response("Not Found", { status: 404, headers });

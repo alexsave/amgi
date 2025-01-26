@@ -72,48 +72,6 @@ const ReviewMode = () => {
     setMode('list');
   };
 
-  const handleVoiceChat = async (audioBlob) => {
-    try {
-      const base64Audio = await new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          const base64 = reader.result.split(',')[1];
-          resolve(base64);
-        };
-        reader.readAsDataURL(audioBlob);
-      });
-
-      const response = await fetch('/api/voice_chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          audioBase64: base64Audio,
-          currentCard
-        })
-      });
-
-      const data = await response.json();
-      setVoiceChatResponse(data);
-
-      // Play the response audio if available
-      if (data.audio) {
-        const audioData = new Uint8Array(data.audio);
-        const blob = new Blob([audioData], { type: 'audio/mpeg' });
-        const url = URL.createObjectURL(blob);
-        audio.evaluationAudioRef.current.src = url;
-        audio.evaluationAudioRef.current.play()
-          .then(() => console.log('Started playing voice chat response'))
-          .catch(err => console.error('Error playing voice chat response:', err));
-        
-        audio.evaluationAudioRef.current.onended = () => {
-          URL.revokeObjectURL(url);
-        };
-      }
-    } catch (error) {
-      console.error('Error in voice chat:', error);
-    }
-  };
-
   if (!currentCard) {
     return (
       <div className="review-complete">

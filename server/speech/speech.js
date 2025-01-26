@@ -40,14 +40,14 @@ If no command is detected, compare the pronunciation with the expected text "${e
                     role: "user",
                     content: [
                         { type: "text", text: "Here is the correct pronunciation:" },
-                        { type: "input_audio", input_audio: { data: expectedAudioBase64, format: "mp3" }}
+                        { type: "input_audio", input_audio: { data: expectedAudioBase64, format: "mp3" } }
                     ]
                 },
                 {
                     role: "user",
                     content: [
                         { type: "text", text: "Evaluate this pronunciation:" },
-                        { type: "input_audio", input_audio: { data: audioBase64, format: "mp3" }}
+                        { type: "input_audio", input_audio: { data: audioBase64, format: "mp3" } }
                     ]
                 }
             ],
@@ -63,7 +63,7 @@ If no command is detected, compare the pronunciation with the expected text "${e
             console.log('GPT-4 Audio data keys:', Object.keys(response.choices[0].message.audio));
             console.log('GPT-4 Audio data length:', response.choices[0].message.audio?.data?.length);
         }
-        
+
         const toolCall = response.choices[0].message.tool_calls?.[0];
         if (!toolCall) {
             throw new Error('No tool call in response');
@@ -77,7 +77,7 @@ If no command is detected, compare the pronunciation with the expected text "${e
             message: evaluation.message,
             audio: response.choices[0].message.audio?.data
         };
-        
+
         console.log('Sending evaluation result with audio:', !!evaluationResult.audio);
         if (evaluationResult.audio) {
             console.log('Audio data length in result:', evaluationResult.audio.length);
