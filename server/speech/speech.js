@@ -1,4 +1,9 @@
 import OpenAI from "openai";
+import "jsr:@std/dotenv/load";
+
+const openai = new OpenAI({
+    apiKey: Deno.env.get("OPEN_AI_KEY"),
+});
 
 const evaluationTools = [{
     "type": "function",

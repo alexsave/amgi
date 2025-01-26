@@ -181,6 +181,7 @@ export const useRealtimeAPI = ({ onEvent, onFeedback, onConnectionChange }) => {
         if (audioElementRef.current) {
             audioElementRef.current.srcObject = null;
         }
+        setIsConnected(false);
     }, []);
 
     return {

@@ -119,6 +119,7 @@ Current card - Front: "${currentCard.frontText}", Back (expected translation): "
                         console.log('AI finished farewell message, cleaning up connection');
                         setTimeout(() => {
                             realtimeAPI.cleanup();
+                            setHasStarted(false);
                         }, 500);
                     }
                     break;
