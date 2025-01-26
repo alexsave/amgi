@@ -152,9 +152,6 @@ export function useReview() {
       setEvaluationResult(null);
       setAttempts(0);
       setShowAnswer(false);
-    } else {
-      // End of deck
-      setCurrentCardIndex(0);
     }
   };
 

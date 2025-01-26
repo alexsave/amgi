@@ -238,6 +238,20 @@ const VoiceMode = () => {
             track.enabled = true;
           });
         }
+        // If we're in a completed state and the AI just finished speaking, clean up
+        if (!hasActiveResponse && review.currentCardIndex >= review.dueCards.length - 1) {
+          console.log('AI finished farewell message, cleaning up connection');
+          setTimeout(() => {
+            if (mediaStreamRef.current) {
+              mediaStreamRef.current.getTracks().forEach(track => track.stop());
+            }
+            if (peerConnectionRef.current) {
+              peerConnectionRef.current.close();
+            }
+            setIsConnected(false);
+            setHasStarted(false);
+          }, 500);
+        }
         break;
 
       case 'response.text.delta':
@@ -275,13 +289,28 @@ const VoiceMode = () => {
               setTimeout(() => setButtonState('default'), 500);
               // Update card scheduling for correct answer
               review.updateCardScheduling(currentCard.created, 'correct');
-              review.moveToNextCard();
+              
+              // Calculate next index and check if it would be the last card
+              const nextIndex = review.currentCardIndex + 1;
+              const isLastCard = nextIndex >= review.dueCards.length;
               
               // Get next card info
-              const nextCard = review.dueCards[review.currentCardIndex + 1];
+              const nextCard = isLastCard ? null : review.dueCards[nextIndex];
+              
+              // Only move to next card if there is one
+              if (!isLastCard) {
+                review.moveToNextCard();
+              }
               
               // Send the function result back with next card info
-              console.log('Sending function_call_output for evaluatePronunciation:', { result: args.result, hasNextCard: !!nextCard }, '- Correct answer, including next card info');
+              console.log('Evaluating next card status:', {
+                currentIndex: review.currentCardIndex,
+                nextIndex,
+                totalCards: review.dueCards.length,
+                isLastCard,
+                hasNextCard: !!nextCard,
+                explanation: `Current card index is ${review.currentCardIndex}, next index would be ${nextIndex}, total cards is ${review.dueCards.length}. isLastCard=${isLastCard} because ${nextIndex} ${isLastCard ? '>=' : '<'} ${review.dueCards.length}`
+              });
               dataChannelRef.current?.send(JSON.stringify({
                 type: 'conversation.item.create',
                 item: {
@@ -294,13 +323,13 @@ const VoiceMode = () => {
                       frontText: nextCard.frontText,
                       backText: nextCard.backText
                     } : null,
-                    hasMoreCards: review.currentCardIndex < review.dueCards.length - 1
+                    hasMoreCards: !isLastCard
                   })
                 }
               }));
               
               // If this was the last card, call completeReview
-              if (!nextCard) {
+              if (isLastCard) {
                 dataChannelRef.current?.send(JSON.stringify({
                   type: 'conversation.item.create',
                   item: {
@@ -341,10 +370,28 @@ const VoiceMode = () => {
               // Handle max attempts case outside setState
               if (shouldMoveToNext) {
                 review.setShowAnswer(true);
-                review.moveToNextCard();
-                nextCard = review.dueCards[review.currentCardIndex + 1];
+                
+                // Calculate next index and check if it would be the last card
+                const nextIndex = review.currentCardIndex + 1;
+                const isLastCard = nextIndex >= review.dueCards.length;
+                
+                // Get next card info
+                const nextCard = isLastCard ? null : review.dueCards[nextIndex];
+                
+                // Only move to next card if there is one
+                if (!isLastCard) {
+                  review.moveToNextCard();
+                }
                 
                 // Send function result with next card info after max attempts
+                console.log('Evaluating next card status (max attempts):', {
+                  currentIndex: review.currentCardIndex,
+                  nextIndex,
+                  totalCards: review.dueCards.length,
+                  isLastCard,
+                  hasNextCard: !!nextCard,
+                  explanation: `Current card index is ${review.currentCardIndex}, next index would be ${nextIndex}, total cards is ${review.dueCards.length}. isLastCard=${isLastCard} because ${nextIndex} ${isLastCard ? '>=' : '<'} ${review.dueCards.length}`
+                });
                 dataChannelRef.current?.send(JSON.stringify({
                   type: 'conversation.item.create',
                   item: {
@@ -357,13 +404,13 @@ const VoiceMode = () => {
                         frontText: nextCard.frontText,
                         backText: nextCard.backText
                       } : null,
-                      hasMoreCards: review.currentCardIndex < review.dueCards.length - 1
+                      hasMoreCards: !isLastCard
                     })
                   }
                 }));
 
                 // If this was the last card, call completeReview
-                if (!nextCard) {
+                if (isLastCard) {
                   dataChannelRef.current?.send(JSON.stringify({
                     type: 'conversation.item.create',
                     item: {
@@ -403,13 +450,28 @@ const VoiceMode = () => {
               // Mark as incorrect and move to next card
               review.updateCardScheduling(currentCard.created, 'incorrect');
               review.setShowAnswer(true);
-              review.moveToNextCard();
+              
+              // Calculate next index and check if it would be the last card
+              const nextIndex = review.currentCardIndex + 1;
+              const isLastCard = nextIndex >= review.dueCards.length;
               
               // Get next card info
-              const nextCard = review.dueCards[review.currentCardIndex + 1];
+              const nextCard = isLastCard ? null : review.dueCards[nextIndex];
+              
+              // Only move to next card if there is one
+              if (!isLastCard) {
+                review.moveToNextCard();
+              }
               
               // Send function result with next card info
-              console.log('Sending function_call_output for evaluatePronunciation:', { result: args.result, hasNextCard: !!nextCard }, '- Skipping to next card');
+              console.log('Evaluating next card status (skip/quit):', {
+                currentIndex: review.currentCardIndex,
+                nextIndex,
+                totalCards: review.dueCards.length,
+                isLastCard,
+                hasNextCard: !!nextCard,
+                explanation: `Current card index is ${review.currentCardIndex}, next index would be ${nextIndex}, total cards is ${review.dueCards.length}. isLastCard=${isLastCard} because ${nextIndex} ${isLastCard ? '>=' : '<'} ${review.dueCards.length}`
+              });
               dataChannelRef.current?.send(JSON.stringify({
                 type: 'conversation.item.create',
                 item: {
@@ -422,13 +484,13 @@ const VoiceMode = () => {
                       frontText: nextCard.frontText,
                       backText: nextCard.backText
                     } : null,
-                    hasMoreCards: review.currentCardIndex < review.dueCards.length - 1
+                    hasMoreCards: !isLastCard
                   })
                 }
               }));
               
               // If this was the last card, call completeReview
-              if (!nextCard) {
+              if (isLastCard) {
                 dataChannelRef.current?.send(JSON.stringify({
                   type: 'conversation.item.create',
                   item: {
@@ -494,23 +556,20 @@ const VoiceMode = () => {
               }));
             }
             
-            // Then clean up the session
-            setTimeout(() => {
-              if (mediaStreamRef.current) {
-                mediaStreamRef.current.getTracks().forEach(track => track.stop());
-              }
-              if (peerConnectionRef.current) {
-                peerConnectionRef.current.close();
-              }
-              setIsConnected(false);
-              setHasStarted(false);
-            }, 500); // Give time for the last message to be sent
+            // Don't close connection yet - we'll do it after the AI finishes speaking
           } else if (item.name === 'getNextCard') {
             // Get the next card info from review hook
             const nextCardIndex = review.currentCardIndex + 1;
             const nextCard = review.dueCards[nextCardIndex];
             
-            console.log('Sending function_call_output for getNextCard:', { hasNextCard: !!nextCard }, '- Providing next card information');
+            console.log('Evaluating next card status (getNextCard):', {
+              currentIndex: review.currentCardIndex,
+              nextIndex: nextCardIndex,
+              totalCards: review.dueCards.length,
+              hasNextCard: !!nextCard,
+              hasMore: nextCardIndex < review.dueCards.length - 1,
+              explanation: `Current index is ${review.currentCardIndex}, next index would be ${nextCardIndex}, total cards is ${review.dueCards.length}. hasMore=${nextCardIndex < review.dueCards.length - 1} because ${nextCardIndex} ${nextCardIndex < review.dueCards.length - 1 ? '<' : '>='} ${review.dueCards.length - 1}`
+            });
             dataChannelRef.current?.send(JSON.stringify({
               type: 'conversation.item.create',
               item: {
