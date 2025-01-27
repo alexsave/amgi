@@ -17,7 +17,7 @@ const CardList = ({ onCardClick, onBack }) => {
   const deck = decks[id];
 
   const handleReview = () => {
-    navigate(`/app/deck/${id}/review`);
+    navigate(`/deck/${id}/review`);
   };
 
   return (
@@ -25,11 +25,6 @@ const CardList = ({ onCardClick, onBack }) => {
       <div className="deck-cards-header">
         <button onClick={onBack} className="back-btn">← Back</button>
         <h3>{deck.name}</h3>
-        {deck.cards.length > 0 && (
-          <button onClick={handleReview} className="review-btn">
-            Start Review
-          </button>
-        )}
       </div>
 
       <div className="deck-content">

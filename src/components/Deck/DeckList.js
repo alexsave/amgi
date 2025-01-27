@@ -28,6 +28,12 @@ const DeckList = () => {
 
   const handleDeckClick = (id) => {
     setCurrentDeck(id);
+    navigate(`/deck/${id}/review`);
+  };
+
+  const handleEditClick = (e, id) => {
+    e.stopPropagation();
+    setCurrentDeck(id);
     navigate(`/deck/${id}`);
   };
 
@@ -101,6 +107,7 @@ const DeckList = () => {
             id={id}
             deck={deck}
             onDeckClick={() => handleDeckClick(id)}
+            onEditClick={(e) => handleEditClick(e, id)}
           />
         ))}
       </div>

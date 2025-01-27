@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useDeckContext } from '../../contexts/DeckContext';
+import { useNavigate } from 'react-router-dom';
 import RecordingControls from './RecordingControls';
 import Timeline from './Timeline';
 import CardPreview from './CardPreview';
@@ -12,7 +13,8 @@ import { LanguageIcon, MicrophoneIcon } from '@heroicons/react/24/solid';
 import './ReviewMode.css';
 
 const ReviewMode = () => {
-  const { mode, currentDeck, decks, setMode } = useDeckContext();
+  const { currentDeck, decks } = useDeckContext();
+  const navigate = useNavigate();
   const audio = useAudio();
   const review = useReview();
   const [isVoiceMode, setIsVoiceMode] = useState(false);
@@ -69,7 +71,7 @@ const ReviewMode = () => {
   });
 
   const handleBackToList = () => {
-    setMode('list');
+    navigate('/decks');
   };
 
   if (!currentCard) {
