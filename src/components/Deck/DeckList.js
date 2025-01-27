@@ -76,7 +76,7 @@ const DeckList = () => {
         <h2>Decks</h2>
         <div className="deck-actions">
           <button onClick={handleCreateDeck} className="action-btn" title="New Deck">
-            <PlusIcon className="h-5 w-5" />
+            <PlusIcon />
           </button>
           <input
             type="file"
@@ -86,10 +86,10 @@ const DeckList = () => {
             style={{ display: 'none' }}
           />
           <button onClick={handleImportClick} className="action-btn" title="Import Deck">
-            <ArrowDownTrayIcon className="h-5 w-5" />
+            <ArrowDownTrayIcon />
           </button>
           <button onClick={loadSampleDeck} className="action-btn" title="Load Sample Deck">
-            <Square3Stack3DIcon className="h-5 w-5" />
+            <Square3Stack3DIcon />
           </button>
         </div>
       </div>
@@ -106,6 +106,6 @@ const DeckList = () => {
       </div>
     </div>
   );
-};
+}
 
 export default DeckList; 

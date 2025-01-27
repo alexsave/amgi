@@ -1,5 +1,5 @@
 .navbar {
-  background-color: #2196f3;
+  background-color: var(--flame-orange);
   padding: 1rem;
   display: flex;
   justify-content: space-between;
@@ -31,6 +31,38 @@
 
 .navbar-button:hover {
   background: rgba(255, 255, 255, 0.1);
+}
+
+/* Override any global button styles */
+button.action-btn {
+  all: unset;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--dark-surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  padding: 6px;
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 36px;
+  box-sizing: border-box;
+}
+
+button.action-btn:hover {
+  background: var(--dark-surface-hover);
+  border-color: var(--flame-orange);
+  color: var(--flame-orange);
+}
+
+button.action-btn svg {
+  width: 20px;
+  height: 20px;
+  stroke: currentColor;
+  fill: none;
 }
 
 .settings-overlay {
