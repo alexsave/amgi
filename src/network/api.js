@@ -3,7 +3,6 @@ import * as directApi from './directApi';
 
 // API Configuration
 const USE_LOCAL = process.env.REACT_APP_USE_LOCAL === 'true';
-const USE_DIRECT_API = localStorage.getItem('USE_DIRECT_API') === 'true';
 
 const LOCAL_CONFIG = {
     baseUrl: 'http://localhost:8000',
@@ -38,25 +37,28 @@ const getEndpointUrl = (endpoint) => `${API_CONFIG.baseUrl}${API_CONFIG.endpoint
 // Helper function to get headers for a request
 const getHeaders = () => ({ ...API_CONFIG.headers });
 
+// Helper function to check if direct API mode is enabled
+const isDirectApiEnabled = () => localStorage.getItem('useDirectApi') === 'true';
+
 // API mode management
 export const setApiMode = (useDirectApi, apiKey = null) => {
   if (useDirectApi && apiKey) {
-    localStorage.setItem('USE_DIRECT_API', 'true');
+    localStorage.setItem('useDirectApi', 'true');
     directApi.initializeOpenAI(apiKey);
   } else {
-    localStorage.setItem('USE_DIRECT_API', 'false');
+    localStorage.setItem('useDirectApi', 'false');
     directApi.clearOpenAI();
   }
 };
 
 export const getApiMode = () => ({
-  useDirectApi: USE_DIRECT_API,
-  apiKey: USE_DIRECT_API ? directApi.getStoredApiKey() : null
+  useDirectApi: isDirectApiEnabled(),
+  apiKey: isDirectApiEnabled() ? directApi.getStoredApiKey() : null
 });
 
 // API Functions
 export const getRealtimeToken = async () => {
-  if (USE_DIRECT_API) {
+  if (isDirectApiEnabled()) {
     return directApi.getRealtimeToken();
   }
 
@@ -81,7 +83,7 @@ export const getRealtimeToken = async () => {
 };
 
 export const generateCard = async (userInput, targetLang, onProgress) => {
-  if (USE_DIRECT_API) {
+  if (isDirectApiEnabled()) {
     return directApi.generateCard({ userInput, targetLang }, onProgress);
   }
 
@@ -143,7 +145,7 @@ export const evaluateSpeech = async (audioBlob, expectedText, sourceLang, expect
       blobToBase64(expectedAudioBlob)
     ]);
 
-    if (USE_DIRECT_API) {
+    if (isDirectApiEnabled()) {
       return directApi.evaluateSpeech({
         audioBase64: userAudioBase64,
         expectedText,

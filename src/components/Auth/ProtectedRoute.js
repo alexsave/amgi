@@ -1,11 +1,10 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { getApiMode } from '../../network/api';
 
 export default function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
-  const { useDirectApi } = getApiMode();
+  const useDirectApi = localStorage.getItem('useDirectApi') === 'true';
 
   if (loading) {
     return (
