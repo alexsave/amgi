@@ -2,6 +2,18 @@
 
 const API_BASE_URL = process.env.NODE_ENV === 'development' ? 'http://localhost:8000' : '';
 
+export const getRealtimeToken = async () => {
+  const response = await fetch(`${API_BASE_URL}/api/realtime-token`);
+  if (!response.ok) {
+    throw new Error(`Failed to get token: ${response.statusText}`);
+  }
+  const data = await response.json();
+  if (!data.client_secret?.value) {
+    throw new Error('Invalid token response');
+  }
+  return data.client_secret.value;
+};
+
 export const generateCard = async (userInput, targetLang, onProgress) => {
   try {
     const response = await fetch(`${API_BASE_URL}/api/generate_cards`, {
