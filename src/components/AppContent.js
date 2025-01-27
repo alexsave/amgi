@@ -5,6 +5,7 @@ import DeckList from './Deck/DeckList';
 import CardForm from './Card/CardForm';
 import CardList from './Card/CardList';
 import ReviewMode from './Review/ReviewMode';
+import { RealtimeProvider } from '../contexts/RealtimeContext';
 
 function AppContent() {
   const { mode, currentDeck, decks, setMode } = useDeckContext();
@@ -19,24 +20,26 @@ function AppContent() {
   };
 
   return (
-    <div className="App">
-      <h1>AMGI</h1>
-      
-      {mode === REVIEW_MODES.LIST && <DeckList />}
+    <RealtimeProvider>
+      <div className="App">
+        <h1>AMGI</h1>
+        
+        {mode === REVIEW_MODES.LIST && <DeckList />}
 
-      {mode === REVIEW_MODES.EDIT && currentDeck && (
-        <>
-          <div className="mode-header">
-            <button onClick={handleBackToList} className="back-btn">← Back to Decks</button>
-            <h2>Editing: {decks[currentDeck].name}</h2>
-          </div>
-          <CardForm />
-          <CardList onCardClick={handleCardClick} />
-        </>
-      )}
+        {mode === REVIEW_MODES.EDIT && currentDeck && (
+          <>
+            <div className="mode-header">
+              <button onClick={handleBackToList} className="back-btn">← Back to Decks</button>
+              <h2>Editing: {decks[currentDeck].name}</h2>
+            </div>
+            <CardForm />
+            <CardList onCardClick={handleCardClick} />
+          </>
+        )}
 
-      {mode === REVIEW_MODES.REVIEW && currentDeck && <ReviewMode />}
-    </div>
+        {mode === REVIEW_MODES.REVIEW && currentDeck && <ReviewMode />}
+      </div>
+    </RealtimeProvider>
   );
 }
 
