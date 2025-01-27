@@ -1,10 +1,69 @@
 // Network API operations
+import * as directApi from './directApi';
 
-const API_BASE_URL = process.env.NODE_ENV === 'development' ? 'http://localhost:8000' : '';
+// API Configuration
+const USE_LOCAL = process.env.REACT_APP_USE_LOCAL === 'true';
+const USE_DIRECT_API = localStorage.getItem('USE_DIRECT_API') === 'true';
 
+const LOCAL_CONFIG = {
+    baseUrl: 'http://localhost:8000',
+    headers: {
+        'Content-Type': 'application/json'
+    },
+    endpoints: {
+        realtimeToken: '/api/realtime-token',
+        generateCards: '/api/generate_cards',
+        evaluateSpeech: '/api/evaluate_speech'
+    }
+};
+
+const SUPABASE_CONFIG = {
+    baseUrl: process.env.REACT_APP_SUPABASE_URL,
+    headers: {
+        'Content-Type': 'application/json',
+        'apikey': process.env.REACT_APP_SUPABASE_KEY
+    },
+    endpoints: {
+        realtimeToken: '/functions/v1/realtime',
+        generateCards: '/functions/v1/cards',
+        evaluateSpeech: '/functions/v1/speech'
+    }
+};
+
+const API_CONFIG = USE_LOCAL ? LOCAL_CONFIG : SUPABASE_CONFIG;
+
+// Helper function to get full URL for an endpoint
+const getEndpointUrl = (endpoint) => `${API_CONFIG.baseUrl}${API_CONFIG.endpoints[endpoint]}`;
+
+// Helper function to get headers for a request
+const getHeaders = () => ({ ...API_CONFIG.headers });
+
+// API mode management
+export const setApiMode = (useDirectApi, apiKey = null) => {
+  if (useDirectApi && apiKey) {
+    localStorage.setItem('USE_DIRECT_API', 'true');
+    directApi.initializeOpenAI(apiKey);
+  } else {
+    localStorage.setItem('USE_DIRECT_API', 'false');
+    directApi.clearOpenAI();
+  }
+};
+
+export const getApiMode = () => ({
+  useDirectApi: USE_DIRECT_API,
+  apiKey: USE_DIRECT_API ? directApi.getStoredApiKey() : null
+});
+
+// API Functions
 export const getRealtimeToken = async () => {
+  if (USE_DIRECT_API) {
+    return directApi.getRealtimeToken();
+  }
+
   console.log('Requesting realtime token...');
-  const response = await fetch(`${API_BASE_URL}/api/realtime-token`);
+  const response = await fetch(getEndpointUrl('realtimeToken'), {
+    headers: getHeaders()
+  });
   if (!response.ok) {
     const error = `Failed to get token: ${response.statusText}`;
     console.error(error);
@@ -22,12 +81,14 @@ export const getRealtimeToken = async () => {
 };
 
 export const generateCard = async (userInput, targetLang, onProgress) => {
+  if (USE_DIRECT_API) {
+    return directApi.generateCard({ userInput, targetLang }, onProgress);
+  }
+
   try {
-    const response = await fetch(`${API_BASE_URL}/api/generate_cards`, {
+    const response = await fetch(getEndpointUrl('generateCards'), {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: getHeaders(),
       body: JSON.stringify({
         userInput,
         targetLang,
@@ -82,11 +143,18 @@ export const evaluateSpeech = async (audioBlob, expectedText, sourceLang, expect
       blobToBase64(expectedAudioBlob)
     ]);
 
-    const response = await fetch(`${API_BASE_URL}/api/evaluate_speech`, {
+    if (USE_DIRECT_API) {
+      return directApi.evaluateSpeech({
+        audioBase64: userAudioBase64,
+        expectedText,
+        sourceLang,
+        expectedAudioBase64,
+      });
+    }
+
+    const response = await fetch(getEndpointUrl('evaluateSpeech'), {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: getHeaders(),
       body: JSON.stringify({
         audioBase64: userAudioBase64,
         expectedText,
