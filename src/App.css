@@ -638,14 +638,15 @@ button:disabled {
 
 .app-content {
   flex: 1;
-  padding: 2rem;
-  max-width: 1200px;
+  padding: 1rem;
+  max-width: 800px;
   margin: 0 auto;
   width: 100%;
+  box-sizing: border-box;
 }
 
 @media (max-width: 768px) {
   .app-content {
-    padding: 1rem;
+    padding: 0.5rem;
   }
 }

@@ -1,7 +1,9 @@
 // Deck context for managing global deck state
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { MAX_NEW_CARDS_PER_DAY, REVIEW_MODES } from '../utils/constants';
-import * as db from '../db/localStorage';
+import { useLocation } from 'react-router-dom';
+import { MAX_NEW_CARDS_PER_DAY } from '../utils/constants';
+import * as localDeckStorage from '../services/localDeckStorage';
+import { getApiMode } from '../network/api';
 import { getDueCards } from '../algorithms/spacedRepetition';
 
 const DeckContext = createContext(null);
@@ -9,47 +11,69 @@ const DeckContext = createContext(null);
 export const DeckProvider = ({ children }) => {
   const [decks, setDecks] = useState({});
   const [currentDeck, setCurrentDeck] = useState(null);
-  const [mode, setMode] = useState(REVIEW_MODES.LIST);
   const [newCardsToday, setNewCardsToday] = useState(0);
   const [dueCards, setDueCards] = useState([]);
   const [error, setError] = useState(null);
+  const { useDirectApi } = getApiMode();
+  const location = useLocation();
+
+  // Derive mode from location
+  const getMode = () => {
+    const path = location.pathname;
+    if (path === '/decks') return 'list';
+    if (path.includes('/review')) return 'review';
+    if (path.includes('/edit')) return 'edit';
+    if (path.includes('/create')) return 'create';
+    return 'view';
+  };
 
   // Load initial data
   useEffect(() => {
-    const loadedDecks = db.loadDecks();
-    setDecks(loadedDecks);
-    
-    const lastDeckId = db.loadCurrentDeck();
-    if (lastDeckId && loadedDecks[lastDeckId]) {
-      setCurrentDeck(lastDeckId);
-    }
+    if (useDirectApi) {
+      // Load from local storage
+      const localDecks = localDeckStorage.getLocalDecks();
+      setDecks(localDecks);
+      
+      const lastDeckId = localDeckStorage.loadCurrentDeck();
+      if (lastDeckId && localDecks[lastDeckId]) {
+        setCurrentDeck(lastDeckId);
+      }
 
-    // Reset daily counters if needed
-    if (db.resetDailyCounters()) {
-      setNewCardsToday(0);
+      // Reset daily counters if needed
+      if (localDeckStorage.resetDailyCounters()) {
+        setNewCardsToday(0);
+      } else {
+        setNewCardsToday(localDeckStorage.loadNewCardsToday());
+      }
     } else {
-      setNewCardsToday(db.loadNewCardsToday());
+      // TODO: Implement server loading
     }
-  }, []);
+  }, [useDirectApi]);
 
   // Save decks whenever they change
   useEffect(() => {
     if (Object.keys(decks).length > 0) {
-      db.saveDecks(decks);
-      if (currentDeck) {
-        db.saveCurrentDeck(currentDeck);
+      if (useDirectApi) {
+        localDeckStorage.saveLocalDecks(decks);
+        if (currentDeck) {
+          localDeckStorage.saveCurrentDeck(currentDeck);
+        }
+      } else {
+        // TODO: Implement server saving
       }
     }
-  }, [decks, currentDeck]);
+  }, [decks, currentDeck, useDirectApi]);
 
   // Save new cards count whenever it changes
   useEffect(() => {
-    db.saveNewCardsToday(newCardsToday);
-  }, [newCardsToday]);
+    if (useDirectApi) {
+      localDeckStorage.saveNewCardsToday(newCardsToday);
+    }
+  }, [newCardsToday, useDirectApi]);
 
   // Update due cards when necessary
   useEffect(() => {
-    if (currentDeck && mode === REVIEW_MODES.REVIEW) {
+    if (currentDeck && getMode() === 'review') {
       const due = getDueCards(decks[currentDeck], MAX_NEW_CARDS_PER_DAY, newCardsToday);
       setDueCards(due);
 
@@ -61,48 +85,62 @@ export const DeckProvider = ({ children }) => {
 
       return () => clearInterval(interval);
     }
-  }, [currentDeck, mode, decks, newCardsToday]);
+  }, [currentDeck, location.pathname, decks, newCardsToday]);
 
-  const createNewDeck = (name) => {
-    if (!name) return;
-    
-    const id = Date.now().toString();
-    const newDeck = {
-      name,
-      cards: [],
-      created: Date.now(),
-      lastModified: Date.now()
-    };
-    
-    setDecks(prev => ({
-      ...prev,
-      [id]: newDeck
-    }));
-    setCurrentDeck(id);
-    return id;
-  };
-
-  const deleteDeck = (deckId) => {
-    setDecks(prev => {
-      const newDecks = { ...prev };
-      delete newDecks[deckId];
-      return newDecks;
-    });
-    if (currentDeck === deckId) {
-      setCurrentDeck(null);
-      setMode(REVIEW_MODES.LIST);
+  const addDeck = async (name) => {
+    if (useDirectApi) {
+      const newDeck = localDeckStorage.createLocalDeck(name);
+      setDecks(prev => ({ ...prev, [newDeck.id]: newDeck }));
+      return newDeck.id;
+    } else {
+      // TODO: Implement server deck creation
     }
   };
 
-  const addCardToDeck = (deckId, card) => {
-    setDecks(prev => ({
-      ...prev,
-      [deckId]: {
-        ...prev[deckId],
-        cards: [...prev[deckId].cards, card],
-        lastModified: Date.now()
-      }
-    }));
+  const updateDeck = async (deckId, updates) => {
+    if (useDirectApi) {
+      const updatedDeck = localDeckStorage.updateLocalDeck(deckId, updates);
+      setDecks(prev => ({ ...prev, [deckId]: updatedDeck }));
+      return updatedDeck;
+    } else {
+      // TODO: Implement server deck update
+    }
+  };
+
+  const deleteDeck = async (deckId) => {
+    if (useDirectApi) {
+      localDeckStorage.deleteLocalDeck(deckId);
+      setDecks(prev => {
+        const newDecks = { ...prev };
+        delete newDecks[deckId];
+        return newDecks;
+      });
+    } else {
+      // TODO: Implement server deck deletion
+    }
+    if (currentDeck === deckId) {
+      setCurrentDeck(null);
+    }
+  };
+
+  const addCardToDeck = async (deckId, card) => {
+    if (useDirectApi) {
+      const updatedDeck = localDeckStorage.addCardToLocalDeck(deckId, card);
+      setDecks(prev => ({ ...prev, [deckId]: updatedDeck }));
+      return updatedDeck;
+    } else {
+      // TODO: Implement server card addition
+    }
+  };
+
+  const deleteCard = async (deckId, cardId) => {
+    if (useDirectApi) {
+      const updatedDeck = localDeckStorage.deleteLocalCard(deckId, cardId);
+      setDecks(prev => ({ ...prev, [deckId]: updatedDeck }));
+      return updatedDeck;
+    } else {
+      // TODO: Implement server card deletion
+    }
   };
 
   const updateCard = (deckId, cardId, updates) => {
@@ -129,17 +167,18 @@ export const DeckProvider = ({ children }) => {
     decks,
     setDecks,
     currentDeck,
-    mode,
+    mode: getMode(),
     newCardsToday,
     dueCards,
     error,
     setCurrentDeck,
-    setMode,
     setNewCardsToday,
     setError,
-    createNewDeck,
+    addDeck,
+    updateDeck,
     deleteDeck,
     addCardToDeck,
+    deleteCard,
     updateCard
   };
 

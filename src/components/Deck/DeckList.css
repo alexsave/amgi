@@ -1,6 +1,9 @@
 .deck-management {
-  max-width: 1000px;
+  max-width: 800px;
+  width: 100%;
   margin: 0 auto;
+  padding: 0 1rem;
+  box-sizing: border-box;
 }
 
 .deck-header {
@@ -31,12 +34,12 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: transparent;
+  background: var(--dark-surface);
   color: var(--text-primary);
   border: 1px solid var(--border-color);
   padding: 6px;
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -46,6 +49,12 @@
   background: var(--dark-surface-hover);
   border-color: var(--flame-orange);
   color: var(--flame-orange);
+}
+
+.action-btn svg {
+  width: 20px;
+  height: 20px;
+  stroke: currentColor;
 }
 
 .deck-item {

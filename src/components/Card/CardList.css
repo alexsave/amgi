@@ -1,16 +1,82 @@
 .deck-cards {
-  margin-top: 30px;
+  width: 100%;
 }
 
-.deck-cards h3 {
+.deck-cards-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.deck-cards-header h3 {
+  margin: 0;
+  flex: 1;
+}
+
+.deck-content {
+  display: grid;
+  grid-template-columns: 400px 1fr;
+  gap: 2rem;
+  align-items: start;
+}
+
+.deck-form {
+  background: var(--dark-surface);
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  padding: 1.5rem;
+}
+
+.deck-form h3 {
+  margin: 0 0 1rem 0;
   color: var(--text-primary);
-  margin-bottom: 15px;
+}
+
+.deck-cards-list h3 {
+  margin: 0 0 1rem 0;
+  color: var(--text-primary);
+}
+
+.deck-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.review-btn {
+  background: var(--flame-orange);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.review-btn:hover {
+  background: var(--flame-orange-hover);
+  transform: translateY(-1px);
+}
+
+.empty-deck {
+  text-align: center;
+  padding: 2rem;
+  background: var(--dark-surface);
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.empty-deck p {
+  color: var(--text-secondary);
+  margin-bottom: 1rem;
 }
 
 .card-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 15px;
 }
 
 .card-item {
@@ -49,4 +115,10 @@
   border-top: 1px solid var(--border-color);
   font-size: 0.85em;
   color: var(--text-secondary);
+}
+
+@media (max-width: 1024px) {
+  .deck-content {
+    grid-template-columns: 1fr;
+  }
 } 

@@ -1,23 +1,18 @@
 import React from 'react';
+import { useNavigate, useLocation, Routes, Route, Navigate } from 'react-router-dom';
 import { useDeckContext } from '../contexts/DeckContext';
-import { REVIEW_MODES } from '../utils/constants';
 import DeckList from './Deck/DeckList';
-import CardForm from './Card/CardForm';
 import CardList from './Card/CardList';
 import ReviewMode from './Review/ReviewMode';
 import { RealtimeProvider } from '../contexts/RealtimeContext';
 import Navbar from './Navigation/Navbar';
 
 function AppContent() {
-  const { mode, currentDeck, decks, setMode } = useDeckContext();
+  const { currentDeck, decks } = useDeckContext();
+  const navigate = useNavigate();
 
   const handleBackToList = () => {
-    setMode(REVIEW_MODES.LIST);
-  };
-
-  const handleCardClick = (card) => {
-    // For now, we'll just log the card. You can add more functionality later
-    console.log('Card clicked:', card);
+    navigate('/app/decks');
   };
 
   return (
@@ -25,25 +20,29 @@ function AppContent() {
       <Navbar />
       <div className="app-content">
         <RealtimeProvider>
-          {mode === REVIEW_MODES.LIST && (
-            <DeckList />
-          )}
-          {mode === REVIEW_MODES.CREATE && (
-            <CardForm onBack={handleBackToList} />
-          )}
-          {mode === REVIEW_MODES.VIEW && currentDeck && (
-            <CardList
-              deck={currentDeck}
-              onBack={handleBackToList}
-              onCardClick={handleCardClick}
+          <Routes>
+            <Route path="/" element={<Navigate to="/app/decks" replace />} />
+            <Route path="/decks" element={<DeckList />} />
+            
+            <Route 
+              path="/deck/:id" 
+              element={
+                <CardList
+                  onBack={handleBackToList}
+                  onCardClick={(card) => console.log('Card clicked:', card)}
+                />
+              } 
             />
-          )}
-          {mode === REVIEW_MODES.REVIEW && currentDeck && (
-            <ReviewMode
-              deck={currentDeck}
-              onBack={handleBackToList}
+
+            <Route 
+              path="/deck/:id/review" 
+              element={
+                <ReviewMode
+                  onBack={handleBackToList}
+                />
+              } 
             />
-          )}
+          </Routes>
         </RealtimeProvider>
       </div>
     </div>

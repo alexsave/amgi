@@ -1,9 +1,11 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { getApiMode } from '../../network/api';
 
 export default function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
+  const { useDirectApi } = getApiMode();
 
   if (loading) {
     return (
@@ -15,7 +17,8 @@ export default function ProtectedRoute({ children }) {
     );
   }
 
-  if (!user) {
+  // Allow access if user is authenticated OR using direct API mode
+  if (!user && !useDirectApi) {
     return <Navigate to="/login" />;
   }
 

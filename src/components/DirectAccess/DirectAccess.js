@@ -1,13 +1,12 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
-import CardForm from '../Card/CardForm';
+import { Link, useNavigate } from 'react-router-dom';
 import { setApiMode } from '../../network/api';
 import './DirectAccess.css';
 
 export default function DirectAccess() {
   const [apiKey, setApiKey] = useState('');
-  const [isKeySet, setIsKeySet] = useState(false);
   const [error, setError] = useState('');
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -19,33 +18,21 @@ export default function DirectAccess() {
     }
 
     try {
+      localStorage.setItem('useDirectApi', 'true');
+      localStorage.setItem('openaiApiKey', apiKey.trim());
       setApiMode(true, apiKey.trim());
-      setIsKeySet(true);
+      navigate('/app/decks', { replace: true });
     } catch (err) {
       setError('Failed to set API key: ' + err.message);
     }
   };
-
-  if (isKeySet) {
-    return (
-      <div className="direct-access-container">
-        <div className="direct-header">
-          <h1>AMGI - Direct Access Mode</h1>
-          <div className="auth-prompt">
-            Want to save your decks? <Link to="/login">Sign in</Link> or <Link to="/signup">create an account</Link>
-          </div>
-        </div>
-        <CardForm directMode={true} />
-      </div>
-    );
-  }
 
   return (
     <div className="direct-access-container">
       <div className="direct-access-card">
         <h1>Welcome to AMGI</h1>
         <p className="intro-text">
-          Get started quickly by providing your OpenAI API key, or <Link to="/login">sign in</Link> for full access.
+          Get started quickly by providing your OpenAI API key, or <Link to="/login">sign in</Link> for cloud sync.
         </p>
         
         <form onSubmit={handleSubmit} className="api-key-form">
@@ -72,7 +59,7 @@ export default function DirectAccess() {
           </button>
 
           <div className="auth-prompt">
-            Want full access? <Link to="/login">Sign in</Link> or <Link to="/signup">create an account</Link>
+            Want cloud sync? <Link to="/login">Sign in</Link> or <Link to="/signup">create an account</Link>
           </div>
         </form>
       </div>

@@ -103,12 +103,15 @@
 .direct-header {
   width: 100%;
   max-width: 800px;
-  margin-bottom: 2rem;
-  text-align: center;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .direct-header h1 {
-  margin-bottom: 1rem;
+  margin: 0;
+  font-size: 1.25rem;
 }
 
 /* Error message styles */

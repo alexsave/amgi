@@ -15,10 +15,13 @@ export const LANGUAGES = {
   en: 'English'
 };
 
-export const REVIEW_MODES = {
-  LIST: 'list',
-  EDIT: 'edit',
-  REVIEW: 'review'
+export const ROUTES = {
+  DECKS: 'decks',
+  DECK_VIEW: 'deck/:id',
+  DECK_EDIT: 'deck/:id/edit',
+  DECK_REVIEW: 'deck/:id/review',
+  CARD_CREATE: 'deck/:id/cards/create',
+  CARD_EDIT: 'deck/:id/cards/:cardId/edit'
 };
 
 export const EVALUATION_RESULTS = {

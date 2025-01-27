@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useDeckContext } from '../../contexts/DeckContext';
-import { REVIEW_MODES } from '../../utils/constants';
 import DeckItem from './DeckItem';
 import { sampleDeck } from '../../sampleDeck';
 import msgpack from 'msgpack-lite';
@@ -12,28 +12,23 @@ const DeckList = () => {
     decks,
     createNewDeck,
     setCurrentDeck,
-    setMode,
     setDecks
   } = useDeckContext();
   
+  const navigate = useNavigate();
   const fileInputRef = useRef(null);
 
   const handleCreateDeck = () => {
     const name = prompt('Enter deck name:');
     if (name) {
-      createNewDeck(name);
+      const id = createNewDeck(name);
+      navigate(`/app/deck/${id}`);
     }
   };
 
   const handleDeckClick = (id) => {
     setCurrentDeck(id);
-    setMode(REVIEW_MODES.REVIEW);
-  };
-
-  const handleEditClick = (id, e) => {
-    e.stopPropagation();
-    setCurrentDeck(id);
-    setMode(REVIEW_MODES.EDIT);
+    navigate(`/app/deck/${id}`);
   };
 
   const handleImportClick = () => {
@@ -58,7 +53,7 @@ const DeckList = () => {
       }));
       
       setCurrentDeck(id);
-      setMode(REVIEW_MODES.EDIT);
+      navigate(`/app/deck/${id}`);
     } catch (err) {
       console.error('Error importing deck:', err);
       alert('Failed to import deck: ' + err.message);
@@ -72,6 +67,7 @@ const DeckList = () => {
       [id]: sampleDeck
     }));
     setCurrentDeck(id);
+    navigate(`/app/deck/${id}`);
   };
 
   return (
@@ -105,7 +101,6 @@ const DeckList = () => {
             id={id}
             deck={deck}
             onDeckClick={() => handleDeckClick(id)}
-            onEditClick={(e) => handleEditClick(id, e)}
           />
         ))}
       </div>
