@@ -1,12 +1,12 @@
 :root {
   --flame-orange: #FF6B35;
   --flame-orange-hover: #FF8659;
-  --dark-bg: #1A1A1A;
-  --dark-surface: #2D2D2D;
-  --dark-surface-hover: #3D3D3D;
+  --dark-bg: #0A0A0A;
+  --dark-surface: #141414;
+  --dark-surface-hover: #1E1E1E;
   --text-primary: #FFFFFF;
-  --text-secondary: #B3B3B3;
-  --border-color: #404040;
+  --text-secondary: #808080;
+  --border-color: #1E1E1E;
 }
 
 .App {
@@ -14,6 +14,30 @@
   min-height: 100vh;
   background-color: var(--dark-bg);
   color: var(--text-primary);
+}
+
+.navbar {
+  background-color: #000000;
+  padding: 0.75rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.navbar-brand {
+  color: var(--flame-orange);
+  font-size: 1.2rem;
+  font-weight: bold;
+  letter-spacing: 0.5px;
+}
+
+.app-content {
+  flex: 1;
+  max-width: 800px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--dark-bg);
 }
 
 h1 {
@@ -30,18 +54,16 @@ h1 {
 .card-form {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
-  margin-bottom: 2rem;
+  gap: 0.5rem;
   background-color: var(--dark-surface);
-  padding: 1.5rem;
-  border-radius: 8px;
-  border: 1px solid var(--border-color);
+  padding: 0.5rem;
+  margin-bottom: 1rem;
 }
 
 .form-group {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.3rem;
   text-align: left;
 }
 
@@ -53,15 +75,14 @@ label {
 textarea, select {
   background-color: var(--dark-surface);
   color: var(--text-primary);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  padding: 0.75rem;
+  border: none;
+  border-radius: 4px;
+  padding: 0.4rem;
   font-size: 1rem;
 }
 
 textarea:focus, select:focus {
-  border-color: var(--flame-orange);
-  outline: none;
+  outline: 1px solid var(--flame-orange);
 }
 
 button.action-btn {
@@ -72,13 +93,13 @@ button.action-btn {
   background: var(--dark-surface);
   color: var(--text-primary);
   border: 1px solid var(--border-color);
-  padding: 6px;
-  width: 36px;
-  height: 36px;
+  padding: 4px;
+  width: 32px;
+  height: 32px;
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s ease;
-  min-width: 36px;
+  min-width: 32px;
   box-sizing: border-box;
 }
 
@@ -97,11 +118,11 @@ button.action-btn svg {
 
 .error-message {
   color: #ff4444;
-  padding: 1rem;
+  padding: 0.75rem;
   background-color: rgba(255, 68, 68, 0.1);
   border: 1px solid rgba(255, 68, 68, 0.3);
   border-radius: 4px;
-  margin-bottom: 1rem;
+  margin-bottom: 0.75rem;
 }
 
 .card-result {
@@ -119,7 +140,7 @@ button.action-btn svg {
 .card-side {
   flex: 1;
   max-width: 300px;
-  padding: 1.5rem;
+  padding: 1rem;
   border: 1px solid var(--border-color);
   border-radius: 12px;
   background-color: var(--dark-surface);
@@ -234,7 +255,7 @@ button.action-btn svg {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1rem;
+  padding: 0.75rem;
   background-color: var(--dark-surface);
   border: 1px solid var(--border-color);
   border-radius: 8px;
@@ -282,45 +303,44 @@ button.action-btn svg {
 }
 
 .deck-cards {
-  margin-top: 2rem;
-  text-align: left;
-}
-
-.card-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 15px;
   margin-top: 1rem;
 }
 
+.deck-cards-header {
+  padding: 0.5rem;
+  margin-bottom: 1rem;
+  position: relative;
+}
+
+.deck-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.deck-form {
+  padding: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.deck-cards-list {
+  padding: 0.5rem;
+}
+
 .card-item {
-  padding: 15px;
   background: var(--dark-surface);
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
+  padding: 0.5rem;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background-color 0.2s ease;
+  margin-bottom: 2px;
 }
 
 .card-item:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
-  border-color: var(--flame-orange);
+  background: var(--dark-surface-hover);
 }
 
-.card-item span {
-  display: block;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin-bottom: 5px;
-}
-
-.card-item small {
-  display: block;
-  color: var(--text-secondary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.card-list {
+  display: flex;
+  flex-direction: column;
 }
 
 .mode-header {
@@ -336,19 +356,24 @@ button.action-btn svg {
 }
 
 .back-btn {
-  padding: 0.5rem 1rem;
-  background-color: transparent;
-  color: var(--flame-orange);
-  border: 1px solid var(--flame-orange);
+  padding: 0.25rem 0.5rem;
+  background-color: var(--dark-surface);
+  color: var(--text-secondary);
+  border: none;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 0.9rem;
+  font-size: 0.8rem;
   transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  width: fit-content;
+  white-space: nowrap;
 }
 
 .back-btn:hover {
-  background-color: var(--flame-orange);
-  color: var(--text-primary);
+  background-color: var(--dark-surface-hover);
+  color: var(--flame-orange);
 }
 
 .review-mode {
@@ -378,7 +403,7 @@ button.action-btn svg {
 }
 
 .record-btn {
-  padding: 12px 24px;
+  padding: 8px 16px;
   font-size: 1.1em;
   border: none;
   border-radius: 25px;
@@ -423,7 +448,7 @@ button.action-btn svg {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 1rem;
+  padding: 0.75rem;
   border-radius: 8px;
   animation: fadeIn 0.3s ease;
   background-color: var(--dark-surface);
@@ -471,7 +496,7 @@ button.action-btn svg {
 }
 
 .test-btn {
-  padding: 1rem 2rem;
+  padding: 0.75rem 1.5rem;
   font-size: 1.2rem;
   font-weight: bold;
   border: none;
@@ -512,7 +537,7 @@ button.action-btn svg {
   height: 150px;
   background: var(--dark-surface);
   border-top: 1px solid var(--border-color);
-  padding: 1rem;
+  padding: 0.75rem;
   overflow-x: auto;
   white-space: nowrap;
 }
@@ -531,7 +556,7 @@ button.action-btn svg {
   background: var(--dark-surface);
   border: 1px solid var(--border-color);
   border-radius: 4px;
-  padding: 8px;
+  padding: 6px;
   font-size: 0.8rem;
   max-width: 200px;
   white-space: normal;
@@ -615,15 +640,6 @@ button.action-btn svg {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-}
-
-.app-content {
-  flex: 1;
-  padding: 1rem;
-  max-width: 800px;
-  margin: 0 auto;
-  width: 100%;
-  box-sizing: border-box;
 }
 
 @media (max-width: 768px) {

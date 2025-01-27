@@ -1,6 +1,6 @@
 .navbar {
-  background-color: var(--flame-orange);
-  padding: 1rem;
+  background-color: #000000;
+  padding: 0.75rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -9,8 +9,10 @@
 }
 
 .navbar-brand {
-  font-size: 1.5rem;
+  color: var(--flame-orange);
+  font-size: 1.2rem;
   font-weight: bold;
+  letter-spacing: 0.5px;
 }
 
 .navbar-actions {
@@ -20,17 +22,18 @@
 
 .navbar-button {
   background: transparent;
-  border: 1px solid white;
-  color: white;
-  padding: 0.5rem 1rem;
+  border: 1px solid var(--flame-orange);
+  color: var(--flame-orange);
+  padding: 0.4rem 0.8rem;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 1rem;
+  font-size: 0.8rem;
   transition: all 0.2s;
 }
 
 .navbar-button:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--flame-orange);
+  color: #000000;
 }
 
 /* Override any global button styles */
@@ -41,20 +44,19 @@ button.action-btn {
   justify-content: center;
   background: var(--dark-surface);
   color: var(--text-primary);
-  border: 1px solid var(--border-color);
-  padding: 6px;
-  width: 36px;
-  height: 36px;
-  border-radius: 6px;
+  border: none;
+  padding: 4px;
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
   cursor: pointer;
   transition: all 0.2s ease;
-  min-width: 36px;
+  min-width: 32px;
   box-sizing: border-box;
 }
 
 button.action-btn:hover {
   background: var(--dark-surface-hover);
-  border-color: var(--flame-orange);
   color: var(--flame-orange);
 }
 
@@ -92,7 +94,7 @@ button.action-btn svg {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1rem 1.5rem;
+  padding: 0.75rem 1rem;
   border-bottom: 1px solid #eee;
 }
 
@@ -107,7 +109,7 @@ button.action-btn svg {
   font-size: 1.5rem;
   color: #666;
   cursor: pointer;
-  padding: 0.5rem;
+  padding: 0.4rem;
   line-height: 1;
 }
 
