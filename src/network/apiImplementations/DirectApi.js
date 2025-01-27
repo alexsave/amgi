@@ -189,7 +189,8 @@ If no command is detected, compare the pronunciation with the expected text "${e
         throw new Error(`Failed to generate token: ${response.statusText}`);
       }
 
-      return await response.json();
+      const data = await response.json();
+      return data.client_secret.value;
     } catch (error) {
       throw new Error('Failed to get realtime token: ' + error.message);
     }
