@@ -1,3 +1,5 @@
+import { logRealtimeEvent } from './webrtc';
+
 export const handleAudioStarted = ({ mediaStreamRef }) => {
     if (mediaStreamRef.current) {
         mediaStreamRef.current.getAudioTracks().forEach(track => {
@@ -208,4 +210,20 @@ export const handleCompleteReviewFunction = ({
     setFeedback(args.message);
     realtimeTools.sendFunctionOutput(callId, { success: true });
     realtimeTools.requestNextResponse();
+};
+
+export const handleCardCorrect = (review, currentCard) => {
+  review.markCardCorrect(currentCard);
+};
+
+export const handleCardIncorrect = (review, currentCard) => {
+  review.markCardIncorrect(currentCard);
+};
+
+export const handleSkip = (review) => {
+  review.skipCard();
+};
+
+export const handleQuit = (review) => {
+  review.endReview();
 }; 

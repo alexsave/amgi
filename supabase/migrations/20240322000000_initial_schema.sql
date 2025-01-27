@@ -109,4 +109,72 @@ create policy "Users can update their own reviews"
 
 create policy "Users can delete their own reviews"
   on reviews for delete
-  using (auth.uid() = user_id); 
+  using (auth.uid() = user_id);
+
+-- Subscription tiers table
+create table subscription_tiers (
+  id uuid default uuid_generate_v4() primary key,
+  name text not null,
+  realtime_minutes_limit int not null,
+  voice_evaluations_limit int not null,
+  stripe_price_id text not null,
+  created_at timestamp default now()
+);
+
+-- User subscriptions table
+create table user_subscriptions (
+  id uuid default uuid_generate_v4() primary key,
+  user_id uuid references auth.users not null,
+  tier_id uuid references subscription_tiers(id) not null,
+  stripe_subscription_id text,
+  stripe_customer_id text,
+  current_period_start timestamp not null,
+  current_period_end timestamp not null,
+  status text not null,
+  created_at timestamp default now(),
+  updated_at timestamp default now()
+);
+
+-- Usage tracking table
+create table usage_tracking (
+  id uuid default uuid_generate_v4() primary key,
+  user_id uuid references auth.users not null,
+  realtime_sessions_started int default 0,
+  voice_evaluations_used int default 0,
+  period_start timestamp not null,
+  period_end timestamp not null,
+  created_at timestamp default now(),
+  updated_at timestamp default now()
+);
+
+-- Add indexes
+create index user_subscriptions_user_id_idx on user_subscriptions(user_id);
+create index usage_tracking_user_id_idx on usage_tracking(user_id);
+create index usage_tracking_period_idx on usage_tracking(period_start, period_end);
+
+-- RLS policies for new tables
+alter table subscription_tiers enable row level security;
+alter table user_subscriptions enable row level security;
+alter table usage_tracking enable row level security;
+
+-- Subscription tiers policies (admin only for modifications)
+create policy "Anyone can view subscription tiers"
+  on subscription_tiers for select
+  to authenticated
+  using (true);
+
+-- User subscriptions policies
+create policy "Users can view their own subscription"
+  on user_subscriptions for select
+  using (auth.uid() = user_id);
+
+-- Usage tracking policies
+create policy "Users can view their own usage"
+  on usage_tracking for select
+  using (auth.uid() = user_id);
+
+-- Insert initial subscription tiers (now using session counts)
+insert into subscription_tiers (name, realtime_minutes_limit, voice_evaluations_limit, stripe_price_id) values
+  ('Free', 5, 100, 'price_free'),           -- 5 sessions/month
+  ('Standard', 60, 1000, 'price_standard_monthly'),  -- 60 sessions/month
+  ('Pro', -1, -1, 'price_pro_monthly');     -- Unlimited sessions 

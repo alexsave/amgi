@@ -1,0 +1,143 @@
+.subscription-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.subscription-loading,
+.subscription-error {
+  text-align: center;
+  padding: 2rem;
+  font-size: 1.2rem;
+}
+
+.subscription-error {
+  color: var(--error-color);
+}
+
+.current-plan {
+  background: var(--background-color-light);
+  border-radius: 12px;
+  padding: 2rem;
+  margin-bottom: 3rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.usage-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 2rem;
+  margin-top: 1.5rem;
+}
+
+.usage-item h4 {
+  margin-bottom: 1rem;
+  color: var(--text-color-secondary);
+}
+
+.usage-bar {
+  height: 8px;
+  background: var(--background-color-dark);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 0.5rem;
+}
+
+.usage-progress {
+  height: 100%;
+  background: var(--primary-color);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.subscription-tiers {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 2rem;
+  margin-top: 3rem;
+}
+
+.tier-card {
+  background: var(--background-color-light);
+  border-radius: 12px;
+  padding: 2rem;
+  text-align: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s ease;
+}
+
+.tier-card:hover {
+  transform: translateY(-4px);
+}
+
+.tier-card.featured {
+  border: 2px solid var(--primary-color);
+  position: relative;
+}
+
+.tier-card h3 {
+  margin-bottom: 1rem;
+  color: var(--text-color);
+}
+
+.price {
+  font-size: 2rem;
+  font-weight: bold;
+  color: var(--primary-color);
+  margin-bottom: 1.5rem;
+}
+
+.tier-card ul {
+  list-style: none;
+  padding: 0;
+  margin-bottom: 2rem;
+}
+
+.tier-card li {
+  margin-bottom: 0.8rem;
+  color: var(--text-color-secondary);
+}
+
+.upgrade-button,
+.downgrade-button {
+  width: 100%;
+  padding: 1rem;
+  border: none;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.upgrade-button {
+  background: var(--primary-color);
+  color: white;
+}
+
+.upgrade-button:hover {
+  background: var(--primary-color-dark);
+}
+
+.downgrade-button {
+  background: var(--background-color-dark);
+  color: var(--text-color);
+}
+
+.downgrade-button:hover {
+  background: var(--background-color-darker);
+}
+
+@media (max-width: 768px) {
+  .subscription-container {
+    padding: 1rem;
+  }
+  
+  .subscription-tiers {
+    grid-template-columns: 1fr;
+  }
+  
+  .usage-stats {
+    grid-template-columns: 1fr;
+  }
+} 
