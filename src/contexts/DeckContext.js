@@ -87,7 +87,7 @@ export const DeckProvider = ({ children }) => {
     }
   }, [currentDeck, location.pathname, decks, newCardsToday]);
 
-  const addDeck = async (name) => {
+  const createNewDeck = async (name) => {
     if (useDirectApi) {
       const newDeck = localDeckStorage.createLocalDeck(name);
       setDecks(prev => ({ ...prev, [newDeck.id]: newDeck }));
@@ -174,7 +174,7 @@ export const DeckProvider = ({ children }) => {
     setCurrentDeck,
     setNewCardsToday,
     setError,
-    addDeck,
+    createNewDeck,
     updateDeck,
     deleteDeck,
     addCardToDeck,

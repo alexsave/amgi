@@ -18,17 +18,17 @@ const DeckList = () => {
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
 
-  const handleCreateDeck = () => {
+  const handleCreateDeck = async () => {
     const name = prompt('Enter deck name:');
     if (name) {
-      const id = createNewDeck(name);
-      navigate(`/app/deck/${id}`);
+      const id = await createNewDeck(name);
+      navigate(`/deck/${id}`);
     }
   };
 
   const handleDeckClick = (id) => {
     setCurrentDeck(id);
-    navigate(`/app/deck/${id}`);
+    navigate(`/deck/${id}`);
   };
 
   const handleImportClick = () => {
@@ -53,7 +53,7 @@ const DeckList = () => {
       }));
       
       setCurrentDeck(id);
-      navigate(`/app/deck/${id}`);
+      navigate(`/deck/${id}`);
     } catch (err) {
       console.error('Error importing deck:', err);
       alert('Failed to import deck: ' + err.message);
@@ -67,7 +67,7 @@ const DeckList = () => {
       [id]: sampleDeck
     }));
     setCurrentDeck(id);
-    navigate(`/app/deck/${id}`);
+    navigate(`/deck/${id}`);
   };
 
   return (

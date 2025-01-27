@@ -12,7 +12,7 @@ function AppContent() {
   const navigate = useNavigate();
 
   const handleBackToList = () => {
-    navigate('/app/decks');
+    navigate('/decks');
   };
 
   return (
@@ -21,7 +21,7 @@ function AppContent() {
       <div className="app-content">
         <RealtimeProvider>
           <Routes>
-            <Route path="/" element={<Navigate to="/app/decks" replace />} />
+            <Route path="/" element={<Navigate to="/decks" replace />} />
             <Route path="/decks" element={<DeckList />} />
             
             <Route 
