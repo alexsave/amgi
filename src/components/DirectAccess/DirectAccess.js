@@ -21,7 +21,7 @@ export default function DirectAccess() {
       localStorage.setItem('useDirectApi', 'true');
       localStorage.setItem('openaiApiKey', apiKey.trim());
       setApiMode(true, apiKey.trim());
-      navigate('/app/decks', { replace: true });
+      navigate('/decks', { replace: true });
     } catch (err) {
       setError('Failed to set API key: ' + err.message);
     }

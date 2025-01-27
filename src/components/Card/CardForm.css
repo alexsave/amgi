@@ -145,12 +145,13 @@
   background: var(--flame-orange);
   color: white;
   border: none;
-  padding: 10px 20px;
-  border-radius: 4px;
+  padding: 12px 24px;
+  border-radius: 8px;
   cursor: pointer;
   font-size: 1em;
-  margin-top: 20px;
-  width: 100%;
+  margin: 1rem auto;
+  max-width: 200px;
+  display: block;
   transition: all 0.2s ease;
 }
 
@@ -164,4 +165,32 @@
   color: var(--text-secondary);
   cursor: not-allowed;
   transform: none;
+  opacity: 0.7;
+}
+
+.text-view-container {
+  display: flex;
+  gap: 2rem;
+  margin: 2rem 0;
+  justify-content: center;
+}
+
+.text-view {
+  flex: 1;
+  max-width: 300px;
+  padding: 1rem;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background-color: #fff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.text-view h3 {
+  margin: 0 0 1rem 0;
+  color: #333;
+}
+
+.text-view p {
+  margin: 0 0 1rem 0;
+  line-height: 1.5;
 } 

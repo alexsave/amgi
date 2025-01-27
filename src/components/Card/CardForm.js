@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useAudio } from '../../hooks/useAudio';
 import { useCardGeneration } from '../../hooks/useCardGeneration';
 import { useDeckManagement } from '../../hooks/useDeckManagement';
@@ -21,27 +21,88 @@ const CardForm = ({ directMode = false }) => {
   const { generateCard, generatedCard, audioUrls, isGenerating } = useCardGeneration();
   const { addCardToDeck } = useDeckManagement();
 
+  const blobUrlsRef = useRef({ front: null, back: null });
+  const frontAudioRef = useRef(new Audio());
+  const backAudioRef = useRef(new Audio());
+
+  const [frontText, setFrontText] = useState('');
+  const [backText, setBackText] = useState('');
+  const [frontAudioUrl, setFrontAudioUrl] = useState(null);
+  const [backAudioUrl, setBackAudioUrl] = useState(null);
+
+  useEffect(() => {
+    console.log('CardForm: useEffect triggered with generatedCard:', generatedCard);
+    console.log('CardForm: useEffect triggered with audioUrls:', audioUrls);
+    if (generatedCard) {
+      console.log('CardForm: Setting front text to:', generatedCard.frontText);
+      console.log('CardForm: Setting back text to:', generatedCard.backText);
+      console.log('CardForm: Setting front audio URL to:', audioUrls.front);
+      console.log('CardForm: Setting back audio URL to:', audioUrls.back);
+      setFrontText(generatedCard.frontText);
+      setBackText(generatedCard.backText);
+      setFrontAudioUrl(audioUrls.front);
+      setBackAudioUrl(audioUrls.back);
+
+      // Set audio sources
+      if (audioUrls.front) {
+        frontAudioRef.current.src = audioUrls.front;
+        blobUrlsRef.current.front = audioUrls.front;
+      }
+      if (audioUrls.back) {
+        backAudioRef.current.src = audioUrls.back;
+        blobUrlsRef.current.back = audioUrls.back;
+      }
+    }
+  }, [generatedCard, audioUrls]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    console.log('CardForm: handleSubmit called with userInput:', userInput);
     if (!userInput.trim()) {
       setError('Please enter some text');
       return;
     }
     setError(null);
-    
+
     try {
-      await generateCard(userInput, targetLang);
+      console.log('CardForm: Calling generateCard with:', {
+        userInput,
+        targetLang,
+        blobUrlsRef: blobUrlsRef.current,
+        frontAudioRef: frontAudioRef.current,
+        backAudioRef: backAudioRef.current
+      });
+      await generateCard(userInput, targetLang, blobUrlsRef, frontAudioRef, backAudioRef);
+      console.log('CardForm: generateCard completed successfully');
+      setUserInput(''); // Clear input after successful generation
     } catch (err) {
+      console.error('CardForm: Error in handleSubmit:', err);
       setError(err.message);
     }
   };
 
   const handleAddToDeck = async () => {
-    if (!generatedCard) return;
+    console.log('CardForm: handleAddToDeck called with:', {
+      frontText,
+      backText,
+      frontAudioUrl,
+      backAudioUrl
+    });
+    if (!frontText || !backText) return;
     try {
-      await addCardToDeck(generatedCard);
-      setUserInput('');
+      const card = {
+        frontText,
+        backText,
+        audioUrls: {
+          front: frontAudioUrl,
+          back: backAudioUrl
+        }
+      };
+      console.log('CardForm: Adding card to deck:', card);
+      await addCardToDeck(card);
+      console.log('CardForm: Successfully added card to deck');
     } catch (err) {
+      console.error('CardForm: Error in handleAddToDeck:', err);
       setError(err.message);
     }
   };
@@ -110,12 +171,10 @@ const CardForm = ({ directMode = false }) => {
               )}
             </div>
           </div>
-          
-          {!directMode && (
-            <button onClick={handleAddToDeck} className="add-to-deck-btn">
-              Add to Deck
-            </button>
-          )}
+
+          <button onClick={handleAddToDeck} className="add-to-deck-btn">
+            Add to Deck
+          </button>
         </div>
       )}
     </div>

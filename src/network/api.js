@@ -1,191 +1,70 @@
 // Network API operations
-import * as directApi from './directApi';
+import { DirectApi } from './apiImplementations/DirectApi';
+import { LocalApi } from './apiImplementations/LocalApi';
+import { SupabaseApi } from './apiImplementations/SupabaseApi';
 
-// API Configuration
+// Environment configuration
 const USE_LOCAL = process.env.REACT_APP_USE_LOCAL === 'true';
+const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL;
+const SUPABASE_KEY = process.env.REACT_APP_SUPABASE_KEY;
 
-const LOCAL_CONFIG = {
-    baseUrl: 'http://localhost:8000',
-    headers: {
-        'Content-Type': 'application/json'
-    },
-    endpoints: {
-        realtimeToken: '/api/realtime-token',
-        generateCards: '/api/generate_cards',
-        evaluateSpeech: '/api/evaluate_speech'
-    }
-};
-
-const SUPABASE_CONFIG = {
-    baseUrl: process.env.REACT_APP_SUPABASE_URL,
-    headers: {
-        'Content-Type': 'application/json',
-        'apikey': process.env.REACT_APP_SUPABASE_KEY
-    },
-    endpoints: {
-        realtimeToken: '/functions/v1/realtime',
-        generateCards: '/functions/v1/cards',
-        evaluateSpeech: '/functions/v1/speech'
-    }
-};
-
-const API_CONFIG = USE_LOCAL ? LOCAL_CONFIG : SUPABASE_CONFIG;
-
-// Helper function to get full URL for an endpoint
-const getEndpointUrl = (endpoint) => `${API_CONFIG.baseUrl}${API_CONFIG.endpoints[endpoint]}`;
-
-// Helper function to get headers for a request
-const getHeaders = () => ({ ...API_CONFIG.headers });
+// API instance management
+let apiInstance = null;
 
 // Helper function to check if direct API mode is enabled
 const isDirectApiEnabled = () => localStorage.getItem('useDirectApi') === 'true';
+
+// Helper function to get the appropriate API implementation
+const getApiInstance = () => {
+  if (!apiInstance) {
+    if (isDirectApiEnabled()) {
+      apiInstance = new DirectApi();
+      const apiKey = localStorage.getItem('OPENAI_KEY');
+      if (!apiKey) {
+        throw new Error('OpenAI API key not found');
+      }
+      apiInstance.initialize(apiKey);
+    } else if (USE_LOCAL) {
+      apiInstance = new LocalApi();
+    } else if (SUPABASE_URL && SUPABASE_KEY) {
+      apiInstance = new SupabaseApi(SUPABASE_URL, SUPABASE_KEY);
+    } else {
+      throw new Error('No valid API configuration found');
+    }
+  }
+  return apiInstance;
+};
 
 // API mode management
 export const setApiMode = (useDirectApi, apiKey = null) => {
   if (useDirectApi && apiKey) {
     localStorage.setItem('useDirectApi', 'true');
-    directApi.initializeOpenAI(apiKey);
+    localStorage.setItem('OPENAI_KEY', apiKey);
   } else {
     localStorage.setItem('useDirectApi', 'false');
-    directApi.clearOpenAI();
+    localStorage.removeItem('OPENAI_KEY');
   }
+  // Clear the current instance so it will be recreated with new settings
+  apiInstance = null;
 };
 
 export const getApiMode = () => ({
   useDirectApi: isDirectApiEnabled(),
-  apiKey: isDirectApiEnabled() ? directApi.getStoredApiKey() : null
+  apiKey: isDirectApiEnabled() ? localStorage.getItem('OPENAI_KEY') : null
 });
 
 // API Functions
-export const getRealtimeToken = async () => {
-  if (isDirectApiEnabled()) {
-    return directApi.getRealtimeToken();
-  }
-
-  console.log('Requesting realtime token...');
-  const response = await fetch(getEndpointUrl('realtimeToken'), {
-    headers: getHeaders()
-  });
-  if (!response.ok) {
-    const error = `Failed to get token: ${response.statusText}`;
-    console.error(error);
-    throw new Error(error);
-  }
-  const data = await response.json();
-  console.log('Got token response:', data);
-  if (!data.client_secret?.value) {
-    const error = 'Invalid token response';
-    console.error(error, data);
-    throw new Error(error);
-  }
-  console.log('Successfully extracted token');
-  return data.client_secret.value;
-};
-
 export const generateCard = async (userInput, targetLang, onProgress) => {
-  if (isDirectApiEnabled()) {
-    return directApi.generateCard({ userInput, targetLang }, onProgress);
-  }
-
-  try {
-    const response = await fetch(getEndpointUrl('generateCards'), {
-      method: 'POST',
-      headers: getHeaders(),
-      body: JSON.stringify({
-        userInput,
-        targetLang,
-      }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Failed to generate card');
-    }
-
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let card = null;
-    let audioReady = { front: false, back: false };
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      const chunk = decoder.decode(value);
-      const lines = chunk.split('\n').filter(line => line.trim());
-
-      for (const line of lines) {
-        const data = JSON.parse(line);
-        
-        if (data.type === 'card') {
-          card = data.data;
-          onProgress({ type: 'text', data: card });
-        } else if (data.type === 'audio') {
-          const audioData = new Uint8Array(data.data);
-          const blob = new Blob([audioData], { type: 'audio/mpeg' });
-          const url = URL.createObjectURL(blob);
-          
-          audioReady[data.side] = true;
-          onProgress({ type: 'audio', side: data.side, url });
-        }
-      }
-    }
-
-    return { card, audioReady };
-  } catch (err) {
-    console.error('Error in generateCard:', err);
-    throw err;
-  }
+  const api = getApiInstance();
+  return api.generateCard(userInput, targetLang, onProgress);
 };
 
 export const evaluateSpeech = async (audioBlob, expectedText, sourceLang, expectedAudioBlob) => {
-  try {
-    const [userAudioBase64, expectedAudioBase64] = await Promise.all([
-      blobToBase64(audioBlob),
-      blobToBase64(expectedAudioBlob)
-    ]);
-
-    if (isDirectApiEnabled()) {
-      return directApi.evaluateSpeech({
-        audioBase64: userAudioBase64,
-        expectedText,
-        sourceLang,
-        expectedAudioBase64,
-      });
-    }
-
-    const response = await fetch(getEndpointUrl('evaluateSpeech'), {
-      method: 'POST',
-      headers: getHeaders(),
-      body: JSON.stringify({
-        audioBase64: userAudioBase64,
-        expectedText,
-        sourceLang,
-        expectedAudioBase64,
-        audioFormat: 'mp3'
-      }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error('Failed to evaluate speech: ' + (errorData.error || 'Unknown error'));
-    }
-
-    return await response.json();
-  } catch (err) {
-    console.error('Error evaluating speech:', err);
-    throw err;
-  }
+  const api = getApiInstance();
+  return api.evaluateSpeech(audioBlob, expectedText, sourceLang, expectedAudioBlob);
 };
 
-const blobToBase64 = (blob) => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const base64 = reader.result.split(',')[1];
-      resolve(base64);
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
+export const getRealtimeToken = async () => {
+  const api = getApiInstance();
+  return api.getRealtimeToken();
 }; 

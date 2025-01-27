@@ -52,12 +52,11 @@ export function useAudio() {
     }
   };
 
-  const playAudio = async (side) => {
+  const playAudio = async (audioUrl) => {
     try {
-      const audio = side === 'front' ? frontAudioRef.current : backAudioRef.current;
-      console.log(`Playing ${side} audio:`, audio);
+      console.log('Playing audio URL:', audioUrl);
       
-      if (!audio.src) {
+      if (!audioUrl) {
         throw new Error('No audio available');
       }
 
@@ -67,7 +66,8 @@ export function useAudio() {
       backAudioRef.current.pause();
       backAudioRef.current.currentTime = 0;
 
-      // Play the selected audio
+      // Create a new audio element for this playback
+      const audio = new Audio(audioUrl);
       await audio.play();
     } catch (err) {
       console.error('Error playing audio:', err);
