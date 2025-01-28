@@ -21,75 +21,45 @@ export class SupabaseApi extends ApiInterface {
 
   async generateCard(userInput, targetLang, onProgress) {
     try {
-      const headers = await this.getHeaders();
-      const response = await fetch(`${this.baseUrl}/functions/v1/cards`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
+      // Call the card generation function using the SDK
+      const { data, error } = await this.supabase.functions.invoke('cards', {
+        body: {
           userInput,
           targetLang,
-        }),
+        }
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to generate card');
+      if (error) {
+        throw error;
       }
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let card = null;
-      let audioReady = { front: false, back: false };
-      const audioUrls = []; // Track URLs for cleanup
-      let buffer = ''; // Add buffer for incomplete chunks
+      // Since we can't stream, we'll get all the data at once
+      // First handle the card data
+      const card = data.card;
+      onProgress({ type: 'text', data: card });
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+      // Then handle the audio data
+      if (data.frontAudio) {
+        const frontAudioBlob = new Blob([new Uint8Array(data.frontAudio)], { type: 'audio/mpeg' });
+        const frontUrl = URL.createObjectURL(frontAudioBlob);
+        onProgress({ type: 'audio', side: 'front', url: frontUrl });
+      }
 
-        const chunk = decoder.decode(value);
-        buffer += chunk;
-        
-        // Split on newlines, keeping any incomplete chunk in the buffer
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || ''; // Keep the last incomplete chunk
+      if (data.backAudio) {
+        const backAudioBlob = new Blob([new Uint8Array(data.backAudio)], { type: 'audio/mpeg' });
+        const backUrl = URL.createObjectURL(backAudioBlob);
+        onProgress({ type: 'audio', side: 'back', url: backUrl });
+      }
 
-        for (const line of lines) {
-          if (!line.trim()) continue;
-          
-          try {
-            const data = JSON.parse(line);
-            
-            if (data.type === 'card') {
-              card = data.data;
-              onProgress({ type: 'text', data: card });
-            } else if (data.type === 'audio') {
-              const audioData = new Uint8Array(data.data);
-              const blob = new Blob([audioData], { type: 'audio/mpeg' });
-              const url = URL.createObjectURL(blob);
-              audioUrls.push(url);
-              
-              audioReady[data.side] = true;
-              onProgress({ type: 'audio', side: data.side, url });
-            }
-          } catch (parseError) {
-            console.error('Failed to parse JSON chunk:', {
-              line,
-              error: parseError.message,
-              position: parseError.position,
-              length: line.length
-            });
-            throw new Error(`JSON parse error: ${parseError.message} (chunk length: ${line.length})`);
-          }
+      return {
+        card,
+        audioReady: {
+          front: !!data.frontAudio,
+          back: !!data.backAudio
         }
-      }
-
-      return { 
-        card, 
-        audioReady,
-        cleanup: () => audioUrls.forEach(url => URL.revokeObjectURL(url))
       };
     } catch (err) {
+      console.error('Error in SupabaseApi.generateCard:', err);
       throw new Error('Failed to generate card: ' + err.message);
     }
   }

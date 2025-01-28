@@ -1,8 +1,8 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-    Deno.env.get('SUPABASE_URL') ?? '',
-    Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+const supabaseClient = createClient(
+    Deno.env.get('SUPABASE_URL') || '',
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
 );
 
 export interface UsageData {
@@ -27,93 +27,136 @@ export interface SubscriptionData {
     };
 }
 
-export async function getSubscription(userId: string): Promise<SubscriptionData | null> {
-    const enableBilling = Deno.env.get('ENABLE_BILLING') === 'true';
-    if (!enableBilling) {
-        return null;
-    }
+const DEFAULT_SUBSCRIPTION_LIMITS = {
+    realtime_minutes_limit: 0,
+    voice_evaluations_limit: 0,
+    card_audio_generations_limit: 0
+};
 
-    const { data: sub, error: subError } = await supabase
+const DEFAULT_USAGE = {
+    realtime_sessions_started: 0,
+    voice_evaluations_used: 0,
+    card_audio_generations_used: 0
+};
+
+export async function getSubscription(userId: string): Promise<SubscriptionData | null> {
+    const { data: subscriptions, error } = await supabaseClient
         .from('user_subscriptions')
         .select('*, subscription_tiers(*)')
-        .eq('user_id', userId)
-        .single();
+        .eq('user_id', userId);
 
-    if (subError) {
-        throw subError;
+    if (error) {
+        console.error('Error fetching subscription:', error);
+        throw error;
     }
-    return sub;
+
+    if (!subscriptions || subscriptions.length === 0) {
+        const now = new Date();
+        return {
+            id: 'free',
+            user_id: userId,
+            current_period_start: new Date(now.getFullYear(), now.getMonth(), 1).toISOString(),
+            current_period_end: new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString(),
+            subscription_tiers: DEFAULT_SUBSCRIPTION_LIMITS
+        };
+    }
+
+    // Ensure subscription has all limit fields
+    const subscription = subscriptions[0];
+    subscription.subscription_tiers = subscription.subscription_tiers || {};
+    subscription.subscription_tiers = {
+        ...DEFAULT_SUBSCRIPTION_LIMITS,
+        ...subscription.subscription_tiers
+    };
+
+    return subscription;
 }
 
 export async function getOrCreateUsage(userId: string, subscription: SubscriptionData | null): Promise<UsageData> {
     const now = new Date();
-    const { data: usage, error: usageError } = await supabase
+    
+    // Try to get existing usage record
+    const { data: usageRecords, error: usageError } = await supabaseClient
         .from('usage_tracking')
         .select('*')
         .eq('user_id', userId)
         .lte('period_end', now.toISOString())
-        .gte('period_start', now.toISOString())
-        .single();
+        .gte('period_start', now.toISOString());
 
-    if (!usageError) {
-        return usage;
-    }
-
-    if (usageError.message !== 'JSON object requested, multiple (or no) rows returned') {
+    if (usageError) {
+        console.error('Error fetching usage:', usageError);
         throw usageError;
     }
 
-    // Create new usage record
-    let periodStart: Date, periodEnd: Date;
+    // If we found a usage record, ensure it has all fields
+    if (usageRecords && usageRecords.length > 0) {
+        const usage = usageRecords[0];
+        return {
+            ...usage,
+            ...DEFAULT_USAGE,
+            realtime_sessions_started: usage.realtime_sessions_started || 0,
+            voice_evaluations_used: usage.voice_evaluations_used || 0,
+            card_audio_generations_used: usage.card_audio_generations_used || 0
+        };
+    }
+
+    // If no usage record exists, create one
+    let periodStart, periodEnd;
     if (subscription) {
         periodStart = new Date(subscription.current_period_start);
         periodEnd = new Date(subscription.current_period_end);
     } else {
-        periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
-        periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        periodStart = new Date(now.getFullYear(), now.getMonth(), 1); // Start of current month
+        periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0); // End of current month
     }
 
-    const { data: newUsage, error: createError } = await supabase
+    console.log('Creating new usage record:', {
+        userId,
+        periodStart: periodStart.toISOString(),
+        periodEnd: periodEnd.toISOString()
+    });
+
+    const { data: newUsageRecords, error: createError } = await supabaseClient
         .from('usage_tracking')
         .insert({
             user_id: userId,
-            voice_evaluations_used: 0,
-            realtime_sessions_started: 0,
-            card_audio_generations_used: 0,
+            ...DEFAULT_USAGE,
             period_start: periodStart.toISOString(),
             period_end: periodEnd.toISOString()
         })
-        .select()
-        .single();
+        .select();
 
     if (createError) {
+        console.error('Error creating usage tracking:', createError);
         throw createError;
     }
 
-    return newUsage;
+    if (!newUsageRecords || newUsageRecords.length === 0) {
+        throw new Error('Failed to create usage record');
+    }
+
+    return newUsageRecords[0];
 }
 
 export async function updateUsage(usageId: string, updates: Partial<UsageData>) {
-    const { error } = await supabase
+    const { error } = await supabaseClient
         .from('usage_tracking')
         .update(updates)
         .eq('id', usageId);
 
     if (error) {
+        console.error('Error updating usage:', error);
         throw error;
     }
 }
 
-export function checkUsageLimits(usage: UsageData, subscription: SubscriptionData | null, type: keyof UsageData) {
-    if (!subscription) {
-        return;
-    }
+export function checkUsageLimits(usage: UsageData, subscription: SubscriptionData | null, usageField: string) {
+    if (!subscription) return; // No limits for free tier
 
-    const limitField = type.replace('_used', '_limit') as keyof SubscriptionData['subscription_tiers'];
-    const limit = subscription.subscription_tiers[limitField];
-    const used = usage[type] as number;
+    const limit = subscription.subscription_tiers[usageField + '_limit'];
+    const used = usage[usageField];
 
     if (limit !== -1 && used >= limit) {
-        throw new Error(`You have reached your ${type.replace('_used', '')} limit for this billing period`);
+        throw new Error(`Usage limit exceeded for ${usageField}`);
     }
 } 

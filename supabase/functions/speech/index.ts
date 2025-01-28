@@ -34,18 +34,26 @@ const evaluationTools = [{
 }];
 
 serve(async (req) => {
+  console.log('Received request:', {
+    method: req.method,
+    url: req.url,
+    headers: Object.fromEntries(req.headers.entries())
+  });
+
   if (req.method === 'OPTIONS') {
+    console.log('Handling CORS preflight request');
     return new Response('ok', { headers: corsHeaders });
   }
 
   try {
     const authHeader = req.headers.get('Authorization');
+    console.log('Authorization header present:', !!authHeader);
     if (!authHeader) {
       throw new Error('No authorization header');
     }
 
     const token = authHeader.replace('Bearer ', '');
-    console.log('Authenticating user with token...');
+    console.log('Token extracted, first 10 chars:', token.substring(0, 10) + '...');
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') || '',
@@ -163,18 +171,35 @@ serve(async (req) => {
       }
     }
 
-    const { audioBase64, expectedText, sourceLang, expectedAudioBase64 } = await req.json();
-    console.log('Processing evaluation request:', { 
-      sourceLang,
-      expectedTextLength: expectedText?.length,
-      hasAudio: !!audioBase64,
-      hasExpectedAudio: !!expectedAudioBase64
+    const { audioBase64, expectedText, sourceLang: targetLang, expectedAudioBase64 } = await req.json();
+    console.log('Request validation:', {
+      hasAudioBase64: !!audioBase64,
+      audioBase64Length: audioBase64?.length,
+      expectedTextPresent: !!expectedText,
+      targetLangPresent: !!targetLang,
+      targetLang,
+      hasExpectedAudio: !!expectedAudioBase64,
+      expectedAudioLength: expectedAudioBase64?.length
     });
 
+    if (!audioBase64 || !expectedText || !targetLang) {
+      const missingFields = [];
+      if (!audioBase64) missingFields.push('audioBase64');
+      if (!expectedText) missingFields.push('expectedText');
+      if (!targetLang) missingFields.push('targetLang');
+      throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
+    }
+
+    console.log('Initializing OpenAI client');
     const openai = new OpenAI({
       apiKey: Deno.env.get("OPENAI_KEY"),
     });
 
+    console.log('Starting OpenAI chat completion request with params:', {
+      model: "gpt-4o-audio-preview",
+      expectedText,
+      targetLang
+    });
     const response = await openai.chat.completions.create({
       model: "gpt-4o-audio-preview",
       messages: [
@@ -182,7 +207,7 @@ serve(async (req) => {
           role: "system",
           content: `You are a language learning assistant evaluating pronunciation. First, check if the audio contains commands like "skip", "quit", "next", or "give up". If it does, call evaluate_pronunciation with result "quit" and message "User requested to skip".
 
-If no command is detected, compare the pronunciation with the expected text "${expectedText}" in ${sourceLang}. If the pronunciation is good, call evaluate_pronunciation with result "correct" and a brief praise message. If the pronunciation needs improvement, call evaluate_pronunciation with result "incorrect" and a brief explanation of what was wrong.`
+If no command is detected, compare the pronunciation with the expected text "${expectedText}" in ${targetLang}. If the pronunciation is good, call evaluate_pronunciation with result "correct" and a brief praise message. If the pronunciation needs improvement, call evaluate_pronunciation with result "incorrect" and a brief explanation of what was wrong.`
         },
         {
           role: "user",
@@ -204,14 +229,28 @@ If no command is detected, compare the pronunciation with the expected text "${e
     });
 
     const toolCall = response.choices[0].message.tool_calls?.[0];
+    console.log('OpenAI response received:', {
+      hasToolCall: !!toolCall,
+      toolCallName: toolCall?.function?.name,
+      responseChoices: response.choices.length
+    });
+
     if (!toolCall) {
       throw new Error('No tool call in response');
     }
 
     const evaluation = JSON.parse(toolCall.function.arguments);
+    console.log('Evaluation result:', {
+      result: evaluation.result,
+      messageLength: evaluation.message?.length
+    });
 
     // Always update usage tracking, even if billing is disabled
-    console.log('Updating usage count from', usage.voice_evaluations_used, 'to', usage.voice_evaluations_used + 1);
+    console.log('Updating usage tracking:', {
+      usageId: usage.id,
+      currentCount: usage.voice_evaluations_used,
+      newCount: usage.voice_evaluations_used + 1
+    });
     const { error: updateError } = await supabase
       .from('usage_tracking')
       .update({
@@ -234,6 +273,13 @@ If no command is detected, compare the pronunciation with the expected text "${e
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
+    console.error('Error processing request:', {
+      name: error.name,
+      message: error.message,
+      stack: error.stack,
+      cause: error.cause
+    });
+    
     return new Response(
       JSON.stringify({ error: error.message }),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

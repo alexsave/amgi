@@ -1,8 +1,8 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-    Deno.env.get('SUPABASE_URL') ?? '',
-    Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+const supabaseClient = createClient(
+    Deno.env.get('SUPABASE_URL') || '',
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
 );
 
 export async function getAuthenticatedUser(req: Request) {
@@ -11,7 +11,8 @@ export async function getAuthenticatedUser(req: Request) {
         throw new Error('No authorization header');
     }
 
-    const { data: { user }, error } = await supabase.auth.getUser(authHeader);
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error } = await supabaseClient.auth.getUser(token);
     if (error || !user) {
         throw new Error('Invalid token');
     }

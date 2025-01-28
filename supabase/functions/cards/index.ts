@@ -51,7 +51,7 @@ serve(async (req) => {
             inputLength: userInput.length
         });
         const completion = await openai.beta.chat.completions.parse({
-            model: "gpt-4",
+            model: "gpt-4o",
             messages: [
                 { 
                     role: "system", 
@@ -80,84 +80,59 @@ Return just the translation pair with language codes.`
         const card = parseResult.data;
         console.log('Parsed card data:', card);
 
-        const stream = new ReadableStream({
-            async start(controller) {
-                try {
-                    console.log('Starting stream processing...');
-                    // Send card data first
-                    const cardData = JSON.stringify({
-                        type: 'card',
-                        data: card
-                    }) + '\n';
-                    console.log('Sending card data chunk:', cardData);
-                    controller.enqueue(encoder.encode(cardData));
+        // Generate front audio
+        console.log('Generating front audio with params:', {
+            model: "tts-1",
+            voice: "alloy",
+            textLength: card.frontText.length
+        });
+        const frontMp3 = await openai.audio.speech.create({
+            model: "tts-1",
+            voice: "alloy",
+            input: card.frontText,
+        });
+        const frontBuffer = await frontMp3.arrayBuffer();
+        console.log('Front audio buffer size:', frontBuffer.byteLength);
 
-                    // Check and update audio generation usage
-                    checkUsageLimits(usage, subscription, 'card_audio_generations_used');
-                    await updateUsage(usage.id, {
-                        card_audio_generations_used: usage.card_audio_generations_used + 2 // +2 for both front and back
-                    });
+        // Generate back audio
+        console.log('Generating back audio with params:', {
+            model: "tts-1",
+            voice: "alloy",
+            textLength: card.backText.length
+        });
+        const backMp3 = await openai.audio.speech.create({
+            model: "tts-1",
+            voice: "alloy",
+            input: card.backText,
+        });
+        const backBuffer = await backMp3.arrayBuffer();
+        console.log('Back audio buffer size:', backBuffer.byteLength);
 
-                    // Generate and send front audio
-                    console.log('Generating front audio with params:', {
-                        model: "tts-1",
-                        voice: "alloy",
-                        textLength: card.frontText.length
-                    });
-                    const frontMp3 = await openai.audio.speech.create({
-                        model: "tts-1",
-                        voice: "alloy",
-                        input: card.frontText,
-                    });
-                    const frontBuffer = await frontMp3.arrayBuffer();
-                    console.log('Front audio buffer size:', frontBuffer.byteLength);
-                    
-                    const frontAudioData = JSON.stringify({
-                        type: 'audio',
-                        side: 'front',
-                        data: Array.from(new Uint8Array(frontBuffer))
-                    }) + '\n';
-                    console.log('Sending front audio chunk of size:', frontAudioData.length);
-                    controller.enqueue(encoder.encode(frontAudioData));
+        // Check and update audio generation usage
+        checkUsageLimits(usage, subscription, 'card_audio_generations_used');
+        await updateUsage(usage.id, {
+            card_audio_generations_used: usage.card_audio_generations_used + 2 // +2 for both front and back
+        });
 
-                    // Generate and send back audio
-                    console.log('Generating back audio with params:', {
-                        model: "tts-1",
-                        voice: "alloy",
-                        textLength: card.backText.length
-                    });
-                    const backMp3 = await openai.audio.speech.create({
-                        model: "tts-1",
-                        voice: "alloy",
-                        input: card.backText,
-                    });
-                    const backBuffer = await backMp3.arrayBuffer();
-                    console.log('Back audio buffer size:', backBuffer.byteLength);
-                    
-                    const backAudioData = JSON.stringify({
-                        type: 'audio',
-                        side: 'back',
-                        data: Array.from(new Uint8Array(backBuffer))
-                    }) + '\n';
-                    console.log('Sending back audio chunk of size:', backAudioData.length);
-                    controller.enqueue(encoder.encode(backAudioData));
-
-                    controller.close();
-                } catch (error) {
-                    console.error('Error in stream processing:', error);
-                    controller.error(error);
+        // Return all data at once
+        return new Response(
+            JSON.stringify({
+                card: {
+                    frontText: card.frontText,
+                    backText: card.backText,
+                    frontLang: card.frontLang,
+                    backLang: card.backLang
+                },
+                frontAudio: Array.from(new Uint8Array(frontBuffer)),
+                backAudio: Array.from(new Uint8Array(backBuffer))
+            }),
+            {
+                headers: {
+                    ...corsHeaders,
+                    'Content-Type': 'application/json'
                 }
             }
-        });
-
-        return new Response(stream, {
-            headers: {
-                ...corsHeaders,
-                'Content-Type': 'text/event-stream',
-                'Cache-Control': 'no-cache',
-                'Connection': 'keep-alive'
-            }
-        });
+        );
 
     } catch (error) {
         console.error('Error processing request:', error);

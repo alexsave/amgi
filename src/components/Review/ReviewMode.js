@@ -23,6 +23,12 @@ const ReviewMode = () => {
   const currentCard = review.dueCards[review.currentCardIndex];
 
   const handleEvaluationResult = (data) => {
+    console.log('ReviewMode: Received evaluation result:', {
+      result: data.result,
+      messageLength: data.message?.length,
+      hasAudio: !!data.audio
+    });
+
     review.setEvaluationResult(data);
     
     // Simplified quality system - only correct/incorrect
@@ -131,8 +137,18 @@ const ReviewMode = () => {
               isLoading={audio.isLoading}
               onStartRecording={audio.startRecording}
               onStopRecording={async () => {
+                console.log('ReviewMode: Stopping recording with current card:', {
+                  frontText: currentCard.frontText,
+                  backText: currentCard.backText,
+                  sourceLang: currentCard.sourceLang,
+                  targetLang: currentCard.targetLang
+                });
                 const audioBlob = await audio.stopRecording();
                 if (!audioBlob) return;
+                console.log('ReviewMode: Got audio blob:', {
+                  size: audioBlob.size,
+                  type: audioBlob.type
+                });
                 await evaluateSpeech(audioBlob, currentCard);
               }}
             />
