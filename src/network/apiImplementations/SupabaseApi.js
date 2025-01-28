@@ -35,7 +35,17 @@ export class SupabaseApi extends ApiInterface {
 
       // Since we can't stream, we'll get all the data at once
       // First handle the card data
-      const card = data.card;
+      const card = {
+        ...data.card,
+        frontLang: data.card.frontLang,
+        backLang: data.card.backLang
+      };
+      console.log('SupabaseApi: Received card data:', {
+        frontText: card.frontText,
+        backText: card.backText,
+        frontLang: card.frontLang,
+        backLang: card.backLang
+      });
       onProgress({ type: 'text', data: card });
 
       // Then handle the audio data

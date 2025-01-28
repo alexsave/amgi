@@ -202,6 +202,8 @@ serve(async (req) => {
     });
     const response = await openai.chat.completions.create({
       model: "gpt-4o-audio-preview",
+      modalities: ["text", "audio"],
+      audio: { voice: "alloy", format: "mp3" },
       messages: [
         {
           role: "system",
@@ -213,14 +215,14 @@ If no command is detected, compare the pronunciation with the expected text "${e
           role: "user",
           content: [
             { type: "text", text: "Here is the correct pronunciation:" },
-            { type: "audio", audio: { data: expectedAudioBase64, format: "mp3" } }
+            { type: "input_audio", input_audio: { data: expectedAudioBase64, format: "mp3" } }
           ]
         },
         {
           role: "user",
           content: [
             { type: "text", text: "Evaluate this pronunciation:" },
-            { type: "audio", audio: { data: audioBase64, format: "mp3" } }
+            { type: "input_audio", input_audio: { data: audioBase64, format: "mp3" } }
           ]
         }
       ],

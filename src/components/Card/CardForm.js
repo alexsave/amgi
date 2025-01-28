@@ -99,6 +99,8 @@ const CardForm = ({ directMode = false }) => {
       const card = {
         frontText,
         backText,
+        frontLang: generatedCard.frontLang,
+        backLang: generatedCard.backLang,
         frontAudioId: generatedCard.frontAudioId,
         backAudioId: generatedCard.backAudioId
       };
