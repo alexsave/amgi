@@ -125,6 +125,7 @@ create table subscription_tiers (
   name text not null,
   realtime_minutes_limit int not null,
   voice_evaluations_limit int not null,
+  card_audio_generations_limit int not null,
   stripe_price_id text not null,
   created_at timestamp default now()
 );
@@ -149,6 +150,7 @@ create table usage_tracking (
   user_id uuid references auth.users not null,
   realtime_sessions_started int default 0,
   voice_evaluations_used int default 0,
+  card_audio_generations_used int default 0,  -- Track TTS usage in card generation
   period_start timestamp not null,
   period_end timestamp not null,
   created_at timestamp default now(),
@@ -181,8 +183,8 @@ create policy "Users can view their own usage"
   on usage_tracking for select
   using (auth.uid() = user_id);
 
--- Insert initial subscription tiers (now using session counts)
-insert into subscription_tiers (name, realtime_minutes_limit, voice_evaluations_limit, stripe_price_id) values
-  ('Free', 5, 100, 'price_free'),           -- 5 sessions/month
-  ('Standard', 60, 1000, 'price_standard_monthly'),  -- 60 sessions/month
-  ('Pro', -1, -1, 'price_pro_monthly');     -- Unlimited sessions 
+-- Insert initial subscription tiers
+insert into subscription_tiers (name, realtime_minutes_limit, voice_evaluations_limit, card_audio_generations_limit, stripe_price_id) values
+  ('Free', 5, 100, 100, 'price_free'),           -- 5 sessions/month, 100 voice evals, 100 audio gens
+  ('Standard', 60, 1000, 1000, 'price_standard_monthly'),  -- 60 sessions/month, 1000 voice evals, 1000 audio gens
+  ('Pro', -1, -1, -1, 'price_pro_monthly');     -- Unlimited everything 

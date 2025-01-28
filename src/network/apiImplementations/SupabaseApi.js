@@ -1,25 +1,30 @@
 import { ApiInterface } from './ApiInterface';
 import { blobToBase64 } from '../utils';
+import { createClient } from '@supabase/supabase-js';
 
 export class SupabaseApi extends ApiInterface {
   constructor(supabaseUrl, supabaseKey) {
     super();
+    this.supabase = createClient(supabaseUrl, supabaseKey);
     this.baseUrl = supabaseUrl;
-    this.apiKey = supabaseKey;
   }
 
-  getHeaders() {
+  async getHeaders() {
+    const { data: { session }, error } = await this.supabase.auth.getSession();
+    if (error) throw error;
+    
     return {
+      'Authorization': `Bearer ${session?.access_token}`,
       'Content-Type': 'application/json',
-      'apikey': this.apiKey
     };
   }
 
   async generateCard(userInput, targetLang, onProgress) {
     try {
+      const headers = await this.getHeaders();
       const response = await fetch(`${this.baseUrl}/functions/v1/cards`, {
         method: 'POST',
-        headers: this.getHeaders(),
+        headers,
         body: JSON.stringify({
           userInput,
           targetLang,
@@ -96,24 +101,21 @@ export class SupabaseApi extends ApiInterface {
         blobToBase64(expectedAudioBlob)
       ]);
 
-      const response = await fetch(`${this.baseUrl}/functions/v1/speech`, {
-        method: 'POST',
-        headers: this.getHeaders(),
-        body: JSON.stringify({
+      const { data, error } = await this.supabase.functions.invoke('speech', {
+        body: {
           audioBase64: userAudioBase64,
           expectedText,
           sourceLang,
           expectedAudioBase64,
           audioFormat: 'mp3'
-        }),
+        },
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error('Failed to evaluate speech: ' + (errorData.error || 'Unknown error'));
+      if (error) {
+        throw new Error('Failed to evaluate speech: ' + error.message);
       }
 
-      return await response.json();
+      return data;
     } catch (err) {
       throw new Error('Failed to evaluate speech: ' + err.message);
     }
@@ -121,15 +123,12 @@ export class SupabaseApi extends ApiInterface {
 
   async getRealtimeToken() {
     try {
-      const response = await fetch(`${this.baseUrl}/functions/v1/realtime`, {
-        headers: this.getHeaders()
-      });
+      const { data, error } = await this.supabase.functions.invoke('realtime');
 
-      if (!response.ok) {
-        throw new Error(`Failed to get token: ${response.statusText}`);
+      if (error) {
+        throw new Error('Failed to get realtime token: ' + error.message);
       }
 
-      const data = await response.json();
       if (!data.client_secret?.value) {
         throw new Error('Invalid token response');
       }

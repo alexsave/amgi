@@ -139,22 +139,22 @@ export function useCardGeneration() {
               console.log('useCardGeneration: New audioUrls state:', newUrls);
               return newUrls;
             });
-            fetch(data.url)
-              .then(r => r.blob())
-              .then(async blob => {
-                console.log('useCardGeneration: Got front audio blob:', { size: blob.size });
-                const audioId = await storeBlob(blob, 'front');
-                // Store the audio ID with the card data
-                setGeneratedCard(prev => ({
-                  ...prev,
-                  frontAudioId: audioId
-                }));
-              });
             setAudioReady(prev => {
               const newReady = { ...prev, front: true };
               console.log('useCardGeneration: Updated audioReady:', newReady);
               return newReady;
             });
+            // Handle storage asynchronously
+            fetch(data.url)
+              .then(r => r.blob())
+              .then(async blob => {
+                console.log('useCardGeneration: Got front audio blob:', { size: blob.size });
+                const audioId = await storeBlob(blob, 'front');
+                setGeneratedCard(prev => ({
+                  ...prev,
+                  frontAudioId: audioId
+                }));
+              });
           } else if (data.side === 'back') {
             console.log('useCardGeneration: Setting back audio');
             backAudioRef.current.src = data.url;
@@ -164,22 +164,22 @@ export function useCardGeneration() {
               console.log('useCardGeneration: New audioUrls state:', newUrls);
               return newUrls;
             });
-            fetch(data.url)
-              .then(r => r.blob())
-              .then(async blob => {
-                console.log('useCardGeneration: Got back audio blob:', { size: blob.size });
-                const audioId = await storeBlob(blob, 'back');
-                // Store the audio ID with the card data
-                setGeneratedCard(prev => ({
-                  ...prev,
-                  backAudioId: audioId
-                }));
-              });
             setAudioReady(prev => {
               const newReady = { ...prev, back: true };
               console.log('useCardGeneration: Updated audioReady:', newReady);
               return newReady;
             });
+            // Handle storage asynchronously
+            fetch(data.url)
+              .then(r => r.blob())
+              .then(async blob => {
+                console.log('useCardGeneration: Got back audio blob:', { size: blob.size });
+                const audioId = await storeBlob(blob, 'back');
+                setGeneratedCard(prev => ({
+                  ...prev,
+                  backAudioId: audioId
+                }));
+              });
           }
           setProgress(prev => {
             const newProgress = { ...prev, [data.side]: true };
