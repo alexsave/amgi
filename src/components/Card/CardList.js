@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, Navigate } from 'react-router-dom';
-import { useDeckContext } from '../../contexts/DeckContext';
+import { useDecks } from '../../contexts/DeckContext';
 import { PlusIcon } from '@heroicons/react/24/outline';
 import CardForm from './CardForm';
 import './CardList.css';
@@ -8,7 +8,7 @@ import './CardList.css';
 const CardList = ({ onCardClick, onBack }) => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { decks } = useDeckContext();
+  const { decks, addCardToDeck, deleteCard } = useDecks();
   
   if (!id || !decks[id]) {
     return <Navigate to="/decks" replace />;

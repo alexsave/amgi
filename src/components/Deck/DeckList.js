@@ -1,43 +1,101 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useDeckContext } from '../../contexts/DeckContext';
+import { useDecks } from '../../contexts/DeckContext';
 import DeckItem from './DeckItem';
 import { sampleDeck } from '../../sampleDeck';
 import msgpack from 'msgpack-lite';
-import { PlusIcon, ArrowDownTrayIcon, Square3Stack3DIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, ArrowDownTrayIcon, Square3Stack3DIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import './DeckList.css';
 
+const CreateDeckModal = ({ isOpen, onClose, onSubmit }) => {
+  const [deckName, setDeckName] = useState('');
+
+  if (!isOpen) return null;
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSubmit(deckName);
+    setDeckName('');
+  };
+
+  return (
+    <div className="modal-overlay">
+      <div className="modal-content">
+        <div className="modal-header">
+          <h3>Create New Deck</h3>
+          <button onClick={onClose} className="close-btn">
+            <XMarkIcon className="h-5 w-5" />
+          </button>
+        </div>
+        <form onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label htmlFor="deckName">Deck Name</label>
+            <input
+              id="deckName"
+              type="text"
+              value={deckName}
+              onChange={(e) => setDeckName(e.target.value)}
+              placeholder="Enter deck name"
+              autoFocus
+            />
+          </div>
+          <div className="modal-actions">
+            <button type="button" onClick={onClose} className="cancel-btn">
+              Cancel
+            </button>
+            <button type="submit" className="submit-btn" disabled={!deckName.trim()}>
+              Create Deck
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
 const DeckList = () => {
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const { 
     decks,
     createNewDeck,
     setCurrentDeck,
-    setDecks
-  } = useDeckContext();
+    updateDeck
+  } = useDecks();
   
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
 
-  const handleCreateDeck = async () => {
-    const name = prompt('Enter deck name:');
-    if (name) {
+  const handleCreateDeck = async (name) => {
+    console.log('Creating new deck with name:', name);
+    try {
+      console.log('Calling createNewDeck...');
       const id = await createNewDeck(name);
+      console.log('Created deck with ID:', id);
+      
+      setIsCreateModalOpen(false);
+      console.log('Navigating to deck page...');
       navigate(`/deck/${id}`);
+    } catch (error) {
+      console.error('Error creating deck:', error);
+      alert('Failed to create deck: ' + error.message);
     }
   };
 
   const handleDeckClick = (id) => {
+    console.log('Deck clicked:', id);
     setCurrentDeck(id);
     navigate(`/deck/${id}/review`);
   };
 
   const handleEditClick = (e, id) => {
+    console.log('Edit deck clicked:', id);
     e.stopPropagation();
     setCurrentDeck(id);
     navigate(`/deck/${id}`);
   };
 
   const handleImportClick = () => {
+    console.log('Import button clicked');
     fileInputRef.current?.click();
   };
 
@@ -45,20 +103,24 @@ const DeckList = () => {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    console.log('Importing file:', file.name);
     try {
       const buffer = await file.arrayBuffer();
       const deck = msgpack.decode(new Uint8Array(buffer));
+      console.log('Decoded deck:', deck);
       
       const id = Date.now().toString();
-      setDecks(prev => ({
-        ...prev,
-        [id]: {
-          ...deck,
-          lastModified: Date.now()
-        }
-      }));
+      const newDeck = {
+        ...deck,
+        id,
+        lastModified: Date.now()
+      };
       
+      console.log('Updating deck with ID:', id);
+      updateDeck(id, newDeck);
+      console.log('Setting current deck...');
       setCurrentDeck(id);
+      console.log('Navigating to deck page...');
       navigate(`/deck/${id}`);
     } catch (err) {
       console.error('Error importing deck:', err);
@@ -67,21 +129,30 @@ const DeckList = () => {
   };
 
   const loadSampleDeck = () => {
+    console.log('Loading sample deck');
     const id = Date.now().toString();
-    setDecks(prev => ({
-      ...prev,
-      [id]: sampleDeck
-    }));
+    const newDeck = {
+      ...sampleDeck,
+      id,
+      lastModified: Date.now()
+    };
+    
+    console.log('Updating deck with ID:', id);
+    updateDeck(id, newDeck);
+    console.log('Setting current deck...');
     setCurrentDeck(id);
+    console.log('Navigating to deck page...');
     navigate(`/deck/${id}`);
   };
+
+  console.log('Current decks:', decks);
 
   return (
     <div className="deck-management">
       <div className="deck-header">
         <h2>Decks</h2>
         <div className="deck-actions">
-          <button onClick={handleCreateDeck} className="action-btn" title="New Deck">
+          <button onClick={() => setIsCreateModalOpen(true)} className="action-btn" title="New Deck">
             <PlusIcon />
           </button>
           <input
@@ -99,6 +170,12 @@ const DeckList = () => {
           </button>
         </div>
       </div>
+      
+      <CreateDeckModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSubmit={handleCreateDeck}
+      />
       
       <div className="deck-list">
         {Object.entries(decks).map(([id, deck]) => (

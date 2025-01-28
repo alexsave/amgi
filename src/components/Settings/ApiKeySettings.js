@@ -1,28 +1,39 @@
 import React, { useState, useEffect } from 'react';
-import { getApiMode, setApiMode } from '../../network/api';
+import { useAuth } from '../../contexts/AuthContext';
 import './Settings.css';
 
 export default function ApiKeySettings() {
-  const [useDirectApi, setUseDirectApi] = useState(false);
   const [apiKey, setApiKey] = useState('');
   const [error, setError] = useState('');
   const [saved, setSaved] = useState(false);
+  const { isDirectMode, enableDirectMode, disableDirectMode } = useAuth();
 
   useEffect(() => {
-    const mode = getApiMode();
-    setUseDirectApi(mode.useDirectApi);
-    setApiKey(mode.apiKey || '');
-  }, []);
+    if (isDirectMode) {
+      setApiKey('********');
+    } else {
+      setApiKey('');
+    }
+  }, [isDirectMode]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
     try {
-      if (useDirectApi && !apiKey.trim()) {
+      if (isDirectMode && !apiKey.trim()) {
         setError('API key is required when using direct API access');
         return;
       }
 
-      setApiMode(useDirectApi, apiKey.trim());
+      if (apiKey === '********') {
+        return; // No change needed
+      }
+
+      if (apiKey.trim()) {
+        enableDirectMode(apiKey.trim());
+      } else {
+        disableDirectMode();
+      }
+
       setError('');
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
@@ -41,10 +52,10 @@ export default function ApiKeySettings() {
           <label>
             <input
               type="checkbox"
-              checked={useDirectApi}
+              checked={isDirectMode}
               onChange={(e) => {
-                setUseDirectApi(e.target.checked);
                 if (!e.target.checked) {
+                  disableDirectMode();
                   setApiKey('');
                   setError('');
                 }
@@ -58,7 +69,7 @@ export default function ApiKeySettings() {
           </p>
         </div>
 
-        {useDirectApi && (
+        {isDirectMode && (
           <div className="settings-group">
             <label>OpenAI API Key</label>
             <input

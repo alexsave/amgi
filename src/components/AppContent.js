@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate, useLocation, Routes, Route, Navigate } from 'react-router-dom';
-import { useDeckContext } from '../contexts/DeckContext';
+import { useDecks } from '../contexts/DeckContext';
 import DeckList from './Deck/DeckList';
 import CardList from './Card/CardList';
 import ReviewMode from './Review/ReviewMode';
@@ -8,7 +8,7 @@ import { RealtimeProvider } from '../contexts/RealtimeContext';
 import Navbar from './Navigation/Navbar';
 
 function AppContent() {
-  const { currentDeck, decks } = useDeckContext();
+  const { currentDeck, decks, mode } = useDecks();
   const navigate = useNavigate();
 
   const handleBackToList = () => {

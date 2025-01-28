@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
-import { useDeckContext } from '../contexts/DeckContext';
+import { useDecks } from '../contexts/DeckContext';
+import { calculateNextReview } from '../algorithms/spacedRepetition';
 
 export function useReview() {
-  const { decks, setDecks, currentDeck } = useDeckContext();
+  const { currentDeck, decks, updateCard } = useDecks();
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
   const [evaluationResult, setEvaluationResult] = useState(null);
+  const [error, setError] = useState(null);
   const [attempts, setAttempts] = useState(0);
   const [showAnswer, setShowAnswer] = useState(false);
   const [dueCards, setDueCards] = useState([]);
@@ -42,84 +44,39 @@ export function useReview() {
     return [...newCards, ...sortedReviewCards];
   };
 
-  // Update card scheduling
   const updateCardScheduling = (cardId, quality) => {
-    console.log('Starting updateCardScheduling:', { cardId, quality });
-    
-    setDecks(prev => {
-      const newDecks = { ...prev };
-      const deck = newDecks[currentDeck];
+    try {
+      if (!currentDeck || !decks[currentDeck]) {
+        throw new Error('No deck selected');
+      }
+
+      const deck = decks[currentDeck];
       const cardIndex = deck.cards.findIndex(c => c.created === cardId);
+      if (cardIndex === -1) {
+        throw new Error('Card not found');
+      }
+
       const card = deck.cards[cardIndex];
-      
-      // Initialize or fix any missing/invalid values
-      if (typeof card.interval !== 'number' || isNaN(card.interval)) {
-        card.interval = 1;
-      }
-      if (typeof card.repetitions !== 'number' || isNaN(card.repetitions)) {
-        card.repetitions = 0;
-      }
-      if (typeof card.easeFactor !== 'number' || isNaN(card.easeFactor)) {
-        card.easeFactor = 2.5; // 250%
-      }
+      const { interval, easeFactor, repetitions, nextReview } = calculateNextReview(
+        card.interval || 0,
+        card.easeFactor || 2.5,
+        card.repetitions || 0,
+        quality
+      );
 
-      // Calculate late penalty/bonus
-      const now = new Date();
-      const dueDate = card.nextReview ? new Date(card.nextReview) : now;
-      const daysLate = Math.max(0, (now - dueDate) / (1000 * 60 * 60 * 24));
-      
-      if (quality === 'correct') { // Correct response
-        // Clear any due timestamp since it passed review
-        card.dueTimestamp = null;
-        
-        if (card.repetitions === 0) {
-          card.interval = 1; // First interval
-        } else if (card.repetitions === 1) {
-          card.interval = 6; // Second interval
-        } else {
-          // Calculate new interval with late bonus
-          const newInterval = Math.round(card.interval * card.easeFactor * (1 + 0.2 * daysLate));
-          // Cap at 10 years
-          card.interval = Math.max(card.interval + 1, Math.min(newInterval, 365 * 10));
-        }
-        card.repetitions += 1;
-        
-        // Ensure minimum ease of 130%
-        card.easeFactor = Math.max(1.3, card.easeFactor);
+      updateCard(currentDeck, cardId, {
+        interval,
+        easeFactor,
+        repetitions,
+        nextReview,
+        lastReviewed: Date.now()
+      });
 
-      } else { // Incorrect response
-        // Reset interval and reduce ease
-        card.interval = 1;
-        card.repetitions = 0;
-        
-        // Only decrease ease if not in learning phase (repetitions > 0)
-        if (card.repetitions > 0) {
-          card.easeFactor = Math.max(1.3, card.easeFactor - 0.2); // 20 percentage point decrease, minimum 130%
-        }
-        
-        // Set to be reviewed in 10 minutes
-        const dueTime = new Date();
-        dueTime.setMinutes(dueTime.getMinutes() + 10);
-        card.dueTimestamp = dueTime.toISOString();
-      }
-
-      try {
-        // Calculate next review date
-        const nextDate = new Date();
-        nextDate.setDate(nextDate.getDate() + card.interval);
-        card.nextReview = nextDate.toISOString();
-      } catch (err) {
-        console.error('Error calculating next review date:', err);
-        // Fallback to tomorrow
-        const tomorrow = new Date();
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        card.nextReview = tomorrow.toISOString();
-      }
-
-      card.lastReviewed = new Date().toISOString();
-      deck.cards[cardIndex] = card;
-      return newDecks;
-    });
+      setError(null);
+    } catch (err) {
+      console.error('Error updating card scheduling:', err);
+      setError('Failed to update card scheduling');
+    }
   };
 
   // Update due cards more frequently to catch cards becoming due
@@ -158,10 +115,13 @@ export function useReview() {
   return {
     currentCardIndex,
     evaluationResult,
+    error,
     attempts,
     showAnswer,
     dueCards,
+    setCurrentCardIndex,
     setEvaluationResult,
+    setError,
     setAttempts,
     setShowAnswer,
     updateCardScheduling,

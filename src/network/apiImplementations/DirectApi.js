@@ -17,10 +17,17 @@ export class DirectApi extends ApiInterface {
   }
 
   initialize(apiKey) {
+    if (!apiKey) {
+      throw new Error('API key is required for initialization');
+    }
     this.client = new OpenAI({
       apiKey,
       dangerouslyAllowBrowser: true
     });
+  }
+
+  isInitialized() {
+    return this.client !== null;
   }
 
   clear() {
@@ -28,7 +35,9 @@ export class DirectApi extends ApiInterface {
   }
 
   async generateCard(userInput, targetLang, onProgress) {
-    if (!this.client) throw new Error('OpenAI client not initialized');
+    if (!this.isInitialized()) {
+      throw new Error('OpenAI client not initialized. Please provide an API key first.');
+    }
     console.log('DirectApi.generateCard called:', { userInput, targetLang });
 
     try {

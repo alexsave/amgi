@@ -65,10 +65,12 @@ export const createLocalDeck = (name) => {
   decks[id] = {
     id,
     name,
-    cards: []
+    cards: [],
+    created: Date.now(),
+    lastModified: Date.now()
   };
   saveLocalDecks(decks);
-  return decks[id];
+  return id;
 };
 
 export const updateLocalDeck = (deckId, updates) => {

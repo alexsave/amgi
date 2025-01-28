@@ -1,77 +1,83 @@
-import { useState, useEffect } from 'react';
-import { useDeckContext } from '../contexts/DeckContext';
+import { useEffect, useState } from 'react';
+import { useDecks } from '../contexts/DeckContext';
 import msgpack from 'msgpack-lite';
 
 export function useDeckManagement() {
-  const { decks, setDecks, currentDeck, setCurrentDeck } = useDeckContext();
+  const { decks, createNewDeck, updateDeck, deleteDeck: removeDeck } = useDecks();
   const [maxNewCardsPerDay] = useState(25);
   const [newCardsToday, setNewCardsToday] = useState(0);
   const [error, setError] = useState(null);
 
-  // Load all data from localStorage on mount
+  // Load new cards count from localStorage on mount
   useEffect(() => {
-    const savedDecks = localStorage.getItem('decks');
-    const savedNewCardsToday = localStorage.getItem('newCardsToday');
-    const lastReviewDate = localStorage.getItem('lastReviewDate');
-    const today = new Date().toISOString().split('T')[0];
-
-    // Load decks
-    if (savedDecks) {
-      try {
-        const decoded = JSON.parse(savedDecks);
-        setDecks(decoded);
-        
-        const lastDeckId = localStorage.getItem('currentDeck');
-        if (lastDeckId && decoded[lastDeckId]) {
-          setCurrentDeck(lastDeckId);
-        }
-      } catch (err) {
-        console.error('Error loading decks:', err);
-      }
-    }
-
-    // Reset new cards count if it's a new day
-    if (lastReviewDate !== today) {
-      setNewCardsToday(0);
-      localStorage.setItem('lastReviewDate', today);
-      localStorage.setItem('newCardsToday', '0');
-    } else {
-      // Load saved new cards count
-      setNewCardsToday(parseInt(savedNewCardsToday || '0', 10));
+    const savedCount = localStorage.getItem('newCardsToday');
+    if (savedCount) {
+      setNewCardsToday(parseInt(savedCount, 10));
     }
   }, []);
 
-  // Save new cards count whenever it changes
+  // Save new cards count to localStorage whenever it changes
   useEffect(() => {
     localStorage.setItem('newCardsToday', newCardsToday.toString());
   }, [newCardsToday]);
 
-  // Save decks to localStorage whenever they change
-  useEffect(() => {
-    if (Object.keys(decks).length > 0) {
-      localStorage.setItem('decks', JSON.stringify(decks));
-      if (currentDeck) {
-        localStorage.setItem('currentDeck', currentDeck);
-      }
+  const handleCreateDeck = async (name) => {
+    if (!name) {
+      setError('Please enter a deck name');
+      return;
     }
-  }, [decks, currentDeck]);
 
-  const createNewDeck = () => {
-    const name = prompt('Enter deck name:');
-    if (name) {
-      const id = Date.now().toString();
-      const newDeck = {
-        name,
-        cards: [],
-        created: Date.now(),
+    try {
+      const id = await createNewDeck(name);
+      setError(null);
+      return id;
+    } catch (err) {
+      console.error('Error creating deck:', err);
+      setError('Failed to create deck');
+    }
+  };
+
+  const handleDeleteDeck = (deckId) => {
+    try {
+      removeDeck(deckId);
+      setError(null);
+    } catch (err) {
+      console.error('Error deleting deck:', err);
+      setError('Failed to delete deck');
+    }
+  };
+
+  const handleAddCardToDeck = (deckId, cardData) => {
+    if (!deckId || !cardData) {
+      setError('Please select a deck and generate a card first');
+      return;
+    }
+
+    try {
+      const deck = decks[deckId];
+      if (!deck) {
+        throw new Error('Deck not found');
+      }
+
+      const updatedDeck = {
+        ...deck,
+        cards: [...deck.cards, {
+          ...cardData,
+          created: Date.now(),
+          lastReviewed: null,
+          nextReview: Date.now(),
+          interval: 0,
+          repetitions: 0,
+          easeFactor: 2.5
+        }],
         lastModified: Date.now()
       };
-      
-      setDecks(prev => ({
-        ...prev,
-        [id]: newDeck
-      }));
-      setCurrentDeck(id);
+
+      updateDeck(deckId, updatedDeck);
+      setError(null);
+    } catch (err) {
+      console.error('Error adding card:', err);
+      setError('Failed to add card');
     }
   };
 
@@ -127,15 +133,11 @@ export function useDeckManagement() {
       
       const id = Date.now().toString();
       
-      setDecks(prev => ({
-        ...prev,
-        [id]: {
-          ...deck,
-          lastModified: Date.now()
-        }
-      }));
-      
-      setCurrentDeck(id);
+      createNewDeck(deck.name);
+      updateDeck(id, {
+        ...deck,
+        lastModified: Date.now()
+      });
       setError(null);
     } catch (err) {
       console.error('Error importing deck:', err);
@@ -143,61 +145,17 @@ export function useDeckManagement() {
     }
   };
 
-  const deleteDeck = (deckId, e) => {
-    e.stopPropagation();
-    if (window.confirm('Are you sure you want to delete this deck?')) {
-      setDecks(prev => {
-        const newDecks = { ...prev };
-        delete newDecks[deckId];
-        return newDecks;
-      });
-      if (currentDeck === deckId) {
-        setCurrentDeck(null);
-      }
-    }
-  };
-
-  const addCardToDeck = async (cardData) => {
-    if (!currentDeck || !cardData) {
-      setError('Please select a deck and generate a card first');
-      return;
-    }
-
-    try {
-      setDecks(prev => ({
-        ...prev,
-        [currentDeck]: {
-          ...prev[currentDeck],
-          cards: [...prev[currentDeck].cards, {
-            ...cardData,
-            created: Date.now(),
-            interval: 1,
-            easeFactor: 2.5,
-            repetitions: 0,
-            lastReviewed: null,
-            nextReview: new Date().toISOString().split('T')[0]
-          }],
-          lastModified: Date.now()
-        }
-      }));
-
-      setError(null);
-    } catch (err) {
-      console.error('Error adding card to deck:', err);
-      setError('Failed to add card to deck: ' + err.message);
-    }
-  };
-
   return {
+    decks,
     maxNewCardsPerDay,
     newCardsToday,
-    setNewCardsToday,
     error,
+    createDeck: handleCreateDeck,
+    deleteDeck: handleDeleteDeck,
+    addCardToDeck: handleAddCardToDeck,
+    setNewCardsToday,
     setError,
-    createNewDeck,
     exportDeckToFile,
-    importDeckFromFile,
-    deleteDeck,
-    addCardToDeck
+    importDeckFromFile
   };
 } 

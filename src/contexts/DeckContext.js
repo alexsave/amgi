@@ -5,16 +5,18 @@ import { MAX_NEW_CARDS_PER_DAY } from '../utils/constants';
 import * as localDeckStorage from '../services/localDeckStorage';
 import { getApiMode } from '../network/api';
 import { getDueCards } from '../algorithms/spacedRepetition';
+import { useAuth } from './AuthContext';
 
-const DeckContext = createContext(null);
+const DeckContext = createContext({});
 
 export const DeckProvider = ({ children }) => {
   const [decks, setDecks] = useState({});
+  const [loading, setLoading] = useState(true);
   const [currentDeck, setCurrentDeck] = useState(null);
   const [newCardsToday, setNewCardsToday] = useState(0);
   const [dueCards, setDueCards] = useState([]);
   const [error, setError] = useState(null);
-  const { useDirectApi } = getApiMode();
+  const { user, isDirectMode } = useAuth();
   const location = useLocation();
 
   // Derive mode from location
@@ -27,49 +29,103 @@ export const DeckProvider = ({ children }) => {
     return 'view';
   };
 
+  useEffect(() => {
+    const loadDecks = () => {
+      try {
+        // Always load decks from localStorage first
+        const localDecks = localDeckStorage.getLocalDecks();
+        console.log('Loaded local decks:', localDecks);
+        setDecks(localDecks);
+        
+        if (user) {
+          // TODO: In the future, merge with cloud storage
+          // For now, still use localStorage
+        }
+      } catch (error) {
+        console.error('Error loading decks:', error);
+        setDecks({});
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadDecks();
+  }, [user]);
+
+  const saveDecks = (newDecks) => {
+    console.log('Saving decks:', newDecks);
+    // Always save to localStorage
+    localDeckStorage.saveLocalDecks(newDecks);
+    
+    if (user) {
+      // TODO: In the future, also save to cloud storage
+    }
+    setDecks(newDecks);
+  };
+
+  const createNewDeck = async (name) => {
+    console.log('Creating new deck:', name);
+    const id = Date.now().toString();
+    const newDeck = {
+      id,
+      name,
+      cards: [],
+      created: Date.now(),
+      lastModified: Date.now()
+    };
+    
+    const newDecks = { ...decks, [id]: newDeck };
+    saveDecks(newDecks);
+    return id;
+  };
+
+  const updateDeck = (deckId, updatedDeck) => {
+    console.log('Updating deck:', deckId, updatedDeck);
+    const newDecks = { ...decks, [deckId]: updatedDeck };
+    saveDecks(newDecks);
+  };
+
+  const deleteDeck = (deckId) => {
+    console.log('Deleting deck:', deckId);
+    const newDecks = { ...decks };
+    delete newDecks[deckId];
+    saveDecks(newDecks);
+  };
+
   // Load initial data
   useEffect(() => {
-    if (useDirectApi) {
-      // Load from local storage
-      const localDecks = localDeckStorage.getLocalDecks();
-      setDecks(localDecks);
-      
-      const lastDeckId = localDeckStorage.loadCurrentDeck();
-      if (lastDeckId && localDecks[lastDeckId]) {
-        setCurrentDeck(lastDeckId);
-      }
-
-      // Reset daily counters if needed
-      if (localDeckStorage.resetDailyCounters()) {
-        setNewCardsToday(0);
-      } else {
-        setNewCardsToday(localDeckStorage.loadNewCardsToday());
-      }
-    } else {
-      // TODO: Implement server loading
+    // Always load from local storage
+    const localDecks = localDeckStorage.getLocalDecks();
+    console.log('Initial load of local decks:', localDecks);
+    setDecks(localDecks);
+    
+    const lastDeckId = localDeckStorage.loadCurrentDeck();
+    if (lastDeckId && localDecks[lastDeckId]) {
+      setCurrentDeck(lastDeckId);
     }
-  }, [useDirectApi]);
+
+    // Reset daily counters if needed
+    if (localDeckStorage.resetDailyCounters()) {
+      setNewCardsToday(0);
+    } else {
+      setNewCardsToday(localDeckStorage.loadNewCardsToday());
+    }
+  }, []);
 
   // Save decks whenever they change
   useEffect(() => {
     if (Object.keys(decks).length > 0) {
-      if (useDirectApi) {
-        localDeckStorage.saveLocalDecks(decks);
-        if (currentDeck) {
-          localDeckStorage.saveCurrentDeck(currentDeck);
-        }
-      } else {
-        // TODO: Implement server saving
+      localDeckStorage.saveLocalDecks(decks);
+      if (currentDeck) {
+        localDeckStorage.saveCurrentDeck(currentDeck);
       }
     }
-  }, [decks, currentDeck, useDirectApi]);
+  }, [decks, currentDeck]);
 
   // Save new cards count whenever it changes
   useEffect(() => {
-    if (useDirectApi) {
-      localDeckStorage.saveNewCardsToday(newCardsToday);
-    }
-  }, [newCardsToday, useDirectApi]);
+    localDeckStorage.saveNewCardsToday(newCardsToday);
+  }, [newCardsToday]);
 
   // Update due cards when necessary
   useEffect(() => {
@@ -87,44 +143,8 @@ export const DeckProvider = ({ children }) => {
     }
   }, [currentDeck, location.pathname, decks, newCardsToday]);
 
-  const createNewDeck = async (name) => {
-    if (useDirectApi) {
-      const newDeck = localDeckStorage.createLocalDeck(name);
-      setDecks(prev => ({ ...prev, [newDeck.id]: newDeck }));
-      return newDeck.id;
-    } else {
-      // TODO: Implement server deck creation
-    }
-  };
-
-  const updateDeck = async (deckId, updates) => {
-    if (useDirectApi) {
-      const updatedDeck = localDeckStorage.updateLocalDeck(deckId, updates);
-      setDecks(prev => ({ ...prev, [deckId]: updatedDeck }));
-      return updatedDeck;
-    } else {
-      // TODO: Implement server deck update
-    }
-  };
-
-  const deleteDeck = async (deckId) => {
-    if (useDirectApi) {
-      localDeckStorage.deleteLocalDeck(deckId);
-      setDecks(prev => {
-        const newDecks = { ...prev };
-        delete newDecks[deckId];
-        return newDecks;
-      });
-    } else {
-      // TODO: Implement server deck deletion
-    }
-    if (currentDeck === deckId) {
-      setCurrentDeck(null);
-    }
-  };
-
   const addCardToDeck = async (deckId, card) => {
-    if (useDirectApi) {
+    if (isDirectMode) {
       const updatedDeck = localDeckStorage.addCardToLocalDeck(deckId, card);
       setDecks(prev => ({ ...prev, [deckId]: updatedDeck }));
       return updatedDeck;
@@ -134,7 +154,7 @@ export const DeckProvider = ({ children }) => {
   };
 
   const deleteCard = async (deckId, cardId) => {
-    if (useDirectApi) {
+    if (isDirectMode) {
       const updatedDeck = localDeckStorage.deleteLocalCard(deckId, cardId);
       setDecks(prev => ({ ...prev, [deckId]: updatedDeck }));
       return updatedDeck;
@@ -165,7 +185,7 @@ export const DeckProvider = ({ children }) => {
 
   const value = {
     decks,
-    setDecks,
+    loading,
     currentDeck,
     mode: getMode(),
     newCardsToday,
@@ -189,10 +209,10 @@ export const DeckProvider = ({ children }) => {
   );
 };
 
-export const useDeckContext = () => {
+export const useDecks = () => {
   const context = useContext(DeckContext);
   if (!context) {
-    throw new Error('useDeckContext must be used within a DeckProvider');
+    throw new Error('useDecks must be used within a DeckProvider');
   }
   return context;
 }; 

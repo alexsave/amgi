@@ -1,12 +1,20 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { setApiMode } from '../../network/api';
+import { useAuth } from '../../contexts/AuthContext';
 import './DirectAccess.css';
 
 export default function DirectAccess() {
   const [apiKey, setApiKey] = useState('');
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  const { user, isDirectMode, enableDirectMode } = useAuth();
+
+  useEffect(() => {
+    // If user is authenticated or in direct mode, redirect to decks
+    if (user || isDirectMode) {
+      navigate('/decks', { replace: true });
+    }
+  }, [user, isDirectMode, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -18,14 +26,17 @@ export default function DirectAccess() {
     }
 
     try {
-      localStorage.setItem('useDirectApi', 'true');
-      localStorage.setItem('openaiApiKey', apiKey.trim());
-      setApiMode(true, apiKey.trim());
+      enableDirectMode(apiKey);
       navigate('/decks', { replace: true });
     } catch (err) {
       setError('Failed to set API key: ' + err.message);
     }
   };
+
+  // Don't render anything while checking authentication or if already in direct mode
+  if (user || isDirectMode) {
+    return null;
+  }
 
   return (
     <div className="direct-access-container">
@@ -47,7 +58,7 @@ export default function DirectAccess() {
               className="api-key-input"
             />
             <p className="help-text">
-              Your API key will be stored securely in your browser and used only for API requests.
+              Your API key will be stored securely in your browser.
               Get your API key from the <a href="https://platform.openai.com/account/api-keys" target="_blank" rel="noopener noreferrer">OpenAI dashboard</a>.
             </p>
           </div>

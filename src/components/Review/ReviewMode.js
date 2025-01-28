@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useDeckContext } from '../../contexts/DeckContext';
+import React, { useState, useEffect } from 'react';
+import { useDecks } from '../../contexts/DeckContext';
 import { useNavigate } from 'react-router-dom';
 import RecordingControls from './RecordingControls';
 import Timeline from './Timeline';
@@ -13,7 +13,7 @@ import { LanguageIcon, MicrophoneIcon } from '@heroicons/react/24/solid';
 import './ReviewMode.css';
 
 const ReviewMode = () => {
-  const { currentDeck, decks } = useDeckContext();
+  const { currentDeck, decks, dueCards, updateCard } = useDecks();
   const navigate = useNavigate();
   const audio = useAudio();
   const review = useReview();

@@ -36,22 +36,12 @@ const getApiInstance = () => {
 };
 
 // API mode management
-export const setApiMode = (useDirectApi, apiKey = null) => {
-  if (useDirectApi && apiKey) {
-    localStorage.setItem('useDirectApi', 'true');
-    localStorage.setItem('OPENAI_KEY', apiKey);
-  } else {
-    localStorage.setItem('useDirectApi', 'false');
-    localStorage.removeItem('OPENAI_KEY');
+export const clearApiInstance = () => {
+  if (apiInstance) {
+    apiInstance.clear();
+    apiInstance = null;
   }
-  // Clear the current instance so it will be recreated with new settings
-  apiInstance = null;
 };
-
-export const getApiMode = () => ({
-  useDirectApi: isDirectApiEnabled(),
-  apiKey: isDirectApiEnabled() ? localStorage.getItem('OPENAI_KEY') : null
-});
 
 // API Functions
 export const generateCard = async (userInput, targetLang, onProgress) => {

@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { clearApiInstance } from '../network/api';
 
 const supabase = createClient(
   process.env.REACT_APP_SUPABASE_URL,
@@ -11,8 +12,13 @@ const AuthContext = createContext({});
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isDirectMode, setIsDirectMode] = useState(false);
 
   useEffect(() => {
+    // Check if direct mode is enabled
+    const directMode = localStorage.getItem('useDirectApi') === 'true';
+    setIsDirectMode(directMode);
+
     // Check active sessions and sets the user
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
@@ -46,14 +52,19 @@ export const AuthProvider = ({ children }) => {
   };
 
   const signOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) throw error;
+    if (isDirectMode) {
+      localStorage.removeItem('useDirectApi');
+      localStorage.removeItem('OPENAI_KEY');
+      clearApiInstance();
+      setIsDirectMode(false);
+    } else {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+    }
   };
 
   const resetPassword = async (email) => {
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
-    });
+    const { error } = await supabase.auth.resetPasswordForEmail(email);
     if (error) throw error;
   };
 
@@ -64,27 +75,40 @@ export const AuthProvider = ({ children }) => {
     if (error) throw error;
   };
 
-  const value = {
-    user,
-    loading,
-    signUp,
-    signIn,
-    signOut,
-    resetPassword,
-    updatePassword,
+  const enableDirectMode = (apiKey) => {
+    if (!apiKey?.trim()) {
+      throw new Error('API key is required');
+    }
+    localStorage.setItem('useDirectApi', 'true');
+    localStorage.setItem('OPENAI_KEY', apiKey.trim());
+    setIsDirectMode(true);
+  };
+
+  const disableDirectMode = () => {
+    localStorage.removeItem('useDirectApi');
+    localStorage.removeItem('OPENAI_KEY');
+    clearApiInstance();
+    setIsDirectMode(false);
   };
 
   return (
-    <AuthContext.Provider value={value}>
-      {!loading && children}
+    <AuthContext.Provider value={{
+      user,
+      isDirectMode,
+      enableDirectMode,
+      disableDirectMode,
+      signUp,
+      signIn,
+      signOut,
+      resetPassword,
+      updatePassword,
+      loading
+    }}>
+      {children}
     </AuthContext.Provider>
   );
 };
 
 export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
+  return useContext(AuthContext);
 }; 

@@ -1,9 +1,9 @@
 import React from 'react';
-import { useDeckContext } from '../../contexts/DeckContext';
+import { useDecks } from '../../contexts/DeckContext';
 import './Timeline.css';
 
-const Timeline = () => {
-  const { decks, currentDeck, dueCards, currentCardIndex } = useDeckContext();
+export default function Timeline() {
+  const { decks, currentDeck, dueCards, currentCardIndex } = useDecks();
   const deck = decks[currentDeck];
 
   if (!deck) return null;
@@ -81,6 +81,4 @@ const Timeline = () => {
       </div>
     </div>
   );
-};
-
-export default Timeline; 
+} 
