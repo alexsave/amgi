@@ -46,45 +46,61 @@ const ReviewMode = () => {
 
   const handleEvaluationResult = (data) => {
     console.log('ReviewMode: Received evaluation result:', {
-      result: data.result,
-      messageLength: data.message?.length,
-      hasAudio: !!data.audio
+      result: data?.result,
+      messageLength: data?.message?.length,
+      hasAudio: !!data?.audio,
+      fullData: data
     });
 
+    if (!data) {
+      console.error('ReviewMode: No evaluation data received');
+      return;
+    }
+
     review.setEvaluationResult(data);
+    console.log('ReviewMode: Set evaluation result in review context');
     
     // Simplified quality system - only correct/incorrect
     const quality = data.result === 'correct' ? 'correct' : 'incorrect';
+    console.log('ReviewMode: Determined quality:', quality);
 
     // Update card scheduling
     review.updateCardScheduling(currentCard.created, quality);
+    console.log('ReviewMode: Updated card scheduling');
     
     // Play evaluation audio if available
     if (data.audio) {
+      console.log('ReviewMode: Playing evaluation audio');
       const audioData = new Uint8Array(data.audio);
       const blob = new Blob([audioData], { type: 'audio/mpeg' });
       const url = URL.createObjectURL(blob);
       audio.evaluationAudioRef.current.src = url;
       audio.evaluationAudioRef.current.play()
-        .then(() => console.log('Started playing evaluation audio'))
-        .catch(err => console.error('Error playing evaluation audio:', err));
+        .then(() => console.log('ReviewMode: Started playing evaluation audio'))
+        .catch(err => console.error('ReviewMode: Error playing evaluation audio:', err));
       
       // Clean up the URL when audio ends
       audio.evaluationAudioRef.current.onended = () => {
+        console.log('ReviewMode: Evaluation audio finished, cleaning up URL');
         URL.revokeObjectURL(url);
       };
     }
     
     if (data.result === 'quit') {
+      console.log('ReviewMode: Quit command received, moving to next card quickly');
       review.setShowAnswer(true);
       setTimeout(review.moveToNextCard, 500); // Quick skip for quit commands
     } else if (data.result === 'correct') {
+      console.log('ReviewMode: Correct answer, moving to next card after delay');
       setTimeout(review.moveToNextCard, 2000); // 2 second delay for correct answers
     } else {
+      console.log('ReviewMode: Incorrect answer, updating attempts');
       // Incorrect answer
       review.setAttempts(prev => {
         const newAttempts = prev + 1;
+        console.log('ReviewMode: New attempt count:', newAttempts);
         if (newAttempts >= 3) {
+          console.log('ReviewMode: Max attempts reached, showing answer and moving to next card');
           review.setShowAnswer(true);
           setTimeout(review.moveToNextCard, 2000);
         }

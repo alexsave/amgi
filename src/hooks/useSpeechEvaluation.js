@@ -78,7 +78,20 @@ export function useSpeechEvaluation({ audio, onEvaluationResult }) {
         backAudioMp3Blob      // expectedAudioBlob
       );
 
+      console.log('useSpeechEvaluation: Received API result:', {
+        result: result.result,
+        messageLength: result.message?.length,
+        hasAudio: !!result.audio,
+        fullResult: result
+      });
+
+      if (!result) {
+        throw new Error('No result received from speech evaluation');
+      }
+
+      console.log('useSpeechEvaluation: Calling onEvaluationResult with:', result);
       onEvaluationResult(result);
+      console.log('useSpeechEvaluation: Finished evaluation');
     } catch (err) {
       console.error('Error evaluating speech:', err);
       audio.setError(err.message);
