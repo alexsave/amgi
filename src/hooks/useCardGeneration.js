@@ -3,22 +3,14 @@ import { generateCard as apiGenerateCard } from '../network/api';
 
 export function useCardGeneration() {
   const [generatedCard, setGeneratedCard] = useState(() => {
-    const saved = sessionStorage.getItem('lastCard');
-    console.log('useCardGeneration: Initial generatedCard from sessionStorage:', saved);
-    const parsed = saved ? JSON.parse(saved) : null;
-    console.log('useCardGeneration: Parsed generatedCard:', parsed);
-    return parsed;
+    return null;
   });
   
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState({ text: false, front: false, back: false });
   const [audioReady, setAudioReady] = useState({ front: false, back: false });
   const [audioUrls, setAudioUrls] = useState(() => {
-    const saved = sessionStorage.getItem('lastCardAudio');
-    console.log('useCardGeneration: Initial audioUrls from sessionStorage:', saved);
-    const parsed = saved ? JSON.parse(saved) : { front: null, back: null };
-    console.log('useCardGeneration: Parsed audioUrls:', parsed);
-    return parsed;
+    return { front: null, back: null };
   });
 
   // Log state changes
@@ -50,8 +42,6 @@ export function useCardGeneration() {
       reader.onloadend = () => {
         const base64data = reader.result;
         console.log(`useCardGeneration: Blob converted to base64 for ${side}`, { dataLength: base64data.length });
-        sessionStorage.setItem(`lastCardBlob_${side}`, base64data);
-        console.log(`useCardGeneration: Stored blob in sessionStorage for ${side}`);
         resolve();
       };
       reader.readAsDataURL(blob);
@@ -61,8 +51,8 @@ export function useCardGeneration() {
   // Restore blobs from session storage
   const restoreBlobs = () => {
     console.log('useCardGeneration: Attempting to restore blobs');
-    const frontBlob = sessionStorage.getItem('lastCardBlob_front');
-    const backBlob = sessionStorage.getItem('lastCardBlob_back');
+    const frontBlob = null;
+    const backBlob = null;
     console.log('useCardGeneration: Retrieved blobs from storage:', { 
       hasFrontBlob: !!frontBlob, 
       hasBackBlob: !!backBlob 
@@ -122,10 +112,6 @@ export function useCardGeneration() {
     setGeneratedCard(null);
     setAudioReady({ front: false, back: false });
     setAudioUrls({ front: null, back: null });
-    sessionStorage.removeItem('lastCardAudio');
-    sessionStorage.removeItem('lastCard');
-    sessionStorage.removeItem('lastCardBlob_front');
-    sessionStorage.removeItem('lastCardBlob_back');
     setProgress({ text: false, front: false, back: false });
     console.log('useCardGeneration: All states reset');
 
@@ -138,9 +124,6 @@ export function useCardGeneration() {
           const cardData = data.data;
           console.log('useCardGeneration: About to call setGeneratedCard with:', cardData);
           setGeneratedCard(cardData);
-          console.log('useCardGeneration: Called setGeneratedCard');
-          sessionStorage.setItem('lastCard', JSON.stringify(cardData));
-          console.log('useCardGeneration: Saved card to sessionStorage');
           setProgress(prev => {
             const newProgress = { ...prev, text: true };
             console.log('useCardGeneration: Updated progress:', newProgress);
@@ -155,7 +138,6 @@ export function useCardGeneration() {
             setAudioUrls(prev => {
               const newUrls = { ...prev, front: data.url };
               console.log('useCardGeneration: New audioUrls state:', newUrls);
-              sessionStorage.setItem('lastCardAudio', JSON.stringify(newUrls));
               return newUrls;
             });
             fetch(data.url)
@@ -176,7 +158,6 @@ export function useCardGeneration() {
             setAudioUrls(prev => {
               const newUrls = { ...prev, back: data.url };
               console.log('useCardGeneration: New audioUrls state:', newUrls);
-              sessionStorage.setItem('lastCardAudio', JSON.stringify(newUrls));
               return newUrls;
             });
             fetch(data.url)
