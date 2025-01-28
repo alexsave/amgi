@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { generateCard as apiGenerateCard } from '../network/api';
+import { saveAudio, loadAudio } from '../db/localStorage';
 
 export function useCardGeneration() {
   const [generatedCard, setGeneratedCard] = useState(() => {
@@ -37,45 +38,16 @@ export function useCardGeneration() {
   // Store blobs in session storage
   const storeBlob = async (blob, side) => {
     console.log(`useCardGeneration: Storing blob for ${side}`, { blobSize: blob.size });
-    const reader = new FileReader();
-    return new Promise((resolve) => {
-      reader.onloadend = () => {
-        const base64data = reader.result;
-        console.log(`useCardGeneration: Blob converted to base64 for ${side}`, { dataLength: base64data.length });
-        resolve();
-      };
-      reader.readAsDataURL(blob);
-    });
+    return saveAudio(blob, blob.type);
   };
 
-  // Restore blobs from session storage
-  const restoreBlobs = () => {
-    console.log('useCardGeneration: Attempting to restore blobs');
-    const frontBlob = null;
-    const backBlob = null;
-    console.log('useCardGeneration: Retrieved blobs from storage:', { 
-      hasFrontBlob: !!frontBlob, 
-      hasBackBlob: !!backBlob 
-    });
+  // Get audio from storage by ID
+  const getAudioById = (audioId) => {
+    const audioData = loadAudio(audioId);
+    if (!audioData) return null;
     
-    if (frontBlob) {
-      const frontUrl = URL.createObjectURL(dataURLtoBlob(frontBlob));
-      console.log('useCardGeneration: Created URL for front blob:', frontUrl);
-      setAudioUrls(prev => {
-        const newUrls = { ...prev, front: frontUrl };
-        console.log('useCardGeneration: Updating audioUrls with front URL:', newUrls);
-        return newUrls;
-      });
-    }
-    if (backBlob) {
-      const backUrl = URL.createObjectURL(dataURLtoBlob(backBlob));
-      console.log('useCardGeneration: Created URL for back blob:', backUrl);
-      setAudioUrls(prev => {
-        const newUrls = { ...prev, back: backUrl };
-        console.log('useCardGeneration: Updating audioUrls with back URL:', newUrls);
-        return newUrls;
-      });
-    }
+    const blob = dataURLtoBlob(audioData.data);
+    return URL.createObjectURL(blob);
   };
 
   // Convert data URL back to Blob
@@ -91,10 +63,37 @@ export function useCardGeneration() {
     return new Blob([u8arr], { type: mime });
   };
 
+  // Restore blobs from storage using IDs
+  const restoreBlobs = (frontAudioId, backAudioId) => {
+    console.log('useCardGeneration: Attempting to restore blobs with IDs:', { frontAudioId, backAudioId });
+    
+    if (frontAudioId) {
+      const frontUrl = getAudioById(frontAudioId);
+      if (frontUrl) {
+        console.log('useCardGeneration: Restored front audio URL:', frontUrl);
+        setAudioUrls(prev => ({
+          ...prev,
+          front: frontUrl
+        }));
+      }
+    }
+    
+    if (backAudioId) {
+      const backUrl = getAudioById(backAudioId);
+      if (backUrl) {
+        console.log('useCardGeneration: Restored back audio URL:', backUrl);
+        setAudioUrls(prev => ({
+          ...prev,
+          back: backUrl
+        }));
+      }
+    }
+  };
+
   // Try to restore blobs on mount
   useEffect(() => {
-    restoreBlobs();
-  }, []);
+    restoreBlobs(generatedCard?.frontAudioId, generatedCard?.backAudioId);
+  }, [generatedCard]);
 
   const generateCard = async (userInput, targetLang, blobUrlsRef, frontAudioRef, backAudioRef) => {
     console.log('useCardGeneration: generateCard called with:', {
@@ -142,9 +141,14 @@ export function useCardGeneration() {
             });
             fetch(data.url)
               .then(r => r.blob())
-              .then(blob => {
+              .then(async blob => {
                 console.log('useCardGeneration: Got front audio blob:', { size: blob.size });
-                return storeBlob(blob, 'front');
+                const audioId = await storeBlob(blob, 'front');
+                // Store the audio ID with the card data
+                setGeneratedCard(prev => ({
+                  ...prev,
+                  frontAudioId: audioId
+                }));
               });
             setAudioReady(prev => {
               const newReady = { ...prev, front: true };
@@ -162,9 +166,14 @@ export function useCardGeneration() {
             });
             fetch(data.url)
               .then(r => r.blob())
-              .then(blob => {
+              .then(async blob => {
                 console.log('useCardGeneration: Got back audio blob:', { size: blob.size });
-                return storeBlob(blob, 'back');
+                const audioId = await storeBlob(blob, 'back');
+                // Store the audio ID with the card data
+                setGeneratedCard(prev => ({
+                  ...prev,
+                  backAudioId: audioId
+                }));
               });
             setAudioReady(prev => {
               const newReady = { ...prev, back: true };

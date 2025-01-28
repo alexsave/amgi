@@ -99,10 +99,8 @@ const CardForm = ({ directMode = false }) => {
       const card = {
         frontText,
         backText,
-        audioUrls: {
-          front: frontAudioUrl,
-          back: backAudioUrl
-        }
+        frontAudioId: generatedCard.frontAudioId,
+        backAudioId: generatedCard.backAudioId
       };
       console.log('CardForm: Adding card to deck:', { deckId, card });
       await addCardToDeck(deckId, card);
@@ -159,7 +157,7 @@ const CardForm = ({ directMode = false }) => {
               {audioUrls.front && (
                 <button
                   className="play-audio-btn"
-                  onClick={() => playAudio(audioUrls.front)}
+                  onClick={() => playAudio('front', generatedCard.frontAudioId)}
                 >
                   🔊 Play Audio
                 </button>
@@ -171,7 +169,7 @@ const CardForm = ({ directMode = false }) => {
               {audioUrls.back && (
                 <button
                   className="play-audio-btn"
-                  onClick={() => playAudio(audioUrls.back)}
+                  onClick={() => playAudio('back', generatedCard.backAudioId)}
                 >
                   🔊 Play Audio
                 </button>

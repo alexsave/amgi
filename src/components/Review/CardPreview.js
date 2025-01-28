@@ -9,7 +9,7 @@ const CardPreview = ({ currentCard, showAnswer, audio }) => {
         <small>{currentCard.frontPronunciation}</small>
         <button
           className="play-audio-btn"
-          onClick={() => audio.playAudio('front')}
+          onClick={() => audio.playAudio('front', currentCard.frontAudioId)}
         >
           Play Audio
         </button>
@@ -22,7 +22,7 @@ const CardPreview = ({ currentCard, showAnswer, audio }) => {
           <small>{currentCard.backPronunciation}</small>
           <button
             className="play-audio-btn"
-            onClick={() => audio.playAudio('back')}
+            onClick={() => audio.playAudio('back', currentCard.backAudioId)}
           >
             Play Audio
           </button>
