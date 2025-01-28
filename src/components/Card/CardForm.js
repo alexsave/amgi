@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import { useAudio } from '../../hooks/useAudio';
 import { useCardGeneration } from '../../hooks/useCardGeneration';
 import { useDeckManagement } from '../../hooks/useDeckManagement';
@@ -14,6 +15,7 @@ const LANGUAGES = {
 };
 
 const CardForm = ({ directMode = false }) => {
+  const { id: deckId } = useParams();
   const [userInput, setUserInput] = useState('');
   const [targetLang, setTargetLang] = useState('ko');
   const [error, setError] = useState(null);
@@ -86,9 +88,13 @@ const CardForm = ({ directMode = false }) => {
       frontText,
       backText,
       frontAudioUrl,
-      backAudioUrl
+      backAudioUrl,
+      deckId
     });
-    if (!frontText || !backText) return;
+    if (!frontText || !backText) {
+      setError('No card data to add');
+      return;
+    }
     try {
       const card = {
         frontText,
@@ -98,9 +104,10 @@ const CardForm = ({ directMode = false }) => {
           back: backAudioUrl
         }
       };
-      console.log('CardForm: Adding card to deck:', card);
-      await addCardToDeck(card);
+      console.log('CardForm: Adding card to deck:', { deckId, card });
+      await addCardToDeck(deckId, card);
       console.log('CardForm: Successfully added card to deck');
+      setError(null);
     } catch (err) {
       console.error('CardForm: Error in handleAddToDeck:', err);
       setError(err.message);
@@ -172,7 +179,10 @@ const CardForm = ({ directMode = false }) => {
             </div>
           </div>
 
-          <button onClick={handleAddToDeck} className="add-to-deck-btn">
+          <button 
+            onClick={handleAddToDeck} 
+            className="add-to-deck-btn"
+          >
             Add to Deck
           </button>
         </div>
