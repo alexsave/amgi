@@ -35,32 +35,55 @@ export class SupabaseApi extends ApiInterface {
       const decoder = new TextDecoder();
       let card = null;
       let audioReady = { front: false, back: false };
+      const audioUrls = []; // Track URLs for cleanup
+      let buffer = ''; // Add buffer for incomplete chunks
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
         const chunk = decoder.decode(value);
-        const lines = chunk.split('\n').filter(line => line.trim());
+        buffer += chunk;
+        
+        // Split on newlines, keeping any incomplete chunk in the buffer
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || ''; // Keep the last incomplete chunk
 
         for (const line of lines) {
-          const data = JSON.parse(line);
+          if (!line.trim()) continue;
           
-          if (data.type === 'card') {
-            card = data.data;
-            onProgress({ type: 'text', data: card });
-          } else if (data.type === 'audio') {
-            const audioData = new Uint8Array(data.data);
-            const blob = new Blob([audioData], { type: 'audio/mpeg' });
-            const url = URL.createObjectURL(blob);
+          try {
+            const data = JSON.parse(line);
             
-            audioReady[data.side] = true;
-            onProgress({ type: 'audio', side: data.side, url });
+            if (data.type === 'card') {
+              card = data.data;
+              onProgress({ type: 'text', data: card });
+            } else if (data.type === 'audio') {
+              const audioData = new Uint8Array(data.data);
+              const blob = new Blob([audioData], { type: 'audio/mpeg' });
+              const url = URL.createObjectURL(blob);
+              audioUrls.push(url);
+              
+              audioReady[data.side] = true;
+              onProgress({ type: 'audio', side: data.side, url });
+            }
+          } catch (parseError) {
+            console.error('Failed to parse JSON chunk:', {
+              line,
+              error: parseError.message,
+              position: parseError.position,
+              length: line.length
+            });
+            throw new Error(`JSON parse error: ${parseError.message} (chunk length: ${line.length})`);
           }
         }
       }
 
-      return { card, audioReady };
+      return { 
+        card, 
+        audioReady,
+        cleanup: () => audioUrls.forEach(url => URL.revokeObjectURL(url))
+      };
     } catch (err) {
       throw new Error('Failed to generate card: ' + err.message);
     }
