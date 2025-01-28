@@ -1,7 +1,7 @@
 /// <reference lib="deno.ns" />
 import "jsr:@supabase/functions-js/edge-runtime.d.ts"
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from "npm:@supabase/supabase-js@2.39.0"
 
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL') || '',

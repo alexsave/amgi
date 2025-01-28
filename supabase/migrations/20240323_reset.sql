@@ -1,3 +1,11 @@
+-- Drop everything first
+drop table if exists usage_tracking cascade;
+drop table if exists user_subscriptions cascade;
+drop table if exists subscription_tiers cascade;
+drop table if exists reviews cascade;
+drop table if exists cards cascade;
+drop table if exists decks cascade;
+
 -- Create tables for flashcard app
 create extension if not exists "uuid-ossp";
 

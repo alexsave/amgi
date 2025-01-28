@@ -1,8 +1,8 @@
 /// <reference lib="deno.ns" />
 import "jsr:@supabase/functions-js/edge-runtime.d.ts"
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from '@supabase/supabase-js'
-import OpenAI from "openai";
+import { createClient } from "npm:@supabase/supabase-js@2.39.0"
+import OpenAI from "npm:openai@4.28.0"
 
 const openai = new OpenAI({
   apiKey: Deno.env.get("OPEN_AI_KEY"),
@@ -93,7 +93,7 @@ serve(async (req) => {
     const { audioBase64, expectedText, sourceLang, expectedAudioBase64 } = await req.json();
 
     const response = await openai.chat.completions.create({
-      model: "gpt-4-vision-preview",
+      model: "gpt-4o-audio-preview",
       messages: [
         {
           role: "system",

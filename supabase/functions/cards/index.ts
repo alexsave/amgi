@@ -31,7 +31,7 @@ serve(async (req) => {
         const { userInput, targetLang } = await req.json()
 
         const completion = await openai.chat.completions.create({
-            model: "gpt-4o",
+            model: "gpt-4o-audio-preview",
             messages: [
                 { 
                     role: "system", 
