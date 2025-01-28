@@ -175,11 +175,13 @@ serve(async (req) => {
     console.log('Request validation:', {
       hasAudioBase64: !!audioBase64,
       audioBase64Length: audioBase64?.length,
+      audioBase64Prefix: audioBase64?.substring(0, 50),
       expectedTextPresent: !!expectedText,
       targetLangPresent: !!targetLang,
       targetLang,
       hasExpectedAudio: !!expectedAudioBase64,
-      expectedAudioLength: expectedAudioBase64?.length
+      expectedAudioLength: expectedAudioBase64?.length,
+      expectedAudioPrefix: expectedAudioBase64?.substring(0, 50)
     });
 
     if (!audioBase64 || !expectedText || !targetLang) {
@@ -189,6 +191,20 @@ serve(async (req) => {
       if (!targetLang) missingFields.push('targetLang');
       throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
     }
+
+    // Validate base64 format
+    const isValidBase64 = (str) => {
+      try {
+        return btoa(atob(str)) === str;
+      } catch (err) {
+        return false;
+      }
+    };
+
+    console.log('Base64 validation:', {
+      isValidUserAudio: isValidBase64(audioBase64),
+      isValidExpectedAudio: isValidBase64(expectedAudioBase64)
+    });
 
     console.log('Initializing OpenAI client');
     const openai = new OpenAI({

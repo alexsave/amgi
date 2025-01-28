@@ -2,55 +2,89 @@ import { useCallback } from 'react';
 import { evaluateSpeech as apiEvaluateSpeech } from '../network/api';
 
 export function useSpeechEvaluation({ audio, onEvaluationResult }) {
-  const evaluateSpeech = useCallback(async (recordedBlob, currentCard) => {
+  const evaluateSpeech = async (recordedBlob, card) => {
     try {
       console.log('useSpeechEvaluation: Starting evaluation with card:', {
-        backText: currentCard.backText,
-        frontLang: currentCard.frontLang,
-        backLang: currentCard.backLang,
+        backText: card.backText,
+        frontLang: card.frontLang,
+        backLang: card.backLang,
         hasRecordedBlob: !!recordedBlob,
         recordedBlobSize: recordedBlob?.size,
-        backAudioSrc: audio.backAudioRef.current?.src
+        backAudioId: card.backAudioId
       });
 
-      if (!currentCard.backLang) {
-        throw new Error('Target language (backLang) is required for speech evaluation');
+      // Get the expected audio from storage
+      if (!card.backAudioId) {
+        throw new Error('No back audio ID available for comparison');
       }
 
-      // Get the expected audio data
-      const backAudioResponse = await fetch(audio.backAudioRef.current.src);
-      const backAudioBlob = await backAudioResponse.blob();
+      // Load the expected audio from storage
+      console.log('useSpeechEvaluation: Loading expected audio from storage:', card.backAudioId);
+      await audio.loadAudio('back', card.backAudioId);
+      
+      // Get the audio URL from the ref
+      const backAudioUrl = audio.backAudioRef.current.src;
+      console.log('useSpeechEvaluation: Fetching expected audio from:', backAudioUrl);
+
+      // Fetch the audio data
+      const audioResponse = await fetch(backAudioUrl);
+      console.log('useSpeechEvaluation: Fetch response:', {
+        ok: audioResponse.ok,
+        status: audioResponse.status,
+        contentType: audioResponse.headers.get('content-type'),
+        contentLength: audioResponse.headers.get('content-length')
+      });
+
+      if (!audioResponse.ok) {
+        throw new Error(`Failed to fetch expected audio: ${audioResponse.status}`);
+      }
+
+      const contentType = audioResponse.headers.get('content-type');
+      if (!contentType?.includes('audio/')) {
+        console.error('Received non-audio content type:', contentType);
+        throw new Error('Expected audio file but received different content type');
+      }
+
+      const backAudioBlob = await audioResponse.blob();
       console.log('useSpeechEvaluation: Got expected audio blob:', {
         size: backAudioBlob.size,
         type: backAudioBlob.type
       });
-      
-      console.log('useSpeechEvaluation: Calling API with params:', {
-        recordedBlobSize: recordedBlob.size,
-        backText: currentCard.backText,
-        backLang: currentCard.backLang,
-        backAudioBlobSize: backAudioBlob.size
+
+      // Create MP3 blobs for both recorded and expected audio
+      const recordedMp3Blob = new Blob([recordedBlob], { type: 'audio/mp3' });
+      const backAudioMp3Blob = new Blob([backAudioBlob], { type: 'audio/mp3' });
+
+      console.log('useSpeechEvaluation: Created MP3 blobs:', {
+        recorded: {
+          size: recordedMp3Blob.size,
+          type: recordedMp3Blob.type,
+          originalSize: recordedBlob.size,
+          originalType: recordedBlob.type
+        },
+        expected: {
+          size: backAudioMp3Blob.size,
+          type: backAudioMp3Blob.type,
+          originalSize: backAudioBlob.size,
+          originalType: backAudioBlob.type
+        }
       });
 
+      // Call the API using the proper implementation
       const result = await apiEvaluateSpeech(
-        recordedBlob,
-        currentCard.backText,
-        currentCard.backLang, // Using backLang as the target language for evaluation
-        backAudioBlob
+        recordedMp3Blob,      // audioBlob
+        card.backText,        // expectedText
+        card.backLang,        // sourceLang (the language being spoken)
+        backAudioMp3Blob      // expectedAudioBlob
       );
-      
-      console.log('useSpeechEvaluation: Received evaluation result:', {
-        result: result.result,
-        messageLength: result.message?.length,
-        hasAudio: !!result.audio
-      });
 
       onEvaluationResult(result);
     } catch (err) {
       console.error('Error evaluating speech:', err);
-      audio.setError('Failed to evaluate speech: ' + err.message);
+      audio.setError(err.message);
+      throw err;
     }
-  }, [audio, onEvaluationResult]);
+  };
 
   return { evaluateSpeech };
 } 

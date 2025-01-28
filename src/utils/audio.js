@@ -28,10 +28,22 @@ export const startRecording = () => {
 
 export const stopRecording = async () => {
   try {
+    console.log('Stopping recording...');
     const audioBlob = await recorder.stopRecording();
+    console.log('Recording stopped, blob details:', {
+      size: audioBlob.size,
+      type: audioBlob.type
+    });
+    
     if (audioBlob.size === 0) {
       throw new Error('No audio data recorded');
     }
+
+    // Verify that we have a valid MP3 blob
+    if (audioBlob.type !== 'audio/mpeg' && audioBlob.type !== 'audio/mp3') {
+      console.warn('Warning: Audio blob is not MP3 format:', audioBlob.type);
+    }
+
     return audioBlob;
   } catch (e) {
     console.error('Error stopping recording:', e);

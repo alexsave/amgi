@@ -41,26 +41,60 @@ export function useCardGeneration() {
     return saveAudio(blob, blob.type);
   };
 
-  // Get audio from storage by ID
-  const getAudioById = (audioId) => {
-    const audioData = loadAudio(audioId);
-    if (!audioData) return null;
-    
-    const blob = dataURLtoBlob(audioData.data);
-    return URL.createObjectURL(blob);
-  };
-
   // Convert data URL back to Blob
   const dataURLtoBlob = (dataurl) => {
-    const arr = dataurl.split(',');
-    const mime = arr[0].match(/:(.*?);/)[1];
-    const bstr = atob(arr[1]);
-    let n = bstr.length;
-    const u8arr = new Uint8Array(n);
-    while (n--) {
-      u8arr[n] = bstr.charCodeAt(n);
+    try {
+      console.log('useCardGeneration: Converting data URL to blob, prefix:', dataurl.substring(0, 50));
+      const arr = dataurl.split(',');
+      const mime = arr[0].match(/:(.*?);/)[1];
+      console.log('useCardGeneration: Extracted MIME type:', mime);
+      
+      // Ensure we're dealing with audio data
+      if (!mime.startsWith('audio/')) {
+        console.error('useCardGeneration: Invalid MIME type:', mime);
+        throw new Error('Invalid audio data');
+      }
+
+      const bstr = atob(arr[1]);
+      let n = bstr.length;
+      const u8arr = new Uint8Array(n);
+      while (n--) {
+        u8arr[n] = bstr.charCodeAt(n);
+      }
+      const blob = new Blob([u8arr], { type: 'audio/mp3' }); // Force MP3 type
+      console.log('useCardGeneration: Created blob:', {
+        size: blob.size,
+        type: blob.type
+      });
+      return blob;
+    } catch (err) {
+      console.error('useCardGeneration: Error converting data URL to blob:', err);
+      throw new Error('Failed to convert audio data');
     }
-    return new Blob([u8arr], { type: mime });
+  };
+
+  // Get audio from storage by ID
+  const getAudioById = (audioId) => {
+    console.log('useCardGeneration: Getting audio by ID:', audioId);
+    const audioData = loadAudio(audioId);
+    if (!audioData) {
+      console.warn('useCardGeneration: No audio data found for ID:', audioId);
+      return null;
+    }
+    
+    try {
+      const blob = dataURLtoBlob(audioData.data);
+      const url = URL.createObjectURL(blob);
+      console.log('useCardGeneration: Created URL for audio:', {
+        blobSize: blob.size,
+        blobType: blob.type,
+        url
+      });
+      return url;
+    } catch (err) {
+      console.error('useCardGeneration: Error creating audio URL:', err);
+      return null;
+    }
   };
 
   // Restore blobs from storage using IDs

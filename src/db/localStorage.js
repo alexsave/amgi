@@ -64,16 +64,40 @@ export const resetDailyCounters = () => {
 
 // Audio storage operations
 export const saveAudio = (blob, type) => {
+  console.log('localStorage: Saving audio blob:', {
+    size: blob.size,
+    type: type
+  });
+
+  // Ensure we're dealing with MP3 audio
+  if (!type.includes('audio/')) {
+    console.error('localStorage: Invalid audio type:', type);
+    throw new Error('Invalid audio type');
+  }
+
   return new Promise((resolve) => {
     const reader = new FileReader();
     reader.onloadend = () => {
       const base64data = reader.result;
+      console.log('localStorage: Converted to base64:', {
+        length: base64data.length,
+        prefix: base64data.substring(0, 50)
+      });
+
       const audioId = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      sessionStorage.setItem(`${STORAGE_KEYS.AUDIO_STORAGE_PREFIX}${audioId}`, JSON.stringify({
+      const audioData = {
         data: base64data,
-        type,
+        type: 'audio/mp3', // Force MP3 type
         createdAt: Date.now()
-      }));
+      };
+
+      console.log('localStorage: Storing audio data:', {
+        id: audioId,
+        type: audioData.type,
+        dataLength: audioData.data.length
+      });
+
+      localStorage.setItem(`${STORAGE_KEYS.AUDIO_STORAGE_PREFIX}${audioId}`, JSON.stringify(audioData));
       resolve(audioId);
     };
     reader.readAsDataURL(blob);
@@ -82,18 +106,29 @@ export const saveAudio = (blob, type) => {
 
 export const loadAudio = (audioId) => {
   try {
-    const audioData = JSON.parse(sessionStorage.getItem(`${STORAGE_KEYS.AUDIO_STORAGE_PREFIX}${audioId}`));
-    if (!audioData) return null;
+    console.log('localStorage: Loading audio:', audioId);
+    const audioData = JSON.parse(localStorage.getItem(`${STORAGE_KEYS.AUDIO_STORAGE_PREFIX}${audioId}`));
+    if (!audioData) {
+      console.warn('localStorage: No audio data found for ID:', audioId);
+      return null;
+    }
+
+    console.log('localStorage: Loaded audio data:', {
+      type: audioData.type,
+      dataLength: audioData.data.length,
+      createdAt: new Date(audioData.createdAt).toISOString()
+    });
+
     return audioData;
   } catch (err) {
-    console.error('Error loading audio:', err);
+    console.error('localStorage: Error loading audio:', err);
     return null;
   }
 };
 
 export const deleteAudio = (audioId) => {
   try {
-    sessionStorage.removeItem(`${STORAGE_KEYS.AUDIO_STORAGE_PREFIX}${audioId}`);
+    localStorage.removeItem(`${STORAGE_KEYS.AUDIO_STORAGE_PREFIX}${audioId}`);
   } catch (err) {
     console.error('Error deleting audio:', err);
   }
@@ -105,16 +140,16 @@ export const cleanupOldAudio = () => {
     const maxAge = 24 * 60 * 60 * 1000; // 24 hours
     
     // Get all audio storage keys
-    const audioKeys = Object.keys(sessionStorage).filter(key => 
+    const audioKeys = Object.keys(localStorage).filter(key => 
       key.startsWith(STORAGE_KEYS.AUDIO_STORAGE_PREFIX)
     );
     
     // Remove old audio files
     audioKeys.forEach(key => {
       try {
-        const audioData = JSON.parse(sessionStorage.getItem(key));
+        const audioData = JSON.parse(localStorage.getItem(key));
         if (now - audioData.createdAt > maxAge) {
-          sessionStorage.removeItem(key);
+          localStorage.removeItem(key);
         }
       } catch (err) {
         console.error('Error cleaning up audio:', err);

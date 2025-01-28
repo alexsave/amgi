@@ -22,6 +22,28 @@ const ReviewMode = () => {
   
   const currentCard = review.dueCards[review.currentCardIndex];
 
+  // Load audio when current card changes
+  useEffect(() => {
+    if (currentCard) {
+      console.log('ReviewMode: Loading audio for current card:', {
+        frontAudioId: currentCard.frontAudioId,
+        backAudioId: currentCard.backAudioId
+      });
+
+      // Load front audio
+      if (currentCard.frontAudioId) {
+        audio.loadAudio('front', currentCard.frontAudioId)
+          .catch(err => console.error('Error loading front audio:', err));
+      }
+
+      // Load back audio
+      if (currentCard.backAudioId) {
+        audio.loadAudio('back', currentCard.backAudioId)
+          .catch(err => console.error('Error loading back audio:', err));
+      }
+    }
+  }, [currentCard, audio]);
+
   const handleEvaluationResult = (data) => {
     console.log('ReviewMode: Received evaluation result:', {
       result: data.result,
