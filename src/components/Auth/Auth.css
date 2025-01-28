@@ -3,15 +3,16 @@
   justify-content: center;
   align-items: center;
   min-height: 100vh;
-  background-color: #f5f5f5;
+  background-color: var(--dark-bg);
   padding: 20px;
 }
 
 .auth-card {
-  background: white;
+  background: var(--dark-surface);
   padding: 2rem;
   border-radius: 10px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--border-color);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
   width: 100%;
   max-width: 400px;
 }
@@ -19,12 +20,13 @@
 .auth-card h2 {
   margin-bottom: 1.5rem;
   text-align: center;
-  color: #333;
+  color: var(--text-primary);
 }
 
 .auth-error {
-  background-color: #ffebee;
-  color: #c62828;
+  background-color: rgba(244, 67, 54, 0.1);
+  border: 1px solid rgba(244, 67, 54, 0.3);
+  color: #f44336;
   padding: 0.75rem;
   border-radius: 4px;
   margin-bottom: 1rem;
@@ -38,27 +40,28 @@
 .form-group label {
   display: block;
   margin-bottom: 0.5rem;
-  color: #666;
+  color: var(--text-primary);
 }
 
 .form-group input {
-  width: 100%;
   padding: 0.75rem;
-  border: 1px solid #ddd;
+  border: 1px solid var(--border-color);
   border-radius: 4px;
   font-size: 1rem;
+  background-color: var(--dark-surface);
+  color: var(--text-primary);
 }
 
 .form-group input:focus {
   outline: none;
-  border-color: #2196f3;
-  box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.1);
+  border-color: var(--flame-orange);
+  box-shadow: 0 0 0 2px rgba(255, 107, 53, 0.1);
 }
 
 button {
   width: 100%;
   padding: 0.75rem;
-  background-color: #2196f3;
+  background-color: var(--flame-orange);
   color: white;
   border: none;
   border-radius: 4px;
@@ -68,11 +71,12 @@ button {
 }
 
 button:hover {
-  background-color: #1976d2;
+  background-color: var(--flame-orange-hover);
 }
 
 button:disabled {
-  background-color: #90caf9;
+  background-color: var(--dark-surface-hover);
+  color: var(--text-secondary);
   cursor: not-allowed;
 }
 
@@ -82,7 +86,7 @@ button:disabled {
 }
 
 .auth-links a {
-  color: #2196f3;
+  color: var(--flame-orange);
   text-decoration: none;
   margin: 0 0.5rem;
 }
