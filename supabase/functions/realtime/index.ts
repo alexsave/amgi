@@ -122,7 +122,7 @@ serve(async (req) => {
         const response = await fetch("https://api.openai.com/v1/realtime/sessions", {
             method: "POST",
             headers: {
-                "Authorization": `Bearer ${Deno.env.get("OPEN_AI_KEY")}`,
+                "Authorization": `Bearer ${Deno.env.get("OPENAI_KEY")}`,
                 "Content-Type": "application/json",
             },
             body: JSON.stringify({
