@@ -29,7 +29,6 @@ const CreateDeckModal = ({ isOpen, onClose, onSubmit }) => {
         </div>
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label htmlFor="deckName">Deck Name</label>
             <input
               id="deckName"
               type="text"

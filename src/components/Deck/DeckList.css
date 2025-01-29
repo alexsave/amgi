@@ -70,7 +70,6 @@
 
 .deck-item:hover {
   background: var(--dark-surface-hover);
-  transform: translateY(-2px);
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 
@@ -104,10 +103,9 @@
 }
 
 .modal-content {
-  background: var(--dark-surface);
   border-radius: 8px;
-  padding: 24px;
-  width: 100%;
+  padding: 1rem;
+  width: 80%;
   max-width: 400px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   border: 1px solid var(--border-color);
@@ -117,7 +115,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: 1rem;
 }
 
 .modal-header h3 {
@@ -132,7 +130,7 @@
   color: var(--text-secondary);
   cursor: pointer;
   padding: 4px;
-  display: flex;
+  width: 43px;
   align-items: center;
   justify-content: center;
   border-radius: 4px;
@@ -155,7 +153,6 @@
 }
 
 .form-group input {
-  width: 100%;
   padding: 8px 12px;
   border: 1px solid var(--border-color);
   border-radius: 4px;
