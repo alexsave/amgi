@@ -11,14 +11,161 @@ const AudioVisualizer = ({
 }) => {
   const analyserRef = useRef(null);
   const canvasRef = useRef(null);
+  const sourceRef = useRef(null);
+  const isAnimatingRef = useRef(false);
+
+  const startAnimation = () => {
+    if (isAnimatingRef.current) return;
+    
+    console.log(`Starting animation for ${isAiOutput ? 'AI' : 'user'} visualization`, {
+      hasAnalyser: !!analyserRef.current,
+      hasSource: !!sourceRef.current,
+      isLive
+    });
+
+    if (!analyserRef.current || !sourceRef.current || !canvasRef.current) {
+      console.error(`Cannot start animation - missing required refs for ${isAiOutput ? 'AI' : 'user'}`);
+      return;
+    }
+
+    isAnimatingRef.current = true;
+    const ctx = canvasRef.current.getContext('2d');
+    const bufferLength = analyserRef.current.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+    const WIDTH = canvasRef.current.width;
+    const HEIGHT = canvasRef.current.height;
+    const barWidth = (WIDTH / bufferLength) * 2.5;
+    const barSpacing = 2;
+
+    const renderFrame = () => {
+      if (!isAnimatingRef.current) return;
+
+      try {
+        analyserRef.current.getByteFrequencyData(dataArray);
+
+        // Calculate average for visualization
+        let sum = 0;
+        let hasSound = false;
+        for (let i = 0; i < dataArray.length; i++) {
+          sum += dataArray[i];
+          if (dataArray[i] > 5) { // Threshold to detect actual sound vs noise
+            hasSound = true;
+          }
+        }
+        const average = sum / dataArray.length;
+        const volume = Math.min(average / 128, 1);
+        
+        // Only update scale if there's actual sound and it's user audio
+        if (hasSound && !isAiOutput && onVolumeChange) {
+          onVolumeChange(volume * 100);
+        }
+
+        // Draw bar visualization
+        ctx.clearRect(0, 0, WIDTH, HEIGHT);
+
+        let x = 0;
+        for (let i = 0; i < bufferLength; i++) {
+          const barHeight = (dataArray[i] / 255.0) * HEIGHT * 0.8;
+          
+          // Set color based on state and sound detection
+          if (hasSound) {
+            if (isLive) {
+              if (isAiOutput) {
+                // Rainbow gradient for AI speaking
+                const hue = (i / bufferLength) * 360;
+                const lightness = 50 + (barHeight / HEIGHT) * 50;
+                ctx.fillStyle = `hsl(${hue}, 100%, ${lightness}%)`;
+              } else {
+                // Flame orange for user recording
+                const intensity = barHeight / HEIGHT;
+                ctx.fillStyle = `rgba(255, 107, 53, ${0.5 + intensity * 0.5})`;
+              }
+            } else {
+              // Default colors
+              const intensity = barHeight / HEIGHT;
+              ctx.fillStyle = isAiOutput 
+                ? `rgba(255, 107, 53, ${0.3 + intensity * 0.3})` // AI color
+                : `rgba(100, 149, 237, ${0.3 + intensity * 0.3})`; // User color
+            }
+          } else {
+            // Very dim color when no sound
+            ctx.fillStyle = `rgba(100, 100, 100, 0.1)`;
+          }
+
+          // Draw bar with rounded corners
+          const barX = x + barSpacing;
+          const barY = HEIGHT - barHeight;
+          const barW = barWidth - barSpacing * 2;
+          const radius = Math.min(barW / 2, barHeight / 2, 4);
+
+          ctx.beginPath();
+          ctx.moveTo(barX + radius, barY);
+          ctx.lineTo(barX + barW - radius, barY);
+          ctx.quadraticCurveTo(barX + barW, barY, barX + barW, barY + radius);
+          ctx.lineTo(barX + barW, HEIGHT - radius);
+          ctx.quadraticCurveTo(barX + barW, HEIGHT, barX + barW - radius, HEIGHT);
+          ctx.lineTo(barX + radius, HEIGHT);
+          ctx.quadraticCurveTo(barX, HEIGHT, barX, HEIGHT - radius);
+          ctx.lineTo(barX, barY + radius);
+          ctx.quadraticCurveTo(barX, barY, barX + radius, barY);
+          ctx.closePath();
+          
+          ctx.fill();
+          
+          x += barWidth;
+        }
+
+        animationFrameRef.current = requestAnimationFrame(renderFrame);
+      } catch (error) {
+        console.error(`Error in render frame for ${isAiOutput ? 'AI' : 'user'}:`, error);
+        isAnimatingRef.current = false;
+      }
+    };
+
+    renderFrame();
+  };
+
+  const stopAnimation = () => {
+    console.log(`Stopping animation for ${isAiOutput ? 'AI' : 'user'}`);
+    isAnimatingRef.current = false;
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+  };
 
   const setupAudioVisualization = () => {
-    if (!audioStream) return;
+    if (!audioStream) {
+      console.log(`No audio stream for ${isAiOutput ? 'AI' : 'user'} visualization`);
+      return;
+    }
 
-    console.log(`Setting up ${isAiOutput ? 'AI' : 'user'} audio visualization`);
+    console.log(`Setting up ${isAiOutput ? 'AI' : 'user'} audio visualization`, {
+      isLive,
+      streamActive: audioStream.active,
+      streamId: audioStream.id,
+      tracks: audioStream.getTracks().map(track => ({
+        id: track.id,
+        kind: track.kind,
+        enabled: track.enabled,
+        readyState: track.readyState
+      }))
+    });
+    
+    // Clean up existing source if any
+    if (sourceRef.current) {
+      console.log(`Cleaning up existing source for ${isAiOutput ? 'AI' : 'user'}`);
+      sourceRef.current.disconnect();
+      sourceRef.current = null;
+    }
+
+    // Create or resume AudioContext
     if (!audioContextRef.current) {
       audioContextRef.current = new AudioContext();
-      console.log('Created new AudioContext');
+      console.log('Created new AudioContext:', audioContextRef.current.state);
+    } else if (audioContextRef.current.state === 'suspended') {
+      audioContextRef.current.resume();
+      console.log('Resumed existing AudioContext:', audioContextRef.current.state);
     }
     
     // Create or get the appropriate analyser
@@ -28,10 +175,15 @@ const AudioVisualizer = ({
       console.log(`Created new AnalyserNode for ${isAiOutput ? 'AI' : 'user'} with fftSize:`, analyserRef.current.fftSize);
     }
 
-    // Create new source for visualization
-    const source = audioContextRef.current.createMediaStreamSource(audioStream);
-    source.connect(analyserRef.current);
-    console.log(`Connected ${isAiOutput ? 'AI' : 'user'} audio source to analyser`);
+    try {
+      // Create new source for visualization
+      sourceRef.current = audioContextRef.current.createMediaStreamSource(audioStream);
+      sourceRef.current.connect(analyserRef.current);
+      console.log(`Connected ${isAiOutput ? 'AI' : 'user'} audio source to analyser`);
+    } catch (error) {
+      console.error(`Error creating media stream source for ${isAiOutput ? 'AI' : 'user'}:`, error);
+      return;
+    }
 
     // Set up canvas
     const canvas = canvasRef.current;
@@ -49,116 +201,49 @@ const AudioVisualizer = ({
     const ctx = canvas.getContext('2d');
     ctx.scale(dpr, dpr);
 
-    const bufferLength = analyserRef.current.frequencyBinCount;
-    const dataArray = new Uint8Array(bufferLength);
-    const WIDTH = rect.width;
-    const HEIGHT = rect.height;
-    const barWidth = (WIDTH / bufferLength) * 2.5;
-    const barSpacing = 2;
+    // Draw initial state
+    ctx.fillStyle = `rgba(100, 100, 100, 0.1)`;
+    ctx.fillRect(0, 0, rect.width, rect.height);
 
-    let frameCount = 0;
-    const renderFrame = () => {
-      if (!analyserRef.current || !ctx) {
-        console.error(`Missing ${isAiOutput ? 'AI' : 'user'} analyser or canvas context`);
-        return;
-      }
-
-      analyserRef.current.getByteFrequencyData(dataArray);
-
-      // Calculate average for visualization
-      let sum = 0;
-      let hasSound = false;
-      for (let i = 0; i < dataArray.length; i++) {
-        sum += dataArray[i];
-        if (dataArray[i] > 5) { // Threshold to detect actual sound vs noise
-          hasSound = true;
-        }
-      }
-      const average = sum / dataArray.length;
-      const volume = Math.min(average / 128, 1);
-      
-      // Only update scale if there's actual sound and it's user audio
-      if (hasSound && !isAiOutput && onVolumeChange) {
-        onVolumeChange(volume * 100);
-      }
-
-      // Draw bar visualization
-      ctx.clearRect(0, 0, WIDTH, HEIGHT);
-
-      let x = 0;
-      for (let i = 0; i < bufferLength; i++) {
-        const barHeight = (dataArray[i] / 255.0) * HEIGHT * 0.8;
-        
-        // Set color based on state and sound detection
-        if (hasSound) {
-          if (isLive) {
-            if (isAiOutput) {
-              // Rainbow gradient for user recording
-              const hue = (i / bufferLength) * 360;
-              const lightness = 50 + (barHeight / HEIGHT) * 50;
-              ctx.fillStyle = `hsl(${hue}, 100%, ${lightness}%)`;
-            } else {
-              // Flame orange for user recording
-              const intensity = barHeight / HEIGHT;
-              ctx.fillStyle = `rgba(255, 107, 53, ${0.5 + intensity * 0.5})`;
-            }
-          } else {
-            // Default colors
-            const intensity = barHeight / HEIGHT;
-            ctx.fillStyle = isAiOutput 
-              ? `rgba(255, 107, 53, ${0.3 + intensity * 0.3})` // AI color
-              : `rgba(100, 149, 237, ${0.3 + intensity * 0.3})`; // User color
-          }
-        } else {
-          // Very dim color when no sound
-          ctx.fillStyle = `rgba(100, 100, 100, 0.1)`;
-        }
-        
-        // Draw bar with rounded corners
-        const barX = x + barSpacing;
-        const barY = HEIGHT - barHeight;
-        const barW = barWidth - barSpacing * 2;
-        const radius = Math.min(barW / 2, barHeight / 2, 4);
-
-        ctx.beginPath();
-        ctx.moveTo(barX + radius, barY);
-        ctx.lineTo(barX + barW - radius, barY);
-        ctx.quadraticCurveTo(barX + barW, barY, barX + barW, barY + radius);
-        ctx.lineTo(barX + barW, HEIGHT - radius);
-        ctx.quadraticCurveTo(barX + barW, HEIGHT, barX + barW - radius, HEIGHT);
-        ctx.lineTo(barX + radius, HEIGHT);
-        ctx.quadraticCurveTo(barX, HEIGHT, barX, HEIGHT - radius);
-        ctx.lineTo(barX, barY + radius);
-        ctx.quadraticCurveTo(barX, barY, barX + radius, barY);
-        ctx.closePath();
-        
-        ctx.fill();
-        
-        x += barWidth;
-      }
-
-      frameCount++;
-      
-      // Store animation frame reference
-      animationFrameRef.current = requestAnimationFrame(renderFrame);
-    };
-
-    renderFrame();
+    // Start animation
+    startAnimation();
 
     return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
+      console.log(`Cleaning up ${isAiOutput ? 'AI' : 'user'} visualization`);
+      stopAnimation();
+      if (sourceRef.current) {
+        sourceRef.current.disconnect();
+        sourceRef.current = null;
       }
-      source.disconnect();
     };
   };
 
+  // Effect to handle animation state changes
   useEffect(() => {
+    console.log(`isLive changed for ${isAiOutput ? 'AI' : 'user'}:`, {
+      isLive,
+      hasSource: !!sourceRef.current,
+      isAnimating: isAnimatingRef.current
+    });
+
+    if (isLive && !isAnimatingRef.current && sourceRef.current) {
+      startAnimation();
+    } else if (!isLive && isAnimatingRef.current) {
+      stopAnimation();
+    }
+  }, [isLive, isAiOutput]);
+
+  useEffect(() => {
+    console.log(`Audio stream changed for ${isAiOutput ? 'AI' : 'user'}:`, {
+      hasStream: !!audioStream,
+      streamId: audioStream?.id,
+      isLive
+    });
     const cleanup = setupAudioVisualization();
     return () => {
       if (cleanup) cleanup();
     };
-  }, [audioStream, isLive]);
+  }, [audioStream]);
 
   return (
     <canvas ref={canvasRef} className="audio-canvas" />

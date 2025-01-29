@@ -104,8 +104,8 @@ export function useReview() {
   }, [currentCardIndex]);
 
   const moveToNextCard = () => {
+    setCurrentCardIndex(prev => prev + 1);
     if (currentCardIndex < dueCards.length - 1) {
-      setCurrentCardIndex(prev => prev + 1);
       setEvaluationResult(null);
       setAttempts(0);
       setShowAnswer(false);

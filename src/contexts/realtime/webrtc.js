@@ -76,7 +76,6 @@ export const setupWebRTC = async ({
         dc.onmessage = (e) => {
             try {
                 const event = JSON.parse(e.data);
-                console.log('Received message:', event);
                 if (event.type === 'response.text.delta') {
                     setIsSpeaking(true);
                     setHasActiveResponse(true);
@@ -105,15 +104,15 @@ export const setupWebRTC = async ({
         };
 
         pc.onicecandidate = (event) => {
-            console.log('ICE candidate:', event.candidate);
+            //console.log('ICE candidate:', event.candidate);
         };
 
         pc.onicegatheringstatechange = () => {
-            console.log('ICE gathering state:', pc.iceGatheringState);
+            //console.log('ICE gathering state:', pc.iceGatheringState);
         };
 
         pc.onsignalingstatechange = () => {
-            console.log('Signaling state:', pc.signalingState);
+            //console.log('Signaling state:', pc.signalingState);
         };
 
         console.log('Creating offer...');
@@ -143,32 +142,128 @@ export const cleanup = ({
     animationFrameRef,
     aiAnimationFrameRef
 }) => {
-    console.log('Starting cleanup...');
+    console.log('Starting cleanup of WebRTC and audio resources...');
+    
+    // Clean up media stream
     if (mediaStreamRef.current) {
-        console.log('Stopping media tracks...');
-        mediaStreamRef.current.getTracks().forEach(track => track.stop());
+        console.log('Stopping media tracks...', {
+            tracks: mediaStreamRef.current.getTracks().map(track => ({
+                id: track.id,
+                kind: track.kind,
+                enabled: track.enabled,
+                readyState: track.readyState,
+                muted: track.muted
+            }))
+        });
+        mediaStreamRef.current.getTracks().forEach(track => {
+            track.enabled = false;
+            track.stop();
+            console.log(`Stopped track ${track.id}:`, {
+                enabled: track.enabled,
+                readyState: track.readyState,
+                muted: track.muted
+            });
+        });
+        mediaStreamRef.current = null;
     }
+
+    // Clean up peer connection
     if (peerConnectionRef.current) {
-        console.log('Closing peer connection...');
-        peerConnectionRef.current.close();
+        console.log('Closing peer connection...', {
+            signalingState: peerConnectionRef.current.signalingState,
+            connectionState: peerConnectionRef.current.connectionState,
+            iceConnectionState: peerConnectionRef.current.iceConnectionState
+        });
+        
+        try {
+            // Close all data channels
+            const channels = peerConnectionRef.current.getDataChannels?.() || [];
+            channels.forEach(channel => {
+                console.log(`Closing data channel: ${channel.label}`);
+                channel.close();
+            });
+
+            // Close all transceivers
+            const transceivers = peerConnectionRef.current.getTransceivers?.() || [];
+            transceivers.forEach(transceiver => {
+                try {
+                    console.log(`Stopping transceiver: ${transceiver.mid}`);
+                    transceiver.stop();
+                } catch (e) {
+                    console.warn('Error stopping transceiver:', e);
+                }
+            });
+
+            // Close the peer connection
+            peerConnectionRef.current.close();
+        } catch (e) {
+            console.warn('Error during peer connection cleanup:', e);
+        }
+        peerConnectionRef.current = null;
     }
+
+    // Clean up audio element
     if (audioElementRef.current) {
         console.log('Cleaning up audio element...');
+        const srcObject = audioElementRef.current.srcObject;
+        if (srcObject instanceof MediaStream) {
+            console.log('Cleaning up audio element stream tracks...');
+            srcObject.getTracks().forEach(track => {
+                track.stop();
+                console.log(`Stopped audio element track ${track.id}`);
+            });
+        }
+        audioElementRef.current.pause();
         audioElementRef.current.srcObject = null;
+        audioElementRef.current = null;
     }
-    if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
-        console.log('Closing audio context...');
-        audioContextRef.current.close();
+
+    // Clean up audio context
+    if (audioContextRef.current) {
+        console.log('Cleaning up audio context...', {
+            state: audioContextRef.current.state
+        });
+        
+        if (audioContextRef.current.state !== 'closed') {
+            try {
+                // Disconnect all nodes
+                const destination = audioContextRef.current.destination;
+                if (destination) {
+                    console.log('Disconnecting audio context destination');
+                    const maxChannelCount = destination.maxChannelCount;
+                    destination.channelCount = maxChannelCount;
+                    destination.disconnect();
+                }
+                
+                // Close the context
+                audioContextRef.current.close().then(() => {
+                    console.log('AudioContext closed successfully');
+                }).catch(e => {
+                    console.warn('Error closing AudioContext:', e);
+                });
+            } catch (e) {
+                console.warn('Error during audio context cleanup:', e);
+            }
+        }
+        audioContextRef.current = null;
     }
+
+    // Clean up animation frames
     if (animationFrameRef.current) {
         console.log('Canceling animation frames...');
         cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
     }
     if (aiAnimationFrameRef.current) {
         cancelAnimationFrame(aiAnimationFrameRef.current);
+        aiAnimationFrameRef.current = null;
     }
+
+    // Clear any pending timeouts
     if (window.speakingTimeoutId) {
         clearTimeout(window.speakingTimeoutId);
+        window.speakingTimeoutId = null;
     }
+
     console.log('Cleanup completed');
 }; 

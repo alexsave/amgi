@@ -35,8 +35,8 @@ const VoiceMode = () => {
   useEffect(() => {
     // Only run cleanup when component unmounts
     return () => {
-        console.log('VoiceMode unmounting, running cleanup...');
-        cleanup();
+      console.log('VoiceMode unmounting, running cleanup...');
+      cleanup();
     };
   }, []); // Empty dependency array means only run on unmount
 
@@ -60,8 +60,28 @@ const VoiceMode = () => {
       return;
     }
 
-    console.log('Toggling recording:', !isRecording);
-    setIsRecording(!isRecording);
+    const newRecordingState = !isRecording;
+    console.log('Toggling recording:', newRecordingState, {
+      mediaStream: mediaStreamRef.current ? {
+        active: mediaStreamRef.current.active,
+        tracks: mediaStreamRef.current.getTracks().map(track => ({
+          enabled: track.enabled,
+          readyState: track.readyState
+        }))
+      } : null
+    });
+    setIsRecording(newRecordingState);
+
+    // Ensure tracks are enabled when we start recording
+    if (newRecordingState && mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach(track => {
+        track.enabled = true;
+        console.log(`Enabled track ${track.id}:`, {
+          enabled: track.enabled,
+          readyState: track.readyState
+        });
+      });
+    }
   };
 
   return (
