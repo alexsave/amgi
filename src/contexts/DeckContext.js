@@ -34,7 +34,6 @@ export const DeckProvider = ({ children }) => {
       try {
         // Always load decks from localStorage first
         const localDecks = localDeckStorage.getLocalDecks();
-        console.log('Loaded local decks:', localDecks);
         setDecks(localDecks);
         
         if (user) {

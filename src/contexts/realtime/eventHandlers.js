@@ -1,7 +1,7 @@
-import { logRealtimeEvent } from './webrtc';
 
 export const handleAudioStarted = ({ mediaStreamRef }) => {
     if (mediaStreamRef.current) {
+        console.log('🎤 Disabling user microphone - AI is speaking');
         mediaStreamRef.current.getAudioTracks().forEach(track => {
             track.enabled = false;
         });
@@ -16,6 +16,7 @@ export const handleAudioStopped = ({
     review
 }) => {
     if (mediaStreamRef.current) {
+        console.log('🎤 Enabling user microphone - AI finished speaking');
         mediaStreamRef.current.getAudioTracks().forEach(track => {
             track.enabled = true;
         });

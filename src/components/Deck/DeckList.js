@@ -144,8 +144,6 @@ const DeckList = () => {
     navigate(`/deck/${id}`);
   };
 
-  console.log('Current decks:', decks);
-
   return (
     <div className="deck-management">
       <div className="deck-header">

@@ -41,7 +41,6 @@ export const RealtimeProvider = ({ children }) => {
     const realtimeTools = createRealtimeTools(dataChannelRef);
 
     const handleRealtimeEvent = (event, review, card) => {
-        console.log('Realtime event:', event);
         switch (event.type) {
             case 'output_audio_buffer.audio_started':
                 handleAudioStarted({ mediaStreamRef });
