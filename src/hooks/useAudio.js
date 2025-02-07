@@ -110,7 +110,6 @@ export function useAudio() {
 
   const loadAudio = async (side, audioId) => {
     try {
-      console.log('Loading audio for side:', side, 'with ID:', audioId);
       
       let audioUrl;
       

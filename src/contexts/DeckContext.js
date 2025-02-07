@@ -95,7 +95,6 @@ export const DeckProvider = ({ children }) => {
   useEffect(() => {
     // Always load from local storage
     const localDecks = localDeckStorage.getLocalDecks();
-    console.log('Initial load of local decks:', localDecks);
     setDecks(localDecks);
     
     const lastDeckId = localDeckStorage.loadCurrentDeck();

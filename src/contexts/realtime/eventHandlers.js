@@ -1,7 +1,6 @@
 
 export const handleAudioStarted = ({ mediaStreamRef }) => {
     if (mediaStreamRef.current) {
-        console.log('🎤 Disabling user microphone - AI is speaking');
         mediaStreamRef.current.getAudioTracks().forEach(track => {
             track.enabled = false;
         });
@@ -16,7 +15,6 @@ export const handleAudioStopped = ({
     review
 }) => {
     if (mediaStreamRef.current) {
-        console.log('🎤 Enabling user microphone - AI finished speaking');
         mediaStreamRef.current.getAudioTracks().forEach(track => {
             track.enabled = true;
         });
@@ -74,9 +72,23 @@ export const handleCorrectResponse = ({
     setButtonState,
     realtimeTools
 }) => {
+    console.log('Correct response received');
     setButtonState('success');
     setTimeout(() => setButtonState('default'), 500);
-    review.updateCardScheduling(currentCard.created, 'correct');
+
+    const nextCard = review.markCorrectGetNext();
+    if (nextCard) {
+        console.log('Sending next card info', nextCard);
+        realtimeTools.sendNextCardInfo(nextCard, false, callId, args.result, args.message);
+    } else {
+        console.log('Sending complete review');
+        realtimeTools.sendCompleteReview();
+    }
+
+    realtimeTools.requestNextResponse();
+
+
+    /*review.updateCardScheduling(currentCard.created, 'correct');
 
     const nextIndex = review.currentCardIndex + 1;
     const isLastCard = nextIndex >= review.dueCards.length;
@@ -90,7 +102,7 @@ export const handleCorrectResponse = ({
     if (isLastCard) {
         realtimeTools.sendCompleteReview();
     }
-    realtimeTools.requestNextResponse();
+    realtimeTools.requestNextResponse();*/
 };
 
 export const handleIncorrectResponse = ({
@@ -104,7 +116,23 @@ export const handleIncorrectResponse = ({
 }) => {
     setButtonState('error');
     setTimeout(() => setButtonState('default'), 500);
-    review.updateCardScheduling(currentCard.created, 'incorrect');
+
+    const attempts = review.markIncorrectGetAttempts();
+    if (attempts >= 3) {
+        // Move on for now
+        handleMaxAttempts(callId, review);
+    } else {
+        // Try again
+        realtimeTools.sendFunctionOutput(callId, {
+            result: args.result,
+            message: args.message
+        });
+
+    }
+
+    realtimeTools.requestNextResponse();
+
+    /*review.updateCardScheduling(currentCard.created, 'incorrect');
 
     let shouldMoveToNext = false;
     review.setAttempts(prev => {
@@ -123,7 +151,7 @@ export const handleIncorrectResponse = ({
             message: args.message
         });
     }
-    realtimeTools.requestNextResponse();
+    realtimeTools.requestNextResponse();*/
 };
 
 export const handleMaxAttempts = ({

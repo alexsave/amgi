@@ -25,11 +25,6 @@ const ReviewMode = () => {
   // Load audio when current card changes
   useEffect(() => {
     if (currentCard) {
-      console.log('ReviewMode: Loading audio for current card:', {
-        frontAudioId: currentCard.frontAudioId,
-        backAudioId: currentCard.backAudioId
-      });
-
       // Load front audio
       if (currentCard.frontAudioId) {
         audio.loadAudio('front', currentCard.frontAudioId)

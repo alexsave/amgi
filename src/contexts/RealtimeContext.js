@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useState, useRef } from 'react';
-import { sessionTools } from './realtime/sessionTools';
 import { setupWebRTC, cleanup } from './realtime/webrtc';
 import { createRealtimeTools } from './realtime/realtimeTools';
 import {
@@ -42,10 +41,10 @@ export const RealtimeProvider = ({ children }) => {
 
     const handleRealtimeEvent = (event, review, card) => {
         switch (event.type) {
-            case 'output_audio_buffer.audio_started':
+            case 'output_audio_buffer.started':
                 handleAudioStarted({ mediaStreamRef });
                 break;
-            case 'output_audio_buffer.audio_stopped':
+            case 'output_audio_buffer.stopped':
                 handleAudioStopped({
                     mediaStreamRef,
                     peerConnectionRef,
@@ -167,7 +166,6 @@ export const RealtimeProvider = ({ children }) => {
             mediaStreamRef,
             audioElementRef,
             handleRealtimeEvent,
-            sessionTools
         });
     };
 

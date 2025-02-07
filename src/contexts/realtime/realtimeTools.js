@@ -16,6 +16,7 @@ export const createRealtimeTools = (dataChannelRef) => ({
         }));
     },
 
+    // This replies to a nextcard info
     sendNextCardInfo: (nextCard, isLastCard, callId, result = 'correct', message = '') => {
         if (!dataChannelRef.current) return;
         dataChannelRef.current.send(JSON.stringify({
@@ -50,6 +51,7 @@ export const createRealtimeTools = (dataChannelRef) => ({
         }));
     },
 
+    // This is fine
     requestNextResponse: (hasActiveResponse) => {
         if (!dataChannelRef.current || hasActiveResponse) return;
         console.log('Requesting next response');

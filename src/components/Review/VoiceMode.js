@@ -35,20 +35,16 @@ const VoiceMode = () => {
   useEffect(() => {
     // Only run cleanup when component unmounts
     return () => {
-      console.log('VoiceMode unmounting, running cleanup...');
       cleanup();
     };
   }, []); // Empty dependency array means only run on unmount
 
   const handleMicClick = async () => {
     if (!hasStarted) {
-      console.log('Starting new session...');
       setIsConnecting(true);
       setFeedback('Connecting...');
       try {
-        console.log('Setting up WebRTC with card:', currentCard);
         const success = await setupWebRTC(currentCard, review);
-        console.log('WebRTC setup result:', success);
         if (success) {
           setHasStarted(true);
         }

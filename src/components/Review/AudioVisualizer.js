@@ -17,14 +17,7 @@ const AudioVisualizer = ({
   const startAnimation = () => {
     if (isAnimatingRef.current) return;
     
-    console.log(`Starting animation for ${isAiOutput ? 'AI' : 'user'} visualization`, {
-      hasAnalyser: !!analyserRef.current,
-      hasSource: !!sourceRef.current,
-      isLive
-    });
-
     if (!analyserRef.current || !sourceRef.current || !canvasRef.current) {
-      console.error(`Cannot start animation - missing required refs for ${isAiOutput ? 'AI' : 'user'}`);
       return;
     }
 
@@ -126,7 +119,6 @@ const AudioVisualizer = ({
   };
 
   const stopAnimation = () => {
-    console.log(`Stopping animation for ${isAiOutput ? 'AI' : 'user'}`);
     isAnimatingRef.current = false;
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
@@ -136,25 +128,11 @@ const AudioVisualizer = ({
 
   const setupAudioVisualization = () => {
     if (!audioStream) {
-      console.log(`No audio stream for ${isAiOutput ? 'AI' : 'user'} visualization`);
       return;
     }
 
-    console.log(`Setting up ${isAiOutput ? 'AI' : 'user'} audio visualization`, {
-      isLive,
-      streamActive: audioStream.active,
-      streamId: audioStream.id,
-      tracks: audioStream.getTracks().map(track => ({
-        id: track.id,
-        kind: track.kind,
-        enabled: track.enabled,
-        readyState: track.readyState
-      }))
-    });
-    
     // Clean up existing source if any
     if (sourceRef.current) {
-      console.log(`Cleaning up existing source for ${isAiOutput ? 'AI' : 'user'}`);
       sourceRef.current.disconnect();
       sourceRef.current = null;
     }
@@ -162,24 +140,20 @@ const AudioVisualizer = ({
     // Create or resume AudioContext
     if (!audioContextRef.current) {
       audioContextRef.current = new AudioContext();
-      console.log('Created new AudioContext:', audioContextRef.current.state);
     } else if (audioContextRef.current.state === 'suspended') {
       audioContextRef.current.resume();
-      console.log('Resumed existing AudioContext:', audioContextRef.current.state);
     }
     
     // Create or get the appropriate analyser
     if (!analyserRef.current) {
       analyserRef.current = audioContextRef.current.createAnalyser();
       analyserRef.current.fftSize = 256;
-      console.log(`Created new AnalyserNode for ${isAiOutput ? 'AI' : 'user'} with fftSize:`, analyserRef.current.fftSize);
     }
 
     try {
       // Create new source for visualization
       sourceRef.current = audioContextRef.current.createMediaStreamSource(audioStream);
       sourceRef.current.connect(analyserRef.current);
-      console.log(`Connected ${isAiOutput ? 'AI' : 'user'} audio source to analyser`);
     } catch (error) {
       console.error(`Error creating media stream source for ${isAiOutput ? 'AI' : 'user'}:`, error);
       return;
@@ -209,7 +183,6 @@ const AudioVisualizer = ({
     startAnimation();
 
     return () => {
-      console.log(`Cleaning up ${isAiOutput ? 'AI' : 'user'} visualization`);
       stopAnimation();
       if (sourceRef.current) {
         sourceRef.current.disconnect();
@@ -220,11 +193,6 @@ const AudioVisualizer = ({
 
   // Effect to handle animation state changes
   useEffect(() => {
-    console.log(`isLive changed for ${isAiOutput ? 'AI' : 'user'}:`, {
-      isLive,
-      hasSource: !!sourceRef.current,
-      isAnimating: isAnimatingRef.current
-    });
 
     if (isLive && !isAnimatingRef.current && sourceRef.current) {
       startAnimation();
@@ -234,11 +202,6 @@ const AudioVisualizer = ({
   }, [isLive, isAiOutput]);
 
   useEffect(() => {
-    console.log(`Audio stream changed for ${isAiOutput ? 'AI' : 'user'}:`, {
-      hasStream: !!audioStream,
-      streamId: audioStream?.id,
-      isLive
-    });
     const cleanup = setupAudioVisualization();
     return () => {
       if (cleanup) cleanup();

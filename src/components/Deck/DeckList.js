@@ -81,7 +81,6 @@ const DeckList = () => {
   };
 
   const handleDeckClick = (id) => {
-    console.log('Deck clicked:', id);
     setCurrentDeck(id);
     navigate(`/deck/${id}/review`);
   };
