@@ -7,7 +7,8 @@ import { useRealtime } from '../../contexts/RealtimeContext';
 
 const VoiceMode = () => {
   const review = useReview();
-  const currentCard = review.dueCards[review.currentCardIndex];
+  const { currentCard } = review;
+  //const currentCard = review.dueCards[review.currentCardIndex];
   const [isConnecting, setIsConnecting] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
 

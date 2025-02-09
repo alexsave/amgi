@@ -19,7 +19,7 @@ export default function Navbar() {
     <>
       <nav className="navbar">
         <div className="navbar-brand">
-          AMGI <span className="beta-tag" style={{ fontFamily: 'Courier New', fontSize: '0.8rem' }}>Dev</span>
+          VSPOMNIL <span className="beta-tag" style={{ fontFamily: 'Courier New', fontSize: '0.8rem' }}>Dev</span>
         </div>
         <div className="navbar-actions">
           <button 

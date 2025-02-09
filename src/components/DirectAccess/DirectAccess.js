@@ -41,7 +41,7 @@ export default function DirectAccess() {
   return (
     <div className="direct-access-container">
       <div className="direct-access-card">
-        <h1>Welcome to AMGI</h1>
+        <h1>Welcome to VSPOMNIL</h1>
         <p className="intro-text">
           Get started quickly by providing your OpenAI API key, or <Link to="/login">sign in</Link> for cloud sync.
         </p>
@@ -66,7 +66,7 @@ export default function DirectAccess() {
           {error && <div className="error-message">{error}</div>}
 
           <button type="submit" className="submit-button">
-            Start Using AMGI
+            Start Using VSPOMNIL
           </button>
 
           <div className="auth-prompt">

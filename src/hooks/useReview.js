@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useDecks } from '../contexts/DeckContext';
 import { calculateNextReview } from '../algorithms/spacedRepetition';
+import { PriorityQueue } from '../utils/pqueue';
 
 export function useReview() {
   const { currentDeck, decks, updateCard } = useDecks();
@@ -11,23 +12,49 @@ export function useReview() {
   const [showAnswer, setShowAnswer] = useState(false);
   const [dueCards, setDueCards] = useState([]);
 
+  const [currentCard, setCurrentCard] = useState(null);
+
+  const [priorityQueue, setPriorityQueue] = useState(new PriorityQueue());
+
+  // Copy currentDeck into priority queue so we don't mess with the original deck
+  // Holy fuck DeckContext is so complicated now
+  useEffect(() => {
+    const deck = decks[currentDeck];
+    if (!deck) return;
+
+    const priorityQueue = new PriorityQueue();
+    const now = new Date();
+    console.log('Deck:' + JSON.stringify(deck));
+    deck.cards.forEach(card => {
+      if (card.nextReview == null) {
+        priorityQueue.setPriority(card, 0);
+      } else {
+        if (card.dueTimestamp && card.dueTimestamp < now) {
+          priorityQueue.setPriority(card, card.dueTimestamp || card.nextReview);
+        }
+      }
+    });
+    setPriorityQueue(priorityQueue);
+    setCurrentCard(priorityQueue.peek());
+  }, [currentDeck]);
+
   // Get due cards
   const getDueCards = (deckId) => {
     const deck = decks[deckId];
     if (!deck) return [];
 
     const now = new Date();
-    
+
     // Separate new and review cards
     const newCards = deck.cards.filter(card => !card.lastReviewed);
     const reviewCards = deck.cards.filter(card => {
       if (!card.lastReviewed) return false;
-      
+
       // If the card has a due timestamp (for cards due in minutes), check against that
       if (card.dueTimestamp) {
         return new Date(card.dueTimestamp) <= now;
       }
-      
+
       // Check against next review timestamp
       if (!card.nextReview) return false;
       return new Date(card.nextReview) <= now;
@@ -39,7 +66,7 @@ export function useReview() {
       const bTime = b.dueTimestamp ? new Date(b.dueTimestamp) : new Date(b.nextReview);
       return aTime - bTime;
     });
-    
+
     // Return new cards first (in original order), then review cards (sorted by due time)
     return [...newCards, ...sortedReviewCards];
   };
@@ -80,7 +107,7 @@ export function useReview() {
   };
 
   // Update due cards more frequently to catch cards becoming due
-  useEffect(() => {
+  /*useEffect(() => {
     if (currentDeck) {
       const updateDueCards = () => {
         const due = getDueCards(currentDeck);
@@ -94,14 +121,14 @@ export function useReview() {
       const interval = setInterval(updateDueCards, 60000);
       return () => clearInterval(interval);
     }
-  }, [currentDeck, decks]);
+  }, [currentDeck, decks]);*/
 
   // Reset attempts when moving to a new card
-  useEffect(() => {
+  /*useEffect(() => {
     setAttempts(0);
     setShowAnswer(false);
     setEvaluationResult(null);
-  }, [currentCardIndex]);
+  }, [currentCardIndex]);*/
 
   const moveToNextCard = () => {
     setCurrentCardIndex(prev => prev + 1);
@@ -111,6 +138,10 @@ export function useReview() {
       setShowAnswer(false);
     }
   };
+
+  const markIncorrectGetAttempts = () => {
+
+  }
 
   return {
     currentCardIndex,
@@ -125,6 +156,7 @@ export function useReview() {
     setAttempts,
     setShowAnswer,
     updateCardScheduling,
-    moveToNextCard
+    moveToNextCard, 
+    currentCard
   };
 } 

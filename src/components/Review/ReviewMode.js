@@ -13,14 +13,15 @@ import { LanguageIcon, MicrophoneIcon } from '@heroicons/react/24/solid';
 import './ReviewMode.css';
 
 const ReviewMode = () => {
-  const { currentDeck, decks, dueCards, updateCard } = useDecks();
+  const { currentDeck, decks, dueCards, updateCard} = useDecks();
+  const { currentCard } = useReview();
   const navigate = useNavigate();
   const audio = useAudio();
   const review = useReview();
   const [isVoiceMode, setIsVoiceMode] = useState(false);
   const [voiceChatResponse, setVoiceChatResponse] = useState(null);
   
-  const currentCard = review.dueCards[review.currentCardIndex];
+  //const currentCard = review.dueCards[review.currentCardIndex];
 
   // Load audio when current card changes
   useEffect(() => {
