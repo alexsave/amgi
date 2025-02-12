@@ -205,4 +205,32 @@
   background: var(--dark-surface-hover);
   color: var(--text-secondary);
   cursor: not-allowed;
+}
+
+.empty-deck-state {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100px;
+}
+
+.create-first-deck-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  height: 75px;
+  width: 100%;
+  background: var(--dark-surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.create-first-deck-btn:hover {
+  background: var(--dark-surface-hover);
+  border-color: var(--flame-orange);
+  color: var(--flame-orange);
 } 

@@ -6,7 +6,7 @@ import { sampleDeck } from '../../sampleDeck';
 import msgpack from 'msgpack-lite';
 import { PlusIcon, ArrowDownTrayIcon, Square3Stack3DIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import './DeckList.css';
-
+import { NAME } from '../../constants/names';
 const CreateDeckModal = ({ isOpen, onClose, onSubmit }) => {
   const [deckName, setDeckName] = useState('');
 
@@ -174,15 +174,27 @@ const DeckList = () => {
       />
       
       <div className="deck-list">
-        {Object.entries(decks).map(([id, deck]) => (
-          <DeckItem
-            key={id}
-            id={id}
-            deck={deck}
-            onDeckClick={() => handleDeckClick(id)}
-            onEditClick={(e) => handleEditClick(e, id)}
-          />
-        ))}
+        {Object.entries(decks).length === 0 ? (
+          <div className="empty-deck-state">
+            <button 
+              onClick={() => setIsCreateModalOpen(true)}
+              className="create-first-deck-btn"
+            >
+              <PlusIcon style={{height: '20px', width: '20px'}}/>
+              <span>Create your first {NAME} deck</span>
+            </button>
+          </div>
+        ) : (
+          Object.entries(decks).map(([id, deck]) => (
+            <DeckItem
+              key={id}
+              id={id}
+              deck={deck}
+              onDeckClick={() => handleDeckClick(id)}
+              onEditClick={(e) => handleEditClick(e, id)}
+            />
+          ))
+        )}
       </div>
     </div>
   );
