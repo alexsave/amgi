@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { MicrophoneIcon, ForwardIcon } from '@heroicons/react/24/solid';
 import { useReview } from '../../hooks/useReview';
 import AudioVisualizer from './AudioVisualizer';
@@ -7,7 +7,8 @@ import { useRealtime } from '../../contexts/RealtimeContext';
 
 const VoiceMode = () => {
   const review = useReview();
-  const { currentCard } = review;
+  const { currentCard, getCurrentCard, attempts } = review;
+  //const { currentCard, getCurrentCard } = review;
   //const currentCard = review.dueCards[review.currentCardIndex];
   const [isConnecting, setIsConnecting] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
@@ -25,12 +26,37 @@ const VoiceMode = () => {
     audioContextRef,
     animationFrameRef,
     aiAnimationFrameRef,
+    peerConnectionRef,
     setupWebRTC,
     cleanup,
     setIsRecording,
     setAudioScale,
-    setFeedback
+    setFeedback,
+    setIsConnected
   } = useRealtime();
+
+  const currentCardRef = useRef(currentCard);
+  useEffect(() => {
+    currentCardRef.current = currentCard;
+  }, [currentCard]);
+
+  const onAudioStopped = () => {
+    console.log('onAudioStopped');
+    console.log('currentCard info: ' + JSON.stringify(currentCard));
+    console.log('calling getCurrentCard + ' + JSON.stringify(getCurrentCard()));
+    console.log('currentCardRef info: ' + JSON.stringify(currentCardRef.current));
+    if (currentCardRef.current == null) {
+      console.log('oh so now currentCard is null, shutting down');
+
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach(track => track.stop());
+      }
+      if (peerConnectionRef.current) {
+        peerConnectionRef.current.close();
+      }
+      setIsConnected(false);
+    }
+  }
 
   // Update cleanup effect
   useEffect(() => {
@@ -45,7 +71,7 @@ const VoiceMode = () => {
       setIsConnecting(true);
       setFeedback('Connecting...');
       try {
-        const success = await setupWebRTC(currentCard, review);
+        const success = await setupWebRTC(currentCard, review, onAudioStopped);
         if (success) {
           setHasStarted(true);
         }
@@ -125,7 +151,10 @@ const VoiceMode = () => {
         </div>
       )}
       <div className="attempts-counter">
-        Attempts: {review.attempts}/3
+        Attempts: {attempts}/3
+      </div>
+      <div>
+        {JSON.stringify(currentCard)}
       </div>
     </div>
   );

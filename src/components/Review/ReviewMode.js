@@ -148,7 +148,7 @@ const ReviewMode = () => {
       </div>
 
       <div className="card-progress">
-        Card {review.currentCardIndex + 1} of {review.dueCards.length}
+        Card {review.currentCardIndex + 1} of ?
       </div>
 
       {isVoiceMode ? (

@@ -28,7 +28,7 @@ export const sessionTools = {
             properties: {},
             required: []
         }
-    },
+    },*/
     completeReview: {
         type: 'function',
         name: 'completeReview',
@@ -43,7 +43,7 @@ export const sessionTools = {
             },
             required: ['message']
         }
-    }*/
+    }
 };
 
 export const configureSession = (dataChannel, card) => {
@@ -70,7 +70,7 @@ export const configureSession = (dataChannel, card) => {
        - result="quit" if they say "skip", "idk", or "next"
 
     The function handler will return the next card to use, or null if the review is complete.
-    If the function returns null, you should end the session with a brief goodbye and encouragement.
+    If the function returns null, you should end the session with a brief goodbye and encouragement, then call the completeReview function.
     
     Special cases:
     - If they say "again", just repeat "${card.frontText}" clearly

@@ -12,15 +12,30 @@ export const handleAudioStopped = ({
     peerConnectionRef,
     setIsConnected,
     hasActiveResponse,
-    review
+    review,
+    onAudioStopped
 }) => {
     if (mediaStreamRef.current) {
         mediaStreamRef.current.getAudioTracks().forEach(track => {
             track.enabled = true;
         });
     }
+    onAudioStopped();
+    /*const currentCard = getCurrentCard();
+
+    console.log('handleAudioStopped:', {
+        hasActiveResponse,
+        currentCard: currentCard,
+        currentCardType: typeof currentCard,
+        isNull: currentCard === null,
+        isUndefined: currentCard === undefined,
+        stringified: JSON.stringify(currentCard)
+    });*/
+
     // If we're in a completed state and the AI just finished speaking, clean up
-    if (!hasActiveResponse && review.currentCardIndex >= review.dueCards.length - 1) {
+    // current card will be null at the end
+    /*if (currentCardRef.current == null) {
+        console.log('Shutting down');
         setTimeout(() => {
             if (mediaStreamRef.current) {
                 mediaStreamRef.current.getTracks().forEach(track => track.stop());
@@ -30,7 +45,7 @@ export const handleAudioStopped = ({
             }
             setIsConnected(false);
         }, 500);
-    }
+    }*/
 };
 
 export const handleTextDelta = ({
@@ -68,7 +83,6 @@ export const handleCorrectResponse = ({
     args,
     callId,
     review,
-    currentCard,
     setButtonState,
     realtimeTools
 }) => {
@@ -82,76 +96,35 @@ export const handleCorrectResponse = ({
         realtimeTools.sendNextCardInfo(nextCard, false, callId, args.result, args.message);
     } else {
         console.log('Sending complete review');
-        realtimeTools.sendCompleteReview();
+        // ok the problem is here. caslling correct response has the potneital to end the review
+        realtimeTools.sendCompleteReview(callId);
     }
 
     realtimeTools.requestNextResponse();
 
-
-    /*review.updateCardScheduling(currentCard.created, 'correct');
-
-    const nextIndex = review.currentCardIndex + 1;
-    const isLastCard = nextIndex >= review.dueCards.length;
-    const nextCard = isLastCard ? null : review.dueCards[nextIndex];
-
-    if (!isLastCard) {
-        review.moveToNextCard();
-    }
-
-    realtimeTools.sendNextCardInfo(nextCard, isLastCard, callId, args.result, args.message);
-    if (isLastCard) {
-        realtimeTools.sendCompleteReview();
-    }
-    realtimeTools.requestNextResponse();*/
 };
 
 export const handleIncorrectResponse = ({
     args,
     callId,
     review,
-    currentCard,
     setButtonState,
     realtimeTools,
-    handleMaxAttempts
 }) => {
     setButtonState('error');
     setTimeout(() => setButtonState('default'), 500);
 
-    const attempts = review.markIncorrectGetAttempts();
-    if (attempts >= 3) {
-        // Move on for now
-        handleMaxAttempts(callId, review);
-    } else {
-        // Try again
-        realtimeTools.sendFunctionOutput(callId, {
-            result: args.result,
-            message: args.message
-        });
+    const { attempts, nextCard } = review.markIncorrectGetAttempts();
+    console.log('Next card', nextCard);
 
-    }
-
-    realtimeTools.requestNextResponse();
-
-    /*review.updateCardScheduling(currentCard.created, 'incorrect');
-
-    let shouldMoveToNext = false;
-    review.setAttempts(prev => {
-        const newAttempts = prev + 1;
-        if (newAttempts >= 3) {
-            shouldMoveToNext = true;
-        }
-        return newAttempts;
+    realtimeTools.sendFunctionOutput(callId, {
+        nextCard: nextCard ? {
+            frontText: nextCard.frontText,
+            backText: nextCard.backText
+        } : null
     });
 
-    if (shouldMoveToNext) {
-        handleMaxAttempts(callId, review);
-    } else {
-        realtimeTools.sendFunctionOutput(callId, {
-            result: args.result,
-            message: args.message
-        });
-    }
-    realtimeTools.requestNextResponse();*/
+    realtimeTools.requestNextResponse();
 };
 
 export const handleMaxAttempts = ({

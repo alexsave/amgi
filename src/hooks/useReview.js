@@ -1,20 +1,26 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useDecks } from '../contexts/DeckContext';
 import { calculateNextReview } from '../algorithms/spacedRepetition';
-import { PriorityQueue } from '../utils/pqueue';
+import { CardScheduler } from '../utils/cardscheduler';
 
+// this could probalby be it's own context
 export function useReview() {
+
+  const MAX_ATTEMPTS = 3;
+
   const { currentDeck, decks, updateCard } = useDecks();
-  const [currentCardIndex, setCurrentCardIndex] = useState(0);
   const [evaluationResult, setEvaluationResult] = useState(null);
   const [error, setError] = useState(null);
+  // Attempts of the current card. I guess we can keep this
   const [attempts, setAttempts] = useState(0);
   const [showAnswer, setShowAnswer] = useState(false);
-  const [dueCards, setDueCards] = useState([]);
+  //const [dueCards, setDueCards] = useState([]);
+
+  const [completeTime, setCompleteTime] = useState(null);
 
   const [currentCard, setCurrentCard] = useState(null);
 
-  const [priorityQueue, setPriorityQueue] = useState(new PriorityQueue());
+  const cardSchedulerRef = useRef(new CardScheduler());
 
   // Copy currentDeck into priority queue so we don't mess with the original deck
   // Holy fuck DeckContext is so complicated now
@@ -22,20 +28,23 @@ export function useReview() {
     const deck = decks[currentDeck];
     if (!deck) return;
 
-    const priorityQueue = new PriorityQueue();
+    cardSchedulerRef.current.clear();
     const now = new Date();
     console.log('Deck:' + JSON.stringify(deck));
-    deck.cards.forEach(card => {
+
+    for (let i = 0; i < deck.cards.length; i++) {
+      const card = deck.cards[i];
       if (card.nextReview == null) {
-        priorityQueue.setPriority(card, 0);
+        // New card. Setting it to i preserves the order of new cards
+        cardSchedulerRef.current.pushNewCard(card);
       } else {
         if (card.dueTimestamp && card.dueTimestamp < now) {
-          priorityQueue.setPriority(card, card.dueTimestamp || card.nextReview);
+          cardSchedulerRef.current.pushReviewCard(card);
         }
       }
-    });
-    setPriorityQueue(priorityQueue);
-    setCurrentCard(priorityQueue.peek());
+    }
+    console.log('CardScheduler after setup:' + JSON.stringify(cardSchedulerRef.current));
+    setCurrentCard(cardSchedulerRef.current.peekNext());
   }, [currentDeck]);
 
   // Get due cards
@@ -106,57 +115,59 @@ export function useReview() {
     }
   };
 
-  // Update due cards more frequently to catch cards becoming due
-  /*useEffect(() => {
-    if (currentDeck) {
-      const updateDueCards = () => {
-        const due = getDueCards(currentDeck);
-        setDueCards(due);
-      };
-
-      // Initial update
-      updateDueCards();
-
-      // Check for due cards every minute
-      const interval = setInterval(updateDueCards, 60000);
-      return () => clearInterval(interval);
-    }
-  }, [currentDeck, decks]);*/
-
-  // Reset attempts when moving to a new card
-  /*useEffect(() => {
-    setAttempts(0);
-    setShowAnswer(false);
-    setEvaluationResult(null);
-  }, [currentCardIndex]);*/
-
-  const moveToNextCard = () => {
-    setCurrentCardIndex(prev => prev + 1);
-    if (currentCardIndex < dueCards.length - 1) {
-      setEvaluationResult(null);
-      setAttempts(0);
-      setShowAnswer(false);
-    }
-  };
-
   const markIncorrectGetAttempts = () => {
+    if (attempts >= MAX_ATTEMPTS-1) {
+      const nextCard = cardSchedulerRef.current.peekNext();
+      // This needs to be pushed 10 minutes in the future
+      cardSchedulerRef.current.setReviewTime(currentCard, Date.now() + 10 * 60 * 1000);
+      setCurrentCard(nextCard);
+      setAttempts(0);
+      return {
+        attempts: 0,
+        nextCard: nextCard
+      };
+    } else {
+      setAttempts(prev => prev + 1);
+      return {
+        attempts: attempts+1,
+        nextCard: currentCard
+      };
+    }
+  }
 
+  const markCorrectGetNext = () => {
+    console.log('calling markCorrectGetNext at ' + Date.now());
+    if (attempts > 0) {
+      // They got it wrong previously, so we need to push the card 10 minutes in the future
+      cardSchedulerRef.current.setReviewTime(currentCard, Date.now() + 10 * 60 * 1000);
+    }
+    setAttempts(0);
+    cardSchedulerRef.current.popNext();
+    const nextCard = cardSchedulerRef.current.peekNext();
+    console.log('markCorrectGetNext: nextCard:', nextCard);
+    setCurrentCard(nextCard);
+    setCompleteTime(Date.now());
+    return nextCard;
+  }
+
+  const getCurrentCard = () => {
+    console.log('calling getCurrentCard to see if we need to shut down at ' + Date.now());
+    return currentCard;
   }
 
   return {
-    currentCardIndex,
     evaluationResult,
     error,
     attempts,
     showAnswer,
-    dueCards,
-    setCurrentCardIndex,
     setEvaluationResult,
     setError,
     setAttempts,
     setShowAnswer,
     updateCardScheduling,
-    moveToNextCard, 
-    currentCard
+    currentCard,
+    markIncorrectGetAttempts,
+    markCorrectGetNext,
+    getCurrentCard
   };
 } 

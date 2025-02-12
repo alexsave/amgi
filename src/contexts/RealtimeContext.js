@@ -7,7 +7,6 @@ import {
     handleTextDelta,
     handleCorrectResponse,
     handleIncorrectResponse,
-    handleMaxAttempts,
     handleSkipResponse,
     handleAgainResponse,
     handleGetNextCard,
@@ -39,7 +38,7 @@ export const RealtimeProvider = ({ children }) => {
 
     const realtimeTools = createRealtimeTools(dataChannelRef);
 
-    const handleRealtimeEvent = (event, review, card) => {
+    const handleRealtimeEvent = (event, review, card, onAudioStopped) => {
         switch (event.type) {
             case 'output_audio_buffer.started':
                 handleAudioStarted({ mediaStreamRef });
@@ -50,7 +49,8 @@ export const RealtimeProvider = ({ children }) => {
                     peerConnectionRef,
                     setIsConnected,
                     hasActiveResponse,
-                    review
+                    review,
+                    onAudioStopped
                 });
                 break;
             case 'response.text.delta':
@@ -98,7 +98,6 @@ export const RealtimeProvider = ({ children }) => {
                         args,
                         callId: item.call_id,
                         review,
-                        currentCard: card,
                         setButtonState,
                         realtimeTools
                     });
@@ -108,14 +107,8 @@ export const RealtimeProvider = ({ children }) => {
                         args,
                         callId: item.call_id,
                         review,
-                        currentCard: card,
                         setButtonState,
                         realtimeTools,
-                        handleMaxAttempts: (callId, review) => handleMaxAttempts({
-                            callId,
-                            review,
-                            realtimeTools
-                        })
                     });
                     break;
                 case 'quit':
@@ -138,6 +131,7 @@ export const RealtimeProvider = ({ children }) => {
                     break;
             }
         } else if (item.name === 'completeReview') {
+            // Need to somehow mark that it's over
             handleCompleteReviewFunction({
                 args,
                 callId: item.call_id,
@@ -153,10 +147,11 @@ export const RealtimeProvider = ({ children }) => {
         }
     };
 
-    const setupWebRTCWrapper = async (card, review) => {
+    const setupWebRTCWrapper = async (card, review, onAudioStopped) => {
         return setupWebRTC({
             card,
             review,
+            onAudioStopped,
             setIsConnected,
             setFeedback,
             setIsSpeaking,
@@ -199,7 +194,9 @@ export const RealtimeProvider = ({ children }) => {
             cleanup: cleanupWrapper,
             setIsRecording,
             setAudioScale,
-            setFeedback
+            setFeedback,
+            setIsConnected, 
+            peerConnectionRef
         }}>
             {children}
         </RealtimeContext.Provider>

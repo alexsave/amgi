@@ -37,14 +37,15 @@ export const createRealtimeTools = (dataChannelRef) => ({
         }));
     },
 
-    sendCompleteReview: () => {
+    // This replies to a correct card
+    sendCompleteReview: (callId) => {
         if (!dataChannelRef.current) return;
         dataChannelRef.current.send(JSON.stringify({
             type: 'conversation.item.create',
             item: {
-                type: 'function_call',
-                name: 'completeReview',
-                arguments: JSON.stringify({
+                type: 'function_call_output',
+                call_id: callId,
+                output: JSON.stringify({
                     message: 'Great job! You have completed all your cards for now. Keep up the good work!'
                 })
             }
