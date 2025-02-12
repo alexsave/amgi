@@ -1,9 +1,4 @@
 export const createRealtimeTools = (dataChannelRef) => ({
-    sendMessage: (message) => {
-        if (!dataChannelRef.current) return;
-        dataChannelRef.current.send(JSON.stringify(message));
-    },
-
     sendFunctionOutput: (callId, output) => {
         if (!dataChannelRef.current) return;
         dataChannelRef.current.send(JSON.stringify({

@@ -9,10 +9,6 @@ export const handleAudioStarted = ({ mediaStreamRef }) => {
 
 export const handleAudioStopped = ({
     mediaStreamRef,
-    peerConnectionRef,
-    setIsConnected,
-    hasActiveResponse,
-    review,
     onAudioStopped
 }) => {
     if (mediaStreamRef.current) {
@@ -21,31 +17,6 @@ export const handleAudioStopped = ({
         });
     }
     onAudioStopped();
-    /*const currentCard = getCurrentCard();
-
-    console.log('handleAudioStopped:', {
-        hasActiveResponse,
-        currentCard: currentCard,
-        currentCardType: typeof currentCard,
-        isNull: currentCard === null,
-        isUndefined: currentCard === undefined,
-        stringified: JSON.stringify(currentCard)
-    });*/
-
-    // If we're in a completed state and the AI just finished speaking, clean up
-    // current card will be null at the end
-    /*if (currentCardRef.current == null) {
-        console.log('Shutting down');
-        setTimeout(() => {
-            if (mediaStreamRef.current) {
-                mediaStreamRef.current.getTracks().forEach(track => track.stop());
-            }
-            if (peerConnectionRef.current) {
-                peerConnectionRef.current.close();
-            }
-            setIsConnected(false);
-        }, 500);
-    }*/
 };
 
 export const handleTextDelta = ({

@@ -1,17 +1,7 @@
 import React, { createContext, useContext, useState, useRef } from 'react';
 import { setupWebRTC, cleanup } from './realtime/webrtc';
 import { createRealtimeTools } from './realtime/realtimeTools';
-import {
-    handleAudioStarted,
-    handleAudioStopped,
-    handleTextDelta,
-    handleCorrectResponse,
-    handleIncorrectResponse,
-    handleSkipResponse,
-    handleAgainResponse,
-    handleGetNextCard,
-    handleCompleteReviewFunction
-} from './realtime/eventHandlers';
+import * as eventHandlers from './realtime/eventHandlers';
 
 const RealtimeContext = createContext(null);
 
@@ -41,20 +31,16 @@ export const RealtimeProvider = ({ children }) => {
     const handleRealtimeEvent = (event, review, card, onAudioStopped) => {
         switch (event.type) {
             case 'output_audio_buffer.started':
-                handleAudioStarted({ mediaStreamRef });
+                eventHandlers.handleAudioStarted({ mediaStreamRef });
                 break;
             case 'output_audio_buffer.stopped':
-                handleAudioStopped({
+                eventHandlers.handleAudioStopped({
                     mediaStreamRef,
-                    peerConnectionRef,
-                    setIsConnected,
-                    hasActiveResponse,
-                    review,
                     onAudioStopped
                 });
                 break;
             case 'response.text.delta':
-                handleTextDelta({
+                eventHandlers.handleTextDelta({
                     event,
                     setIsSpeaking,
                     setHasActiveResponse,
@@ -94,7 +80,7 @@ export const RealtimeProvider = ({ children }) => {
             setFeedback(args.message);
             switch (args.result) {
                 case 'correct':
-                    handleCorrectResponse({
+                    eventHandlers.handleCorrectResponse({
                         args,
                         callId: item.call_id,
                         review,
@@ -103,7 +89,7 @@ export const RealtimeProvider = ({ children }) => {
                     });
                     break;
                 case 'incorrect':
-                    handleIncorrectResponse({
+                    eventHandlers.handleIncorrectResponse({
                         args,
                         callId: item.call_id,
                         review,
@@ -113,7 +99,7 @@ export const RealtimeProvider = ({ children }) => {
                     break;
                 case 'quit':
                 case 'skip':
-                    handleSkipResponse({
+                    eventHandlers.handleSkipResponse({
                         args,
                         callId: item.call_id,
                         review,
@@ -123,7 +109,7 @@ export const RealtimeProvider = ({ children }) => {
                     });
                     break;
                 case 'again':
-                    handleAgainResponse({
+                    eventHandlers.handleAgainResponse({
                         args,
                         callId: item.call_id,
                         realtimeTools
@@ -132,14 +118,14 @@ export const RealtimeProvider = ({ children }) => {
             }
         } else if (item.name === 'completeReview') {
             // Need to somehow mark that it's over
-            handleCompleteReviewFunction({
+            eventHandlers.handleCompleteReviewFunction({
                 args,
                 callId: item.call_id,
                 setFeedback,
                 realtimeTools
             });
         } else if (item.name === 'getNextCard') {
-            handleGetNextCard({
+            eventHandlers.handleGetNextCard({
                 callId: item.call_id,
                 review,
                 realtimeTools

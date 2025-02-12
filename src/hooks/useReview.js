@@ -16,8 +16,6 @@ export function useReview() {
   const [showAnswer, setShowAnswer] = useState(false);
   //const [dueCards, setDueCards] = useState([]);
 
-  const [completeTime, setCompleteTime] = useState(null);
-
   const [currentCard, setCurrentCard] = useState(null);
 
   const cardSchedulerRef = useRef(new CardScheduler());
@@ -146,13 +144,7 @@ export function useReview() {
     const nextCard = cardSchedulerRef.current.peekNext();
     console.log('markCorrectGetNext: nextCard:', nextCard);
     setCurrentCard(nextCard);
-    setCompleteTime(Date.now());
     return nextCard;
-  }
-
-  const getCurrentCard = () => {
-    console.log('calling getCurrentCard to see if we need to shut down at ' + Date.now());
-    return currentCard;
   }
 
   return {
@@ -168,6 +160,6 @@ export function useReview() {
     currentCard,
     markIncorrectGetAttempts,
     markCorrectGetNext,
-    getCurrentCard
+    cardSchedulerRef
   };
 } 

@@ -19,16 +19,6 @@ export const sessionTools = {
             required: ['result', 'message']
         }
     },
-    /*getNextCard: {
-        type: 'function',
-        name: 'getNextCard',
-        description: 'Get the next card in the deck.',
-        parameters: {
-            type: 'object',
-            properties: {},
-            required: []
-        }
-    },*/
     completeReview: {
         type: 'function',
         name: 'completeReview',
