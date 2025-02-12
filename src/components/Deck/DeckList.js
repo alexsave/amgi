@@ -4,53 +4,10 @@ import { useDecks } from '../../contexts/DeckContext';
 import DeckItem from './DeckItem';
 import { sampleDeck } from '../../sampleDeck';
 import msgpack from 'msgpack-lite';
-import { PlusIcon, ArrowDownTrayIcon, Square3Stack3DIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, ArrowDownTrayIcon, Square3Stack3DIcon } from '@heroicons/react/24/outline';
 import './DeckList.css';
 import { NAME } from '../../constants/names';
-const CreateDeckModal = ({ isOpen, onClose, onSubmit }) => {
-  const [deckName, setDeckName] = useState('');
-
-  if (!isOpen) return null;
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    onSubmit(deckName);
-    setDeckName('');
-  };
-
-  return (
-    <div className="modal-overlay">
-      <div className="modal-content">
-        <div className="modal-header">
-          <h3>Create New Deck</h3>
-          <button onClick={onClose} className="close-btn">
-            <XMarkIcon className="h-5 w-5" />
-          </button>
-        </div>
-        <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <input
-              id="deckName"
-              type="text"
-              value={deckName}
-              onChange={(e) => setDeckName(e.target.value)}
-              placeholder="Enter deck name"
-              autoFocus
-            />
-          </div>
-          <div className="modal-actions">
-            <button type="button" onClick={onClose} className="cancel-btn">
-              Cancel
-            </button>
-            <button type="submit" className="submit-btn" disabled={!deckName.trim()}>
-              Create Deck
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-};
+import CreateDeckModal from './CreateDeckModal';
 
 const DeckList = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
