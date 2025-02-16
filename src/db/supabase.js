@@ -47,11 +47,13 @@ export const loadDecks = async () => {
 // Save a new deck or update an existing one
 export const saveDeck = async (deck) => {
   try {
+    const { data: { user } } = await supabase.auth.getUser();
     const { data, error } = await supabase
       .from('decks')
       .upsert({
         id: deck.id,
         name: deck.name,
+        user_id: user.id,
         created_at: deck.created_at || new Date().toISOString()
       })
       .select()
