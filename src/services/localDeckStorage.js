@@ -5,7 +5,7 @@ const LAST_RESET_DATE_KEY = 'amgi_last_reset_date';
 
 export const getLocalDecks = () => {
   const decksJson = localStorage.getItem(DECKS_STORAGE_KEY);
-  return decksJson ? JSON.parse(decksJson) : {};
+  return decksJson ? JSON.parse(decksJson) : [];
 };
 
 export const saveLocalDecks = (decks) => {
@@ -83,8 +83,9 @@ export const updateLocalDeck = (deckId, updates) => {
 };
 
 export const deleteLocalDeck = (deckId) => {
-  const decks = getLocalDecks();
-  delete decks[deckId];
+  let decks = getLocalDecks();
+  // Decks is an array, so we need to filter it
+  decks = decks.filter(deck => deck.id !== deckId);
   saveLocalDecks(decks);
 };
 

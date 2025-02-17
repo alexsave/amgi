@@ -1,14 +1,32 @@
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
 import { useDecks } from '../../contexts/DeckContext';
+import { useNavigate } from 'react-router-dom';
 import { getDueCards } from '../../algorithms/spacedRepetition';
 import { MAX_NEW_CARDS_PER_DAY } from '../../utils/constants';
 import { SparklesIcon, TrashIcon, ArrowUpTrayIcon } from '@heroicons/react/24/outline';
 import msgpack from 'msgpack-lite';
 import './DeckItem.css';
 
-const DeckItem = ({ id, deck, onDeckClick, onEditClick }) => {
-  const { newCardsToday, deleteDeck } = useDecks();
+const DeckItem = ({ id, deck }) => {
+  const { newCardsToday, deleteDeck, setCurrentDeck } = useDecks();
+
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    console.log(JSON.stringify(deck, null, 2));
+  }, [deck]);
+
+  const handleEditClick = (e, id) => {
+    console.log('Edit deck clicked:', id);
+    e.stopPropagation();
+    setCurrentDeck(id);
+    navigate(`/deck/${id}`);
+  };
+
+  const handleDeckClick = (id) => {
+    setCurrentDeck(id);
+    navigate(`/deck/${id}/review`);
+  };
 
   const handleDeleteClick = (e) => {
     e.stopPropagation();
@@ -59,6 +77,10 @@ const DeckItem = ({ id, deck, onDeckClick, onEditClick }) => {
     }
   };
 
+  if (true) {
+    //return <div> {JSON.stringify(deck, null, 2)} </div>
+  }
+
   // Calculate new and review counts
   const newCount = deck.cards.filter(card => !card.lastReviewed).length;
   const dueCards = getDueCards(deck, MAX_NEW_CARDS_PER_DAY, newCardsToday);
@@ -67,7 +89,7 @@ const DeckItem = ({ id, deck, onDeckClick, onEditClick }) => {
   return (
     <div 
       className="deck-item"
-      onClick={onDeckClick}
+      onClick={() => handleDeckClick(id)}
     >
       <div className="deck-info">
         <h3>{deck.name}</h3>
@@ -79,7 +101,7 @@ const DeckItem = ({ id, deck, onDeckClick, onEditClick }) => {
       </div>
       <div className="deck-item-actions">
         <button 
-          onClick={onEditClick}
+          onClick={(e) => handleEditClick(e, id)}
           className="icon-btn"
           title="Edit Deck"
         >

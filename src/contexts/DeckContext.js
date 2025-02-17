@@ -39,7 +39,7 @@ export const DeckProvider = ({ children }) => {
         
         if (user && !isDirectMode) {
           // Load decks from Supabase
-          const cloudDecks = await supabase.loadDecks();
+          const cloudDecks = await supabase.loadDecks(user.id);
           setDecks(cloudDecks);
         }
       } catch (error) {
@@ -63,7 +63,7 @@ export const DeckProvider = ({ children }) => {
       try {
         // Put this all in a single transaction
         await Promise.all(
-          Object.values(newDecks).map(deck => supabase.saveDeck(deck))
+          Object.values(newDecks).map(deck => supabase.saveDeck(deck, user.id))
         );
       } catch (error) {
         console.error('Error saving decks to cloud:', error);
@@ -84,7 +84,7 @@ export const DeckProvider = ({ children }) => {
           name,
           created_at: new Date(timestamp).toISOString(),
           cards: {}
-        });
+        }, user.id);
         
         const transformedDeck = {
           id: newDeck.id,
@@ -124,11 +124,28 @@ export const DeckProvider = ({ children }) => {
     saveDecks(newDecks);
   };
 
-  const deleteDeck = (deckId) => {
+  const deleteDeck = async (deckId) => {
     console.log('Deleting deck:', deckId);
-    const newDecks = { ...decks };
-    delete newDecks[deckId];
-    saveDecks(newDecks);
+    if (user && !isDirectMode) {
+      try {
+        await supabase.deleteDeck(deckId, user.id);
+      } catch (error) {
+        console.error('Error deleting deck from cloud:', error);
+        setError(error.message);
+        throw error;
+      }
+    }
+    // Delete from local storage
+    localDeckStorage.deleteLocalDeck(deckId);
+
+    // Delete from local state
+    setDecks(prev => {
+      // It's an array, so we need to filter it
+      return prev.filter(deck => deck.id !== deckId);
+    });
+
+    // If the call succeeded, we shouldn't have to save the decks again
+    //saveDecks(newDecks);
   };
 
   // Load initial data
@@ -200,7 +217,7 @@ export const DeckProvider = ({ children }) => {
           ease_factor: 2.5,
           repetitions: 0,
           next_review_date: new Date().toISOString().split('T')[0]
-        });
+        }, user.id);
         
         // Update local state
         setDecks(prev => {

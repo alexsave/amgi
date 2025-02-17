@@ -37,17 +37,6 @@ const DeckList = () => {
     }
   };
 
-  const handleDeckClick = (id) => {
-    setCurrentDeck(id);
-    navigate(`/deck/${id}/review`);
-  };
-
-  const handleEditClick = (e, id) => {
-    console.log('Edit deck clicked:', id);
-    e.stopPropagation();
-    setCurrentDeck(id);
-    navigate(`/deck/${id}`);
-  };
 
   const handleImportClick = () => {
     console.log('Import button clicked');
@@ -142,13 +131,11 @@ const DeckList = () => {
             </button>
           </div>
         ) : (
-          Object.entries(decks).map(([id, deck]) => (
+          Object.values(decks).map((deck) => (
             <DeckItem
-              key={id}
-              id={id}
+              key={deck.id}
+              id={deck.id}
               deck={deck}
-              onDeckClick={() => handleDeckClick(id)}
-              onEditClick={(e) => handleEditClick(e, id)}
             />
           ))
         )}

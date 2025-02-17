@@ -6,7 +6,7 @@ const supabase = createClient(
 );
 
 // Load all decks for the current user
-export const loadDecks = async () => {
+export const loadDecks = async (userId) => {
   try {
     const { data: decks, error } = await supabase
       .from('decks')
@@ -23,12 +23,15 @@ export const loadDecks = async () => {
           created_at
         )
       `)
+      .eq('user_id', userId)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
 
+    return decks;
+
     // Convert array to object with deck IDs as keys
-    return decks.reduce((acc, deck) => {
+    /*return decks.reduce((acc, deck) => {
       acc[deck.id] = {
         ...deck,
         cards: deck.cards.reduce((cardAcc, card) => {
@@ -37,7 +40,8 @@ export const loadDecks = async () => {
         }, {})
       };
       return acc;
-    }, {});
+    }, {});*/
+
   } catch (err) {
     console.error('Error loading decks:', err);
     return {};
@@ -45,15 +49,14 @@ export const loadDecks = async () => {
 };
 
 // Save a new deck or update an existing one
-export const saveDeck = async (deck) => {
+export const saveDeck = async (deck, userId) => {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
     const { data, error } = await supabase
       .from('decks')
       .upsert({
         id: deck.id,
         name: deck.name,
-        user_id: user.id,
+        user_id: userId,
         created_at: deck.created_at || new Date().toISOString()
       })
       .select()
@@ -119,12 +122,13 @@ export const saveCards = async (deckId, cards) => {
 };
 
 // Delete a deck and all its cards
-export const deleteDeck = async (deckId) => {
+export const deleteDeck = async (deckId, userId) => {
   try {
     const { error } = await supabase
       .from('decks')
       .delete()
-      .eq('id', deckId);
+      .eq('id', deckId)
+      .eq('user_id', userId);
 
     if (error) throw error;
   } catch (err) {
@@ -134,12 +138,13 @@ export const deleteDeck = async (deckId) => {
 };
 
 // Load review data for a card
-export const loadReview = async (cardId) => {
+export const loadReview = async (cardId, userId) => {
   try {
     const { data, error } = await supabase
       .from('reviews')
       .select()
       .eq('card_id', cardId)
+      .eq('user_id', userId)
       .single();
 
     if (error && error.code !== 'PGRST116') throw error; // PGRST116 is "no rows returned"
@@ -151,13 +156,13 @@ export const loadReview = async (cardId) => {
 };
 
 // Save review data for a card
-export const saveReview = async (cardId, review) => {
+export const saveReview = async (cardId, review, userId) => {
   try {
     const { data, error } = await supabase
       .from('reviews')
       .upsert({
         card_id: cardId,
-        user_id: (await supabase.auth.getUser()).data.user.id,
+        user_id: userId,
         scheduled_date: review.scheduled_date,
         interval_days: review.interval_days,
         ease_factor: review.ease_factor,
@@ -177,7 +182,7 @@ export const saveReview = async (cardId, review) => {
 };
 
 // Get cards due for review
-export const getDueCards = async () => {
+export const getDueCards = async (userId) => {
   try {
     const { data: reviews, error } = await supabase
       .from('reviews')
@@ -195,6 +200,7 @@ export const getDueCards = async () => {
           back_audio_url
         )
       `)
+      .eq('user_id', userId)
       .lte('next_review_date', new Date().toISOString().split('T')[0])
       .order('next_review_date', { ascending: true });
 
