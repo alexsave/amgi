@@ -35,6 +35,15 @@ function AppContent() {
             />
 
             <Route 
+              path="/deck/:id/edit" 
+              element={
+                <CardList
+                  onBack={handleBackToList}
+                />
+              } 
+            />
+
+            <Route 
               path="/deck/:id/review" 
               element={
                 <ReviewMode

@@ -5,7 +5,7 @@ export function useSpeechEvaluation({ audio, onEvaluationResult }) {
   const evaluateSpeech = async (recordedBlob, card) => {
     try {
       console.log('useSpeechEvaluation: Starting evaluation with card:', {
-        backText: card.backText,
+        back_text: card.back_text,
         frontLang: card.frontLang,
         backLang: card.backLang,
         hasRecordedBlob: !!recordedBlob,
@@ -73,7 +73,7 @@ export function useSpeechEvaluation({ audio, onEvaluationResult }) {
       // Call the API using the proper implementation
       const result = await apiEvaluateSpeech(
         recordedMp3Blob,      // audioBlob
-        card.backText,        // expectedText
+        card.back_text,        // expectedText
         card.backLang,        // sourceLang (the language being spoken)
         backAudioMp3Blob      // expectedAudioBlob
       );

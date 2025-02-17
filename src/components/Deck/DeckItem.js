@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { useDecks } from '../../contexts/DeckContext';
 import { useNavigate } from 'react-router-dom';
 import { getDueCards } from '../../algorithms/spacedRepetition';
@@ -8,23 +8,19 @@ import msgpack from 'msgpack-lite';
 import './DeckItem.css';
 
 const DeckItem = ({ id, deck }) => {
-  const { newCardsToday, deleteDeck, setCurrentDeck } = useDecks();
+  const { newCardsToday, deleteDeck, setCurrentDeckId } = useDecks();
 
   const navigate = useNavigate();
-
-  useEffect(() => {
-    console.log(JSON.stringify(deck, null, 2));
-  }, [deck]);
 
   const handleEditClick = (e, id) => {
     console.log('Edit deck clicked:', id);
     e.stopPropagation();
-    setCurrentDeck(id);
-    navigate(`/deck/${id}`);
+    setCurrentDeckId(id);
+    navigate(`/deck/${id}/edit`);
   };
 
   const handleDeckClick = (id) => {
-    setCurrentDeck(id);
+    setCurrentDeckId(id);
     navigate(`/deck/${id}/review`);
   };
 
@@ -77,9 +73,6 @@ const DeckItem = ({ id, deck }) => {
     }
   };
 
-  if (true) {
-    //return <div> {JSON.stringify(deck, null, 2)} </div>
-  }
 
   // Calculate new and review counts
   const newCount = deck.cards.filter(card => !card.lastReviewed).length;

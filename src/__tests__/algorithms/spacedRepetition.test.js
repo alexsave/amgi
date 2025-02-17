@@ -140,28 +140,28 @@ describe('Spaced Repetition Algorithm', () => {
           // New card
           {
             created: mockDate.getTime(),
-            frontText: "New 1",
+            front_text: "New 1",
             lastReviewed: null,
             nextReview: null
           },
           // Due review card
           {
             created: mockDate.getTime() - 1000,
-            frontText: "Review 1",
+            front_text: "Review 1",
             lastReviewed: mockDate.toISOString(),
             nextReview: new Date('2024-01-01T11:00:00Z').toISOString() // Due 1 hour ago
           },
           // Not due review card
           {
             created: mockDate.getTime() - 2000,
-            frontText: "Review 2",
+            front_text: "Review 2",
             lastReviewed: mockDate.toISOString(),
             nextReview: new Date('2024-01-02T12:00:00Z').toISOString() // Due tomorrow
           },
           // Another new card
           {
             created: mockDate.getTime() + 1000,
-            frontText: "New 2",
+            front_text: "New 2",
             lastReviewed: null,
             nextReview: null
           }
@@ -174,17 +174,17 @@ describe('Spaced Repetition Algorithm', () => {
       const dueCards = getDueCards(deck, maxNewCardsPerDay, newCardsToday);
       
       expect(dueCards).toHaveLength(3); // 2 new cards + 1 due review
-      expect(dueCards[0].frontText).toBe("New 1"); // New cards first
-      expect(dueCards[1].frontText).toBe("New 2");
-      expect(dueCards[2].frontText).toBe("Review 1"); // Then due reviews
+      expect(dueCards[0].front_text).toBe("New 1"); // New cards first
+      expect(dueCards[1].front_text).toBe("New 2");
+      expect(dueCards[2].front_text).toBe("Review 1"); // Then due reviews
     });
 
     test('respects max new cards per day limit', () => {
       const deck = {
         cards: [
-          { created: mockDate.getTime(), frontText: "New 1", lastReviewed: null },
-          { created: mockDate.getTime() + 1000, frontText: "New 2", lastReviewed: null },
-          { created: mockDate.getTime() + 2000, frontText: "New 3", lastReviewed: null }
+          { created: mockDate.getTime(), front_text: "New 1", lastReviewed: null },
+          { created: mockDate.getTime() + 1000, front_text: "New 2", lastReviewed: null },
+          { created: mockDate.getTime() + 2000, front_text: "New 3", lastReviewed: null }
         ]
       };
 
@@ -194,7 +194,7 @@ describe('Spaced Repetition Algorithm', () => {
       const dueCards = getDueCards(deck, maxNewCardsPerDay, newCardsToday);
       
       expect(dueCards).toHaveLength(1); // Only 1 new card left for today
-      expect(dueCards[0].frontText).toBe("New 1");
+      expect(dueCards[0].front_text).toBe("New 1");
     });
 
     test('handles cards due in minutes', () => {
@@ -202,13 +202,13 @@ describe('Spaced Repetition Algorithm', () => {
         cards: [
           // Due in 10 minutes
           {
-            frontText: "Review Soon",
+            front_text: "Review Soon",
             lastReviewed: mockDate.toISOString(),
             dueTimestamp: new Date(mockDate.getTime() + 10 * 60 * 1000).toISOString()
           },
           // Due now
           {
-            frontText: "Review Now",
+            front_text: "Review Now",
             lastReviewed: mockDate.toISOString(),
             nextReview: mockDate.toISOString()
           }
@@ -217,13 +217,13 @@ describe('Spaced Repetition Algorithm', () => {
 
       let dueCards = getDueCards(deck, 10, 0);
       expect(dueCards).toHaveLength(1);
-      expect(dueCards[0].frontText).toBe("Review Now");
+      expect(dueCards[0].front_text).toBe("Review Now");
 
       // Advance 11 minutes - both cards should now be due
       mockDate = new Date(mockDate.getTime() + 11 * 60 * 1000);
       dueCards = getDueCards(deck, 10, 0);
       expect(dueCards).toHaveLength(2);
-      expect(dueCards.map(c => c.frontText)).toEqual(["Review Now", "Review Soon"]);
+      expect(dueCards.map(c => c.front_text)).toEqual(["Review Now", "Review Soon"]);
     });
 
     test('handles complex card ordering with mixed types', () => {
@@ -231,35 +231,35 @@ describe('Spaced Repetition Algorithm', () => {
         cards: [
           // New cards
           {
-            frontText: "New 1",
+            front_text: "New 1",
             created: mockDate.getTime(),
             lastReviewed: null
           },
           {
-            frontText: "New 2",
+            front_text: "New 2",
             created: mockDate.getTime() + 1000,
             lastReviewed: null
           },
           // Due in minutes
           {
-            frontText: "Due Soon 1",
+            front_text: "Due Soon 1",
             lastReviewed: mockDate.toISOString(),
             dueTimestamp: new Date(mockDate.getTime() + 5 * 60 * 1000).toISOString()
           },
           {
-            frontText: "Due Soon 2",
+            front_text: "Due Soon 2",
             lastReviewed: mockDate.toISOString(),
             dueTimestamp: new Date(mockDate.getTime() + 10 * 60 * 1000).toISOString()
           },
           // Due now
           {
-            frontText: "Due Now",
+            front_text: "Due Now",
             lastReviewed: mockDate.toISOString(),
             nextReview: mockDate.toISOString()
           },
           // Due in future
           {
-            frontText: "Due Later",
+            front_text: "Due Later",
             lastReviewed: mockDate.toISOString(),
             nextReview: new Date(mockDate.getTime() + 24 * 60 * 60 * 1000).toISOString() // Due tomorrow
           }
@@ -269,19 +269,19 @@ describe('Spaced Repetition Algorithm', () => {
       // Initial check - should show new cards and due now card
       let dueCards = getDueCards(deck, 10, 0);
       expect(dueCards).toHaveLength(3); // 2 new cards + 1 due now
-      expect(dueCards.map(c => c.frontText)).toEqual(["New 1", "New 2", "Due Now"]);
+      expect(dueCards.map(c => c.front_text)).toEqual(["New 1", "New 2", "Due Now"]);
 
       // Advance 6 minutes - should only show review cards since we've hit new card limit
       mockDate = new Date(mockDate.getTime() + 6 * 60 * 1000);
       dueCards = getDueCards(deck, 10, 10); // Already seen max new cards
       expect(dueCards).toHaveLength(2); // Due Now + Due Soon 1
-      expect(dueCards.map(c => c.frontText)).toEqual(["Due Now", "Due Soon 1"]);
+      expect(dueCards.map(c => c.front_text)).toEqual(["Due Now", "Due Soon 1"]);
 
       // Advance another 5 minutes - should show all due review cards
       mockDate = new Date(mockDate.getTime() + 5 * 60 * 1000);
       dueCards = getDueCards(deck, 10, 10);
       expect(dueCards).toHaveLength(3); // Due Now + both Due Soon cards
-      expect(dueCards.map(c => c.frontText)).toEqual(["Due Now", "Due Soon 1", "Due Soon 2"]);
+      expect(dueCards.map(c => c.front_text)).toEqual(["Due Now", "Due Soon 1", "Due Soon 2"]);
     });
 
     test('handles far future cards correctly', () => {
@@ -289,12 +289,12 @@ describe('Spaced Repetition Algorithm', () => {
       const deck = {
         cards: [
           {
-            frontText: "Far Future",
+            front_text: "Far Future",
             lastReviewed: mockDate.toISOString(),
             nextReview: futureDate.toISOString()
           },
           {
-            frontText: "Due Now",
+            front_text: "Due Now",
             lastReviewed: mockDate.toISOString(),
             nextReview: mockDate.toISOString()
           }
@@ -304,19 +304,19 @@ describe('Spaced Repetition Algorithm', () => {
       // Initial check
       let dueCards = getDueCards(deck, 10, 0);
       expect(dueCards).toHaveLength(1);
-      expect(dueCards[0].frontText).toBe("Due Now");
+      expect(dueCards[0].front_text).toBe("Due Now");
 
       // Advance 29 days
       mockDate = new Date(mockDate.getTime() + 29 * 24 * 60 * 60 * 1000);
       dueCards = getDueCards(deck, 10, 0);
       expect(dueCards).toHaveLength(1);
-      expect(dueCards[0].frontText).toBe("Due Now");
+      expect(dueCards[0].front_text).toBe("Due Now");
 
       // Advance to exactly when the card is due
       mockDate = new Date(futureDate.getTime());
       dueCards = getDueCards(deck, 10, 0);
       expect(dueCards).toHaveLength(2);
-      expect(dueCards.map(c => c.frontText)).toEqual(["Due Now", "Far Future"]);
+      expect(dueCards.map(c => c.front_text)).toEqual(["Due Now", "Far Future"]);
     });
 
     test('handles edge cases', () => {
@@ -324,25 +324,25 @@ describe('Spaced Repetition Algorithm', () => {
         cards: [
           // Edge case: undefined dates
           {
-            frontText: "Bad Data 1",
+            front_text: "Bad Data 1",
             lastReviewed: mockDate.toISOString(),
             nextReview: undefined
           },
           // Edge case: invalid date string
           {
-            frontText: "Bad Data 2",
+            front_text: "Bad Data 2",
             lastReviewed: mockDate.toISOString(),
             nextReview: "invalid-date"
           },
           // Edge case: null dates
           {
-            frontText: "Bad Data 3",
+            front_text: "Bad Data 3",
             lastReviewed: null,
             nextReview: null
           },
           // Valid card for comparison
           {
-            frontText: "Good Data",
+            front_text: "Good Data",
             lastReviewed: mockDate.toISOString(),
             nextReview: mockDate.toISOString()
           }
@@ -351,7 +351,7 @@ describe('Spaced Repetition Algorithm', () => {
 
       const dueCards = getDueCards(deck, 10, 0);
       expect(dueCards).toHaveLength(2); // Bad Data 3 (treated as new) + Good Data
-      expect(dueCards.map(c => c.frontText)).toEqual(["Bad Data 3", "Good Data"]);
+      expect(dueCards.map(c => c.front_text)).toEqual(["Bad Data 3", "Good Data"]);
     });
   });
 

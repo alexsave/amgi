@@ -9,8 +9,8 @@ import { getSubscription, getOrCreateUsage, updateUsage, checkUsageLimits } from
 import { createOpenAIClient } from "../_shared/openai.ts";
 
 const FlashcardSchema = z.object({
-    frontText: z.string(),
-    backText: z.string(),
+    front_text: z.string(),
+    back_text: z.string(),
     frontLang: z.string(),
     backLang: z.string()
 });
@@ -84,12 +84,12 @@ Return just the translation pair with language codes.`
         console.log('Generating front audio with params:', {
             model: "tts-1",
             voice: "alloy",
-            textLength: card.frontText.length
+            textLength: card.front_text.length
         });
         const frontMp3 = await openai.audio.speech.create({
             model: "tts-1",
             voice: "alloy",
-            input: card.frontText,
+            input: card.front_text,
         });
         const frontBuffer = await frontMp3.arrayBuffer();
         console.log('Front audio buffer size:', frontBuffer.byteLength);
@@ -98,12 +98,12 @@ Return just the translation pair with language codes.`
         console.log('Generating back audio with params:', {
             model: "tts-1",
             voice: "alloy",
-            textLength: card.backText.length
+            textLength: card.back_text.length
         });
         const backMp3 = await openai.audio.speech.create({
             model: "tts-1",
             voice: "alloy",
-            input: card.backText,
+            input: card.back_text,
         });
         const backBuffer = await backMp3.arrayBuffer();
         console.log('Back audio buffer size:', backBuffer.byteLength);
@@ -118,8 +118,8 @@ Return just the translation pair with language codes.`
         return new Response(
             JSON.stringify({
                 card: {
-                    frontText: card.frontText,
-                    backText: card.backText,
+                    front_text: card.front_text,
+                    back_text: card.back_text,
                     frontLang: card.frontLang,
                     backLang: card.backLang
                 },

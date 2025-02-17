@@ -41,8 +41,8 @@ export class SupabaseApi extends ApiInterface {
         backLang: data.card.backLang
       };
       console.log('SupabaseApi: Received card data:', {
-        frontText: card.frontText,
-        backText: card.backText,
+        front_text: card.front_text,
+        back_text: card.back_text,
         frontLang: card.frontLang,
         backLang: card.backLang
       });

@@ -66,7 +66,7 @@ export default function Timeline() {
               className={`timeline-card ${isCurrent ? 'current' : ''} ${isDue ? 'due' : ''}`}
               style={{ left: `${clampedPosition}%` }}
             >
-              <div className="front-text">{card.frontText}</div>
+              <div className="front-text">{card.front_text}</div>
               <div className="stats">
                 Ease: {card.easeFactor?.toFixed(2) || 2.5}<br />
                 Interval: {card.interval || 0} days<br />

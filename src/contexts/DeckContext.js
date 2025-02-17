@@ -13,7 +13,7 @@ const DeckContext = createContext({});
 export const DeckProvider = ({ children }) => {
   const [decks, setDecks] = useState({});
   const [loading, setLoading] = useState(true);
-  const [currentDeck, setCurrentDeck] = useState(null);
+  const [currentDeckId, setCurrentDeckId] = useState(null);
   const [newCardsToday, setNewCardsToday] = useState(0);
   const [dueCards, setDueCards] = useState([]);
   const [error, setError] = useState(null);
@@ -35,12 +35,21 @@ export const DeckProvider = ({ children }) => {
       try {
         // Always load decks from localStorage first
         const localDecks = localDeckStorage.getLocalDecks();
-        setDecks(localDecks);
+        // this gets called for some reason when we hit generate WHY
+        console.log('DeckContext: localDecks:', localDecks);
+        if (Object.keys(localDecks).length > 0) {
+          setDecks(localDecks);
+        }
         
         if (user && !isDirectMode) {
           // Load decks from Supabase
+          console.log('DeckContext: loading decks from supabase');
           const cloudDecks = await supabase.loadDecks(user.id);
+          console.log('DeckContext: cloudDecks:', cloudDecks);
           setDecks(cloudDecks);
+          localDeckStorage.saveLocalDecks(cloudDecks);
+        } else {
+          console.log('DeckContext: not calling supabase because we are in direct mode');
         }
       } catch (error) {
         console.error('Error loading decks:', error);
@@ -70,6 +79,7 @@ export const DeckProvider = ({ children }) => {
         setError(error.message);
       }
     }
+    console.log('DeckContext: newDecks:', newDecks);
     setDecks(newDecks);
   };
 
@@ -94,6 +104,7 @@ export const DeckProvider = ({ children }) => {
           lastModified: timestamp
         };
         
+        console.log('DeckContext: transformedDeck:', transformedDeck);
         setDecks(prev => ({ ...prev, [newDeck.id]: transformedDeck }));
         return newDeck.id;
       } else {
@@ -119,7 +130,7 @@ export const DeckProvider = ({ children }) => {
   };
 
   const updateDeck = (deckId, updatedDeck) => {
-    console.log('Updating deck:', deckId, updatedDeck);
+    console.log('Updating deck:', decks, deckId, updatedDeck);
     const newDecks = { ...decks, [deckId]: updatedDeck };
     saveDecks(newDecks);
   };
@@ -139,9 +150,12 @@ export const DeckProvider = ({ children }) => {
     localDeckStorage.deleteLocalDeck(deckId);
 
     // Delete from local state
+    console.log('DeckContext: deleting deck from local state:', deckId);
     setDecks(prev => {
-      // It's an array, so we need to filter it
-      return prev.filter(deck => deck.id !== deckId);
+      // It's an object, so we need to filter it
+      const newDecks = { ...prev };
+      delete newDecks[deckId];
+      return newDecks;
     });
 
     // If the call succeeded, we shouldn't have to save the decks again
@@ -156,7 +170,7 @@ export const DeckProvider = ({ children }) => {
     
     const lastDeckId = localDeckStorage.loadCurrentDeck();
     if (lastDeckId && localDecks[lastDeckId]) {
-      setCurrentDeck(lastDeckId);
+      setCurrentDeckId(lastDeckId);
     }
 
     // Reset daily counters if needed
@@ -169,13 +183,13 @@ export const DeckProvider = ({ children }) => {
 
   // Save decks whenever they change
   useEffect(() => {
-    if (Object.keys(decks).length > 0) {
+    /*if (Object.keys(decks).length > 0) {
       localDeckStorage.saveLocalDecks(decks);
       if (currentDeck) {
         localDeckStorage.saveCurrentDeck(currentDeck);
       }
-    }
-  }, [decks, currentDeck]);
+    }*/
+  }, [decks, currentDeckId]);
 
   // Save new cards count whenever it changes
   useEffect(() => {
@@ -184,27 +198,28 @@ export const DeckProvider = ({ children }) => {
 
   // Update due cards when necessary
   useEffect(() => {
-    if (currentDeck && getMode() === 'review') {
-      const due = getDueCards(decks[currentDeck], MAX_NEW_CARDS_PER_DAY, newCardsToday);
+    if (currentDeckId && getMode() === 'review') {
+      const due = getDueCards(decks[currentDeckId], MAX_NEW_CARDS_PER_DAY, newCardsToday);
       setDueCards(due);
 
       // Check for due cards every minute
-      const interval = setInterval(() => {
-        const updated = getDueCards(decks[currentDeck], MAX_NEW_CARDS_PER_DAY, newCardsToday);
+      /*const interval = setInterval(() => {
+        const updated = getDueCards(decks[currentDeckId], MAX_NEW_CARDS_PER_DAY, newCardsToday);
         setDueCards(updated);
       }, 60000);
 
-      return () => clearInterval(interval);
+      return () => clearInterval(interval);*/
     }
-  }, [currentDeck, location.pathname, decks, newCardsToday]);
+  }, [currentDeckId, location.pathname, decks, newCardsToday]);
 
   const addCardToDeck = async (deckId, card) => {
     try {
+      console.log('DeckContext: adding card to deck:', deckId, card);
       if (user && !isDirectMode) {
         // Add to Supabase
         const newCard = await supabase.saveCard(deckId, {
-          front_text: card.front,
-          back_text: card.back,
+          front_text: card.front_text,
+          back_text: card.back_text,
           front_audio_url: card.frontAudio,
           back_audio_url: card.backAudio,
           created_at: new Date(card.created || Date.now()).toISOString()
@@ -220,6 +235,7 @@ export const DeckProvider = ({ children }) => {
         }, user.id);
         
         // Update local state
+        console.log('DeckContext: adding card to local state:', deckId, card);
         setDecks(prev => {
           const deck = prev[deckId];
           const transformedCard = {
@@ -243,6 +259,7 @@ export const DeckProvider = ({ children }) => {
       } else {
         // Add to local storage only
         const updatedDeck = localDeckStorage.addCardToLocalDeck(deckId, card);
+        console.log('DeckContext: updatedDeck:', updatedDeck);
         setDecks(prev => ({ ...prev, [deckId]: updatedDeck }));
       }
     } catch (error) {
@@ -288,14 +305,15 @@ export const DeckProvider = ({ children }) => {
         // Update in Supabase
         await supabase.saveCard(deckId, {
           id: cardId,
-          front_text: updates.front,
-          back_text: updates.back,
+          front_text: updates.front_text,
+          back_text: updates.back_text,
           front_audio_url: updates.frontAudio,
           back_audio_url: updates.backAudio
         });
       }
       
       // Update local state
+      console.log('DeckContext: updating card in local state:', deckId, cardId, updates);
       setDecks(prev => {
         const deck = prev[deckId];
         const cardIndex = deck.cards.findIndex(c => c.id === cardId);
@@ -323,12 +341,12 @@ export const DeckProvider = ({ children }) => {
   const value = {
     decks,
     loading,
-    currentDeck,
+    currentDeckId,
     mode: getMode(),
     newCardsToday,
     dueCards,
     error,
-    setCurrentDeck,
+    setCurrentDeckId,
     setNewCardsToday,
     setError,
     createNewDeck,

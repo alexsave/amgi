@@ -90,8 +90,8 @@ export const handleIncorrectResponse = ({
 
     realtimeTools.sendFunctionOutput(callId, {
         nextCard: nextCard ? {
-            frontText: nextCard.frontText,
-            backText: nextCard.backText
+            front_text: nextCard.front_text,
+            back_text: nextCard.back_text
         } : null
     });
 
@@ -167,8 +167,8 @@ export const handleGetNextCard = ({
     const nextCard = review.dueCards[nextCardIndex];
 
     realtimeTools.sendFunctionOutput(callId, nextCard ? {
-        frontText: nextCard.frontText,
-        backText: nextCard.backText,
+        front_text: nextCard.front_text,
+        back_text: nextCard.back_text,
         hasMore: nextCardIndex < review.dueCards.length - 1
     } : null);
     realtimeTools.requestNextResponse();

@@ -172,8 +172,8 @@ const ReviewMode = () => {
               onStartRecording={audio.startRecording}
               onStopRecording={async () => {
                 console.log('ReviewMode: Stopping recording with current card:', {
-                  frontText: currentCard.frontText,
-                  backText: currentCard.backText,
+                  front_text: currentCard.front_text,
+                  back_text: currentCard.back_text,
                   sourceLang: currentCard.sourceLang,
                   targetLang: currentCard.targetLang
                 });

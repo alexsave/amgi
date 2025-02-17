@@ -5,7 +5,7 @@ const CardPreview = ({ currentCard, showAnswer, audio }) => {
     <div className="review-card">
       <div className="card-side">
         <h3>Front</h3>
-        <p>{currentCard.frontText}</p>
+        <p>{currentCard.front_text}</p>
         <small>{currentCard.frontPronunciation}</small>
         <button
           className="play-audio-btn"
@@ -18,7 +18,7 @@ const CardPreview = ({ currentCard, showAnswer, audio }) => {
       {showAnswer && (
         <div className="card-side">
           <h3>Back</h3>
-          <p>{currentCard.backText}</p>
+          <p>{currentCard.back_text}</p>
           <small>{currentCard.backPronunciation}</small>
           <button
             className="play-audio-btn"

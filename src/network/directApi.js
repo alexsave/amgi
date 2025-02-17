@@ -120,7 +120,7 @@ Return just the translation pair with language codes.`
     const frontMp3 = await openaiClient.audio.speech.create({
       model: "tts-1",
       voice: "alloy",
-      input: card.frontText,
+      input: card.front_text,
     });
     const frontBuffer = await frontMp3.arrayBuffer();
     onProgress({
@@ -133,7 +133,7 @@ Return just the translation pair with language codes.`
     const backMp3 = await openaiClient.audio.speech.create({
       model: "tts-1",
       voice: "alloy",
-      input: card.backText,
+      input: card.back_text,
     });
     const backBuffer = await backMp3.arrayBuffer();
     onProgress({

@@ -3,8 +3,8 @@ import { AUDIO_SIDES } from '../../utils/constants';
 import './Card.css';
 
 const Card = ({ 
-  frontText, 
-  backText, 
+  front_text, 
+  back_text, 
   sourceLang, 
   targetLang, 
   showBack = false,
@@ -14,7 +14,7 @@ const Card = ({
     <div className="flashcard">
       <div className="card-side">
         <h3>Front</h3>
-        <p>{frontText}</p>
+        <p>{front_text}</p>
         {sourceLang && <small>Language: {sourceLang}</small>}
         <button 
           onClick={() => onPlayAudio(AUDIO_SIDES.FRONT)}
@@ -26,7 +26,7 @@ const Card = ({
       {showBack && (
         <div className="card-side">
           <h3>Back</h3>
-          <p>{backText}</p>
+          <p>{back_text}</p>
           {targetLang && <small>Language: {targetLang}</small>}
           <button 
             onClick={() => onPlayAudio(AUDIO_SIDES.BACK)}

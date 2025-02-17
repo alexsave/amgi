@@ -28,19 +28,17 @@ export const loadDecks = async (userId) => {
 
     if (error) throw error;
 
-    return decks;
-
     // Convert array to object with deck IDs as keys
-    /*return decks.reduce((acc, deck) => {
+    return decks.reduce((acc, deck) => {
       acc[deck.id] = {
         ...deck,
-        cards: deck.cards.reduce((cardAcc, card) => {
+        /*cards: deck.cards.reduce((cardAcc, card) => {
           cardAcc[card.id] = card;
           return cardAcc;
-        }, {})
+        }, {})*/
       };
       return acc;
-    }, {});*/
+    }, {});
 
   } catch (err) {
     console.error('Error loading decks:', err);
@@ -72,6 +70,7 @@ export const saveDeck = async (deck, userId) => {
 
 // Save a new card or update an existing one
 export const saveCard = async (deckId, card) => {
+  console.log('Supabase: saving card:', card);
   try {
     const { data, error } = await supabase
       .from('cards')

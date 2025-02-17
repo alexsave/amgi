@@ -1,20 +1,29 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useNavigate, useParams, Navigate } from 'react-router-dom';
 import { useDecks } from '../../contexts/DeckContext';
-import { PlusIcon } from '@heroicons/react/24/outline';
 import CardForm from './CardForm';
 import './CardList.css';
 
 const CardList = ({ onCardClick, onBack }) => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { decks, addCardToDeck, deleteCard } = useDecks();
-  
-  if (!id || !decks[id]) {
+  const { decks, addCardToDeck, deleteCard, currentDeckId } = useDecks();
+
+  if (id !== currentDeckId) {
     return <Navigate to="/decks" replace />;
   }
-
   const deck = decks[id];
+/*
+  if (!id) {
+    console.log('No deck ID found');
+  }
+  if (!deck) {
+    console.log('No deck found');
+  }
+
+  if (!id || !deck) {
+    return <Navigate to="/decks" replace />;
+  }*/
 
   const handleReview = () => {
     navigate(`/deck/${id}/review`);
@@ -48,7 +57,7 @@ const CardList = ({ onCardClick, onBack }) => {
                   onClick={() => onCardClick(cardData)}
                 >
                   <span>Card {index + 1}</span>
-                  <small>{cardData.frontText}</small>
+                  <small>{cardData.front_text}</small>
                   {cardData.lastReviewed && (
                     <div className="card-stats">
                       <small>

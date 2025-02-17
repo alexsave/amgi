@@ -23,8 +23,8 @@ export const createRealtimeTools = (dataChannelRef) => ({
                     result,
                     message,
                     nextCard: nextCard ? {
-                        frontText: nextCard.frontText,
-                        backText: nextCard.backText
+                        front_text: nextCard.front_text,
+                        back_text: nextCard.back_text
                     } : null,
                     hasMoreCards: !isLastCard
                 })

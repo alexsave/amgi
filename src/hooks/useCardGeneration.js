@@ -32,6 +32,13 @@ export function useCardGeneration() {
 
   // Store blobs in session storage
   const storeBlob = async (blob, side) => {
+    // Only store if we don't already have an ID for this side
+    if (side === 'front' && generatedCard?.frontAudioId) {
+      return generatedCard.frontAudioId;
+    }
+    if (side === 'back' && generatedCard?.backAudioId) {
+      return generatedCard.backAudioId;
+    }
     return saveAudio(blob, blob.type);
   };
 
@@ -105,9 +112,7 @@ export function useCardGeneration() {
   }, [generatedCard]);
 
   const generateCard = async (userInput, targetLang, blobUrlsRef, frontAudioRef, backAudioRef) => {
-
     setLoading(true);
-
     setGeneratedCard(null);
     setAudioReady({ front: false, back: false });
     setAudioUrls({ front: null, back: null });
@@ -115,66 +120,36 @@ export function useCardGeneration() {
 
     try {
       const handleProgress = (data) => {
-        
         if (data.type === 'text') {
-          const cardData = data.data;
-          setGeneratedCard(cardData);
-          setProgress(prev => {
-            const newProgress = { ...prev, text: true };
-            return newProgress;
-          });
+          setGeneratedCard(data.data);
+          setProgress(prev => ({ ...prev, text: true }));
         } else if (data.type === 'audio') {
-          if (data.side === 'front') {
-            frontAudioRef.current.src = data.url;
-            blobUrlsRef.current.front = data.url;
-            setAudioUrls(prev => {
-              const newUrls = { ...prev, front: data.url };
-              return newUrls;
-            });
-            setAudioReady(prev => {
-              const newReady = { ...prev, front: true };
-              return newReady;
-            });
-            // Handle storage asynchronously
-            fetch(data.url)
-              .then(r => r.blob())
-              .then(async blob => {
-                const audioId = await storeBlob(blob, 'front');
+          const side = data.side;
+          const audioRef = side === 'front' ? frontAudioRef.current : backAudioRef.current;
+          
+          // Set audio source and update state
+          audioRef.src = data.url;
+          blobUrlsRef.current[side] = data.url;
+          setAudioUrls(prev => ({ ...prev, [side]: data.url }));
+          setAudioReady(prev => ({ ...prev, [side]: true }));
+          setProgress(prev => ({ ...prev, [side]: true }));
+
+          // Store audio blob only once
+          fetch(data.url)
+            .then(r => r.blob())
+            .then(async blob => {
+              const audioId = await storeBlob(blob, side);
+              if (audioId) {
                 setGeneratedCard(prev => ({
                   ...prev,
-                  frontAudioId: audioId
+                  [`${side}AudioId`]: audioId
                 }));
-              });
-          } else if (data.side === 'back') {
-            backAudioRef.current.src = data.url;
-            blobUrlsRef.current.back = data.url;
-            setAudioUrls(prev => {
-              const newUrls = { ...prev, back: data.url };
-              return newUrls;
+              }
             });
-            setAudioReady(prev => {
-              const newReady = { ...prev, back: true };
-              return newReady;
-            });
-            // Handle storage asynchronously
-            fetch(data.url)
-              .then(r => r.blob())
-              .then(async blob => {
-                const audioId = await storeBlob(blob, 'back');
-                setGeneratedCard(prev => ({
-                  ...prev,
-                  backAudioId: audioId
-                }));
-              });
-          }
-          setProgress(prev => {
-            const newProgress = { ...prev, [data.side]: true };
-            return newProgress;
-          });
         }
       };
 
-      const result = await apiGenerateCard(userInput, targetLang, handleProgress);
+      await apiGenerateCard(userInput, targetLang, handleProgress);
     } catch (err) {
       throw err;
     } finally {

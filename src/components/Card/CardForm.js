@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useAudio } from '../../hooks/useAudio';
 import { useCardGeneration } from '../../hooks/useCardGeneration';
+import { useDecks } from '../../contexts/DeckContext';
 import { useDeckManagement } from '../../hooks/useDeckManagement';
 import './CardForm.css';
 
@@ -21,27 +22,35 @@ const CardForm = ({ directMode = false }) => {
   const [error, setError] = useState(null);
   const { playAudio } = useAudio();
   const { generateCard, generatedCard, audioUrls, isGenerating } = useCardGeneration();
-  const { addCardToDeck } = useDeckManagement();
+  const { addCardToDeck } = useDecks();
+  //const { addCardToDeck } = useDeckManagement();
 
   const blobUrlsRef = useRef({ front: null, back: null });
   const frontAudioRef = useRef(new Audio());
   const backAudioRef = useRef(new Audio());
 
-  const [frontText, setFrontText] = useState('');
-  const [backText, setBackText] = useState('');
+  const [front_text, setfront_text] = useState('');
+  const [back_text, setback_text] = useState('');
   const [frontAudioUrl, setFrontAudioUrl] = useState(null);
   const [backAudioUrl, setBackAudioUrl] = useState(null);
 
   useEffect(() => {
     console.log('CardForm: useEffect triggered with generatedCard:', generatedCard);
+    if (generatedCard) {
+      setfront_text(generatedCard.front_text);
+      setback_text(generatedCard.back_text);
+    }
+  }, [generatedCard]);
+
+  useEffect(() => {
     console.log('CardForm: useEffect triggered with audioUrls:', audioUrls);
     if (generatedCard) {
-      console.log('CardForm: Setting front text to:', generatedCard.frontText);
-      console.log('CardForm: Setting back text to:', generatedCard.backText);
+      console.log('CardForm: Setting front text to:', generatedCard.front_text);
+      console.log('CardForm: Setting back text to:', generatedCard.back_text);
       console.log('CardForm: Setting front audio URL to:', audioUrls.front);
       console.log('CardForm: Setting back audio URL to:', audioUrls.back);
-      setFrontText(generatedCard.frontText);
-      setBackText(generatedCard.backText);
+      setfront_text(generatedCard.front_text);
+      setback_text(generatedCard.back_text);
       setFrontAudioUrl(audioUrls.front);
       setBackAudioUrl(audioUrls.back);
 
@@ -55,7 +64,7 @@ const CardForm = ({ directMode = false }) => {
         blobUrlsRef.current.back = audioUrls.back;
       }
     }
-  }, [generatedCard, audioUrls]);
+  }, [audioUrls]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -85,20 +94,20 @@ const CardForm = ({ directMode = false }) => {
 
   const handleAddToDeck = async () => {
     console.log('CardForm: handleAddToDeck called with:', {
-      frontText,
-      backText,
+      front_text,
+      back_text,
       frontAudioUrl,
       backAudioUrl,
       deckId
     });
-    if (!frontText || !backText) {
+    if (!front_text || !back_text) {
       setError('No card data to add');
       return;
     }
     try {
       const card = {
-        frontText,
-        backText,
+        front_text,
+        back_text,
         frontLang: generatedCard.frontLang,
         backLang: generatedCard.backLang,
         frontAudioId: generatedCard.frontAudioId,
@@ -155,7 +164,7 @@ const CardForm = ({ directMode = false }) => {
           <div className="flashcard">
             <div className="card-side">
               <h3>Front</h3>
-              <p>{generatedCard.frontText}</p>
+              <p>{generatedCard.front_text}</p>
               {audioUrls.front && (
                 <button
                   className="play-audio-btn"
@@ -167,7 +176,7 @@ const CardForm = ({ directMode = false }) => {
             </div>
             <div className="card-side">
               <h3>Back</h3>
-              <p>{generatedCard.backText}</p>
+              <p>{generatedCard.back_text}</p>
               {audioUrls.back && (
                 <button
                   className="play-audio-btn"

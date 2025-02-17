@@ -14,7 +14,7 @@ const DeckList = () => {
   const { 
     decks,
     createNewDeck,
-    setCurrentDeck,
+    setCurrentDeckId,
     updateDeck
   } = useDecks();
   
@@ -27,10 +27,11 @@ const DeckList = () => {
       console.log('Calling createNewDeck...');
       const id = await createNewDeck(name);
       console.log('Created deck with ID:', id);
+      setCurrentDeckId(id);
       
       setIsCreateModalOpen(false);
       console.log('Navigating to deck page...');
-      navigate(`/deck/${id}`);
+      navigate(`/deck/${id}/edit`);
     } catch (error) {
       console.error('Error creating deck:', error);
       alert('Failed to create deck: ' + error.message);
@@ -63,7 +64,7 @@ const DeckList = () => {
       console.log('Updating deck with ID:', id);
       updateDeck(id, newDeck);
       console.log('Setting current deck...');
-      setCurrentDeck(id);
+      setCurrentDeckId(id);
       console.log('Navigating to deck page...');
       navigate(`/deck/${id}`);
     } catch (err) {
@@ -84,7 +85,7 @@ const DeckList = () => {
     console.log('Updating deck with ID:', id);
     updateDeck(id, newDeck);
     console.log('Setting current deck...');
-    setCurrentDeck(id);
+    setCurrentDeckId(id);
     console.log('Navigating to deck page...');
     navigate(`/deck/${id}`);
   };

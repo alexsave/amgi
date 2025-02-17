@@ -4,8 +4,8 @@ import { z } from "zod";
 import { zodResponseFormat } from "openai/helpers/zod";
 
 const FlashcardSchema = z.object({
-  frontText: z.string(),
-  backText: z.string(),
+  front_text: z.string(),
+  back_text: z.string(),
   sourceLang: z.string(),
   targetLang: z.string()
 });
@@ -74,7 +74,7 @@ Return just the translation pair with language codes.`
       const frontMp3 = await this.client.audio.speech.create({
         model: "tts-1",
         voice: "alloy",
-        input: card.frontText,
+        input: card.front_text,
       });
       const frontBuffer = await frontMp3.arrayBuffer();
       console.log('Front audio generated');
@@ -89,7 +89,7 @@ Return just the translation pair with language codes.`
       const backMp3 = await this.client.audio.speech.create({
         model: "tts-1",
         voice: "alloy",
-        input: card.backText,
+        input: card.back_text,
       });
       const backBuffer = await backMp3.arrayBuffer();
       console.log('Back audio generated');
