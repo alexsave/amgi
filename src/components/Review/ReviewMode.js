@@ -13,7 +13,7 @@ import { LanguageIcon, MicrophoneIcon } from '@heroicons/react/24/solid';
 import './ReviewMode.css';
 
 const ReviewMode = () => {
-  const { currentDeck, decks, dueCards, updateCard, mode, currentDeckId } = useDecks();
+  const { currentDeck, decks, dueCards, mode, currentDeckId } = useDecks();
   const { currentCard, initReview } = useReview();
   const navigate = useNavigate();
   const audio = useAudio();
@@ -62,7 +62,7 @@ const ReviewMode = () => {
     console.log('ReviewMode: Determined quality:', quality);
 
     // Update card scheduling
-    review.updateCardScheduling(currentCard.created, quality);
+    review.updateCardScheduling(currentCard.id, quality);
     console.log('ReviewMode: Updated card scheduling');
     
     // Play evaluation audio if available

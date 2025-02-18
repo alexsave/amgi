@@ -96,7 +96,7 @@ export function useReview() {
       }
 
       const deck = decks[currentDeckId];
-      const cardIndex = deck.cards.findIndex(c => c.created === cardId);
+      const cardIndex = deck.cards.findIndex(c => c.id === cardId);
       if (cardIndex === -1) {
         throw new Error('Card not found');
       }

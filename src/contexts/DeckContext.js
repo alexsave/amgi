@@ -262,7 +262,7 @@ export const DeckProvider = ({ children }) => {
           back_lang: card.back_lang,
           front_audio_path: card.frontAudioPath,
           back_audio_path: card.backAudioPath,
-          created_at: new Date(card.created || Date.now()).toISOString()
+          created_at: new Date(Date.now()).toISOString()
         });
         
         // Create initial review

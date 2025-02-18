@@ -56,13 +56,13 @@ export default function Timeline() {
           const clampedPosition = Math.max(0, Math.min(100, position));
 
           // Find if this card is in the due cards list
-          const dueIndex = dueCards.findIndex(c => c.created === card.created);
+          const dueIndex = dueCards.findIndex(c => c.id === card.id);
           const isCurrent = dueIndex === currentCardIndex;
           const isDue = dueIndex !== -1;
 
           return (
             <div
-              key={card.created}
+              key={card.id}
               className={`timeline-card ${isCurrent ? 'current' : ''} ${isDue ? 'due' : ''}`}
               style={{ left: `${clampedPosition}%` }}
             >

@@ -162,6 +162,7 @@ export const loadReview = async (cardId, userId) => {
 
 // Save review data for a card
 export const saveReview = async (cardId, review, userId) => {
+  console.log('card id', cardId);
   try {
     const { data, error } = await supabase
       .from('reviews')

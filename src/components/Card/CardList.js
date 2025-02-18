@@ -52,7 +52,7 @@ const CardList = ({ onCardClick, onBack }) => {
             <div className="card-list">
               {deck.cards.map((cardData, index) => (
                 <div 
-                  key={cardData.created} 
+                  key={cardData.id} 
                   className="card-item"
                   onClick={() => onCardClick(cardData)}
                 >
