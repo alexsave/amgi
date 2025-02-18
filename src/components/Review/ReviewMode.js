@@ -13,8 +13,8 @@ import { LanguageIcon, MicrophoneIcon } from '@heroicons/react/24/solid';
 import './ReviewMode.css';
 
 const ReviewMode = () => {
-  const { currentDeck, decks, dueCards, updateCard} = useDecks();
-  const { currentCard } = useReview();
+  const { currentDeck, decks, dueCards, updateCard, mode, currentDeckId } = useDecks();
+  const { currentCard, initReview } = useReview();
   const navigate = useNavigate();
   const audio = useAudio();
   const review = useReview();
@@ -132,7 +132,7 @@ const ReviewMode = () => {
         <button onClick={handleBackToList} className="back-btn">
           ← Back to Decks
         </button>
-        <h2>Reviewing: {decks[currentDeck].name}</h2>
+        <h2>Reviewing: {decks[currentDeckId].name}</h2>
         <div className="voice-mode-switch-container">
           <div 
             onClick={() => setIsVoiceMode(!isVoiceMode)} 

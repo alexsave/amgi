@@ -8,7 +8,7 @@ export function useReview() {
 
   const MAX_ATTEMPTS = 3;
 
-  const { currentDeck, decks, updateCard } = useDecks();
+  const { currentDeckId, decks, updateCard, mode } = useDecks();
   const [evaluationResult, setEvaluationResult] = useState(null);
   const [error, setError] = useState(null);
   // Attempts of the current card. I guess we can keep this
@@ -20,10 +20,16 @@ export function useReview() {
 
   const cardSchedulerRef = useRef(new CardScheduler());
 
+
   // Copy currentDeck into priority queue so we don't mess with the original deck
   // Holy fuck DeckContext is so complicated now
   useEffect(() => {
-    const deck = decks[currentDeck];
+    console.log('useReview useEffect called with currentDeckId:' + currentDeckId + ' and mode:' + mode);
+    if (!currentDeckId || mode !== 'review') {
+      return;
+    }
+
+    const deck = decks[currentDeckId];
     if (!deck) return;
 
     cardSchedulerRef.current.clear();
@@ -32,6 +38,7 @@ export function useReview() {
 
     for (let i = 0; i < deck.cards.length; i++) {
       const card = deck.cards[i];
+      console.log('Card:' + JSON.stringify(card));
       if (card.nextReview == null) {
         // New card. Setting it to i preserves the order of new cards
         cardSchedulerRef.current.pushNewCard(card);
@@ -42,8 +49,9 @@ export function useReview() {
       }
     }
     console.log('CardScheduler after setup:' + JSON.stringify(cardSchedulerRef.current));
+    console.log('setting current card to ' + JSON.stringify(cardSchedulerRef.current.peekNext()));
     setCurrentCard(cardSchedulerRef.current.peekNext());
-  }, [currentDeck]);
+  }, [currentDeckId]);
 
   // Get due cards
   const getDueCards = (deckId) => {
@@ -80,11 +88,11 @@ export function useReview() {
 
   const updateCardScheduling = (cardId, quality) => {
     try {
-      if (!currentDeck || !decks[currentDeck]) {
+      if (!currentDeckId || !decks[currentDeckId]) {
         throw new Error('No deck selected');
       }
 
-      const deck = decks[currentDeck];
+      const deck = decks[currentDeckId];
       const cardIndex = deck.cards.findIndex(c => c.created === cardId);
       if (cardIndex === -1) {
         throw new Error('Card not found');
@@ -98,7 +106,7 @@ export function useReview() {
         quality
       );
 
-      updateCard(currentDeck, cardId, {
+      updateCard(currentDeckId, cardId, {
         interval,
         easeFactor,
         repetitions,
@@ -118,6 +126,7 @@ export function useReview() {
       const nextCard = cardSchedulerRef.current.peekNext();
       // This needs to be pushed 10 minutes in the future
       cardSchedulerRef.current.setReviewTime(currentCard, Date.now() + 10 * 60 * 1000);
+      console.log('setting current card to ' + nextCard);
       setCurrentCard(nextCard);
       setAttempts(0);
       return {
@@ -143,6 +152,7 @@ export function useReview() {
     cardSchedulerRef.current.popNext();
     const nextCard = cardSchedulerRef.current.peekNext();
     console.log('markCorrectGetNext: nextCard:', nextCard);
+    console.log('setting current card to ' + nextCard);
     setCurrentCard(nextCard);
     return nextCard;
   }
