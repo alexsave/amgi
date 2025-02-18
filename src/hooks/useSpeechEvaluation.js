@@ -75,9 +75,9 @@ export function useSpeechEvaluation({ audio, onEvaluationResult }) {
       const result = await apiEvaluateSpeech(
         recordedMp3Blob,      // audioBlob
         card.back_text,        // expectedText
-        card.backLang,        // sourceLang (the language being spoken)
+        card.back_lang,        // sourceLang (the language being spoken)
         backAudioMp3Blob,      // expectedAudioBlob
-        card.frontLang        // targetLang (the language being spoken)
+        card.front_lang        // targetLang (the language being spoken)
       );
 
       console.log('useSpeechEvaluation: Received API result:', {

@@ -339,45 +339,6 @@ export const DeckProvider = ({ children }) => {
     }*/
   };
 
-  const updateCard = async (deckId, cardId, updates) => {
-    try {
-      if (user && !isDirectMode) {
-        // Update in Supabase
-        await supabase.saveCard(deckId, {
-          id: cardId,
-          front_text: updates.front_text,
-          back_text: updates.back_text,
-          front_audio_url: updates.frontAudio,
-          back_audio_url: updates.backAudio
-        });
-      }
-      
-      // Update local state
-      console.log('DeckContext: updating card in local state:', deckId, cardId, updates);
-      setDecks(prev => {
-        const deck = prev[deckId];
-        const cardIndex = deck.cards.findIndex(c => c.id === cardId);
-        if (cardIndex === -1) return prev;
-
-        const updatedCards = [...deck.cards];
-        updatedCards[cardIndex] = { ...updatedCards[cardIndex], ...updates };
-
-        return {
-          ...prev,
-          [deckId]: {
-            ...deck,
-            cards: updatedCards,
-            lastModified: Date.now()
-          }
-        };
-      });
-    } catch (error) {
-      console.error('Error updating card:', error);
-      setError(error.message);
-      throw error;
-    }
-  };
-
   const value = {
     decks,
     loading,
@@ -394,7 +355,6 @@ export const DeckProvider = ({ children }) => {
     deleteDeck,
     addCardToDeck,
     deleteCard,
-    updateCard
   };
 
   return (

@@ -2,13 +2,16 @@ import { useState, useEffect, useRef } from 'react';
 import { useDecks } from '../contexts/DeckContext';
 import { calculateNextReview } from '../algorithms/spacedRepetition';
 import { CardScheduler } from '../utils/cardscheduler';
+import * as supabase from '../db/supabase';
+import { useAuth } from '../contexts/AuthContext';
 
 // this could probalby be it's own context
 export function useReview() {
 
   const MAX_ATTEMPTS = 3;
 
-  const { currentDeckId, decks, updateCard, mode } = useDecks();
+  const { currentDeckId, decks, mode } = useDecks();
+  const { user, isDirectMode } = useAuth();
   const [evaluationResult, setEvaluationResult] = useState(null);
   const [error, setError] = useState(null);
   // Attempts of the current card. I guess we can keep this
@@ -86,7 +89,7 @@ export function useReview() {
     return [...newCards, ...sortedReviewCards];
   };
 
-  const updateCardScheduling = (cardId, quality) => {
+  const updateCardScheduling = async (cardId, quality) => {
     try {
       if (!currentDeckId || !decks[currentDeckId]) {
         throw new Error('No deck selected');
@@ -106,14 +109,20 @@ export function useReview() {
         quality
       );
 
-      updateCard(currentDeckId, cardId, {
-        interval,
-        easeFactor,
-        repetitions,
-        nextReview,
-        lastReviewed: Date.now()
-      });
+      // Update the review in Supabase if we're not in direct mode
+      if (user && !isDirectMode) {
+        await supabase.saveReview(cardId, {
+          interval_days: interval,
+          ease_factor: easeFactor,
+          repetitions,
+          next_review_date: new Date(nextReview).toISOString().split('T')[0],
+          last_reviewed_at: new Date().toISOString(),
+          scheduled_date: new Date().toISOString().split('T')[0]
+        }, user.id);
+      }
 
+      // Update the local scheduler
+      cardSchedulerRef.current.setReviewTime(card, nextReview);
       setError(null);
     } catch (err) {
       console.error('Error updating card scheduling:', err);
