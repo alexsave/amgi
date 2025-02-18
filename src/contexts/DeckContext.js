@@ -1,5 +1,5 @@
 // Deck context for managing global deck state
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { MAX_NEW_CARDS_PER_DAY } from '../utils/constants';
 import * as localDeckStorage from '../services/localDeckStorage';
@@ -20,6 +20,11 @@ export const DeckProvider = ({ children }) => {
   const { user, isDirectMode } = useAuth();
   const location = useLocation();
 
+  // Add refs for tracking load state and debouncing
+  const initialLoadComplete = useRef(false);
+  const loadDecksTimeout = useRef(null);
+  const lastAuthState = useRef({ user: null, isDirectMode: false });
+
   // Derive mode from location
   const getMode = () => {
     const path = location.pathname;
@@ -30,8 +35,13 @@ export const DeckProvider = ({ children }) => {
     return 'view';
   };
 
-  useEffect(() => {
-    const loadDecks = async () => {
+  // Debounced loadDecks function
+  const debouncedLoadDecks = () => {
+    if (loadDecksTimeout.current) {
+      clearTimeout(loadDecksTimeout.current);
+    }
+
+    loadDecksTimeout.current = setTimeout(async () => {
       try {
         // Always load decks from localStorage first
         const localDecks = localDeckStorage.getLocalDecks();
@@ -41,25 +51,53 @@ export const DeckProvider = ({ children }) => {
           setDecks(localDecks);
         }
         
-        if (user && !isDirectMode) {
-          // Load decks from Supabase
+        // Only load from Supabase if:
+        // 1. We have a user
+        // 2. We're not in direct mode
+        // 3. The auth state has actually changed
+        if (user && !isDirectMode && 
+            (lastAuthState.current.user?.id !== user.id || 
+             lastAuthState.current.isDirectMode !== isDirectMode)) {
           console.log('DeckContext: loading decks from supabase');
           const cloudDecks = await supabase.loadDecks(user.id);
           console.log('DeckContext: cloudDecks:', cloudDecks);
           setDecks(cloudDecks);
           localDeckStorage.saveLocalDecks(cloudDecks);
+          
+          // Update last auth state
+          lastAuthState.current = { user, isDirectMode };
         } else {
-          console.log('DeckContext: not calling supabase because we are in direct mode');
+          console.log('DeckContext: not calling supabase because we are in direct mode or auth state hasn\'t changed');
         }
+
+        // Mark initial load as complete
+        initialLoadComplete.current = true;
       } catch (error) {
         console.error('Error loading decks:', error);
         setError(error.message);
       } finally {
         setLoading(false);
       }
-    };
+    }, 300); // 300ms debounce
+  };
 
-    loadDecks();
+  // Effect for loading decks
+  useEffect(() => {
+    // Skip if we've already done the initial load and auth state hasn't changed
+    if (initialLoadComplete.current && 
+        lastAuthState.current.user?.id === user?.id && 
+        lastAuthState.current.isDirectMode === isDirectMode) {
+      return;
+    }
+
+    debouncedLoadDecks();
+
+    // Cleanup
+    return () => {
+      if (loadDecksTimeout.current) {
+        clearTimeout(loadDecksTimeout.current);
+      }
+    };
   }, [user, isDirectMode]);
 
   const saveDecks = async (newDecks) => {
