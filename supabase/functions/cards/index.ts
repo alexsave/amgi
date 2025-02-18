@@ -7,6 +7,7 @@ import { corsHeaders, handleCors } from "../_shared/cors.ts";
 import { getAuthenticatedUser } from "../_shared/auth.ts";
 import { getSubscription, getOrCreateUsage, updateUsage, checkUsageLimits } from "../_shared/billing.ts";
 import { createOpenAIClient } from "../_shared/openai.ts";
+import { createClient } from "npm:@supabase/supabase-js@2.39.0"
 
 const FlashcardSchema = z.object({
     front_text: z.string(),
@@ -16,6 +17,11 @@ const FlashcardSchema = z.object({
 });
 
 const encoder = new TextEncoder();
+
+const supabaseClient = createClient(
+    Deno.env.get('SUPABASE_URL') || '',
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
+);
 
 serve(async (req) => {
     console.log('Request received:', {
@@ -94,6 +100,20 @@ Return just the translation pair with language codes.`
         const frontBuffer = await frontMp3.arrayBuffer();
         console.log('Front audio buffer size:', frontBuffer.byteLength);
 
+        // Upload front audio to storage
+        const frontAudioPath = `${Date.now()}_front_${Math.random().toString(36).substr(2, 9)}.mp3`;
+        const { data: frontData, error: frontError } = await supabaseClient.storage
+            .from('card-audio')
+            .upload(frontAudioPath, frontBuffer, {
+                contentType: 'audio/mpeg',
+                cacheControl: '3600'
+            });
+        
+        if (frontError) {
+            console.error('Error uploading front audio:', frontError);
+            throw frontError;
+        }
+
         // Generate back audio
         console.log('Generating back audio with params:', {
             model: "tts-1",
@@ -108,6 +128,20 @@ Return just the translation pair with language codes.`
         const backBuffer = await backMp3.arrayBuffer();
         console.log('Back audio buffer size:', backBuffer.byteLength);
 
+        // Upload back audio to storage
+        const backAudioPath = `${Date.now()}_back_${Math.random().toString(36).substr(2, 9)}.mp3`;
+        const { data: backData, error: backError } = await supabaseClient.storage
+            .from('card-audio')
+            .upload(backAudioPath, backBuffer, {
+                contentType: 'audio/mpeg',
+                cacheControl: '3600'
+            });
+        
+        if (backError) {
+            console.error('Error uploading back audio:', backError);
+            throw backError;
+        }
+
         // Check and update audio generation usage
         checkUsageLimits(usage, subscription, 'card_audio_generations_used');
         await updateUsage(usage.id, {
@@ -121,10 +155,10 @@ Return just the translation pair with language codes.`
                     front_text: card.front_text,
                     back_text: card.back_text,
                     frontLang: card.frontLang,
-                    backLang: card.backLang
-                },
-                frontAudio: Array.from(new Uint8Array(frontBuffer)),
-                backAudio: Array.from(new Uint8Array(backBuffer))
+                    backLang: card.backLang,
+                    frontAudioPath,
+                    backAudioPath
+                }
             }),
             {
                 headers: {

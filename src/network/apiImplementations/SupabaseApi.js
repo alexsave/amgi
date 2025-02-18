@@ -38,34 +38,34 @@ export class SupabaseApi extends ApiInterface {
       const card = {
         ...data.card,
         frontLang: data.card.frontLang,
-        backLang: data.card.backLang
+        backLang: data.card.backLang,
+        frontAudioUrl: data.card.frontAudioUrl,
+        backAudioUrl: data.card.backAudioUrl
       };
       console.log('SupabaseApi: Received card data:', {
         front_text: card.front_text,
         back_text: card.back_text,
         frontLang: card.frontLang,
-        backLang: card.backLang
+        backLang: card.backLang,
+        frontAudioUrl: card.frontAudioUrl,
+        backAudioUrl: card.backAudioUrl
       });
       onProgress({ type: 'text', data: card });
 
-      // Then handle the audio data
-      if (data.frontAudio) {
-        const frontAudioBlob = new Blob([new Uint8Array(data.frontAudio)], { type: 'audio/mpeg' });
-        const frontUrl = URL.createObjectURL(frontAudioBlob);
-        onProgress({ type: 'audio', side: 'front', url: frontUrl });
+      // Handle the audio URLs
+      if (card.frontAudioUrl) {
+        onProgress({ type: 'audio', side: 'front', url: card.frontAudioUrl });
       }
 
-      if (data.backAudio) {
-        const backAudioBlob = new Blob([new Uint8Array(data.backAudio)], { type: 'audio/mpeg' });
-        const backUrl = URL.createObjectURL(backAudioBlob);
-        onProgress({ type: 'audio', side: 'back', url: backUrl });
+      if (card.backAudioUrl) {
+        onProgress({ type: 'audio', side: 'back', url: card.backAudioUrl });
       }
 
       return {
         card,
         audioReady: {
-          front: !!data.frontAudio,
-          back: !!data.backAudio
+          front: !!card.frontAudioUrl,
+          back: !!card.backAudioUrl
         }
       };
     } catch (err) {

@@ -220,8 +220,8 @@ export const DeckProvider = ({ children }) => {
         const newCard = await supabase.saveCard(deckId, {
           front_text: card.front_text,
           back_text: card.back_text,
-          front_audio_url: card.frontAudio,
-          back_audio_url: card.backAudio,
+          front_audio_path: card.frontAudioPath,
+          back_audio_path: card.backAudioPath,
           created_at: new Date(card.created || Date.now()).toISOString()
         });
         

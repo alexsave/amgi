@@ -18,8 +18,8 @@ export const loadDecks = async (userId) => {
           id,
           front_text,
           back_text,
-          front_audio_url,
-          back_audio_url,
+          front_audio_path,
+          back_audio_path,
           created_at
         )
       `)
@@ -79,8 +79,8 @@ export const saveCard = async (deckId, card) => {
         deck_id: deckId,
         front_text: card.front_text,
         back_text: card.back_text,
-        front_audio_url: card.front_audio_url,
-        back_audio_url: card.back_audio_url,
+        front_audio_path: card.front_audio_path,
+        back_audio_path: card.back_audio_path,
         created_at: card.created_at || new Date().toISOString()
       })
       .select()
@@ -102,8 +102,8 @@ export const saveCards = async (deckId, cards) => {
       deck_id: deckId,
       front_text: card.front_text,
       back_text: card.back_text,
-      front_audio_url: card.front_audio_url,
-      back_audio_url: card.back_audio_url,
+      front_audio_path: card.frontAudioPath,
+      back_audio_path: card.backAudioPath,
       created_at: card.created_at || new Date().toISOString()
     }));
 
@@ -195,8 +195,8 @@ export const getDueCards = async (userId) => {
           deck_id,
           front_text,
           back_text,
-          front_audio_url,
-          back_audio_url
+          front_audio_path,
+          back_audio_path
         )
       `)
       .eq('user_id', userId)
@@ -216,5 +216,26 @@ export const getDueCards = async (userId) => {
   } catch (err) {
     console.error('Error getting due cards:', err);
     return [];
+  }
+};
+
+// Helper function to download audio for a card
+export const downloadCardAudio = async (audioPath) => {
+  if (!audioPath) return null;
+  
+  try {
+    const { data, error } = await supabase.storage
+      .from('card-audio')
+      .download(audioPath);
+    
+    if (error) {
+      console.error('Error downloading audio:', error);
+      throw error;
+    }
+
+    return URL.createObjectURL(data);
+  } catch (err) {
+    console.error('Error downloading audio:', err);
+    return null;
   }
 }; 

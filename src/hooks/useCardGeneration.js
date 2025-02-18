@@ -14,22 +14,6 @@ export function useCardGeneration() {
     return { front: null, back: null };
   });
 
-  // Log state changes
-  useEffect(() => {
-  }, [generatedCard]);
-
-  useEffect(() => {
-  }, [audioUrls]);
-
-  useEffect(() => {
-  }, [loading]);
-
-  useEffect(() => {
-  }, [progress]);
-
-  useEffect(() => {
-  }, [audioReady]);
-
   // Store blobs in session storage
   const storeBlob = async (blob, side) => {
     // Only store if we don't already have an ID for this side
@@ -120,33 +104,11 @@ export function useCardGeneration() {
 
     try {
       const handleProgress = (data) => {
+        console.log('handleProgress', data);
         if (data.type === 'text') {
           setGeneratedCard(data.data);
           setProgress(prev => ({ ...prev, text: true }));
-        } else if (data.type === 'audio') {
-          const side = data.side;
-          const audioRef = side === 'front' ? frontAudioRef.current : backAudioRef.current;
-          
-          // Set audio source and update state
-          audioRef.src = data.url;
-          blobUrlsRef.current[side] = data.url;
-          setAudioUrls(prev => ({ ...prev, [side]: data.url }));
-          setAudioReady(prev => ({ ...prev, [side]: true }));
-          setProgress(prev => ({ ...prev, [side]: true }));
-
-          // Store audio blob only once
-          fetch(data.url)
-            .then(r => r.blob())
-            .then(async blob => {
-              const audioId = await storeBlob(blob, side);
-              if (audioId) {
-                setGeneratedCard(prev => ({
-                  ...prev,
-                  [`${side}AudioId`]: audioId
-                }));
-              }
-            });
-        }
+        } 
       };
 
       await apiGenerateCard(userInput, targetLang, handleProgress);

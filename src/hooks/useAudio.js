@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import vmsg from "vmsg";
+import { downloadCardAudio } from '../db/supabase';
 
 const recorder = new vmsg.Recorder({
   wasmURL: "https://unpkg.com/vmsg@0.3.0/vmsg.wasm"
@@ -14,6 +15,8 @@ export function useAudio() {
   const backAudioRef = useRef(new Audio());
   const blobUrlsRef = useRef({ front: null, back: null });
   const evaluationAudioRef = useRef(new Audio());
+  // Cache for downloaded audio files
+  const audioCache = useRef(new Map());
 
   // Helper function to get audio from storage
   const getAudioById = (audioId) => {
@@ -144,9 +147,9 @@ export function useAudio() {
     }
   };
 
-  const playAudio = async (side, audioId, shouldPlay = true) => {
+  const playAudio = async (side, audioPath, shouldPlay = true) => {
     try {
-      console.log('Playing audio for side:', side, 'with ID:', audioId);
+      console.log('Playing audio for side:', side, 'with path:', audioPath);
       
       // Stop any currently playing audio
       frontAudioRef.current.pause();
@@ -154,20 +157,31 @@ export function useAudio() {
       backAudioRef.current.pause();
       backAudioRef.current.currentTime = 0;
 
-      const audioUrl = await loadAudio(side, audioId);
+      let audioUrl;
+      
+      // Check cache first
+      if (audioCache.current.has(audioPath)) {
+        console.log('Found audio in cache:', audioPath);
+        audioUrl = audioCache.current.get(audioPath);
+      } else {
+        // Download and cache if not found
+        console.log('Downloading audio:', audioPath);
+        audioUrl = await downloadCardAudio(audioPath);
+        if (audioUrl) {
+          console.log('Caching audio:', audioPath);
+          audioCache.current.set(audioPath, audioUrl);
+        }
+      }
+
+      if (!audioUrl) {
+        throw new Error('Failed to load audio');
+      }
 
       // Only play if requested
       if (shouldPlay) {
-        // Create a new audio element for this playback
-        const audio = new Audio(audioUrl);
-        await audio.play();
-        
-        // Clean up URL if it was created from storage
-        if (audioId) {
-          audio.onended = () => {
-            URL.revokeObjectURL(audioUrl);
-          };
-        }
+        const audioRef = side === 'front' ? frontAudioRef.current : backAudioRef.current;
+        audioRef.src = audioUrl;
+        await audioRef.play();
       }
     } catch (err) {
       console.error('Error playing audio:', err);
@@ -177,6 +191,13 @@ export function useAudio() {
   };
 
   const cleanupAudioUrls = () => {
+    // Revoke all cached URLs
+    for (const url of audioCache.current.values()) {
+      URL.revokeObjectURL(url);
+    }
+    audioCache.current.clear();
+
+    // Clean up current audio refs
     if (blobUrlsRef.current.front) {
       URL.revokeObjectURL(blobUrlsRef.current.front);
     }

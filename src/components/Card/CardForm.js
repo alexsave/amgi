@@ -39,32 +39,10 @@ const CardForm = ({ directMode = false }) => {
     if (generatedCard) {
       setfront_text(generatedCard.front_text);
       setback_text(generatedCard.back_text);
+      setFrontAudioUrl(generatedCard.frontAudioPath);
+      setBackAudioUrl(generatedCard.backAudioPath);
     }
   }, [generatedCard]);
-
-  useEffect(() => {
-    console.log('CardForm: useEffect triggered with audioUrls:', audioUrls);
-    if (generatedCard) {
-      console.log('CardForm: Setting front text to:', generatedCard.front_text);
-      console.log('CardForm: Setting back text to:', generatedCard.back_text);
-      console.log('CardForm: Setting front audio URL to:', audioUrls.front);
-      console.log('CardForm: Setting back audio URL to:', audioUrls.back);
-      setfront_text(generatedCard.front_text);
-      setback_text(generatedCard.back_text);
-      setFrontAudioUrl(audioUrls.front);
-      setBackAudioUrl(audioUrls.back);
-
-      // Set audio sources
-      if (audioUrls.front) {
-        frontAudioRef.current.src = audioUrls.front;
-        blobUrlsRef.current.front = audioUrls.front;
-      }
-      if (audioUrls.back) {
-        backAudioRef.current.src = audioUrls.back;
-        blobUrlsRef.current.back = audioUrls.back;
-      }
-    }
-  }, [audioUrls]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -110,8 +88,8 @@ const CardForm = ({ directMode = false }) => {
         back_text,
         frontLang: generatedCard.frontLang,
         backLang: generatedCard.backLang,
-        frontAudioId: generatedCard.frontAudioId,
-        backAudioId: generatedCard.backAudioId
+        frontAudioPath: generatedCard.frontAudioPath,
+        backAudioPath: generatedCard.backAudioPath
       };
       console.log('CardForm: Adding card to deck:', { deckId, card });
       await addCardToDeck(deckId, card);
@@ -165,10 +143,10 @@ const CardForm = ({ directMode = false }) => {
             <div className="card-side">
               <h3>Front</h3>
               <p>{generatedCard.front_text}</p>
-              {audioUrls.front && (
+              {generatedCard.frontAudioPath && (
                 <button
                   className="play-audio-btn"
-                  onClick={() => playAudio('front', generatedCard.frontAudioId)}
+                  onClick={() => playAudio('front', generatedCard.frontAudioPath)}
                 >
                   🔊 Play Audio
                 </button>
@@ -177,10 +155,10 @@ const CardForm = ({ directMode = false }) => {
             <div className="card-side">
               <h3>Back</h3>
               <p>{generatedCard.back_text}</p>
-              {audioUrls.back && (
+              {generatedCard.backAudioPath && (
                 <button
                   className="play-audio-btn"
-                  onClick={() => playAudio('back', generatedCard.backAudioId)}
+                  onClick={() => playAudio('back', generatedCard.backAudioPath)}
                 >
                   🔊 Play Audio
                 </button>

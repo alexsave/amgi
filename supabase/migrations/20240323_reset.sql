@@ -6,13 +6,50 @@ drop table if exists reviews cascade;
 drop table if exists cards cascade;
 drop table if exists decks cascade;
 
+-- Create or replace storage bucket for card audio files
+delete from storage.objects where bucket_id = 'card-audio';
+delete from storage.buckets where id = 'card-audio';
+insert into storage.buckets (id, name, public) 
+values ('card-audio', 'card-audio', true);
+
+-- Set up storage policies for card audio
+drop policy if exists "Anyone can read card audio" on storage.objects;
+drop policy if exists "Authenticated users can upload card audio" on storage.objects;
+drop policy if exists "Users can update their own card audio" on storage.objects;
+drop policy if exists "Users can delete their own card audio" on storage.objects;
+
+create policy "Anyone can read card audio"
+  on storage.objects for select
+  using ( bucket_id = 'card-audio' );
+
+create policy "Authenticated users can upload card audio"
+  on storage.objects for insert
+  with check (
+    bucket_id = 'card-audio' 
+    and auth.role() = 'authenticated'
+  );
+
+create policy "Users can update their own card audio"
+  on storage.objects for update
+  using (
+    bucket_id = 'card-audio'
+    and auth.uid() = owner
+  );
+
+create policy "Users can delete their own card audio"
+  on storage.objects for delete
+  using (
+    bucket_id = 'card-audio'
+    and auth.uid() = owner
+  );
+
 -- Create tables for flashcard app
 create extension if not exists "uuid-ossp";
 
 -- Decks table
 create table decks (
   id uuid default uuid_generate_v4() primary key,
-  user_id uuid references auth.users not null,
+  user_id uuid references auth.users on delete cascade not null,
   name text not null,
   created_at timestamp default now()
 );
@@ -20,19 +57,19 @@ create table decks (
 -- Cards table
 create table cards (
   id uuid default uuid_generate_v4() primary key,
-  deck_id uuid references decks(id) not null,
+  deck_id uuid references decks(id) on delete cascade not null,
   front_text text not null,
   back_text text not null,
-  front_audio_url text,  -- TTS for front
-  back_audio_url text,   -- TTS for back
+  front_audio_path text,  -- TTS for front
+  back_audio_path text,   -- TTS for back
   created_at timestamp default now()
 );
 
 -- Reviews table for spaced repetition
 create table reviews (
   id uuid default uuid_generate_v4() primary key,
-  card_id uuid references cards(id) not null,
-  user_id uuid references auth.users not null,
+  card_id uuid references cards(id) on delete cascade not null,
+  user_id uuid references auth.users on delete cascade not null,
   scheduled_date date not null,
   interval_days int default 1,
   ease_factor float default 2.5,
@@ -133,7 +170,7 @@ create table subscription_tiers (
 -- User subscriptions table
 create table user_subscriptions (
   id uuid default uuid_generate_v4() primary key,
-  user_id uuid references auth.users not null,
+  user_id uuid references auth.users on delete cascade not null,
   tier_id uuid references subscription_tiers(id) not null,
   stripe_subscription_id text,
   stripe_customer_id text,
@@ -147,7 +184,7 @@ create table user_subscriptions (
 -- Usage tracking table
 create table usage_tracking (
   id uuid default uuid_generate_v4() primary key,
-  user_id uuid references auth.users not null,
+  user_id uuid references auth.users on delete cascade not null,
   realtime_sessions_started int default 0,
   voice_evaluations_used int default 0,
   card_audio_generations_used int default 0,  -- Track TTS usage in card generation
