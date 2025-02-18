@@ -11,19 +11,18 @@ export function useAudio() {
   const [isRecording, setIsRecording] = useState(false);
   const [error, setError] = useState(null);
   
-  const frontAudioRef = useRef(new Audio());
-  const backAudioRef = useRef(new Audio());
-  const blobUrlsRef = useRef({ front: null, back: null });
+  const audioRefs = useRef(new Map());
+  const blobUrls = useRef(new Map());
   const evaluationAudioRef = useRef(new Audio());
   // Cache for downloaded audio files
   const audioCache = useRef(new Map());
 
   // Helper function to get audio from storage
-  const getAudioById = (audioId) => {
-    console.log('useAudio: Getting audio by ID:', audioId);
-    const audioData = JSON.parse(localStorage.getItem(`audio_storage/${audioId}`));
+  const getAudioFromStorage = (audioPath) => {
+    console.log('useAudio: Getting audio from storage:', audioPath);
+    const audioData = JSON.parse(localStorage.getItem(`audio_storage/${audioPath}`));
     if (!audioData) {
-      console.warn('useAudio: No audio data found for ID:', audioId);
+      console.warn('useAudio: No audio data found for path:', audioPath);
       return null;
     }
     
@@ -111,35 +110,63 @@ export function useAudio() {
     }
   };
 
-  const loadAudio = async (side, audioId) => {
+  const loadAudio = async (audioPath) => {
     try {
-      
+      if (!audioPath) {
+        throw new Error('Audio path is required');
+      }
+
       let audioUrl;
       
-      // First try to get audio from storage if we have an ID
-      if (audioId) {
-        audioUrl = getAudioById(audioId);
-        if (!audioUrl) {
-          console.warn(`No audio found in storage for ID: ${audioId}`);
-        } else {
-          // Set the audio ref's source
-          const audioRef = side === 'front' ? frontAudioRef.current : backAudioRef.current;
-          audioRef.src = audioUrl;
-          blobUrlsRef.current[side] = audioUrl;
-          console.log(`useAudio: Set ${side} audio ref source:`, audioUrl);
+      // First try to get audio from local storage
+      audioUrl = getAudioFromStorage(audioPath);
+      if (audioUrl) {
+        // Create new audio element if needed
+        if (!audioRefs.current.has(audioPath)) {
+          audioRefs.current.set(audioPath, new Audio());
         }
+        const audioRef = audioRefs.current.get(audioPath);
+        audioRef.src = audioUrl;
+        blobUrls.current.set(audioPath, audioUrl);
+        console.log(`useAudio: Set audio ref source from storage:`, audioUrl);
+        return audioUrl;
       }
       
-      // If no audio in storage, fall back to URL in audio refs
-      if (!audioUrl) {
-        const audioRef = side === 'front' ? frontAudioRef.current : backAudioRef.current;
+      // If not in storage, try to download and cache it
+      // Check cache first
+      if (audioCache.current.has(audioPath)) {
+        console.log('Found audio in cache:', audioPath);
+        audioUrl = audioCache.current.get(audioPath);
+      } else {
+        // Download and cache if not found
+        console.log('Downloading audio:', audioPath);
+        audioUrl = await downloadCardAudio(audioPath);
+        if (audioUrl) {
+          console.log('Caching audio:', audioPath);
+          audioCache.current.set(audioPath, audioUrl);
+        }
+      }
+
+      if (audioUrl) {
+        if (!audioRefs.current.has(audioPath)) {
+          audioRefs.current.set(audioPath, new Audio());
+        }
+        const audioRef = audioRefs.current.get(audioPath);
+        audioRef.src = audioUrl;
+        blobUrls.current.set(audioPath, audioUrl);
+        return audioUrl;
+      }
+      
+      // If no audio found anywhere, check if we have an existing ref as last resort
+      if (audioRefs.current.has(audioPath)) {
+        const audioRef = audioRefs.current.get(audioPath);
         if (!audioRef.src) {
           throw new Error('No audio available');
         }
-        audioUrl = audioRef.src;
+        return audioRef.src;
       }
-
-      return audioUrl;
+      
+      throw new Error('No audio available');
     } catch (err) {
       console.error('Error loading audio:', err);
       setError(`Failed to load audio: ${err.message}`);
@@ -147,15 +174,15 @@ export function useAudio() {
     }
   };
 
-  const playAudio = async (side, audioPath, shouldPlay = true) => {
+  const playAudio = async (audioPath, shouldPlay = true) => {
     try {
-      console.log('Playing audio for side:', side, 'with path:', audioPath);
+      console.log('Playing audio with path:', audioPath);
       
-      // Stop any currently playing audio
-      frontAudioRef.current.pause();
-      frontAudioRef.current.currentTime = 0;
-      backAudioRef.current.pause();
-      backAudioRef.current.currentTime = 0;
+      // Stop all currently playing audio
+      for (const audio of audioRefs.current.values()) {
+        audio.pause();
+        audio.currentTime = 0;
+      }
 
       let audioUrl;
       
@@ -179,7 +206,10 @@ export function useAudio() {
 
       // Only play if requested
       if (shouldPlay) {
-        const audioRef = side === 'front' ? frontAudioRef.current : backAudioRef.current;
+        if (!audioRefs.current.has(audioPath)) {
+          audioRefs.current.set(audioPath, new Audio());
+        }
+        const audioRef = audioRefs.current.get(audioPath);
         audioRef.src = audioUrl;
         await audioRef.play();
       }
@@ -198,30 +228,28 @@ export function useAudio() {
     audioCache.current.clear();
 
     // Clean up current audio refs
-    if (blobUrlsRef.current.front) {
-      URL.revokeObjectURL(blobUrlsRef.current.front);
+    for (const [path, url] of blobUrls.current.entries()) {
+      URL.revokeObjectURL(url);
+      const audioRef = audioRefs.current.get(path);
+      if (audioRef) {
+        audioRef.src = '';
+      }
     }
-    if (blobUrlsRef.current.back) {
-      URL.revokeObjectURL(blobUrlsRef.current.back);
-    }
-    blobUrlsRef.current = { front: null, back: null };
-    frontAudioRef.current.src = '';
-    backAudioRef.current.src = '';
+    blobUrls.current.clear();
+    audioRefs.current.clear();
   };
 
   return {
     isLoading,
     isRecording,
     error,
-    frontAudioRef,
-    backAudioRef,
-    blobUrlsRef,
     evaluationAudioRef,
     startRecording,
     stopRecording,
     playAudio,
     loadAudio,
     cleanupAudioUrls,
-    setError
+    setError,
+    audioRefs,
   };
 } 

@@ -258,6 +258,8 @@ export const DeckProvider = ({ children }) => {
         const newCard = await supabase.saveCard(deckId, {
           front_text: card.front_text,
           back_text: card.back_text,
+          front_lang: card.front_lang,
+          back_lang: card.back_lang,
           front_audio_path: card.frontAudioPath,
           back_audio_path: card.backAudioPath,
           created_at: new Date(card.created || Date.now()).toISOString()

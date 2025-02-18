@@ -49,9 +49,10 @@ export const generateCard = async (userInput, targetLang, onProgress) => {
   return api.generateCard(userInput, targetLang, onProgress);
 };
 
-export const evaluateSpeech = async (audioBlob, expectedText, sourceLang, expectedAudioBlob) => {
+export const evaluateSpeech = async (audioBlob, expectedText, sourceLang, expectedAudioBlob, targetLang) => {
+  console.log('API: Evaluating speech with targetLang:', targetLang);
   const api = getApiInstance();
-  return api.evaluateSpeech(audioBlob, expectedText, sourceLang, expectedAudioBlob);
+  return api.evaluateSpeech(audioBlob, expectedText, sourceLang, expectedAudioBlob, targetLang);
 };
 
 export const getRealtimeToken = async () => {

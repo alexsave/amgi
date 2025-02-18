@@ -74,12 +74,14 @@ export class SupabaseApi extends ApiInterface {
     }
   }
 
-  async evaluateSpeech(audioBlob, expectedText, sourceLang, expectedAudioBlob) {
+  async evaluateSpeech(audioBlob, expectedText, sourceLang, expectedAudioBlob, targetLang) {
+    console.log('SupabaseApi: Evaluating speech with targetLang:', targetLang);
     try {
       const [userAudioBase64, expectedAudioBase64] = await Promise.all([
         blobToBase64(audioBlob),
         blobToBase64(expectedAudioBlob)
       ]);
+      console.log('SupabaseApi: Evaluating speech with targetLang:', targetLang);
 
       const { data, error } = await this.supabase.functions.invoke('speech', {
         body: {
@@ -87,7 +89,8 @@ export class SupabaseApi extends ApiInterface {
           expectedText,
           sourceLang,
           expectedAudioBase64,
-          audioFormat: 'mp3'
+          audioFormat: 'mp3',
+          targetLang
         },
       });
 

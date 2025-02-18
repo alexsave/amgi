@@ -20,6 +20,8 @@ export const loadDecks = async (userId) => {
           back_text,
           front_audio_path,
           back_audio_path,
+          front_lang,
+          back_lang,
           created_at
         )
       `)
@@ -81,6 +83,8 @@ export const saveCard = async (deckId, card) => {
         back_text: card.back_text,
         front_audio_path: card.front_audio_path,
         back_audio_path: card.back_audio_path,
+        front_lang: card.front_lang,
+        back_lang: card.back_lang,
         created_at: card.created_at || new Date().toISOString()
       })
       .select()
@@ -104,6 +108,8 @@ export const saveCards = async (deckId, cards) => {
       back_text: card.back_text,
       front_audio_path: card.frontAudioPath,
       back_audio_path: card.backAudioPath,
+      front_lang: card.front_lang,
+      back_lang: card.back_lang,
       created_at: card.created_at || new Date().toISOString()
     }));
 

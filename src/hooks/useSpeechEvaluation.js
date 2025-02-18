@@ -10,20 +10,21 @@ export function useSpeechEvaluation({ audio, onEvaluationResult }) {
         backLang: card.backLang,
         hasRecordedBlob: !!recordedBlob,
         recordedBlobSize: recordedBlob?.size,
-        backAudioId: card.backAudioId
+        backAudioId: card.back_audio_path
       });
 
       // Get the expected audio from storage
-      if (!card.backAudioId) {
+      if (!card.back_audio_path) {
         throw new Error('No back audio ID available for comparison');
       }
 
+      // I now realize we could just pass the path to the edge function and not load it here
       // Load the expected audio from storage
-      console.log('useSpeechEvaluation: Loading expected audio from storage:', card.backAudioId);
-      await audio.loadAudio('back', card.backAudioId);
+      console.log('useSpeechEvaluation: Loading expected audio from storage:', card.back_audio_path);
+      await audio.loadAudio(card.back_audio_path);
       
       // Get the audio URL from the ref
-      const backAudioUrl = audio.backAudioRef.current.src;
+      const backAudioUrl = audio.audioRefs.current.get(card.back_audio_path).src;
       console.log('useSpeechEvaluation: Fetching expected audio from:', backAudioUrl);
 
       // Fetch the audio data
@@ -75,7 +76,8 @@ export function useSpeechEvaluation({ audio, onEvaluationResult }) {
         recordedMp3Blob,      // audioBlob
         card.back_text,        // expectedText
         card.backLang,        // sourceLang (the language being spoken)
-        backAudioMp3Blob      // expectedAudioBlob
+        backAudioMp3Blob,      // expectedAudioBlob
+        card.frontLang        // targetLang (the language being spoken)
       );
 
       console.log('useSpeechEvaluation: Received API result:', {

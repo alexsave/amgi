@@ -62,6 +62,8 @@ create table cards (
   back_text text not null,
   front_audio_path text,  -- TTS for front
   back_audio_path text,   -- TTS for back
+  front_lang text not null,  -- Language of the front text
+  back_lang text not null,   -- Language of the back text
   created_at timestamp default now()
 );
 

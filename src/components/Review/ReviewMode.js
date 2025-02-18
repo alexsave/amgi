@@ -26,19 +26,20 @@ const ReviewMode = () => {
   // Load audio when current card changes
   useEffect(() => {
     if (currentCard) {
+      console.log('ReviewMode: Loading audio for current card:', JSON.stringify(currentCard));
       // Load front audio
-      if (currentCard.frontAudioId) {
-        audio.loadAudio('front', currentCard.frontAudioId)
+      if (currentCard.front_audio_path) {
+        audio.loadAudio(currentCard.front_audio_path)
           .catch(err => console.error('Error loading front audio:', err));
       }
 
       // Load back audio
-      if (currentCard.backAudioId) {
-        audio.loadAudio('back', currentCard.backAudioId)
+      if (currentCard.back_audio_path) {
+        audio.loadAudio(currentCard.back_audio_path)
           .catch(err => console.error('Error loading back audio:', err));
       }
     }
-  }, [currentCard, audio]);
+  }, [currentCard]);
 
   const handleEvaluationResult = (data) => {
     console.log('ReviewMode: Received evaluation result:', {

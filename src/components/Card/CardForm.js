@@ -86,8 +86,8 @@ const CardForm = ({ directMode = false }) => {
       const card = {
         front_text,
         back_text,
-        frontLang: generatedCard.frontLang,
-        backLang: generatedCard.backLang,
+        front_lang: generatedCard.frontLang,
+        back_lang: generatedCard.backLang,
         frontAudioPath: generatedCard.frontAudioPath,
         backAudioPath: generatedCard.backAudioPath
       };
@@ -146,7 +146,7 @@ const CardForm = ({ directMode = false }) => {
               {generatedCard.frontAudioPath && (
                 <button
                   className="play-audio-btn"
-                  onClick={() => playAudio('front', generatedCard.frontAudioPath)}
+                  onClick={() => playAudio(generatedCard.frontAudioPath)}
                 >
                   🔊 Play Audio
                 </button>
@@ -158,7 +158,7 @@ const CardForm = ({ directMode = false }) => {
               {generatedCard.backAudioPath && (
                 <button
                   className="play-audio-btn"
-                  onClick={() => playAudio('back', generatedCard.backAudioPath)}
+                  onClick={() => playAudio(generatedCard.backAudioPath)}
                 >
                   🔊 Play Audio
                 </button>
