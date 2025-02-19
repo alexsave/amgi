@@ -7,38 +7,108 @@ const supabase = createClient(
 );
 
 // Load all decks for the current user
+const loadNewCards = async (userId) => {
+  const { data: decks, error } = await supabase
+    .from('decks')
+    .select(`
+      id,
+      cards!inner (
+        id,
+        front_text,
+        back_text,
+        front_audio_path,
+        back_audio_path,
+        front_lang,
+        back_lang,
+        created_at,
+        reviews!inner (
+          interval_days,
+          ease_factor,
+          repetitions,
+          next_review_date
+        )
+      )
+    `)
+    .eq('user_id', userId)
+    .eq('cards.reviews.repetitions', 0)
+    .limit(40, { foreignTable: 'cards' });
+
+  if (error) throw error;
+  return decks.reduce((acc, deck) => {
+    acc[deck.id] = deck.cards.map(card => ({
+      ...card,
+      review: card.reviews[0],
+      isDue: true,
+      isNew: true
+    }));
+    return acc;
+  }, {});
+};
+
+const loadDueCards = async (userId) => {
+  const today = getLocalDate();
+  const { data: decks, error } = await supabase
+    .from('decks')
+    .select(`
+      id,
+      cards!inner (
+        id,
+        front_text,
+        back_text,
+        front_audio_path,
+        back_audio_path,
+        front_lang,
+        back_lang,
+        created_at,
+        reviews!inner (
+          interval_days,
+          ease_factor,
+          repetitions,
+          next_review_date
+        )
+      )
+    `)
+    .eq('user_id', userId)
+    .gt('cards.reviews.repetitions', 0)
+    .lte('cards.reviews.next_review_date', today);
+
+  if (error) throw error;
+  return decks.reduce((acc, deck) => {
+    acc[deck.id] = deck.cards.map(card => ({
+      ...card,
+      review: card.reviews[0],
+      isDue: true,
+      isNew: false
+    }));
+    return acc;
+  }, {});
+};
+
 export const loadDecks = async (userId) => {
   try {
-    const { data: decks, error } = await supabase
+    // Get basic deck info
+    const { data: decks, error: decksError } = await supabase
       .from('decks')
-      .select(`
-        id,
-        name,
-        created_at,
-        cards (
-          id,
-          front_text,
-          back_text,
-          front_audio_path,
-          back_audio_path,
-          front_lang,
-          back_lang,
-          created_at
-        )
-      `)
+      .select('id, name, created_at')
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
 
-    if (error) throw error;
+    if (decksError) throw decksError;
 
-    // Convert array to object with deck IDs as keys
+    // Load new and due cards in parallel
+    const [newCardsByDeck, dueCardsByDeck] = await Promise.all([
+      loadNewCards(userId),
+      loadDueCards(userId)
+    ]);
+
+    // Combine everything
     return decks.reduce((acc, deck) => {
+      const newCards = newCardsByDeck[deck.id] || [];
+      const dueCards = dueCardsByDeck[deck.id] || [];
+      
       acc[deck.id] = {
         ...deck,
-        /*cards: deck.cards.reduce((cardAcc, card) => {
-          cardAcc[card.id] = card;
-          return cardAcc;
-        }, {})*/
+        cards: [...newCards, ...dueCards]
       };
       return acc;
     }, {});
