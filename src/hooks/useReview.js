@@ -4,6 +4,7 @@ import { calculateNextReview } from '../algorithms/spacedRepetition';
 import { CardScheduler } from '../utils/cardscheduler';
 import * as supabase from '../db/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { getLocalDate, parseLocalDate } from '../utils/dates';
 
 // this could probalby be it's own context
 export function useReview() {
@@ -115,9 +116,9 @@ export function useReview() {
           interval_days: interval,
           ease_factor: easeFactor,
           repetitions,
-          next_review_date: new Date(nextReview).toISOString().split('T')[0],
+          next_review_date: getLocalDate(nextReview),
           last_reviewed_at: new Date().toISOString(),
-          scheduled_date: new Date().toISOString().split('T')[0]
+          scheduled_date: getLocalDate()
         }, user.id);
       }
 

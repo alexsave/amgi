@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { getLocalDate } from '../utils/dates';
 
 const supabase = createClient(
   process.env.REACT_APP_SUPABASE_URL,
@@ -174,8 +175,7 @@ export const saveReview = async (cardId, review, userId) => {
 
     if (fetchError && fetchError.code !== 'PGRST116') throw fetchError;
 
-    const now = new Date().toISOString();
-    const today = now.split('T')[0];
+    const today = getLocalDate();
 
     if (!existingReview) {
       // Create new review with default values
@@ -188,7 +188,7 @@ export const saveReview = async (cardId, review, userId) => {
           interval_days: 1,
           ease_factor: 2.5,
           repetitions: 1,
-          last_reviewed_at: now,
+          last_reviewed_at: new Date().toISOString(),
           next_review_date: review.next_review_date || today
         })
         .select()
@@ -204,7 +204,7 @@ export const saveReview = async (cardId, review, userId) => {
           interval_days: review.interval_days || existingReview.interval_days,
           ease_factor: review.ease_factor || existingReview.ease_factor,
           repetitions: (existingReview.repetitions || 0) + 1,
-          last_reviewed_at: now,
+          last_reviewed_at: new Date().toISOString(),
           next_review_date: review.next_review_date
         })
         .eq('card_id', cardId)
@@ -241,7 +241,7 @@ export const getDueCards = async (userId) => {
         )
       `)
       .eq('user_id', userId)
-      .lte('next_review_date', new Date().toISOString().split('T')[0])
+      .lte('next_review_date', getLocalDate())
       .order('next_review_date', { ascending: true });
 
     if (error) throw error;
