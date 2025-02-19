@@ -75,32 +75,7 @@ export async function getSubscription(userId: string): Promise<SubscriptionData 
 export async function getOrCreateUsage(userId: string, subscription: SubscriptionData | null): Promise<UsageData> {
     const now = new Date();
     
-    // Try to get existing usage record
-    const { data: usageRecords, error: usageError } = await supabaseClient
-        .from('usage_tracking')
-        .select('*')
-        .eq('user_id', userId)
-        .lte('period_end', now.toISOString())
-        .gte('period_start', now.toISOString());
-
-    if (usageError) {
-        console.error('Error fetching usage:', usageError);
-        throw usageError;
-    }
-
-    // If we found a usage record, ensure it has all fields
-    if (usageRecords && usageRecords.length > 0) {
-        const usage = usageRecords[0];
-        return {
-            ...usage,
-            ...DEFAULT_USAGE,
-            realtime_sessions_started: usage.realtime_sessions_started || 0,
-            voice_evaluations_used: usage.voice_evaluations_used || 0,
-            card_audio_generations_used: usage.card_audio_generations_used || 0
-        };
-    }
-
-    // If no usage record exists, create one
+    // Determine the period
     let periodStart, periodEnd;
     if (subscription) {
         periodStart = new Date(subscription.current_period_start);
@@ -110,32 +85,49 @@ export async function getOrCreateUsage(userId: string, subscription: Subscriptio
         periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0); // End of current month
     }
 
-    console.log('Creating new usage record:', {
-        userId,
-        periodStart: periodStart.toISOString(),
-        periodEnd: periodEnd.toISOString()
-    });
+    // First try to get existing record
+    const { data: existingUsage, error: getError } = await supabaseClient
+        .from('usage_tracking')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('period_start', periodStart.toISOString())
+        .single();
 
-    const { data: newUsageRecords, error: createError } = await supabaseClient
+    if (getError && getError.message !== 'JSON object requested, multiple (or no) rows returned') {
+        console.error('Error fetching usage:', getError);
+        throw getError;
+    }
+
+    // If record exists, return it with defaults ensured
+    if (existingUsage) {
+        return {
+            ...existingUsage,
+            realtime_sessions_started: existingUsage.realtime_sessions_started || 0,
+            voice_evaluations_used: existingUsage.voice_evaluations_used || 0,
+            card_audio_generations_used: existingUsage.card_audio_generations_used || 0
+        };
+    }
+
+    // If no record exists, create one with zeroed usage
+    const { data: newUsage, error: createError } = await supabaseClient
         .from('usage_tracking')
         .insert({
             user_id: userId,
-            ...DEFAULT_USAGE,
+            realtime_sessions_started: 0,
+            voice_evaluations_used: 0,
+            card_audio_generations_used: 0,
             period_start: periodStart.toISOString(),
             period_end: periodEnd.toISOString()
         })
-        .select();
+        .select()
+        .single();
 
     if (createError) {
         console.error('Error creating usage tracking:', createError);
         throw createError;
     }
 
-    if (!newUsageRecords || newUsageRecords.length === 0) {
-        throw new Error('Failed to create usage record');
-    }
-
-    return newUsageRecords[0];
+    return newUsage;
 }
 
 export async function updateUsage(usageId: string, updates: Partial<UsageData>) {

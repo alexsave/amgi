@@ -3,6 +3,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts"
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "npm:@supabase/supabase-js@2.39.0"
 import OpenAI from "npm:openai@4.28.0"
+import { getOrCreateUsage } from "../_shared/billing.ts";
 
 
 export const corsHeaders = {
@@ -96,69 +97,14 @@ serve(async (req) => {
       subscription = sub;
     }
 
-    // Always track usage, even if billing is disabled
-    const now = new Date();
-    console.log('Fetching usage tracking for period:', now.toISOString());
-    
-    let { data: usage, error: usageError } = await supabase
-      .from('usage_tracking')
-      .select('*')
-      .eq('user_id', user.id)
-      .lte('period_end', now.toISOString())
-      .gte('period_start', now.toISOString())
-      .single();
-
-    console.log('Usage tracking query result:', {
-      usage: usage ? {
-        id: usage.id,
-        evaluationsUsed: usage.voice_evaluations_used,
-        periodStart: usage.period_start,
-        periodEnd: usage.period_end
-      } : null,
-      error: usageError?.message,
-      details: usageError?.details
+    // Get or create usage tracking record
+    const usage = await getOrCreateUsage(user.id, subscription);
+    console.log('Usage tracking record:', {
+      id: usage.id,
+      evaluationsUsed: usage.voice_evaluations_used,
+      periodStart: usage.period_start,
+      periodEnd: usage.period_end
     });
-
-    // If no usage record exists, create one
-    if (usageError?.message === 'JSON object requested, multiple (or no) rows returned') {
-      console.log('No usage tracking found, creating new record');
-      
-      // Use subscription period if available, otherwise create a monthly period
-      let periodStart, periodEnd;
-      if (subscription) {
-        periodStart = new Date(subscription.current_period_start);
-        periodEnd = new Date(subscription.current_period_end);
-      } else {
-        periodStart = new Date(now.getFullYear(), now.getMonth(), 1); // Start of current month
-        periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0); // End of current month
-      }
-      
-      const { data: newUsage, error: createError } = await supabase
-        .from('usage_tracking')
-        .insert({
-          user_id: user.id,
-          voice_evaluations_used: 0,
-          realtime_sessions_started: 0,
-          period_start: periodStart.toISOString(),
-          period_end: periodEnd.toISOString()
-        })
-        .select()
-        .single();
-
-      if (createError) {
-        console.error('Failed to create usage tracking:', createError);
-        throw createError;
-      }
-
-      usage = newUsage;
-      console.log('Created new usage tracking record:', {
-        id: usage.id,
-        periodStart: usage.period_start,
-        periodEnd: usage.period_end
-      });
-    } else if (usageError) {
-      throw usageError;
-    }
 
     // Only check limits if billing is enabled
     if (enableBilling && subscription) {

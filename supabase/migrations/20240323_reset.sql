@@ -77,7 +77,8 @@ create table reviews (
   ease_factor float default 2.5,
   repetitions int default 0,
   last_reviewed_at timestamp,
-  next_review_date date
+  next_review_date date,
+  unique(card_id, user_id)
 );
 
 -- Add indexes for better query performance
@@ -193,7 +194,8 @@ create table usage_tracking (
   period_start timestamp not null,
   period_end timestamp not null,
   created_at timestamp default now(),
-  updated_at timestamp default now()
+  updated_at timestamp default now(),
+  unique(user_id, period_start)
 );
 
 -- Add indexes

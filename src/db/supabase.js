@@ -162,25 +162,59 @@ export const loadReview = async (cardId, userId) => {
 
 // Save review data for a card
 export const saveReview = async (cardId, review, userId) => {
-  console.log('card id', cardId);
+  console.log('Saving review for card:', cardId);
   try {
-    const { data, error } = await supabase
+    // First check if a review exists
+    const { data: existingReview, error: fetchError } = await supabase
       .from('reviews')
-      .upsert({
-        card_id: cardId,
-        user_id: userId,
-        scheduled_date: review.scheduled_date,
-        interval_days: review.interval_days,
-        ease_factor: review.ease_factor,
-        repetitions: review.repetitions,
-        last_reviewed_at: review.last_reviewed_at || new Date().toISOString(),
-        next_review_date: review.next_review_date
-      })
       .select()
+      .eq('card_id', cardId)
+      .eq('user_id', userId)
       .single();
 
-    if (error) throw error;
-    return data;
+    if (fetchError && fetchError.code !== 'PGRST116') throw fetchError;
+
+    const now = new Date().toISOString();
+    const today = now.split('T')[0];
+
+    if (!existingReview) {
+      // Create new review with default values
+      const { data, error } = await supabase
+        .from('reviews')
+        .insert({
+          card_id: cardId,
+          user_id: userId,
+          scheduled_date: today,
+          interval_days: 1,
+          ease_factor: 2.5,
+          repetitions: 1,
+          last_reviewed_at: now,
+          next_review_date: review.next_review_date || today
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } else {
+      // Update existing review with incremented values
+      const { data, error } = await supabase
+        .from('reviews')
+        .update({
+          interval_days: review.interval_days || existingReview.interval_days,
+          ease_factor: review.ease_factor || existingReview.ease_factor,
+          repetitions: (existingReview.repetitions || 0) + 1,
+          last_reviewed_at: now,
+          next_review_date: review.next_review_date
+        })
+        .eq('card_id', cardId)
+        .eq('user_id', userId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    }
   } catch (err) {
     console.error('Error saving review:', err);
     throw err;
