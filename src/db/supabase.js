@@ -20,6 +20,7 @@ const loadNewCards = async (userId) => {
         back_audio_path,
         front_lang,
         back_lang,
+        position,
         created_at,
         reviews!inner (
           interval_days,
@@ -31,6 +32,7 @@ const loadNewCards = async (userId) => {
     `)
     .eq('user_id', userId)
     .eq('cards.reviews.repetitions', 0)
+    .order('position', { referencedTable: 'cards', ascending: true })
     .limit(40, { foreignTable: 'cards' });
 
   if (error) throw error;
@@ -59,6 +61,7 @@ const loadDueCards = async (userId) => {
         back_audio_path,
         front_lang,
         back_lang,
+        position,
         created_at,
         reviews!inner (
           interval_days,
@@ -70,7 +73,8 @@ const loadDueCards = async (userId) => {
     `)
     .eq('user_id', userId)
     .gt('cards.reviews.repetitions', 0)
-    .lte('cards.reviews.next_review_date', today);
+    .lte('cards.reviews.next_review_date', today)
+    .order('position', { referencedTable: 'cards', ascending: true });
 
   if (error) throw error;
   return decks.reduce((acc, deck) => {
@@ -145,11 +149,53 @@ export const saveDeck = async (deck, userId) => {
 export const saveCard = async (deckId, card) => {
   console.log('Supabase: saving card:', card);
   try {
+    // If this is a new card being inserted at a specific position,
+    // we need to shift existing cards to make room
+    if (!card.id && card.position !== undefined) {
+      const { data: existingCards, error: shiftError } = await supabase
+        .from('cards')
+        .select('id, position')
+        .eq('deck_id', deckId)
+        .gte('position', card.position)
+        .order('position');
+
+      if (shiftError) throw shiftError;
+
+      // Shift existing cards up by 1
+      if (existingCards?.length > 0) {
+        const updates = existingCards.map(existing => ({
+          id: existing.id,
+          position: existing.position + 1
+        }));
+        
+        const { error: updateError } = await supabase
+          .from('cards')
+          .upsert(updates);
+
+        if (updateError) throw updateError;
+      }
+    }
+
+    // If no position specified for new card, put it at the end
+    if (!card.id && card.position === undefined) {
+      const { data: lastCard, error: lastError } = await supabase
+        .from('cards')
+        .select('position')
+        .eq('deck_id', deckId)
+        .order('position', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (lastError && lastError.code !== 'PGRST116') throw lastError;
+      card.position = (lastCard?.position || 0) + 1;
+    }
+
     const { data, error } = await supabase
       .from('cards')
       .upsert({
         id: card.id,
         deck_id: deckId,
+        position: card.position,
         front_text: card.front_text,
         back_text: card.back_text,
         front_audio_path: card.front_audio_path,
@@ -172,9 +218,22 @@ export const saveCard = async (deckId, card) => {
 // Save multiple cards at once
 export const saveCards = async (deckId, cards) => {
   try {
+    // Get the highest position currently in use
+    const { data: lastCard, error: lastError } = await supabase
+      .from('cards')
+      .select('position')
+      .eq('deck_id', deckId)
+      .order('position', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (lastError && lastError.code !== 'PGRST116') throw lastError;
+    let nextPosition = (lastCard?.position || 0) + 1;
+
     const cardsArray = Object.values(cards).map(card => ({
       id: card.id,
       deck_id: deckId,
+      position: card.position || nextPosition++,
       front_text: card.front_text,
       back_text: card.back_text,
       front_audio_path: card.frontAudioPath,

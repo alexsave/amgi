@@ -58,13 +58,15 @@ create table decks (
 create table cards (
   id uuid default uuid_generate_v4() primary key,
   deck_id uuid references decks(id) on delete cascade not null,
+  position integer not null,
   front_text text not null,
   back_text text not null,
   front_audio_path text,  -- TTS for front
   back_audio_path text,   -- TTS for back
   front_lang text not null,  -- Language of the front text
   back_lang text not null,   -- Language of the back text
-  created_at timestamp default now()
+  created_at timestamp default now(),
+  unique(deck_id, position)
 );
 
 -- Reviews table for spaced repetition
@@ -83,6 +85,7 @@ create table reviews (
 
 -- Add indexes for better query performance
 create index cards_deck_id_idx on cards(deck_id);
+create index cards_position_idx on cards(deck_id, position);
 create index reviews_card_id_idx on reviews(card_id);
 create index reviews_user_id_idx on reviews(user_id);
 create index reviews_next_review_date_idx on reviews(next_review_date);
