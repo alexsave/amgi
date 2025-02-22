@@ -152,6 +152,7 @@ export const saveCard = async (deckId, card) => {
     // If this is a new card being inserted at a specific position,
     // we need to shift existing cards to make room
     if (!card.id && card.position !== undefined) {
+      console.log('Supabase: shifting cards to make room for new card');
       const { data: existingCards, error: shiftError } = await supabase
         .from('cards')
         .select('id, position')
@@ -178,18 +179,19 @@ export const saveCard = async (deckId, card) => {
 
     // If no position specified for new card, put it at the end
     if (!card.id && card.position === undefined) {
+      console.log('Supabase: getting last card position');
       const { data: lastCard, error: lastError } = await supabase
         .from('cards')
         .select('position')
         .eq('deck_id', deckId)
         .order('position', { ascending: false })
-        .limit(1)
-        .single();
+        .limit(1);
 
       if (lastError && lastError.code !== 'PGRST116') throw lastError;
-      card.position = (lastCard?.position || 0) + 1;
+      card.position = (lastCard[0]?.position || 0) + 1;
     }
 
+    console.log('Supabase: inserting card');
     const { data, error } = await supabase
       .from('cards')
       .upsert({
@@ -295,19 +297,20 @@ export const saveReview = async (cardId, review, userId) => {
   console.log('Saving review for card:', cardId);
   try {
     // First check if a review exists
+    console.log('Supabase: checking if review exists');
     const { data: existingReview, error: fetchError } = await supabase
       .from('reviews')
       .select()
       .eq('card_id', cardId)
-      .eq('user_id', userId)
-      .single();
+      .eq('user_id', userId);
 
     if (fetchError && fetchError.code !== 'PGRST116') throw fetchError;
 
     const today = getLocalDate();
 
-    if (!existingReview) {
+    if (existingReview.length === 0) {
       // Create new review with default values
+      console.log('Supabase: creating new review');
       const { data, error } = await supabase
         .from('reviews')
         .insert({
