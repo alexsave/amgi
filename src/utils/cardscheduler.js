@@ -33,6 +33,7 @@ class FIFOQueue {
  *   peek() -> { id, nextReviewTime } or null
  *   pop() -> { id, nextReviewTime } or null
  *   setNextReviewTime(id, newTime) -> O(log n) update
+ *   delete(id) -> boolean
  ********************************************************/
 class MinHeap {
   constructor() {
@@ -66,6 +67,43 @@ class MinHeap {
     }
 
     return popped;
+  }
+
+  /**
+   * Delete an item from the heap by its id.
+   * Returns true if found and deleted, false otherwise.
+   */
+  delete(id) {
+    const idx = this.indexMap.get(id);
+    if (idx == null) {
+      return false;
+    }
+
+    // If it's the last element, just pop it
+    if (idx === this.heap.length - 1) {
+      this.heap.pop();
+      this.indexMap.delete(id);
+      return true;
+    }
+
+    // Otherwise:
+    // 1. Swap with last element
+    // 2. Pop last element
+    // 3. Bubble down or up the swapped element
+    this.swap(idx, this.heap.length - 1);
+    this.heap.pop();
+    this.indexMap.delete(id);
+
+    if (this.heap.length > 0 && idx < this.heap.length) {
+      // Need to check if we should bubble up or down
+      const parent = Math.floor((idx - 1) / 2);
+      if (parent >= 0 && this.heap[idx].nextReviewTime < this.heap[parent].nextReviewTime) {
+        this.bubbleUp(idx);
+      } else {
+        this.bubbleDown(idx);
+      }
+    }
+    return true;
   }
 
   setNextReviewTime(id, newTime) {
@@ -161,19 +199,50 @@ export class CardScheduler {
   }
 
   /**
-   * Add a scheduled card to the min-heap.
-   * e.g. scheduler.pushReviewCard('cardB', Date.now() + 600000);
+   * Add or update a card's review time in the min-heap.
+   * If the card is in the new queue, it will be moved to the review heap.
+   * If the card is in the review heap, its time will be updated.
+   * If the card isn't in either, it will be added to the review heap.
+   * e.g. scheduler.setReviewTime('cardB', Date.now() + 10*60*1000);
    */
-  pushReviewCard(id, nextReviewTime) {
-    this.reviewHeap.push(id, nextReviewTime);
+  setReviewTime(id, nextReviewTime) {
+    // First check if the card is in the new queue
+    const items = this.newQueue.items;
+    const newQueueIndex = items.indexOf(id);
+    if (newQueueIndex !== -1) {
+      // Remove from new queue
+      items.splice(newQueueIndex, 1);
+      // Add to review heap
+      this.reviewHeap.push(id, nextReviewTime);
+      return;
+    }
+
+    // Not in new queue, check review heap
+    const idx = this.reviewHeap.indexMap.get(id);
+    if (idx === null) {
+      // Card not found in heap, add it
+      this.reviewHeap.push(id, nextReviewTime);
+    } else {
+      // Card exists, update its time
+      this.reviewHeap.setNextReviewTime(id, nextReviewTime);
+    }
   }
 
   /**
-   * Update an existing scheduled card's nextReviewTime.
-   * e.g. scheduler.setReviewTime('cardB', Date.now() + 10*60*1000);
+   * Delete a card from either the new queue or review heap.
+   * Returns true if the card was found and deleted, false otherwise.
    */
-  setReviewTime(id, newTime) {
-    this.reviewHeap.setNextReviewTime(id, newTime);
+  delete(id) {
+    // First check new queue
+    const items = this.newQueue.items;
+    const newQueueIndex = items.indexOf(id);
+    if (newQueueIndex !== -1) {
+      items.splice(newQueueIndex, 1);
+      return true;
+    }
+
+    // Then check review heap
+    return this.reviewHeap.delete(id);
   }
 
   /**
@@ -232,6 +301,18 @@ export class CardScheduler {
     return null;
   }
 
+  getNewCardsCount() {
+    return this.newQueue.size();
+  }
+
+  getReviewCardsCount() {
+    return this.reviewHeap.heap.length;
+  }
+
+  getTotalCardsCount() {
+    return this.getNewCardsCount() + this.getReviewCardsCount();
+  }
+
   clear() {
     this.reviewHeap = new MinHeap();
     this.newQueue = new FIFOQueue();
@@ -248,10 +329,10 @@ export class CardScheduler {
  * const endOfDay = new Date().setHours(23, 59, 59, 999);
  *
  * // 1) Add a scheduled card that is due now
- * scheduler.pushReviewCard('reviewNow', now);
+ * scheduler.setReviewTime('reviewNow', now);
  *
  * // 2) Add a scheduled card for 2 hours in the future
- * scheduler.pushReviewCard('reviewLater', now + 2 * 3600_000);
+ * scheduler.setReviewTime('reviewLater', now + 2 * 3600_000);
  *
  * // 3) Add a new card (no time)
  * scheduler.pushNewCard('newCardA');

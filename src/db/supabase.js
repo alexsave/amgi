@@ -35,8 +35,7 @@ const loadNewCards = async (userId) => {
     acc[deck.id] = deck.cards.map(card => ({
       ...card,
       review: card.reviews[0],
-      isDue: true,
-      isNew: true
+      reviews: undefined
     }));
     return acc;
   }, {});
@@ -76,8 +75,7 @@ const loadDueCards = async (userId) => {
     acc[deck.id] = deck.cards.map(card => ({
       ...card,
       review: card.reviews[0],
-      isDue: true,
-      isNew: false
+      reviews: undefined
     }));
     return acc;
   }, {});
@@ -287,7 +285,31 @@ export const loadReview = async (cardId, userId) => {
   }
 };
 
+export const newReview = async (cardId, userId) => {
+    const today = getLocalDate();
+
+      console.log('Supabase: creating new review');
+      const { data, error } = await supabase
+        .from('reviews')
+        .insert({
+          card_id: cardId,
+          user_id: userId,
+          scheduled_date: today,
+          interval_days: 1,
+          ease_factor: 2.5,
+          repetitions: 0,
+          //last_reviewed_at: new Date().toISOString(),// this is wrong
+          //next_review_date: review.next_review_date || today
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+}
+
 // Save review data for a card
+// assume we already have it
 export const saveReview = async (cardId, review, userId) => {
   console.log('Saving review for card:', cardId);
   try {
@@ -315,7 +337,7 @@ export const saveReview = async (cardId, review, userId) => {
           interval_days: 1,
           ease_factor: 2.5,
           repetitions: 1,
-          last_reviewed_at: new Date().toISOString(),
+          last_reviewed_at: new Date().toISOString(),// this is wrong
           next_review_date: review.next_review_date || today
         })
         .select()
@@ -331,7 +353,7 @@ export const saveReview = async (cardId, review, userId) => {
           interval_days: review.interval_days || existingReview.interval_days,
           ease_factor: review.ease_factor || existingReview.ease_factor,
           repetitions: (existingReview.repetitions || 0) + 1,
-          last_reviewed_at: new Date().toISOString(),
+          last_reviewed_at: review.last_reviewed_at || new Date().toISOString(),
           next_review_date: review.next_review_date
         })
         .eq('card_id', cardId)

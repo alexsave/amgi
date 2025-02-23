@@ -14,7 +14,7 @@ import './ReviewMode.css';
 
 const ReviewMode = () => {
   const { currentDeck, decks, dueCards, mode, currentDeckId } = useDecks();
-  const { currentCard, initReview } = useReview();
+  const { currentCard, initReview, newCardsCount, reviewCardsCount } = useReview();
   const navigate = useNavigate();
   const audio = useAudio();
   const review = useReview();
@@ -62,7 +62,7 @@ const ReviewMode = () => {
     console.log('ReviewMode: Determined quality:', quality);
 
     // Update card scheduling
-    review.updateCardScheduling(currentCard.id, quality);
+    review.updateCardSchedulingServer(currentCard.id, quality);
     console.log('ReviewMode: Updated card scheduling');
     
     // Play evaluation audio if available
@@ -149,7 +149,7 @@ const ReviewMode = () => {
       </div>
 
       <div className="card-progress">
-        Card {review.currentCardIndex + 1} of ?
+        {`New Cards: ${newCardsCount} • Review Cards: ${reviewCardsCount}`}
       </div>
 
       {isVoiceMode ? (

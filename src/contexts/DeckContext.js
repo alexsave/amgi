@@ -266,13 +266,7 @@ export const DeckProvider = ({ children }) => {
         });
         
         // Create initial review
-        await supabase.saveReview(newCard.id, {
-          scheduled_date: new Date().toISOString().split('T')[0],
-          interval_days: 1,
-          ease_factor: 2.5,
-          repetitions: 0,
-          next_review_date: new Date().toISOString().split('T')[0]
-        }, user.id);
+        await supabase.newReview(newCard.id, user.id);
         
         // Update local state
         console.log('DeckContext: adding card to local state:', deckId, card);

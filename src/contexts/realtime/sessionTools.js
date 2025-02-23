@@ -6,6 +6,7 @@ export const sessionTools = {
         parameters: {
             type: 'object',
             properties: {
+                // Consider a numeric rating instead of correct/incorrect
                 result: {
                     type: 'string',
                     enum: ['correct', 'incorrect', 'quit'],
