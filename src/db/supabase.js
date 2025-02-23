@@ -1,10 +1,5 @@
-import { createClient } from '@supabase/supabase-js';
 import { getLocalDate } from '../utils/dates';
-
-const supabase = createClient(
-  process.env.REACT_APP_SUPABASE_URL,
-  process.env.REACT_APP_SUPABASE_KEY
-);
+import supabase from './supabaseClient';
 
 // Load all decks for the current user
 const loadNewCards = async (userId) => {

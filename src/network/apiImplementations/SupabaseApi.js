@@ -1,12 +1,11 @@
 import { ApiInterface } from './ApiInterface';
 import { blobToBase64 } from '../utils';
-import { createClient } from '@supabase/supabase-js';
+import supabaseClient from '../../db/supabaseClient';
 
 export class SupabaseApi extends ApiInterface {
-  constructor(supabaseUrl, supabaseKey) {
+  constructor() {
     super();
-    this.supabase = createClient(supabaseUrl, supabaseKey);
-    this.baseUrl = supabaseUrl;
+    this.supabase = supabaseClient;
   }
 
   async getHeaders() {

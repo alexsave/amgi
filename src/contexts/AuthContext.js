@@ -1,11 +1,6 @@
-import { createClient } from '@supabase/supabase-js';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { clearApiInstance } from '../network/api';
-
-const supabase = createClient(
-  process.env.REACT_APP_SUPABASE_URL,
-  process.env.REACT_APP_SUPABASE_KEY
-);
+import supabase from '../db/supabaseClient';
 
 const AuthContext = createContext({});
 

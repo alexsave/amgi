@@ -5,8 +5,6 @@ import { SupabaseApi } from './apiImplementations/SupabaseApi';
 
 // Environment configuration
 const USE_LOCAL = process.env.REACT_APP_USE_LOCAL === 'true';
-const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL;
-const SUPABASE_KEY = process.env.REACT_APP_SUPABASE_KEY;
 
 // API instance management
 let apiInstance = null;
@@ -26,10 +24,8 @@ const getApiInstance = () => {
       apiInstance.initialize(apiKey);
     } else if (USE_LOCAL) {
       apiInstance = new LocalApi();
-    } else if (SUPABASE_URL && SUPABASE_KEY) {
-      apiInstance = new SupabaseApi(SUPABASE_URL, SUPABASE_KEY);
     } else {
-      throw new Error('No valid API configuration found');
+      apiInstance = new SupabaseApi();
     }
   }
   return apiInstance;
