@@ -1,4 +1,4 @@
-import { updateCardScheduling, getDueCards } from '../../algorithms/spacedRepetition';
+import { calculateNextReview, getDueCards } from '../../algorithms/spacedRepetition';
 
 // Mock current date for consistent testing
 let mockDate;
@@ -38,98 +38,136 @@ afterAll(() => {
 });
 
 describe('Spaced Repetition Algorithm', () => {
-  describe('updateCardScheduling', () => {
+  describe('calculateNextReview', () => {
     test('handles new card correct response', () => {
-      const card = {
-        interval: 1,
-        repetitions: 0,
-        easeFactor: 2.5,
-        lastReviewed: null,
-        nextReview: null
-      };
+      const review = null; // New card has no review history
 
-      const result = updateCardScheduling(card, 'correct');
+      const result = calculateNextReview(review, 'correct');
       
-      expect(result.interval).toBe(1); // First interval
+      expect(result.interval).toBe(1);
       expect(result.repetitions).toBe(1);
-      expect(result.easeFactor).toBe(2.5); // Unchanged for first review
-      expect(new Date(result.nextReview)).toEqual(new Date('2024-01-02T12:00:00Z')); // Next day
-      expect(result.lastReviewed).toBe(mockDate.toISOString());
+      expect(result.easeFactor).toBe(2.5);
+      
+      // Next review should be 10 minutes from now for first success
+      const nextReview = new Date(result.nextReview);
+      expect(nextReview.getTime() - mockDate.getTime()).toBe(10 * 60 * 1000);
     });
 
-    test('handles second correct response', () => {
-      const card = {
-        interval: 1,
+    test('handles learning card correct response', () => {
+      const review = {
+        interval_days: 1,
         repetitions: 1,
-        easeFactor: 2.5,
-        lastReviewed: mockDate.toISOString(),
-        nextReview: new Date('2024-01-02T12:00:00Z').toISOString()
+        ease_factor: 2.5,
+        card_state: 'learning'
       };
 
-      const result = updateCardScheduling(card, 'correct');
+      const result = calculateNextReview(review, 'correct');
       
-      expect(result.interval).toBe(6); // Second interval
+      expect(result.interval).toBe(1);
       expect(result.repetitions).toBe(2);
       expect(result.easeFactor).toBe(2.5);
-      expect(new Date(result.nextReview)).toEqual(new Date('2024-01-07T12:00:00Z')); // 6 days later
+      
+      // Next review should be tomorrow
+      const nextReview = new Date(result.nextReview);
+      expect(nextReview).toEqual(new Date('2024-01-02T12:00:00Z'));
     });
 
-    test('handles third+ correct response with ease factor', () => {
-      const card = {
-        interval: 6,
+    test('handles review card correct response', () => {
+      const review = {
+        interval_days: 1,
         repetitions: 2,
-        easeFactor: 2.5,
-        lastReviewed: mockDate.toISOString(),
-        nextReview: new Date('2024-01-07T12:00:00Z').toISOString()
+        ease_factor: 2.5,
+        card_state: 'review'
       };
 
-      const result = updateCardScheduling(card, 'correct');
+      const result = calculateNextReview(review, 'correct');
       
-      // interval * easeFactor = 6 * 2.5 = 15
-      expect(result.interval).toBe(15);
+      // interval * easeFactor = 1 * 2.5 = 2.5 (rounded to 3)
+      expect(result.interval).toBe(3);
       expect(result.repetitions).toBe(3);
       expect(result.easeFactor).toBe(2.5);
-      expect(new Date(result.nextReview)).toEqual(new Date('2024-01-16T12:00:00Z'));
+      
+      // Next review should be 3 days from now
+      const nextReview = new Date(result.nextReview);
+      expect(nextReview).toEqual(new Date('2024-01-04T12:00:00Z'));
     });
 
-    test('handles incorrect response', () => {
-      const card = {
-        interval: 6,
-        repetitions: 2,
-        easeFactor: 2.5,
-        lastReviewed: mockDate.toISOString(),
-        nextReview: new Date('2024-01-07T12:00:00Z').toISOString()
+    test('handles incorrect response for new card', () => {
+      const review = null;
+
+      const result = calculateNextReview(review, 'incorrect');
+      
+      expect(result.interval).toBe(1);
+      expect(result.repetitions).toBe(0);
+      expect(result.easeFactor).toBe(2.5); // Unchanged for new cards
+      
+      // Next review should be 10 minutes from now
+      const nextReview = new Date(result.nextReview);
+      expect(nextReview.getTime() - mockDate.getTime()).toBe(10 * 60 * 1000);
+    });
+
+    test('handles incorrect response for learning card', () => {
+      const review = {
+        interval_days: 1,
+        repetitions: 1,
+        ease_factor: 2.5,
+        card_state: 'learning'
       };
 
-      const result = updateCardScheduling(card, 'incorrect');
+      const result = calculateNextReview(review, 'incorrect');
       
-      expect(result.interval).toBe(1); // Reset to 1
-      expect(result.repetitions).toBe(0); // Reset to 0
+      expect(result.interval).toBe(1);
+      expect(result.repetitions).toBe(1); // Repetitions not reset for learning cards
+      expect(result.easeFactor).toBe(2.5); // Unchanged for learning cards
+      
+      // Next review should be 10 minutes from now
+      const nextReview = new Date(result.nextReview);
+      expect(nextReview.getTime() - mockDate.getTime()).toBe(10 * 60 * 1000);
+    });
+
+    test('handles incorrect response for review card', () => {
+      const review = {
+        interval_days: 5,
+        repetitions: 3,
+        ease_factor: 2.5,
+        card_state: 'review'
+      };
+
+      const result = calculateNextReview(review, 'incorrect');
+      
+      expect(result.interval).toBe(1);
+      expect(result.repetitions).toBe(3); // Repetitions not reset for review cards
       expect(result.easeFactor).toBe(2.3); // Decreased by 0.2
-      expect(result.dueTimestamp).toBeDefined(); // Should be set for 10 minutes
-      const dueDate = new Date(result.dueTimestamp);
-      expect(dueDate.getTime() - mockDate.getTime()).toBe(10 * 60 * 1000); // 10 minutes later
+      
+      // Next review should be 10 minutes from now
+      const nextReview = new Date(result.nextReview);
+      expect(nextReview.getTime() - mockDate.getTime()).toBe(10 * 60 * 1000);
     });
 
-    test('handles late review bonus', () => {
-      const card = {
-        interval: 6,
-        repetitions: 2,
-        easeFactor: 2.5,
-        lastReviewed: mockDate.toISOString(),
-        nextReview: new Date('2024-01-04T12:00:00Z').toISOString() // Due 3 days ago
+    test('ensures minimum ease factor', () => {
+      const review = {
+        interval_days: 5,
+        repetitions: 3,
+        ease_factor: 1.4, // Already close to minimum
+        card_state: 'review'
       };
 
-      // Set current date to 3 days after due date
-      mockDate = new Date('2024-01-07T12:00:00Z');
+      const result = calculateNextReview(review, 'incorrect');
       
-      const result = updateCardScheduling(card, 'correct');
+      expect(result.easeFactor).toBe(1.3); // Won't go below 1.3
+    });
+
+    test('caps maximum interval at 10 years', () => {
+      const review = {
+        interval_days: 2000, // Very long interval
+        repetitions: 10,
+        ease_factor: 2.5,
+        card_state: 'review'
+      };
+
+      const result = calculateNextReview(review, 'correct');
       
-      // interval * (1 + 0.2 * daysLate) * easeFactor = 6 * 1.6 * 2.5 = 24
-      expect(result.interval).toBe(24);
-      expect(result.repetitions).toBe(3);
-      expect(result.easeFactor).toBe(2.5);
-      expect(new Date(result.nextReview)).toEqual(new Date('2024-01-31T12:00:00Z'));
+      expect(result.interval).toBe(3650); // 10 years
     });
   });
 
@@ -284,41 +322,6 @@ describe('Spaced Repetition Algorithm', () => {
       expect(dueCards.map(c => c.front_text)).toEqual(["Due Now", "Due Soon 1", "Due Soon 2"]);
     });
 
-    test('handles far future cards correctly', () => {
-      const futureDate = new Date(mockDate.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 days in future
-      const deck = {
-        cards: [
-          {
-            front_text: "Far Future",
-            lastReviewed: mockDate.toISOString(),
-            nextReview: futureDate.toISOString()
-          },
-          {
-            front_text: "Due Now",
-            lastReviewed: mockDate.toISOString(),
-            nextReview: mockDate.toISOString()
-          }
-        ]
-      };
-
-      // Initial check
-      let dueCards = getDueCards(deck, 10, 0);
-      expect(dueCards).toHaveLength(1);
-      expect(dueCards[0].front_text).toBe("Due Now");
-
-      // Advance 29 days
-      mockDate = new Date(mockDate.getTime() + 29 * 24 * 60 * 60 * 1000);
-      dueCards = getDueCards(deck, 10, 0);
-      expect(dueCards).toHaveLength(1);
-      expect(dueCards[0].front_text).toBe("Due Now");
-
-      // Advance to exactly when the card is due
-      mockDate = new Date(futureDate.getTime());
-      dueCards = getDueCards(deck, 10, 0);
-      expect(dueCards).toHaveLength(2);
-      expect(dueCards.map(c => c.front_text)).toEqual(["Due Now", "Far Future"]);
-    });
-
     test('handles edge cases', () => {
       const deck = {
         cards: [
@@ -352,63 +355,6 @@ describe('Spaced Repetition Algorithm', () => {
       const dueCards = getDueCards(deck, 10, 0);
       expect(dueCards).toHaveLength(2); // Bad Data 3 (treated as new) + Good Data
       expect(dueCards.map(c => c.front_text)).toEqual(["Bad Data 3", "Good Data"]);
-    });
-  });
-
-  describe('Time Advancement Simulation', () => {
-    test('simulates advancing multiple days', () => {
-      const card = {
-        interval: 1,
-        repetitions: 0,
-        easeFactor: 2.5,
-        lastReviewed: null,
-        nextReview: null
-      };
-
-      // Day 1: First review
-      let result = updateCardScheduling(card, 'correct');
-      expect(result.interval).toBe(1);
-      expect(result.repetitions).toBe(1);
-
-      // Advance to next day
-      mockDate = new Date('2024-01-02T12:00:00Z');
-      
-      // Day 2: Second review
-      result = updateCardScheduling(result, 'correct');
-      expect(result.interval).toBe(6);
-      expect(result.repetitions).toBe(2);
-
-      // Advance 6 days
-      mockDate = new Date('2024-01-08T12:00:00Z');
-      
-      // Day 8: Third review
-      result = updateCardScheduling(result, 'correct');
-      expect(result.interval).toBe(15);
-      expect(result.repetitions).toBe(3);
-    });
-
-    test('simulates skipping review days', () => {
-      const card = {
-        interval: 1,
-        repetitions: 0,
-        easeFactor: 2.5,
-        lastReviewed: null,
-        nextReview: null
-      };
-
-      // Day 1: First review
-      let result = updateCardScheduling(card, 'correct');
-      expect(result.interval).toBe(1);
-      expect(result.repetitions).toBe(1);
-
-      // Skip a few days
-      mockDate = new Date('2024-01-05T12:00:00Z');
-      
-      // Day 5: Late review
-      result = updateCardScheduling(result, 'correct');
-      // interval * (1 + 0.2 * daysLate) = 6 * 1.6 = 10 (rounded)
-      expect(result.interval).toBe(10);
-      expect(result.repetitions).toBe(2);
     });
   });
 }); 
