@@ -87,33 +87,32 @@ export function useReview() {
       }
 
       const card = deck.cards[cardIndex];
-      const currentState = card.review?.card_state || 'new';
-      const currentRepetitions = card.review?.repetitions || 0;
-
-      // Calculate next interval and ease factor
-      const { interval, easeFactor, repetitions, nextReview } = calculateNextReview(
-        card.review?.interval_days || 0,
-        card.review?.ease_factor || 2.5,
-        currentRepetitions,
-        quality
-      );
+      const { interval, easeFactor, repetitions, nextReview } = calculateNextReview(card.review, quality);
 
       // Update the review in Supabase if we're not in direct mode
       if (user && !isDirectMode) {
         const today = getLocalDate();
         
-        // For incorrect responses or new cards that were incorrect,
-        // set next_review_date to today so they stay in the review queue
-        const next_review_date = quality === 'incorrect' ? 
-          today : 
-          getLocalDate(new Date(nextReview));
+        // Determine next state based on current state and quality
+        let result;
+        if (quality === 'correct') {
+          if (!card.review || card.review.card_state === 'new') {
+            result = 'learning';
+          } else if (card.review.card_state === 'learning' && card.review.repetitions >= 1) {
+            result = 'review';
+          } else {
+            result = card.review.card_state;
+          }
+        } else {
+          result = 'learning';
+        }
 
-        console.log('Saving review for card ' + cardId + ' with interval ' + interval + ' and easeFactor ' + easeFactor + ' and repetitions ' + repetitions + ' and next_review_date ' + next_review_date);
+        console.log('Saving review for card ' + cardId + ' with interval ' + interval + ' and easeFactor ' + easeFactor + ' and repetitions ' + repetitions + ' and next_review_date ' + nextReview);
         await supabase.saveReview(cardId, {
           interval_days: interval,
           ease_factor: easeFactor,
           repetitions,
-          next_review_date: next_review_date,
+          next_review_date: nextReview,
           last_reviewed_at: new Date().toISOString(),
           scheduled_date: today,
           result: quality
@@ -129,28 +128,22 @@ export function useReview() {
 
   const markCorrectGetNext = () => {
     if (!currentCardId) return null;
+    // First attempt success
+    const card = cardsById[currentCardId];
 
-    if (attempts === 0) {
-      // First attempt success
-      const card = cardsById[currentCardId];
-
-      if (!card.review || card.review.card_state === 'new') {
-        console.log('New card correct - move to learning state with 10 minute delay');
-        // New card correct - move to learning state with 10 minute delay
-        const nextReviewTime = Date.now() + 10 * 60 * 1000;
-        cardSchedulerRef.current.setReviewTime(currentCardId, nextReviewTime, 'learning');
-        updateCardSchedulingServer(currentCardId, 'incorrect');
-      } else {
-        console.log('Learning or review card correct - remove from today\'s queue');
-        // Review card correct - remove from today's queue
-        updateCardSchedulingServer(currentCardId, 'correct');
-        cardSchedulerRef.current.delete(currentCardId);
-      }
-    } else {
-      // Success after multiple attempts - keep in learning state
-      updateCardSchedulingServer(currentCardId, 'incorrect');
+    if (attempts > 0 || (attempts === 0 && card.review && card.review.card_state === 'new')) {
+      // If we've already tried this card or it's a new card, we need to move it to learning state
+      console.log('New card correct or previous attempt incorrect - move to learning state with 10 minute delay');
+      // New card correct - move to learning state with 10 minute delay. This is the same as getting it incorrect
       const nextReviewTime = Date.now() + 10 * 60 * 1000;
       cardSchedulerRef.current.setReviewTime(currentCardId, nextReviewTime, 'learning');
+      updateCardSchedulingServer(currentCardId, 'incorrect');
+    } else {
+      // First attempt success for review or learning card
+      console.log('Learning or review card correct - remove from today\'s queue');
+      // Review card correct - remove from today's queue
+      updateCardSchedulingServer(currentCardId, 'correct');
+      cardSchedulerRef.current.delete(currentCardId);
     }
 
     setAttempts(0);
@@ -183,7 +176,7 @@ export function useReview() {
         nextCard: nextCardId
       };
     } else {
-      // Still has attempts left
+      // Still has attempts left, don't bother updating the server or scheduler
       const nextAttempts = attempts + 1;
       setAttempts(nextAttempts);
       return {
