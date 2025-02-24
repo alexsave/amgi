@@ -29,6 +29,7 @@ export function useReview() {
 
   // Update card counts whenever the scheduler changes
   const updateCardCounts = () => {
+    console.log('updateCardCounts called, newCardsCount:' + cardSchedulerRef.current.getNewCardsCount() + ' learningCardsCount:' + cardSchedulerRef.current.getLearningCardsCount() + ' reviewCardsCount:' + cardSchedulerRef.current.getReviewCardsCount());
     setNewCardsCount(cardSchedulerRef.current.getNewCardsCount());
     setLearningCardsCount(cardSchedulerRef.current.getLearningCardsCount());
     setReviewCardsCount(cardSchedulerRef.current.getReviewCardsCount());
@@ -105,7 +106,7 @@ export function useReview() {
         // set next_review_date to today so they stay in the review queue
         const next_review_date = quality === 'incorrect' ? 
           today : 
-          getLocalDate(nextReview);
+          getLocalDate(new Date(nextReview));
 
         console.log('Saving review for card ' + cardId + ' with interval ' + interval + ' and easeFactor ' + easeFactor + ' and repetitions ' + repetitions + ' and next_review_date ' + next_review_date);
         await supabase.saveReview(cardId, {
@@ -114,7 +115,8 @@ export function useReview() {
           repetitions,
           next_review_date: next_review_date,
           last_reviewed_at: new Date().toISOString(),
-          scheduled_date: today
+          scheduled_date: today,
+          result: quality
         }, user.id);
       }
 
@@ -133,11 +135,13 @@ export function useReview() {
       const card = cardsById[currentCardId];
 
       if (!card.review || card.review.card_state === 'new') {
+        console.log('New card correct - move to learning state with 10 minute delay');
         // New card correct - move to learning state with 10 minute delay
         const nextReviewTime = Date.now() + 10 * 60 * 1000;
         cardSchedulerRef.current.setReviewTime(currentCardId, nextReviewTime, 'learning');
         updateCardSchedulingServer(currentCardId, 'incorrect');
       } else {
+        console.log('Learning or review card correct - remove from today\'s queue');
         // Review card correct - remove from today's queue
         updateCardSchedulingServer(currentCardId, 'correct');
         cardSchedulerRef.current.delete(currentCardId);
@@ -151,9 +155,10 @@ export function useReview() {
 
     setAttempts(0);
     const nextCardId = cardSchedulerRef.current.peekNext();
+    console.log('Next card id: ' + nextCardId);
     setCurrentCardId(nextCardId);
     updateCardCounts();
-    return nextCardId;
+    return cardsById[nextCardId];
   };
 
   const markIncorrectGetAttempts = () => {
@@ -183,7 +188,7 @@ export function useReview() {
       setAttempts(nextAttempts);
       return {
         attempts: nextAttempts,
-        nextCard: currentCardId
+        nextCard: cardsById[currentCardId]
       };
     }
   };

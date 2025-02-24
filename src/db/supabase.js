@@ -407,6 +407,8 @@ export const saveReview = async (cardId, review, userId) => {
         newState = 'learning';
       }
 
+      console.log('Supabase: updating review to state:' + newState + ' because of result:' + review + ' and current state:' + currentState);
+
       const { data, error } = await supabase
         .from('reviews')
         .update({

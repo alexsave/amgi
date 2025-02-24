@@ -9,7 +9,7 @@ export const sessionTools = {
                 // Consider a numeric rating instead of correct/incorrect
                 result: {
                     type: 'string',
-                    enum: ['correct', 'incorrect', 'quit'],
+                    enum: ['correct', 'incorrect'],
                     description: 'The evaluation result'
                 },
                 message: {

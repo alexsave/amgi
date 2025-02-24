@@ -217,6 +217,7 @@ export class CardScheduler {
     } else if (cardState === 'review') {
       this.reviewHeap.push(id, nextReviewTime);
     }
+    this.printSummary();
   }
 
   /**
@@ -242,6 +243,7 @@ export class CardScheduler {
       found = true;
     }
 
+    this.printSummary();
     return found;
   }
 
@@ -329,6 +331,12 @@ export class CardScheduler {
     this.learningHeap = new MinHeap();
     this.newQueue = new FIFOQueue();
     this.reviewHeap = new MinHeap();
+  }
+
+  printSummary() {
+    console.log('cardscheduler: Learning cards: ' + JSON.stringify(this.learningHeap.heap));
+    console.log('cardscheduler: New cards: ' + JSON.stringify(this.newQueue.items));
+    console.log('cardscheduler: Review cards: ' + JSON.stringify(this.reviewHeap.heap));
   }
 }
 
