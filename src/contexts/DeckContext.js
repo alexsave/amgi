@@ -266,7 +266,7 @@ export const DeckProvider = ({ children }) => {
         });
         
         // Create initial review
-        await supabase.newReview(newCard.id, user.id);
+        const review = await supabase.newReview(newCard.id, user.id);
         
         // Update local state
         console.log('DeckContext: adding card to local state:', deckId, card);
@@ -275,10 +275,12 @@ export const DeckProvider = ({ children }) => {
           const transformedCard = {
             id: newCard.id,
             front: newCard.front_text,
+            front_text: newCard.front_text,
             back: newCard.back_text,
             frontAudio: newCard.front_audio_url,
             backAudio: newCard.back_audio_url,
-            created: new Date(newCard.created_at).getTime()
+            created: new Date(newCard.created_at).getTime(),
+            review: review
           };
           
           return {
