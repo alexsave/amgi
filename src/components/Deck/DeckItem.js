@@ -81,9 +81,9 @@ const DeckItem = ({ id, deck }) => {
   };
 
   // Get counts from context
-  const learningCount = getLearningCount(id);
-  const newCount = getNewCount(id);
-  const reviewCount = getReviewCount(id);
+  //j//jconst learningCount = getLearningCount(id);
+  //jconst newCount = getNewCount(id);
+  //jconst reviewCount = getReviewCount(id);
 
   return (
     <div 
@@ -94,9 +94,10 @@ const DeckItem = ({ id, deck }) => {
         <h3>{deck.name}</h3>
         <small>
           {deck.cards.length} cards (
-          <span className="learning-count">{learningCount} learning</span> • {' '}
-          <span className="new-count">{newCount} new</span> • {' '}
-          <span className="review-count">{reviewCount} review</span>)
+            {/** TODO: Add learning, new, and review counts better somehow */}
+          <span className="learning-count">{deck.cards.filter(card => card.review.card_state === 'learning').length} learning</span> • {' '}
+          <span className="new-count">{deck.cards.filter(card => card.review.card_state === 'new').length} new</span> • {' '}
+          <span className="review-count">{deck.cards.filter(card => card.review.card_state === 'review').length} review</span>)
         </small>
       </div>
       <div className="deck-item-actions">

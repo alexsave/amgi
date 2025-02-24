@@ -68,7 +68,7 @@ const loadLearningCards = async (userId) => {
     `)
     .eq('user_id', userId)
     .eq('cards.reviews.card_state', 'learning')
-    .order('next_review_date', { referencedTable: 'reviews', ascending: true });
+    .order('next_review_date', { referencedTable: 'cards.reviews', ascending: true });
 
   if (error) throw error;
   return decks.reduce((acc, deck) => {
@@ -109,7 +109,7 @@ const loadDueCards = async (userId) => {
     .eq('user_id', userId)
     .eq('cards.reviews.card_state', 'review')
     .lte('cards.reviews.next_review_date', today)
-    .order('next_review_date', { referencedTable: 'reviews', ascending: true });
+    .order('next_review_date', { referencedTable: 'cards.reviews', ascending: true });
 
   if (error) throw error;
   return decks.reduce((acc, deck) => {
@@ -148,6 +148,9 @@ export const loadDecks = async (userId) => {
       
       acc[deck.id] = {
         ...deck,
+        //learningCards: learningCards,
+        //newCards: newCards,
+        //dueCards: dueCards,
         cards: [...learningCards, ...newCards, ...dueCards] // Priority order
       };
       return acc;

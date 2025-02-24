@@ -14,7 +14,7 @@ import './ReviewMode.css';
 
 const ReviewMode = () => {
   const { currentDeck, decks, dueCards, mode, currentDeckId } = useDecks();
-  const { currentCard, initReview, newCardsCount, reviewCardsCount } = useReview();
+  const { currentCard, initReview, newCardsCount, reviewCardsCount, learningCardsCount } = useReview();
   const navigate = useNavigate();
   const audio = useAudio();
   const review = useReview();
@@ -150,7 +150,7 @@ const ReviewMode = () => {
 
       <div className="card-progress">
         {/* TODO: Add learning cards count */}
-        {`New Cards: ${newCardsCount} • Review Cards: ${reviewCardsCount}`}
+        {`New Cards: ${newCardsCount} • Review Cards: ${reviewCardsCount} • Learning Cards: ${learningCardsCount}`}
       </div>
 
       {isVoiceMode ? (
