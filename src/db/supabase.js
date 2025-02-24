@@ -21,14 +21,54 @@ const loadNewCards = async (userId) => {
           interval_days,
           ease_factor,
           repetitions,
-          next_review_date
+          next_review_date,
+          card_state
         )
       )
     `)
     .eq('user_id', userId)
-    .eq('cards.reviews.repetitions', 0)
+    .eq('cards.reviews.card_state', 'new')
     .order('position', { referencedTable: 'cards', ascending: true })
     .limit(40, { foreignTable: 'cards' });
+
+  if (error) throw error;
+  return decks.reduce((acc, deck) => {
+    acc[deck.id] = deck.cards.map(card => ({
+      ...card,
+      review: card.reviews[0],
+      reviews: undefined
+    }));
+    return acc;
+  }, {});
+};
+
+const loadLearningCards = async (userId) => {
+  const { data: decks, error } = await supabase
+    .from('decks')
+    .select(`
+      id,
+      cards!inner (
+        id,
+        front_text,
+        back_text,
+        front_audio_path,
+        back_audio_path,
+        front_lang,
+        back_lang,
+        position,
+        created_at,
+        reviews!inner (
+          interval_days,
+          ease_factor,
+          repetitions,
+          next_review_date,
+          card_state
+        )
+      )
+    `)
+    .eq('user_id', userId)
+    .eq('cards.reviews.card_state', 'learning')
+    .order('next_review_date', { referencedTable: 'reviews', ascending: true });
 
   if (error) throw error;
   return decks.reduce((acc, deck) => {
@@ -61,14 +101,15 @@ const loadDueCards = async (userId) => {
           interval_days,
           ease_factor,
           repetitions,
-          next_review_date
+          next_review_date,
+          card_state
         )
       )
     `)
     .eq('user_id', userId)
-    .gt('cards.reviews.repetitions', 0)
+    .eq('cards.reviews.card_state', 'review')
     .lte('cards.reviews.next_review_date', today)
-    .order('position', { referencedTable: 'cards', ascending: true });
+    .order('next_review_date', { referencedTable: 'reviews', ascending: true });
 
   if (error) throw error;
   return decks.reduce((acc, deck) => {
@@ -92,20 +133,22 @@ export const loadDecks = async (userId) => {
 
     if (decksError) throw decksError;
 
-    // Load new and due cards in parallel
-    const [newCardsByDeck, dueCardsByDeck] = await Promise.all([
+    // Load all card types in parallel
+    const [newCardsByDeck, learningCardsByDeck, dueCardsByDeck] = await Promise.all([
       loadNewCards(userId),
+      loadLearningCards(userId),
       loadDueCards(userId)
     ]);
 
     // Combine everything
     return decks.reduce((acc, deck) => {
       const newCards = newCardsByDeck[deck.id] || [];
+      const learningCards = learningCardsByDeck[deck.id] || [];
       const dueCards = dueCardsByDeck[deck.id] || [];
       
       acc[deck.id] = {
         ...deck,
-        cards: [...newCards, ...dueCards]
+        cards: [...learningCards, ...newCards, ...dueCards] // Priority order
       };
       return acc;
     }, {});
@@ -286,26 +329,26 @@ export const loadReview = async (cardId, userId) => {
 };
 
 export const newReview = async (cardId, userId) => {
-    const today = getLocalDate();
+  const today = getLocalDate();
 
-      console.log('Supabase: creating new review');
-      const { data, error } = await supabase
-        .from('reviews')
-        .insert({
-          card_id: cardId,
-          user_id: userId,
-          scheduled_date: today,
-          interval_days: 1,
-          ease_factor: 2.5,
-          repetitions: 0,
-          //last_reviewed_at: new Date().toISOString(),// this is wrong
-          //next_review_date: review.next_review_date || today
-        })
-        .select()
-        .single();
+  console.log('Supabase: creating new review');
+  const { data, error } = await supabase
+    .from('reviews')
+    .insert({
+      card_id: cardId,
+      user_id: userId,
+      scheduled_date: today,
+      interval_days: 1,
+      ease_factor: 2.5,
+      repetitions: 0,
+      card_state: 'new',
+      //next_review_date: new Date().toISOString()
+    })
+    .select()
+    .single();
 
-      if (error) throw error;
-      return data;
+  if (error) throw error;
+  return data;
 }
 
 // Save review data for a card
@@ -338,7 +381,8 @@ export const saveReview = async (cardId, review, userId) => {
           ease_factor: 2.5,
           repetitions: 1,
           last_reviewed_at: new Date().toISOString(),// this is wrong
-          next_review_date: review.next_review_date || today
+          next_review_date: review.next_review_date || today,
+          card_state: 'learning' // Always start in learning state
         })
         .select()
         .single();
@@ -346,15 +390,29 @@ export const saveReview = async (cardId, review, userId) => {
       if (error) throw error;
       return data;
     } else {
-      // Update existing review with incremented values
+      // Update existing review
+      const currentState = existingReview[0].card_state;
+      let newState;
+      
+      if (review.result === 'correct') {
+        if (currentState === 'new') {
+          newState = 'learning';
+        } else {
+          newState = 'review';
+        }
+      } else {
+        newState = 'learning';
+      }
+
       const { data, error } = await supabase
         .from('reviews')
         .update({
-          interval_days: review.interval_days || existingReview.interval_days,
-          ease_factor: review.ease_factor || existingReview.ease_factor,
-          repetitions: (existingReview.repetitions || 0) + 1,
+          interval_days: review.interval_days || existingReview[0].interval_days,
+          ease_factor: review.ease_factor || existingReview[0].ease_factor,
+          repetitions: (existingReview[0].repetitions || 0) + 1,
           last_reviewed_at: review.last_reviewed_at || new Date().toISOString(),
-          next_review_date: review.next_review_date
+          next_review_date: review.next_review_date,
+          card_state: newState
         })
         .eq('card_id', cardId)
         .eq('user_id', userId)

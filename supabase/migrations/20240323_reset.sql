@@ -79,7 +79,8 @@ create table reviews (
   ease_factor float default 2.5,
   repetitions int default 0,
   last_reviewed_at timestamp,
-  next_review_date date,
+  next_review_date timestamp,  -- Changed from date to timestamp for more precise scheduling
+  card_state text not null default 'new' check (card_state in ('new', 'learning', 'review')),
   unique(card_id, user_id)
 );
 

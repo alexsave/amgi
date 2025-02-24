@@ -8,7 +8,14 @@ import msgpack from 'msgpack-lite';
 import './DeckItem.css';
 
 const DeckItem = ({ id, deck }) => {
-  const { newCardsToday, deleteDeck, setCurrentDeckId } = useDecks();
+  const { 
+    newCardsToday, 
+    deleteDeck, 
+    setCurrentDeckId,
+    getLearningCount,
+    getNewCount,
+    getReviewCount
+  } = useDecks();
 
   const navigate = useNavigate();
 
@@ -73,11 +80,10 @@ const DeckItem = ({ id, deck }) => {
     }
   };
 
-
-  // Calculate new and review counts
-  const newCount = deck.cards.filter(card => !card.lastReviewed).length;
-  const dueCards = getDueCards(deck, MAX_NEW_CARDS_PER_DAY, newCardsToday);
-  const reviewCount = dueCards.length - Math.min(newCount, MAX_NEW_CARDS_PER_DAY - newCardsToday);
+  // Get counts from context
+  const learningCount = getLearningCount(id);
+  const newCount = getNewCount(id);
+  const reviewCount = getReviewCount(id);
 
   return (
     <div 
@@ -88,8 +94,9 @@ const DeckItem = ({ id, deck }) => {
         <h3>{deck.name}</h3>
         <small>
           {deck.cards.length} cards (
-          {reviewCount} review{reviewCount !== 1 ? 's' : ''}, {' '}
-          {newCount} new)
+          <span className="learning-count">{learningCount} learning</span> • {' '}
+          <span className="new-count">{newCount} new</span> • {' '}
+          <span className="review-count">{reviewCount} review</span>)
         </small>
       </div>
       <div className="deck-item-actions">

@@ -15,13 +15,12 @@ export function useReview() {
   const { user, isDirectMode } = useAuth();
   const [evaluationResult, setEvaluationResult] = useState(null);
   const [error, setError] = useState(null);
-  // Attempts of the current card. I guess we can keep this
   const [attempts, setAttempts] = useState(0);
   const [showAnswer, setShowAnswer] = useState(false);
-  //const [dueCards, setDueCards] = useState([]);
 
   const [currentCard, setCurrentCard] = useState(null);
   const [newCardsCount, setNewCardsCount] = useState(0);
+  const [learningCardsCount, setLearningCardsCount] = useState(0);
   const [reviewCardsCount, setReviewCardsCount] = useState(0);
 
   const cardSchedulerRef = useRef(new CardScheduler());
@@ -29,11 +28,11 @@ export function useReview() {
   // Update card counts whenever the scheduler changes
   const updateCardCounts = () => {
     setNewCardsCount(cardSchedulerRef.current.getNewCardsCount());
+    setLearningCardsCount(cardSchedulerRef.current.getLearningCardsCount());
     setReviewCardsCount(cardSchedulerRef.current.getReviewCardsCount());
   };
 
-  // Copy currentDeck into priority queue so we don't mess with the original deck
-  // Holy fuck DeckContext is so complicated now
+  // Initialize scheduler with deck cards
   useEffect(() => {
     console.log('useReview useEffect called with currentDeckId:' + currentDeckId + ' and mode:' + mode);
     if (!currentDeckId || mode !== 'review') {
@@ -45,58 +44,24 @@ export function useReview() {
 
     cardSchedulerRef.current.clear();
     const now = new Date();
-    console.log('Deck:' + JSON.stringify(deck));
 
     for (let i = 0; i < deck.cards.length; i++) {
       const card = deck.cards[i];
-      console.log('Card:' + JSON.stringify(card));
-      if (card.nextReview == null) {
-        // New card. Setting it to i preserves the order of new cards
-        cardSchedulerRef.current.pushNewCard(card);
+      
+      if (!card.review) {
+        cardSchedulerRef.current.pushNewCard(card.id);
       } else {
-        if (card.dueTimestamp && card.dueTimestamp < now) {
-          cardSchedulerRef.current.setReviewTime(card.id, card.dueTimestamp);
-        }
+        const reviewTime = card.review.next_review_date ? new Date(card.review.next_review_date).getTime() : now.getTime();
+        cardSchedulerRef.current.setReviewTime(
+          card.id, 
+          reviewTime,
+          card.review.card_state
+        );
       }
     }
-    console.log('CardScheduler after setup:' + JSON.stringify(cardSchedulerRef.current));
-    console.log('setting current card to ' + JSON.stringify(cardSchedulerRef.current.peekNext()));
     setCurrentCard(cardSchedulerRef.current.peekNext());
     updateCardCounts();
   }, [currentDeckId]);
-
-  // Get due cards
-  const getDueCards = (deckId) => {
-    const deck = decks[deckId];
-    if (!deck) return [];
-
-    const now = new Date();
-
-    // Separate new and review cards
-    const newCards = deck.cards.filter(card => !card.lastReviewed);
-    const reviewCards = deck.cards.filter(card => {
-      if (!card.lastReviewed) return false;
-
-      // If the card has a due timestamp (for cards due in minutes), check against that
-      if (card.dueTimestamp) {
-        return new Date(card.dueTimestamp) <= now;
-      }
-
-      // Check against next review timestamp
-      if (!card.nextReview) return false;
-      return new Date(card.nextReview) <= now;
-    });
-
-    // Sort review cards by due date/timestamp
-    const sortedReviewCards = [...reviewCards].sort((a, b) => {
-      const aTime = a.dueTimestamp ? new Date(a.dueTimestamp) : new Date(a.nextReview);
-      const bTime = b.dueTimestamp ? new Date(b.dueTimestamp) : new Date(b.nextReview);
-      return aTime - bTime;
-    });
-
-    // Return new cards first (in original order), then review cards (sorted by due time)
-    return [...newCards, ...sortedReviewCards];
-  };
 
   const updateCardSchedulingServer = async (cardId, quality) => {
     console.log('Updating card scheduling for card ' + cardId + ' with quality ' + quality);
@@ -112,14 +77,16 @@ export function useReview() {
       }
 
       const card = deck.cards[cardIndex];
+      const currentState = card.review?.card_state || 'new';
+      const currentRepetitions = card.review?.repetitions || 0;
+
+      // Calculate next interval and ease factor
       const { interval, easeFactor, repetitions, nextReview } = calculateNextReview(
-        card.interval || 0,
-        card.easeFactor || 2.5,
-        card.repetitions || 0,
+        card.review?.interval_days || 0,
+        card.review?.ease_factor || 2.5,
+        currentRepetitions,
         quality
       );
-
-      console.log('Updating card scheduling for card ' + cardId + ' with interval ' + interval + ' and easeFactor ' + easeFactor + ' and repetitions ' + repetitions + ' and nextReview ' + nextReview);
 
       // Update the review in Supabase if we're not in direct mode
       if (user && !isDirectMode) {
@@ -142,8 +109,6 @@ export function useReview() {
         }, user.id);
       }
 
-      // Update the local scheduler
-      //cardSchedulerRef.current.setReviewTime(card, nextReview);
       setError(null);
     } catch (err) {
       console.error('Error updating card scheduling:', err);
@@ -152,94 +117,83 @@ export function useReview() {
   };
 
   const markCorrectGetNext = () => {
-    console.log('=== markCorrectGetNext ===');
-    console.log('Current time:', new Date().toISOString());
-    console.log('Current card:', currentCard);
-    console.log('Current attempts:', attempts);
+    if (!currentCard) return null;
 
     if (attempts === 0) {
-      console.log('First attempt success - updating server and removing from scheduler');
-      updateCardSchedulingServer(currentCard.id, 'correct');
-      cardSchedulerRef.current.delete(currentCard.id);
-      console.log('Card deleted from scheduler');
+      // First attempt success
+
+      if (!currentCard.review || currentCard.review.card_state === 'new') {
+        // New card correct - move to learning state with 10 minute delay
+        const nextReviewTime = Date.now() + 10 * 60 * 1000;
+        cardSchedulerRef.current.setReviewTime(currentCard.id, nextReviewTime, 'learning');
+        updateCardSchedulingServer(currentCard.id, 'incorrect');
+      } else {
+        // Review card correct - remove from today's queue
+        updateCardSchedulingServer(currentCard.id, 'correct');
+        cardSchedulerRef.current.delete(currentCard.id);
+      }
     } else {
-      console.log(`Success after ${attempts} attempts - scheduling review in 10 minutes`);
+      // Success after multiple attempts - keep in learning state
+      updateCardSchedulingServer(currentCard.id, 'incorrect');
       const nextReviewTime = Date.now() + 10 * 60 * 1000;
-      console.log('Next review time:', new Date(nextReviewTime).toISOString());
-      cardSchedulerRef.current.setReviewTime(currentCard, nextReviewTime);
+      cardSchedulerRef.current.setReviewTime(currentCard.id, nextReviewTime, 'learning');
     }
 
-    console.log('Resetting attempts counter to 0');
     setAttempts(0);
-
     const nextCard = cardSchedulerRef.current.peekNext();
-    console.log('Next card from scheduler:', nextCard);
     setCurrentCard(nextCard);
     updateCardCounts();
-    console.log('Updated card counts');
-    console.log('=== End markCorrectGetNext ===');
     return nextCard;
-  }
-
+  };
 
   const markIncorrectGetAttempts = () => {
-    console.log('=== markIncorrectGetAttempts ===');
-    console.log('Current time:', new Date().toISOString());
-    console.log('Current card:', currentCard);
-    console.log('Current attempts:', attempts);
-    console.log('Max attempts:', MAX_ATTEMPTS);
+    if (!currentCard) return { attempts: 0, nextCard: null };
 
     if (attempts === 0) {
-      console.log('First incorrect attempt - updating server');
+      // First incorrect attempt
       updateCardSchedulingServer(currentCard.id, 'incorrect');
-    }  
-    
-    if (attempts >= MAX_ATTEMPTS-1) {
-      console.log('Max attempts reached - scheduling review in 10 minutes');
+    }
+
+    if (attempts >= MAX_ATTEMPTS - 1) {
+      // Max attempts reached - reschedule in learning state
       const nextReviewTime = Date.now() + 10 * 60 * 1000;
-      console.log('Next review time:', new Date(nextReviewTime).toISOString());
-      cardSchedulerRef.current.setReviewTime(currentCard, nextReviewTime);
+      cardSchedulerRef.current.setReviewTime(currentCard.id, nextReviewTime, 'learning');
 
       const nextCard = cardSchedulerRef.current.peekNext();
-      console.log('Moving to next card:', nextCard);
       setCurrentCard(nextCard);
-      console.log('Resetting attempts to 0');
       setAttempts(0);
       updateCardCounts();
-      console.log('Updated card counts');
-      console.log('=== End markIncorrectGetAttempts ===');
       return {
         attempts: 0,
         nextCard: nextCard
       };
     } else {
+      // Still has attempts left
       const nextAttempts = attempts + 1;
-      console.log(`Incrementing attempts to ${nextAttempts}`);
       setAttempts(nextAttempts);
-      console.log('Keeping same card for next attempt');
-      console.log('=== End markIncorrectGetAttempts ===');
       return {
         attempts: nextAttempts,
         nextCard: currentCard
       };
     }
-  }
+  };
 
   return {
     evaluationResult,
     error,
     attempts,
     showAnswer,
+    currentCard,
+    newCardsCount,
+    learningCardsCount,
+    reviewCardsCount,
     setEvaluationResult,
     setError,
     setAttempts,
     setShowAnswer,
     updateCardSchedulingServer,
-    currentCard,
     markIncorrectGetAttempts,
     markCorrectGetNext,
-    cardSchedulerRef,
-    newCardsCount,
-    reviewCardsCount
+    cardSchedulerRef
   };
 } 

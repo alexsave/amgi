@@ -52,4 +52,17 @@
 .icon-btn:hover {
   background: var(--dark-surface-hover);
   color: var(--flame-orange);
+}
+
+/* Card state colors */
+.learning-count {
+  color: #e11d48; /* Red for learning cards */
+}
+
+.new-count {
+  color: #3b82f6; /* Blue for new cards */
+}
+
+.review-count {
+  color: #22c55e; /* Green for review cards */
 } 

@@ -149,6 +149,7 @@ const ReviewMode = () => {
       </div>
 
       <div className="card-progress">
+        {/* TODO: Add learning cards count */}
         {`New Cards: ${newCardsCount} • Review Cards: ${reviewCardsCount}`}
       </div>
 
