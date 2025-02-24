@@ -13,15 +13,14 @@ import { LanguageIcon, MicrophoneIcon } from '@heroicons/react/24/solid';
 import './ReviewMode.css';
 
 const ReviewMode = () => {
-  const { currentDeck, decks, dueCards, mode, currentDeckId } = useDecks();
-  const { currentCard, initReview, newCardsCount, reviewCardsCount, learningCardsCount } = useReview();
+  const { decks, currentDeckId } = useDecks();
   const navigate = useNavigate();
   const audio = useAudio();
   const review = useReview();
+  const { currentCardId, cardsById, attempts, showAnswer, evaluationResult, newCardsCount, reviewCardsCount, learningCardsCount } = review;
   const [isVoiceMode, setIsVoiceMode] = useState(false);
-  const [voiceChatResponse, setVoiceChatResponse] = useState(null);
   
-  //const currentCard = review.dueCards[review.currentCardIndex];
+  const currentCard = currentCardId ? cardsById[currentCardId] : null;
 
   // Load audio when current card changes
   useEffect(() => {
@@ -39,7 +38,7 @@ const ReviewMode = () => {
           .catch(err => console.error('Error loading back audio:', err));
       }
     }
-  }, [currentCard]);
+  }, [currentCardId]);
 
   const handleEvaluationResult = (data) => {
     console.log('ReviewMode: Received evaluation result:', {
@@ -49,8 +48,8 @@ const ReviewMode = () => {
       fullData: data
     });
 
-    if (!data) {
-      console.error('ReviewMode: No evaluation data received');
+    if (!data || !currentCard) {
+      console.error('ReviewMode: No evaluation data received or no current card');
       return;
     }
 
@@ -62,7 +61,7 @@ const ReviewMode = () => {
     console.log('ReviewMode: Determined quality:', quality);
 
     // Update card scheduling
-    review.updateCardSchedulingServer(currentCard.id, quality);
+    review.updateCardSchedulingServer(currentCardId, quality);
     console.log('ReviewMode: Updated card scheduling');
     
     // Play evaluation audio if available
@@ -115,7 +114,7 @@ const ReviewMode = () => {
     navigate('/decks');
   };
 
-  if (!currentCard) {
+  if (!currentCardId) {
     return (
       <div className="review-complete">
         <h3>🎉 Review Complete!</h3>
@@ -149,23 +148,22 @@ const ReviewMode = () => {
       </div>
 
       <div className="card-progress">
-        {/* TODO: Add learning cards count */}
         {`New Cards: ${newCardsCount} • Review Cards: ${reviewCardsCount} • Learning Cards: ${learningCardsCount}`}
       </div>
 
       {isVoiceMode ? (
-        <VoiceMode currentCard={currentCard} />
+        <VoiceMode />
       ) : (
         <>
           <CardPreview
             currentCard={currentCard}
-            showAnswer={review.showAnswer}
+            showAnswer={showAnswer}
             audio={audio}
           />
 
           <div className="review-controls">
             <div className="attempts-counter">
-              Attempts: {review.attempts}/3
+              Attempts: {attempts}/3
             </div>
 
             <RecordingControls
@@ -189,15 +187,11 @@ const ReviewMode = () => {
               }}
             />
 
-            <EvaluationResult result={review.evaluationResult} />
+            <EvaluationResult result={evaluationResult} />
           </div>
         </>
       )}
 
-      <Timeline
-        cards={review.dueCards}
-        currentIndex={review.currentCardIndex}
-      />
     </div>
   );
 };

@@ -18,7 +18,9 @@ export function useReview() {
   const [attempts, setAttempts] = useState(0);
   const [showAnswer, setShowAnswer] = useState(false);
 
-  const [currentCard, setCurrentCard] = useState(null);
+  // Store cards by ID for easy lookup
+  const [cardsById, setCardsById] = useState({});
+  const [currentCardId, setCurrentCardId] = useState(null);
   const [newCardsCount, setNewCardsCount] = useState(0);
   const [learningCardsCount, setLearningCardsCount] = useState(0);
   const [reviewCardsCount, setReviewCardsCount] = useState(0);
@@ -45,6 +47,13 @@ export function useReview() {
     cardSchedulerRef.current.clear();
     const now = new Date();
 
+    // Build cards by ID map
+    const newCardsById = {};
+    deck.cards.forEach(card => {
+      newCardsById[card.id] = card;
+    });
+    setCardsById(newCardsById);
+
     for (let i = 0; i < deck.cards.length; i++) {
       const card = deck.cards[i];
       
@@ -59,7 +68,7 @@ export function useReview() {
         );
       }
     }
-    setCurrentCard(cardSchedulerRef.current.peekNext());
+    setCurrentCardId(cardSchedulerRef.current.peekNext());
     updateCardCounts();
   }, [currentDeckId]);
 
@@ -117,55 +126,56 @@ export function useReview() {
   };
 
   const markCorrectGetNext = () => {
-    if (!currentCard) return null;
+    if (!currentCardId) return null;
 
     if (attempts === 0) {
       // First attempt success
+      const card = cardsById[currentCardId];
 
-      if (!currentCard.review || currentCard.review.card_state === 'new') {
+      if (!card.review || card.review.card_state === 'new') {
         // New card correct - move to learning state with 10 minute delay
         const nextReviewTime = Date.now() + 10 * 60 * 1000;
-        cardSchedulerRef.current.setReviewTime(currentCard.id, nextReviewTime, 'learning');
-        updateCardSchedulingServer(currentCard.id, 'incorrect');
+        cardSchedulerRef.current.setReviewTime(currentCardId, nextReviewTime, 'learning');
+        updateCardSchedulingServer(currentCardId, 'incorrect');
       } else {
         // Review card correct - remove from today's queue
-        updateCardSchedulingServer(currentCard.id, 'correct');
-        cardSchedulerRef.current.delete(currentCard.id);
+        updateCardSchedulingServer(currentCardId, 'correct');
+        cardSchedulerRef.current.delete(currentCardId);
       }
     } else {
       // Success after multiple attempts - keep in learning state
-      updateCardSchedulingServer(currentCard.id, 'incorrect');
+      updateCardSchedulingServer(currentCardId, 'incorrect');
       const nextReviewTime = Date.now() + 10 * 60 * 1000;
-      cardSchedulerRef.current.setReviewTime(currentCard.id, nextReviewTime, 'learning');
+      cardSchedulerRef.current.setReviewTime(currentCardId, nextReviewTime, 'learning');
     }
 
     setAttempts(0);
-    const nextCard = cardSchedulerRef.current.peekNext();
-    setCurrentCard(nextCard);
+    const nextCardId = cardSchedulerRef.current.peekNext();
+    setCurrentCardId(nextCardId);
     updateCardCounts();
-    return nextCard;
+    return nextCardId;
   };
 
   const markIncorrectGetAttempts = () => {
-    if (!currentCard) return { attempts: 0, nextCard: null };
+    if (!currentCardId) return { attempts: 0, nextCard: null };
 
     if (attempts === 0) {
       // First incorrect attempt
-      updateCardSchedulingServer(currentCard.id, 'incorrect');
+      updateCardSchedulingServer(currentCardId, 'incorrect');
     }
 
     if (attempts >= MAX_ATTEMPTS - 1) {
       // Max attempts reached - reschedule in learning state
       const nextReviewTime = Date.now() + 10 * 60 * 1000;
-      cardSchedulerRef.current.setReviewTime(currentCard.id, nextReviewTime, 'learning');
+      cardSchedulerRef.current.setReviewTime(currentCardId, nextReviewTime, 'learning');
 
-      const nextCard = cardSchedulerRef.current.peekNext();
-      setCurrentCard(nextCard);
+      const nextCardId = cardSchedulerRef.current.peekNext();
+      setCurrentCardId(nextCardId);
       setAttempts(0);
       updateCardCounts();
       return {
         attempts: 0,
-        nextCard: nextCard
+        nextCard: nextCardId
       };
     } else {
       // Still has attempts left
@@ -173,7 +183,7 @@ export function useReview() {
       setAttempts(nextAttempts);
       return {
         attempts: nextAttempts,
-        nextCard: currentCard
+        nextCard: currentCardId
       };
     }
   };
@@ -183,7 +193,8 @@ export function useReview() {
     error,
     attempts,
     showAnswer,
-    currentCard,
+    currentCardId,
+    cardsById,
     newCardsCount,
     learningCardsCount,
     reviewCardsCount,

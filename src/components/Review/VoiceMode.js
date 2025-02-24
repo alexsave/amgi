@@ -7,7 +7,7 @@ import { useRealtime } from '../../contexts/RealtimeContext';
 
 const VoiceMode = () => {
   const review = useReview();
-  const { currentCard, attempts, cardSchedulerRef } = review;
+  const { currentCardId, cardsById, attempts, cardSchedulerRef } = review;
   const [isConnecting, setIsConnecting] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
 
@@ -34,6 +34,7 @@ const VoiceMode = () => {
 
   const onAudioStopped = () => {
     console.log('onAudioStopped');
+    const currentCard = cardsById[currentCardId];
     console.log('currentCard info: ' + JSON.stringify(currentCard));
     if (cardSchedulerRef.current.peekNext() == null) {
       console.log('oh no, cardSchedulerRef is empty, shutting down');
@@ -59,8 +60,8 @@ const VoiceMode = () => {
       setIsConnecting(true);
       setFeedback('Connecting...');
       try {
+        const currentCard = cardsById[currentCardId];
         const success = await setupWebRTC(currentCard, review, onAudioStopped);
-
 
         if (success) {
           setHasStarted(true);
