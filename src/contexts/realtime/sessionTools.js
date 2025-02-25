@@ -58,7 +58,6 @@ export const configureSession = (dataChannel, card) => {
     1. Evaluate their response using the evaluatePronunciation function:
        - result="correct" if they correctly translate AND pronounce "${card.back_text}"
        - result="incorrect" if they say anything else (wrong translation, wrong pronunciation, or if they repeat "${card.front_text}")
-       - result="quit" if they say "skip", "idk", or "next"
 
     The function handler will return the next card to use, or null if the review is complete.
     If the function returns null, you should end the session with a brief goodbye and encouragement, then call the completeReview function.

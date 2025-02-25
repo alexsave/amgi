@@ -4,7 +4,12 @@ import { configureSession } from './sessionTools';
 
 export const setupWebRTC = async ({
     card,
-    review,
+    markCorrectGetNext,
+    markIncorrectGetAttempts,
+    currentCardId,
+    dueCards,
+    updateCardScheduling,
+    setShowAnswer,
     onAudioStopped,
     setIsConnected,
     setFeedback,
@@ -73,7 +78,15 @@ export const setupWebRTC = async ({
                         setIsSpeaking(false);
                     }, 500);
                 }
-                handleRealtimeEvent(event, review, card, onAudioStopped);
+                
+                handleRealtimeEvent(event, {
+                    markCorrectGetNext,
+                    markIncorrectGetAttempts,
+                    currentCardId,
+                    dueCards,
+                    updateCardScheduling,
+                    setShowAnswer
+                }, card, onAudioStopped);
             } catch (error) {
                 console.error('Error handling message:', error);
             }

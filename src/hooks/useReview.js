@@ -108,7 +108,7 @@ export function useReview() {
         }
 
         console.log('Saving review for card ' + cardId + ' with interval ' + interval + ' and easeFactor ' + easeFactor + ' and repetitions ' + repetitions + ' and next_review_date ' + nextReview);
-        await supabase.saveReview(cardId, {
+        const review = await supabase.saveReview(cardId, {
           interval_days: interval,
           ease_factor: easeFactor,
           repetitions,
@@ -117,6 +117,20 @@ export function useReview() {
           scheduled_date: today,
           result: quality
         }, user.id);
+
+        console.log('updating local cardsById state to reflect the new card state: ' + JSON.stringify(review) + ' for card ' + cardId);
+
+        // Update local cardsById state to reflect the new card state
+        setCardsById(prev => ({
+          ...prev,
+          [cardId]: {
+            ...prev[cardId],
+            review: review
+          }
+        }));
+
+        // Update card state in scheduler and update counts
+        updateCardCounts();
       }
 
       setError(null);
@@ -126,7 +140,7 @@ export function useReview() {
     }
   };
 
-  const markCorrectGetNext = () => {
+  const markCorrectGetNext = async () => {
     if (!currentCardId) return null;
     // First attempt success
     const card = cardsById[currentCardId];
@@ -134,15 +148,25 @@ export function useReview() {
     if (attempts > 0 || (attempts === 0 && card.review && card.review.card_state === 'new')) {
       // If we've already tried this card or it's a new card, we need to move it to learning state
       console.log('New card correct or previous attempt incorrect - move to learning state with 10 minute delay');
-      // New card correct - move to learning state with 10 minute delay. This is the same as getting it incorrect
+      console.log('Current card state: ' + card.review?.card_state);
+      
+      // First update the server
+      await updateCardSchedulingServer(currentCardId, 'incorrect');
+      
+      // Remove from current queue/heap before setting new time
+      cardSchedulerRef.current.delete(currentCardId);
+      
+      // Now set the new review time - this will add to learning heap
       const nextReviewTime = Date.now() + 10 * 60 * 1000;
       cardSchedulerRef.current.setReviewTime(currentCardId, nextReviewTime, 'learning');
-      updateCardSchedulingServer(currentCardId, 'incorrect');
+      
+      // Force update counts since we changed state
+      updateCardCounts();
     } else {
       // First attempt success for review or learning card
       console.log('Learning or review card correct - remove from today\'s queue');
       // Review card correct - remove from today's queue
-      updateCardSchedulingServer(currentCardId, 'correct');
+      await updateCardSchedulingServer(currentCardId, 'correct');
       cardSchedulerRef.current.delete(currentCardId);
     }
 
@@ -160,6 +184,8 @@ export function useReview() {
     if (attempts === 0) {
       // First incorrect attempt
       updateCardSchedulingServer(currentCardId, 'incorrect');
+      // Update counts since we're changing the card state
+      updateCardCounts();
     }
 
     if (attempts >= MAX_ATTEMPTS - 1) {

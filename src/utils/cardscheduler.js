@@ -292,19 +292,24 @@ export class CardScheduler {
 
     const topLearning = this.learningHeap.peek();
     if (topLearning && topLearning.nextReviewTime <= currentTime) {
+      console.log('cardscheduler: peekNext: learning card due now: ' + topLearning.id);
       return topLearning.id;
     }
 
     if (this.newQueue.size() > 0) {
+      console.log('cardscheduler: peekNext: new card: ' + this.newQueue.peek());
       return this.newQueue.peek();
     }
 
     const topReview = this.reviewHeap.peek();
+
     if (topReview && topReview.nextReviewTime <= endOfDayTime) {
+      console.log('cardscheduler: peekNext: review card due today: ' + topReview.id);
       return topReview.id;
     }
 
     if (topLearning) {
+      console.log('cardscheduler: peekNext: learning card: ' + topLearning.id);
       return topLearning.id;
     }
 
@@ -334,9 +339,11 @@ export class CardScheduler {
   }
 
   printSummary() {
+    console.log("cardscheduler: --------------------------------")
     console.log('cardscheduler: Learning cards: ' + JSON.stringify(this.learningHeap.heap));
     console.log('cardscheduler: New cards: ' + JSON.stringify(this.newQueue.items));
     console.log('cardscheduler: Review cards: ' + JSON.stringify(this.reviewHeap.heap));
+    console.log("cardscheduler: --------------------------------")
   }
 }
 

@@ -49,10 +49,10 @@ export const handleTextDelta = ({
     }, 500);
 };
 
-export const handleCorrectResponse = ({
+export const handleCorrectResponse = async ({
     args,
     callId,
-    review,
+    markCorrectGetNext,
     setButtonState,
     realtimeTools
 }) => {
@@ -60,13 +60,12 @@ export const handleCorrectResponse = ({
     setButtonState('success');
     setTimeout(() => setButtonState('default'), 500);
 
-    const nextCard = review.markCorrectGetNext();
+    const nextCard = await markCorrectGetNext();
     if (nextCard) {
         console.log('Sending next card info', nextCard);
         realtimeTools.sendNextCardInfo(nextCard, false, callId, args.result, args.message);
     } else {
         console.log('Sending complete review');
-        // ok the problem is here. caslling correct response has the potneital to end the review
         realtimeTools.sendCompleteReview(callId);
     }
 
@@ -76,14 +75,14 @@ export const handleCorrectResponse = ({
 export const handleIncorrectResponse = ({
     args,
     callId,
-    review,
+    markIncorrectGetAttempts,
     setButtonState,
     realtimeTools,
 }) => {
     setButtonState('error');
     setTimeout(() => setButtonState('default'), 500);
 
-    const { attempts, nextCard } = review.markIncorrectGetAttempts();
+    const { attempts, nextCard } = markIncorrectGetAttempts();
     console.log('Next card', nextCard);
 
     realtimeTools.sendFunctionOutput(callId, {
@@ -98,16 +97,20 @@ export const handleIncorrectResponse = ({
 
 export const handleMaxAttempts = ({
     callId,
-    review,
+    setShowAnswer,
+    currentCardId,
+    dueCards,
+    moveToNextCard,
     realtimeTools
 }) => {
-    review.setShowAnswer(true);
-    const nextIndex = review.currentCardIndex + 1;
-    const isLastCard = nextIndex >= review.dueCards.length;
-    const nextCard = isLastCard ? null : review.dueCards[nextIndex];
+    setShowAnswer(true);
+    const currentIndex = dueCards.findIndex(card => card.id === currentCardId);
+    const nextIndex = currentIndex + 1;
+    const isLastCard = nextIndex >= dueCards.length;
+    const nextCard = isLastCard ? null : dueCards[nextIndex];
 
     if (!isLastCard) {
-        review.moveToNextCard();
+        moveToNextCard();
     }
 
     realtimeTools.sendNextCardInfo(nextCard, isLastCard, callId, 'skip', 'Moving to next card after maximum attempts');
@@ -119,22 +122,26 @@ export const handleMaxAttempts = ({
 export const handleSkipResponse = ({
     args,
     callId,
-    review,
-    currentCard,
+    currentCardId,
+    dueCards,
+    updateCardScheduling,
+    setShowAnswer,
     setShowSkip,
+    moveToNextCard,
     realtimeTools
 }) => {
     setShowSkip(true);
     setTimeout(() => setShowSkip(false), 500);
-    review.updateCardScheduling(currentCard.created, 'incorrect');
-    review.setShowAnswer(true);
+    updateCardScheduling(currentCardId, 'incorrect');
+    setShowAnswer(true);
 
-    const nextIndex = review.currentCardIndex + 1;
-    const isLastCard = nextIndex >= review.dueCards.length;
-    const nextCard = isLastCard ? null : review.dueCards[nextIndex];
+    const currentIndex = dueCards.findIndex(card => card.id === currentCardId);
+    const nextIndex = currentIndex + 1;
+    const isLastCard = nextIndex >= dueCards.length;
+    const nextCard = isLastCard ? null : dueCards[nextIndex];
 
     if (!isLastCard) {
-        review.moveToNextCard();
+        moveToNextCard();
     }
 
     realtimeTools.sendNextCardInfo(nextCard, isLastCard, callId, args.result, args.message);
@@ -158,16 +165,18 @@ export const handleAgainResponse = ({
 
 export const handleGetNextCard = ({
     callId,
-    review,
+    currentCardId,
+    dueCards,
     realtimeTools
 }) => {
-    const nextCardIndex = review.currentCardIndex + 1;
-    const nextCard = review.dueCards[nextCardIndex];
+    const currentIndex = dueCards.findIndex(card => card.id === currentCardId);
+    const nextIndex = currentIndex + 1;
+    const nextCard = dueCards[nextIndex];
 
     realtimeTools.sendFunctionOutput(callId, nextCard ? {
         front_text: nextCard.front_text,
         back_text: nextCard.back_text,
-        hasMore: nextCardIndex < review.dueCards.length - 1
+        hasMore: nextIndex < dueCards.length - 1
     } : null);
     realtimeTools.requestNextResponse();
 };

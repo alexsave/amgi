@@ -28,7 +28,7 @@ export const RealtimeProvider = ({ children }) => {
 
     const realtimeTools = createRealtimeTools(dataChannelRef);
 
-    const handleRealtimeEvent = (event, review, card, onAudioStopped) => {
+    const handleRealtimeEvent = (event, reviewCallbacks, card, onAudioStopped) => {
         switch (event.type) {
             case 'output_audio_buffer.started':
                 eventHandlers.handleAudioStarted({ mediaStreamRef });
@@ -53,7 +53,7 @@ export const RealtimeProvider = ({ children }) => {
                 break;
             case 'response.output_item.done':
                 if (event.item.type === 'function_call') {
-                    handleFunctionCall(event.item, review, card);
+                    handleFunctionCall(event.item, reviewCallbacks, card);
                 }
                 break;
             case 'response.complete':
@@ -72,7 +72,7 @@ export const RealtimeProvider = ({ children }) => {
         }
     };
 
-    const handleFunctionCall = (item, review, card) => {
+    const handleFunctionCall = (item, reviewCallbacks, card) => {
         console.log('Received function call:', { name: item.name, arguments: JSON.parse(item.arguments) }, '- Processing user response and updating UI accordingly');
         const args = JSON.parse(item.arguments);
 
@@ -83,7 +83,7 @@ export const RealtimeProvider = ({ children }) => {
                     eventHandlers.handleCorrectResponse({
                         args,
                         callId: item.call_id,
-                        review,
+                        markCorrectGetNext: reviewCallbacks.markCorrectGetNext,
                         setButtonState,
                         realtimeTools
                     });
@@ -92,7 +92,7 @@ export const RealtimeProvider = ({ children }) => {
                     eventHandlers.handleIncorrectResponse({
                         args,
                         callId: item.call_id,
-                        review,
+                        markIncorrectGetAttempts: reviewCallbacks.markIncorrectGetAttempts,
                         setButtonState,
                         realtimeTools,
                     });
@@ -102,8 +102,10 @@ export const RealtimeProvider = ({ children }) => {
                     eventHandlers.handleSkipResponse({
                         args,
                         callId: item.call_id,
-                        review,
-                        currentCard: card,
+                        currentCardId: reviewCallbacks.currentCardId,
+                        dueCards: reviewCallbacks.dueCards,
+                        updateCardScheduling: reviewCallbacks.updateCardScheduling,
+                        setShowAnswer: reviewCallbacks.setShowAnswer,
                         setShowSkip,
                         realtimeTools
                     });
@@ -117,7 +119,6 @@ export const RealtimeProvider = ({ children }) => {
                     break;
             }
         } else if (item.name === 'completeReview') {
-            // Need to somehow mark that it's over
             eventHandlers.handleCompleteReviewFunction({
                 args,
                 callId: item.call_id,
@@ -127,16 +128,17 @@ export const RealtimeProvider = ({ children }) => {
         } else if (item.name === 'getNextCard') {
             eventHandlers.handleGetNextCard({
                 callId: item.call_id,
-                review,
+                currentCardId: reviewCallbacks.currentCardId,
+                dueCards: reviewCallbacks.dueCards,
                 realtimeTools
             });
         }
     };
 
-    const setupWebRTCWrapper = async (card, review, onAudioStopped) => {
+    const setupWebRTCWrapper = async (card, reviewCallbacks, onAudioStopped) => {
         return setupWebRTC({
             card,
-            review,
+            ...reviewCallbacks,
             onAudioStopped,
             setIsConnected,
             setFeedback,

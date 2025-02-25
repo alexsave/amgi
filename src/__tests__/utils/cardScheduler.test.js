@@ -201,5 +201,109 @@ describe('CardScheduler', () => {
       // Counts should reflect removed cards
       expect(scheduler.getTotalCardsCount()).toBe(2);
     });
+
+    test('properly moves new card to learning state', () => {
+      scheduler.pushNewCard('new1');
+      expect(scheduler.getNewCardsCount()).toBe(1);
+      expect(scheduler.getLearningCardsCount()).toBe(0);
+
+      // Set the card to learning state with a 10 minute delay
+      const nextReviewTime = mockDate.getTime() + 10 * 60 * 1000;
+      scheduler.setReviewTime('new1', nextReviewTime, 'learning');
+
+      // Verify the card was removed from new queue and added to learning heap
+      expect(scheduler.getNewCardsCount()).toBe(0);
+      expect(scheduler.getLearningCardsCount()).toBe(1);
+
+      // Verify the card is still in the scheduler
+      expect(scheduler.getTotalCardsCount()).toBe(1);
+
+      // Verify we can find it in the learning heap
+      const learningHeapContents = scheduler.learningHeap.heap;
+      expect(learningHeapContents).toHaveLength(1);
+      expect(learningHeapContents[0].id).toBe('new1');
+      expect(learningHeapContents[0].nextReviewTime).toBe(nextReviewTime);
+    });
+
+    test('maintains card state through peek and pop operations', () => {
+      scheduler.pushNewCard('new1');
+      
+      // Verify initial state
+      expect(scheduler.getNewCardsCount()).toBe(1);
+      expect(scheduler.peekNext()).toBe('new1');
+      
+      // Move to learning
+      const nextReviewTime = mockDate.getTime() + 10 * 60 * 1000;
+      scheduler.setReviewTime('new1', nextReviewTime, 'learning');
+      
+      // Verify after setReviewTime
+      expect(scheduler.getNewCardsCount()).toBe(0);
+      expect(scheduler.getLearningCardsCount()).toBe(1);
+      
+      // Verify peek shows learning card
+      const peekedId = scheduler.peekNext();
+      expect(peekedId).toBe('new1');
+      
+      // Verify state hasn't changed after peek
+      expect(scheduler.getNewCardsCount()).toBe(0);
+      expect(scheduler.getLearningCardsCount()).toBe(1);
+      
+      // Pop the card and verify state
+      const poppedId = scheduler.popNext();
+      expect(poppedId).toBe('new1');
+      expect(scheduler.getLearningCardsCount()).toBe(0);
+    });
+
+    test('handles multiple state transitions correctly', () => {
+      // Add two cards
+      scheduler.pushNewCard('card1');
+      scheduler.pushNewCard('card2');
+      expect(scheduler.getNewCardsCount()).toBe(2);
+      
+      // Move first card to learning
+      scheduler.setReviewTime('card1', mockDate.getTime() + 600000, 'learning');
+      expect(scheduler.getNewCardsCount()).toBe(1);
+      expect(scheduler.getLearningCardsCount()).toBe(1);
+      
+      // Verify card1 is still in learning after peeking
+      expect(scheduler.peekNext()).toBe('card2');
+      expect(scheduler.getLearningCardsCount()).toBe(1);
+      
+      // Move second card to learning
+      scheduler.setReviewTime('card2', mockDate.getTime() + 300000, 'learning');
+      expect(scheduler.getNewCardsCount()).toBe(0);
+      expect(scheduler.getLearningCardsCount()).toBe(2);
+      
+      // Verify card2 is now first (due sooner)
+      expect(scheduler.peekNext()).toBe('card2');
+      
+      // Pop card2 and verify card1 remains
+      scheduler.popNext();
+      expect(scheduler.getLearningCardsCount()).toBe(1);
+      expect(scheduler.peekNext()).toBe('card1');
+    });
+
+    test('verifies internal queue/heap state after transitions', () => {
+      scheduler.pushNewCard('card1');
+      
+      // Verify card is only in new queue
+      expect(scheduler.newQueue.items).toContain('card1');
+      expect(scheduler.learningHeap.heap).toHaveLength(0);
+      expect(scheduler.reviewHeap.heap).toHaveLength(0);
+      
+      // Move to learning
+      scheduler.setReviewTime('card1', mockDate.getTime() + 600000, 'learning');
+      
+      // Verify card is completely removed from new queue
+      expect(scheduler.newQueue.items).not.toContain('card1');
+      expect(scheduler.newQueue.items).toHaveLength(0);
+      
+      // Verify card is properly in learning heap
+      expect(scheduler.learningHeap.heap).toHaveLength(1);
+      expect(scheduler.learningHeap.heap[0].id).toBe('card1');
+      
+      // Verify card is not in review heap
+      expect(scheduler.reviewHeap.heap).toHaveLength(0);
+    });
   });
 }); 
