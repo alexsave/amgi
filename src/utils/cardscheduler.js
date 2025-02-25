@@ -221,6 +221,32 @@ export class CardScheduler {
   }
 
   /**
+   * Get the current state of a card in the scheduler
+   * Returns 'new', 'learning', 'review' or null if not found
+   */
+  getCardState(id) {
+    // Check new queue
+    if (this.newQueue.items.includes(id)) {
+      return 'new';
+    }
+    
+    // Check learning heap
+    const learningIndex = this.learningHeap.indexMap.get(id);
+    if (learningIndex !== undefined) {
+      return 'learning';
+    }
+    
+    // Check review heap
+    const reviewIndex = this.reviewHeap.indexMap.get(id);
+    if (reviewIndex !== undefined) {
+      return 'review';
+    }
+    
+    // Not found in any queue
+    return null;
+  }
+
+  /**
    * Delete a card from any queue/heap it might be in.
    */
   delete(id) {
@@ -292,24 +318,20 @@ export class CardScheduler {
 
     const topLearning = this.learningHeap.peek();
     if (topLearning && topLearning.nextReviewTime <= currentTime) {
-      console.log('cardscheduler: peekNext: learning card due now: ' + topLearning.id);
       return topLearning.id;
     }
 
     if (this.newQueue.size() > 0) {
-      console.log('cardscheduler: peekNext: new card: ' + this.newQueue.peek());
       return this.newQueue.peek();
     }
 
     const topReview = this.reviewHeap.peek();
 
     if (topReview && topReview.nextReviewTime <= endOfDayTime) {
-      console.log('cardscheduler: peekNext: review card due today: ' + topReview.id);
       return topReview.id;
     }
 
     if (topLearning) {
-      console.log('cardscheduler: peekNext: learning card: ' + topLearning.id);
       return topLearning.id;
     }
 
@@ -339,11 +361,6 @@ export class CardScheduler {
   }
 
   printSummary() {
-    console.log("cardscheduler: --------------------------------")
-    console.log('cardscheduler: Learning cards: ' + JSON.stringify(this.learningHeap.heap));
-    console.log('cardscheduler: New cards: ' + JSON.stringify(this.newQueue.items));
-    console.log('cardscheduler: Review cards: ' + JSON.stringify(this.reviewHeap.heap));
-    console.log("cardscheduler: --------------------------------")
   }
 }
 
@@ -364,10 +381,6 @@ export class CardScheduler {
  *
  * // 3) Add a new card (no time)
  * scheduler.pushNewCard('newCardA');
- *
- * console.log(scheduler.popNext(now, endOfDay));  // -> 'reviewNow'
- * console.log(scheduler.popNext(now, endOfDay));  // -> 'newCardA'
- * console.log(scheduler.popNext(now, endOfDay));  // -> 'reviewLater'
  *
  * // If we want to reschedule 'reviewLater' again:
  * scheduler.setReviewTime('reviewLater', now + 10 * 60_000);

@@ -19,24 +19,16 @@ export function useAudio() {
 
   // Helper function to get audio from storage
   const getAudioFromStorage = (audioPath) => {
-    console.log('useAudio: Getting audio from storage:', audioPath);
     const audioData = JSON.parse(localStorage.getItem(`audio_storage/${audioPath}`));
     if (!audioData) {
-      console.warn('useAudio: No audio data found for path:', audioPath);
       return null;
     }
     
     try {
       const blob = dataURLtoBlob(audioData.data);
       const url = URL.createObjectURL(blob);
-      console.log('useAudio: Created URL for audio:', {
-        blobSize: blob.size,
-        blobType: blob.type,
-        url
-      });
       return url;
     } catch (err) {
-      console.error('useAudio: Error creating audio URL:', err);
       return null;
     }
   };
@@ -44,14 +36,11 @@ export function useAudio() {
   // Helper function to convert data URL to Blob
   const dataURLtoBlob = (dataurl) => {
     try {
-      console.log('useAudio: Converting data URL to blob, prefix:', dataurl.substring(0, 50));
       const arr = dataurl.split(',');
       const mime = arr[0].match(/:(.*?);/)[1];
-      console.log('useAudio: Extracted MIME type:', mime);
       
       // Ensure we're dealing with audio data
       if (!mime.startsWith('audio/')) {
-        console.error('useAudio: Invalid MIME type:', mime);
         throw new Error('Invalid audio data');
       }
 
@@ -62,13 +51,8 @@ export function useAudio() {
         u8arr[n] = bstr.charCodeAt(n);
       }
       const blob = new Blob([u8arr], { type: 'audio/mp3' }); // Force MP3 type
-      console.log('useAudio: Created blob:', {
-        size: blob.size,
-        type: blob.type
-      });
       return blob;
     } catch (err) {
-      console.error('useAudio: Error converting data URL to blob:', err);
       throw new Error('Failed to convert audio data');
     }
   };
@@ -82,7 +66,6 @@ export function useAudio() {
       setIsLoading(false);
       setIsRecording(true);
     } catch (e) {
-      console.error('Error starting recording:', e);
       setError('Failed to start recording: ' + e.message);
       setIsLoading(false);
     }
@@ -90,20 +73,16 @@ export function useAudio() {
 
   const stopRecording = async () => {
     try {
-      console.log('Stopping recording...');
       const audioBlob = await recorder.stopRecording();
-      console.log('Got audio blob:', audioBlob);
       setIsRecording(false);
 
       if (audioBlob.size === 0) {
-        console.error('No audio data recorded');
         setError('No audio data recorded. Please try again.');
         return null;
       }
 
       return audioBlob;
     } catch (err) {
-      console.error('Error stopping recording:', err);
       setError('Failed to stop recording: ' + err.message);
       setIsRecording(false);
       return null;
@@ -128,21 +107,17 @@ export function useAudio() {
         const audioRef = audioRefs.current.get(audioPath);
         audioRef.src = audioUrl;
         blobUrls.current.set(audioPath, audioUrl);
-        console.log(`useAudio: Set audio ref source from storage:`, audioUrl);
         return audioUrl;
       }
       
       // If not in storage, try to download and cache it
       // Check cache first
       if (audioCache.current.has(audioPath)) {
-        console.log('Found audio in cache:', audioPath);
         audioUrl = audioCache.current.get(audioPath);
       } else {
         // Download and cache if not found
-        console.log('Downloading audio:', audioPath);
         audioUrl = await downloadCardAudio(audioPath);
         if (audioUrl) {
-          console.log('Caching audio:', audioPath);
           audioCache.current.set(audioPath, audioUrl);
         }
       }
@@ -168,7 +143,6 @@ export function useAudio() {
       
       throw new Error('No audio available');
     } catch (err) {
-      console.error('Error loading audio:', err);
       setError(`Failed to load audio: ${err.message}`);
       throw err;
     }
@@ -176,7 +150,6 @@ export function useAudio() {
 
   const playAudio = async (audioPath, shouldPlay = true) => {
     try {
-      console.log('Playing audio with path:', audioPath);
       
       // Stop all currently playing audio
       for (const audio of audioRefs.current.values()) {
@@ -188,14 +161,11 @@ export function useAudio() {
       
       // Check cache first
       if (audioCache.current.has(audioPath)) {
-        console.log('Found audio in cache:', audioPath);
         audioUrl = audioCache.current.get(audioPath);
       } else {
         // Download and cache if not found
-        console.log('Downloading audio:', audioPath);
         audioUrl = await downloadCardAudio(audioPath);
         if (audioUrl) {
-          console.log('Caching audio:', audioPath);
           audioCache.current.set(audioPath, audioUrl);
         }
       }
@@ -214,7 +184,6 @@ export function useAudio() {
         await audioRef.play();
       }
     } catch (err) {
-      console.error('Error playing audio:', err);
       setError(`Failed to play audio: ${err.message}`);
       throw err;
     }

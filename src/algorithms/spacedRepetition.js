@@ -2,14 +2,11 @@
 
 export function calculateNextReview(review, quality) {
   // Initialize values from review or use defaults
-  const currentInterval = review?.interval_days || 1;
-  const currentEaseFactor = review?.ease_factor || 2.5;
-  const currentRepetitions = review?.repetitions || 0;
+  let interval = review?.interval_days || 1;
+  let easeFactor = review?.ease_factor || 2.5;
+  let repetitions = review?.repetitions || 0;
   const currentState = review?.card_state || 'new';
 
-  let interval = currentInterval;
-  let easeFactor = currentEaseFactor;
-  let repetitions = currentRepetitions;
   let nextReview;
 
   if (quality === 'correct') {

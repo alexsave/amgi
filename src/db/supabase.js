@@ -157,7 +157,6 @@ export const loadDecks = async (userId) => {
     }, {});
 
   } catch (err) {
-    console.error('Error loading decks:', err);
     return {};
   }
 };
@@ -179,19 +178,16 @@ export const saveDeck = async (deck, userId) => {
     if (error) throw error;
     return data;
   } catch (err) {
-    console.error('Error saving deck:', err);
     throw err;
   }
 };
 
 // Save a new card or update an existing one
 export const saveCard = async (deckId, card) => {
-  console.log('Supabase: saving card:', card);
   try {
     // If this is a new card being inserted at a specific position,
     // we need to shift existing cards to make room
     if (!card.id && card.position !== undefined) {
-      console.log('Supabase: shifting cards to make room for new card');
       const { data: existingCards, error: shiftError } = await supabase
         .from('cards')
         .select('id, position')
@@ -218,7 +214,6 @@ export const saveCard = async (deckId, card) => {
 
     // If no position specified for new card, put it at the end
     if (!card.id && card.position === undefined) {
-      console.log('Supabase: getting last card position');
       const { data: lastCard, error: lastError } = await supabase
         .from('cards')
         .select('position')
@@ -230,7 +225,6 @@ export const saveCard = async (deckId, card) => {
       card.position = (lastCard[0]?.position || 0) + 1;
     }
 
-    console.log('Supabase: inserting card');
     const { data, error } = await supabase
       .from('cards')
       .upsert({
@@ -251,7 +245,6 @@ export const saveCard = async (deckId, card) => {
     if (error) throw error;
     return data;
   } catch (err) {
-    console.error('Error saving card:', err);
     throw err;
   }
 };
@@ -292,7 +285,6 @@ export const saveCards = async (deckId, cards) => {
     if (error) throw error;
     return data;
   } catch (err) {
-    console.error('Error saving cards:', err);
     throw err;
   }
 };
@@ -308,7 +300,6 @@ export const deleteDeck = async (deckId, userId) => {
 
     if (error) throw error;
   } catch (err) {
-    console.error('Error deleting deck:', err);
     throw err;
   }
 };
@@ -326,7 +317,6 @@ export const loadReview = async (cardId, userId) => {
     if (error && error.code !== 'PGRST116') throw error; // PGRST116 is "no rows returned"
     return data;
   } catch (err) {
-    console.error('Error loading review:', err);
     return null;
   }
 };
@@ -334,7 +324,6 @@ export const loadReview = async (cardId, userId) => {
 export const newReview = async (cardId, userId) => {
   const today = getLocalDate();
 
-  console.log('Supabase: creating new review');
   const { data, error } = await supabase
     .from('reviews')
     .insert({
@@ -357,10 +346,8 @@ export const newReview = async (cardId, userId) => {
 // Save review data for a card
 // assume we already have it
 export const saveReview = async (cardId, review, userId) => {
-  console.log('Saving review for card:', cardId);
   try {
     // First check if a review exists
-    console.log('Supabase: checking if review exists');
     const { data: existingReview, error: fetchError } = await supabase
       .from('reviews')
       .select()
@@ -373,7 +360,6 @@ export const saveReview = async (cardId, review, userId) => {
 
     if (existingReview.length === 0) {
       // Create new review with default values
-      console.log('Supabase: creating new review');
       const { data, error } = await supabase
         .from('reviews')
         .insert({
@@ -405,9 +391,10 @@ export const saveReview = async (cardId, review, userId) => {
         }
       } else {
         newState = 'learning';
-      }
 
-      console.log('Supabase: updating review to state:' + newState + ' because of result:' + review.result + ' and current state:' + currentState);
+      }
+      newState = review.card_state;
+
 
       const { data, error } = await supabase
         .from('reviews')
@@ -428,7 +415,6 @@ export const saveReview = async (cardId, review, userId) => {
       return data;
     }
   } catch (err) {
-    console.error('Error saving review:', err);
     throw err;
   }
 };
@@ -467,7 +453,6 @@ export const getDueCards = async (userId) => {
       }
     }));
   } catch (err) {
-    console.error('Error getting due cards:', err);
     return [];
   }
 };
@@ -482,13 +467,11 @@ export const downloadCardAudio = async (audioPath) => {
       .download(audioPath);
     
     if (error) {
-      console.error('Error downloading audio:', error);
       throw error;
     }
 
     return URL.createObjectURL(data);
   } catch (err) {
-    console.error('Error downloading audio:', err);
     return null;
   }
 }; 

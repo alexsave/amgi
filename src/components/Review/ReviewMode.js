@@ -24,78 +24,56 @@ const ReviewMode = () => {
   // Load audio when current card changes
   useEffect(() => {
     if (currentCard) {
-      console.log('ReviewMode: Loading audio for current card:', JSON.stringify(currentCard));
       // Load front audio
       if (currentCard.front_audio_path) {
         audio.loadAudio(currentCard.front_audio_path)
-          .catch(err => console.error('Error loading front audio:', err));
       }
 
       // Load back audio
       if (currentCard.back_audio_path) {
         audio.loadAudio(currentCard.back_audio_path)
-          .catch(err => console.error('Error loading back audio:', err));
       }
     }
   }, [currentCardId]);
 
   const handleEvaluationResult = (data) => {
-    console.log('ReviewMode: Received evaluation result:', {
-      result: data?.result,
-      messageLength: data?.message?.length,
-      hasAudio: !!data?.audio,
-      fullData: data
-    });
 
     if (!data || !currentCard) {
-      console.error('ReviewMode: No evaluation data received or no current card');
       return;
     }
 
     review.setEvaluationResult(data);
-    console.log('ReviewMode: Set evaluation result in review context');
     
     // Simplified quality system - only correct/incorrect
     const quality = data.result === 'correct' ? 'correct' : 'incorrect';
-    console.log('ReviewMode: Determined quality:', quality);
 
     // Update card scheduling
     review.updateCardSchedulingServer(currentCardId, quality);
-    console.log('ReviewMode: Updated card scheduling');
     
     // Play evaluation audio if available
     if (data.audio) {
-      console.log('ReviewMode: Playing evaluation audio');
       const audioData = new Uint8Array(data.audio);
       const blob = new Blob([audioData], { type: 'audio/mpeg' });
       const url = URL.createObjectURL(blob);
       audio.evaluationAudioRef.current.src = url;
       audio.evaluationAudioRef.current.play()
-        .then(() => console.log('ReviewMode: Started playing evaluation audio'))
-        .catch(err => console.error('ReviewMode: Error playing evaluation audio:', err));
       
       // Clean up the URL when audio ends
       audio.evaluationAudioRef.current.onended = () => {
-        console.log('ReviewMode: Evaluation audio finished, cleaning up URL');
         URL.revokeObjectURL(url);
       };
     }
     
     if (data.result === 'quit') {
-      console.log('ReviewMode: Quit command received, moving to next card quickly');
       review.setShowAnswer(true);
       setTimeout(review.moveToNextCard, 500); // Quick skip for quit commands
     } else if (data.result === 'correct') {
-      console.log('ReviewMode: Correct answer, moving to next card after delay');
       setTimeout(review.moveToNextCard, 2000); // 2 second delay for correct answers
     } else {
-      console.log('ReviewMode: Incorrect answer, updating attempts');
       // Incorrect answer
       review.setAttempts(prev => {
         const newAttempts = prev + 1;
-        console.log('ReviewMode: New attempt count:', newAttempts);
         if (newAttempts >= 3) {
-          console.log('ReviewMode: Max attempts reached, showing answer and moving to next card');
           review.setShowAnswer(true);
           setTimeout(review.moveToNextCard, 2000);
         }
@@ -170,18 +148,8 @@ const ReviewMode = () => {
               isLoading={audio.isLoading}
               onStartRecording={audio.startRecording}
               onStopRecording={async () => {
-                console.log('ReviewMode: Stopping recording with current card:', {
-                  front_text: currentCard.front_text,
-                  back_text: currentCard.back_text,
-                  sourceLang: currentCard.sourceLang,
-                  targetLang: currentCard.targetLang
-                });
                 const audioBlob = await audio.stopRecording();
                 if (!audioBlob) return;
-                console.log('ReviewMode: Got audio blob:', {
-                  size: audioBlob.size,
-                  type: audioBlob.type
-                });
                 await evaluateSpeech(audioBlob, currentCard);
               }}
             />

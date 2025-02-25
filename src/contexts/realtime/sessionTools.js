@@ -38,13 +38,10 @@ export const sessionTools = {
 };
 
 export const configureSession = (dataChannel, card) => {
-    console.log('Part 1, configuring initial session, card = ' + JSON.stringify(card));
     if (!dataChannel) {
-        console.error('No data channel available');
         return;
     }
     if (!card) {
-        console.error('No card provided');
         return;
     }
 
@@ -86,7 +83,6 @@ export const configureSession = (dataChannel, card) => {
             }
         }));
     } catch (error) {
-        console.error('Error sending messages:', error);
         throw new Error('Failed to configure session: ' + error.message);
     }
 }; 

@@ -46,7 +46,6 @@ export const DeckProvider = ({ children }) => {
         // Always load decks from localStorage first
         const localDecks = localDeckStorage.getLocalDecks();
         // this gets called for some reason when we hit generate WHY
-        console.log('DeckContext: localDecks:', localDecks);
         if (Object.keys(localDecks).length > 0) {
           setDecks(localDecks);
         }
@@ -58,16 +57,13 @@ export const DeckProvider = ({ children }) => {
         if (user && !isDirectMode && 
             (lastAuthState.current.user?.id !== user.id || 
              lastAuthState.current.isDirectMode !== isDirectMode)) {
-          console.log('DeckContext: loading decks from supabase');
           const cloudDecks = await supabase.loadDecks(user.id);
-          console.log('DeckContext: cloudDecks:', cloudDecks);
           setDecks(cloudDecks);
           localDeckStorage.saveLocalDecks(cloudDecks);
           
           // Update last auth state
           lastAuthState.current = { user, isDirectMode };
         } else {
-          console.log('DeckContext: not calling supabase because we are in direct mode or auth state hasn\'t changed');
         }
 
         // Mark initial load as complete
@@ -101,7 +97,6 @@ export const DeckProvider = ({ children }) => {
   }, [user, isDirectMode]);
 
   const saveDecks = async (newDecks) => {
-    console.log('Saving decks:', newDecks);
     // Always save to localStorage
     localDeckStorage.saveLocalDecks(newDecks);
     
@@ -117,12 +112,10 @@ export const DeckProvider = ({ children }) => {
         setError(error.message);
       }
     }
-    console.log('DeckContext: newDecks:', newDecks);
     setDecks(newDecks);
   };
 
   const createNewDeck = async (name) => {
-    console.log('Creating new deck:', name);
     const timestamp = Date.now();
     
     try {
@@ -142,7 +135,6 @@ export const DeckProvider = ({ children }) => {
           lastModified: timestamp
         };
         
-        console.log('DeckContext: transformedDeck:', transformedDeck);
         setDecks(prev => ({ ...prev, [newDeck.id]: transformedDeck }));
         return newDeck.id;
       } else {
@@ -168,13 +160,11 @@ export const DeckProvider = ({ children }) => {
   };
 
   const updateDeck = (deckId, updatedDeck) => {
-    console.log('Updating deck:', decks, deckId, updatedDeck);
     const newDecks = { ...decks, [deckId]: updatedDeck };
     saveDecks(newDecks);
   };
 
   const deleteDeck = async (deckId) => {
-    console.log('Deleting deck:', deckId);
     if (user && !isDirectMode) {
       try {
         await supabase.deleteDeck(deckId, user.id);
@@ -188,7 +178,6 @@ export const DeckProvider = ({ children }) => {
     localDeckStorage.deleteLocalDeck(deckId);
 
     // Delete from local state
-    console.log('DeckContext: deleting deck from local state:', deckId);
     setDecks(prev => {
       // It's an object, so we need to filter it
       const newDecks = { ...prev };
@@ -252,7 +241,6 @@ export const DeckProvider = ({ children }) => {
 
   const addCardToDeck = async (deckId, card) => {
     try {
-      console.log('DeckContext: adding card to deck:', deckId, card);
       if (user && !isDirectMode) {
         // Add to Supabase
         const newCard = await supabase.saveCard(deckId, {
@@ -269,7 +257,6 @@ export const DeckProvider = ({ children }) => {
         const review = await supabase.newReview(newCard.id, user.id);
         
         // Update local state
-        console.log('DeckContext: adding card to local state:', deckId, card);
         setDecks(prev => {
           const deck = prev[deckId];
           const transformedCard = {
@@ -295,7 +282,6 @@ export const DeckProvider = ({ children }) => {
       } else {
         // Add to local storage only
         const updatedDeck = localDeckStorage.addCardToLocalDeck(deckId, card);
-        console.log('DeckContext: updatedDeck:', updatedDeck);
         setDecks(prev => ({ ...prev, [deckId]: updatedDeck }));
       }
     } catch (error) {
