@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { MicrophoneIcon, ForwardIcon } from '@heroicons/react/24/solid';
-import { useReview } from '../../hooks/useReview';
+import { useReview } from '../../contexts/ReviewContext';
 import AudioVisualizer from './AudioVisualizer';
 import './VoiceMode.css';
 import { useRealtime } from '../../contexts/RealtimeContext';

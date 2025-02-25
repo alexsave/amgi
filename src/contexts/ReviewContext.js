@@ -1,17 +1,21 @@
-import { useState, useEffect, useRef } from 'react';
-import { useDecks } from '../contexts/DeckContext';
+import { useState, useEffect, useRef, createContext, useContext } from 'react';
+import { useLocation } from 'react-router-dom';
+import { useDecks } from './DeckContext';
 import { calculateNextReview } from '../algorithms/spacedRepetition';
 import { CardScheduler } from '../utils/cardscheduler';
 import * as supabase from '../db/supabase';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from './AuthContext';
 import { getLocalDate, parseLocalDate } from '../utils/dates';
 
-// this could probalby be it's own context
-export function useReview() {
+const ReviewContext = createContext({});
+
+//export function useReview() {
+export const ReviewProvider = ({ children }) => {
 
   const MAX_ATTEMPTS = 3;
 
-  const { currentDeckId, decks, mode } = useDecks();
+  const location = useLocation();
+  const { currentDeckId, decks } = useDecks();
   const { user, isDirectMode } = useAuth();
   const [evaluationResult, setEvaluationResult] = useState(null);
   const [error, setError] = useState(null);
@@ -37,8 +41,8 @@ export function useReview() {
 
   // Initialize scheduler with deck cards
   useEffect(() => {
-    console.log('useReview useEffect called with currentDeckId:' + currentDeckId + ' and mode:' + mode);
-    if (!currentDeckId || mode !== 'review') {
+    const isReviewMode = location.pathname.includes('/review');
+    if (!currentDeckId || !isReviewMode) {
       return;
     }
 
@@ -71,7 +75,7 @@ export function useReview() {
     }
     setCurrentCardId(cardSchedulerRef.current.peekNext());
     updateCardCounts();
-  }, [currentDeckId]);
+  }, [currentDeckId, decks, location]);
 
   const updateCardSchedulingServer = async (cardId, quality) => {
     console.log('Updating card scheduling for card ' + cardId + ' with quality ' + quality);
@@ -212,7 +216,8 @@ export function useReview() {
     }
   };
 
-  return {
+
+  const value = {
     evaluationResult,
     error,
     attempts,
@@ -231,4 +236,19 @@ export function useReview() {
     markCorrectGetNext,
     cardSchedulerRef
   };
+
+  return (
+    <ReviewContext.Provider value={value}>
+      {children}
+    </ReviewContext.Provider>
+  )
 } 
+
+
+export const useReview = () => {
+  const context = useContext(ReviewContext);
+  if (!context) {
+    throw new Error('useDecks must be used within a DeckProvider');
+  }
+  return context;
+}

@@ -7,7 +7,7 @@ import CardPreview from './CardPreview';
 import EvaluationResult from './EvaluationResult';
 import VoiceMode from './VoiceMode';
 import { useAudio } from '../../hooks/useAudio';
-import { useReview } from '../../hooks/useReview';
+import { useReview } from '../../contexts/ReviewContext';
 import { useSpeechEvaluation } from '../../hooks/useSpeechEvaluation';
 import { LanguageIcon, MicrophoneIcon } from '@heroicons/react/24/solid';
 import './ReviewMode.css';
@@ -115,6 +115,7 @@ const ReviewMode = () => {
   };
 
   if (!currentCardId) {
+    return <div>{JSON.stringify(review)}</div>;
     return (
       <div className="review-complete">
         <h3>🎉 Review Complete!</h3>

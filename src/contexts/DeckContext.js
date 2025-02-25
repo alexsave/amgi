@@ -339,7 +339,7 @@ export const DeckProvider = ({ children }) => {
     decks,
     loading,
     currentDeckId,
-    mode: getMode(),
+    getMode,
     newCardsToday,
     dueCards,
     error,
