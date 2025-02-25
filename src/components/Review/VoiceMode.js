@@ -7,7 +7,7 @@ import { useRealtime } from '../../contexts/RealtimeContext';
 
 const VoiceMode = () => {
   const review = useReview();
-  const { currentCardId, cardsById, attempts, cardSchedulerRef } = review;
+  const { attempts } = review;
   const [isConnecting, setIsConnecting] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
 
@@ -24,28 +24,12 @@ const VoiceMode = () => {
     audioContextRef,
     animationFrameRef,
     aiAnimationFrameRef,
-    peerConnectionRef,
     setupWebRTC,
     cleanup,
     setIsRecording,
     setAudioScale,
     setFeedback,
   } = useRealtime();
-
-  const onAudioStopped = () => {
-    console.log('onAudioStopped');
-    const currentCard = cardsById[currentCardId];
-    console.log('currentCard info: ' + JSON.stringify(currentCard));
-    if (cardSchedulerRef.current.peekNext() == null) {
-      console.log('oh no, cardSchedulerRef is empty, shutting down');
-      if (mediaStreamRef.current) {
-        mediaStreamRef.current.getTracks().forEach(track => track.stop());
-      }
-      if (peerConnectionRef.current) {
-        peerConnectionRef.current.close();
-      }
-    }
-  }
 
   // Update cleanup effect
   useEffect(() => {
@@ -60,8 +44,7 @@ const VoiceMode = () => {
       setIsConnecting(true);
       setFeedback('Connecting...');
       try {
-        const currentCard = cardsById[currentCardId];
-        const success = await setupWebRTC(currentCard, review, onAudioStopped);
+        const success = await setupWebRTC();
 
         if (success) {
           setHasStarted(true);

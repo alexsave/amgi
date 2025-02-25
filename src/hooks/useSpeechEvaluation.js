@@ -1,4 +1,3 @@
-import { useCallback } from 'react';
 import { evaluateSpeech as apiEvaluateSpeech } from '../network/api';
 
 export function useSpeechEvaluation({ audio, onEvaluationResult }) {
