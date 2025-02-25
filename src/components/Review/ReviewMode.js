@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useDecks } from '../../contexts/DeckContext';
 import { useNavigate } from 'react-router-dom';
 import RecordingControls from './RecordingControls';
-import Timeline from './Timeline';
 import CardPreview from './CardPreview';
 import EvaluationResult from './EvaluationResult';
 import VoiceMode from './VoiceMode';
@@ -115,7 +114,6 @@ const ReviewMode = () => {
   };
 
   if (!currentCardId) {
-    return <div>{JSON.stringify(review)}</div>;
     return (
       <div className="review-complete">
         <h3>🎉 Review Complete!</h3>
