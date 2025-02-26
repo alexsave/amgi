@@ -21,14 +21,79 @@ export const ReviewProvider = ({ children }) => {
   const [attempts, setAttempts] = useState(0);
   const [showAnswer, setShowAnswer] = useState(false);
 
-  // Store cards by ID for easy lookup
-  const [cardsById, setCardsById] = useState({});
-  const [currentCardId, setCurrentCardId] = useState(null);
+  // Store cards by ID for easy lookup - CONVERT TO REF
+  const cardsByIdRef = useRef({});
+  const currentCardIdRef = useRef(null);
   const [newCardsCount, setNewCardsCount] = useState(0);
   const [learningCardsCount, setLearningCardsCount] = useState(0);
   const [reviewCardsCount, setReviewCardsCount] = useState(0);
 
   const cardSchedulerRef = useRef(new CardScheduler());
+
+  // Add the test sequence card IDs for special logging
+  const CARD_ID_1 = '4bf25261-e3ec-4144-aa73-b2c2c1ac1cd9';
+  const CARD_ID_2 = '72a283b6-3f6e-4df9-9d78-e87c5b682986';
+  // Convert from useState to useRef for immediate updates
+  const sequenceStepRef = useRef(0);
+  
+  // Wrapper for setSequenceStep to enforce strict sequential progression
+  const setSequenceStep = (newStep) => {
+    // Only allow steps to increment by exactly 1
+    if (newStep !== sequenceStepRef.current + 1) {
+      const errorMsg = `🚨 SEQUENCE ERROR: Attempted to set step to ${newStep} from ${sequenceStepRef.current}. Steps must progress sequentially with no gaps!`;
+      console.error(errorMsg);
+      
+      // Log detailed state to help debug the issue
+      console.error('FULL STATE DUMP:');
+      console.error('Current sequence step:', sequenceStepRef.current);
+      console.error('Attempted next step:', newStep);
+      console.error('Current card ID:', currentCardIdRef.current);
+      
+      // Log state of both test cards
+      console.error('First test card (4bf...) state:', {
+        inCardsById: cardsByIdRef.current[CARD_ID_1] ? true : false,
+        cardState: cardsByIdRef.current[CARD_ID_1]?.review?.card_state || 'unknown',
+        schedulerState: cardSchedulerRef.current.getCardState(CARD_ID_1) || 'not in scheduler'
+      });
+      
+      console.error('Second test card (72a...) state:', {
+        inCardsById: cardsByIdRef.current[CARD_ID_2] ? true : false,
+        cardState: cardsByIdRef.current[CARD_ID_2]?.review?.card_state || 'unknown',
+        schedulerState: cardSchedulerRef.current.getCardState(CARD_ID_2) || 'not in scheduler'
+      });
+      
+      // Log scheduler state
+      console.error('Scheduler state:', {
+        isEmpty: cardSchedulerRef.current.peekNext() === null,
+        newCount: cardSchedulerRef.current.getNewCardsCount(),
+        learningCount: cardSchedulerRef.current.getLearningCardsCount(),
+        reviewCount: cardSchedulerRef.current.getReviewCardsCount()
+      });
+      
+      // Stop execution of the current function by throwing an error
+      throw new Error(errorMsg);
+    }
+    
+    // If we made it here, the progression is valid
+    console.log(`✅ SEQUENCE: Step ${sequenceStepRef.current} → ${newStep}`);
+    sequenceStepRef.current = newStep;
+  };
+
+  // Helper function to set the current card ID
+  const setCurrentCardId = (cardId) => {
+    currentCardIdRef.current = cardId;
+    
+    // Since this is now a ref, we need to force a re-render when this changes
+    // but we'll minimize this by only updating when needed in the actual components
+  };
+  
+  // Helper function to update cardsById
+  const setCardsById = (newCardsById) => {
+    cardsByIdRef.current = newCardsById;
+    
+    // Force a re-render for components that need to visualize this data
+    // But we'll handle that at the component level
+  };
 
   // Update card counts whenever the scheduler changes
   const updateCardCounts = () => {
@@ -39,12 +104,10 @@ export const ReviewProvider = ({ children }) => {
 
   // A utility function to force an update on a card
   const forceCardUpdate = (cardId, newReview) => {
-    if (!cardId || !cardsById[cardId]) return false;
-    
-    console.log('🔄 Force-updating card:', cardId, 'to state:', newReview?.card_state);
+    if (!cardId || !cardsByIdRef.current[cardId]) return false;
     
     // Create a completely new card object
-    const cardClone = JSON.parse(JSON.stringify(cardsById[cardId]));
+    const cardClone = JSON.parse(JSON.stringify(cardsByIdRef.current[cardId]));
     
     // Update the review data
     if (newReview) {
@@ -52,7 +115,7 @@ export const ReviewProvider = ({ children }) => {
     }
     
     // Replace in cardsById
-    cardsById[cardId] = cardClone;
+    cardsByIdRef.current[cardId] = cardClone;
     
     // Sync to deck
     syncDeckCardWithCardsById(cardId);
@@ -79,38 +142,73 @@ export const ReviewProvider = ({ children }) => {
 
   // Monitor changes to cardsById and log them
   useEffect(() => {
-    console.log('cardsById changed:', cardsById);
-    
-    // Ensure card counts are updated whenever cardsById changes
-    updateCardCounts();
-  }, [cardsById]);
-
-  // Monitor changes to currentCardId
-  useEffect(() => {
-    console.log('currentCardId changed:', currentCardId);
-    
-    if (currentCardId) {
-      // Check if the card exists in cardsById
-      const card = cardsById[currentCardId];
-      if (card) {
-        console.log('Current card data from cardsById:', {
-          id: card.id,
-          state: card.review?.card_state
-        });
-        
-        // Check what state the card has in the scheduler
-        const schedulerState = cardSchedulerRef.current.getCardState(currentCardId);
-        console.log('Card state in scheduler:', schedulerState);
-        
-        // If there's a mismatch, log it
-        if (card.review && schedulerState && card.review.card_state !== schedulerState) {
-          console.warn('State mismatch! cardsById:', card.review.card_state, 'scheduler:', schedulerState);
-        }
-      } else {
-        console.error('Current card not found in cardsById:', currentCardId);
+    // Track changes to cardsById using a ref
+    const handleCardsByIdUpdate = () => {
+      // Ensure card counts are updated whenever cardsById changes
+      updateCardCounts();
+      
+      // Check for end of test sequence when both cards are in review
+      if (cardsByIdRef.current[CARD_ID_1]?.review?.card_state === 'review' && 
+          cardsByIdRef.current[CARD_ID_2]?.review?.card_state === 'review' &&
+          cardSchedulerRef.current.peekNext() === null) {
+        console.log('🧪 STEP 13: Review session has ended - all cards processed and in REVIEW state');
+        // Use direct ref update for final step to avoid throwing errors, since this is an expected transition
+        sequenceStepRef.current = 13;
       }
-    }
-  }, [currentCardId, cardsById]);
+    };
+    
+    // Set up an interval to check for changes since we're using refs
+    const intervalId = setInterval(handleCardsByIdUpdate, 100);
+    
+    return () => clearInterval(intervalId);
+  }, []);
+
+  // Monitor changes to currentCardId with improved tracking
+  useEffect(() => {
+    // Track changes to currentCardId using a ref
+    let prevCardId = null;
+    
+    const checkCurrentCardChange = () => {
+      const cardId = currentCardIdRef.current;
+      
+      // Only process if the card ID has changed
+      if (cardId !== prevCardId) {
+        prevCardId = cardId;
+        
+        if (!cardId) return;
+        
+        // Check if the card exists in cardsById
+        const card = cardsByIdRef.current[cardId];
+        if (!card) {
+          console.error('Current card not found in cardsById:', cardId);
+          return;
+        }
+        
+        // Get the card state from scheduler
+        const schedulerState = cardSchedulerRef.current.getCardState(cardId);
+        
+        // Test sequence tracking
+        if (cardId === CARD_ID_1 && schedulerState === 'new') {
+          console.log('🧪 STEP 1: First test card (ID 4bf...) is now current card in NEW state');
+          setSequenceStep(1);
+        } else if (cardId === CARD_ID_2 && schedulerState === 'new') {
+          console.log('🧪 STEP 4: Second test card (ID 72a...) is now current card in NEW state');
+          setSequenceStep(4);
+        } else if (cardId === CARD_ID_1 && schedulerState === 'learning') {
+          console.log('🧪 STEP 7: First test card (ID 4bf...) retrieved from LEARNING queue');
+          setSequenceStep(7);
+        } else if (cardId === CARD_ID_2 && schedulerState === 'learning') {
+          console.log('🧪 STEP 10: Second test card (ID 72a...) retrieved from LEARNING queue');
+          setSequenceStep(10);
+        }
+      }
+    };
+    
+    // Set up an interval to check for changes since we're using refs
+    const intervalId = setInterval(checkCurrentCardChange, 100);
+    
+    return () => clearInterval(intervalId);
+  }, []);
 
   // Initialize scheduler with deck cards
   useEffect(() => {
@@ -128,7 +226,7 @@ export const ReviewProvider = ({ children }) => {
     // Build cards by ID map
     const newCardsById = {};
     deck.cards.forEach(card => {
-      newCardsById[card.id] = card;
+      newCardsById[card.id] = JSON.parse(JSON.stringify(card));
     });
     setCardsById(newCardsById);
 
@@ -152,16 +250,16 @@ export const ReviewProvider = ({ children }) => {
 
   // This function will directly update the deck card references and ensure scheduler consistency
   const syncDeckCardWithCardsById = (cardId) => {
-    if (!currentDeckId || !decks[currentDeckId] || !cardsById[cardId]) {
+    if (!currentDeckId || !decks[currentDeckId] || !cardsByIdRef.current[cardId]) {
       console.log('Cannot sync - missing deck or card data:', {
         hasDeck: !!decks[currentDeckId],
-        hasCard: !!cardsById[cardId]
+        hasCard: !!cardsByIdRef.current[cardId]
       });
       return false;
     }
     
     // Get the updated card data
-    const updatedCard = cardsById[cardId];
+    const updatedCard = cardsByIdRef.current[cardId];
     
     // Find and update the card in the deck
     const deck = decks[currentDeckId];
@@ -216,7 +314,7 @@ export const ReviewProvider = ({ children }) => {
       }
 
       // Prepare card data, prioritizing cardsById for most current information
-      const cardData = cardsById[cardId];
+      const cardData = cardsByIdRef.current[cardId];
       
       if (!cardData) {
         console.error('❌ Card not found in cardsById:', cardId);
@@ -292,8 +390,8 @@ export const ReviewProvider = ({ children }) => {
     console.log('peekNext returned:', cardId);
     
     // If we have a card, check its state
-    if (cardId && cardsById[cardId] && cardsById[cardId].review) {
-      console.log('Next card state in cardsById:', cardsById[cardId].review.card_state);
+    if (cardId && cardsByIdRef.current[cardId] && cardsByIdRef.current[cardId].review) {
+      console.log('Next card state in cardsById:', cardsByIdRef.current[cardId].review.card_state);
       console.log('Next card state in scheduler:', cardSchedulerRef.current.getCardState(cardId));
     }
     
@@ -307,55 +405,45 @@ export const ReviewProvider = ({ children }) => {
   };
 
   const markCorrectGetNext = async () => {
-    if (!currentCardId) return null;
+    if (!currentCardIdRef.current) return null;
     
     // Create a fresh copy of the card to avoid reference issues
     // First check if the card exists in cardsById
-    const cardRaw = cardsById[currentCardId];
+    const cardRaw = cardsByIdRef.current[currentCardIdRef.current];
     if (!cardRaw) {
-      console.error('Card not found in cardsById:', currentCardId);
+      console.error('Card not found in cardsById:', currentCardIdRef.current);
       return null;
     }
     
     // Create a deep copy using JSON.parse/stringify to break any object references
-    // that might be causing stale data
     const card = JSON.parse(JSON.stringify(cardRaw));
     
-    console.log('==== Card Review Process ====');
-    console.log('Current card ID:', currentCardId);
-    console.log('Raw cardById object:', cardRaw);
-    console.log('Fresh deep-copied card:', card);
-    console.log('Card state in original cardsById:', cardRaw.review?.card_state);
-    console.log('Card state in deep copy:', card.review?.card_state);
-    
-    // Check if deep copy matches the original
-    if (cardRaw.review?.card_state !== card.review?.card_state) {
-      console.error('⚠️ Deep copy mismatch! Original:', cardRaw.review?.card_state, 'Copy:', card.review?.card_state);
-      // Use the original card's state in this case
-      card.review = JSON.parse(JSON.stringify(cardRaw.review || {}));
-      console.log('Forced card state in copy to match original:', card.review?.card_state);
-      
-      // Also fix the original to ensure it's correct going forward
-      forceCardUpdate(currentCardId, cardRaw.review);
+    // Test sequence tracking
+    if (currentCardIdRef.current === CARD_ID_1 && card.review.card_state === 'new') {
+      console.log('🧪 STEP 2: First test card (ID 4bf...) pronounced correctly');
+      setSequenceStep(2);
+    } else if (currentCardIdRef.current === CARD_ID_2 && card.review.card_state === 'new') {
+      console.log('🧪 STEP 5: Second test card (ID 72a...) pronounced correctly');
+      setSequenceStep(5);
+    } else if (currentCardIdRef.current === CARD_ID_1 && card.review.card_state === 'learning') {
+      console.log('🧪 STEP 8: First test card (ID 4bf...) from LEARNING pronounced correctly');
+      setSequenceStep(8);
+    } else if (currentCardIdRef.current === CARD_ID_2 && card.review.card_state === 'learning') {
+      console.log('🧪 STEP 11: Second test card (ID 72a...) from LEARNING pronounced correctly');
+      setSequenceStep(11);
     }
     
-    console.log('Current card scheduler state:', cardSchedulerRef.current.getCardState(currentCardId));
-    
     // CRITICAL CHECK: Force reconcile states between cardsById and scheduler 
-    if (card.review && cardSchedulerRef.current.getCardState(currentCardId) !== card.review.card_state) {
-      console.warn('💥 State mismatch detected - Forcing scheduler state update to match cardsById!');
-      
-      // Update the scheduler directly with the current card state
-      const reviewTime = card.review.next_review_date 
-        ? new Date(card.review.next_review_date).getTime()
-        : Date.now() + 10 * 60 * 1000;
-        
-      cardSchedulerRef.current.delete(currentCardId);
+    if (card.review && cardSchedulerRef.current.getCardState(currentCardIdRef.current) !== card.review.card_state) {
+      cardSchedulerRef.current.delete(currentCardIdRef.current);
       
       if (card.review.card_state === 'new') {
-        cardSchedulerRef.current.pushNewCard(currentCardId);
+        cardSchedulerRef.current.pushNewCard(currentCardIdRef.current);
       } else {
-        cardSchedulerRef.current.setReviewTime(currentCardId, reviewTime, card.review.card_state);
+        const reviewTime = card.review.next_review_date 
+          ? new Date(card.review.next_review_date).getTime()
+          : Date.now() + 10 * 60 * 1000;
+        cardSchedulerRef.current.setReviewTime(currentCardIdRef.current, reviewTime, card.review.card_state);
       }
       
       updateCardCounts();
@@ -365,72 +453,85 @@ export const ReviewProvider = ({ children }) => {
 
     if (attempts > 0) {
       // If we've already tried this card, move it to learning state
-      console.log('🔄 Card has prior attempts, marking as incorrect and moving to learning');
-      updatedReview = await updateCardSchedulingServer(currentCardId, 'incorrect');
+      updatedReview = await updateCardSchedulingServer(currentCardIdRef.current, 'incorrect');
       
       if (updatedReview) {
         // Force update all data structures to be consistent
-        forceCardUpdate(currentCardId, updatedReview);
+        forceCardUpdate(currentCardIdRef.current, updatedReview);
       }
       
       const nextReviewTime = Date.now() + 10 * 60 * 1000;
-      cardSchedulerRef.current.delete(currentCardId);
-      cardSchedulerRef.current.setReviewTime(currentCardId, nextReviewTime, 'learning');
+      cardSchedulerRef.current.delete(currentCardIdRef.current);
+      cardSchedulerRef.current.setReviewTime(currentCardIdRef.current, nextReviewTime, 'learning');
     } else if (!card.review || card.review.card_state === 'new') {
-      console.log('🆕 Marking correct for new card with state:', card.review?.card_state);
-
       // If it's a new card, move it to learning state
-      updatedReview = await updateCardSchedulingServer(currentCardId, 'correct');
-      console.log('📈 After server update, card state is now:', updatedReview?.card_state);
+      updatedReview = await updateCardSchedulingServer(currentCardIdRef.current, 'correct');
+      
+      // Test sequence tracking - state transitions (only update once)
+      if (currentCardIdRef.current === CARD_ID_1 && updatedReview?.card_state === 'learning') {
+        console.log('🧪 STEP 3: First test card (ID 4bf...) moved to LEARNING state');
+        setSequenceStep(3);
+      } else if (currentCardIdRef.current === CARD_ID_2 && updatedReview?.card_state === 'learning') {
+        console.log('🧪 STEP 6: Second test card (ID 72a...) moved to LEARNING state');
+        setSequenceStep(6);
+      }
       
       if (updatedReview) {
         // Force update all data structures to be consistent
-        forceCardUpdate(currentCardId, updatedReview);
+        forceCardUpdate(currentCardIdRef.current, updatedReview);
       }
       
       const nextReviewTime = Date.now() + 10 * 60 * 1000;
-      cardSchedulerRef.current.delete(currentCardId);
-      cardSchedulerRef.current.setReviewTime(currentCardId, nextReviewTime, 'learning');
+      cardSchedulerRef.current.delete(currentCardIdRef.current);
+      cardSchedulerRef.current.setReviewTime(currentCardIdRef.current, nextReviewTime, 'learning');
     } else {
       // First attempt success for review or learning card
       // Review card correct - remove from today's queue
-      console.log('✅ Marking correct for card with state:', card.review.card_state);
-      updatedReview = await updateCardSchedulingServer(currentCardId, 'correct');
+      updatedReview = await updateCardSchedulingServer(currentCardIdRef.current, 'correct');
+      
+      // Test sequence tracking - transitions to REVIEW (only update once)
+      if (currentCardIdRef.current === CARD_ID_1 && updatedReview?.card_state === 'review') {
+        console.log('🧪 STEP 9: First test card (ID 4bf...) moved to REVIEW state and removed from scheduler');
+        setSequenceStep(9);
+      } else if (currentCardIdRef.current === CARD_ID_2 && updatedReview?.card_state === 'review') {
+        console.log('🧪 STEP 12: Second test card (ID 72a...) moved to REVIEW state and removed from scheduler');
+        setSequenceStep(12);
+      }
       
       if (updatedReview) {
         // Force update all data structures to be consistent
-        forceCardUpdate(currentCardId, updatedReview);
+        forceCardUpdate(currentCardIdRef.current, updatedReview);
       }
       
-      cardSchedulerRef.current.delete(currentCardId);
+      cardSchedulerRef.current.delete(currentCardIdRef.current);
     }
 
-    // Inspect final state
-    console.log('Final card state after processing:', updatedReview?.card_state);
-    console.log('Final cardsById state:', cardsById[currentCardId]?.review?.card_state);
-    console.log('Final scheduler state:', cardSchedulerRef.current.getCardState(currentCardId));
-
     setAttempts(0);
-    // Use our debug wrapper functions
-    const nextCardId = debugPeekNext();
-    setCurrentCardIdWithDebug(nextCardId);
+    // Get next card
+    const nextCardId = cardSchedulerRef.current.peekNext();
+    
+    // Check if this is the end of the test sequence
+    if (cardSchedulerRef.current.peekNext() === null) {
+      console.log('🧪 STEP 13: Review session has ended - all cards processed');
+      // Use direct ref update for final step to avoid throwing errors, since this is an expected transition
+      sequenceStepRef.current = 13;
+    }
+    
+    setCurrentCardId(nextCardId);
     updateCardCounts();
-    return nextCardId ? cardsById[nextCardId] : null;
+    return nextCardId ? cardsByIdRef.current[nextCardId] : null;
   };
 
   const markIncorrectGetAttempts = () => {
-    if (!currentCardId) return { attempts: 0, nextCard: null };
-
+    if (!currentCardIdRef.current) return { attempts: 0, nextCard: null };
+    
     if (attempts === 0) {
       // First incorrect attempt
-      console.log('First incorrect attempt for card:', currentCardId);
-      
       // Update card scheduling
-      updateCardSchedulingServer(currentCardId, 'incorrect')
+      updateCardSchedulingServer(currentCardIdRef.current, 'incorrect')
         .then(updatedReview => {
           if (updatedReview) {
-            console.log('Card updated after incorrect attempt:', updatedReview);
-            forceCardUpdate(currentCardId, updatedReview);
+            forceCardUpdate(currentCardIdRef.current, updatedReview);
           }
         })
         .catch(err => {
@@ -443,27 +544,25 @@ export const ReviewProvider = ({ children }) => {
 
     if (attempts >= MAX_ATTEMPTS - 1) {
       // Max attempts reached - reschedule in learning state
-      console.log('Max attempts reached for card:', currentCardId);
       const nextReviewTime = Date.now() + 10 * 60 * 1000;
-      cardSchedulerRef.current.delete(currentCardId);
-      cardSchedulerRef.current.setReviewTime(currentCardId, nextReviewTime, 'learning');
+      cardSchedulerRef.current.delete(currentCardIdRef.current);
+      cardSchedulerRef.current.setReviewTime(currentCardIdRef.current, nextReviewTime, 'learning');
 
-      const nextCardId = debugPeekNext();
-      setCurrentCardIdWithDebug(nextCardId);
+      const nextCardId = cardSchedulerRef.current.peekNext();
+      setCurrentCardId(nextCardId);
       setAttempts(0);
       updateCardCounts();
       return {
         attempts: 0,
-        nextCard: nextCardId ? cardsById[nextCardId] : null
+        nextCard: nextCardId ? cardsByIdRef.current[nextCardId] : null
       };
     } else {
       // Still has attempts left, don't bother updating the server or scheduler
       const nextAttempts = attempts + 1;
-      console.log(`Attempt ${nextAttempts}/${MAX_ATTEMPTS} for card:`, currentCardId);
       setAttempts(nextAttempts);
       return {
         attempts: nextAttempts,
-        nextCard: cardsById[currentCardId]
+        nextCard: cardsByIdRef.current[currentCardIdRef.current]
       };
     }
   };
@@ -474,8 +573,8 @@ export const ReviewProvider = ({ children }) => {
     error,
     attempts,
     showAnswer,
-    currentCardId,
-    cardsById,
+    currentCardId: currentCardIdRef.current, // Export the current value for consumers
+    cardsById: cardsByIdRef.current, // Export the current value for consumers
     newCardsCount,
     learningCardsCount,
     reviewCardsCount,

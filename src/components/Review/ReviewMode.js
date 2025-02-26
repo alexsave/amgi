@@ -17,7 +17,7 @@ const ReviewMode = () => {
   const audio = useAudio();
   const review = useReview();
   const { currentCardId, cardsById, attempts, showAnswer, evaluationResult, newCardsCount, reviewCardsCount, learningCardsCount } = review;
-  const [isVoiceMode, setIsVoiceMode] = useState(false);
+  const [isVoiceMode, setIsVoiceMode] = useState(true);
   
   const currentCard = currentCardId ? cardsById[currentCardId] : null;
 

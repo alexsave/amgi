@@ -36,6 +36,16 @@ export const RealtimeProvider = ({ children }) => {
         cardSchedulerRef
     } = useReview();
 
+    // Get direct access to the review context's refs for most current values
+    const reviewContextRef = useRef();
+    reviewContextRef.current = useReview();
+
+    // Helper to get the most current card ID
+    const getCurrentCardId = () => {
+        // Get directly from the review context ref to ensure we have the latest value
+        return reviewContextRef.current?.currentCardId;
+    };
+
     const sendFunctionOutput = (callId, output) => {
         if (!dataChannelRef.current) return;
         dataChannelRef.current.send(JSON.stringify({
@@ -137,6 +147,15 @@ export const RealtimeProvider = ({ children }) => {
         setButtonState('error');
         setTimeout(() => setButtonState('default'), 500);
 
+        // Get most current card ID
+        const currentCardId = getCurrentCardId();
+        console.log('🧪 SEQUENCE: RealtimeContext handling incorrect response for card:', currentCardId);
+        
+        // Create a unique response ID to track this specific response processing
+        const responseId = `${currentCardId}:incorrect:${Date.now()}`;
+        console.log(`🧪 SEQUENCE: Processing response ID ${responseId}`);
+        
+        // Get results from ReviewContext
         const { attempts, nextCard } = markIncorrectGetAttempts();
 
         sendFunctionOutput(callId, {
@@ -150,6 +169,8 @@ export const RealtimeProvider = ({ children }) => {
     };
 
     const handleGetNextCard = ({ callId }) => {
+        // Get most current card ID
+        const currentCardId = getCurrentCardId();
         const currentIndex = dueCards.findIndex(card => card.id === currentCardId);
         const nextIndex = currentIndex + 1;
         const nextCard = dueCards[nextIndex];
@@ -172,7 +193,17 @@ export const RealtimeProvider = ({ children }) => {
         setButtonState('success');
         setTimeout(() => setButtonState('default'), 500);
 
+        // Get most current card ID
+        const currentCardId = getCurrentCardId();
+        console.log('🧪 SEQUENCE: RealtimeContext handling correct response for card:', currentCardId);
+        
+        // Create a unique response ID to track this specific response processing
+        const responseId = `${currentCardId}:correct:${Date.now()}`;
+        console.log(`🧪 SEQUENCE: Processing response ID ${responseId}`);
+        
+        // Process in ReviewContext - this will now use the ref-based tracking to prevent double processing
         const nextCard = await markCorrectGetNext();
+        
         if (nextCard) {
             sendNextCardInfo(nextCard, false, callId, args.result, args.message);
         } else {
@@ -340,7 +371,11 @@ export const RealtimeProvider = ({ children }) => {
     };
 
     const onAudioStopped = () => {
-        const currentCard = cardsById[currentCardId];
+        // Get most current card ID and related values
+        const currentCardId = getCurrentCardId();
+        const currentCards = reviewContextRef.current?.cardsById || {};
+        const currentCard = currentCards[currentCardId];
+        
         if (cardSchedulerRef.current.peekNext() == null) {
             if (mediaStreamRef.current) {
                 mediaStreamRef.current.getTracks().forEach(track => track.stop());
@@ -352,7 +387,11 @@ export const RealtimeProvider = ({ children }) => {
     }
 
     const setupWebRTC = async () => {
-        const card = cardsById[currentCardId];
+        // Get most current card ID and related values
+        const currentCardId = getCurrentCardId();
+        const currentCards = reviewContextRef.current?.cardsById || {};
+        const card = currentCards[currentCardId];
+        
         try {
             const EPHEMERAL_KEY = await getRealtimeToken();
 
