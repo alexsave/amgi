@@ -4,7 +4,6 @@ import { useLocation } from 'react-router-dom';
 import { MAX_NEW_CARDS_PER_DAY } from '../utils/constants';
 import * as localDeckStorage from '../services/localDeckStorage';
 import * as supabase from '../db/supabase';
-import { getApiMode } from '../network/api';
 import { getDueCards } from '../algorithms/spacedRepetition';
 import { useAuth } from './AuthContext';
 

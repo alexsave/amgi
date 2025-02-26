@@ -14,18 +14,6 @@ export function useCardGeneration() {
     return { front: null, back: null };
   });
 
-  // Store blobs in session storage
-  const storeBlob = async (blob, side) => {
-    // Only store if we don't already have an ID for this side
-    if (side === 'front' && generatedCard?.frontAudioId) {
-      return generatedCard.frontAudioId;
-    }
-    if (side === 'back' && generatedCard?.backAudioId) {
-      return generatedCard.backAudioId;
-    }
-    return saveAudio(blob, blob.type);
-  };
-
   // Convert data URL back to Blob
   const dataURLtoBlob = (dataurl) => {
     try {

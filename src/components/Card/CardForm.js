@@ -3,7 +3,6 @@ import { useParams } from 'react-router-dom';
 import { useAudio } from '../../hooks/useAudio';
 import { useCardGeneration } from '../../hooks/useCardGeneration';
 import { useDecks } from '../../contexts/DeckContext';
-import { useDeckManagement } from '../../hooks/useDeckManagement';
 import './CardForm.css';
 
 const LANGUAGES = {
@@ -15,15 +14,14 @@ const LANGUAGES = {
   it: { name: 'Italian', flag: '🇮🇹' },
 };
 
-const CardForm = ({ directMode = false }) => {
+const CardForm = () => {
   const { id: deckId } = useParams();
   const [userInput, setUserInput] = useState('');
   const [targetLang, setTargetLang] = useState('ko');
   const [error, setError] = useState(null);
   const { playAudio } = useAudio();
-  const { generateCard, generatedCard, audioUrls, isGenerating } = useCardGeneration();
+  const { generateCard, generatedCard, isGenerating } = useCardGeneration();
   const { addCardToDeck } = useDecks();
-  //const { addCardToDeck } = useDeckManagement();
 
   const blobUrlsRef = useRef({ front: null, back: null });
   const frontAudioRef = useRef(new Audio());

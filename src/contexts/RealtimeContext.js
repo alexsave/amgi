@@ -30,21 +30,12 @@ export const RealtimeProvider = ({ children }) => {
     const {
         markCorrectGetNext,
         markIncorrectGetAttempts,
-        currentCardId,
-        dueCards,
-        cardsById,
         cardSchedulerRef
     } = useReview();
 
     // Get direct access to the review context's refs for most current values
     const reviewContextRef = useRef();
     reviewContextRef.current = useReview();
-
-    // Helper to get the most current card ID
-    const getCurrentCardId = () => {
-        // Get directly from the review context ref to ensure we have the latest value
-        return reviewContextRef.current?.currentCardId;
-    };
 
     const sendFunctionOutput = (callId, output) => {
         if (!dataChannelRef.current) return;
@@ -114,7 +105,15 @@ export const RealtimeProvider = ({ children }) => {
                 track.enabled = true;
             });
         }
-        onAudioStopped();
+
+        if (cardSchedulerRef.current.peekNext() == null) {
+            if (mediaStreamRef.current) {
+                mediaStreamRef.current.getTracks().forEach(track => track.stop());
+            }
+            if (peerConnectionRef.current) {
+                peerConnectionRef.current.close();
+            }
+        }
     };
 
     const handleTextDelta = ({ event }) => {
@@ -147,14 +146,6 @@ export const RealtimeProvider = ({ children }) => {
         setButtonState('error');
         setTimeout(() => setButtonState('default'), 500);
 
-        // Get most current card ID
-        const currentCardId = getCurrentCardId();
-        console.log('🧪 SEQUENCE: RealtimeContext handling incorrect response for card:', currentCardId);
-        
-        // Create a unique response ID to track this specific response processing
-        const responseId = `${currentCardId}:incorrect:${Date.now()}`;
-        console.log(`🧪 SEQUENCE: Processing response ID ${responseId}`);
-        
         // Get results from ReviewContext
         const { attempts, nextCard } = markIncorrectGetAttempts();
 
@@ -168,21 +159,6 @@ export const RealtimeProvider = ({ children }) => {
         requestNextResponse();
     };
 
-    const handleGetNextCard = ({ callId }) => {
-        // Get most current card ID
-        const currentCardId = getCurrentCardId();
-        const currentIndex = dueCards.findIndex(card => card.id === currentCardId);
-        const nextIndex = currentIndex + 1;
-        const nextCard = dueCards[nextIndex];
-
-        sendFunctionOutput(callId, nextCard ? {
-            front_text: nextCard.front_text,
-            back_text: nextCard.back_text,
-            hasMore: nextIndex < dueCards.length - 1
-        } : null);
-        requestNextResponse();
-    };
-
     const handleCompleteReviewFunction = ({ args, callId }) => {
         setFeedback(args.message);
         sendFunctionOutput(callId, { success: true });
@@ -193,14 +169,6 @@ export const RealtimeProvider = ({ children }) => {
         setButtonState('success');
         setTimeout(() => setButtonState('default'), 500);
 
-        // Get most current card ID
-        const currentCardId = getCurrentCardId();
-        console.log('🧪 SEQUENCE: RealtimeContext handling correct response for card:', currentCardId);
-        
-        // Create a unique response ID to track this specific response processing
-        const responseId = `${currentCardId}:correct:${Date.now()}`;
-        console.log(`🧪 SEQUENCE: Processing response ID ${responseId}`);
-        
         // Process in ReviewContext - this will now use the ref-based tracking to prevent double processing
         const nextCard = await markCorrectGetNext();
         
@@ -263,14 +231,12 @@ export const RealtimeProvider = ({ children }) => {
                         callId: item.call_id,
                     });
                     break;
+                default: 
+                    break;
             }
         } else if (item.name === 'completeReview') {
             handleCompleteReviewFunction({
                 args,
-                callId: item.call_id,
-            });
-        } else if (item.name === 'getNextCard') {
-            handleGetNextCard({
                 callId: item.call_id,
             });
         }
@@ -370,25 +336,9 @@ export const RealtimeProvider = ({ children }) => {
 
     };
 
-    const onAudioStopped = () => {
-        // Get most current card ID and related values
-        const currentCardId = getCurrentCardId();
-        const currentCards = reviewContextRef.current?.cardsById || {};
-        const currentCard = currentCards[currentCardId];
-        
-        if (cardSchedulerRef.current.peekNext() == null) {
-            if (mediaStreamRef.current) {
-                mediaStreamRef.current.getTracks().forEach(track => track.stop());
-            }
-            if (peerConnectionRef.current) {
-                peerConnectionRef.current.close();
-            }
-        }
-    }
-
     const setupWebRTC = async () => {
         // Get most current card ID and related values
-        const currentCardId = getCurrentCardId();
+        const currentCardId = reviewContextRef.current?.currentCardId;
         const currentCards = reviewContextRef.current?.cardsById || {};
         const card = currentCards[currentCardId];
         

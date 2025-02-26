@@ -1,6 +1,5 @@
 import React from 'react';
-import { useNavigate, useLocation, Routes, Route, Navigate } from 'react-router-dom';
-import { useDecks } from '../contexts/DeckContext';
+import { useNavigate, Routes, Route, Navigate } from 'react-router-dom';
 import DeckList from './Deck/DeckList';
 import CardList from './Card/CardList';
 import ReviewMode from './Review/ReviewMode';
@@ -9,7 +8,6 @@ import Navbar from './Navigation/Navbar';
 import { ReviewProvider } from '../contexts/ReviewContext';
 
 function AppContent() {
-  const { currentDeck, decks, mode } = useDecks();
   const navigate = useNavigate();
 
   const handleBackToList = () => {

@@ -1,20 +1,14 @@
 import React from 'react';
 import { useDecks } from '../../contexts/DeckContext';
 import { useNavigate } from 'react-router-dom';
-import { getDueCards } from '../../algorithms/spacedRepetition';
-import { MAX_NEW_CARDS_PER_DAY } from '../../utils/constants';
 import { SparklesIcon, TrashIcon, ArrowUpTrayIcon } from '@heroicons/react/24/outline';
 import msgpack from 'msgpack-lite';
 import './DeckItem.css';
 
 const DeckItem = ({ id, deck }) => {
   const { 
-    newCardsToday, 
     deleteDeck, 
     setCurrentDeckId,
-    getLearningCount,
-    getNewCount,
-    getReviewCount
   } = useDecks();
 
   const navigate = useNavigate();
@@ -79,11 +73,6 @@ const DeckItem = ({ id, deck }) => {
       alert('Failed to export deck: ' + err.message);
     }
   };
-
-  // Get counts from context
-  //j//jconst learningCount = getLearningCount(id);
-  //jconst newCount = getNewCount(id);
-  //jconst reviewCount = getReviewCount(id);
 
   return (
     <div 
