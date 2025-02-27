@@ -169,44 +169,25 @@ export const ReviewProvider = ({ children }) => {
         // Create a deep copy using JSON.parse/stringify to break any object references
         const card = JSON.parse(JSON.stringify(cardRaw));
 
-        // CRITICAL CHECK: Force reconcile states between cardsById and scheduler 
-        if (card.review && cardSchedulerRef.current.getCardState(currentCardIdRef.current) !== card.review.card_state) {
-            console.log('forcing reconcile between cardsById and scheduler')
-            console.log('this never happens, right? RIGHT?')
-            cardSchedulerRef.current.delete(currentCardIdRef.current);
-
-            if (card.review.card_state === 'new') {
-                cardSchedulerRef.current.pushNewCard(currentCardIdRef.current);
-            } else {
-                const reviewTime = card.review.next_review_date
-                    ? new Date(card.review.next_review_date).getTime()
-                    : Date.now() + 10 * 60 * 1000;
-                cardSchedulerRef.current.setReviewTime(currentCardIdRef.current, reviewTime, card.review.card_state);
-            }
-        }
+        cardSchedulerRef.current.delete(currentCardIdRef.current);
 
         if (attempts > 0) {
             // If we've already tried this card, move it to learning state
             await updateCardSchedulingServer(currentCardIdRef.current, 'incorrect');
 
-
             const nextReviewTime = Date.now() + 10 * 60 * 1000;
-            cardSchedulerRef.current.delete(currentCardIdRef.current);
-            cardSchedulerRef.current.setReviewTime(currentCardIdRef.current, nextReviewTime, 'learning');
-        } else if (!card.review || card.review.card_state === 'new') {
-            // If it's a new card, move it to learning state
-            await updateCardSchedulingServer(currentCardIdRef.current, 'correct');
-
-
-            const nextReviewTime = Date.now() + 10 * 60 * 1000;
-            cardSchedulerRef.current.delete(currentCardIdRef.current);
             cardSchedulerRef.current.setReviewTime(currentCardIdRef.current, nextReviewTime, 'learning');
         } else {
-            // First attempt success for review or learning card
-            // Review card correct - remove from today's queue
             await updateCardSchedulingServer(currentCardIdRef.current, 'correct');
+            if (!card.review || card.review.card_state === 'new') {
+                // If it's a new card, move it to learning state
 
-            cardSchedulerRef.current.delete(currentCardIdRef.current);
+                const nextReviewTime = Date.now() + 10 * 60 * 1000;
+                cardSchedulerRef.current.setReviewTime(currentCardIdRef.current, nextReviewTime, 'learning');
+            } else {
+                // First attempt success for review or learning card
+                // Review card correct - remove from today's queue
+            }
         }
 
         setAttempts(0);
