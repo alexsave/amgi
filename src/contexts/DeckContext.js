@@ -114,14 +114,17 @@ export const DeckProvider = ({ children }) => {
     setDecks(newDecks);
   };
 
-  const createNewDeck = async (name) => {
+  const createNewDeck = async (deckData) => {
     const timestamp = Date.now();
+    const { name, knownLanguage = 'en', learningLanguage } = deckData;
     
     try {
       if (user && !isDirectMode) {
         // Create in Supabase
         const newDeck = await supabase.saveDeck({
           name,
+          knownLanguage,
+          learningLanguage,
           created_at: new Date(timestamp).toISOString(),
           cards: {}
         }, user.id);
@@ -129,6 +132,8 @@ export const DeckProvider = ({ children }) => {
         const transformedDeck = {
           id: newDeck.id,
           name: newDeck.name,
+          knownLanguage: newDeck.knownLanguage,
+          learningLanguage: newDeck.learningLanguage,
           cards: [],
           created: timestamp,
           lastModified: timestamp
@@ -142,6 +147,8 @@ export const DeckProvider = ({ children }) => {
         const newDeck = {
           id,
           name,
+          knownLanguage,
+          learningLanguage,
           cards: [],
           created: timestamp,
           lastModified: timestamp

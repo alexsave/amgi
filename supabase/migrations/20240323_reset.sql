@@ -51,6 +51,8 @@ create table decks (
   id uuid default uuid_generate_v4() primary key,
   user_id uuid references auth.users on delete cascade not null,
   name text not null,
+  known_language text not null default 'en', -- Default to English as the known language
+  learning_language text not null, -- The language being learned in this deck
   created_at timestamp default now()
 );
 

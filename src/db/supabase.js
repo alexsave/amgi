@@ -127,7 +127,7 @@ export const loadDecks = async (userId) => {
     // Get basic deck info
     const { data: decks, error: decksError } = await supabase
       .from('decks')
-      .select('id, name, created_at')
+      .select('id, name, known_language, learning_language, created_at')
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
 
@@ -140,7 +140,7 @@ export const loadDecks = async (userId) => {
       loadDueCards(userId)
     ]);
 
-    // Combine everything
+    // Combine everything and transform snake_case to camelCase
     return decks.reduce((acc, deck) => {
       const newCards = newCardsByDeck[deck.id] || [];
       const learningCards = learningCardsByDeck[deck.id] || [];
@@ -148,9 +148,11 @@ export const loadDecks = async (userId) => {
       
       acc[deck.id] = {
         ...deck,
-        //learningCards: learningCards,
-        //newCards: newCards,
-        //dueCards: dueCards,
+        // Transform snake_case to camelCase
+        knownLanguage: deck.known_language,
+        learningLanguage: deck.learning_language,
+        known_language: undefined, // Remove the snake_case versions
+        learning_language: undefined,
         cards: [...learningCards, ...newCards, ...dueCards] // Priority order
       };
       return acc;
@@ -169,6 +171,9 @@ export const saveDeck = async (deck, userId) => {
       .upsert({
         id: deck.id,
         name: deck.name,
+        // Map from camelCase to snake_case for database
+        known_language: deck.knownLanguage || 'en',
+        learning_language: deck.learningLanguage,
         user_id: userId,
         created_at: deck.created_at || new Date().toISOString()
       })
@@ -176,7 +181,15 @@ export const saveDeck = async (deck, userId) => {
       .single();
 
     if (error) throw error;
-    return data;
+    
+    // Transform back to camelCase for client
+    return {
+      ...data,
+      knownLanguage: data.known_language,
+      learningLanguage: data.learning_language,
+      known_language: undefined,
+      learning_language: undefined
+    };
   } catch (err) {
     throw err;
   }

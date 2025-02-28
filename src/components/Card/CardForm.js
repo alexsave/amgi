@@ -3,26 +3,19 @@ import { useParams } from 'react-router-dom';
 import { useAudio } from '../../hooks/useAudio';
 import { useCardGeneration } from '../../hooks/useCardGeneration';
 import { useDecks } from '../../contexts/DeckContext';
+import { LANGUAGES, getLanguageDisplay } from '../../constants/languages';
 import './CardForm.css';
-
-const LANGUAGES = {
-  ko: { name: 'Korean', flag: '🇰🇷' },
-  ja: { name: 'Japanese', flag: '🇯🇵' },
-  zh: { name: 'Chinese', flag: '🇨🇳' },
-  es: { name: 'Spanish', flag: '🇪🇸' },
-  de: { name: 'German', flag: '🇩🇪' },
-  it: { name: 'Italian', flag: '🇮🇹' },
-};
 
 const CardForm = () => {
   const { id: deckId } = useParams();
   const [userInput, setUserInput] = useState('');
-  const [targetLang, setTargetLang] = useState('ko');
   const [error, setError] = useState(null);
   const { playAudio } = useAudio();
   const { generateCard, generatedCard, isGenerating } = useCardGeneration();
-  const { addCardToDeck } = useDecks();
+  const { decks, addCardToDeck } = useDecks();
 
+  const currentDeck = decks[deckId];
+  
   const blobUrlsRef = useRef({ front: null, back: null });
   const frontAudioRef = useRef(new Audio());
   const backAudioRef = useRef(new Audio());
@@ -42,6 +35,13 @@ const CardForm = () => {
     }
   }, [generatedCard]);
 
+  // If the deck doesn't exist yet, show a loading state
+  if (!currentDeck) {
+    return <div className="loading">Loading deck information...</div>;
+  }
+
+  const { knownLanguage = 'en', learningLanguage = 'ko' } = currentDeck;
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     console.log('CardForm: handleSubmit called with userInput:', userInput);
@@ -54,12 +54,20 @@ const CardForm = () => {
     try {
       console.log('CardForm: Calling generateCard with:', {
         userInput,
-        targetLang,
+        knownLanguage,
+        learningLanguage,
         blobUrlsRef: blobUrlsRef.current,
         frontAudioRef: frontAudioRef.current,
         backAudioRef: backAudioRef.current
       });
-      await generateCard(userInput, targetLang, blobUrlsRef, frontAudioRef, backAudioRef);
+      await generateCard(
+        userInput, 
+        knownLanguage, 
+        learningLanguage,
+        blobUrlsRef, 
+        frontAudioRef, 
+        backAudioRef
+      );
       console.log('CardForm: generateCard completed successfully');
       setUserInput(''); // Clear input after successful generation
     } catch (err) {
@@ -84,8 +92,8 @@ const CardForm = () => {
       const card = {
         front_text,
         back_text,
-        front_lang: generatedCard.frontLang,
-        back_lang: generatedCard.backLang,
+        front_lang: generatedCard.frontLang || knownLanguage,
+        back_lang: generatedCard.backLang || learningLanguage,
         frontAudioPath: generatedCard.frontAudioPath,
         backAudioPath: generatedCard.backAudioPath
       };
@@ -102,19 +110,10 @@ const CardForm = () => {
   return (
     <div className="card-form-container">
       <form onSubmit={handleSubmit} className="card-form">
-        <div className="form-group">
-          <label htmlFor="targetLang">Target Language</label>
-          <select
-            id="targetLang"
-            value={targetLang}
-            onChange={(e) => setTargetLang(e.target.value)}
-          >
-            {Object.entries(LANGUAGES).map(([code, { name, flag }]) => (
-              <option key={code} value={code}>
-                {flag} {name}
-              </option>
-            ))}
-          </select>
+        <div className="form-info">
+          <p className="language-info">
+            Creating cards for: {getLanguageDisplay(knownLanguage).flag} {getLanguageDisplay(knownLanguage).name} → {getLanguageDisplay(learningLanguage).flag} {getLanguageDisplay(learningLanguage).name}
+          </p>
         </div>
 
         <div className="form-group">
@@ -123,7 +122,7 @@ const CardForm = () => {
             id="userInput"
             value={userInput}
             onChange={(e) => setUserInput(e.target.value)}
-            placeholder={`Enter text in English or ${LANGUAGES[targetLang].name}`}
+            placeholder={`Enter text in ${getLanguageDisplay(knownLanguage).name} or ${getLanguageDisplay(learningLanguage).name}`}
             rows={4}
           />
         </div>

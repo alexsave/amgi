@@ -7,7 +7,7 @@ export class LocalApi extends ApiInterface {
     this.baseUrl = 'http://localhost:8000';
   }
 
-  async generateCard(userInput, targetLang, onProgress) {
+  async generateCard(userInput, knownLanguage, learningLanguage, onProgress) {
     try {
       const response = await fetch(`${this.baseUrl}/api/generate_cards`, {
         method: 'POST',
@@ -16,7 +16,8 @@ export class LocalApi extends ApiInterface {
         },
         body: JSON.stringify({
           userInput,
-          targetLang,
+          knownLanguage,
+          learningLanguage,
         }),
       });
 

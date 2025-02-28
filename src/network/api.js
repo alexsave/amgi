@@ -40,9 +40,9 @@ export const clearApiInstance = () => {
 };
 
 // API Functions
-export const generateCard = async (userInput, targetLang, onProgress) => {
+export const generateCard = async (userInput, knownLanguage, learningLanguage, onProgress) => {
   const api = getApiInstance();
-  return api.generateCard(userInput, targetLang, onProgress);
+  return api.generateCard(userInput, knownLanguage, learningLanguage, onProgress);
 };
 
 export const evaluateSpeech = async (audioBlob, expectedText, sourceLang, expectedAudioBlob, targetLang) => {

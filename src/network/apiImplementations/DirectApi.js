@@ -34,11 +34,11 @@ export class DirectApi extends ApiInterface {
     this.client = null;
   }
 
-  async generateCard(userInput, targetLang, onProgress) {
+  async generateCard(userInput, knownLanguage, learningLanguage, onProgress) {
     if (!this.isInitialized()) {
       throw new Error('OpenAI client not initialized. Please provide an API key first.');
     }
-    console.log('DirectApi.generateCard called:', { userInput, targetLang });
+    console.log('DirectApi.generateCard called:', { userInput, knownLanguage, learningLanguage });
 
     try {
       console.log('Requesting OpenAI completion...');
@@ -47,15 +47,20 @@ export class DirectApi extends ApiInterface {
         messages: [
           { 
             role: "system", 
-            content: "You are a helpful language learning assistant that creates flashcard pairs with accurate translations. First detect the source language of the input text. If the detected source language matches the requested target language, translate to English. Otherwise, translate to the requested target language." 
+            content: "You are a helpful language learning assistant that creates flashcard pairs with accurate translations. You will create cards where one side is in the known language and the other side is in the language being learned." 
           },
           { 
             role: "user", 
             content: `Create a language learning flashcard pair for the following input. 
-First detect the language. If the detected language matches ${targetLang}, translate to English (en). Otherwise, translate to ${targetLang}.
+Analyze the text to determine if it is in ${knownLanguage} (the language I know) or ${learningLanguage} (the language I'm learning).
+
+If the text is in ${knownLanguage}, translate it to ${learningLanguage} and set the front_text to the original ${knownLanguage} text and back_text to the ${learningLanguage} translation.
+
+If the text is in ${learningLanguage}, translate it to ${knownLanguage} and set the front_text to the original ${learningLanguage} text and back_text to the ${knownLanguage} translation.
+
 Input: ${userInput}
 
-Return just the translation pair with language codes.`
+Return the translation pair with language codes in the format specified.`
           }
         ],
         response_format: zodResponseFormat(FlashcardSchema, "flashcard_generation"),
@@ -65,7 +70,7 @@ Return just the translation pair with language codes.`
       const card = completion.choices[0].message.parsed;
       console.log('Parsed card data:', card);
       onProgress({
-        type: 'card',
+        type: 'text',
         data: card
       });
 

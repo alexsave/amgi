@@ -1,14 +1,21 @@
 import { useState } from 'react';
 import { XMarkIcon } from '@heroicons/react/24/outline';
+import LANGUAGES from '../../constants/languages';
 
 const CreateDeckModal = ({ isOpen, onClose, onSubmit }) => {
   const [deckName, setDeckName] = useState('');
+  const [knownLanguage, setKnownLanguage] = useState('en');
+  const [learningLanguage, setLearningLanguage] = useState('ko');
 
   if (!isOpen) return null;
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSubmit(deckName);
+    onSubmit({
+      name: deckName,
+      knownLanguage,
+      learningLanguage
+    });
     setDeckName('');
   };
 
@@ -23,6 +30,7 @@ const CreateDeckModal = ({ isOpen, onClose, onSubmit }) => {
         </div>
         <form onSubmit={handleSubmit} autoComplete="off">
           <div className="form-group">
+            <label htmlFor="deckName">Deck Name</label>
             <input
               id="deckName"
               type="text"
@@ -32,6 +40,39 @@ const CreateDeckModal = ({ isOpen, onClose, onSubmit }) => {
               autoFocus
             />
           </div>
+          
+          <div className="form-group">
+            <label htmlFor="knownLanguage">I know</label>
+            <select
+              id="knownLanguage"
+              value={knownLanguage}
+              onChange={(e) => setKnownLanguage(e.target.value)}
+              className="language-select"
+            >
+              {Object.entries(LANGUAGES).map(([code, { name, flag }]) => (
+                <option key={code} value={code}>
+                  {flag} {name}
+                </option>
+              ))}
+            </select>
+          </div>
+          
+          <div className="form-group">
+            <label htmlFor="learningLanguage">I want to learn</label>
+            <select
+              id="learningLanguage"
+              value={learningLanguage}
+              onChange={(e) => setLearningLanguage(e.target.value)}
+              className="language-select"
+            >
+              {Object.entries(LANGUAGES).map(([code, { name, flag }]) => (
+                <option key={code} value={code}>
+                  {flag} {name}
+                </option>
+              ))}
+            </select>
+          </div>
+          
           <div className="modal-actions">
             <button type="button" onClick={onClose} className="cancel-btn">
               Cancel
