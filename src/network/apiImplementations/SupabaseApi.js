@@ -18,13 +18,14 @@ export class SupabaseApi extends ApiInterface {
     };
   }
 
-  async generateCard(userInput, targetLang, onProgress) {
+  async generateCard(userInput, knownLanguage, learningLanguage, onProgress) {
     try {
       // Call the card generation function using the SDK
       const { data, error } = await this.supabase.functions.invoke('cards', {
         body: {
           userInput,
-          targetLang,
+          knownLanguage,
+          learningLanguage
         }
       });
 
@@ -36,35 +37,35 @@ export class SupabaseApi extends ApiInterface {
       // First handle the card data
       const card = {
         ...data.card,
-        frontLang: data.card.frontLang,
-        backLang: data.card.backLang,
-        frontAudioUrl: data.card.frontAudioUrl,
-        backAudioUrl: data.card.backAudioUrl
+        frontLang: data.card.frontLang || knownLanguage,
+        backLang: data.card.backLang || learningLanguage,
+        frontAudioPath: data.card.frontAudioPath,
+        backAudioPath: data.card.backAudioPath
       };
       console.log('SupabaseApi: Received card data:', {
         front_text: card.front_text,
         back_text: card.back_text,
         frontLang: card.frontLang,
         backLang: card.backLang,
-        frontAudioUrl: card.frontAudioUrl,
-        backAudioUrl: card.backAudioUrl
+        frontAudioPath: card.frontAudioPath,
+        backAudioPath: card.backAudioPath
       });
       onProgress({ type: 'text', data: card });
 
       // Handle the audio URLs
-      if (card.frontAudioUrl) {
-        onProgress({ type: 'audio', side: 'front', url: card.frontAudioUrl });
+      if (card.frontAudioPath) {
+        onProgress({ type: 'audio', side: 'front', url: card.frontAudioPath });
       }
 
-      if (card.backAudioUrl) {
-        onProgress({ type: 'audio', side: 'back', url: card.backAudioUrl });
+      if (card.backAudioPath) {
+        onProgress({ type: 'audio', side: 'back', url: card.backAudioPath });
       }
 
       return {
         card,
         audioReady: {
-          front: !!card.frontAudioUrl,
-          back: !!card.backAudioUrl
+          front: !!card.frontAudioPath,
+          back: !!card.backAudioPath
         }
       };
     } catch (err) {

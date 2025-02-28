@@ -83,7 +83,7 @@ export function useCardGeneration() {
     restoreBlobs(generatedCard?.frontAudioId, generatedCard?.backAudioId);
   }, [generatedCard]);
 
-  const generateCard = async (userInput, knownLanguage, learningLanguage, blobUrlsRef, frontAudioRef, backAudioRef) => {
+  const generateCard = async (userInput, knownLanguage, learningLanguage) => {
     setLoading(true);
     setGeneratedCard(null);
     setAudioReady({ front: false, back: false });

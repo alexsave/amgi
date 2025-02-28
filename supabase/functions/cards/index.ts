@@ -10,10 +10,10 @@ import { createOpenAIClient } from "../_shared/openai.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.39.0"
 
 const FlashcardSchema = z.object({
-    front_text: z.string(),
-    back_text: z.string(),
-    frontLang: z.string(),
-    backLang: z.string()
+    front_text: z.string().describe("The front of the flashcard"),
+    back_text: z.string().describe("The back of the flashcard"),
+    frontLang: z.string().describe("The language of the front of the flashcard"),
+    backLang: z.string().describe("The language of the back of the flashcard")
 });
 
 const encoder = new TextEncoder();
@@ -47,13 +47,14 @@ serve(async (req) => {
         const usage = await getOrCreateUsage(user.id, subscription);
 
         const requestBody = await req.json();
-        const { userInput, targetLang } = requestBody;
-        console.log('Request payload:', { userInput, targetLang });
+        const { userInput, knownLanguage, learningLanguage } = requestBody;
+        console.log('Request payload:', { userInput, knownLanguage, learningLanguage });
 
         // Generate card text first
         console.log('Requesting translation from OpenAI with params:', {
             model: "gpt-4",
-            targetLang,
+            knownLanguage,
+            learningLanguage,
             inputLength: userInput.length
         });
         const completion = await openai.beta.chat.completions.parse({
@@ -61,15 +62,24 @@ serve(async (req) => {
             messages: [
                 { 
                     role: "system", 
-                    content: "You are a helpful language learning assistant that creates flashcard pairs with accurate translations. First detect the source language of the input text. If the detected source language matches the requested target language, translate to English. Otherwise, translate to the requested target language." 
+                    content: "You are a language learning flashcard creator. Your task is to create flashcards where the FRONT is ALWAYS in the user's known language, and the BACK is ALWAYS in the learning language. You'll first detect the language of the input text and then create the appropriate flashcard based on this detection." 
                 },
                 { 
                     role: "user", 
-                    content: `Create a language learning flashcard pair for the following input. 
-First detect the language. If the detected language matches ${targetLang}, translate to English (en). Otherwise, translate to ${targetLang}.
-Input: ${userInput}
+                    content: `Create a flashcard for language learning following these rules:
 
-Return just the translation pair with language codes.`
+1. First, detect the language of this input: "${userInput}"
+
+2. Then create a flashcard where:
+   - The FRONT is ALWAYS in ${knownLanguage}
+   - The BACK is ALWAYS in ${learningLanguage}
+
+3. Use these rules based on detection:
+   - If input is in ${knownLanguage}: Front = original input, Back = translation to ${learningLanguage}
+   - If input is in ${learningLanguage}: Front = translation to ${knownLanguage}, Back = original input
+   - If input is in any other language: Front = translation to ${knownLanguage}, Back = translation to ${learningLanguage}
+
+Return the flashcard with language codes.`
                 }
             ],
             response_format: zodResponseFormat(FlashcardSchema, "flashcard_generation"),

@@ -16,10 +16,6 @@ const CardForm = () => {
 
   const currentDeck = decks[deckId];
   
-  const blobUrlsRef = useRef({ front: null, back: null });
-  const frontAudioRef = useRef(new Audio());
-  const backAudioRef = useRef(new Audio());
-
   const [front_text, setfront_text] = useState('');
   const [back_text, setback_text] = useState('');
   const [frontAudioUrl, setFrontAudioUrl] = useState(null);
@@ -56,17 +52,11 @@ const CardForm = () => {
         userInput,
         knownLanguage,
         learningLanguage,
-        blobUrlsRef: blobUrlsRef.current,
-        frontAudioRef: frontAudioRef.current,
-        backAudioRef: backAudioRef.current
       });
       await generateCard(
         userInput, 
         knownLanguage, 
-        learningLanguage,
-        blobUrlsRef, 
-        frontAudioRef, 
-        backAudioRef
+        learningLanguage
       );
       console.log('CardForm: generateCard completed successfully');
       setUserInput(''); // Clear input after successful generation

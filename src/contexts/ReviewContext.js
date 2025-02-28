@@ -97,6 +97,9 @@ export const ReviewProvider = ({ children }) => {
             // If we can move this to the scheduler, that would make it the single source of truth
             const { interval, easeFactor, repetitions, nextReview, cardState } = calculateNextReview(cardData.review, quality);
 
+
+            // Better idea: update the scheduler first then updat the review in supabase without blocking anythign
+
             // Update the review in Supabase if we're not in direct mode
             if (user && !isDirectMode) {
                 const today = getLocalDate();
