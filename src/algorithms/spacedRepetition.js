@@ -5,7 +5,7 @@ export function calculateNextReview(review, quality) {
   let interval = review?.interval_days || 1;
   let easeFactor = review?.ease_factor || 2.5;
   let repetitions = review?.repetitions || 0;
-  const currentState = review?.card_state || 'new';
+  let cardState = review?.card_state || 'new';
 
   let nextReview;
 
@@ -13,9 +13,10 @@ export function calculateNextReview(review, quality) {
     // Calculate next review date first
     const now = new Date();
 
-    if (currentState === 'new') {
+    if (cardState === 'new') {
       // New steps: 10 minutes
       nextReview = new Date(now.getTime() + 10 * 60 * 1000);
+      cardState = 'learning';
     } else {
       // Review and learning
       nextReview = new Date(now.getTime() + interval * 24 * 60 * 60 * 1000);
@@ -28,6 +29,7 @@ export function calculateNextReview(review, quality) {
         // Cap at 10 years
         interval = Math.min(interval, 365 * 10);
       }
+      cardState = 'review';
     }
 
     // Increment repetitions
@@ -44,9 +46,10 @@ export function calculateNextReview(review, quality) {
     interval = 1;
 
     // Only decrease ease if it was a review card
-    if (currentState === 'review') {
+    if (cardState === 'review') {
       easeFactor -= 0.2; // 20 percentage point decrease, minimum 130%
     }
+    cardState = 'learning';
   }
   // Ensure minimum ease of 130%
   easeFactor = Math.max(1.3, easeFactor);
@@ -55,6 +58,7 @@ export function calculateNextReview(review, quality) {
     interval,
     easeFactor,
     repetitions,
+    cardState,
     nextReview: nextReview.toISOString()
   };
 }

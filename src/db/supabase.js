@@ -394,19 +394,7 @@ export const saveReview = async (cardId, review, userId) => {
     } else {
       // Update existing review
       const currentState = existingReview[0].card_state;
-      let newState;
-      
-      if (review.result === 'correct') {
-        if (currentState === 'new') {
-          newState = 'learning';
-        } else {
-          newState = 'review';
-        }
-      } else {
-        newState = 'learning';
-
-      }
-      newState = review.card_state;
+      let newState = review.card_state;
 
 
       const { data, error } = await supabase

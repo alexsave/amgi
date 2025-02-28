@@ -178,6 +178,7 @@ class MinHeap {
  * - learningHeap: MinHeap of learning cards.
  * - newQueue: FIFOQueue of brand-new card IDs.
  * - reviewHeap: MinHeap of (id, nextReviewTime).
+ * - cardsMap: Map of all cards by ID (single source of truth)
  *
  * popNext logic:
  *  1) If earliest scheduled card <= currentTime, pop it.
@@ -188,14 +189,17 @@ class MinHeap {
 export class CardScheduler {
   constructor() {
     this.learningHeap = new MinHeap(); // Highest priority
-    this.newQueue = new FIFOQueue();    // Second priority
-    this.reviewHeap = new MinHeap();    // Lowest priority
+    this.newQueue = new FIFOQueue();   // Second priority
+    this.reviewHeap = new MinHeap();   // Lowest priority
+    this.cardsMap = new Map();         // Map of all cards by ID (single source of truth)
   }
 
   /**
    * Add a brand-new card to the FIFO queue.
    */
-  pushNewCard(id) {
+  pushNewCard(card) {
+    const id = card.id;
+    this.cardsMap.set(id, card);
     this.newQueue.enqueue(id);
   }
 
@@ -203,7 +207,11 @@ export class CardScheduler {
    * Add or update a card's review time in the appropriate heap.
    * If the card is in any other queue/heap, it will be moved.
    */
-  setReviewTime(id, nextReviewTime, cardState = 'review') {
+  setReviewTime(card, nextReviewTime, cardState = 'review') {
+    const id = card.id;
+    // Store the card in our cards map
+    this.cardsMap.set(id, card);
+    
     // First remove from any existing queue/heap
     this.newQueue.items = this.newQueue.items.filter(x => x !== id);
     this.learningHeap.delete(id);
@@ -218,6 +226,27 @@ export class CardScheduler {
       this.reviewHeap.push(id, nextReviewTime);
     }
     this.printSummary();
+  }
+
+  /**
+   * Update a card's review information
+   */
+  setReview(id, review) {
+    const card = this.getFullCard(id);
+    if (!card) return;
+    
+    card.review = review;
+
+    // Update the card's position in the appropriate queue/heap
+    const nextReviewTime = review.next_review_date ? new Date(review.next_review_date).getTime() : Date.now();
+    this.setReviewTime(card, nextReviewTime, review.card_state);
+  }
+
+  /**
+   * Get the full card by ID
+   */
+  getFullCard(id) {
+    return this.cardsMap.get(id) || null;
   }
 
   /**
@@ -252,6 +281,10 @@ export class CardScheduler {
   delete(id) {
     let found = false;
     
+    // Remove from the cardsMap
+    const wasInMap = this.cardsMap.delete(id);
+    if (wasInMap) found = true;
+    
     // Check new queue
     const newQueueIndex = this.newQueue.items.indexOf(id);
     if (newQueueIndex !== -1) {
@@ -274,7 +307,7 @@ export class CardScheduler {
   }
 
   /**
-   * Return the ID of the "next" card or null if none.
+   * Return the card for the "next" ID or null if none.
    * Priority order:
    * 1. Learning cards due now
    * 2. New cards
@@ -287,23 +320,27 @@ export class CardScheduler {
     // 1. First priority: Learning cards due now
     const topLearning = this.learningHeap.peek();
     if (topLearning && topLearning.nextReviewTime <= currentTime) {
-      return this.learningHeap.pop().id;
+      const learningCardItem = this.learningHeap.pop();
+      return this.getFullCard(learningCardItem.id);
     }
 
     // 2. Second priority: New cards
     if (this.newQueue.size() > 0) {
-      return this.newQueue.dequeue();
+      const newCardId = this.newQueue.dequeue();
+      return this.getFullCard(newCardId);
     }
 
     // 3. Third priority: Review cards due today
     const topReview = this.reviewHeap.peek();
     if (topReview && topReview.nextReviewTime <= endOfDayTime) {
-      return this.reviewHeap.pop().id;
+      const reviewCardItem = this.reviewHeap.pop();
+      return this.getFullCard(reviewCardItem.id);
     }
 
     // 4. Finally, check for any remaining learning cards
     if (topLearning) {
-      return this.learningHeap.pop().id;
+      const learningCardItem = this.learningHeap.pop();
+      return this.getFullCard(learningCardItem.id);
     }
 
     return null;
@@ -358,30 +395,9 @@ export class CardScheduler {
     this.learningHeap = new MinHeap();
     this.newQueue = new FIFOQueue();
     this.reviewHeap = new MinHeap();
+    this.cardsMap = new Map();
   }
 
   printSummary() {
   }
 }
-
-/******************************************************
- * Example usage (if you want to test):
- *
- * import { CardScheduler } from './CardScheduler.js';
- *
- * const scheduler = new CardScheduler();
- * const now = Date.now();
- * const endOfDay = new Date().setHours(23, 59, 59, 999);
- *
- * // 1) Add a scheduled card that is due now
- * scheduler.setReviewTime('reviewNow', now);
- *
- * // 2) Add a scheduled card for 2 hours in the future
- * scheduler.setReviewTime('reviewLater', now + 2 * 3600_000);
- *
- * // 3) Add a new card (no time)
- * scheduler.pushNewCard('newCardA');
- *
- * // If we want to reschedule 'reviewLater' again:
- * scheduler.setReviewTime('reviewLater', now + 10 * 60_000);
- ******************************************************/
