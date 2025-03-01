@@ -54,43 +54,48 @@ export function useCardGeneration() {
     }
   };
 
-  // Restore blobs from storage using IDs
-  const restoreBlobs = (frontAudioId, backAudioId) => {
-    
-    if (frontAudioId) {
-      const frontUrl = getAudioById(frontAudioId);
+  // Helper function to restore audio blobs
+  const restoreBlobs = (front_audio_id, back_audio_id) => {
+    // Try to restore front audio blob
+    if (front_audio_id) {
+      const frontUrl = getAudioById(front_audio_id);
       if (frontUrl) {
-        setAudioUrls(prev => ({
-          ...prev,
-          front: frontUrl
-        }));
+        setAudioUrls(prev => ({ ...prev, front: frontUrl }));
+        setAudioReady(prev => ({ ...prev, front: true }));
+        setProgress(prev => ({ ...prev, front: true }));
       }
     }
     
-    if (backAudioId) {
-      const backUrl = getAudioById(backAudioId);
+    // Try to restore back audio blob
+    if (back_audio_id) {
+      const backUrl = getAudioById(back_audio_id);
       if (backUrl) {
-        setAudioUrls(prev => ({
-          ...prev,
-          back: backUrl
-        }));
+        setAudioUrls(prev => ({ ...prev, back: backUrl }));
+        setAudioReady(prev => ({ ...prev, back: true }));
+        setProgress(prev => ({ ...prev, back: true }));
       }
     }
   };
 
   // Try to restore blobs on mount
   useEffect(() => {
-    restoreBlobs(generatedCard?.frontAudioId, generatedCard?.backAudioId);
+    restoreBlobs(generatedCard?.front_audio_id, generatedCard?.back_audio_id);
   }, [generatedCard]);
 
-  const generateCard = async (userInput, knownLanguage, learningLanguage) => {
-    setLoading(true);
-    setGeneratedCard(null);
-    setAudioReady({ front: false, back: false });
-    setAudioUrls({ front: null, back: null });
-    setProgress({ text: false, front: false, back: false });
-
+  const generateCard = async (user_input, known_language, learning_language) => {
+    console.log('useCardGeneration: generateCard called with:', {
+      user_input,
+      known_language,
+      learning_language
+    });
+    
     try {
+      setLoading(true);
+      setGeneratedCard(null);
+      setAudioReady({ front: false, back: false });
+      setAudioUrls({ front: null, back: null });
+      setProgress({ text: false, front: false, back: false });
+
       const handleProgress = (data) => {
         console.log('handleProgress', data);
         if (data.type === 'text') {
@@ -99,11 +104,13 @@ export function useCardGeneration() {
         } 
       };
 
-      await apiGenerateCard(userInput, knownLanguage, learningLanguage, handleProgress);
+      await apiGenerateCard(user_input, known_language, learning_language, handleProgress);
+      
+      return true;
     } catch (err) {
-      throw err;
-    } finally {
+      console.error('useCardGeneration: Error in generateCard:', err);
       setLoading(false);
+      throw err;
     }
   };
 

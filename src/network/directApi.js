@@ -20,7 +20,7 @@ export const getStoredApiKey = () => {
 };
 
 // Speech evaluation function (from speech/index.ts)
-export const evaluateSpeech = async ({ audioBase64, expectedText, sourceLang, expectedAudioBase64 }) => {
+export const evaluateSpeech = async ({ audio_base64, expected_text, back_lang, expected_audio_base64 }) => {
   if (!openaiClient) throw new Error('OpenAI client not initialized');
 
   try {
@@ -31,20 +31,20 @@ export const evaluateSpeech = async ({ audioBase64, expectedText, sourceLang, ex
           role: "system",
           content: `You are a language learning assistant evaluating pronunciation. First, check if the audio contains commands like "skip", "quit", "next", or "give up". If it does, call evaluate_pronunciation with result "quit" and message "User requested to skip".
 
-If no command is detected, compare the pronunciation with the expected text "${expectedText}" in ${sourceLang}. If the pronunciation is good, call evaluate_pronunciation with result "correct" and a brief praise message. If the pronunciation needs improvement, call evaluate_pronunciation with result "incorrect" and a brief explanation of what was wrong.`
+If no command is detected, compare the pronunciation with the expected text "${expected_text}" in ${back_lang}. If the pronunciation is good, call evaluate_pronunciation with result "correct" and a brief praise message. If the pronunciation needs improvement, call evaluate_pronunciation with result "incorrect" and a brief explanation of what was wrong.`
         },
         {
           role: "user",
           content: [
             { type: "text", text: "Here is the correct pronunciation:" },
-            { type: "audio", audio: { data: expectedAudioBase64, format: "mp3" } }
+            { type: "audio", audio: { data: expected_audio_base64, format: "mp3" } }
           ]
         },
         {
           role: "user",
           content: [
             { type: "text", text: "Evaluate this pronunciation:" },
-            { type: "audio", audio: { data: audioBase64, format: "mp3" } }
+            { type: "audio", audio: { data: audio_base64, format: "mp3" } }
           ]
         }
       ],
@@ -90,7 +90,7 @@ If no command is detected, compare the pronunciation with the expected text "${e
 };
 
 // Card generation function (from cards/index.ts)
-export const generateCard = async ({ userInput, targetLang }, onProgress) => {
+export const generateCard = async ({ user_input, known_language, learning_language }, onProgress) => {
   if (!openaiClient) throw new Error('OpenAI client not initialized');
 
   try {
@@ -104,8 +104,8 @@ export const generateCard = async ({ userInput, targetLang }, onProgress) => {
         { 
           role: "user", 
           content: `Create a language learning flashcard pair for the following input. 
-First detect the language. If the detected language matches ${targetLang}, translate to English (en). Otherwise, translate to ${targetLang}.
-Input: ${userInput}
+First detect the language. If the detected language matches ${learning_language}, translate to ${known_language}. Otherwise, translate to ${learning_language}.
+Input: ${user_input}
 
 Return just the translation pair with language codes.`
         }

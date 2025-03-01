@@ -18,79 +18,51 @@ export class SupabaseApi extends ApiInterface {
     };
   }
 
-  async generateCard(userInput, knownLanguage, learningLanguage, onProgress) {
+  async generateCard(user_input, known_language, learning_language, onProgress) {
     try {
-      // Call the card generation function using the SDK
+      // Call Supabase function to generate the card
       const { data, error } = await this.supabase.functions.invoke('cards', {
         body: {
-          userInput,
-          knownLanguage,
-          learningLanguage
+          user_input: user_input,
+          known_language,
+          learning_language
         }
       });
 
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
 
-      // Since we can't stream, we'll get all the data at once
-      // First handle the card data
-      const card = {
-        ...data.card,
-        frontLang: data.card.frontLang || knownLanguage,
-        backLang: data.card.backLang || learningLanguage,
-        frontAudioPath: data.card.frontAudioPath,
-        backAudioPath: data.card.backAudioPath
-      };
-      console.log('SupabaseApi: Received card data:', {
-        front_text: card.front_text,
-        back_text: card.back_text,
-        frontLang: card.frontLang,
-        backLang: card.backLang,
-        frontAudioPath: card.frontAudioPath,
-        backAudioPath: card.backAudioPath
-      });
-      onProgress({ type: 'text', data: card });
-
-      // Handle the audio URLs
-      if (card.frontAudioPath) {
-        onProgress({ type: 'audio', side: 'front', url: card.frontAudioPath });
-      }
-
-      if (card.backAudioPath) {
-        onProgress({ type: 'audio', side: 'back', url: card.backAudioPath });
-      }
-
+      // Return the generated card data
       return {
-        card,
-        audioReady: {
-          front: !!card.frontAudioPath,
-          back: !!card.backAudioPath
-        }
+        front_text: data.card.front_text,
+        back_text: data.card.back_text,
+        front_lang: data.card.front_lang || known_language,
+        back_lang: data.card.back_lang || learning_language,
+        front_audio_path: data.card.front_audio_path,
+        back_audio_path: data.card.back_audio_path
       };
     } catch (err) {
-      console.error('Error in SupabaseApi.generateCard:', err);
-      throw new Error('Failed to generate card: ' + err.message);
+      console.error('Error generating card:', err);
+      throw new Error(`Card generation failed: ${err.message}`);
     }
   }
 
-  async evaluateSpeech(audioBlob, expectedText, sourceLang, expectedAudioBlob, targetLang) {
-    console.log('SupabaseApi: Evaluating speech with targetLang:', targetLang);
+  async evaluateSpeech(audio_blob, expected_text, back_lang, expected_audio_blob, front_lang) {
+    console.log('SupabaseApi: Evaluating speech with front_lang:', front_lang);
     try {
       const [userAudioBase64, expectedAudioBase64] = await Promise.all([
-        blobToBase64(audioBlob),
-        blobToBase64(expectedAudioBlob)
+        blobToBase64(audio_blob),
+        blobToBase64(expected_audio_blob)
       ]);
-      console.log('SupabaseApi: Evaluating speech with targetLang:', targetLang);
+      console.log('SupabaseApi: Evaluating speech with front_lang:', front_lang);
 
       const { data, error } = await this.supabase.functions.invoke('speech', {
         body: {
-          audioBase64: userAudioBase64,
-          expectedText,
-          sourceLang,
-          expectedAudioBase64,
-          audioFormat: 'mp3',
-          targetLang
+          audio_base64: userAudioBase64,
+          expected_text,
+          back_lang,
+          expected_audio_base64: expectedAudioBase64,
+          audio_format: 'mp3',
+          front_lang
         },
       });
 

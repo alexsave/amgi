@@ -12,8 +12,8 @@ import { createClient } from "npm:@supabase/supabase-js@2.39.0"
 const FlashcardSchema = z.object({
     front_text: z.string().describe("The front of the flashcard"),
     back_text: z.string().describe("The back of the flashcard"),
-    frontLang: z.string().describe("The language of the front of the flashcard"),
-    backLang: z.string().describe("The language of the back of the flashcard")
+    front_lang: z.string().describe("The language of the front of the flashcard"),
+    back_lang: z.string().describe("The language of the back of the flashcard")
 });
 
 const encoder = new TextEncoder();
@@ -47,15 +47,15 @@ serve(async (req) => {
         const usage = await getOrCreateUsage(user.id, subscription);
 
         const requestBody = await req.json();
-        const { userInput, knownLanguage, learningLanguage } = requestBody;
-        console.log('Request payload:', { userInput, knownLanguage, learningLanguage });
+        const { user_input, known_language, learning_language } = requestBody;
+        console.log('Request payload:', { user_input, known_language, learning_language });
 
         // Generate card text first
         console.log('Requesting translation from OpenAI with params:', {
             model: "gpt-4",
-            knownLanguage,
-            learningLanguage,
-            inputLength: userInput.length
+            known_language,
+            learning_language,
+            inputLength: user_input.length
         });
         const completion = await openai.beta.chat.completions.parse({
             model: "gpt-4o",
@@ -68,16 +68,16 @@ serve(async (req) => {
                     role: "user", 
                     content: `Create a flashcard for language learning following these rules:
 
-1. First, detect the language of this input: "${userInput}"
+1. First, detect the language of this input: "${user_input}"
 
 2. Then create a flashcard where:
-   - The FRONT is ALWAYS in ${knownLanguage}
-   - The BACK is ALWAYS in ${learningLanguage}
+   - The FRONT is ALWAYS in ${known_language}
+   - The BACK is ALWAYS in ${learning_language}
 
 3. Use these rules based on detection:
-   - If input is in ${knownLanguage}: Front = original input, Back = translation to ${learningLanguage}
-   - If input is in ${learningLanguage}: Front = translation to ${knownLanguage}, Back = original input
-   - If input is in any other language: Front = translation to ${knownLanguage}, Back = translation to ${learningLanguage}
+   - If input is in ${known_language}: Front = original input, Back = translation to ${learning_language}
+   - If input is in ${learning_language}: Front = translation to ${known_language}, Back = original input
+   - If input is in any other language: Front = translation to ${known_language}, Back = translation to ${learning_language}
 
 Return the flashcard with language codes.`
                 }
@@ -164,10 +164,10 @@ Return the flashcard with language codes.`
                 card: {
                     front_text: card.front_text,
                     back_text: card.back_text,
-                    frontLang: card.frontLang,
-                    backLang: card.backLang,
-                    frontAudioPath,
-                    backAudioPath
+                    front_lang: card.front_lang,
+                    back_lang: card.back_lang,
+                    front_audio_path: frontAudioPath,
+                    back_audio_path: backAudioPath
                 }
             }),
             {

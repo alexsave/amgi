@@ -8,7 +8,7 @@ import './CardForm.css';
 
 const CardForm = () => {
   const { id: deckId } = useParams();
-  const [userInput, setUserInput] = useState('');
+  const [user_input, setUserInput] = useState('');
   const [error, setError] = useState(null);
   const { playAudio } = useAudio();
   const { generateCard, generatedCard, isGenerating } = useCardGeneration();
@@ -18,16 +18,16 @@ const CardForm = () => {
   
   const [front_text, setfront_text] = useState('');
   const [back_text, setback_text] = useState('');
-  const [frontAudioUrl, setFrontAudioUrl] = useState(null);
-  const [backAudioUrl, setBackAudioUrl] = useState(null);
+  const [front_audio_url, setFrontAudioUrl] = useState(null);
+  const [back_audio_url, setBackAudioUrl] = useState(null);
 
   useEffect(() => {
     console.log('CardForm: useEffect triggered with generatedCard:', generatedCard);
     if (generatedCard) {
       setfront_text(generatedCard.front_text);
       setback_text(generatedCard.back_text);
-      setFrontAudioUrl(generatedCard.frontAudioPath);
-      setBackAudioUrl(generatedCard.backAudioPath);
+      setFrontAudioUrl(generatedCard.front_audio_path);
+      setBackAudioUrl(generatedCard.back_audio_path);
     }
   }, [generatedCard]);
 
@@ -36,12 +36,12 @@ const CardForm = () => {
     return <div className="loading">Loading deck information...</div>;
   }
 
-  const { knownLanguage = 'en', learningLanguage = 'ko' } = currentDeck;
+  const { known_language = 'en', learning_language = 'ko' } = currentDeck;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('CardForm: handleSubmit called with userInput:', userInput);
-    if (!userInput.trim()) {
+    console.log('CardForm: handleSubmit called with user_input:', user_input);
+    if (!user_input.trim()) {
       setError('Please enter some text');
       return;
     }
@@ -49,14 +49,14 @@ const CardForm = () => {
 
     try {
       console.log('CardForm: Calling generateCard with:', {
-        userInput,
-        knownLanguage,
-        learningLanguage,
+        user_input,
+        known_language,
+        learning_language,
       });
       await generateCard(
-        userInput, 
-        knownLanguage, 
-        learningLanguage
+        user_input, 
+        known_language, 
+        learning_language
       );
       console.log('CardForm: generateCard completed successfully');
       setUserInput(''); // Clear input after successful generation
@@ -70,8 +70,8 @@ const CardForm = () => {
     console.log('CardForm: handleAddToDeck called with:', {
       front_text,
       back_text,
-      frontAudioUrl,
-      backAudioUrl,
+      front_audio_url,
+      back_audio_url,
       deckId
     });
     if (!front_text || !back_text) {
@@ -82,10 +82,10 @@ const CardForm = () => {
       const card = {
         front_text,
         back_text,
-        front_lang: generatedCard.frontLang || knownLanguage,
-        back_lang: generatedCard.backLang || learningLanguage,
-        frontAudioPath: generatedCard.frontAudioPath,
-        backAudioPath: generatedCard.backAudioPath
+        front_lang: generatedCard.front_lang || known_language,
+        back_lang: generatedCard.back_lang || learning_language,
+        front_audio_path: generatedCard.front_audio_path,
+        back_audio_path: generatedCard.back_audio_path
       };
       console.log('CardForm: Adding card to deck:', { deckId, card });
       await addCardToDeck(deckId, card);
@@ -102,17 +102,17 @@ const CardForm = () => {
       <form onSubmit={handleSubmit} className="card-form">
         <div className="form-info">
           <p className="language-info">
-            Creating cards for: {getLanguageDisplay(knownLanguage).flag} {getLanguageDisplay(knownLanguage).name} → {getLanguageDisplay(learningLanguage).flag} {getLanguageDisplay(learningLanguage).name}
+            Creating cards for: {getLanguageDisplay(known_language).flag} {getLanguageDisplay(known_language).name} → {getLanguageDisplay(learning_language).flag} {getLanguageDisplay(learning_language).name}
           </p>
         </div>
 
         <div className="form-group">
-          <label htmlFor="userInput">Text to Translate</label>
+          <label htmlFor="user_input">Text to Translate</label>
           <textarea
-            id="userInput"
-            value={userInput}
+            id="user_input"
+            value={user_input}
             onChange={(e) => setUserInput(e.target.value)}
-            placeholder={`Enter text in ${getLanguageDisplay(knownLanguage).name} or ${getLanguageDisplay(learningLanguage).name}`}
+            placeholder={`Enter text in ${getLanguageDisplay(known_language).name} or ${getLanguageDisplay(learning_language).name}`}
             rows={4}
           />
         </div>
@@ -130,10 +130,10 @@ const CardForm = () => {
             <div className="card-side">
               <h3>Front</h3>
               <p>{generatedCard.front_text}</p>
-              {generatedCard.frontAudioPath && (
+              {generatedCard.front_audio_path && (
                 <button
                   className="play-audio-btn"
-                  onClick={() => playAudio(generatedCard.frontAudioPath)}
+                  onClick={() => playAudio(generatedCard.front_audio_path)}
                 >
                   🔊 Play Audio
                 </button>
@@ -142,10 +142,10 @@ const CardForm = () => {
             <div className="card-side">
               <h3>Back</h3>
               <p>{generatedCard.back_text}</p>
-              {generatedCard.backAudioPath && (
+              {generatedCard.back_audio_path && (
                 <button
                   className="play-audio-btn"
-                  onClick={() => playAudio(generatedCard.backAudioPath)}
+                  onClick={() => playAudio(generatedCard.back_audio_path)}
                 >
                   🔊 Play Audio
                 </button>

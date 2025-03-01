@@ -4,8 +4,8 @@ import LANGUAGES from '../../constants/languages';
 
 const CreateDeckModal = ({ isOpen, onClose, onSubmit }) => {
   const [deckName, setDeckName] = useState('');
-  const [knownLanguage, setKnownLanguage] = useState('en');
-  const [learningLanguage, setLearningLanguage] = useState('ko');
+  const [known_language, setKnownLanguage] = useState('en');
+  const [learning_language, setLearningLanguage] = useState('ko');
 
   if (!isOpen) return null;
 
@@ -13,8 +13,8 @@ const CreateDeckModal = ({ isOpen, onClose, onSubmit }) => {
     e.preventDefault();
     onSubmit({
       name: deckName,
-      knownLanguage,
-      learningLanguage
+      known_language,
+      learning_language
     });
     setDeckName('');
   };
@@ -42,10 +42,10 @@ const CreateDeckModal = ({ isOpen, onClose, onSubmit }) => {
           </div>
           
           <div className="form-group">
-            <label htmlFor="knownLanguage">I know</label>
+            <label htmlFor="known_language">I know</label>
             <select
-              id="knownLanguage"
-              value={knownLanguage}
+              id="known_language"
+              value={known_language}
               onChange={(e) => setKnownLanguage(e.target.value)}
               className="language-select"
             >
@@ -58,10 +58,10 @@ const CreateDeckModal = ({ isOpen, onClose, onSubmit }) => {
           </div>
           
           <div className="form-group">
-            <label htmlFor="learningLanguage">I want to learn</label>
+            <label htmlFor="learning_language">I want to learn</label>
             <select
-              id="learningLanguage"
-              value={learningLanguage}
+              id="learning_language"
+              value={learning_language}
               onChange={(e) => setLearningLanguage(e.target.value)}
               className="language-select"
             >
@@ -73,11 +73,15 @@ const CreateDeckModal = ({ isOpen, onClose, onSubmit }) => {
             </select>
           </div>
           
-          <div className="modal-actions">
-            <button type="button" onClick={onClose} className="cancel-btn">
+          <div className="button-row">
+            <button type="button" onClick={onClose} className="secondary-btn">
               Cancel
             </button>
-            <button type="submit" className="submit-btn" disabled={!deckName.trim()}>
+            <button 
+              type="submit" 
+              className="primary-btn"
+              disabled={!deckName.trim()}
+            >
               Create Deck
             </button>
           </div>

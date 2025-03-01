@@ -5,11 +5,11 @@ export function useSpeechEvaluation({ audio, onEvaluationResult }) {
     try {
       console.log('useSpeechEvaluation: Starting evaluation with card:', {
         back_text: card.back_text,
-        frontLang: card.frontLang,
-        backLang: card.backLang,
+        front_lang: card.front_lang,
+        back_lang: card.back_lang,
         hasRecordedBlob: !!recordedBlob,
         recordedBlobSize: recordedBlob?.size,
-        backAudioId: card.back_audio_path
+        back_audio_id: card.back_audio_path
       });
 
       // Get the expected audio from storage
@@ -72,11 +72,11 @@ export function useSpeechEvaluation({ audio, onEvaluationResult }) {
 
       // Call the API using the proper implementation
       const result = await apiEvaluateSpeech(
-        recordedMp3Blob,      // audioBlob
-        card.back_text,        // expectedText
-        card.back_lang,        // sourceLang (the language being spoken)
-        backAudioMp3Blob,      // expectedAudioBlob
-        card.front_lang        // targetLang (the language being spoken)
+        recordedMp3Blob,      // audio_blob
+        card.back_text,       // expected_text
+        card.back_lang,       // back_lang (the language of the text being spoken)
+        backAudioMp3Blob,     // expected_audio_blob
+        card.front_lang       // front_lang (the language the user knows)
       );
 
       console.log('useSpeechEvaluation: Received API result:', {

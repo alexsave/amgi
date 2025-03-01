@@ -7,7 +7,7 @@ export class LocalApi extends ApiInterface {
     this.baseUrl = 'http://localhost:8000';
   }
 
-  async generateCard(userInput, knownLanguage, learningLanguage, onProgress) {
+  async generateCard(user_input, known_language, learning_language, onProgress) {
     try {
       const response = await fetch(`${this.baseUrl}/api/generate_cards`, {
         method: 'POST',
@@ -15,9 +15,9 @@ export class LocalApi extends ApiInterface {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          userInput,
-          knownLanguage,
-          learningLanguage,
+          user_input: user_input,
+          known_language,
+          learning_language,
         }),
       });
 
@@ -61,11 +61,11 @@ export class LocalApi extends ApiInterface {
     }
   }
 
-  async evaluateSpeech(audioBlob, expectedText, sourceLang, expectedAudioBlob) {
+  async evaluateSpeech(audio_blob, expected_text, back_lang, expected_audio_blob) {
     try {
       const [userAudioBase64, expectedAudioBase64] = await Promise.all([
-        blobToBase64(audioBlob),
-        blobToBase64(expectedAudioBlob)
+        blobToBase64(audio_blob),
+        blobToBase64(expected_audio_blob)
       ]);
 
       const response = await fetch(`${this.baseUrl}/api/evaluate_speech`, {
@@ -74,11 +74,11 @@ export class LocalApi extends ApiInterface {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          audioBase64: userAudioBase64,
-          expectedText,
-          sourceLang,
-          expectedAudioBase64,
-          audioFormat: 'mp3'
+          audio_base64: userAudioBase64,
+          expected_text,
+          back_lang,
+          expected_audio_base64: expectedAudioBase64,
+          audio_format: 'mp3'
         }),
       });
 

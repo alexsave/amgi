@@ -116,15 +116,15 @@ export const DeckProvider = ({ children }) => {
 
   const createNewDeck = async (deckData) => {
     const timestamp = Date.now();
-    const { name, knownLanguage = 'en', learningLanguage } = deckData;
+    const { name, known_language = 'en', learning_language } = deckData;
     
     try {
       if (user && !isDirectMode) {
         // Create in Supabase
         const newDeck = await supabase.saveDeck({
           name,
-          knownLanguage,
-          learningLanguage,
+          known_language,
+          learning_language,
           created_at: new Date(timestamp).toISOString(),
           cards: {}
         }, user.id);
@@ -132,8 +132,8 @@ export const DeckProvider = ({ children }) => {
         const transformedDeck = {
           id: newDeck.id,
           name: newDeck.name,
-          knownLanguage: newDeck.knownLanguage,
-          learningLanguage: newDeck.learningLanguage,
+          known_language: newDeck.known_language,
+          learning_language: newDeck.learning_language,
           cards: [],
           created: timestamp,
           lastModified: timestamp
@@ -147,8 +147,8 @@ export const DeckProvider = ({ children }) => {
         const newDeck = {
           id,
           name,
-          knownLanguage,
-          learningLanguage,
+          known_language,
+          learning_language,
           cards: [],
           created: timestamp,
           lastModified: timestamp
@@ -248,8 +248,8 @@ export const DeckProvider = ({ children }) => {
           back_text: card.back_text,
           front_lang: card.front_lang,
           back_lang: card.back_lang,
-          front_audio_path: card.frontAudioPath,
-          back_audio_path: card.backAudioPath,
+          front_audio_path: card.front_audio_path,
+          back_audio_path: card.back_audio_path,
           created_at: new Date(Date.now()).toISOString()
         });
         
@@ -261,11 +261,10 @@ export const DeckProvider = ({ children }) => {
           const deck = prev[deckId];
           const transformedCard = {
             id: newCard.id,
-            front: newCard.front_text,
             front_text: newCard.front_text,
-            back: newCard.back_text,
-            frontAudio: newCard.front_audio_url,
-            backAudio: newCard.back_audio_url,
+            back_text: newCard.back_text,
+            front_audio_path: newCard.front_audio_path,
+            back_audio_path: newCard.back_audio_path,
             created: new Date(newCard.created_at).getTime(),
             review: review
           };

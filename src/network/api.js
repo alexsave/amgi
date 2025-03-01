@@ -40,15 +40,15 @@ export const clearApiInstance = () => {
 };
 
 // API Functions
-export const generateCard = async (userInput, knownLanguage, learningLanguage, onProgress) => {
+export const generateCard = async (user_input, known_language, learning_language, onProgress) => {
   const api = getApiInstance();
-  return api.generateCard(userInput, knownLanguage, learningLanguage, onProgress);
+  return api.generateCard(user_input, known_language, learning_language, onProgress);
 };
 
-export const evaluateSpeech = async (audioBlob, expectedText, sourceLang, expectedAudioBlob, targetLang) => {
-  console.log('API: Evaluating speech with targetLang:', targetLang);
+export const evaluateSpeech = async (audio_blob, expected_text, back_lang, expected_audio_blob, front_lang) => {
+  console.log('API: Evaluating speech with front_lang:', front_lang);
   const api = getApiInstance();
-  return api.evaluateSpeech(audioBlob, expectedText, sourceLang, expectedAudioBlob, targetLang);
+  return api.evaluateSpeech(audio_blob, expected_text, back_lang, expected_audio_blob, front_lang);
 };
 
 export const getRealtimeToken = async () => {

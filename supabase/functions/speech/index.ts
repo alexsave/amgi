@@ -117,24 +117,26 @@ serve(async (req) => {
       }
     }
 
-    const { audioBase64, expectedText, sourceLang: targetLang, expectedAudioBase64 } = await req.json();
+    const { audio_base64, expected_text, back_lang, expected_audio_base64, front_lang } = await req.json();
     console.log('Request validation:', {
-      hasAudioBase64: !!audioBase64,
-      audioBase64Length: audioBase64?.length,
-      audioBase64Prefix: audioBase64?.substring(0, 50),
-      expectedTextPresent: !!expectedText,
-      targetLangPresent: !!targetLang,
-      targetLang,
-      hasExpectedAudio: !!expectedAudioBase64,
-      expectedAudioLength: expectedAudioBase64?.length,
-      expectedAudioPrefix: expectedAudioBase64?.substring(0, 50)
+      hasAudioBase64: !!audio_base64,
+      audioBase64Length: audio_base64?.length,
+      audioBase64Prefix: audio_base64?.substring(0, 50),
+      expectedTextPresent: !!expected_text,
+      backLangPresent: !!back_lang,
+      backLang: back_lang,
+      frontLangPresent: !!front_lang,
+      frontLang: front_lang,
+      hasExpectedAudio: !!expected_audio_base64,
+      expectedAudioLength: expected_audio_base64?.length,
+      expectedAudioPrefix: expected_audio_base64?.substring(0, 50)
     });
 
-    if (!audioBase64 || !expectedText || !targetLang) {
+    if (!audio_base64 || !expected_text || !back_lang) {
       const missingFields = [];
-      if (!audioBase64) missingFields.push('audioBase64');
-      if (!expectedText) missingFields.push('expectedText');
-      if (!targetLang) missingFields.push('targetLang');
+      if (!audio_base64) missingFields.push('audio_base64');
+      if (!expected_text) missingFields.push('expected_text');
+      if (!back_lang) missingFields.push('back_lang');
       throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
     }
 
@@ -148,8 +150,8 @@ serve(async (req) => {
     };
 
     console.log('Base64 validation:', {
-      isValidUserAudio: isValidBase64(audioBase64),
-      isValidExpectedAudio: isValidBase64(expectedAudioBase64)
+      isValidUserAudio: isValidBase64(audio_base64),
+      isValidExpectedAudio: isValidBase64(expected_audio_base64)
     });
 
     console.log('Initializing OpenAI client');
@@ -159,8 +161,8 @@ serve(async (req) => {
 
     console.log('Starting OpenAI chat completion request with params:', {
       model: "gpt-4o-audio-preview",
-      expectedText,
-      targetLang
+      expectedText: expected_text,
+      backLang: back_lang
     });
     const response = await openai.chat.completions.create({
       model: "gpt-4o-audio-preview",
@@ -171,20 +173,20 @@ serve(async (req) => {
           role: "system",
           content: `You are a language learning assistant evaluating pronunciation. First, check if the audio contains commands like "skip", "quit", "next", or "give up". If it does, call evaluate_pronunciation with result "quit" and message "User requested to skip".
 
-If no command is detected, compare the pronunciation with the expected text "${expectedText}" in ${targetLang}. If the pronunciation is good, call evaluate_pronunciation with result "correct" and a brief praise message. If the pronunciation needs improvement, call evaluate_pronunciation with result "incorrect" and a brief explanation of what was wrong.`
+If no command is detected, compare the pronunciation with the expected text "${expected_text}" in ${back_lang}. If the pronunciation is good, call evaluate_pronunciation with result "correct" and a brief praise message. If the pronunciation needs improvement, call evaluate_pronunciation with result "incorrect" and a brief explanation of what was wrong.`
         },
         {
           role: "user",
           content: [
             { type: "text", text: "Here is the correct pronunciation:" },
-            { type: "input_audio", input_audio: { data: expectedAudioBase64, format: "mp3" } }
+            { type: "input_audio", input_audio: { data: expected_audio_base64, format: "mp3" } }
           ]
         },
         {
           role: "user",
           content: [
             { type: "text", text: "Evaluate this pronunciation:" },
-            { type: "input_audio", input_audio: { data: audioBase64, format: "mp3" } }
+            { type: "input_audio", input_audio: { data: audio_base64, format: "mp3" } }
           ]
         }
       ],

@@ -140,7 +140,7 @@ export const loadDecks = async (userId) => {
       loadDueCards(userId)
     ]);
 
-    // Combine everything and transform snake_case to camelCase
+    // Combine everything and keep in snake_case
     return decks.reduce((acc, deck) => {
       const newCards = newCardsByDeck[deck.id] || [];
       const learningCards = learningCardsByDeck[deck.id] || [];
@@ -148,11 +148,7 @@ export const loadDecks = async (userId) => {
       
       acc[deck.id] = {
         ...deck,
-        // Transform snake_case to camelCase
-        knownLanguage: deck.known_language,
-        learningLanguage: deck.learning_language,
-        known_language: undefined, // Remove the snake_case versions
-        learning_language: undefined,
+        // Keep all field names in snake_case
         cards: [...learningCards, ...newCards, ...dueCards] // Priority order
       };
       return acc;
@@ -171,9 +167,9 @@ export const saveDeck = async (deck, userId) => {
       .upsert({
         id: deck.id,
         name: deck.name,
-        // Map from camelCase to snake_case for database
-        known_language: deck.knownLanguage || 'en',
-        learning_language: deck.learningLanguage,
+        // Use snake_case consistently
+        known_language: deck.known_language || 'en',
+        learning_language: deck.learning_language,
         user_id: userId,
         created_at: deck.created_at || new Date().toISOString()
       })
@@ -182,14 +178,8 @@ export const saveDeck = async (deck, userId) => {
 
     if (error) throw error;
     
-    // Transform back to camelCase for client
-    return {
-      ...data,
-      knownLanguage: data.known_language,
-      learningLanguage: data.learning_language,
-      known_language: undefined,
-      learning_language: undefined
-    };
+    // Return data directly in snake_case
+    return data;
   } catch (err) {
     throw err;
   }
@@ -283,8 +273,8 @@ export const saveCards = async (deckId, cards) => {
       position: card.position || nextPosition++,
       front_text: card.front_text,
       back_text: card.back_text,
-      front_audio_path: card.frontAudioPath,
-      back_audio_path: card.backAudioPath,
+      front_audio_path: card.front_audio_path,
+      back_audio_path: card.back_audio_path,
       front_lang: card.front_lang,
       back_lang: card.back_lang,
       created_at: card.created_at || new Date().toISOString()
