@@ -30,12 +30,10 @@ export const RealtimeProvider = ({ children }) => {
     const {
         markCorrectGetNext,
         markIncorrectGetAttempts,
-        cardSchedulerRef
+        cardSchedulerRef,
+        currentCardIdRef
     } = useReview();
 
-    // Get direct access to the review context's refs for most current values
-    const reviewContextRef = useRef();
-    reviewContextRef.current = useReview();
 
     const sendFunctionOutput = (callId, output) => {
         if (!dataChannelRef.current) return;
@@ -338,9 +336,7 @@ export const RealtimeProvider = ({ children }) => {
 
     const setupWebRTC = async () => {
         // Get most current card ID and related values
-        const currentCardId = reviewContextRef.current?.currentCardId;
-        const currentCards = reviewContextRef.current?.cardsById || {};
-        const card = currentCards[currentCardId];
+        const card = cardSchedulerRef.current.getFullCard(currentCardIdRef.current);
         
         try {
             const EPHEMERAL_KEY = await getRealtimeToken();

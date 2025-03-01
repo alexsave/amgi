@@ -55,12 +55,80 @@ export function calculateNextReview(review, quality) {
   easeFactor = Math.max(1.3, easeFactor);
 
   return {
-    interval,
-    easeFactor,
+    interval_days: interval,
+    ease_factor: easeFactor,
     repetitions,
-    cardState,
-    nextReview: nextReview.toISOString()
+    card_state: cardState,
+    next_review_date: nextReview.toISOString()
   };
+}
+
+/**
+ * Process a card review outcome, considering attempts and current state
+ * @param {Object} card - The card being reviewed
+ * @param {string} outcome - 'correct' or 'incorrect'
+ * @param {number} attempts - Number of attempts made on this card
+ * @param {number} maxAttempts - Maximum allowed attempts before moving to next card
+ * @returns {Object} - Review outcome with scheduling information
+ */
+export function processCardReview(card, outcome, attempts, maxAttempts = 3) {
+  
+  // Determine quality based on outcome and attempts
+  let quality;
+  let nextCardState;
+  let shouldReschedule = true;
+  
+  if (outcome === 'correct') {
+    // If correct on first attempt, it's a full success
+    // If correct after attempts, it's a partial success
+    quality = attempts === 0 ? 'correct' : 'incorrect';
+    
+    // Calculate the new review data
+    const reviewData = calculateNextReview(card.review, quality);
+    
+    // For correct answers, we always reschedule:
+    // - New cards go to learning (10 min)
+    // - Learning cards may go to review if first attempt
+    // - Review cards stay in review if first attempt
+    nextCardState = reviewData.card_state;
+    
+    // If the card goes to review state, we don't put it back in the scheduler
+    shouldReschedule = nextCardState !== 'review' || quality === 'incorrect';
+    
+    return {
+      ...reviewData,
+      shouldReschedule,
+      resetAttempts: true // Always reset attempts after correct answer
+    };
+    
+  } else {
+    // For incorrect answers
+    
+    // Check if we've reached max attempts
+    if (attempts >= maxAttempts - 1) {
+      // Max attempts reached - calculate review with 'incorrect'
+      const reviewData = calculateNextReview(card.review, 'incorrect');
+      
+      // Card always goes to learning state for incorrect answers
+      return {
+        ...reviewData,
+        shouldReschedule: true,
+        resetAttempts: true // Reset attempts for next card
+      };
+    } else {
+      // Still has attempts left - don't recalculate review yet
+      // Only update attempts count and keep the same card
+      return {
+        interval_days: card.review?.interval_days || 1,
+        ease_factor: card.review?.ease_factor || 2.5, 
+        repetitions: card.review?.repetitions || 0,
+        card_state: card.review?.card_state || 'new',
+        next_review_date: card.review?.next_review_date || new Date().toISOString(),
+        shouldReschedule: false,
+        resetAttempts: false
+      };
+    }
+  }
 }
 
 export function getDueCards(deck, maxNewCards, newCardsToday) {

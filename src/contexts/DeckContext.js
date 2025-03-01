@@ -232,16 +232,10 @@ export const DeckProvider = ({ children }) => {
   // Update due cards when necessary
   useEffect(() => {
     if (currentDeckId && getMode() === 'review') {
+      // Wtf is this
       const due = getDueCards(decks[currentDeckId], MAX_NEW_CARDS_PER_DAY, newCardsToday);
       setDueCards(due);
 
-      // Check for due cards every minute
-      /*const interval = setInterval(() => {
-        const updated = getDueCards(decks[currentDeckId], MAX_NEW_CARDS_PER_DAY, newCardsToday);
-        setDueCards(updated);
-      }, 60000);
-
-      return () => clearInterval(interval);*/
     }
   }, [currentDeckId, location.pathname, decks, newCardsToday]);
 

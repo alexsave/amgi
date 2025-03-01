@@ -1,9 +1,9 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useAudio } from '../../hooks/useAudio';
 import { useCardGeneration } from '../../hooks/useCardGeneration';
 import { useDecks } from '../../contexts/DeckContext';
-import { LANGUAGES, getLanguageDisplay } from '../../constants/languages';
+import { getLanguageDisplay } from '../../constants/languages';
 import './CardForm.css';
 
 const CardForm = () => {

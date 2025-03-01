@@ -16,10 +16,9 @@ const ReviewMode = () => {
   const navigate = useNavigate();
   const audio = useAudio();
   const review = useReview();
-  const { currentCardId, cardsById, attempts, showAnswer, evaluationResult, newCardsCount, reviewCardsCount, learningCardsCount } = review;
+  const { currentCard, currentCardId, attempts, showAnswer, evaluationResult, newCardsCount, reviewCardsCount, learningCardsCount } = review;
   const [isVoiceMode, setIsVoiceMode] = useState(true);
   
-  const currentCard = currentCardId ? cardsById[currentCardId] : null;
 
   // Load audio when current card changes
   useEffect(() => {
