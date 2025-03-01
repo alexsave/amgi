@@ -3,6 +3,7 @@ import { useParams, Navigate } from 'react-router-dom';
 import { useDecks } from '../../contexts/DeckContext';
 import CardForm from './CardForm';
 import './CardList.css';
+import { getLanguageDisplay } from '../../constants/languages';
 
 const CardList = ({ onCardClick, onBack }) => {
   const { id } = useParams();
@@ -17,14 +18,14 @@ const CardList = ({ onCardClick, onBack }) => {
     <div className="deck-cards">
       <div className="deck-cards-header">
         <button onClick={onBack} className="back-btn">← Back</button>
-        <h3>{deck.name}</h3>
+        <h1>{deck.name}</h1>
+          <p className="language-info">
+            {getLanguageDisplay(deck.known_language).flag} {getLanguageDisplay(deck.known_language).name} → {getLanguageDisplay(deck.learning_language).flag} {getLanguageDisplay(deck.learning_language).name}
+          </p>
       </div>
 
       <div className="deck-content">
-        <div className="deck-form">
-          <h3>Add New Card</h3>
-          <CardForm />
-        </div>
+        <CardForm />
 
         <div className="deck-cards-list">
           <h3>Cards in Deck</h3>

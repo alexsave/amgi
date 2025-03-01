@@ -100,11 +100,6 @@ const CardForm = () => {
   return (
     <div className="card-form-container">
       <form onSubmit={handleSubmit} className="card-form">
-        <div className="form-info">
-          <p className="language-info">
-            Creating cards for: {getLanguageDisplay(known_language).flag} {getLanguageDisplay(known_language).name} → {getLanguageDisplay(learning_language).flag} {getLanguageDisplay(learning_language).name}
-          </p>
-        </div>
 
         <div className="form-group">
           <label htmlFor="user_input">Text to Translate</label>
@@ -113,7 +108,7 @@ const CardForm = () => {
             value={user_input}
             onChange={(e) => setUserInput(e.target.value)}
             placeholder={`Enter text in ${getLanguageDisplay(known_language).name} or ${getLanguageDisplay(learning_language).name}`}
-            rows={4}
+            rows={2}
           />
         </div>
 

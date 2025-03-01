@@ -8,6 +8,7 @@
   padding: 0.5rem;
   position: relative;
   margin-bottom: 1rem;
+  flex-direction: column;
 }
 
 .deck-cards-header h3 {
@@ -30,9 +31,6 @@
 .deck-content {
   display: flex;
   flex-direction: column;
-}
-
-.deck-form {
 }
 
 .deck-form h3 {
