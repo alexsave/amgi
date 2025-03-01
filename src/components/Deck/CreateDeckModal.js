@@ -1,21 +1,48 @@
 import { useState } from 'react';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import LANGUAGES from '../../constants/languages';
+import { useDecks } from '../../contexts/DeckContext';
+import { useNavigate } from 'react-router-dom';
 
-const CreateDeckModal = ({ isOpen, onClose, onSubmit }) => {
+const CreateDeckModal = ({ isOpen, setIsCreateModalOpen }) => {
   const [deckName, setDeckName] = useState('');
   const [known_language, setKnownLanguage] = useState('en');
   const [learning_language, setLearningLanguage] = useState('ko');
+  const navigate = useNavigate();
+
+  const { 
+    createNewDeck,
+    setCurrentDeckId,
+  } = useDecks();
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    onSubmit({
-      name: deckName,
-      known_language,
-      learning_language
-    });
+
+    const finalDeckName = deckName.trim() === '' 
+      ? `${LANGUAGES[known_language].name} -> ${LANGUAGES[learning_language].name}`
+      : deckName;
+
+    console.log('Creating new deck with name:', finalDeckName);
+    try {
+      console.log('Calling createNewDeck...');
+      const id = await createNewDeck({
+        name: finalDeckName,
+        known_language,
+        learning_language
+      });
+      console.log('Created deck with ID:', id);
+      setCurrentDeckId(id);
+      
+      setIsCreateModalOpen(false);
+      console.log('Navigating to deck page...');
+      navigate(`/deck/${id}/edit`);
+    } catch (error) {
+      console.error('Error creating deck:', error);
+      alert('Failed to create deck: ' + error.message);
+    }
+
     setDeckName('');
   };
 
@@ -24,7 +51,7 @@ const CreateDeckModal = ({ isOpen, onClose, onSubmit }) => {
       <div className="modal-content">
         <div className="modal-header">
           <h3>Create New Deck</h3>
-          <button onClick={onClose} className="close-btn">
+          <button onClick={() => setIsCreateModalOpen(false)} className="close-btn">
             <XMarkIcon className="h-5 w-5" />
           </button>
         </div>
@@ -74,13 +101,9 @@ const CreateDeckModal = ({ isOpen, onClose, onSubmit }) => {
           </div>
           
           <div className="button-row">
-            <button type="button" onClick={onClose} className="secondary-btn">
-              Cancel
-            </button>
             <button 
               type="submit" 
               className="primary-btn"
-              disabled={!deckName.trim()}
             >
               Create Deck
             </button>

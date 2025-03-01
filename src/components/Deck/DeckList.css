@@ -108,6 +108,7 @@
   width: 80%;
   max-width: 400px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  background-color: var(--dark-surface);
   border: 1px solid var(--border-color);
 }
 
@@ -139,10 +140,6 @@
 .close-btn:hover {
   background: var(--dark-surface-hover);
   color: var(--flame-orange);
-}
-
-.form-group {
-  margin-bottom: 20px;
 }
 
 .form-group label {

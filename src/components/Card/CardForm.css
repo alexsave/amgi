@@ -38,10 +38,6 @@
   transition: all 0.2s ease;
 }
 
-.form-group {
-  margin-bottom: 1.5rem;
-}
-
 .form-group label {
   display: block;
   margin-bottom: 0.5rem;

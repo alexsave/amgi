@@ -13,31 +13,12 @@ const DeckList = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const { 
     decks,
-    createNewDeck,
     setCurrentDeckId,
     updateDeck
   } = useDecks();
   
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
-
-  const handleCreateDeck = async (name) => {
-    console.log('Creating new deck with name:', name);
-    try {
-      console.log('Calling createNewDeck...');
-      const id = await createNewDeck(name);
-      console.log('Created deck with ID:', id);
-      setCurrentDeckId(id);
-      
-      setIsCreateModalOpen(false);
-      console.log('Navigating to deck page...');
-      navigate(`/deck/${id}/edit`);
-    } catch (error) {
-      console.error('Error creating deck:', error);
-      alert('Failed to create deck: ' + error.message);
-    }
-  };
-
 
   const handleImportClick = () => {
     console.log('Import button clicked');
@@ -116,8 +97,7 @@ const DeckList = () => {
       
       <CreateDeckModal
         isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
-        onSubmit={handleCreateDeck}
+        setIsCreateModalOpen={setIsCreateModalOpen}
       />
       
       <div className="deck-list">

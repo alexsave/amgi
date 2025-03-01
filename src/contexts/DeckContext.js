@@ -115,6 +115,7 @@ export const DeckProvider = ({ children }) => {
   };
 
   const createNewDeck = async (deckData) => {
+    console.log('Creating new deck with data:', deckData);
     const timestamp = Date.now();
     const { name, known_language = 'en', learning_language } = deckData;
     
@@ -290,36 +291,6 @@ export const DeckProvider = ({ children }) => {
     }
   };
 
-  const deleteCard = async (deckId, cardId) => {
-    /*try {
-      if (user && !isDirectMode) {
-        // Delete from Supabase
-        await supabase.deleteCard(cardId);
-        
-        // Update local state
-        setDecks(prev => {
-          const deck = prev[deckId];
-          return {
-            ...prev,
-            [deckId]: {
-              ...deck,
-              cards: deck.cards.filter(c => c.id !== cardId),
-              lastModified: Date.now()
-            }
-          };
-        });
-      } else {
-        // Delete from local storage only
-        const updatedDeck = localDeckStorage.deleteLocalCard(deckId, cardId);
-        setDecks(prev => ({ ...prev, [deckId]: updatedDeck }));
-      }
-    } catch (error) {
-      console.error('Error deleting card:', error);
-      setError(error.message);
-      throw error;
-    }*/
-  };
-
   const value = {
     decks,
     loading,
@@ -335,7 +306,6 @@ export const DeckProvider = ({ children }) => {
     updateDeck,
     deleteDeck,
     addCardToDeck,
-    deleteCard,
   };
 
   return (
