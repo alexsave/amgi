@@ -14,15 +14,12 @@
   gap: 2rem;
   justify-content: center;
   padding: 1rem;
-  min-height: 200px;
 }
 
 .card-side {
   flex: 1;
   max-width: 300px;
   padding: 1.5rem;
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
   background-color: var(--dark-surface);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
   transition: all 0.2s ease;

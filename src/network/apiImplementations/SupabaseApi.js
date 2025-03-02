@@ -31,8 +31,8 @@ export class SupabaseApi extends ApiInterface {
 
       if (error) throw error;
 
-      // Return the generated card data
-      return {
+      // Create the card data object
+      const cardData = {
         front_text: data.card.front_text,
         back_text: data.card.back_text,
         front_lang: data.card.front_lang || known_language,
@@ -40,6 +40,17 @@ export class SupabaseApi extends ApiInterface {
         front_audio_path: data.card.front_audio_path,
         back_audio_path: data.card.back_audio_path
       };
+
+      // Call onProgress with the text data if the callback exists
+      if (typeof onProgress === 'function') {
+        onProgress({
+          type: 'text',
+          data: cardData
+        });
+      }
+
+      // Return the generated card data
+      return cardData;
     } catch (err) {
       console.error('Error generating card:', err);
       throw new Error(`Card generation failed: ${err.message}`);

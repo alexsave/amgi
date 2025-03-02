@@ -1,27 +1,40 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, Navigate } from 'react-router-dom';
 import { useDecks } from '../../contexts/DeckContext';
+import { useCardGenerationContext } from '../../contexts/CardGenerationContext';
 import CardForm from './CardForm';
+import CardModal from './CardModal';
 import './CardList.css';
 import { getLanguageDisplay } from '../../constants/languages';
 
 const CardList = ({ onCardClick, onBack }) => {
   const { id } = useParams();
   const { decks, currentDeckId } = useDecks();
+  const { generatedCard } = useCardGenerationContext();
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Open modal when card is generated
+  useEffect(() => {
+    if (generatedCard && !isModalOpen) {
+      setIsModalOpen(true);
+    }
+  }, [generatedCard, isModalOpen]);
 
   if (id !== currentDeckId) {
     return <Navigate to="/decks" replace />;
   }
   const deck = decks[id];
 
+  const closeModal = () => setIsModalOpen(false);
+
   return (
     <div className="deck-cards">
       <div className="deck-cards-header">
         <button onClick={onBack} className="back-btn">← Back</button>
         <h1>{deck.name}</h1>
-          <p className="language-info">
-            {getLanguageDisplay(deck.known_language).flag} {getLanguageDisplay(deck.known_language).name} → {getLanguageDisplay(deck.learning_language).flag} {getLanguageDisplay(deck.learning_language).name}
-          </p>
+        <p className="language-info">
+          {getLanguageDisplay(deck.known_language).flag} {getLanguageDisplay(deck.known_language).name} → {getLanguageDisplay(deck.learning_language).flag} {getLanguageDisplay(deck.learning_language).name}
+        </p>
       </div>
 
       <div className="deck-content">
@@ -60,6 +73,8 @@ const CardList = ({ onCardClick, onBack }) => {
           )}
         </div>
       </div>
+
+      <CardModal isOpen={isModalOpen} onClose={closeModal} />
     </div>
   );
 };
