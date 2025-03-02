@@ -252,7 +252,7 @@ export const saveCard = async (deckId, card) => {
   }
 };
 
-// Save multiple cards at once
+// Unified function to save one or multiple cards at once
 export const saveCards = async (deckId, cardsInput) => {
   try {
     // Ensure we're working with an array
@@ -301,18 +301,27 @@ export const saveCards = async (deckId, cardsInput) => {
     let nextPosition = (lastCard?.[0]?.position || 0) + 1;
 
     // Prepare all cards for saving
-    const cardsForSaving = cards.map(card => ({
-      id: card.id,
-      deck_id: deckId,
-      position: card.position || nextPosition++,
-      front_text: card.front_text,
-      back_text: card.back_text,
-      front_audio_path: card.front_audio_path,
-      back_audio_path: card.back_audio_path,
-      front_lang: card.front_lang,
-      back_lang: card.back_lang,
-      created_at: card.created_at || new Date().toISOString()
-    }));
+    const cardsForSaving = cards.map(card => {
+      // For new cards, exclude the id field so Supabase can generate it
+      const cardData = {
+        deck_id: deckId,
+        position: card.position || nextPosition++,
+        front_text: card.front_text,
+        back_text: card.back_text,
+        front_audio_path: card.front_audio_path,
+        back_audio_path: card.back_audio_path,
+        front_lang: card.front_lang,
+        back_lang: card.back_lang,
+        created_at: card.created_at || new Date().toISOString()
+      };
+      
+      // Only include id for existing cards
+      if (card.id) {
+        cardData.id = card.id;
+      }
+      
+      return cardData;
+    });
 
     // Save all cards in a single operation
     const { data, error } = await supabase
