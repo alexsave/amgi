@@ -30,13 +30,27 @@ export const saveCard = async (deckId, card) => {
 };
 
 export const saveCards = async (deckId, cards) => {
+  // Normalize input to always be an array
+  const cardsArray = Array.isArray(cards) ? cards : [cards];
+  
   if (USE_LOCAL) {
     const decks = await loadDecks();
     if (!decks[deckId]) return;
-    decks[deckId].cards = { ...decks[deckId].cards, ...cards };
+    
+    // Initialize cards object if it doesn't exist
+    decks[deckId].cards = decks[deckId].cards || {};
+    
+    // Add each card to the deck
+    cardsArray.forEach(card => {
+      const cardId = card.id || `local_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      decks[deckId].cards[cardId] = { ...card, id: cardId };
+    });
+    
     return db.saveDecks(decks);
   }
-  return db.saveCards(deckId, cards);
+  
+  // Use the unified saveCards function from supabase
+  return db.saveCards(deckId, cardsArray);
 };
 
 export const deleteDeck = async (deckId) => {

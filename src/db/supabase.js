@@ -253,21 +253,55 @@ export const saveCard = async (deckId, card) => {
 };
 
 // Save multiple cards at once
-export const saveCards = async (deckId, cards) => {
+export const saveCards = async (deckId, cardsInput) => {
   try {
-    // Get the highest position currently in use
+    // Ensure we're working with an array
+    const cards = Array.isArray(cardsInput) ? cardsInput : [cardsInput];
+    
+    // Handle position-specific logic for any cards that need it
+    for (let i = 0; i < cards.length; i++) {
+      const card = cards[i];
+      
+      // If this is a new card with a specific position, we need to shift existing cards
+      if (!card.id && card.position !== undefined) {
+        const { data: existingCards, error: shiftError } = await supabase
+          .from('cards')
+          .select('id, position')
+          .eq('deck_id', deckId)
+          .gte('position', card.position)
+          .order('position');
+  
+        if (shiftError) throw shiftError;
+  
+        // Shift existing cards up by 1
+        if (existingCards?.length > 0) {
+          const updates = existingCards.map(existing => ({
+            id: existing.id,
+            position: existing.position + 1
+          }));
+          
+          const { error: updateError } = await supabase
+            .from('cards')
+            .upsert(updates);
+  
+          if (updateError) throw updateError;
+        }
+      }
+    }
+    
+    // Get the highest position currently in use for cards without positions
     const { data: lastCard, error: lastError } = await supabase
       .from('cards')
       .select('position')
       .eq('deck_id', deckId)
       .order('position', { ascending: false })
-      .limit(1)
-      .single();
+      .limit(1);
 
     if (lastError && lastError.code !== 'PGRST116') throw lastError;
-    let nextPosition = (lastCard?.position || 0) + 1;
+    let nextPosition = (lastCard?.[0]?.position || 0) + 1;
 
-    const cardsArray = Object.values(cards).map(card => ({
+    // Prepare all cards for saving
+    const cardsForSaving = cards.map(card => ({
       id: card.id,
       deck_id: deckId,
       position: card.position || nextPosition++,
@@ -280,9 +314,10 @@ export const saveCards = async (deckId, cards) => {
       created_at: card.created_at || new Date().toISOString()
     }));
 
+    // Save all cards in a single operation
     const { data, error } = await supabase
       .from('cards')
-      .upsert(cardsArray)
+      .upsert(cardsForSaving)
       .select();
 
     if (error) throw error;
@@ -324,25 +359,38 @@ export const loadReview = async (cardId, userId) => {
   }
 };
 
-export const newReview = async (cardId, userId) => {
+// Create new reviews for one or more cards
+export const newReview = async (cardIdInput, userId) => {
   const today = getLocalDate();
-
+  
+  // Normalize input to always be an array
+  const cardIds = Array.isArray(cardIdInput) ? cardIdInput : [cardIdInput];
+  
+  // Create the reviews data array
+  const reviewsData = cardIds.map(cardId => ({
+    card_id: cardId,
+    user_id: userId,
+    scheduled_date: today,
+    interval_days: 1,
+    ease_factor: 2.5,
+    repetitions: 0,
+    card_state: 'new'
+  }));
+  
+  // Insert all reviews in a single operation
   const { data, error } = await supabase
     .from('reviews')
-    .insert({
-      card_id: cardId,
-      user_id: userId,
-      scheduled_date: today,
-      interval_days: 1,
-      ease_factor: 2.5,
-      repetitions: 0,
-      card_state: 'new',
-      //next_review_date: new Date().toISOString()
-    })
-    .select()
-    .single();
+    .insert(reviewsData)
+    .select();
 
   if (error) throw error;
+  
+  // If it was a single card, return the single review directly
+  if (!Array.isArray(cardIdInput)) {
+    return data[0];
+  }
+  
+  // Otherwise return the array of reviews
   return data;
 }
 

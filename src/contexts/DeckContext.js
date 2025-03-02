@@ -240,52 +240,58 @@ export const DeckProvider = ({ children }) => {
     }
   }, [currentDeckId, location.pathname, decks, newCardsToday]);
 
-  const addCardToDeck = async (deckId, card) => {
+  const addCardToDeck = async (deckId, cardInput) => {
     try {
+      // Normalize input to always be an array
+      const cards = Array.isArray(cardInput) ? cardInput : [cardInput];
+      
       if (user && !isDirectMode) {
-        // Add to Supabase
-        const newCard = await supabase.saveCard(deckId, {
-          front_text: card.front_text,
-          back_text: card.back_text,
-          front_lang: card.front_lang,
-          back_lang: card.back_lang,
-          front_audio_path: card.front_audio_path,
-          back_audio_path: card.back_audio_path,
-          created_at: new Date(Date.now()).toISOString()
-        });
+        // Add to Supabase using the unified saveCards function
+        const newCards = await supabase.saveCards(deckId, cards);
         
-        // Create initial review
-        const review = await supabase.newReview(newCard.id, user.id);
+        // Create initial reviews for all cards in a single operation
+        const cardIds = newCards.map(card => card.id);
+        const reviews = await supabase.newReview(cardIds, user.id);
         
         // Update local state
         setDecks(prev => {
           const deck = prev[deckId];
-          const transformedCard = {
-            id: newCard.id,
-            front_text: newCard.front_text,
-            back_text: newCard.back_text,
-            front_audio_path: newCard.front_audio_path,
-            back_audio_path: newCard.back_audio_path,
-            created: new Date(newCard.created_at).getTime(),
-            review: review
-          };
+          const transformedCards = newCards.map((card, index) => ({
+            id: card.id,
+            front_text: card.front_text,
+            back_text: card.back_text,
+            front_audio_path: card.front_audio_path,
+            back_audio_path: card.back_audio_path,
+            created: new Date(card.created_at).getTime(),
+            review: Array.isArray(reviews) ? reviews[index] : reviews
+          }));
           
           return {
             ...prev,
             [deckId]: {
               ...deck,
-              cards: [...deck.cards, transformedCard],
+              cards: [...deck.cards, ...transformedCards],
               lastModified: Date.now()
             }
           };
         });
+        
+        // If original input was a single card, return just the first card
+        return Array.isArray(cardInput) ? newCards : newCards[0];
       } else {
-        // Add to local storage only
-        const updatedDeck = localDeckStorage.addCardToLocalDeck(deckId, card);
+        // Add to local storage
+        let updatedDeck = decks[deckId];
+        for (const card of cards) {
+          updatedDeck = localDeckStorage.addCardToLocalDeck(deckId, card);
+        }
         setDecks(prev => ({ ...prev, [deckId]: updatedDeck }));
+        
+        // Return appropriate card data
+        const newCards = updatedDeck.cards.slice(-cards.length);
+        return Array.isArray(cardInput) ? newCards : newCards[0];
       }
     } catch (error) {
-      console.error('Error adding card:', error);
+      console.error('Error adding card(s):', error);
       setError(error.message);
       throw error;
     }

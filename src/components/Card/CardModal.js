@@ -63,7 +63,8 @@ const CardModal = ({ isOpen, onClose }) => {
       return;
     }
     try {
-      const card = {
+      // Create the first card (original direction)
+      const firstCard = {
         front_text: generatedCard.front_text,
         back_text: generatedCard.back_text,
         front_lang: generatedCard.front_lang || known_language,
@@ -72,12 +73,24 @@ const CardModal = ({ isOpen, onClose }) => {
         back_audio_path: generatedCard.back_audio_path
       };
 
-      await addCardToDeck(deckId, card);
+      // Create the second card (reversed direction)
+      const secondCard = {
+        front_text: generatedCard.back_text,
+        back_text: generatedCard.front_text,
+        front_lang: generatedCard.back_lang || learning_language,
+        back_lang: generatedCard.front_lang || known_language,
+        front_audio_path: generatedCard.back_audio_path,
+        back_audio_path: generatedCard.front_audio_path
+      };
+
+      // Save both cards to the deck using the consolidated addCardToDeck function
+      await addCardToDeck(deckId, [firstCard, secondCard]);
+      
       clearInput(); // Reset the form
       handleCloseModal(); // Close the modal after adding
     } catch (err) {
-      console.error('Error adding card to deck:', err);
-      setError(`Failed to add card: ${err.message}`);
+      console.error('Error adding cards to deck:', err);
+      setError(`Failed to add cards: ${err.message}`);
     }
   };
 
