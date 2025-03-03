@@ -202,6 +202,11 @@
   background-color: var(--dark-surface-hover);
 }
 
+.play-audio-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .add-to-deck-btn {
   background-color: var(--flame-orange);
   color: white;
@@ -218,6 +223,88 @@
 .add-to-deck-btn:hover {
   background-color: var(--flame-orange-hover);
   transform: translateY(-1px);
+}
+
+.card-content {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.card-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.card-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: transparent;
+  border: 1px solid var(--border-color);
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.card-action-btn:hover {
+  background-color: var(--dark-surface-hover);
+}
+
+.card-action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.edit-text-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.edit-text-area {
+  width: 100%;
+  min-height: 60px;
+  padding: 8px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background-color: var(--dark-surface-hover);
+  color: var(--text-primary);
+  resize: vertical;
+}
+
+.save-edit-btn {
+  align-self: flex-end;
+  background-color: var(--flame-orange);
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.save-edit-btn:hover {
+  background-color: var(--flame-orange-hover);
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @keyframes modalFadeIn {

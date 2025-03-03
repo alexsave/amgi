@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { XMarkIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon, ArrowPathIcon, PencilSquareIcon, MicrophoneIcon } from '@heroicons/react/24/outline';
 import { useAudio } from '../../hooks/useAudio';
 import { useDecks } from '../../contexts/DeckContext';
 import { useCardGenerationContext } from '../../contexts/CardGenerationContext';
@@ -11,11 +11,22 @@ const CardModal = ({ isOpen, onClose }) => {
   const { id: deckId } = useParams();
   const { playAudio } = useAudio();
   const { decks, addCardToDeck, currentDeckId } = useDecks();
-  const { generatedCard, clearGeneratedCard, clearInput } = useCardGenerationContext();
+  const { 
+    generatedCard,
+    clearGeneratedCard,
+    clearInput,
+    editableText,
+    setEditableText,
+    updateCardText,
+    regenerateCardPart,
+    isGenerating,
+    regeneratingParts
+  } = useCardGenerationContext();
   const modalRef = useRef(null);
 
   const [error, setError] = useState('');
-
+  const [editMode, setEditMode] = useState({ front: false, back: false });
+  
   const currentDeck = decks[deckId];
 
   // Close on escape key
@@ -41,6 +52,7 @@ const CardModal = ({ isOpen, onClose }) => {
   useEffect(() => {
     if (isOpen) {
       setError(null);
+      setEditMode({ front: false, back: false });
     }
   }, [isOpen]);
 
@@ -48,6 +60,50 @@ const CardModal = ({ isOpen, onClose }) => {
   const handleCloseModal = () => {
     setError(null);
     onClose();
+  };
+
+  // Handle regenerating a part of the card
+  const handleRegeneratePart = async (part) => {
+    if (!generatedCard) return;
+    
+    try {
+      const { known_language, learning_language } = currentDeck;
+      await regenerateCardPart([part], known_language, learning_language);
+    } catch (err) {
+      console.error('Error regenerating card part:', err);
+      setError(`Failed to regenerate: ${err.message}`);
+    }
+  };
+
+  // Start editing text
+  const handleStartEdit = (part) => {
+    if (part === 'front_text') {
+      setEditableText(prev => ({ ...prev, front: generatedCard.front_text }));
+      setEditMode(prev => ({ ...prev, front: true }));
+    } else if (part === 'back_text') {
+      setEditableText(prev => ({ ...prev, back: generatedCard.back_text }));
+      setEditMode(prev => ({ ...prev, back: true }));
+    }
+  };
+
+  // Save edited text
+  const handleSaveEdit = (part) => {
+    if (part === 'front_text' && editableText.front !== null) {
+      updateCardText('front_text', editableText.front);
+      setEditMode(prev => ({ ...prev, front: false }));
+    } else if (part === 'back_text' && editableText.back !== null) {
+      updateCardText('back_text', editableText.back);
+      setEditMode(prev => ({ ...prev, back: false }));
+    }
+  };
+
+  // Handle text change
+  const handleTextChange = (part, value) => {
+    if (part === 'front_text') {
+      setEditableText(prev => ({ ...prev, front: value }));
+    } else if (part === 'back_text') {
+      setEditableText(prev => ({ ...prev, back: value }));
+    }
   };
 
   if (!isOpen || !generatedCard) return null;
@@ -94,6 +150,85 @@ const CardModal = ({ isOpen, onClose }) => {
     }
   };
 
+  // Render card content with action buttons
+  const renderCardContent = (text, audioPath, textPart, audioPart) => {
+    const isTextRegenerating = regeneratingParts.includes(textPart);
+    const isAudioRegenerating = regeneratingParts.includes(audioPart);
+    const isEditing = textPart === 'front_text' ? editMode.front : editMode.back;
+    const editableValue = textPart === 'front_text' ? editableText.front : editableText.back;
+    
+    return (
+      <div className="card-content">
+        {isEditing ? (
+          <div className="edit-text-container">
+            <textarea
+              value={editableValue}
+              onChange={(e) => handleTextChange(textPart, e.target.value)}
+              className="edit-text-area"
+            />
+            <button 
+              className="save-edit-btn"
+              onClick={() => handleSaveEdit(textPart)}
+            >
+              Save
+            </button>
+          </div>
+        ) : (
+          <p>{text}</p>
+        )}
+        
+        <div className="card-actions">
+          <button
+            className="card-action-btn"
+            onClick={() => handleStartEdit(textPart)}
+            disabled={isGenerating}
+            title="Edit text"
+          >
+            <PencilSquareIcon className="h-5 w-5" />
+          </button>
+          
+          <button
+            className="card-action-btn"
+            onClick={() => handleRegeneratePart(textPart)}
+            disabled={isGenerating}
+            title={`Regenerate ${textPart === 'front_text' ? 'front' : 'back'} text`}
+          >
+            <ArrowPathIcon className={`h-5 w-5 ${isTextRegenerating ? 'spin' : ''}`} />
+          </button>
+          
+          {audioPath && (
+            <>
+              <button
+                className="play-audio-btn"
+                onClick={() => playAudio(audioPath)}
+                disabled={isGenerating}
+              >
+                🔊 Play
+              </button>
+              
+              <button
+                className="card-action-btn"
+                onClick={() => handleRegeneratePart(audioPart)}
+                disabled={isGenerating}
+                title={`Regenerate ${audioPart === 'front_audio' ? 'front' : 'back'} audio`}
+              >
+                <ArrowPathIcon className={`h-5 w-5 ${isAudioRegenerating ? 'spin' : ''}`} />
+              </button>
+              
+              <button
+                className="card-action-btn"
+                title="Record your own audio (coming soon)"
+                disabled={true}
+              >
+                <MicrophoneIcon className="h-5 w-5" />
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="card-modal-overlay" onClick={handleBackdropClick}>
       <div className="card-modal-content" ref={modalRef}>
@@ -112,26 +247,20 @@ const CardModal = ({ isOpen, onClose }) => {
           <div className="flashcard">
             <div className="card-side">
               <h3>Front</h3>
-              <p>{generatedCard.front_text}</p>
-              {generatedCard.front_audio_path && (
-                <button
-                  className="play-audio-btn"
-                  onClick={() => playAudio(generatedCard.front_audio_path)}
-                >
-                  🔊 Play Audio
-                </button>
+              {renderCardContent(
+                generatedCard.front_text,
+                generatedCard.front_audio_path,
+                'front_text',
+                'front_audio'
               )}
             </div>
             <div className="card-side">
               <h3>Back</h3>
-              <p>{generatedCard.back_text}</p>
-              {generatedCard.back_audio_path && (
-                <button
-                  className="play-audio-btn"
-                  onClick={() => playAudio(generatedCard.back_audio_path)}
-                >
-                  🔊 Play Audio
-                </button>
+              {renderCardContent(
+                generatedCard.back_text,
+                generatedCard.back_audio_path,
+                'back_text',
+                'back_audio'
               )}
             </div>
           </div>
@@ -142,26 +271,20 @@ const CardModal = ({ isOpen, onClose }) => {
           <div className="flashcard">
             <div className="card-side">
               <h3>Front</h3>
-              <p>{generatedCard.back_text}</p>
-              {generatedCard.back_audio_path && (
-                <button
-                  className="play-audio-btn"
-                  onClick={() => playAudio(generatedCard.back_audio_path)}
-                >
-                  🔊 Play Audio
-                </button>
+              {renderCardContent(
+                generatedCard.back_text,
+                generatedCard.back_audio_path,
+                'back_text',
+                'back_audio'
               )}
             </div>
             <div className="card-side">
               <h3>Back</h3>
-              <p>{generatedCard.front_text}</p>
-              {generatedCard.front_audio_path && (
-                <button
-                  className="play-audio-btn"
-                  onClick={() => playAudio(generatedCard.front_audio_path)}
-                >
-                  🔊 Play Audio
-                </button>
+              {renderCardContent(
+                generatedCard.front_text,
+                generatedCard.front_audio_path,
+                'front_text',
+                'front_audio'
               )}
             </div>
           </div>
@@ -169,6 +292,7 @@ const CardModal = ({ isOpen, onClose }) => {
           <button
             onClick={handleAddToDeck}
             className="add-to-deck-btn"
+            disabled={isGenerating}
           >
             Add to Deck
           </button>

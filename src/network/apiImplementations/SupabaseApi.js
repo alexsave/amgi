@@ -11,7 +11,7 @@ export class SupabaseApi extends ApiInterface {
   async getHeaders() {
     const { data: { session }, error } = await this.supabase.auth.getSession();
     if (error) throw error;
-    
+
     return {
       'Authorization': `Bearer ${session?.access_token}`,
       'Content-Type': 'application/json',
@@ -54,6 +54,46 @@ export class SupabaseApi extends ApiInterface {
     } catch (err) {
       console.error('Error generating card:', err);
       throw new Error(`Card generation failed: ${err.message}`);
+    }
+  }
+
+  async regenerateCardPart(currentCard, parts = [], known_language, learning_language, onProgress) {
+    try {
+      // Call Supabase function to regenerate specific parts of the card
+      const { data, error } = await this.supabase.functions.invoke('cards', {
+        body: {
+          regenerate_parts: parts, // Array of parts to regenerate: ['front_text', 'front_audio', 'back_text', 'back_audio']
+          current_card: currentCard, // The current card data to use for non-regenerated parts
+          known_language,
+          learning_language
+        }
+      });
+
+      if (error) throw error;
+
+      // Create the updated card data object
+      const cardData = {
+        front_text: data.card.front_text,
+        back_text: data.card.back_text,
+        front_lang: data.card.front_lang || known_language,
+        back_lang: data.card.back_lang || learning_language,
+        front_audio_path: data.card.front_audio_path,
+        back_audio_path: data.card.back_audio_path
+      };
+
+      // Call onProgress with the text data if the callback exists
+      if (typeof onProgress === 'function') {
+        onProgress({
+          type: 'text',
+          data: cardData
+        });
+      }
+
+      // Return the updated card data
+      return cardData;
+    } catch (err) {
+      console.error('Error regenerating card part:', err);
+      throw new Error(`Card part regeneration failed: ${err.message}`);
     }
   }
 

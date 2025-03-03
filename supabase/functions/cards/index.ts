@@ -47,26 +47,70 @@ serve(async (req) => {
         const usage = await getOrCreateUsage(user.id, subscription);
 
         const requestBody = await req.json();
-        const { user_input, known_language, learning_language } = requestBody;
-        console.log('Request payload:', { user_input, known_language, learning_language });
-
-        // Generate card text first
-        console.log('Requesting translation from OpenAI with params:', {
-            model: "gpt-4",
-            known_language,
+        const { 
+            user_input, 
+            known_language, 
             learning_language,
-            inputLength: user_input.length
+            regenerate_parts = [],
+            current_card = null
+        } = requestBody;
+        
+        console.log('Request payload:', { 
+            user_input, 
+            known_language, 
+            learning_language,
+            regenerate_parts,
+            has_current_card: !!current_card
         });
-        const completion = await openai.beta.chat.completions.parse({
-            model: "gpt-4o",
-            messages: [
-                { 
-                    role: "system", 
-                    content: "You are a language learning flashcard creator. Your task is to create flashcards where the FRONT is ALWAYS in the user's known language, and the BACK is ALWAYS in the learning language. You'll first detect the language of the input text and then create the appropriate flashcard based on this detection." 
-                },
-                { 
-                    role: "user", 
-                    content: `Create a flashcard for language learning following these rules:
+
+        // Initialize card data and audio paths
+        let card = current_card ? {
+            front_text: current_card.front_text,
+            back_text: current_card.back_text,
+            front_lang: current_card.front_lang || known_language,
+            back_lang: current_card.back_lang || learning_language
+        } : null;
+        
+        let frontAudioPath = current_card?.front_audio_path;
+        let backAudioPath = current_card?.back_audio_path;
+        let audioGenerationsUsed = 0;
+        
+        // Track old audio paths for deletion
+        const oldFrontAudioPath = current_card?.front_audio_path;
+        const oldBackAudioPath = current_card?.back_audio_path;
+
+        // Determine what needs to be regenerated
+        const needsFullRegeneration = regenerate_parts.length === 0 && !card;
+        const needsFrontTextRegeneration = regenerate_parts.includes('front_text');
+        const needsBackTextRegeneration = regenerate_parts.includes('back_text');
+        const needsFrontAudioRegeneration = regenerate_parts.includes('front_audio') || needsFrontTextRegeneration || needsFullRegeneration;
+        const needsBackAudioRegeneration = regenerate_parts.includes('back_audio') || needsBackTextRegeneration || needsFullRegeneration;
+        const isTextOnlyRegeneration = (needsFrontTextRegeneration || needsBackTextRegeneration) && 
+                                      !regenerate_parts.includes('front_audio') && 
+                                      !regenerate_parts.includes('back_audio');
+
+        // Case 1: Complete regeneration or new card generation
+        if (needsFullRegeneration) {
+            console.log('Performing full card generation');
+            
+            // Generate card text
+            console.log('Requesting translation from OpenAI with params:', {
+                model: "gpt-4o",
+                known_language,
+                learning_language,
+                inputLength: user_input ? user_input.length : 0
+            });
+            
+            const completion = await openai.beta.chat.completions.parse({
+                model: "gpt-4o",
+                messages: [
+                    { 
+                        role: "system", 
+                        content: "You are a language learning flashcard creator. Your task is to create flashcards where the FRONT is ALWAYS in the user's known language, and the BACK is ALWAYS in the learning language. You'll first detect the language of the input text and then create the appropriate flashcard based on this detection." 
+                    },
+                    { 
+                        role: "user", 
+                        content: `Create a flashcard for language learning following these rules:
 
 1. First, detect the language of this input: "${user_input}"
 
@@ -80,83 +124,253 @@ serve(async (req) => {
    - If input is in any other language: Front = translation to ${known_language}, Back = translation to ${learning_language}
 
 Return the flashcard with language codes.`
+                    }
+                ],
+                response_format: zodResponseFormat(FlashcardSchema, "flashcard_generation"),
+            });
+
+            const rawCard = JSON.parse(completion.choices[0]?.message?.content || '{}');
+            console.log('Raw OpenAI response:', completion.choices[0]?.message?.content);
+            
+            const parseResult = FlashcardSchema.safeParse(rawCard);
+            if (!parseResult.success) {
+                console.error('Schema validation failed:', parseResult.error);
+                throw new Error('Failed to parse card data from OpenAI response');
+            }
+            card = parseResult.data;
+            console.log('Parsed card data:', card);
+        } 
+        // Case 2: Regenerate only front text (translate from back text)
+        else if (needsFrontTextRegeneration && !needsBackTextRegeneration && card) {
+            console.log('Regenerating front text from existing back text');
+            
+            const completion = await openai.beta.chat.completions.parse({
+                model: "gpt-4o",
+                messages: [
+                    { 
+                        role: "system", 
+                        content: "You are a language translation expert. Your task is to translate text accurately while preserving the original meaning, tone, and context." 
+                    },
+                    { 
+                        role: "user", 
+                        content: `I need a new translation for the front of my flashcard.
+
+1. The back of my flashcard contains this text in ${card.back_lang}: "${card.back_text}"
+
+2. Please translate it to ${card.front_lang} for the front of the card.
+
+3. I was not satisfied with the previous translation "${card.front_text}", so please make sure your translation is accurate, natural sounding, and preserves the original meaning.
+
+Return only a JSON with the translated front_text.`
+                    }
+                ],
+                response_format: zodResponseFormat(
+                    z.object({
+                        front_text: z.string().describe("The translated text for the front of the flashcard")
+                    }),
+                    "front_text_translation"
+                ),
+            });
+
+            const translationResult = JSON.parse(completion.choices[0]?.message?.content || '{}');
+            console.log('Translation result:', translationResult);
+            
+            if (!translationResult.front_text) {
+                throw new Error('Failed to get front text translation from OpenAI');
+            }
+            
+            card.front_text = translationResult.front_text;
+        } 
+        // Case 3: Regenerate only back text (translate from front text)
+        else if (needsBackTextRegeneration && !needsFrontTextRegeneration && card) {
+            console.log('Regenerating back text from existing front text');
+            
+            const completion = await openai.beta.chat.completions.parse({
+                model: "gpt-4o",
+                messages: [
+                    { 
+                        role: "system", 
+                        content: "You are a language translation expert. Your task is to translate text accurately while preserving the original meaning, tone, and context." 
+                    },
+                    { 
+                        role: "user", 
+                        content: `I need a new translation for the back of my flashcard.
+
+1. The front of my flashcard contains this text in ${card.front_lang}: "${card.front_text}"
+
+2. Please translate it to ${card.back_lang} for the back of the card.
+
+3. I was not satisfied with the previous translation "${card.back_text}", so please make sure your translation is accurate, natural sounding, and preserves the original meaning.
+
+Return only a JSON with the translated back_text.`
+                    }
+                ],
+                response_format: zodResponseFormat(
+                    z.object({
+                        back_text: z.string().describe("The translated text for the back of the flashcard")
+                    }),
+                    "back_text_translation"
+                ),
+            });
+
+            const translationResult = JSON.parse(completion.choices[0]?.message?.content || '{}');
+            console.log('Translation result:', translationResult);
+            
+            if (!translationResult.back_text) {
+                throw new Error('Failed to get back text translation from OpenAI');
+            }
+            
+            card.back_text = translationResult.back_text;
+        }
+        // Case 4: Regenerate both front and back text (but not as a new card)
+        else if (needsFrontTextRegeneration && needsBackTextRegeneration && card) {
+            console.log('Regenerating both front and back text with existing text as reference');
+            
+            const completion = await openai.beta.chat.completions.parse({
+                model: "gpt-4o",
+                messages: [
+                    { 
+                        role: "system", 
+                        content: "You are a language learning flashcard creator. Your task is to improve existing flashcards by providing better translations." 
+                    },
+                    { 
+                        role: "user", 
+                        content: `I need both sides of my flashcard improved.
+
+1. Current flashcard:
+   - Front (${card.front_lang}): "${card.front_text}"
+   - Back (${card.back_lang}): "${card.back_text}"
+
+2. Please provide improved translations for both sides:
+   - The FRONT should be in ${card.front_lang}
+   - The BACK should be in ${card.back_lang}
+
+3. The user was not satisfied with the existing translations, so please make sure your translations are accurate, natural sounding, and preserve the original meaning of "${user_input}".
+
+Return the improved flashcard text for both sides.`
+                    }
+                ],
+                response_format: zodResponseFormat(FlashcardSchema, "improved_flashcard"),
+            });
+
+            const rawCard = JSON.parse(completion.choices[0]?.message?.content || '{}');
+            console.log('Improved card response:', completion.choices[0]?.message?.content);
+            
+            const parseResult = FlashcardSchema.safeParse(rawCard);
+            if (!parseResult.success) {
+                console.error('Schema validation failed:', parseResult.error);
+                throw new Error('Failed to parse improved card data from OpenAI response');
+            }
+            
+            // Update only the text fields, preserve language info
+            card.front_text = parseResult.data.front_text;
+            card.back_text = parseResult.data.back_text;
+        }
+
+        // Ensure card is not null at this point
+        if (!card) {
+            throw new Error('Failed to generate or retrieve card data');
+        }
+
+        // Generate front audio if needed
+        if (needsFrontAudioRegeneration) {
+            console.log('Generating front audio with params:', {
+                model: "tts-1",
+                voice: "alloy",
+                textLength: card.front_text.length
+            });
+            
+            const frontMp3 = await openai.audio.speech.create({
+                model: "tts-1",
+                voice: "alloy",
+                input: card.front_text,
+            });
+            const frontBuffer = await frontMp3.arrayBuffer();
+            console.log('Front audio buffer size:', frontBuffer.byteLength);
+
+            // Delete old front audio if it exists
+            if (oldFrontAudioPath && oldFrontAudioPath !== frontAudioPath) {
+                try {
+                    await supabaseClient.storage
+                        .from('card-audio')
+                        .remove([oldFrontAudioPath]);
+                    console.log('Deleted old front audio:', oldFrontAudioPath);
+                } catch (deleteError) {
+                    console.error('Error deleting old front audio:', deleteError);
+                    // Continue execution even if deletion fails
                 }
-            ],
-            response_format: zodResponseFormat(FlashcardSchema, "flashcard_generation"),
-        });
+            }
 
-        const rawCard = JSON.parse(completion.choices[0]?.message?.content || '{}');
-        console.log('Raw OpenAI response:', completion.choices[0]?.message?.content);
-        
-        const parseResult = FlashcardSchema.safeParse(rawCard);
-        if (!parseResult.success) {
-            console.error('Schema validation failed:', parseResult.error);
-            throw new Error('Failed to parse card data from OpenAI response');
-        }
-        const card = parseResult.data;
-        console.log('Parsed card data:', card);
-
-        // Generate front audio
-        console.log('Generating front audio with params:', {
-            model: "tts-1",
-            voice: "alloy",
-            textLength: card.front_text.length
-        });
-        const frontMp3 = await openai.audio.speech.create({
-            model: "tts-1",
-            voice: "alloy",
-            input: card.front_text,
-        });
-        const frontBuffer = await frontMp3.arrayBuffer();
-        console.log('Front audio buffer size:', frontBuffer.byteLength);
-
-        // Upload front audio to storage
-        const frontAudioPath = `${Date.now()}_front_${Math.random().toString(36).substr(2, 9)}.mp3`;
-        const { data: frontData, error: frontError } = await supabaseClient.storage
-            .from('card-audio')
-            .upload(frontAudioPath, frontBuffer, {
-                contentType: 'audio/mpeg',
-                cacheControl: '3600'
-            });
-        
-        if (frontError) {
-            console.error('Error uploading front audio:', frontError);
-            throw frontError;
+            // Upload new front audio to storage
+            frontAudioPath = `${Date.now()}_front_${Math.random().toString(36).substr(2, 9)}.mp3`;
+            const { data: frontData, error: frontError } = await supabaseClient.storage
+                .from('card-audio')
+                .upload(frontAudioPath, frontBuffer, {
+                    contentType: 'audio/mpeg',
+                    cacheControl: '3600'
+                });
+            
+            if (frontError) {
+                console.error('Error uploading front audio:', frontError);
+                throw frontError;
+            }
+            
+            audioGenerationsUsed++;
         }
 
-        // Generate back audio
-        console.log('Generating back audio with params:', {
-            model: "tts-1",
-            voice: "alloy",
-            textLength: card.back_text.length
-        });
-        const backMp3 = await openai.audio.speech.create({
-            model: "tts-1",
-            voice: "alloy",
-            input: card.back_text,
-        });
-        const backBuffer = await backMp3.arrayBuffer();
-        console.log('Back audio buffer size:', backBuffer.byteLength);
-
-        // Upload back audio to storage
-        const backAudioPath = `${Date.now()}_back_${Math.random().toString(36).substr(2, 9)}.mp3`;
-        const { data: backData, error: backError } = await supabaseClient.storage
-            .from('card-audio')
-            .upload(backAudioPath, backBuffer, {
-                contentType: 'audio/mpeg',
-                cacheControl: '3600'
+        // Generate back audio if needed
+        if (needsBackAudioRegeneration) {
+            console.log('Generating back audio with params:', {
+                model: "tts-1",
+                voice: "alloy",
+                textLength: card.back_text.length
             });
-        
-        if (backError) {
-            console.error('Error uploading back audio:', backError);
-            throw backError;
+            
+            const backMp3 = await openai.audio.speech.create({
+                model: "tts-1",
+                voice: "alloy",
+                input: card.back_text,
+            });
+            const backBuffer = await backMp3.arrayBuffer();
+            console.log('Back audio buffer size:', backBuffer.byteLength);
+
+            // Delete old back audio if it exists
+            if (oldBackAudioPath && oldBackAudioPath !== backAudioPath) {
+                try {
+                    await supabaseClient.storage
+                        .from('card-audio')
+                        .remove([oldBackAudioPath]);
+                    console.log('Deleted old back audio:', oldBackAudioPath);
+                } catch (deleteError) {
+                    console.error('Error deleting old back audio:', deleteError);
+                    // Continue execution even if deletion fails
+                }
+            }
+
+            // Upload new back audio to storage
+            backAudioPath = `${Date.now()}_back_${Math.random().toString(36).substr(2, 9)}.mp3`;
+            const { data: backData, error: backError } = await supabaseClient.storage
+                .from('card-audio')
+                .upload(backAudioPath, backBuffer, {
+                    contentType: 'audio/mpeg',
+                    cacheControl: '3600'
+                });
+            
+            if (backError) {
+                console.error('Error uploading back audio:', backError);
+                throw backError;
+            }
+            
+            audioGenerationsUsed++;
         }
 
         // Check and update audio generation usage
-        checkUsageLimits(usage, subscription, 'card_audio_generations_used');
-        await updateUsage(usage.id, {
-            card_audio_generations_used: usage.card_audio_generations_used + 2 // +2 for both front and back
-        });
+        if (audioGenerationsUsed > 0) {
+            checkUsageLimits(usage, subscription, 'card_audio_generations_used');
+            await updateUsage(usage.id, {
+                card_audio_generations_used: usage.card_audio_generations_used + audioGenerationsUsed
+            });
+        }
 
         // Return all data at once
         return new Response(
