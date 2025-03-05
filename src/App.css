@@ -135,9 +135,7 @@ button.action-btn svg {
 
 .card-side {
   flex: 1;
-  max-width: 300px;
   background-color: var(--dark-surface);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
   transition: all 0.2s ease;
 }
 

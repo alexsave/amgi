@@ -184,9 +184,7 @@
 
 .card-side {
   flex: 1;
-  padding: 16px;
   background-color: var(--dark-surface);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .card-side h3 {
@@ -297,7 +295,6 @@
 }
 
 .edit-text-area {
-  width: 100%;
   min-height: 60px;
   padding: 8px;
   border: 1px solid var(--border-color);
