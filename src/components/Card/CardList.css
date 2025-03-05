@@ -52,7 +52,6 @@
 .deck-actions {
   display: flex;
   justify-content: flex-end;
-  padding: 0 1rem;
 }
 
 .add-card-btn {

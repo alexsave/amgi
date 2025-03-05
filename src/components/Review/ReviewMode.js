@@ -16,7 +16,7 @@ const ReviewMode = () => {
   const navigate = useNavigate();
   const audio = useAudio();
   const review = useReview();
-  const { currentCard, currentCardId, attempts, showAnswer, evaluationResult, newCardsCount, reviewCardsCount, learningCardsCount } = review;
+  const { currentCard, currentCardId, currentCardIdRef, attempts, showAnswer, evaluationResult, newCardsCount, reviewCardsCount, learningCardsCount } = review;
   const [isVoiceMode, setIsVoiceMode] = useState(true);
   
 
@@ -90,7 +90,7 @@ const ReviewMode = () => {
     navigate('/decks');
   };
 
-  if (!currentCardId) {
+  if (!currentCard) {
     return (
       <div className="review-complete">
         <h3>🎉 Review Complete!</h3>

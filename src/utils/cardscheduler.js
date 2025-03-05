@@ -231,9 +231,9 @@ export class CardScheduler {
   /**
    * Update a card's review information
    */
-  setReview(id, review) {
-    const card = this.getFullCard(id);
-    if (!card) return;
+  setReview(card, review) {
+    //j//jconst card = this.getFullCard(id);
+    //jif (!card) return;
     
     card.review = review;
 

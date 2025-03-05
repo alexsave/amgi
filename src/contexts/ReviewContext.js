@@ -41,29 +41,38 @@ export const ReviewProvider = ({ children }) => {
 
     // Initialize scheduler with deck cards
     useEffect(() => {
-        const isReviewMode = location.pathname.includes('/review');
-        if (!currentDeckId || !isReviewMode) {
-            return;
-        }
+        console.log('ReviewContext: useEffect', { currentDeckId, decks, location });
+        //const isReviewMode = location.pathname.includes('/review');
+        //if (!currentDeckId || !isReviewMode) {
+            //console.log('ReviewContext: useEffect: not in review mode');
+            //return;
+        //}
 
         const deck = decks[currentDeckId];
-        if (!deck) return;
+        if (!deck) {
+            console.log('ReviewContext: useEffect: no deck');
+            return;
+        }
 
         cardSchedulerRef.current.clear();
 
         for (let i = 0; i < deck.cards.length; i++) {
             const card = deck.cards[i];
-
+            console.log('ReviewContext: useEffect: card', card);
             if (!card.review) {
                 cardSchedulerRef.current.pushNewCard(card);
             } else {
-                cardSchedulerRef.current.setReview(card.id, card.review);
+                cardSchedulerRef.current.setReview(card, card.review);
             }
         }
-        currentCardIdRef.current = cardSchedulerRef.current.peekNext();
-        setCurrentCard(cardSchedulerRef.current.getFullCard(currentCardIdRef.current));
+        console.log(JSON.stringify(cardSchedulerRef.current));
+        const nextCardId = cardSchedulerRef.current.peekNext();
+        console.log('ReviewContext: useEffect: nextCardId', nextCardId);
+        currentCardIdRef.current = nextCardId;
+        //console.log('ReviewContext: useEffect: currentCardIdRef.current', currentCardIdRef.current);
+        setCurrentCard(cardSchedulerRef.current.getFullCard(nextCardId));
         updateCardCounts();
-    }, [currentDeckId, decks, location]);
+    }, [currentDeckId ]);
 
     // We should sync the cards to the deck once we leave the review page. But not as important
 
@@ -115,7 +124,7 @@ export const ReviewProvider = ({ children }) => {
                 // - All learning cards
                 // - Cards that were answered incorrectly
                 // Use setReview to update the card data and put it in the right queue
-                cardSchedulerRef.current.setReview(cardId, review);
+                cardSchedulerRef.current.setReview(card, review);
             }
             // Otherwise, the card is done and we don't need to do anything. 
             // If it goes to review, it will be loaded again no sooner than tomorrow
