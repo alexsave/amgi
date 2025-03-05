@@ -13,19 +13,13 @@ const CardList = ({ onCardClick, onBack }) => {
   const { generatedCard } = useCardGenerationContext();
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // Open modal when card is generated
-  useEffect(() => {
-    if (generatedCard && !isModalOpen) {
-      setIsModalOpen(true);
-    }
-  }, [generatedCard, isModalOpen]);
-
   if (id !== currentDeckId) {
     return <Navigate to="/decks" replace />;
   }
   const deck = decks[id];
 
   const closeModal = () => setIsModalOpen(false);
+  const handleGenerationStart = () => setIsModalOpen(true);
 
   return (
     <div className="deck-cards">
@@ -38,7 +32,7 @@ const CardList = ({ onCardClick, onBack }) => {
       </div>
 
       <div className="deck-content">
-        <CardForm />
+        <CardForm onGenerationStart={handleGenerationStart} />
 
         <div className="deck-cards-list">
           <h3>Cards in Deck</h3>

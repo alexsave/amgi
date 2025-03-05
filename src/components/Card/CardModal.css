@@ -13,7 +13,6 @@
 }
 
 .card-modal-content {
-  padding: 1rem;
   background-color: var(--dark-surface);
   border-radius: 8px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
@@ -63,6 +62,26 @@
   overflow-y: auto;
   display: flex;
   flex-direction: column;
+}
+
+.loading-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  gap: 1rem;
+  min-height: 200px;
+}
+
+.loading-spinner {
+  color: var(--flame-orange);
+}
+
+.loading-content p {
+  color: var(--text-secondary);
+  font-size: 1rem;
+  margin: 0;
 }
 
 .card-form {
@@ -151,7 +170,7 @@
 
   .card-modal-content {
     width: 95%;
-    max-height: 95vh;
+    max-height: 97%;
   }
   
   .card-modal-header {
@@ -159,7 +178,7 @@
   }
   
   .card-modal-body {
-    padding: 16px;
+    padding: 0 1rem;
   }
 }
 
@@ -198,6 +217,16 @@
   transition: background-color 0.2s ease;
 }
 
+.play-audio-btn.loading {
+  color: var(--text-secondary);
+  background-color: var(--dark-surface-hover);
+  min-width: 100px;
+}
+
+.play-audio-btn.loading .spin {
+  color: var(--flame-orange);
+}
+
 .play-audio-btn:hover {
   background-color: var(--dark-surface-hover);
 }
@@ -232,7 +261,6 @@
 }
 
 .card-actions {
-  display: flex;
   gap: 8px;
   margin-top: 8px;
   flex-wrap: wrap;
@@ -295,6 +323,7 @@
 }
 
 .spin {
+  height:1rem;
   animation: spin 1s linear infinite;
 }
 
@@ -321,4 +350,24 @@
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+.loading-text-area {
+  background-color: var(--dark-surface-hover);
+  border-radius: 6px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--flame-orange);
+  margin-bottom: 12px;
+}
+
+.card-content.loading .card-actions {
+  opacity: 0.5;
+}
+
+.card-content.loading .play-audio-btn {
+  opacity: 0.5;
+  cursor: not-allowed;
 } 

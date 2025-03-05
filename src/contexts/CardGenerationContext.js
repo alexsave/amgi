@@ -12,7 +12,6 @@ export const CardGenerationProvider = ({ children }) => {
   // Card generation form state
   const [user_input, setUserInput] = useState('');
   const [error, setError] = useState(null);
-  const [editableText, setEditableText] = useState({ front: null, back: null });
   
   // Generated card state
   const [generatedCard, setGeneratedCard] = useState(null);
@@ -99,7 +98,6 @@ export const CardGenerationProvider = ({ children }) => {
   const clearInput = () => {
     setUserInput('');
     setError(null);
-    setEditableText({ front: null, back: null });
   };
 
   const generateCard = async (input, known_language, learning_language) => {
@@ -167,12 +165,12 @@ export const CardGenerationProvider = ({ children }) => {
     
     // Reset progress only for the parts being regenerated
     const newProgress = { ...progress };
-    if (parts.includes('front_text') || parts.includes('front_audio')) {
+    if (parts.includes('front_text') || parts.includes('front_audio_path')) {
       newProgress.front = false;
       setAudioReady(prev => ({ ...prev, front: false }));
       setAudioUrls(prev => ({ ...prev, front: null }));
     }
-    if (parts.includes('back_text') || parts.includes('back_audio')) {
+    if (parts.includes('back_text') || parts.includes('back_audio_path')) {
       newProgress.back = false;
       setAudioReady(prev => ({ ...prev, back: false }));
       setAudioUrls(prev => ({ ...prev, back: null }));
@@ -235,10 +233,8 @@ export const CardGenerationProvider = ({ children }) => {
     
     if (part === 'front_text') {
       setGeneratedCard(prev => ({ ...prev, front_text: text }));
-      setEditableText(prev => ({ ...prev, front: text }));
     } else if (part === 'back_text') {
       setGeneratedCard(prev => ({ ...prev, back_text: text }));
-      setEditableText(prev => ({ ...prev, back: text }));
     }
   };
 
@@ -248,8 +244,6 @@ export const CardGenerationProvider = ({ children }) => {
     setUserInput,
     error,
     setError,
-    editableText,
-    setEditableText,
     
     // Card generation state and functions
     generatedCard,

@@ -1,6 +1,5 @@
 .card-form {
   display: flex;
-  padding: 1rem;
   flex-direction: column;
   margin: 0 auto;
 }

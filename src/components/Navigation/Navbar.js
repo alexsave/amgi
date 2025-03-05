@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import ApiKeySettings from '../Settings/ApiKeySettings';
 import './Navbar.css';
+import { NAME } from '../../constants/names';
 
 export default function Navbar() {
   const { signOut } = useAuth();
@@ -19,7 +20,7 @@ export default function Navbar() {
     <>
       <nav className="navbar">
         <div className="navbar-brand">
-          VSPOMNIL <span className="beta-tag" style={{ fontFamily: 'Courier New', fontSize: '0.8rem' }}>Dev</span>
+          {NAME} <span className="beta-tag" style={{ fontFamily: 'Courier New', fontSize: '0.8rem' }}>Dev</span>
         </div>
         <div className="navbar-actions">
           <button 

@@ -5,7 +5,7 @@ import { useCardGenerationContext } from '../../contexts/CardGenerationContext';
 import { getLanguageDisplay } from '../../constants/languages';
 import './CardForm.css';
 
-const CardForm = ({ onCardGenerated }) => {
+const CardForm = ({ onCardGenerated, onGenerationStart }) => {
   const { id: deckId } = useParams();
   const { decks } = useDecks();
   const { 
@@ -36,6 +36,11 @@ const CardForm = ({ onCardGenerated }) => {
     }
     setError('');
     setContextError(null);
+
+    // Call onGenerationStart before starting generation
+    if (onGenerationStart) {
+      onGenerationStart();
+    }
 
     try {
       const result = await generateCard(

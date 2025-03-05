@@ -62,7 +62,7 @@ export class SupabaseApi extends ApiInterface {
       // Call Supabase function to regenerate specific parts of the card
       const { data, error } = await this.supabase.functions.invoke('cards', {
         body: {
-          regenerate_parts: parts, // Array of parts to regenerate: ['front_text', 'front_audio', 'back_text', 'back_audio']
+          regenerate_parts: parts, // Array of parts to regenerate: ['front_text', 'front_audio_path', 'back_text', 'back_audio_path']
           current_card: currentCard, // The current card data to use for non-regenerated parts
           known_language,
           learning_language

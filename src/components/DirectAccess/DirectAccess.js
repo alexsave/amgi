@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { NAME } from '../../constants/names';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import './DirectAccess.css';
@@ -41,7 +42,7 @@ export default function DirectAccess() {
   return (
     <div className="direct-access-container">
       <div className="direct-access-card">
-        <h1>Welcome to VSPOMNIL</h1>
+        <h1>Welcome to {NAME}</h1>
         <p className="intro-text">
           Get started quickly by providing your OpenAI API key, or <Link to="/login">sign in</Link> for cloud sync.
         </p>
@@ -66,7 +67,7 @@ export default function DirectAccess() {
           {error && <div className="error-message">{error}</div>}
 
           <button type="submit" className="submit-button">
-            Start Using VSPOMNIL
+            Start Using {NAME}
           </button>
 
           <div className="auth-prompt">

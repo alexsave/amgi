@@ -83,11 +83,8 @@ serve(async (req) => {
         const needsFullRegeneration = regenerate_parts.length === 0 && !card;
         const needsFrontTextRegeneration = regenerate_parts.includes('front_text');
         const needsBackTextRegeneration = regenerate_parts.includes('back_text');
-        const needsFrontAudioRegeneration = regenerate_parts.includes('front_audio') || needsFrontTextRegeneration || needsFullRegeneration;
-        const needsBackAudioRegeneration = regenerate_parts.includes('back_audio') || needsBackTextRegeneration || needsFullRegeneration;
-        const isTextOnlyRegeneration = (needsFrontTextRegeneration || needsBackTextRegeneration) && 
-                                      !regenerate_parts.includes('front_audio') && 
-                                      !regenerate_parts.includes('back_audio');
+        const needsFrontAudioRegeneration = regenerate_parts.includes('front_audio_path') || needsFrontTextRegeneration || needsFullRegeneration;
+        const needsBackAudioRegeneration = regenerate_parts.includes('back_audio_path') || needsBackTextRegeneration || needsFullRegeneration;
 
         // Case 1: Complete regeneration or new card generation
         if (needsFullRegeneration) {

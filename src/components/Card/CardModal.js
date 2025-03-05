@@ -15,7 +15,6 @@ const CardModal = ({ isOpen, onClose }) => {
     generatedCard,
     clearGeneratedCard,
     clearInput,
-    editableText,
     setEditableText,
     updateCardText,
     regenerateCardPart,
@@ -75,43 +74,50 @@ const CardModal = ({ isOpen, onClose }) => {
     }
   };
 
-  // Start editing text
-  const handleStartEdit = (part) => {
-    if (part === 'front_text') {
-      setEditableText(prev => ({ ...prev, front: generatedCard.front_text }));
-      setEditMode(prev => ({ ...prev, front: true }));
-    } else if (part === 'back_text') {
-      setEditableText(prev => ({ ...prev, back: generatedCard.back_text }));
-      setEditMode(prev => ({ ...prev, back: true }));
-    }
-  };
-
-  // Save edited text
-  const handleSaveEdit = (part) => {
-    if (part === 'front_text' && editableText.front !== null) {
-      updateCardText('front_text', editableText.front);
-      setEditMode(prev => ({ ...prev, front: false }));
-    } else if (part === 'back_text' && editableText.back !== null) {
-      updateCardText('back_text', editableText.back);
-      setEditMode(prev => ({ ...prev, back: false }));
-    }
-  };
-
   // Handle text change
   const handleTextChange = (part, value) => {
     if (part === 'front_text') {
+      updateCardText('front_text', value);
       setEditableText(prev => ({ ...prev, front: value }));
     } else if (part === 'back_text') {
+      updateCardText('back_text', value);
       setEditableText(prev => ({ ...prev, back: value }));
     }
   };
 
-  if (!isOpen || !generatedCard) return null;
+  if (!isOpen) return null;
 
   // If deck doesn't exist, don't show the modal
   if (!currentDeck) return null;
 
   const { known_language = 'en', learning_language = 'ko' } = currentDeck;
+
+  // Add loading content render function
+  const renderLoadingCardContent = () => (
+    <div className="card-content loading">
+      <div className="loading-text-area">
+        <ArrowPathIcon className="h-5 w-5 spin" />
+      </div>
+      <div className="card-actions">
+        <button className="card-action-btn" disabled>
+          <PencilSquareIcon className="h-5 w-5" />
+        </button>
+        <button className="card-action-btn" disabled>
+          <ArrowPathIcon className="h-5 w-5" />
+        </button>
+        <button className="play-audio-btn loading" disabled>
+          <ArrowPathIcon className="h-5 w-5 spin" />
+          <span>Audio</span>
+        </button>
+        <button className="card-action-btn" disabled>
+          <ArrowPathIcon className="h-5 w-5" />
+        </button>
+        <button className="card-action-btn" disabled>
+          <MicrophoneIcon className="h-5 w-5" />
+        </button>
+      </div>
+    </div>
+  );
 
   const handleAddToDeck = async () => {
     if (!generatedCard) {
@@ -151,42 +157,28 @@ const CardModal = ({ isOpen, onClose }) => {
   };
 
   // Render card content with action buttons
-  const renderCardContent = (text, audioPath, textPart, audioPart) => {
+  const renderCardContent = (textPart, audioPart) => {
     const isTextRegenerating = regeneratingParts.includes(textPart);
     const isAudioRegenerating = regeneratingParts.includes(audioPart);
-    const isEditing = textPart === 'front_text' ? editMode.front : editMode.back;
-    const editableValue = textPart === 'front_text' ? editableText.front : editableText.back;
     
     return (
       <div className="card-content">
-        {isEditing ? (
-          <div className="edit-text-container">
+        <div className="edit-text-container">
+          {isGenerating ? (
+            <div className="loading-text-area">
+              <ArrowPathIcon className="h-5 w-5 spin" />
+            </div>
+          ) : (
             <textarea
-              value={editableValue}
+              value={generatedCard[textPart]}
               onChange={(e) => handleTextChange(textPart, e.target.value)}
               className="edit-text-area"
             />
-            <button 
-              className="save-edit-btn"
-              onClick={() => handleSaveEdit(textPart)}
-            >
-              Save
-            </button>
-          </div>
-        ) : (
-          <p>{text}</p>
-        )}
-        
+          )}
+        </div>
+
         <div className="card-actions">
-          <button
-            className="card-action-btn"
-            onClick={() => handleStartEdit(textPart)}
-            disabled={isGenerating}
-            title="Edit text"
-          >
-            <PencilSquareIcon className="h-5 w-5" />
-          </button>
-          
+
           <button
             className="card-action-btn"
             onClick={() => handleRegeneratePart(textPart)}
@@ -195,35 +187,39 @@ const CardModal = ({ isOpen, onClose }) => {
           >
             <ArrowPathIcon className={`h-5 w-5 ${isTextRegenerating ? 'spin' : ''}`} />
           </button>
-          
-          {audioPath && (
-            <>
-              <button
-                className="play-audio-btn"
-                onClick={() => playAudio(audioPath)}
-                disabled={isGenerating}
-              >
-                🔊 Play
-              </button>
-              
+
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+              {isGenerating ? (
+                <div className="loading-text-area">
+                  <ArrowPathIcon className="h-5 w-5 spin" />
+                </div>
+              ) : (
+                <button
+                  className="play-audio-btn"
+                  onClick={() => playAudio(generatedCard[audioPart])}
+                  disabled={isGenerating}
+                >
+                  🔊
+                </button>
+              )}
+
               <button
                 className="card-action-btn"
                 onClick={() => handleRegeneratePart(audioPart)}
                 disabled={isGenerating}
-                title={`Regenerate ${audioPart === 'front_audio' ? 'front' : 'back'} audio`}
+                title={`Regenerate ${audioPart === 'front_audio_path' ? 'front' : 'back'} audio`}
               >
                 <ArrowPathIcon className={`h-5 w-5 ${isAudioRegenerating ? 'spin' : ''}`} />
               </button>
-              
+
               <button
                 className="card-action-btn"
-                title="Record your own audio (coming soon)"
-                disabled={true}
+                title="Record your own audio"
+                disabled={isGenerating}
               >
                 <MicrophoneIcon className="h-5 w-5" />
               </button>
-            </>
-          )}
+            </div>
         </div>
       </div>
     );
@@ -241,61 +237,91 @@ const CardModal = ({ isOpen, onClose }) => {
         <div className="card-modal-body">
           {error && <div className="error-message">{error}</div>}
 
-        <p className="language-info">
-          {getLanguageDisplay(currentDeck.known_language).name} → {getLanguageDisplay(currentDeck.learning_language).name}
-        </p>
-          <div className="flashcard">
-            <div className="card-side">
-              <h3>Front</h3>
-              {renderCardContent(
-                generatedCard.front_text,
-                generatedCard.front_audio_path,
-                'front_text',
-                'front_audio'
-              )}
-            </div>
-            <div className="card-side">
-              <h3>Back</h3>
-              {renderCardContent(
-                generatedCard.back_text,
-                generatedCard.back_audio_path,
-                'back_text',
-                'back_audio'
-              )}
-            </div>
-          </div>
+          {(false && !generatedCard) ? (
+            <>
+              <p className="language-info">
+                {getLanguageDisplay(currentDeck.known_language).name} → {getLanguageDisplay(currentDeck.learning_language).name}
+              </p>
+              <div className="flashcard">
+                <div className="card-side">
+                  <h3>Front</h3>
+                  {renderLoadingCardContent()}
+                </div>
+                <div className="card-side">
+                  <h3>Back</h3>
+                  {renderLoadingCardContent()}
+                </div>
+              </div>
 
-        <p className="language-info">
-          {getLanguageDisplay(currentDeck.learning_language).name} → {getLanguageDisplay(currentDeck.known_language).name}
-        </p>
-          <div className="flashcard">
-            <div className="card-side">
-              <h3>Front</h3>
-              {renderCardContent(
-                generatedCard.back_text,
-                generatedCard.back_audio_path,
-                'back_text',
-                'back_audio'
-              )}
-            </div>
-            <div className="card-side">
-              <h3>Back</h3>
-              {renderCardContent(
-                generatedCard.front_text,
-                generatedCard.front_audio_path,
-                'front_text',
-                'front_audio'
-              )}
-            </div>
-          </div>
+              <p className="language-info">
+                {getLanguageDisplay(currentDeck.learning_language).name} → {getLanguageDisplay(currentDeck.known_language).name}
+              </p>
+              <div className="flashcard">
+                <div className="card-side">
+                  <h3>Front</h3>
+                  {renderLoadingCardContent()}
+                </div>
+                <div className="card-side">
+                  <h3>Back</h3>
+                  {renderLoadingCardContent()}
+                </div>
+              </div>
 
-          <button
-            onClick={handleAddToDeck}
-            className="add-to-deck-btn"
-            disabled={isGenerating}
-          >
-            Add to Deck
-          </button>
+              <button className="add-to-deck-btn" disabled>
+                Add to Deck
+              </button>
+            </>
+          ) : (
+            <>
+              <p className="language-info">
+                {getLanguageDisplay(currentDeck.known_language).name} → {getLanguageDisplay(currentDeck.learning_language).name}
+              </p>
+              <div className="flashcard">
+                <div className="card-side">
+                  <h3>Front</h3>
+                  {renderCardContent(
+                    'front_text',
+                    'front_audio_path'
+                  )}
+                </div>
+                <div className="card-side">
+                  <h3>Back</h3>
+                  {renderCardContent(
+                    'back_text',
+                    'back_audio_path'
+                  )}
+                </div>
+              </div>
+
+              <p className="language-info">
+                {getLanguageDisplay(currentDeck.learning_language).name} → {getLanguageDisplay(currentDeck.known_language).name}
+              </p>
+              <div className="flashcard">
+                <div className="card-side">
+                  <h3>Front</h3>
+                  {renderCardContent(
+                    'back_text',
+                    'back_audio_path'
+                  )}
+                </div>
+                <div className="card-side">
+                  <h3>Back</h3>
+                  {renderCardContent(
+                    'front_text',
+                    'front_audio_path'
+                  )}
+                </div>
+              </div>
+
+              <button
+                onClick={handleAddToDeck}
+                className="add-to-deck-btn"
+                disabled={isGenerating}
+              >
+                Add to Deck
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>

@@ -1,1 +1,1 @@
-export const NAME = "VSPOMNIL";
+export const NAME = "AMGI";
