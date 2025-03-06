@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, createContext, useContext } from 'react';
 import vmsg from "vmsg";
 import { downloadCardAudio } from '../db/supabase';
 
@@ -6,7 +6,11 @@ const recorder = new vmsg.Recorder({
   wasmURL: "https://unpkg.com/vmsg@0.3.0/vmsg.wasm"
 });
 
-export function useAudio() {
+// Create the context
+const AudioContext = createContext(null);
+
+// Create the provider component
+export function AudioProvider({ children }) {
   const [isLoading, setIsLoading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [error, setError] = useState(null);
@@ -208,7 +212,7 @@ export function useAudio() {
     audioRefs.current.clear();
   };
 
-  return {
+  const contextValue = {
     isLoading,
     isRecording,
     error,
@@ -221,4 +225,19 @@ export function useAudio() {
     setError,
     audioRefs,
   };
+
+  return (
+    <AudioContext.Provider value={contextValue}>
+      {children}
+    </AudioContext.Provider>
+  );
+}
+
+// Create a hook to use the audio context
+export function useAudio() {
+  const context = useContext(AudioContext);
+  if (context === null) {
+    throw new Error('useAudio must be used within an AudioProvider');
+  }
+  return context;
 } 
