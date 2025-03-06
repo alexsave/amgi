@@ -3,6 +3,7 @@ import { getRealtimeToken } from '../network/api';
 import { configureSession } from './realtime/sessionTools';
 import { setupRealtimeStream } from '../network/openai';
 import { useReview } from './ReviewContext';
+import { useDecks } from './DeckContext';
 
 const RealtimeContext = createContext(null);
 
@@ -34,6 +35,8 @@ export const RealtimeProvider = ({ children }) => {
         currentCardIdRef
     } = useReview();
 
+    // Get deck information from DeckContext
+    const { decks, currentDeckId } = useDecks();
 
     const sendFunctionOutput = (callId, output) => {
         if (!dataChannelRef.current) return;
@@ -378,11 +381,9 @@ export const RealtimeProvider = ({ children }) => {
             dc.onopen = () => {
                 setIsConnected(true);
                 setFeedback('Click the microphone to begin');
-                try {
-                    configureSession(dc, card);
-                } catch (error) {
-                    setFeedback('Failed to configure session: ' + error.message);
-                }
+                // Get the current deck to access language information
+                const currentDeck = decks[currentDeckId];
+                configureSession(dc, card, currentDeck.learning_language);
             };
 
             dc.onclose = () => {
