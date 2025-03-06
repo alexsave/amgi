@@ -8,7 +8,7 @@ export default function DirectAccess() {
   const [apiKey, setApiKey] = useState('');
   const [error, setError] = useState('');
   const navigate = useNavigate();
-  const { user, isDirectMode, enableDirectMode } = useAuth();
+  const { user, isDirectMode, enableDirectMode, signIn } = useAuth();
 
   useEffect(() => {
     // If user is authenticated or in direct mode, redirect to decks
@@ -16,6 +16,17 @@ export default function DirectAccess() {
       navigate('/decks', { replace: true });
     }
   }, [user, isDirectMode, navigate]);
+
+  const handleTestAccount = async (e) => {
+    e.preventDefault();
+    setError('');
+    try {
+      await signIn('test@amgi.cards', 'password');
+      navigate('/decks', { replace: true });
+    } catch (err) {
+      setError('Failed to sign in with test account: ' + err.message);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -43,6 +54,8 @@ export default function DirectAccess() {
     <div className="direct-access-container">
       <div className="direct-access-card">
         <h1>Welcome to {NAME}</h1>
+        <p className="intro-text">Try out the <a href="#" onClick={handleTestAccount}>test account</a></p>
+
         <p className="intro-text">
           Get started quickly by providing your OpenAI API key, or <Link to="/login">sign in</Link> for cloud sync.
         </p>

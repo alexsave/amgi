@@ -98,7 +98,8 @@ export function processCardReview(card, outcome, attempts, maxAttempts = 3) {
     return {
       ...reviewData,
       shouldReschedule,
-      resetAttempts: true // Always reset attempts after correct answer
+      resetAttempts: true, // Always reset attempts after correct answer
+      shouldGoToNextCard: true
     };
     
   } else {
@@ -113,7 +114,8 @@ export function processCardReview(card, outcome, attempts, maxAttempts = 3) {
       return {
         ...reviewData,
         shouldReschedule: true,
-        resetAttempts: true // Reset attempts for next card
+        resetAttempts: true, // Reset attempts for next card
+        shouldGoToNextCard: true
       };
     } else {
       // Still has attempts left - don't recalculate review yet
@@ -124,7 +126,8 @@ export function processCardReview(card, outcome, attempts, maxAttempts = 3) {
         repetitions: card.review?.repetitions || 0,
         card_state: card.review?.card_state || 'new',
         next_review_date: card.review?.next_review_date || new Date().toISOString(),
-        shouldReschedule: false,
+        shouldReschedule: true, // This is tricky. If there are still attempts left, we shouldn't do anything. Maybe we should call this "keep in scheduler"?
+        shouldGoToNextCard: false,
         resetAttempts: false
       };
     }

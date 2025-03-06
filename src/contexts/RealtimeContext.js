@@ -213,6 +213,7 @@ export const RealtimeProvider = ({ children }) => {
 
     const handleFunctionCall = (item) => {
         const args = JSON.parse(item.arguments);
+        console.log('handleFunctionCall ' + JSON.stringify(args));
 
         if (item.name === 'evaluatePronunciation') {
             setFeedback(args.message);

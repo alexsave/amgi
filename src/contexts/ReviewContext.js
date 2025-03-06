@@ -9,6 +9,10 @@ import { getLocalDate } from '../utils/dates';
 
 const ReviewContext = createContext({});
 
+// Interesting note: it works with 1 en->ko card. It works with 2 en->ko cads. After that idk
+// Ok as long as you don't get anything wrong, it works with N en->ko cards.
+
+// Ok simple failure exapmle. 1 en->ko card, 1 ko->en card. Get it down to 1 review card, get it wrong once, and it just ends right there
 export const ReviewProvider = ({ children }) => {
 
     const MAX_ATTEMPTS = 3;
@@ -113,32 +117,42 @@ export const ReviewProvider = ({ children }) => {
             }
             
             // Process the review outcome with the card's current state and attempt count
+            // It's a bit wasteful to delete and then re-add cards with attempts left.
             const review = processCardReview(card, outcome, attempts, MAX_ATTEMPTS);
-            
-            // First remove the card from the scheduler
-            cardSchedulerRef.current.delete(cardId);
-            
-            // Now handle based on whether we should reschedule
-            if (review.shouldReschedule) {
-                // Cards that need to be rescheduled:
-                // - All learning cards
-                // - Cards that were answered incorrectly
-                // Use setReview to update the card data and put it in the right queue
-                cardSchedulerRef.current.setReview(card, review);
+            console.log('processCardReview ' + JSON.stringify(review));
+            let nextCard = null;
+
+            if (review.shouldGoToNextCard) {
+
+                // First remove the card from the scheduler
+                cardSchedulerRef.current.delete(cardId);
+
+                // Now handle based on whether we should reschedule
+                if (review.shouldReschedule) {
+                    // Cards that need to be rescheduled:
+                    // - All learning cards
+                    // - Cards that were answered incorrectly
+                    // Use setReview to update the card data and put it in the right queue
+                    cardSchedulerRef.current.setReview(card, review);
+                }
+                // Otherwise, the card is done and we don't need to do anything. 
+                // If it goes to review, it will be loaded again no sooner than tomorrow
+
+                // Asynchronously save to server without blocking
+                saveReviewToServer(cardId, review);
+
+                // Get the next card
+                const nextCardId = cardSchedulerRef.current.peekNext();
+                nextCard = cardSchedulerRef.current.getFullCard(nextCardId);
+
+                // Update card counts since states might have changed
+                updateCardCounts();
+            } else {
+                /// Don't touch the scheduler. Just keep the same card.
+                nextCard = card;
             }
-            // Otherwise, the card is done and we don't need to do anything. 
-            // If it goes to review, it will be loaded again no sooner than tomorrow
-            
-            // Asynchronously save to server without blocking
-            saveReviewToServer(cardId, review);
-            
-            // Get the next card
-            const nextCardId = cardSchedulerRef.current.peekNext();
-            const nextCard = cardSchedulerRef.current.getFullCard(nextCardId);
-            
-            // Update card counts since states might have changed
-            updateCardCounts();
-            
+
+
             return {
                 nextCard,
                 resetAttempts: review.resetAttempts
@@ -157,18 +171,18 @@ export const ReviewProvider = ({ children }) => {
         if (!currentCardIdRef.current) return null;
 
         const cardId = currentCardIdRef.current;
-        
+
         // Process the card as correct
         const { nextCard, resetAttempts } = processCardOutcome(cardId, 'correct');
-        
+
         // Update the current card info
         if (resetAttempts) {
             setAttempts(0);
         }
-        
+
         currentCardIdRef.current = nextCard?.id || null;
         setCurrentCard(nextCard);
-        
+
         return nextCard;
     };
 
@@ -176,25 +190,25 @@ export const ReviewProvider = ({ children }) => {
         if (!currentCardIdRef.current) return { attempts: 0, nextCard: null };
 
         const cardId = currentCardIdRef.current;
-        
+
         // Process the card as incorrect
+        console.log('before processCardOutcome ' + JSON.stringify(cardSchedulerRef.current));
         const { nextCard, resetAttempts } = processCardOutcome(cardId, 'incorrect');
-        
+        console.log('after processCardOutcome ' + JSON.stringify(cardSchedulerRef.current));
+
         // If we should reset attempts, move to the next card
         if (resetAttempts) {
             currentCardIdRef.current = nextCard?.id || null;
             setCurrentCard(nextCard);
-            setAttempts(0);
+            setAttempts(prev => 0);
             return {
                 attempts: 0,
                 nextCard
             };
         } else {
             // Otherwise, increment attempts and keep the same card
-            const nextAttempts = attempts + 1;
-            setAttempts(nextAttempts);
+            //const nextAttempts = attempts + 1;
             return {
-                attempts: nextAttempts,
                 nextCard: cardSchedulerRef.current.getFullCard(cardId)
             };
         }
