@@ -37,6 +37,7 @@ export const RealtimeProvider = ({ children }) => {
 
     const sendFunctionOutput = (callId, output) => {
         if (!dataChannelRef.current) return;
+        console.log('sendFunctionOutput ' + JSON.stringify(output));
         dataChannelRef.current.send(JSON.stringify({
             type: 'conversation.item.create',
             item: {
@@ -49,6 +50,15 @@ export const RealtimeProvider = ({ children }) => {
 
     const sendNextCardInfo = (nextCard, isLastCard, callId, result = 'correct', message = '') => {
         if (!dataChannelRef.current) return;
+        console.log('sendNextCardInfo ' + JSON.stringify({
+            result,
+            message,
+            nextCard: nextCard ? {
+                front_text: nextCard.front_text,
+                back_text: nextCard.back_text
+            } : null,
+            isLastCard
+        }));
         dataChannelRef.current.send(JSON.stringify({
             type: 'conversation.item.create',
             item: {
@@ -147,12 +157,13 @@ export const RealtimeProvider = ({ children }) => {
         // Get results from ReviewContext
         const { attempts, nextCard } = markIncorrectGetAttempts();
 
-        sendFunctionOutput(callId, {
+        sendNextCardInfo(nextCard, false, callId, args.result, args.message);
+        /*sendFunctionOutput(callId, {
             nextCard: nextCard ? {
                 front_text: nextCard.front_text,
                 back_text: nextCard.back_text
             } : null
-        });
+        });*/
 
         requestNextResponse();
     };

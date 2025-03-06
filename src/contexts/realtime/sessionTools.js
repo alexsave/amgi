@@ -12,12 +12,20 @@ export const sessionTools = {
                     enum: ['correct', 'incorrect'],
                     description: 'The evaluation result'
                 },
+                pronunciation_quality: {
+                    type: 'number',
+                    description: 'A numeric rating of the pronunciation quality, from 0 to 100'
+                },
+                translation_quality: {
+                    type: 'number',
+                    description: 'A numeric rating of the translation quality, from 0 to 100'
+                },
                 message: {
                     type: 'string',
                     description: 'Feedback message explaining the evaluation'
                 }
             },
-            required: ['result', 'message']
+            required: ['result', 'message', 'pronunciation_quality', 'translation_quality']
         }
     },
     completeReview: {
@@ -48,21 +56,15 @@ export const configureSession = (dataChannel, card) => {
     const message = {
         type: 'session.update',
         session: {
-            instructions: `You are a friendly language learning tutor. First, give a brief welcome and explain that you'll help practice pronunciation.
+            instructions: `You are a friendly language learning tutor. First, give a brief welcome and briefly explain that you'll help practice pronunciation.
     For each card: clearly say the front text (${card.front_text}) and wait for the user to respond with the TRANSLATION (${card.back_text}).
     
-    After EVERY user response (except "again"), you must:
-    1. Evaluate their response using the evaluatePronunciation function:
+    After EVERY user response you MUST evaluate their response using the evaluatePronunciation function, even if they say it wrong:
        - result="correct" if they correctly translate AND pronounce "${card.back_text}"
        - result="incorrect" if they say anything else (wrong translation, wrong pronunciation, or if they repeat "${card.front_text}")
 
     The function handler will return the next card to use, or null if the review is complete.
     If the function returns null, you should end the session with a brief goodbye and encouragement, then call the completeReview function.
-    
-    Special cases:
-    - If they say "again", just repeat "${card.front_text}" clearly
-    - For incorrect responses, encourage them to try again
-    - For correct responses, give quick praise before moving on
     
     Keep your responses friendly but concise. Focus on helping them learn.
     

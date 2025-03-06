@@ -22,6 +22,7 @@ export const ReviewProvider = ({ children }) => {
     const { user, isDirectMode } = useAuth();
     const [evaluationResult, setEvaluationResult] = useState(null);
     const [error, setError] = useState(null);
+    const attemptsRef = useRef(0);
     const [attempts, setAttempts] = useState(0);
     const [showAnswer, setShowAnswer] = useState(false);
 
@@ -117,9 +118,7 @@ export const ReviewProvider = ({ children }) => {
             }
             
             // Process the review outcome with the card's current state and attempt count
-            // It's a bit wasteful to delete and then re-add cards with attempts left.
-            const review = processCardReview(card, outcome, attempts, MAX_ATTEMPTS);
-            console.log('processCardReview ' + JSON.stringify(review));
+            const review = processCardReview(card, outcome, attemptsRef.current, MAX_ATTEMPTS);
             let nextCard = null;
 
             if (review.shouldGoToNextCard) {
@@ -177,6 +176,7 @@ export const ReviewProvider = ({ children }) => {
 
         // Update the current card info
         if (resetAttempts) {
+            attemptsRef.current = 0;
             setAttempts(0);
         }
 
@@ -200,14 +200,16 @@ export const ReviewProvider = ({ children }) => {
         if (resetAttempts) {
             currentCardIdRef.current = nextCard?.id || null;
             setCurrentCard(nextCard);
-            setAttempts(prev => 0);
+            attemptsRef.current = 0;
+            setAttempts(0);
             return {
                 attempts: 0,
                 nextCard
             };
         } else {
             // Otherwise, increment attempts and keep the same card
-            //const nextAttempts = attempts + 1;
+            attemptsRef.current += 1;
+            setAttempts(attemptsRef.current);
             return {
                 nextCard: cardSchedulerRef.current.getFullCard(cardId)
             };
