@@ -18,42 +18,45 @@ function AppContent() {
     <div className="app-container">
       <Navbar />
       <div className="app-content">
-        <ReviewProvider>
-          <RealtimeProvider>
-            <Routes>
-              <Route path="/" element={<Navigate to="/decks" replace />} />
-              <Route path="/decks" element={<DeckList />} />
+        <AudioProvider>
+          <ReviewProvider>
+            <RealtimeProvider>
+              <Routes>
+                <Route path="/" element={<Navigate to="/decks" replace />} />
+                <Route path="/decks" element={<DeckList />} />
 
-              <Route
-                path="/deck/:id"
-                element={
-                  <CardList
-                    onBack={handleBackToList}
-                    onCardClick={(card) => console.log('Card clicked:', card)}
-                  />
-                }
-              />
+                <Route
+                  path="/deck/:id"
+                  element={
+                    <CardList
+                      onBack={handleBackToList}
+                      onCardClick={(card) => console.log('Card clicked:', card)}
+                    />
+                  }
+                />
 
-              <Route
-                path="/deck/:id/edit"
-                element={
-                  <CardList
-                    onBack={handleBackToList}
-                  />
-                }
-              />
+                <Route
+                  path="/deck/:id/edit"
+                  element={
+                    <CardList
+                      onBack={handleBackToList}
+                    />
+                  }
+                />
 
-              <Route
-                path="/deck/:id/review"
-                element={
-                  <ReviewMode
-                    onBack={handleBackToList}
-                  />
-                }
-              />
-            </Routes>
-          </RealtimeProvider>
-        </ReviewProvider>
+                <Route
+                  path="/deck/:id/review"
+                  element={
+                    <ReviewMode
+                      onBack={handleBackToList}
+                    />
+                  }
+                />
+              </Routes>
+            </RealtimeProvider>
+          </ReviewProvider>
+
+        </AudioProvider>
       </div>
     </div>
   );
