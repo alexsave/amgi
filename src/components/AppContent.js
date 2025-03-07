@@ -5,7 +5,7 @@ import CardList from './Card/CardList';
 import ReviewMode from './Review/ReviewMode';
 import { RealtimeProvider } from '../contexts/RealtimeContext';
 import Navbar from './Navigation/Navbar';
-import { AudioProvider } from '../contexts/AudioContext';
+import { AudioProvider } from '../contexts/useAudio';
 import { ReviewProvider } from '../contexts/ReviewContext';
 
 function AppContent() {

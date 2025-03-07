@@ -5,7 +5,7 @@ import RecordingControls from './RecordingControls';
 import CardPreview from './CardPreview';
 import EvaluationResult from './EvaluationResult';
 import VoiceMode from './VoiceMode';
-import { useAudio } from '../../hooks/useAudio';
+import { useAudio } from '../../contexts/useAudio';
 import { useReview } from '../../contexts/ReviewContext';
 import { useSpeechEvaluation } from '../../hooks/useSpeechEvaluation';
 import { LanguageIcon, MicrophoneIcon } from '@heroicons/react/24/solid';

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { XMarkIcon, ArrowPathIcon, PencilSquareIcon, MicrophoneIcon } from '@heroicons/react/24/outline';
-import { useAudio } from '../../hooks/useAudio';
+import { useAudio } from '../../contexts/useAudio';
 import { useDecks } from '../../contexts/DeckContext';
 import { useCardGenerationContext } from '../../contexts/CardGenerationContext';
 import { getLanguageDisplay } from '../../constants/languages';
