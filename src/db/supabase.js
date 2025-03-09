@@ -1,4 +1,4 @@
-import { getLocalDate } from '../utils/dates';
+import { getLocalDate, getEndOfDayTimestamp } from '../utils/dates';
 import supabase from './supabaseClient';
 
 // Load all decks for the current user
@@ -82,7 +82,7 @@ const loadLearningCards = async (userId) => {
 };
 
 const loadDueCards = async (userId) => {
-  const today = getLocalDate();
+  const endOfDayTimestamp = getEndOfDayTimestamp();
   const { data: decks, error } = await supabase
     .from('decks')
     .select(`
@@ -108,7 +108,7 @@ const loadDueCards = async (userId) => {
     `)
     .eq('user_id', userId)
     .eq('cards.reviews.card_state', 'review')
-    .lte('cards.reviews.next_review_date', today)
+    .lte('cards.reviews.next_review_date', endOfDayTimestamp)
     .order('next_review_date', { referencedTable: 'cards.reviews', ascending: true });
 
   if (error) throw error;
@@ -139,6 +139,7 @@ export const loadDecks = async (userId) => {
       loadLearningCards(userId),
       loadDueCards(userId)
     ]);
+    console.log('loadDecks ' + JSON.stringify([newCardsByDeck, learningCardsByDeck, dueCardsByDeck]));
 
     // Combine everything and keep in snake_case
     return decks.reduce((acc, deck) => {
@@ -487,7 +488,7 @@ export const getDueCards = async (userId) => {
         )
       `)
       .eq('user_id', userId)
-      .lte('next_review_date', getLocalDate())
+      .lte('next_review_date', getEndOfDayTimestamp())
       .order('next_review_date', { ascending: true });
 
     if (error) throw error;

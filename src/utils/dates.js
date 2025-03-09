@@ -17,6 +17,21 @@ export const getLocalDate = (date = new Date()) => {
 };
 
 /**
+ * Get a timestamp for the end of the current day (23:59:59.999) in ISO format.
+ * This is specifically for database filtering when we need to include all timestamps 
+ * that occur on or before the current day.
+ */
+export const getEndOfDayTimestamp = (date = new Date()) => {
+  const endOfDay = new Date(date);
+  endOfDay.setHours(23, 59, 59, 999);
+  
+  const isoString = endOfDay.toISOString();
+  console.log('End of day timestamp: ' + isoString);
+  
+  return isoString;
+};
+
+/**
  * Parse a YYYY-MM-DD string into a Date object in the user's local timezone.
  * The time will be set to midnight (00:00:00) in the user's timezone.
  */
