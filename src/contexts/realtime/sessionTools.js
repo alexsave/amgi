@@ -48,7 +48,8 @@ export const configureSession = (dataChannel, card, learning_language) => {
     }
     
     // Get language-specific instructions or fall back to default
-    const instructionTemplate = instructionsByLanguage[learning_language || 'en'];
+    const instructionTemplate = instructionsByLanguage.en;
+    //const instructionTemplate = instructionsByLanguage[learning_language || 'en'];
     
     // Build complete instructions with the proper evaluation criteria
     const instructions = instructionTemplate

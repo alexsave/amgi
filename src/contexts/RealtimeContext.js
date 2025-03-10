@@ -159,8 +159,13 @@ export const RealtimeProvider = ({ children }) => {
 
         // Get results from ReviewContext
         const { attempts, nextCard } = markIncorrectGetAttempts();
+        
+        if (nextCard) {
+            sendNextCardInfo(nextCard, false, callId, args.result, args.message);
+        } else {
+            cleanup();
+        }
 
-        sendNextCardInfo(nextCard, false, callId, args.result, args.message);
         /*sendFunctionOutput(callId, {
             nextCard: nextCard ? {
                 front_text: nextCard.front_text,
@@ -188,6 +193,7 @@ export const RealtimeProvider = ({ children }) => {
             sendNextCardInfo(nextCard, false, callId, args.result, args.message);
         } else {
             sendCompleteReview(callId);
+            cleanup();
         }
 
         requestNextResponse();
