@@ -47,14 +47,58 @@ export const AuthProvider = ({ children }) => {
   };
 
   const signOut = async () => {
-    if (isDirectMode) {
-      localStorage.removeItem('useDirectApi');
-      localStorage.removeItem('OPENAI_KEY');
-      clearApiInstance();
-      setIsDirectMode(false);
-    } else {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+    try {
+      console.log('Sign out initiated. Mode:', isDirectMode ? 'Direct' : 'Supabase');
+      
+      if (isDirectMode) {
+        try {
+          localStorage.removeItem('useDirectApi');
+          console.log('Removed useDirectApi from localStorage');
+          
+          localStorage.removeItem('OPENAI_KEY');
+          console.log('Removed OPENAI_KEY from localStorage');
+          
+          clearApiInstance();
+          console.log('Cleared API instance');
+          
+          setIsDirectMode(false);
+          console.log('Direct mode disabled');
+        } catch (localStorageError) {
+          console.error('localStorage error during sign out:', localStorageError);
+          throw new Error(`LocalStorage error: ${localStorageError.message}`);
+        }
+      } else {
+        console.log('Calling supabase.auth.signOut()');
+        const { error } = await supabase.auth.signOut();
+        
+        if (error) {
+          console.error('Supabase signOut error:', error);
+          
+          // Handle "Auth session missing" error specifically
+          if (error.message === 'Auth session missing!' || 
+              error.message.includes('session')) {
+            console.log('Session missing error detected - performing local sign out');
+            // Force a local sign out despite the error
+            setUser(null);
+            // Clear any session data that might be in localStorage
+            try {
+              localStorage.removeItem('supabase.auth.token');
+              localStorage.removeItem('supabase.auth.expires_at');
+              // Any other Supabase session-related items you might have
+            } catch (e) {
+              console.log('Error clearing local storage:', e);
+            }
+            console.log('Local sign out completed');
+            return; // Exit without throwing error since we've handled it
+          }
+          
+          throw error;
+        }
+        console.log('Supabase sign out successful');
+      }
+    } catch (error) {
+      console.error('Sign out error:', error);
+      throw error;
     }
   };
 
