@@ -166,7 +166,7 @@ export const ReviewProvider = ({ children }) => {
         }
     };
 
-    const markCorrectGetNext = async () => {
+    const markCorrectGetNext = () => {
         if (!currentCardIdRef.current) return null;
 
         const cardId = currentCardIdRef.current;
@@ -186,8 +186,8 @@ export const ReviewProvider = ({ children }) => {
         return nextCard;
     };
 
-    const markIncorrectGetAttempts = async () => {
-        if (!currentCardIdRef.current) return { attempts: 0, nextCard: null };
+    const markIncorrectGetAttempts = () => {
+        if (!currentCardIdRef.current) return null;
 
         const cardId = currentCardIdRef.current;
 
@@ -196,23 +196,21 @@ export const ReviewProvider = ({ children }) => {
         const { nextCard, resetAttempts } = processCardOutcome(cardId, 'incorrect');
         console.log('after processCardOutcome ' + JSON.stringify(cardSchedulerRef.current));
 
+        console.log('nextCard ' + JSON.stringify(nextCard));
+
         // If we should reset attempts, move to the next card
         if (resetAttempts) {
             currentCardIdRef.current = nextCard?.id || null;
             setCurrentCard(nextCard);
             attemptsRef.current = 0;
             setAttempts(0);
-            return {
-                attempts: 0,
-                nextCard
-            };
+            return nextCard;
         } else {
             // Otherwise, increment attempts and keep the same card
             attemptsRef.current += 1;
             setAttempts(attemptsRef.current);
-            return {
-                nextCard: cardSchedulerRef.current.getFullCard(cardId)
-            };
+            console.log('returning nextCard ' + JSON.stringify(nextCard));
+            return nextCard;
         }
     };
 

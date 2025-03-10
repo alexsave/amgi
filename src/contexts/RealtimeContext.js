@@ -158,11 +158,16 @@ export const RealtimeProvider = ({ children }) => {
         setTimeout(() => setButtonState('default'), 500);
 
         // Get results from ReviewContext
-        const { attempts, nextCard } = markIncorrectGetAttempts();
+        const nextCard = markIncorrectGetAttempts();
+        console.log('handleIncorrectResponse ' + JSON.stringify({
+            nextCard
+        }));
         
         if (nextCard) {
+            console.log('sendNextCardInfo invoked in handleIncorrectResponse' + JSON.stringify(nextCard));
             sendNextCardInfo(nextCard, false, callId, args.result, args.message);
         } else {
+            console.log('cleanup invoked in handleIncorrectResponse because no next card');
             cleanup();
         }
 
@@ -187,7 +192,7 @@ export const RealtimeProvider = ({ children }) => {
         setTimeout(() => setButtonState('default'), 500);
 
         // Process in ReviewContext - this will now use the ref-based tracking to prevent double processing
-        const nextCard = await markCorrectGetNext();
+        const nextCard = markCorrectGetNext();
         
         if (nextCard) {
             sendNextCardInfo(nextCard, false, callId, args.result, args.message);
@@ -262,6 +267,7 @@ export const RealtimeProvider = ({ children }) => {
     };
 
     const cleanup = () => {
+        console.log('cleanup invoked');
         // Clean up media stream
         if (mediaStreamRef.current) {
             mediaStreamRef.current.getTracks().forEach(track => {
