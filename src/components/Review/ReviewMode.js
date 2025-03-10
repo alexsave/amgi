@@ -19,7 +19,6 @@ const ReviewMode = () => {
   const { currentCard, currentCardId, currentCardIdRef, attempts, showAnswer, evaluationResult, newCardsCount, reviewCardsCount, learningCardsCount } = review;
   const [isVoiceMode, setIsVoiceMode] = useState(true);
   
-
   // Load audio when current card changes
   useEffect(() => {
     if (currentCard) {
