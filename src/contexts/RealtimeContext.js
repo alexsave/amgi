@@ -30,7 +30,7 @@ export const RealtimeProvider = ({ children }) => {
 
     const {
         markCorrectGetNext,
-        markIncorrectGetAttempts,
+        markIncorrectGetNext,
         cardSchedulerRef,
         currentCardIdRef
     } = useReview();
@@ -158,10 +158,7 @@ export const RealtimeProvider = ({ children }) => {
         setTimeout(() => setButtonState('default'), 500);
 
         // Get results from ReviewContext
-        const nextCard = markIncorrectGetAttempts();
-        console.log('handleIncorrectResponse ' + JSON.stringify({
-            nextCard
-        }));
+        const nextCard = markIncorrectGetNext();
         
         if (nextCard) {
             console.log('sendNextCardInfo invoked in handleIncorrectResponse' + JSON.stringify(nextCard));
