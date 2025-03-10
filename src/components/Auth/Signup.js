@@ -72,7 +72,7 @@ export default function Signup() {
           </button>
         </form>
         <div className="auth-links">
-          <a href="/login">Already have an account? Log In</a>
+          <a href="/">Already have an account? Log In</a>
         </div>
       </div>
     </div>

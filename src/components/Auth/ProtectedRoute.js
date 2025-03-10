@@ -18,7 +18,7 @@ export default function ProtectedRoute({ children }) {
 
   // Allow access if user is authenticated OR using direct API mode
   if (!user && !useDirectApi) {
-    return <Navigate to="/login" />;
+    return <Navigate to="/" />;
   }
 
   return children;
