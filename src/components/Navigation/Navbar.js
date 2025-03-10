@@ -1,12 +1,10 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import ApiKeySettings from '../Settings/ApiKeySettings';
 import './Navbar.css';
 import { NAME } from '../../constants/names';
 
 export default function Navbar() {
   const { signOut, user } = useAuth();
-  const [showSettings, setShowSettings] = useState(false);
   const [signOutStatus, setSignOutStatus] = useState('');
   const [signOutError, setSignOutError] = useState('');
 
@@ -46,12 +44,6 @@ export default function Navbar() {
           {signOutStatus && <span className="status-message">{signOutStatus}</span>}
           <button 
             className="navbar-button"
-            onClick={() => setShowSettings(!showSettings)}
-          >
-            Settings
-          </button>
-          <button 
-            className="navbar-button"
             onClick={handleSignOut}
           >
             Sign Out
@@ -73,22 +65,6 @@ export default function Navbar() {
         </div>
       )}
       
-      {showSettings && (
-        <div className="settings-overlay">
-          <div className="settings-modal">
-            <div className="settings-modal-header">
-              <h2>Settings</h2>
-              <button 
-                className="close-button"
-                onClick={() => setShowSettings(false)}
-              >
-                ×
-              </button>
-            </div>
-            <ApiKeySettings />
-          </div>
-        </div>
-      )}
     </>
   );
 } 
