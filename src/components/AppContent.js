@@ -7,11 +7,14 @@ import { RealtimeProvider } from '../contexts/RealtimeContext';
 import Navbar from './Navigation/Navbar';
 import { AudioProvider } from '../contexts/useAudio';
 import { ReviewProvider } from '../contexts/ReviewContext';
+import { useDecks } from '../contexts/DeckContext';
 
 function AppContent() {
   const navigate = useNavigate();
+  const { setCurrentDeckId } = useDecks();
 
   const handleBackToList = () => {
+    setCurrentDeckId(null);
     navigate('/decks');
   };
 
