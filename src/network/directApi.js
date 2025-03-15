@@ -1,4 +1,5 @@
 import OpenAI from 'openai';
+import { REALTIME_MODEL } from '../constants/constants';
 
 let openaiClient = null;
 
@@ -163,7 +164,7 @@ export const getRealtimeToken = async () => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gpt-4o-realtime-preview-2024-12-17",
+        model: REALTIME_MODEL,
         voice: "shimmer",
       }),
     });

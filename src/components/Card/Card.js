@@ -1,5 +1,5 @@
 import React from 'react';
-import { AUDIO_SIDES } from '../../utils/constants';
+import { AUDIO_SIDES } from '../../constants/constants';
 import './Card.css';
 
 const Card = ({ 

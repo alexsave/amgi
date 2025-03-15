@@ -139,7 +139,7 @@ export const loadDecks = async (userId) => {
       loadLearningCards(userId),
       loadDueCards(userId)
     ]);
-    console.log('loadDecks ' + JSON.stringify([newCardsByDeck, learningCardsByDeck, dueCardsByDeck]));
+    //console.log('loadDecks ' + JSON.stringify([newCardsByDeck, learningCardsByDeck, dueCardsByDeck]));
 
     // Combine everything and keep in snake_case
     return decks.reduce((acc, deck) => {

@@ -2,6 +2,7 @@ import OpenAI from 'openai';
 import { ApiInterface } from './ApiInterface';
 import { z } from "zod";
 import { zodResponseFormat } from "openai/helpers/zod";
+import { REALTIME_MODEL } from '../../constants/constants';
 
 const FlashcardSchema = z.object({
   front_text: z.string(),
@@ -194,7 +195,7 @@ If no command is detected, compare the pronunciation with the expected text "${e
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "gpt-4o-realtime-preview-2024-12-17",
+          model: REALTIME_MODEL,
           voice: "shimmer",
         }),
       });

@@ -1,4 +1,4 @@
-import { instructionsByLanguage } from '../../constants/prompts';
+import { INITIAL_PROMPTS } from '../../constants/languages';
 
 export const sessionTools = {
     evaluatePronunciation: {
@@ -48,9 +48,9 @@ export const configureSession = (dataChannel, card, learning_language) => {
     }
     
     // Get language-specific instructions or fall back to default
-    const instructionTemplate = instructionsByLanguage.en;
-    //const instructionTemplate = instructionsByLanguage[learning_language || 'en'];
-    
+    const instructionTemplate = INITIAL_PROMPTS.en;
+    //const instructionTemplate = INITIAL_PROMPTS[learning_language || 'en'];
+
     // Build complete instructions with the proper evaluation criteria
     const instructions = instructionTemplate
         .replace(/{frontText}/g, card.front_text)

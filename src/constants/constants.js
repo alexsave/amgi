@@ -2,19 +2,6 @@
 
 export const MAX_NEW_CARDS_PER_DAY = 25;
 
-export const LANGUAGES = {
-  es: 'Spanish',
-  fr: 'French',
-  de: 'German',
-  it: 'Italian',
-  pt: 'Portuguese',
-  ru: 'Russian',
-  ja: 'Japanese',
-  ko: 'Korean',
-  zh: 'Chinese',
-  en: 'English'
-};
-
 export const ROUTES = {
   DECKS: 'decks',
   DECK_VIEW: 'deck/:id',
@@ -50,3 +37,5 @@ export const INITIAL_CARD_STATE = {
   nextReview: null,
   dueTimestamp: null
 }; 
+
+export const REALTIME_MODEL = "gpt-4o-mini-realtime-preview";
