@@ -7,8 +7,6 @@ import ProtectedRoute from './components/Auth/ProtectedRoute';
 import Welcome from './components/Welcome/Welcome';
 import Signup from './components/Auth/Signup';
 import AppContent from './components/AppContent';
-import Login from './components/Auth/Login';
-import Dashboard from './pages/Dashboard';
 import SubscriptionPage from './pages/SubscriptionPage';
 import './App.css';
 
@@ -22,14 +20,12 @@ function App() {
               <Welcome />
             </div>
           } />
-          <Route path="/login" element={<Login />} />
           <Route path="/signup" element={
             <div className="App">
               <Signup />
             </div>
           } />
           <Route path="/subscription" element={<ProtectedRoute><SubscriptionPage /></ProtectedRoute>} />
-          <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route
             path="/*"
             element={

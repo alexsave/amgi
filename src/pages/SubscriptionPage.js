@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { supabase } from '../supabaseClient';
+import supabase from '../db/supabaseClient';
 import { loadStripe } from '@stripe/stripe-js';
 import { useNavigate, useLocation } from 'react-router-dom';
 import './SubscriptionPage.css';
