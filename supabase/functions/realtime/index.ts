@@ -89,7 +89,8 @@ serve(async (req) => {
                 "Content-Type": "application/json",
             },
             body: JSON.stringify({
-                model: "gpt-4o-realtime-preview-2024-12-17",
+                // This doesn't actually seem to be enforced anywhere when you start a sess
+                model: "gpt-4o-mini-realtime-preview",
                 voice: "shimmer",
             }),
         });

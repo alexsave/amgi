@@ -17,11 +17,11 @@ const getApiInstance = () => {
   if (!apiInstance) {
     if (isDirectApiEnabled()) {
       apiInstance = new DirectApi();
-      const apiKey = localStorage.getItem('OPENAI_KEY');
-      if (!apiKey) {
+      // No need to manually initialize with API key here,
+      // as DirectApi will attempt to load it from localStorage in its constructor
+      if (!apiInstance.isInitialized()) {
         throw new Error('OpenAI API key not found');
       }
-      apiInstance.initialize(apiKey);
     } else if (USE_LOCAL) {
       apiInstance = new LocalApi();
     } else {
@@ -59,4 +59,10 @@ export const evaluateSpeech = async (audio_blob, expected_text, back_lang, expec
 export const getRealtimeToken = async () => {
   const api = getApiInstance();
   return api.getRealtimeToken();
+};
+
+// Export the getStoredApiKey function from DirectApi for convenience
+export const getStoredApiKey = () => {
+  const directApi = new DirectApi();
+  return directApi.getStoredApiKey();
 }; 

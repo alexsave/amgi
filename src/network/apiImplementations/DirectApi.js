@@ -15,6 +15,11 @@ export class DirectApi extends ApiInterface {
   constructor() {
     super();
     this.client = null;
+    // Try to load API key from local storage on initialization
+    const storedKey = this.getStoredApiKey();
+    if (storedKey) {
+      this.initialize(storedKey);
+    }
   }
 
   initialize(apiKey) {
@@ -25,6 +30,8 @@ export class DirectApi extends ApiInterface {
       apiKey,
       dangerouslyAllowBrowser: true
     });
+    // Store API key in localStorage for persistence
+    localStorage.setItem('OPENAI_KEY', apiKey);
   }
 
   isInitialized() {
@@ -33,6 +40,11 @@ export class DirectApi extends ApiInterface {
 
   clear() {
     this.client = null;
+    localStorage.removeItem('OPENAI_KEY');
+  }
+
+  getStoredApiKey() {
+    return localStorage.getItem('OPENAI_KEY');
   }
 
   async generateCard(userInput, knownLanguage, learningLanguage, onProgress) {
@@ -117,7 +129,9 @@ Return the translation pair with language codes in the format specified.`
   }
 
   async evaluateSpeech({ audioBase64, expectedText, sourceLang, expectedAudioBase64 }) {
-    if (!this.client) throw new Error('OpenAI client not initialized');
+    if (!this.isInitialized()) {
+      throw new Error('OpenAI client not initialized. Please provide an API key first.');
+    }
 
     try {
       const response = await this.client.chat.completions.create({
@@ -185,7 +199,9 @@ If no command is detected, compare the pronunciation with the expected text "${e
   }
 
   async getRealtimeToken() {
-    if (!this.client) throw new Error('OpenAI client not initialized');
+    if (!this.isInitialized()) {
+      throw new Error('OpenAI client not initialized. Please provide an API key first.');
+    }
 
     try {
       const response = await fetch("https://api.openai.com/v1/realtime/sessions", {
