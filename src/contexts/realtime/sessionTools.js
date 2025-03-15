@@ -1,14 +1,13 @@
-import { INITIAL_PROMPTS } from '../../constants/languages';
+import { INITIAL_PROMPTS, getLanguageName } from '../../constants/languages';
 
 export const sessionTools = {
     evaluatePronunciation: {
         type: 'function',
         name: 'evaluatePronunciation',
-        description: 'Reports the quality of a pronunciations of a spoken phrase against an expected text. The function handler will return the next card to use, or null if the review is complete.',
+        description: 'Reports the quality of a pronunciation of a spoken phrase against an expected text. The function handler will return the next card to use, or null if the review is complete.',
         parameters: {
             type: 'object',
             properties: {
-                // Consider a numeric rating instead of correct/incorrect
                 result: {
                     type: 'string',
                     enum: ['correct', 'incorrect'],
@@ -41,7 +40,7 @@ export const sessionTools = {
 
 // Map of localized instructions by language
 
-export const configureSession = (dataChannel, card, learning_language) => {
+export const configureSession = (dataChannel, card, learning_language, known_language = 'en') => {
     console.log('configureSession ' + JSON.stringify(card));
     if (!dataChannel || !card) {
         return;
@@ -49,11 +48,17 @@ export const configureSession = (dataChannel, card, learning_language) => {
     
     // Get language-specific instructions or fall back to default
     const instructionTemplate = INITIAL_PROMPTS[learning_language || 'en'];
+    
+    // Get localized names for both languages for better context
+    const learningLanguageName = getLanguageName(learning_language, known_language);
+    const knownLanguageName = getLanguageName(known_language, known_language);
 
     // Build complete instructions with the proper evaluation criteria
     const instructions = instructionTemplate
         .replace(/{frontText}/g, card.front_text)
-        .replace(/{backText}/g, card.back_text);
+        .replace(/{backText}/g, card.back_text)
+        .replace(/{known_language}/g, known_language)
+        .replace(/{learning_language}/g, learning_language);
 
     const message = {
         type: 'session.update',
