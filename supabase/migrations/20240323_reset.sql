@@ -5,6 +5,8 @@ drop table if exists subscription_tiers cascade;
 drop table if exists reviews cascade;
 drop table if exists cards cascade;
 drop table if exists decks cascade;
+drop function if exists public.handle_new_user() cascade;
+drop trigger if exists on_auth_user_created on auth.users;
 
 -- Create or replace storage bucket for card audio files
 delete from storage.objects where bucket_id = 'card-audio';
@@ -230,8 +232,52 @@ create policy "Users can view their own usage"
   on usage_tracking for select
   using (auth.uid() = user_id);
 
--- Insert initial subscription tiers
-insert into subscription_tiers (name, realtime_minutes_limit, voice_evaluations_limit, card_audio_generations_limit, stripe_price_id) values
-  ('Free', 5, 100, 100, 'price_free'),           -- 5 sessions/month, 100 voice evals, 100 audio gens
-  ('Standard', 60, 1000, 1000, 'price_standard_monthly'),  -- 60 sessions/month, 1000 voice evals, 1000 audio gens
-  ('Pro', -1, -1, -1, 'price_pro_monthly');     -- Unlimited everything 
+-- Insert subscription tiers with correct pricing
+INSERT INTO subscription_tiers (name, realtime_minutes_limit, voice_evaluations_limit, card_audio_generations_limit, stripe_price_id) VALUES
+  ('Free', 5, 100, 100, 'price_free'),  -- Free tier doesn't need an actual Stripe ID
+  ('Standard', 60, 1000, 1000, 'prod_Rww0scXWwKG2Cr'), -- Replace with actual Stripe price ID after setup
+  ('Pro', -1, -1, -1, 'prod_Rww0EH4yjRHjWw');    -- Replace with actual Stripe price ID after setup
+
+-- Create a function to automatically create a free subscription for new users
+create function public.handle_new_user()
+returns trigger
+language plpgsql
+security definer set search_path = ''
+as $$
+declare
+  free_tier_id uuid;
+  now_time timestamp;
+  end_time timestamp;
+begin
+  -- Get the ID of the free tier
+  select id into free_tier_id from public.subscription_tiers where name = 'Free';
+  
+  -- Set subscription period (current month to next month)
+  now_time := now();
+  end_time := now_time + interval '1 month';
+  
+  -- Create user_subscription record with free tier
+  insert into public.user_subscriptions (
+    user_id, 
+    tier_id, 
+    current_period_start, 
+    current_period_end, 
+    status
+  )
+  values (
+    new.id, 
+    free_tier_id, 
+    now_time, 
+    end_time, 
+    'active'
+  );
+  
+  -- Return the newly created user
+  return new;
+end;
+$$;
+
+-- Trigger the function every time a user is created
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute procedure public.handle_new_user();

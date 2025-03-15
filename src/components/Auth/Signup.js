@@ -23,7 +23,9 @@ export default function Signup() {
       setError('');
       setLoading(true);
       await signUp(email, password);
-      navigate('/');
+      // The subscription will be created automatically by the database trigger
+      // Redirect to subscription page for tier selection
+      navigate('/subscription?onboarding=true');
     } catch (err) {
       setError('Failed to create an account: ' + err.message);
     } finally {
