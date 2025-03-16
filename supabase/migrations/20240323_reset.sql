@@ -199,17 +199,14 @@ create table usage_tracking (
   realtime_sessions_started int default 0,
   voice_evaluations_used int default 0,
   card_audio_generations_used int default 0,  -- Track TTS usage in card generation
-  period_start timestamp not null,
-  period_end timestamp not null,
   created_at timestamp default now(),
   updated_at timestamp default now(),
-  unique(user_id, period_start)
+  unique(user_id)
 );
 
 -- Add indexes
 create index user_subscriptions_user_id_idx on user_subscriptions(user_id);
 create index usage_tracking_user_id_idx on usage_tracking(user_id);
-create index usage_tracking_period_idx on usage_tracking(period_start, period_end);
 
 -- RLS policies for new tables
 alter table subscription_tiers enable row level security;
@@ -252,7 +249,7 @@ begin
   -- Get the ID of the free tier
   select id into free_tier_id from public.subscription_tiers where name = 'Free';
   
-  -- Set subscription period (current month to next month)
+  -- Set subscription period using timestamps
   now_time := now();
   end_time := now_time + interval '1 month';
   
@@ -270,6 +267,20 @@ begin
     now_time, 
     end_time, 
     'active'
+  );
+  
+  -- Create initial usage_tracking record with zeroed usage
+  insert into public.usage_tracking (
+    user_id,
+    realtime_sessions_started,
+    voice_evaluations_used,
+    card_audio_generations_used
+  )
+  values (
+    new.id,
+    0,
+    0,
+    0
   );
   
   -- Return the newly created user
