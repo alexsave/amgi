@@ -58,7 +58,14 @@ export default function Welcome() {
       await signIn(email, password);
       navigate('/decks', { replace: true });
     } catch (err) {
-      setError('Failed to sign in: ' + err.message);
+      console.error('Sign in error:', err);
+      
+      // Special handling for email verification errors
+      if (err.message && err.message.includes('Email not confirmed')) {
+        setError('Your email has not been verified. Please check your inbox for a verification link.');
+      } else {
+        setError('Failed to sign in: ' + err.message);
+      }
     } finally {
       setLoading(false);
     }

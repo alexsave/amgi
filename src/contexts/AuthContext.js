@@ -16,12 +16,14 @@ export const AuthProvider = ({ children }) => {
 
     // Check active sessions and sets the user
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('Initial session check:', session?.user?.id || 'No session');
       setUser(session?.user ?? null);
       setLoading(false);
     });
 
     // Listen for changes on auth state (sign in, sign out, etc.)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('Auth state changed - Event:', event, 'User ID:', session?.user?.id || 'none');
       setUser(session?.user ?? null);
     });
 
@@ -29,20 +31,44 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const signUp = async (email, password) => {
+    console.log('Sign up initiated for email:', email);
+    
+    // Set up the redirect URL for after email verification
+    const redirectTo = 'https://www.amgi.cards/subscription';
+    
+    // Proceed with signup - Supabase handles duplicate email prevention
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
+      options: {
+        emailRedirectTo: redirectTo
+      }
     });
-    if (error) throw error;
+    
+    if (error) {
+      console.error('Supabase signup error:', error);
+      throw error;
+    }
+    
+    console.log('Sign up successful, user data:', data);
+    console.log('Email verification will redirect to:', redirectTo);
     return data;
   };
 
   const signIn = async (email, password) => {
+    console.log('Sign in initiated for email:', email);
+    
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
-    if (error) throw error;
+    
+    if (error) {
+      console.error('Supabase signin error:', error);
+      throw error;
+    }
+    
+    console.log('Sign in successful, user:', data?.user?.id);
     return data;
   };
 

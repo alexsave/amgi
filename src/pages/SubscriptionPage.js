@@ -21,7 +21,21 @@ export default function SubscriptionPage() {
   const isOnboarding = new URLSearchParams(location.search).get('onboarding') === 'true';
   const [successMessage, setSuccessMessage] = useState('');
   
+  // Check if this is an email verification redirect
   useEffect(() => {
+    // Email verification redirects will have an auth token in the URL
+    if (location.hash.includes('access_token')) {
+      console.log('User arrived from email verification');
+      setSuccessMessage('Email verified successfully! Please select your subscription plan.');
+      
+      // Clear the hash from the URL without reloading the page
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, [location.hash]);
+  
+  useEffect(() => {
+    console.log('SubscriptionPage mounted. User:', user?.id);
+    
     // Check for success or canceled status from Stripe redirect
     const searchParams = new URLSearchParams(location.search);
     if (searchParams.get('success') === 'true') {
@@ -43,8 +57,11 @@ export default function SubscriptionPage() {
   }, [location.search]);
 
   useEffect(() => {
+    console.log('User changed in SubscriptionPage:', user?.id);
     if (user) {
       loadSubscriptionData();
+    } else {
+      console.warn('No user available in SubscriptionPage');
     }
   }, [user]);
 
@@ -52,13 +69,27 @@ export default function SubscriptionPage() {
     try {
       setLoading(true);
       
+      if (!user || !user.id) {
+        console.error('Cannot load subscription data - user is not defined:', user);
+        setError('User authentication issue. Please try logging in again.');
+        setLoading(false);
+        return;
+      }
+      
+      console.log('Loading subscription data for user:', user.id);
+      
       // Load subscription tiers
       const { data: tiersData, error: tiersError } = await supabase
         .from('subscription_tiers')
         .select('*')
         .order('realtime_minutes_limit', { ascending: true });
         
-      if (tiersError) throw tiersError;
+      if (tiersError) {
+        console.error('Error loading tiers:', tiersError);
+        throw tiersError;
+      }
+      
+      console.log('Loaded subscription tiers:', tiersData);
       
       // Update tier prices for display
       const updatedTiers = tiersData.map(tier => ({
@@ -78,11 +109,14 @@ export default function SubscriptionPage() {
         .single();
         
       if (subscriptionError && subscriptionError.code !== 'PGRST116') {
+        console.error('Error loading subscription:', subscriptionError);
         throw subscriptionError;
       }
       
+      console.log('Loaded subscription data:', subscriptionData);
       setSubscription(subscriptionData || null);
     } catch (err) {
+      console.error('Failed to load subscription data:', err);
       setError('Failed to load subscription data: ' + err.message);
     } finally {
       setLoading(false);

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import supabase from '../../db/supabaseClient';
 import './Auth.css';
 
 export default function Signup() {
@@ -9,6 +10,7 @@ export default function Signup() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [verificationSent, setVerificationSent] = useState(false);
   const { signUp } = useAuth();
   const navigate = useNavigate();
 
@@ -22,15 +24,37 @@ export default function Signup() {
     try {
       setError('');
       setLoading(true);
-      await signUp(email, password);
-      // The subscription will be created automatically by the database trigger
-      // Redirect to subscription page for tier selection
-      navigate('/subscription?onboarding=true');
+      console.log('Submitting signup for email:', email);
+      const userData = await signUp(email, password);
+      console.log('Signup completed, user data:', userData);
+      
+      // Show verification message instead of trying to sign in
+      setVerificationSent(true);
     } catch (err) {
+      console.error('Signup error:', err);
       setError('Failed to create an account: ' + err.message);
     } finally {
       setLoading(false);
     }
+  }
+
+  // If verification email has been sent, show the verification message
+  if (verificationSent) {
+    return (
+      <div className="auth-container">
+        <div className="auth-card">
+          <h2>Verify Your Email</h2>
+          <div className="auth-success">
+            <p>We've sent a verification email to <strong>{email}</strong></p>
+            <p>Please check your inbox and click the verification link to complete your signup.</p>
+            <p>After verifying your email, you can sign in to access your account.</p>
+            <button onClick={() => navigate('/', { replace: true })}>
+              Return to Sign In
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
