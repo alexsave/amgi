@@ -186,7 +186,7 @@ serve(async (req) => {
       // For paid tiers, create a payment link
       log(`[${requestId}] Processing paid tier subscription: ${tierName}`);
       
-      // Get user email to pre-fill
+      // Get user email and Stripe customer ID
       log(`[${requestId}] Fetching user data for: ${userId}`);
       const { data: userData, error: userError } = await supabaseClient
         .auth.admin.getUserById(userId);
@@ -198,8 +198,58 @@ serve(async (req) => {
       
       log(`[${requestId}] Found user data`, { email: userData.user.email });
       
-      // Create a payment link with the subscription
-      log(`[${requestId}] Creating Stripe payment link for price: ${priceId}`);
+      // Look up the user's Stripe customer ID
+      log(`[${requestId}] Looking up Stripe customer ID for user: ${userId}`);
+      const { data: subscriptionData, error: subscriptionError } = await supabaseClient
+        .from('user_subscriptions')
+        .select('stripe_customer_id')
+        .eq('user_id', userId)
+        .single();
+      
+      if (subscriptionError) {
+        log(`[${requestId}] Error fetching subscription data: ${subscriptionError.message}`, subscriptionError);
+        throw subscriptionError;
+      }
+      
+      let stripeCustomerId = subscriptionData?.stripe_customer_id;
+      
+      // If no Stripe customer ID exists, create one
+      if (!stripeCustomerId) {
+        log(`[${requestId}] No Stripe customer ID found, creating one`);
+        
+        try {
+          // Create customer in Stripe
+          const customer = await stripe.customers.create({
+            email: userData.user.email,
+            metadata: {
+              user_id: userId
+            }
+          });
+          
+          stripeCustomerId = customer.id;
+          log(`[${requestId}] Stripe customer created: ${stripeCustomerId}`);
+          
+          // Update the subscription record with the customer ID
+          const { error: updateError } = await supabaseClient
+            .from('user_subscriptions')
+            .update({ stripe_customer_id: stripeCustomerId })
+            .eq('user_id', userId);
+            
+          if (updateError) {
+            log(`[${requestId}] Error updating user_subscriptions with Stripe customer ID: ${updateError.message}`, updateError);
+            // Continue anyway, don't throw
+          } else {
+            log(`[${requestId}] Updated user_subscriptions with Stripe customer ID`);
+          }
+        } catch (err) {
+          log(`[${requestId}] Error creating Stripe customer: ${err.message}`, err);
+          // Continue without a customer ID, will create one during checkout
+        }
+      } else {
+        log(`[${requestId}] Found existing Stripe customer ID: ${stripeCustomerId}`);
+      }
+      
+      // Create payment link parameters
       const createPaymentLinkParams = {
         line_items: [
           {
@@ -207,21 +257,19 @@ serve(async (req) => {
             quantity: 1,
           },
         ],
-        ///mode: 'subscription',
         after_completion: {
           type: 'redirect',
           redirect: {
             url: `${appUrl}/subscription?success=true`,
           },
-        },
-        //customer_creation: 'always',
-        //automatic_tax: { enabled: true },
-        metadata: {
-          user_id: userId,
-          tier_id: tierData.id,
-          ////customer_email: userData.user.email
         }
       };
+      
+      // If we have a customer ID, use it
+      if (stripeCustomerId) {
+        createPaymentLinkParams.customer = stripeCustomerId;
+      }
+      
       log(`[${requestId}] Payment link parameters:`, createPaymentLinkParams);
       
       try {
