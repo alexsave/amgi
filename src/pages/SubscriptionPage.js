@@ -1,12 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import supabase from '../db/supabaseClient';
-import { loadStripe } from '@stripe/stripe-js';
 import { useNavigate, useLocation } from 'react-router-dom';
 import './SubscriptionPage.css';
-
-// Initialize Stripe
-const stripePromise = loadStripe(process.env.REACT_APP_STRIPE_PUBLIC_KEY);
 
 export default function SubscriptionPage() {
   const { user } = useAuth();
@@ -133,11 +129,10 @@ export default function SubscriptionPage() {
         return;
       }
       
-      // Call server function to create checkout session
-      const { data, error } = await supabase.functions.invoke('create-checkout-session', {
+      // Call server function to create payment link
+      const { data, error } = await supabase.functions.invoke('payment-links', {
         body: {
           priceId,
-          customerId: subscription?.stripe_customer_id,
           userId: user.id,
           tierName
         }
@@ -145,19 +140,18 @@ export default function SubscriptionPage() {
       
       if (error) throw error;
       
-      // Handle free tier - might return redirectUrl instead of sessionId
+      // For free tier, might return redirectUrl instead of url
       if (data.redirectUrl) {
-        navigate('/');
+        navigate(new URL(data.redirectUrl).pathname + new URL(data.redirectUrl).search);
         return;
       }
       
-      // Redirect to Stripe checkout
-      const stripe = await stripePromise;
-      const { error: stripeError } = await stripe.redirectToCheckout({
-        sessionId: data.sessionId
-      });
-      
-      if (stripeError) throw stripeError;
+      // For paid tiers, redirect to the payment link
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        throw new Error('No payment link URL returned');
+      }
       
     } catch (err) {
       setError('Failed to process subscription: ' + err.message);

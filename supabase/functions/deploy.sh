@@ -10,4 +10,7 @@ supabase functions deploy cards --project-ref ydzjzarpeogazkxtoxtw
 echo "Deploying realtime function..."
 supabase functions deploy realtime --project-ref ydzjzarpeogazkxtoxtw
 
+echo "Deploying payment-links function..."
+supabase functions deploy payment-links --project-ref ydzjzarpeogazkxtoxtw
+
 echo "All functions deployed!" 

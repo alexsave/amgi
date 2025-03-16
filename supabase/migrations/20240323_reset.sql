@@ -232,8 +232,10 @@ create policy "Users can view their own usage"
 -- Insert subscription tiers with correct pricing
 INSERT INTO subscription_tiers (name, realtime_minutes_limit, voice_evaluations_limit, card_audio_generations_limit, stripe_price_id) VALUES
   ('Free', 5, 100, 100, 'price_free'),  -- Free tier doesn't need an actual Stripe ID
-  ('Standard', 60, 1000, 1000, 'prod_Rww0scXWwKG2Cr'), -- Replace with actual Stripe price ID after setup
-  ('Pro', -1, -1, -1, 'prod_Rww0EH4yjRHjWw');    -- Replace with actual Stripe price ID after setup
+  ('Standard', 60, 1000, 1000, 'price_1R38iGDkEAsn6R9yOrSesptN'), -- Replace with actual Stripe price ID after setup
+  ('Pro', -1, -1, -1, 'price_1R38iGDkEAsn6R9yLhLsWk2x'),    -- Replace with actual Stripe price ID after setup
+  ('Standard test', 5, 100, 100, 'price_1R38OhDkEAsn6R9y1QKRQkhu'),
+  ('Pro test', -1, -1, -1, 'price_1R38gcDkEAsn6R9yXj64T8MH');
 
 -- Create a function to automatically create a free subscription for new users
 create function public.handle_new_user()

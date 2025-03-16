@@ -29,7 +29,7 @@ serve(async (req) => {
     
     // Construct the event
     const webhookSecret = Deno.env.get('STRIPE_WEBHOOK_SECRET');
-    const event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
+    const event = await stripe.webhooks.constructEventAsync(body, signature, webhookSecret);
     
     // Handle specific events
     switch (event.type) {
