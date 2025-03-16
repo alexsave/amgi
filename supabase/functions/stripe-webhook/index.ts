@@ -200,7 +200,7 @@ async function handleCheckoutSessionCompleted(session, requestId) {
     log(`[${requestId}] Subscription has price ID: ${priceId}`);
     
     // Process the subscription with the extracted customer ID and price ID
-    await processSubscription(stripeCustomerId, priceId, subscription, requestId);
+    await processSubscription(stripeCustomerId, priceId, subscription, requestId, session.client_reference_id);
   } catch (error) {
     log(`[${requestId}] Error processing checkout session: ${error.message}`, {
       error: error,
@@ -232,7 +232,8 @@ async function handleSubscriptionUpdated(subscription, requestId) {
     log(`[${requestId}] Subscription details - Customer: ${stripeCustomerId}, Price: ${priceId}`);
     
     // Process the subscription with the extracted customer ID and price ID
-    await processSubscription(stripeCustomerId, priceId, subscription, requestId);
+    // For subscription updates, we don't have a client_reference_id, pass null
+    await processSubscription(stripeCustomerId, priceId, subscription, requestId, null);
   } catch (error) {
     log(`[${requestId}] Error updating subscription: ${error.message}`, {
       stack: error.stack,
@@ -341,10 +342,24 @@ async function handleInvoicePaymentSucceeded(invoice, requestId) {
       
       log(`[${requestId}] Found subscription: ${userSubscription.id}`);
       
-      // Update subscription status
+      // Get subscription period from invoice line items
+      const subscriptionLine = invoice.lines?.data?.find(line => line.type === 'subscription');
+      const updateData: {
+        status: string;
+        current_period_start?: string;
+        current_period_end?: string;
+      } = { status: 'active' };
+      
+      if (subscriptionLine?.period) {
+        log(`[${requestId}] Found period info in invoice line`, subscriptionLine.period);
+        updateData.current_period_start = new Date(subscriptionLine.period.start * 1000).toISOString();
+        updateData.current_period_end = new Date(subscriptionLine.period.end * 1000).toISOString();
+      }
+      
+      // Update subscription status and period
       const { error } = await supabaseClient
         .from('user_subscriptions')
-        .update({ status: 'active' })
+        .update(updateData)
         .eq('id', userSubscription.id);
         
       if (error) {
@@ -352,7 +367,7 @@ async function handleInvoicePaymentSucceeded(invoice, requestId) {
         throw error;
       }
       
-      log(`[${requestId}] Subscription status updated to active`);
+      log(`[${requestId}] Subscription status and period updated successfully`);
     } catch (error) {
       log(`[${requestId}] Error updating subscription after payment: ${error.message}`, {
         stack: error.stack,
@@ -419,7 +434,7 @@ async function handleInvoicePaymentFailed(invoice, requestId) {
 }
 
 // Shared function to process subscriptions
-async function processSubscription(stripeCustomerId, priceId, subscription, requestId) {
+async function processSubscription(stripeCustomerId, priceId, subscription, requestId, client_reference_id) {
   // Find tier by price ID
   log(`[${requestId}] Looking up tier by price ID: ${priceId}`);
   const { data: tierData, error: tierError } = await supabaseClient
@@ -438,7 +453,7 @@ async function processSubscription(stripeCustomerId, priceId, subscription, requ
   
   // Find user subscription by Stripe customer ID
   log(`[${requestId}] Looking for user by Stripe customer ID: ${stripeCustomerId}`);
-  const { data: userSubscription, error: findError } = await supabaseClient
+  let { data: userSubscription, error: findError } = await supabaseClient
     .from('user_subscriptions')
     .select('*')
     .eq('stripe_customer_id', stripeCustomerId)
@@ -446,7 +461,39 @@ async function processSubscription(stripeCustomerId, priceId, subscription, requ
     
   if (findError) {
     log(`[${requestId}] Error finding user by customer ID: ${findError.message}`, findError);
-    return;
+    
+    // If we can't find by customer ID, try to find by client_reference_id if available
+    if (client_reference_id) {
+      log(`[${requestId}] Trying to find by client_reference_id: ${client_reference_id}`);
+      const { data: subByUserId, error: userIdFindError } = await supabaseClient
+        .from('user_subscriptions')
+        .select('*')
+        .eq('user_id', client_reference_id)
+        .single();
+        
+      if (userIdFindError) {
+        log(`[${requestId}] Error finding user by client_reference_id: ${userIdFindError.message}`, userIdFindError);
+        return;
+      }
+      
+      userSubscription = subByUserId;
+      log(`[${requestId}] Found user subscription by client_reference_id: ${userSubscription.id}`);
+      
+      // Update the stripe_customer_id for future lookups
+      if (stripeCustomerId) {
+        log(`[${requestId}] Updating user subscription with Stripe customer ID: ${stripeCustomerId}`);
+        const { error: updateCustomerIdError } = await supabaseClient
+          .from('user_subscriptions')
+          .update({ stripe_customer_id: stripeCustomerId })
+          .eq('id', userSubscription.id);
+          
+        if (updateCustomerIdError) {
+          log(`[${requestId}] Error updating Stripe customer ID: ${updateCustomerIdError.message}`, updateCustomerIdError);
+        }
+      }
+    } else {
+      return;
+    }
   }
   
   // Update the subscription record

@@ -93,7 +93,7 @@ export default function Signup() {
               autoComplete="new-password"
             />
           </div>
-          <button type="submit" disabled={loading}>
+          <button className="submit-button" type="submit" disabled={loading}>
             {loading ? 'Creating Account...' : 'Sign Up'}
           </button>
         </form>
