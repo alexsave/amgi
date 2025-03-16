@@ -249,39 +249,39 @@ serve(async (req) => {
         log(`[${requestId}] Found existing Stripe customer ID: ${stripeCustomerId}`);
       }
       
-      // Create payment link parameters
-      const createPaymentLinkParams = {
+      // Create a Checkout Session instead of a Payment Link
+      log(`[${requestId}] Creating Stripe Checkout Session for price: ${priceId}`);
+      const checkoutParams: any = {
+        mode: 'subscription',
         line_items: [
           {
             price: priceId,
             quantity: 1,
           },
         ],
-        after_completion: {
-          type: 'redirect',
-          redirect: {
-            url: `${appUrl}/subscription?success=true`,
-          },
-        }
+        success_url: `${appUrl}/subscription?success=true`,
+        cancel_url: `${appUrl}/subscription?canceled=true`,
+        client_reference_id: userId // This is important for identifying the user in webhooks
       };
       
       // If we have a customer ID, use it
       if (stripeCustomerId) {
-        createPaymentLinkParams.customer = stripeCustomerId;
+        checkoutParams.customer = stripeCustomerId;
+        // Don't send customer_email when customer ID is provided
       }
       
-      log(`[${requestId}] Payment link parameters:`, createPaymentLinkParams);
+      log(`[${requestId}] Checkout Session parameters:`, checkoutParams);
       
       try {
-        const paymentLink = await stripe.paymentLinks.create(createPaymentLinkParams);
-        log(`[${requestId}] Payment link created successfully`, { 
-          url: paymentLink.url,
-          id: paymentLink.id 
+        const session = await stripe.checkout.sessions.create(checkoutParams);
+        log(`[${requestId}] Checkout Session created successfully`, { 
+          url: session.url,
+          id: session.id 
         });
         
-        // Return the URL of the payment link
+        // Return the URL of the checkout session
         return new Response(
-          JSON.stringify({ url: paymentLink.url }),
+          JSON.stringify({ url: session.url }),
           { 
             status: 200,
             headers: { 
@@ -291,7 +291,7 @@ serve(async (req) => {
           }
         );
       } catch (stripeError) {
-        log(`[${requestId}] Stripe error creating payment link: ${stripeError.message}`, {
+        log(`[${requestId}] Stripe error creating checkout session: ${stripeError.message}`, {
           type: stripeError.type,
           code: stripeError.code,
           param: stripeError.param,
