@@ -2,13 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import supabase from '../db/supabaseClient';
 import { useNavigate, useLocation } from 'react-router-dom';
+import Navbar from '../components/Navigation/Navbar';
 import './SubscriptionPage.css';
 
 export default function SubscriptionPage() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [subscription, setSubscription] = useState(null);
-  const [tiers, setTiers] = useState([]);
   const [error, setError] = useState('');
   const navigate = useNavigate();
   const location = useLocation();
@@ -74,30 +74,7 @@ export default function SubscriptionPage() {
       
       console.log('Loading subscription data for user:', user.id);
       
-      // Load subscription tiers
-      const { data: tiersData, error: tiersError } = await supabase
-        .from('subscription_tiers')
-        .select('*')
-        .order('realtime_sessions_limit', { ascending: true });
-        
-      if (tiersError) {
-        console.error('Error loading tiers:', tiersError);
-        throw tiersError;
-      }
-      
-      console.log('Loaded subscription tiers:', tiersData);
-      
-      // Update tier prices for display
-      const updatedTiers = tiersData.map(tier => ({
-        ...tier,
-        displayPrice: tier.name === 'Free' ? 'Free' : 
-                     tier.name === 'Standard' ? '$30/month' : 
-                     tier.name === 'Pro' ? '$100/month' : ''
-      }));
-      
-      setTiers(updatedTiers);
-      
-      // Load user's current subscription
+      // Load user's current subscription only (tiers are hardcoded)
       const { data: subscriptionData, error: subscriptionError } = await supabase
         .from('user_subscriptions')
         .select('*, subscription_tiers(*)')
@@ -124,7 +101,7 @@ export default function SubscriptionPage() {
       setLoading(true);
       
       // For free tier during onboarding, just redirect to dashboard
-      if (tierName === 'Free' && isOnboarding && subscription?.tier_id === tiers[0]?.id) {
+      if (tierName === 'Free' && isOnboarding && subscription?.subscription_tiers?.name === 'Free') {
         navigate('/');
         return;
       }
@@ -163,96 +140,142 @@ export default function SubscriptionPage() {
     navigate('/');
   }
 
-  if (loading) return <div className="subscription-container">Loading...</div>;
+  if (loading) return (
+    <div className="App">
+      <Navbar />
+      <div className="subscription-container">
+        <div className="loading-spinner">Loading...</div>
+      </div>
+    </div>
+  );
+
+  // Hardcoded subscription tiers with improved descriptions
+  const hardcodedTiers = [
+    {
+      id: 'free',
+      name: 'Free',
+      displayPrice: 'Free',
+      priceId: 'price_free',
+      features: [
+        '5 live practice sessions per month',
+        '100 pronunciation evaluations per month',
+        '100 audio generations for cards per month',
+        'Unlimited flashcards'
+      ],
+      popular: false
+    },
+    {
+      id: 'standard',
+      name: 'Standard',
+      displayPrice: '$30/month',
+      priceId: 'price_1R38iGDkEAsn6R9yOrSesptN',
+      features: [
+        '60 live practice sessions per month',
+        '1,000 pronunciation evaluations per month',
+        '1,000 audio generations for cards per month',
+        'Priority support',
+        'Unlimited flashcards'
+      ],
+      popular: true
+    },
+    {
+      id: 'pro',
+      name: 'Pro',
+      displayPrice: '$100/month',
+      priceId: 'price_1R38iGDkEAsn6R9yLhLsWk2x',
+      features: [
+        'Unlimited live practice sessions',
+        'Unlimited pronunciation evaluations',
+        'Unlimited audio generations for cards',
+        'Premium support',
+        'Early access to new features'
+      ],
+      popular: false
+    }
+  ];
+
+  // Determine current tier
+  const currentTierName = subscription?.subscription_tiers?.name || 'Free';
 
   return (
-    <div className="subscription-container">
-      {isOnboarding ? (
-        <div className="onboarding-header">
-          <h1>Choose Your Subscription Plan</h1>
-          <p>Select a plan that fits your language learning needs. You can change your plan at any time.</p>
-        </div>
-      ) : (
-        <h1>Subscription Plans</h1>
-      )}
-      
-      {successMessage && <div className="subscription-success">{successMessage}</div>}
-      {error && <div className="subscription-error">{error}</div>}
-      
-      <div className="subscription-tiers">
-        {tiers.map(tier => (
-          <div key={tier.id} className={`subscription-tier ${subscription?.tier_id === tier.id ? 'current-tier' : ''}`}>
-            <h2>{tier.name}</h2>
-            <p className="tier-price">{tier.displayPrice}</p>
-            
-            <div className="tier-features">
-              <p>
-                {tier.realtime_sessions_limit === -1 ? 
-                  'Unlimited live practice sessions' : 
-                  `${tier.realtime_sessions_limit} live practice sessions per month`}
-              </p>
-              <p>
-                {tier.voice_evaluations_limit === -1 ?
-                  'Unlimited pronunciation evaluations' :
-                  `${tier.voice_evaluations_limit} pronunciation evaluations per month`}
-              </p>
-              <p>
-                {tier.card_audio_generations_limit === -1 ?
-                  'Unlimited audio generation for cards' :
-                  `${tier.card_audio_generations_limit} audio generations per month`}
-              </p>
-            </div>
-            
-            {isOnboarding ? (
-              <button 
-                onClick={() => tier.name === 'Free' ? handleContinueWithFree() : handleSubscribe(tier.stripe_price_id, tier.name)}
-                disabled={loading}
-                className="subscribe-button"
-              >
-                {tier.name === 'Free' ? 'Continue with Free Plan' : `Select ${tier.name} Plan`}
-              </button>
-            ) : (
-              subscription?.tier_id !== tier.id ? (
+    <div className="App">
+      <Navbar />
+      <div className="subscription-container">
+        {isOnboarding ? (
+          <div className="onboarding-header">
+            <h1>Choose Your Subscription Plan</h1>
+            <p>Select a plan that fits your language learning needs. You can change your plan at any time.</p>
+          </div>
+        ) : (
+          <div className="subscription-header">
+            <h1>Subscription Plans</h1>
+            <p>Upgrade your plan to unlock more language learning features</p>
+          </div>
+        )}
+        
+        {successMessage && <div className="subscription-success">{successMessage}</div>}
+        {error && <div className="subscription-error">{error}</div>}
+        
+        <div className="subscription-tiers">
+          {hardcodedTiers.map(tier => (
+            <div 
+              key={tier.id} 
+              className={`subscription-tier ${currentTierName === tier.name ? 'current-tier' : ''} ${tier.popular ? 'popular-tier' : ''}`}
+            >
+              {tier.popular && <div className="popular-badge">Most Popular</div>}
+              <h2>{tier.name}</h2>
+              <p className="tier-price">{tier.displayPrice}</p>
+              
+              <div className="tier-features">
+                {tier.features.map((feature, index) => (
+                  <div key={index} className="feature-item">
+                    <span className="feature-checkmark">✓</span> {feature}
+                  </div>
+                ))}
+              </div>
+              
+              {isOnboarding ? (
                 <button 
-                  onClick={() => handleSubscribe(tier.stripe_price_id, tier.name)}
+                  onClick={() => tier.name === 'Free' ? handleContinueWithFree() : handleSubscribe(tier.priceId, tier.name)}
                   disabled={loading}
-                  className="subscribe-button"
+                  className={`subscribe-button ${tier.popular ? 'popular-button' : ''}`}
                 >
-                  {tier.name === 'Free' ? 'Downgrade to Free' : `Upgrade to ${tier.name}`}
+                  {tier.name === 'Free' ? 'Continue with Free Plan' : `Select ${tier.name} Plan`}
                 </button>
               ) : (
-                tier.name === 'Free' ? (
+                currentTierName !== tier.name ? (
                   <button 
-                    onClick={handleContinueWithFree}
-                    className="subscribe-button"
+                    onClick={() => handleSubscribe(tier.priceId, tier.name)}
+                    disabled={loading}
+                    className={`subscribe-button ${tier.popular ? 'popular-button' : ''}`}
                   >
-                    Continue to Decks
+                    {tier.name === 'Free' ? 'Downgrade to Free' : `Upgrade to ${tier.name}`}
                   </button>
                 ) : (
-                  <div className="current-plan-label">Current Plan</div>
+                  tier.name === 'Free' ? (
+                    <button 
+                      onClick={handleContinueWithFree}
+                      className="subscribe-button"
+                    >
+                      Continue to Decks
+                    </button>
+                  ) : (
+                    <div className="current-plan-label">Your Current Plan</div>
+                  )
                 )
-              )
-            )}
+              )}
+            </div>
+          ))}
+        </div>
+        
+        {isOnboarding && (
+          <div className="onboarding-actions">
+            <button onClick={handleContinueWithFree} className="skip-button">
+              Skip for now
+            </button>
           </div>
-        ))}
+        )}
       </div>
-      
-      {!isOnboarding && subscription && subscription.status !== 'canceled' && subscription.tier_id !== tiers[0]?.id && (
-        <div className="cancel-subscription">
-          <button onClick={() => handleSubscribe(tiers[0].stripe_price_id, 'Free')} className="cancel-button">
-            Cancel Subscription
-          </button>
-          <p>Your subscription will continue until the end of your billing period.</p>
-        </div>
-      )}
-      
-      {isOnboarding && (
-        <div className="onboarding-actions">
-          <button onClick={handleContinueWithFree} className="skip-button">
-            Skip for now
-          </button>
-        </div>
-      )}
     </div>
   );
 } 
