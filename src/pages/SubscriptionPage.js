@@ -221,7 +221,16 @@ export default function SubscriptionPage() {
                   {tier.name === 'Free' ? 'Downgrade to Free' : `Upgrade to ${tier.name}`}
                 </button>
               ) : (
-                <div className="current-plan-label">Current Plan</div>
+                tier.name === 'Free' ? (
+                  <button 
+                    onClick={handleContinueWithFree}
+                    className="subscribe-button"
+                  >
+                    Continue to Decks
+                  </button>
+                ) : (
+                  <div className="current-plan-label">Current Plan</div>
+                )
               )
             )}
           </div>
