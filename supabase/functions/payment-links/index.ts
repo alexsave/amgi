@@ -4,6 +4,7 @@ import { serve } from "std/http/server"
 import { createClient } from "npm:@supabase/supabase-js@2.39.0"
 import Stripe from "npm:stripe@14.18.0"
 import { corsHeaders, handleCors } from "../_shared/cors.ts";
+import { getAuthenticatedUser } from "../_shared/auth.ts";
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') || '', {
   apiVersion: '2023-10-16',
@@ -36,6 +37,11 @@ serve(async (req) => {
   if (corsResponse) return corsResponse;
 
   try {
+    // Authenticate the user
+    log(`[${requestId}] Authenticating request`);
+    const authenticatedUser = await getAuthenticatedUser(req);
+    log(`[${requestId}] Authentication successful for user: ${authenticatedUser.id}`);
+    
     log(`[${requestId}] Parsing request body`);
     const requestBody = await req.text();
     log(`[${requestId}] Request body: ${requestBody}`);
@@ -43,11 +49,24 @@ serve(async (req) => {
     const { priceId, userId, tierName } = JSON.parse(requestBody);
     log(`[${requestId}] Parsed parameters`, { priceId, userId, tierName });
 
+    // Validate that the authenticated user matches the requested userId
     if (!userId || !priceId) {
       log(`[${requestId}] Missing required parameters`, { userId, priceId });
       return new Response(
         JSON.stringify({ error: 'Missing required parameters' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    // Ensure the authenticated user can only create/modify their own subscription
+    if (userId !== authenticatedUser.id) {
+      log(`[${requestId}] User ID mismatch`, { 
+        requestedId: userId, 
+        authenticatedId: authenticatedUser.id 
+      });
+      return new Response(
+        JSON.stringify({ error: 'You can only manage your own subscription' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 

@@ -5,7 +5,7 @@ import { zodResponseFormat } from "openai/helpers/zod";
 import { z } from "zod";
 import { corsHeaders, handleCors } from "../_shared/cors.ts";
 import { getAuthenticatedUser } from "../_shared/auth.ts";
-import { getSubscription, getOrCreateUsage, updateUsage, checkUsageLimits } from "../_shared/billing.ts";
+import { checkAndIncrementUsage } from "../_shared/billing.ts";
 import { createOpenAIClient } from "../_shared/openai.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.39.0"
 
@@ -41,10 +41,6 @@ serve(async (req) => {
 
         // Authenticate user
         const user = await getAuthenticatedUser(req);
-
-        // Get subscription and usage data
-        const subscription = await getSubscription(user.id);
-        const usage = await getOrCreateUsage(user.id, subscription);
 
         const requestBody = await req.json();
         const { 
@@ -363,10 +359,24 @@ Return the improved flashcard text for both sides.`
 
         // Check and update audio generation usage
         if (audioGenerationsUsed > 0) {
-            checkUsageLimits(usage, subscription, 'card_audio_generations_used');
-            await updateUsage(usage.id, {
-                card_audio_generations_used: usage.card_audio_generations_used + audioGenerationsUsed
-            });
+            const { allowed, usage, subscription } = await checkAndIncrementUsage(
+                user.id,
+                'card_audio_generations_used',
+                audioGenerationsUsed
+            );
+
+            if (!allowed) {
+                console.error('User has reached their audio generation limit');
+                return new Response(
+                    JSON.stringify({
+                        error: 'You have reached your audio generation limit for this billing period'
+                    }),
+                    {
+                        status: 403,
+                        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+                    }
+                );
+            }
         }
 
         // Return all data at once

@@ -3,13 +3,10 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts"
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "npm:@supabase/supabase-js@2.39.0"
 import OpenAI from "npm:openai@4.28.0"
-import { getOrCreateUsage } from "../_shared/billing.ts";
-
-
-export const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { checkAndIncrementUsage } from "../_shared/billing.ts";
+import { getAuthenticatedUser } from "../_shared/auth.ts";
+import { createOpenAIClient } from "../_shared/openai.ts";
+import { corsHeaders, handleCors } from "../_shared/cors.ts";
 
 const evaluationTools = [{
   "type": "function",
@@ -41,95 +38,24 @@ serve(async (req) => {
     headers: Object.fromEntries(req.headers.entries())
   });
 
-  if (req.method === 'OPTIONS') {
-    console.log('Handling CORS preflight request');
-    return new Response('ok', { headers: corsHeaders });
-  }
+  // Handle CORS preflight requests
+  const corsResponse = handleCors(req);
+  if (corsResponse) return corsResponse;
 
   try {
-    const authHeader = req.headers.get('Authorization');
-    console.log('Authorization header present:', !!authHeader);
-    if (!authHeader) {
-      throw new Error('No authorization header');
-    }
+    // Authenticate the user
+    console.log('Authenticating user');
+    const user = await getAuthenticatedUser(req);
+    console.log('Authentication successful for user:', user.id);
 
-    const token = authHeader.replace('Bearer ', '');
-    console.log('Token extracted, first 10 chars:', token.substring(0, 10) + '...');
-
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') || '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
-    );
-
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-    console.log('Auth result:', { userId: user?.id, error: userError?.message });
-
-    if (userError || !user) {
-      throw new Error('Invalid token');
-    }
-
-    const enableBilling = Deno.env.get('ENABLE_BILLING') === 'true';
-    console.log('Billing enabled:', enableBilling);
-
-    // Get user's subscription if billing is enabled
-    let subscription = null;
-    if (enableBilling) {
-      console.log('Fetching subscription for user:', user.id);
-      const { data: sub, error: subError } = await supabase
-        .from('user_subscriptions')
-        .select('*, subscription_tiers(*)')
-        .eq('user_id', user.id)
-        .single();
-
-      console.log('Subscription query result:', {
-        subscription: sub ? {
-          id: sub.id,
-          tier: sub.subscription_tiers?.name,
-          limit: sub.subscription_tiers?.voice_evaluations_limit
-        } : null,
-        error: subError?.message,
-        details: subError?.details
-      });
-
-      if (subError) {
-        throw subError;
-      }
-      subscription = sub;
-    }
-
-    // Get or create usage tracking record
-    const usage = await getOrCreateUsage(user.id, subscription);
-    console.log('Usage tracking record:', {
-      id: usage.id,
-      evaluationsUsed: usage.voice_evaluations_used,
-      periodStart: usage.period_start,
-      periodEnd: usage.period_end
-    });
-
-    // Only check limits if billing is enabled
-    if (enableBilling && subscription) {
-      const limit = subscription.subscription_tiers.voice_evaluations_limit;
-      const used = usage.voice_evaluations_used;
-      console.log('Usage check:', { limit, used });
-
-      if (limit !== -1 && used >= limit) {
-        throw new Error('Voice evaluation limit exceeded for your subscription tier');
-      }
-    }
-
+    // Parse the request data first to validate it
     const { audio_base64, expected_text, back_lang, expected_audio_base64, front_lang } = await req.json();
     console.log('Request validation:', {
       hasAudioBase64: !!audio_base64,
-      audioBase64Length: audio_base64?.length,
-      audioBase64Prefix: audio_base64?.substring(0, 50),
       expectedTextPresent: !!expected_text,
       backLangPresent: !!back_lang,
-      backLang: back_lang,
       frontLangPresent: !!front_lang,
-      frontLang: front_lang,
-      hasExpectedAudio: !!expected_audio_base64,
-      expectedAudioLength: expected_audio_base64?.length,
-      expectedAudioPrefix: expected_audio_base64?.substring(0, 50)
+      hasExpectedAudio: !!expected_audio_base64
     });
 
     if (!audio_base64 || !expected_text || !back_lang) {
@@ -140,24 +66,30 @@ serve(async (req) => {
       throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
     }
 
-    // Validate base64 format
-    const isValidBase64 = (str) => {
-      try {
-        return btoa(atob(str)) === str;
-      } catch (err) {
-        return false;
-      }
-    };
+    // Check if the user can use voice evaluations and increment usage
+    const { allowed, usage, subscription } = await checkAndIncrementUsage(
+      user.id,
+      'voice_evaluations_used'
+    );
 
-    console.log('Base64 validation:', {
-      isValidUserAudio: isValidBase64(audio_base64),
-      isValidExpectedAudio: isValidBase64(expected_audio_base64)
-    });
+    if (!allowed) {
+      console.error('User has reached their voice evaluation limit');
+      return new Response(
+        JSON.stringify({
+          error: 'You have reached your voice evaluation limit for this billing period'
+        }),
+        {
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
 
+    console.log('Usage check passed, proceeding with voice evaluation');
+
+    // Get OpenAI client
     console.log('Initializing OpenAI client');
-    const openai = new OpenAI({
-      apiKey: Deno.env.get("OPENAI_KEY"),
-    });
+    const openai = createOpenAIClient();
 
     console.log('Starting OpenAI chat completion request with params:', {
       model: "gpt-4o-audio-preview",
@@ -211,24 +143,7 @@ If no command is detected, compare the pronunciation with the expected text "${e
       messageLength: evaluation.message?.length
     });
 
-    // Always update usage tracking, even if billing is disabled
-    console.log('Updating usage tracking:', {
-      usageId: usage.id,
-      currentCount: usage.voice_evaluations_used,
-      newCount: usage.voice_evaluations_used + 1
-    });
-    const { error: updateError } = await supabase
-      .from('usage_tracking')
-      .update({
-        voice_evaluations_used: usage.voice_evaluations_used + 1
-      })
-      .eq('id', usage.id);
-
-    if (updateError) {
-      console.error('Failed to update usage:', updateError);
-      throw updateError;
-    }
-
+    // At the end of processing, return the result
     console.log('Successfully processed evaluation');
     return new Response(
       JSON.stringify({

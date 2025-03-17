@@ -171,7 +171,7 @@ create policy "Users can delete their own reviews"
 create table subscription_tiers (
   id uuid default uuid_generate_v4() primary key,
   name text not null,
-  realtime_minutes_limit int not null,
+  realtime_sessions_limit int not null,
   voice_evaluations_limit int not null,
   card_audio_generations_limit int not null,
   stripe_price_id text not null,
@@ -230,7 +230,7 @@ create policy "Users can view their own usage"
   using (auth.uid() = user_id);
 
 -- Insert subscription tiers with correct pricing
-INSERT INTO subscription_tiers (name, realtime_minutes_limit, voice_evaluations_limit, card_audio_generations_limit, stripe_price_id) VALUES
+INSERT INTO subscription_tiers (name, realtime_sessions_limit, voice_evaluations_limit, card_audio_generations_limit, stripe_price_id) VALUES
   ('Free', 5, 100, 100, 'price_free'),  -- Free tier doesn't need an actual Stripe ID
   ('Standard', 60, 1000, 1000, 'price_1R38iGDkEAsn6R9yOrSesptN'), -- Replace with actual Stripe price ID after setup
   ('Pro', -1, -1, -1, 'price_1R38iGDkEAsn6R9yLhLsWk2x'),    -- Replace with actual Stripe price ID after setup

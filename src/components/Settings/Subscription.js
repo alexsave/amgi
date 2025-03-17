@@ -85,16 +85,16 @@ const Subscription = () => {
         <h3>Current Plan: {subscription?.subscription_tiers?.name || 'Free'}</h3>
         <div className="usage-stats">
           <div className="usage-item">
-            <h4>Realtime Minutes</h4>
+            <h4>Realtime Sessions</h4>
             <div className="usage-bar">
               <div 
                 className="usage-progress" 
                 style={{ 
-                  width: `${(usage?.realtime_minutes_used / subscription?.subscription_tiers?.realtime_minutes_limit) * 100}%`
+                  width: `${(usage?.realtime_sessions_started / subscription?.subscription_tiers?.realtime_sessions_limit) * 100}%`
                 }}
               />
             </div>
-            <p>{usage?.realtime_minutes_used || 0} / {subscription?.subscription_tiers?.realtime_minutes_limit === -1 ? 'Unlimited' : subscription?.subscription_tiers?.realtime_minutes_limit}</p>
+            <p>{usage?.realtime_sessions_started || 0} / {subscription?.subscription_tiers?.realtime_sessions_limit === -1 ? 'Unlimited' : subscription?.subscription_tiers?.realtime_sessions_limit}</p>
           </div>
           
           <div className="usage-item">
@@ -117,7 +117,7 @@ const Subscription = () => {
           <h3>Free</h3>
           <p className="price">$0/month</p>
           <ul>
-            <li>5 minutes realtime API/month</li>
+            <li>5 realtime sessions/month</li>
             <li>100 voice evaluations/month</li>
           </ul>
           {subscription?.subscription_tiers?.name !== 'Free' && (
@@ -134,7 +134,7 @@ const Subscription = () => {
           <h3>Standard</h3>
           <p className="price">$19/month</p>
           <ul>
-            <li>60 minutes realtime API/month</li>
+            <li>60 realtime sessions/month</li>
             <li>1000 voice evaluations/month</li>
           </ul>
           {subscription?.subscription_tiers?.name !== 'Standard' && (
@@ -151,7 +151,7 @@ const Subscription = () => {
           <h3>Pro</h3>
           <p className="price">$99/month</p>
           <ul>
-            <li>Unlimited realtime API</li>
+            <li>Unlimited realtime sessions</li>
             <li>Unlimited voice evaluations</li>
           </ul>
           {subscription?.subscription_tiers?.name !== 'Pro' && (

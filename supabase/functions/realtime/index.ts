@@ -2,84 +2,45 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts"
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "npm:@supabase/supabase-js@2.39.0"
-import { getOrCreateUsage } from "../_shared/billing.ts";
+import { checkAndIncrementUsage } from "../_shared/billing.ts";
+import { getAuthenticatedUser } from "../_shared/auth.ts";
+import { corsHeaders, handleCors } from "../_shared/cors.ts";
 
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL') || '',
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
 );
 
-export const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
-
 serve(async (req) => {
-    if (req.method === 'OPTIONS') {
-        return new Response('ok', { headers: corsHeaders })
-    }
+    // Handle CORS
+    const corsResponse = handleCors(req);
+    if (corsResponse) return corsResponse;
 
     try {
-        const authHeader = req.headers.get('Authorization');
-        if (!authHeader) {
-            throw new Error('No authorization header');
+        // Authenticate the user
+        const user = await getAuthenticatedUser(req);
+        console.log('User authenticated:', user.id);
+
+        // Check if the user can start a realtime session and increment usage
+        const { allowed, usage, subscription } = await checkAndIncrementUsage(
+            user.id,
+            'realtime_sessions_started'
+        );
+
+        if (!allowed) {
+            console.error('User has reached their realtime session limit');
+            return new Response(
+                JSON.stringify({
+                    error: 'You have reached your realtime session limit for this billing period'
+                }),
+                {
+                    status: 403,
+                    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+                }
+            );
         }
 
-        const token = authHeader.replace('Bearer ', '');
-        const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-        
-        if (userError || !user) {
-            throw new Error('Invalid token');
-        }
-
-        const enableBilling = Deno.env.get('ENABLE_BILLING') === 'true';
-        console.log('Billing enabled:', enableBilling);
-
-        // Get user's subscription if billing is enabled
-        let subscription = null;
-        if (enableBilling) {
-            console.log('Fetching subscription for user:', user.id);
-            const { data: sub, error: subError } = await supabase
-                .from('user_subscriptions')
-                .select('*, subscription_tiers(*)')
-                .eq('user_id', user.id)
-                .single();
-
-            if (subError) {
-                throw subError;
-            }
-            subscription = sub;
-        }
-
-        // Get or create usage tracking record
-        const usage = await getOrCreateUsage(user.id, subscription);
-        console.log('Usage tracking record:', {
-            id: usage.id,
-            sessionsStarted: usage.realtime_sessions_started,
-            periodStart: usage.period_start,
-            periodEnd: usage.period_end
-        });
-
-        // Only check limits if billing is enabled
-        if (enableBilling && subscription) {
-            if (subscription.subscription_tiers.realtime_minutes_limit !== -1 && 
-                usage.realtime_sessions_started >= subscription.subscription_tiers.realtime_minutes_limit) {
-                throw new Error('You have reached your session limit for this billing period');
-            }
-        }
-
-        // Always track usage
-        console.log('Updating usage count from', usage.realtime_sessions_started, 'to', usage.realtime_sessions_started + 1);
-        const { error: updateError } = await supabase
-            .from('usage_tracking')
-            .update({
-                realtime_sessions_started: usage.realtime_sessions_started + 1
-            })
-            .eq('id', usage.id);
-
-        if (updateError) {
-            throw updateError;
-        }
+        console.log('Usage updated, proceeding with realtime session');
 
         // Generate OpenAI token
         const response = await fetch("https://api.openai.com/v1/realtime/sessions", {
@@ -107,6 +68,7 @@ serve(async (req) => {
         );
 
     } catch (error) {
+        console.error('Error processing request:', error);
         return new Response(
             JSON.stringify({ error: error.message }),
             {

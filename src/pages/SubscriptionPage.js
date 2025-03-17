@@ -78,7 +78,7 @@ export default function SubscriptionPage() {
       const { data: tiersData, error: tiersError } = await supabase
         .from('subscription_tiers')
         .select('*')
-        .order('realtime_minutes_limit', { ascending: true });
+        .order('realtime_sessions_limit', { ascending: true });
         
       if (tiersError) {
         console.error('Error loading tiers:', tiersError);
@@ -187,9 +187,9 @@ export default function SubscriptionPage() {
             
             <div className="tier-features">
               <p>
-                {tier.realtime_minutes_limit === -1 ? 
+                {tier.realtime_sessions_limit === -1 ? 
                   'Unlimited live practice sessions' : 
-                  `${tier.realtime_minutes_limit} minutes of live practice per month`}
+                  `${tier.realtime_sessions_limit} live practice sessions per month`}
               </p>
               <p>
                 {tier.voice_evaluations_limit === -1 ?
