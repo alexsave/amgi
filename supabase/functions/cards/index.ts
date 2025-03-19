@@ -35,10 +35,6 @@ serve(async (req) => {
     if (corsResponse) return corsResponse;
 
     try {
-        // Initialize OpenAI
-        console.log('Initializing OpenAI client...');
-        const openai = createOpenAIClient();
-
         // Authenticate user
         const user = await getAuthenticatedUser(req);
 
@@ -69,7 +65,6 @@ serve(async (req) => {
         
         let frontAudioPath = current_card?.front_audio_path;
         let backAudioPath = current_card?.back_audio_path;
-        let audioGenerationsUsed = 0;
         
         // Track old audio paths for deletion
         const oldFrontAudioPath = current_card?.front_audio_path;
@@ -81,6 +76,48 @@ serve(async (req) => {
         const needsBackTextRegeneration = regenerate_parts.includes('back_text');
         const needsFrontAudioRegeneration = regenerate_parts.includes('front_audio_path') || needsFrontTextRegeneration || needsFullRegeneration;
         const needsBackAudioRegeneration = regenerate_parts.includes('back_audio_path') || needsBackTextRegeneration || needsFullRegeneration;
+
+        // Check text and audio generation limits BEFORE making any API calls
+        const needsTextGeneration = needsFullRegeneration || needsFrontTextRegeneration || needsBackTextRegeneration;
+        const audioToGenerate = (needsFrontAudioRegeneration ? 1 : 0) + (needsBackAudioRegeneration ? 1 : 0);
+        
+        // Initialize OpenAI only after we check limits
+
+        // Check audio generation limits first (these are typically more limited)
+        if (audioToGenerate > 0) {
+            console.log(`Checking if user can generate ${audioToGenerate} audio files`);
+            const { allowed, usage, subscription } = await checkAndIncrementUsage(
+                user.id,
+                'card_audio_generations_used',
+                audioToGenerate
+            );
+
+            if (!allowed) {
+                console.error('User has reached their audio generation limit');
+                return new Response(
+                    JSON.stringify({
+                        error: 'You have reached your audio generation limit for this billing period'
+                    }),
+                    {
+                        status: 403,
+                        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+                    }
+                );
+            }
+            
+            // Log detailed information about limits and usage
+            console.log('Audio generation allowed - SUBSCRIPTION DETAILS:', {
+                tier_id: subscription?.tier_id,
+                tier_name: subscription?.subscription_tier?.name,
+                current_usage: usage.card_audio_generations_used,
+                tier_limit: subscription?.subscription_tier?.card_audio_generations_limit,
+                tier_data: subscription?.subscription_tier
+            });
+        }
+
+        // Now initialize OpenAI since we've checked limits
+        console.log('Initializing OpenAI client...');
+        let openai = createOpenAIClient();
 
         // Case 1: Complete regeneration or new card generation
         if (needsFullRegeneration) {
@@ -307,8 +344,6 @@ Return the improved flashcard text for both sides.`
                 console.error('Error uploading front audio:', frontError);
                 throw frontError;
             }
-            
-            audioGenerationsUsed++;
         }
 
         // Generate back audio if needed
@@ -352,30 +387,6 @@ Return the improved flashcard text for both sides.`
             if (backError) {
                 console.error('Error uploading back audio:', backError);
                 throw backError;
-            }
-            
-            audioGenerationsUsed++;
-        }
-
-        // Check and update audio generation usage
-        if (audioGenerationsUsed > 0) {
-            const { allowed, usage, subscription } = await checkAndIncrementUsage(
-                user.id,
-                'card_audio_generations_used',
-                audioGenerationsUsed
-            );
-
-            if (!allowed) {
-                console.error('User has reached their audio generation limit');
-                return new Response(
-                    JSON.stringify({
-                        error: 'You have reached your audio generation limit for this billing period'
-                    }),
-                    {
-                        status: 403,
-                        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-                    }
-                );
             }
         }
 

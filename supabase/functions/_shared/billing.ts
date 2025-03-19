@@ -11,120 +11,149 @@ export interface UsageData {
     realtime_sessions_started: number;
     voice_evaluations_used: number;
     card_audio_generations_used: number;
-    period_start: string;
-    period_end: string;
+}
+
+export interface SubscriptionTier {
+    id: string;
+    name: string;
+    realtime_sessions_limit: number;
+    voice_evaluations_limit: number;
+    card_audio_generations_limit: number;
 }
 
 export interface SubscriptionData {
     id: string;
     user_id: string;
+    tier_id: string;
     current_period_start: string;
     current_period_end: string;
-    subscription_tiers: {
-        realtime_sessions_limit: number;
-        voice_evaluations_limit: number;
-        card_audio_generations_limit: number;
-    };
+    status?: string;
+    subscription_tier: SubscriptionTier;
 }
 
-const DEFAULT_SUBSCRIPTION_LIMITS = {
+const DEFAULT_SUBSCRIPTION_TIER: SubscriptionTier = {
+    id: 'free',
+    name: 'Free',
     realtime_sessions_limit: 0,
     voice_evaluations_limit: 0,
     card_audio_generations_limit: 0
 };
 
-
+/**
+ * Returns subscription data for a user
+ */
 export async function getSubscription(userId: string): Promise<SubscriptionData | null> {
-    const { data: subscriptions, error } = await supabaseClient
+    console.log(`[BILLING] Getting subscription for user ${userId}`);
+    
+    // First, get the user subscription
+    const { data: userSubscription, error: subError } = await supabaseClient
         .from('user_subscriptions')
-        .select('*, subscription_tiers(*)')
-        .eq('user_id', userId);
+        .select('id, user_id, tier_id, current_period_start, current_period_end, status')
+        .eq('user_id', userId)
+        .single();
 
-    if (error) {
-        console.error('Error fetching subscription:', error);
-        throw error;
+    if (subError) {
+        console.error('[BILLING] Error fetching subscription:', subError);
+        // If no subscription found, create a default free one
+        if (subError.code === 'PGRST116') { // Supabase "not found" error code
+            console.log(`[BILLING] No subscription found, creating default free subscription`);
+            const now = new Date();
+            return {
+                id: 'free',
+                user_id: userId,
+                tier_id: 'free',
+                current_period_start: new Date(now.getFullYear(), now.getMonth(), 1).toISOString(),
+                current_period_end: new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString(),
+                status: 'active',
+                subscription_tier: DEFAULT_SUBSCRIPTION_TIER
+            };
+        }
+        throw subError;
     }
 
-    if (!subscriptions || subscriptions.length === 0) {
-        const now = new Date();
+    console.log(`[BILLING] User subscription found:`, userSubscription);
+    console.log(`[BILLING] Tier ID to look up:`, userSubscription.tier_id);
+
+    // Now get the tier details
+    const { data: tierData, error: tierError } = await supabaseClient
+        .from('subscription_tiers')
+        .select('*')  // Select all fields to ensure we get everything
+        .eq('id', userSubscription.tier_id)
+        .single();
+    
+    if (tierError) {
+        console.error('[BILLING] Error fetching subscription tier:', tierError);
+        console.warn('[BILLING] Using default subscription tier');
         return {
-            id: 'free',
-            user_id: userId,
-            current_period_start: new Date(now.getFullYear(), now.getMonth(), 1).toISOString(),
-            current_period_end: new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString(),
-            subscription_tiers: DEFAULT_SUBSCRIPTION_LIMITS
+            ...userSubscription,
+            subscription_tier: DEFAULT_SUBSCRIPTION_TIER
         };
     }
 
-    // Ensure subscription has all limit fields
-    const subscription = subscriptions[0];
-    subscription.subscription_tiers = subscription.subscription_tiers || {};
-    subscription.subscription_tiers = {
-        ...DEFAULT_SUBSCRIPTION_LIMITS,
-        ...subscription.subscription_tiers
+    console.log(`[BILLING] Retrieved tier data:`, tierData);
+    console.log(`[BILLING] Audio limit in tier:`, tierData.card_audio_generations_limit);
+
+    // Combine the data
+    const subscription: SubscriptionData = {
+        ...userSubscription,
+        subscription_tier: tierData
     };
 
+    console.log(`[BILLING] Final subscription object:`, subscription);
+    console.log(`[BILLING] Audio limit in final object:`, subscription.subscription_tier.card_audio_generations_limit);
+    
     return subscription;
 }
 
-export async function getOrCreateUsage(userId: string, subscription: SubscriptionData | null): Promise<UsageData> {
-    const now = new Date();
+/**
+ * Gets the usage record for a user, which should always exist due to the trigger
+ * that creates it when a user is created
+ */
+export async function getUsage(userId: string): Promise<UsageData> {
+    console.log(`[BILLING] Getting usage record for user ${userId}`);
     
-    // Determine the period
-    let periodStart, periodEnd;
-    if (subscription) {
-        periodStart = new Date(subscription.current_period_start);
-        periodEnd = new Date(subscription.current_period_end);
-    } else {
-        periodStart = new Date(now.getFullYear(), now.getMonth(), 1); // Start of current month
-        periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0); // End of current month
-    }
-
-    // First try to get existing record
-    const { data: existingUsage, error: getError } = await supabaseClient
+    // Get the user's usage record - there should only be one per user
+    const { data: usage, error } = await supabaseClient
         .from('usage_tracking')
         .select('*')
         .eq('user_id', userId)
-        .eq('period_start', periodStart.toISOString())
         .single();
 
-    if (getError && getError.message !== 'JSON object requested, multiple (or no) rows returned') {
-        console.error('Error fetching usage:', getError);
-        throw getError;
+    if (error) {
+        console.error('[BILLING] Error fetching usage:', error);
+        throw error;
     }
 
-    // If record exists, return it with defaults ensured
-    if (existingUsage) {
-        return {
-            ...existingUsage,
-            realtime_sessions_started: existingUsage.realtime_sessions_started || 0,
-            voice_evaluations_used: existingUsage.voice_evaluations_used || 0,
-            card_audio_generations_used: existingUsage.card_audio_generations_used || 0
-        };
-    }
-
-    // If no record exists, create one with zeroed usage
-    const { data: newUsage, error: createError } = await supabaseClient
-        .from('usage_tracking')
-        .insert({
-            user_id: userId,
-            realtime_sessions_started: 0,
-            voice_evaluations_used: 0,
-            card_audio_generations_used: 0,
-            period_start: periodStart.toISOString(),
-            period_end: periodEnd.toISOString()
-        })
-        .select()
-        .single();
-
-    if (createError) {
-        console.error('Error creating usage tracking:', createError);
-        throw createError;
-    }
-
-    return newUsage;
+    console.log(`[BILLING] Retrieved usage record:`, usage);
+    return usage;
 }
 
+/**
+ * Resets all usage counters to zero for a user
+ */
+export async function resetUsage(userId: string): Promise<UsageData> {
+    const { data: updatedUsage, error } = await supabaseClient
+        .from('usage_tracking')
+        .update({
+            realtime_sessions_started: 0,
+            voice_evaluations_used: 0,
+            card_audio_generations_used: 0
+        })
+        .eq('user_id', userId)
+        .select()
+        .single();
+        
+    if (error) {
+        console.error('Error resetting usage:', error);
+        throw error;
+    }
+    
+    return updatedUsage;
+}
+
+/**
+ * Updates usage data
+ */
 export async function updateUsage(usageId: string, updates: Partial<UsageData>) {
     const { error } = await supabaseClient
         .from('usage_tracking')
@@ -137,55 +166,96 @@ export async function updateUsage(usageId: string, updates: Partial<UsageData>) 
     }
 }
 
-export function checkUsageLimits(usage: UsageData, subscription: SubscriptionData | null, usageField: string) {
-    if (!subscription) return; // No limits for free tier
-
-    const limit = subscription.subscription_tiers[usageField + '_limit'];
-    const used = usage[usageField];
-
-    if (limit !== -1 && used >= limit) {
-        throw new Error(`Usage limit exceeded for ${usageField}`);
+/**
+ * Simple check if usage exceeds limits for a specific feature
+ */
+export function checkUsageLimits(
+    usage: UsageData, 
+    subscription: SubscriptionData | null, 
+    usageField: string
+): boolean {
+    console.log(`[BILLING] Checking usage limits for ${usageField}`);
+    
+    // No subscription means no access
+    if (!subscription) {
+        console.log(`[BILLING] No subscription found - access denied`);
+        return false;
     }
+
+    // Block usage if past_due
+    if (subscription.status === 'past_due') {
+        console.log(`[BILLING] Subscription status is past_due - access denied`);
+        return false;
+    }
+    
+    if (!subscription.subscription_tier) {
+        console.error(`[BILLING] Subscription tier is missing or undefined`);
+        return false;
+    }
+    
+    // Direct mapping of usage fields to corresponding limit fields
+    let limitField: keyof SubscriptionTier;
+    
+    if (usageField === 'card_audio_generations_used') {
+        limitField = 'card_audio_generations_limit';
+    } else if (usageField === 'voice_evaluations_used') {
+        limitField = 'voice_evaluations_limit';
+    } else if (usageField === 'realtime_sessions_started') {
+        limitField = 'realtime_sessions_limit';
+    } else {
+        console.error(`[BILLING] Unknown usage field: ${usageField}`);
+        return false;
+    }
+    
+    console.log(`[BILLING] Looking for limit field: ${limitField}`);
+    
+    const limit = subscription.subscription_tier[limitField] as number;
+    const used = usage[usageField] as number;
+    
+    console.log(`[BILLING] Usage check: Current usage=${used}, Limit=${limit}`);
+
+    // Unlimited (-1) or within limits
+    const isAllowed = limit === -1 || used < limit;
+    console.log(`[BILLING] Access ${isAllowed ? 'ALLOWED' : 'DENIED'} (${isAllowed ? 'under limit or unlimited' : 'over limit'})`);
+    
+    return isAllowed;
 }
 
 /**
- * Performs all billing setup for a user request:
- * 1. Gets the subscription for the user
- * 2. Gets or creates the usage tracking record
- * 3. Optionally checks if the user has exceeded limits for a specific usage type
- * 
- * @param userId The ID of the user
- * @param usageField Optional field name to check limits for
- * @returns An object containing the subscription and usage data
- * @throws Error if the user has exceeded their usage limits
+ * Performs all billing setup for a user request
  */
-export async function setupBilling(userId: string, usageField?: keyof UsageData) {
+export async function setupBilling(
+    userId: string, 
+    usageField?: keyof UsageData
+): Promise<{ 
+    subscription: SubscriptionData | null; 
+    usage: UsageData;
+    isAllowed?: boolean;
+}> {
     // Get subscription data
     const subscription = await getSubscription(userId);
     
-    // Get or create usage tracking
-    const usage = await getOrCreateUsage(userId, subscription);
+    // Get the user's usage tracking record
+    const usage = await getUsage(userId);
     
     // Check limits if a usage field was specified
+    let isAllowed;
     if (usageField && subscription) {
-        const limitField = `${usageField}_limit` as keyof SubscriptionData['subscription_tiers'];
-        checkUsageLimits(usage, subscription, usageField);
+        isAllowed = checkUsageLimits(usage, subscription, usageField);
     }
     
-    return { subscription, usage };
+    return { subscription, usage, isAllowed };
 }
 
 /**
  * Increments a specific usage counter for a user
- * 
- * @param usageId The ID of the usage tracking record
- * @param usageField The field to increment
- * @param incrementAmount The amount to increment by (defaults to 1)
- * @returns void
- * @throws Error if the update fails
  */
-export async function incrementUsage(usageId: string, usageField: keyof UsageData, incrementAmount: number = 1) {
-    console.log(`Incrementing ${usageField} for usage record ${usageId} by ${incrementAmount}`);
+export async function incrementUsage(
+    usageId: string, 
+    usageField: keyof UsageData, 
+    incrementAmount: number = 1
+): Promise<number> {
+    console.log(`[BILLING] Incrementing ${usageField} by ${incrementAmount} for usage ID ${usageId}`);
     
     // Get current value first
     const { data: currentUsage, error: getError } = await supabaseClient
@@ -195,13 +265,14 @@ export async function incrementUsage(usageId: string, usageField: keyof UsageDat
         .single();
         
     if (getError) {
-        console.error(`Error fetching current ${usageField} value:`, getError);
+        console.error(`[BILLING] Error fetching current ${usageField} value:`, getError);
         throw getError;
     }
     
     const currentValue = currentUsage[usageField] || 0;
     const newValue = currentValue + incrementAmount;
-    console.log(`Updating ${usageField} from ${currentValue} to ${newValue}`);
+    
+    console.log(`[BILLING] Usage increment: ${usageField} ${currentValue} → ${newValue}`);
     
     // Create an update object with just the field to update
     const updateData: Partial<UsageData> = {};
@@ -216,78 +287,51 @@ export async function incrementUsage(usageId: string, usageField: keyof UsageDat
 /**
  * Checks if a user can perform an action based on their subscription limits,
  * and if allowed, increments their usage counter.
- * 
- * @param userId The ID of the user
- * @param usageField The type of usage to check and increment
- * @param incrementAmount The amount to increment usage by (defaults to 1)
- * @param forceIncrement If true, increments usage even if over limit (for features that should track usage but not enforce limits)
- * @returns An object containing whether the action is allowed, and the updated usage data
  */
 export async function checkAndIncrementUsage(
     userId: string,
     usageField: keyof UsageData,
-    incrementAmount: number = 1,
-    forceIncrement: boolean = false
+    incrementAmount: number = 1
 ): Promise<{ allowed: boolean; usage: UsageData; subscription: SubscriptionData | null }> {
-    console.log(`Checking and incrementing ${usageField} for user ${userId}`);
+    console.log(`[BILLING] Checking and incrementing ${usageField} for user ${userId}`);
     
     // Get the user's subscription
     const subscription = await getSubscription(userId);
-    console.log(`User subscription:`, {
-        tier: subscription?.subscription_tiers ? Object.keys(subscription.subscription_tiers)[0] : 'Free',
-        id: subscription?.id
-    });
     
-    // Get or create usage tracking
-    const usage = await getOrCreateUsage(userId, subscription);
-    console.log(`Current usage:`, {
-        id: usage.id,
-        currentUsage: usage[usageField]
-    });
+    // Get the user's usage tracking record
+    const usage = await getUsage(userId);
     
-    // Get the limit field name
-    const limitField = `${usageField}_limit` as keyof SubscriptionData['subscription_tiers'];
+    // Check usage limits
+    const allowed = checkUsageLimits(usage, subscription, usageField);
     
-    // Check if the user is at their limit
-    const currentUsage = usage[usageField] as number || 0;
-    const limit = subscription?.subscription_tiers?.[limitField] as number ?? 0;
-    const wouldExceedLimit = limit !== -1 && currentUsage >= limit;
-    
-    console.log(`Usage check:`, {
-        currentUsage,
-        limit,
-        wouldExceedLimit,
-        forceIncrement
-    });
-    
-    // If user is at limit and we're not forcing increment, return not allowed
-    if (wouldExceedLimit && !forceIncrement) {
-        console.log(`User ${userId} has reached ${usageField} limit of ${limit}`);
-        return { 
-            allowed: false, 
-            usage, 
-            subscription 
-        };
+    // If not allowed, return blocked result
+    if (!allowed) {
+        console.log(`[BILLING] Usage not allowed: ${usageField} - limit reached or exceeded`);
+        return { allowed: false, usage, subscription };
     }
     
-    // If we're here, either the user is under limit or we're forcing increment
+    // If we're here, usage is allowed - increment counter
     if (incrementAmount > 0) {
         // Increment usage
         try {
+            console.log(`[BILLING] Incrementing usage: ${usageField} by ${incrementAmount}`);
             const newValue = await incrementUsage(usage.id, usageField, incrementAmount);
-            console.log(`Incremented ${usageField} from ${currentUsage} to ${newValue}`);
             
-            // Update the local usage object
-            usage[usageField] = newValue as any; // Type assertion needed due to TypeScript limitations
+            // Update the local usage object with typed field access
+            if (usageField === 'realtime_sessions_started') {
+                usage.realtime_sessions_started = newValue;
+            } else if (usageField === 'voice_evaluations_used') {
+                usage.voice_evaluations_used = newValue;
+            } else if (usageField === 'card_audio_generations_used') {
+                usage.card_audio_generations_used = newValue;
+            }
+            
+            console.log(`[BILLING] Updated usage record:`, usage);
         } catch (error) {
-            console.error(`Error incrementing usage:`, error);
+            console.error(`[BILLING] Error incrementing usage:`, error);
             throw error;
         }
     }
     
-    return {
-        allowed: true,
-        usage,
-        subscription
-    };
+    return { allowed: true, usage, subscription };
 } 

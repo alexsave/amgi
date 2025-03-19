@@ -243,72 +243,35 @@ async function handleSubscriptionUpdated(subscription, requestId) {
   }
 }
 
-// Handler for customer.subscription.deleted event
-async function handleSubscriptionDeleted(subscription, requestId) {
+/**
+ * Resets usage for a user
+ * This function encapsulates all the usage reset logic to ensure consistency
+ */
+async function resetUserUsage(userId: string, requestId: string) {
   try {
-    log(`[${requestId}] Processing subscription deletion: ${subscription.id}`);
+    log(`[${requestId}] Resetting usage for user ${userId}`);
     
-    // Find the user by Stripe customer ID
-    const stripeCustomerId = subscription.customer;
-    if (!stripeCustomerId) {
-      log(`[${requestId}] No customer ID found in subscription`);
-      return;
-    }
-    
-    log(`[${requestId}] Finding user subscription by customer ID: ${stripeCustomerId}`);
-    const { data: userSubscription, error: findError } = await supabaseClient
-      .from('user_subscriptions')
-      .select('*')
-      .eq('stripe_customer_id', stripeCustomerId)
+    // Update the usage record with zeroed counters
+    const { data: updatedUsage, error } = await supabaseClient
+      .from('usage_tracking')
+      .update({
+        realtime_sessions_started: 0,
+        voice_evaluations_used: 0,
+        card_audio_generations_used: 0
+      })
+      .eq('user_id', userId)
+      .select()
       .single();
-      
-    if (findError) {
-      log(`[${requestId}] Error finding subscription: ${findError.message}`, findError);
-      return;
-    }
-    
-    log(`[${requestId}] Found subscription: ${userSubscription.id} for user: ${userSubscription.user_id}`);
-    
-    // Get the free tier ID
-    log(`[${requestId}] Looking up Free tier ID`);
-    const { data: freeTier, error: tierError } = await supabaseClient
-      .from('subscription_tiers')
-      .select('id')
-      .eq('name', 'Free')
-      .single();
-      
-    if (tierError) {
-      log(`[${requestId}] Error finding Free tier: ${tierError.message}`, tierError);
-      throw tierError;
-    }
-    
-    log(`[${requestId}] Found Free tier: ${freeTier.id}`);
-    
-    // Update user subscription to free tier
-    log(`[${requestId}] Downgrading user to Free tier`);
-    const updateData = {
-      tier_id: freeTier.id,
-      status: 'canceled',
-      stripe_subscription_id: null,
-    };
-    
-    log(`[${requestId}] Update data:`, updateData);
-    const { error } = await supabaseClient
-      .from('user_subscriptions')
-      .update(updateData)
-      .eq('id', userSubscription.id);
       
     if (error) {
-      log(`[${requestId}] Error downgrading subscription: ${error.message}`, error);
+      log(`[${requestId}] Error resetting usage: ${error.message}`, error);
       throw error;
     }
     
-    log(`[${requestId}] Subscription successfully downgraded to Free tier`);
+    log(`[${requestId}] Usage reset successfully for user ${userId}, ID: ${updatedUsage.id}`);
+    return updatedUsage;
   } catch (error) {
-    log(`[${requestId}] Error handling subscription deletion: ${error.message}`, {
-      stack: error.stack,
-      error: error
-    });
+    log(`[${requestId}] Failed to reset usage: ${error.message}`, error);
     throw error;
   }
 }
@@ -331,7 +294,7 @@ async function handleInvoicePaymentSucceeded(invoice, requestId) {
       // Find user subscription by customer ID
       const { data: userSubscription, error: findError } = await supabaseClient
         .from('user_subscriptions')
-        .select('id')
+        .select('id, user_id')
         .eq('stripe_customer_id', stripeCustomerId)
         .single();
         
@@ -344,6 +307,8 @@ async function handleInvoicePaymentSucceeded(invoice, requestId) {
       
       // Get subscription period from invoice line items
       const subscriptionLine = invoice.lines?.data?.find(line => line.type === 'subscription');
+      
+      // Prepare update data with proper type
       const updateData: {
         status: string;
         current_period_start?: string;
@@ -368,6 +333,9 @@ async function handleInvoicePaymentSucceeded(invoice, requestId) {
       }
       
       log(`[${requestId}] Subscription status and period updated successfully`);
+      
+      // Reset usage counters for the new billing period
+      await resetUserUsage(userSubscription.user_id, requestId);
     } catch (error) {
       log(`[${requestId}] Error updating subscription after payment: ${error.message}`, {
         stack: error.stack,
@@ -430,6 +398,79 @@ async function handleInvoicePaymentFailed(invoice, requestId) {
     }
   } else {
     log(`[${requestId}] No subscription found in invoice, skipping status update`);
+  }
+}
+
+// Handler for customer.subscription.deleted event
+async function handleSubscriptionDeleted(subscription, requestId) {
+  try {
+    log(`[${requestId}] Processing subscription deletion: ${subscription.id}`);
+    
+    // Find the user by Stripe customer ID
+    const stripeCustomerId = subscription.customer;
+    if (!stripeCustomerId) {
+      log(`[${requestId}] No customer ID found in subscription`);
+      return;
+    }
+    
+    log(`[${requestId}] Finding user subscription by customer ID: ${stripeCustomerId}`);
+    const { data: userSubscription, error: findError } = await supabaseClient
+      .from('user_subscriptions')
+      .select('*')
+      .eq('stripe_customer_id', stripeCustomerId)
+      .single();
+      
+    if (findError) {
+      log(`[${requestId}] Error finding subscription: ${findError.message}`, findError);
+      return;
+    }
+    
+    log(`[${requestId}] Found subscription: ${userSubscription.id} for user: ${userSubscription.user_id}`);
+    
+    // Get the free tier ID
+    log(`[${requestId}] Looking up Free tier ID`);
+    const { data: freeTier, error: tierError } = await supabaseClient
+      .from('subscription_tiers')
+      .select('id')
+      .eq('name', 'Free')
+      .single();
+      
+    if (tierError) {
+      log(`[${requestId}] Error finding Free tier: ${tierError.message}`, tierError);
+      throw tierError;
+    }
+    
+    log(`[${requestId}] Found Free tier: ${freeTier.id}`);
+    
+    // Update user subscription to free tier
+    log(`[${requestId}] Downgrading user to Free tier`);
+    const updateData = {
+      tier_id: freeTier.id,
+      status: 'canceled',
+      stripe_subscription_id: null,
+    };
+    
+    log(`[${requestId}] Update data:`, updateData);
+    const { error } = await supabaseClient
+      .from('user_subscriptions')
+      .update(updateData)
+      .eq('id', userSubscription.id);
+      
+    if (error) {
+      log(`[${requestId}] Error downgrading subscription: ${error.message}`, error);
+      throw error;
+    }
+    
+    log(`[${requestId}] Subscription successfully downgraded to Free tier`);
+    
+    // Reset usage for the free tier
+    await resetUserUsage(userSubscription.user_id, requestId);
+  } catch (error) {
+    log(`[${requestId}] Error handling subscription deletion: ${error.message}`, {
+      stack: error.stack,
+      error: error
+    });
+    throw error;
   }
 }
 
@@ -518,4 +559,7 @@ async function processSubscription(stripeCustomerId, priceId, subscription, requ
   }
   
   log(`[${requestId}] Subscription updated successfully`);
+  
+  // Reset usage for the new subscription period
+  await resetUserUsage(userSubscription.user_id, requestId);
 }
