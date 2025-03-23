@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useDecks } from '../../contexts/DeckContext';
 import { MicrophoneIcon, PlayIcon } from '@heroicons/react/24/solid';
 import { useNavigate } from 'react-router-dom';
@@ -16,6 +16,12 @@ const ReviewMode = () => {
   const review = useReview();
   const [isRecording, setIsRecording] = useState(false);
   const { currentCard, currentCardId, currentCardIdRef, attempts, showAnswer, evaluationResult, newCardsCount, reviewCardsCount, learningCardsCount } = review;
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [isEvaluating, setIsEvaluating] = useState(false);
+  const [transitionTimeLeft, setTransitionTimeLeft] = useState(0);
+  const transitionTimerRef = useRef(null);
+  const [transitionCard, setTransitionCard] = useState(null);
+  const [showCardContent, setShowCardContent] = useState(false);
 
   // Audio visualization state and refs
   const [audioScale, setAudioScale] = useState(0);
@@ -32,6 +38,14 @@ const ReviewMode = () => {
   // Load audio when current card changes
   useEffect(() => {
     if (currentCard) {
+      console.log("Current card updated:", {
+        id: currentCard.id,
+        front_text: currentCard.front_text, 
+        back_text: currentCard.back_text,
+        front_lang: currentCard.front_lang,
+        back_lang: currentCard.back_lang
+      });
+
       // Load front audio
       if (currentCard.front_audio_path) {
         audio.loadAudio(currentCard.front_audio_path)
@@ -325,20 +339,51 @@ const ReviewMode = () => {
       if (audio.isRecording) {
         const audioBlob = await audio.stopRecording();
         if (!audioBlob) return;
+        setIsEvaluating(true);
+        
+        // Make sure currentCard is still available
+        if (!currentCard) {
+          setIsEvaluating(false);
+          console.error("Current card is not available for evaluation");
+          return;
+        }
+        
+        // Debug: Log card details before evaluation
+        console.log("Evaluating speech with card:", {
+          id: currentCard.id,
+          front_text: currentCard.front_text,
+          back_text: currentCard.back_text,
+          front_lang: currentCard.front_lang,
+          back_lang: currentCard.back_lang,
+          has_front_audio: !!currentCard.front_audio_path,
+          has_back_audio: !!currentCard.back_audio_path
+        });
+        
+        // Ensure all required properties are present before evaluation
+        if (!currentCard.back_lang || !currentCard.front_lang) {
+          console.error("Missing language information on card:", 
+            { back_lang: currentCard.back_lang, front_lang: currentCard.front_lang });
+        }
+        
         await evaluateSpeech(audioBlob, currentCard);
+        setIsEvaluating(false);
       } else {
         audio.startRecording();
       }
     } catch (error) {
       console.error("Error with recording:", error);
+      setIsEvaluating(false);
     }
   };
 
-  const handleEvaluationResult = (data) => {
+  const handleEvaluationResult = useCallback((data) => {
     if (!data || !currentCard) {
+      console.error("Invalid evaluation result or missing current card");
       return;
     }
 
+    console.log("Received evaluation result:", data);
+    
     review.setEvaluationResult(data);
 
     // Simplified quality system - only correct/incorrect
@@ -346,9 +391,43 @@ const ReviewMode = () => {
 
     // Update card scheduling based on result
     if (data.result === 'correct') {
-      review.markCorrectGetNext();
+      const cardToTransition = {...currentCard};
+      setTransitionCard(cardToTransition);
+      setIsTransitioning(true);
+      review.setShowAnswer(true);
+      
+      // Set initial countdown value (3 seconds)
+      setTransitionTimeLeft(3);
+      
+      // Clear any existing timer
+      if (transitionTimerRef.current) {
+        clearInterval(transitionTimerRef.current);
+      }
+      
+      // Start countdown timer
+      transitionTimerRef.current = setInterval(() => {
+        setTransitionTimeLeft(prev => {
+          if (prev <= 1) {
+            // When timer reaches 0, clear interval and move to next card
+            clearInterval(transitionTimerRef.current);
+            
+            // Use setTimeout to ensure state updates happen outside render cycle
+            setTimeout(() => {
+              review.setEvaluationResult(null);
+              review.markCorrectGetNext();
+              setIsTransitioning(false);
+            }, 0);
+            
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
     } else if (data.result === 'incorrect') {
-      review.markIncorrectGetNext();
+      // Use setTimeout to move state updates outside render cycle
+      setTimeout(() => {
+        review.markIncorrectGetNext();
+      }, 0);
     }
 
     // Play evaluation audio if available
@@ -367,30 +446,65 @@ const ReviewMode = () => {
 
     if (data.result === 'quit') {
       review.setShowAnswer(true);
-      setTimeout(review.moveToNextCard, 500); // Quick skip for quit commands
-    } else if (data.result === 'correct') {
-      setTimeout(review.moveToNextCard, 2000); // 2 second delay for correct answers
-    } else {
+      setTransitionTimeLeft(1);
+      
+      // Clear any existing timer
+      if (transitionTimerRef.current) {
+        clearInterval(transitionTimerRef.current);
+      }
+      
+      setTimeout(() => {
+        review.setEvaluationResult(null);
+        review.moveToNextCard();
+      }, 500); // Quick skip for quit commands
+    } else if (data.result === 'incorrect') {
       // Incorrect answer
       review.setAttempts(prev => {
         const newAttempts = prev + 1;
         if (newAttempts >= 3) {
           review.setShowAnswer(true);
-          setTimeout(review.moveToNextCard, 2000);
+          
+          // Clear any existing timer
+          if (transitionTimerRef.current) {
+            clearInterval(transitionTimerRef.current);
+          }
+          
+          setTimeout(() => {
+            review.setEvaluationResult(null);
+            review.moveToNextCard();
+          }, 2000);
         }
         return newAttempts;
       });
     }
-  };
+  }, [currentCard, review]);
 
   const { evaluateSpeech } = useSpeechEvaluation({
     audio,
     onEvaluationResult: handleEvaluationResult
   });
 
+  // Store current card in state when transitioning to prevent reference issues
+  useEffect(() => {
+    if (isTransitioning && currentCard && !transitionCard) {
+      setTransitionCard({...currentCard});
+    } else if (!isTransitioning) {
+      setTransitionCard(null);
+    }
+  }, [isTransitioning, currentCard, transitionCard]);
+
   const handleBackToList = () => {
     navigate('/decks');
   };
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (transitionTimerRef.current) {
+        clearInterval(transitionTimerRef.current);
+      }
+    };
+  }, []);
 
   if (!currentCard) {
     return (
@@ -411,15 +525,23 @@ const ReviewMode = () => {
           ← Back to Decks
         </button>
         <h2>Reviewing: {decks[currentDeckId].name}</h2>
+        <div className="card-toggle-container">
+          <button 
+            className={`card-toggle-button ${showCardContent ? 'active' : ''}`}
+            onClick={() => setShowCardContent(!showCardContent)}
+          >
+            {showCardContent ? 'Hide Card' : 'Show Card'}
+          </button>
+        </div>
       </div>
 
       <div className="card-progress">
         {`New Cards: ${newCardsCount} • Review Cards: ${reviewCardsCount} • Learning Cards: ${learningCardsCount}`}
       </div>
-      <div style={{ width: '100%', display: 'flex', flexDirection: 'row', justifyContent: 'space-evenly' }}>
 
+      <div style={{  display: 'flex', flexDirection: 'row', justifyContent: 'space-evenly' }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <div className="audio-button-container">
+          <div className="audio-button-container" style={{display: 'flex', flexDirection: 'column', alignItems: 'center'}}>
             <button
               className={`audio-button play-button ${isPlayingAudio ? 'playing' : ''}`}
               onClick={() => handlePlayButtonClick(currentCard.front_audio_path)}
@@ -437,19 +559,26 @@ const ReviewMode = () => {
                 animationFrameRef={playbackAnimationFrameRef}
               />
             </div>
+          {(isTransitioning || showCardContent) && (transitionCard || currentCard) && (
+            //<div className="text-display front-display">
+              //<div className="text-label">Front</div>
+              <div className="text-content">{transitionCard ? transitionCard.front_text : currentCard.front_text}</div>
+            //</div>
+          )}
           </div>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center'}}>
-          <div className="audio-button-container">
+          <div className="audio-button-container" style={{display: 'flex', flexDirection: 'column', alignItems: 'center'}}>
             <button
-              className={`audio-button mic-button ${isRecording ? 'recording' : ''} ${audio.isLoading ? 'loading' : ''}`}
+              className={`audio-button mic-button ${isRecording ? 'recording' : ''} ${audio.isLoading || isEvaluating ? 'loading' : ''}`}
               onClick={handleRecordButtonClick}
-              disabled={showAnswer || audio.isLoading}
+              disabled={showAnswer || audio.isLoading || isEvaluating}
             >
               <div className="button-inner">
                 <MicrophoneIcon className="button-icon" />
               </div>
+              {isEvaluating && <div className="loading-spinner"></div>}
             </button>
             <div className="visualizer-container">
               <RadialAudioVisualizer
@@ -461,6 +590,12 @@ const ReviewMode = () => {
                 onVolumeChange={setAudioScale}
               />
             </div>
+          {(isTransitioning || (showCardContent && showAnswer)) && (transitionCard || currentCard) && (
+            //<div className="text-display back-display">
+              //<div className="text-label">Back</div>
+              <div className="text-content">{transitionCard ? transitionCard.back_text : currentCard.back_text}</div>
+            //</div>
+          )}
           </div>
         </div>
       </div>
@@ -470,8 +605,20 @@ const ReviewMode = () => {
           Attempts: {attempts}/3
         </div>
 
-        <EvaluationResult result={evaluationResult} />
+        {isEvaluating ? (
+          <div className="evaluation-loading">Evaluating your speech...</div>
+        ) : (
+          <EvaluationResult result={evaluationResult} />
+        )}
       </div>
+      
+      {isTransitioning && (
+        <div className="transition-timer-container">
+          <div className="transition-timer">
+            Next card in {transitionTimeLeft} {transitionTimeLeft === 1 ? 'second' : 'seconds'}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

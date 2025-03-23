@@ -3,6 +3,27 @@ import { evaluateSpeech as apiEvaluateSpeech } from '../network/api';
 export function useSpeechEvaluation({ audio, onEvaluationResult }) {
   const evaluateSpeech = async (recordedBlob, card) => {
     try {
+      // Validate card and required properties
+      if (!card) {
+        throw new Error('No card provided for evaluation');
+      }
+
+      console.log("Starting speech evaluation with card:", {
+        id: card.id,
+        front_text: card.front_text, 
+        back_text: card.back_text,
+        front_lang: card.front_lang,
+        back_lang: card.back_lang
+      });
+
+      // Validate required language fields
+      if (!card.back_lang) {
+        throw new Error('Missing back_lang (target language) on card');
+      }
+      
+      if (!card.front_lang) {
+        throw new Error('Missing front_lang (source language) on card');
+      }
 
       // Get the expected audio from storage
       if (!card.back_audio_path) {
@@ -31,20 +52,24 @@ export function useSpeechEvaluation({ audio, onEvaluationResult }) {
 
       const backAudioBlob = await audioResponse.blob();
 
-
       // Create MP3 blobs for both recorded and expected audio
       const recordedMp3Blob = new Blob([recordedBlob], { type: 'audio/mp3' });
       const backAudioMp3Blob = new Blob([backAudioBlob], { type: 'audio/mp3' });
 
+      console.log("Calling API with params:", {
+        text_length: card.back_text?.length || 0,
+        back_lang: card.back_lang,
+        front_lang: card.front_lang
+      });
+
       // Call the API using the proper implementation
       const result = await apiEvaluateSpeech(
-        recordedMp3Blob,      // audio_blob
-        card.back_text,       // expected_text
-        card.back_lang,       // back_lang (the language of the text being spoken)
-        backAudioMp3Blob,     // expected_audio_blob
-        card.front_lang       // front_lang (the language the user knows)
+        recordedMp3Blob,              // audio_blob
+        card.back_text,               // expected_text
+        card.back_lang || 'en',       // back_lang (the language of the text being spoken) - default to English if missing
+        backAudioMp3Blob,             // expected_audio_blob
+        card.front_lang || 'en'       // front_lang (the language the user knows) - default to English if missing
       );
-
 
       if (!result) {
         throw new Error('No result received from speech evaluation');
@@ -52,6 +77,7 @@ export function useSpeechEvaluation({ audio, onEvaluationResult }) {
 
       onEvaluationResult(result);
     } catch (err) {
+      console.error("Speech evaluation error:", err);
       audio.setError(err.message);
       throw err;
     }
