@@ -243,4 +243,40 @@
   margin-right: auto;
   border: 1px solid var(--border-color);
   color: var(--text-primary);
+}
+
+/* Audio visualizers */
+.audio-visualizers-container {
+  max-width: 600px;
+  margin: 1.5rem auto;
+  display: flex;
+  gap: 1rem;
+}
+
+.visualizer-wrapper {
+  flex: 1;
+  padding: 0.75rem;
+  background-color: var(--dark-surface, #1e1e1e);
+  border-radius: 8px;
+  border: 1px solid var(--border-color, #333);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.visualizer-label {
+  font-size: 12px;
+  color: var(--text-secondary, #999);
+  text-align: center;
+  margin-bottom: 8px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Color styles for visualizers */
+.visualizer.user {
+  --visualizer-color: var(--flame-orange, rgb(255, 107, 53));
+}
+
+.visualizer.ai {
+  --visualizer-color: #4CAF50;
 } 

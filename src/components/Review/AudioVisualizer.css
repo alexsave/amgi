@@ -1,1 +1,46 @@
- 
+.audio-canvas {
+  width: 100%;
+  height: 60px;
+  background-color: rgba(25, 25, 25, 0.3);
+  border-radius: 6px;
+  display: block;
+}
+
+.audio-visualizers-container {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  margin-top: 20px;
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.visualizer-wrapper {
+  flex: 1;
+  padding: 10px;
+  background-color: rgba(30, 30, 30, 0.3);
+  border-radius: 8px;
+  border: 1px solid var(--border-color, #333);
+}
+
+.visualizer-label {
+  font-size: 12px;
+  color: var(--text-secondary, #999);
+  text-align: center;
+  margin-bottom: 5px;
+}
+
+.visualizer {
+  width: 100%;
+  height: 100%;
+}
+
+/* For old visualizer references */
+.visualization-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  margin-bottom: 10px;
+} 
