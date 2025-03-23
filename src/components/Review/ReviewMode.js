@@ -5,8 +5,8 @@ import { useNavigate } from 'react-router-dom';
 import EvaluationResult from './EvaluationResult';
 import { useAudio } from '../../contexts/useAudio';
 import { useReview } from '../../contexts/ReviewContext';
-import AudioVisualizer from './AudioVisualizer';
 import { useSpeechEvaluation } from '../../hooks/useSpeechEvaluation';
+import RadialAudioVisualizer from './RadialAudioVisualizer';
 import './ReviewMode.css';
 
 const ReviewMode = () => {
@@ -43,6 +43,20 @@ const ReviewMode = () => {
       }
     }
   }, [currentCardId]);
+
+  // Create a global cache of audio sources to prevent reconnection errors
+  useEffect(() => {
+    // Create a cache on the window object if it doesn't exist
+    if (!window.audioSourceCache) {
+      window.audioSourceCache = new WeakMap();
+    }
+    
+    // Cleanup on unmount
+    return () => {
+      // No cleanup needed for WeakMap as it will be garbage collected 
+      // when audio elements are no longer referenced
+    };
+  }, []);
 
   // Setup audio context
   useEffect(() => {
@@ -108,13 +122,14 @@ const ReviewMode = () => {
       
       // Find all audio elements from audio context
       audio.audioRefs.current.forEach((audioElement, path) => {
-        // Skip if this element is already connected
-        if (connectedAudioElements.current.has(audioElement)) {
-          return;
-        }
-        
-        // Initialize audio source for this element if we haven't already
-        if (!audioSources.has(audioElement) && audioContextRef.current) {
+        // Check global cache first
+        if (window.audioSourceCache && window.audioSourceCache.has(audioElement)) {
+          console.log('Audio element found in global cache, reusing:', path);
+          const { source, destination } = window.audioSourceCache.get(audioElement);
+          audioSources.set(audioElement, { source, destination });
+        } 
+        // If not in global cache and not connected, create new source
+        else if (!connectedAudioElements.current.has(audioElement) && audioContextRef.current) {
           try {
             // Create a MediaElementAudioSourceNode
             const source = audioContextRef.current.createMediaElementSource(audioElement);
@@ -128,28 +143,35 @@ const ReviewMode = () => {
             // Store the source and destination
             audioSources.set(audioElement, { source, destination });
             
-            // Mark this element as connected
+            // Mark this element as connected in both local and global caches
             connectedAudioElements.current.add(audioElement);
+            if (window.audioSourceCache) {
+              window.audioSourceCache.set(audioElement, { source, destination });
+            }
+            console.log('Connected new audio element:', path);
           } catch (error) {
             console.error('Error setting up audio visualization for playback:', error);
           }
+        } else {
+          console.log('Audio element already connected, skipping:', path);
         }
         
         // Create play handler
         const playHandler = () => {
-          console.log('Audio playing:', path); // Add debug logging
+          console.log('Audio playing:', path);
           setIsPlayingAudio(true);
           
           // Set the current playback stream for visualization
-          if (audioSources.has(audioElement)) {
-            playbackStreamRef.current = audioSources.get(audioElement).destination.stream;
-            console.log('Playback stream set'); // Add debug logging
+          const sourceInfo = window.audioSourceCache?.get(audioElement) || audioSources.get(audioElement);
+          if (sourceInfo) {
+            playbackStreamRef.current = sourceInfo.destination.stream;
+            console.log('Playback stream set');
           }
         };
         
         // Create ended handler
         const endedHandler = () => {
-          console.log('Audio ended:', path); // Add debug logging
+          console.log('Audio ended:', path);
           setIsPlayingAudio(false);
           // Small delay before clearing the stream to allow for visualization to complete
           setTimeout(() => {
@@ -162,6 +184,10 @@ const ReviewMode = () => {
         // Store handlers so we can remove them later
         listeners.set(audioElement, { playHandler, endedHandler });
         
+        // Remove existing listeners to prevent duplicates
+        audioElement.removeEventListener('play', playHandler);
+        audioElement.removeEventListener('ended', endedHandler);
+        
         // Add play event listener
         audioElement.addEventListener('play', playHandler);
         
@@ -171,42 +197,53 @@ const ReviewMode = () => {
       
       // Evaluation audio handling
       if (audio.evaluationAudioRef.current) {
-        // Skip if this element is already connected
-        if (!connectedAudioElements.current.has(audio.evaluationAudioRef.current)) {
-          // Initialize audio source for evaluation audio
-          if (!audioSources.has(audio.evaluationAudioRef.current) && audioContextRef.current) {
-            try {
-              const source = audioContextRef.current.createMediaElementSource(audio.evaluationAudioRef.current);
-              source.connect(audioContextRef.current.destination);
-              
-              const destination = audioContextRef.current.createMediaStreamDestination();
-              source.connect(destination);
-              
-              audioSources.set(audio.evaluationAudioRef.current, { source, destination });
-              
-              // Mark this element as connected
-              connectedAudioElements.current.add(audio.evaluationAudioRef.current);
-            } catch (error) {
-              console.error('Error setting up audio visualization for evaluation:', error);
+        // Check global cache first
+        if (window.audioSourceCache && window.audioSourceCache.has(audio.evaluationAudioRef.current)) {
+          console.log('Evaluation audio element found in global cache, reusing');
+          const { source, destination } = window.audioSourceCache.get(audio.evaluationAudioRef.current);
+          audioSources.set(audio.evaluationAudioRef.current, { source, destination });
+        }
+        // If not in global cache and not already connected
+        else if (!connectedAudioElements.current.has(audio.evaluationAudioRef.current) && audioContextRef.current) {
+          try {
+            const source = audioContextRef.current.createMediaElementSource(audio.evaluationAudioRef.current);
+            source.connect(audioContextRef.current.destination);
+            
+            const destination = audioContextRef.current.createMediaStreamDestination();
+            source.connect(destination);
+            
+            audioSources.set(audio.evaluationAudioRef.current, { source, destination });
+            
+            // Mark this element as connected in both local and global caches
+            connectedAudioElements.current.add(audio.evaluationAudioRef.current);
+            if (window.audioSourceCache) {
+              window.audioSourceCache.set(audio.evaluationAudioRef.current, { source, destination });
             }
+            console.log('Connected new evaluation audio element');
+          } catch (error) {
+            console.error('Error setting up audio visualization for evaluation:', error);
           }
+        } else {
+          console.log('Evaluation audio element already connected, skipping');
         }
         
+        // Create play handler for evaluation audio
         const evalPlayHandler = () => {
-          console.log('Evaluation audio playing'); // Add debug logging
+          console.log('Evaluation audio playing');
           setIsPlayingAudio(true);
           
-          // Set the current playback stream for visualization
-          if (audioSources.has(audio.evaluationAudioRef.current)) {
-            playbackStreamRef.current = audioSources.get(audio.evaluationAudioRef.current).destination.stream;
-            console.log('Evaluation playback stream set'); // Add debug logging
+          // Get source from global cache or local map
+          const sourceInfo = window.audioSourceCache?.get(audio.evaluationAudioRef.current) || 
+                            audioSources.get(audio.evaluationAudioRef.current);
+          if (sourceInfo) {
+            playbackStreamRef.current = sourceInfo.destination.stream;
+            console.log('Evaluation playback stream set');
           }
         };
         
         const evalEndedHandler = () => {
-          console.log('Evaluation audio ended'); // Add debug logging
+          console.log('Evaluation audio ended');
           setIsPlayingAudio(false);
-          // Small delay before clearing the stream to allow for visualization to complete
           setTimeout(() => {
             if (!isPlayingAudio) {
               playbackStreamRef.current = null;
@@ -219,6 +256,11 @@ const ReviewMode = () => {
           endedHandler: evalEndedHandler 
         });
         
+        // Remove existing listeners to prevent duplicates
+        audio.evaluationAudioRef.current.removeEventListener('play', evalPlayHandler);
+        audio.evaluationAudioRef.current.removeEventListener('ended', evalEndedHandler);
+        
+        // Add event listeners
         audio.evaluationAudioRef.current.addEventListener('play', evalPlayHandler);
         audio.evaluationAudioRef.current.addEventListener('ended', evalEndedHandler);
       }
@@ -241,8 +283,8 @@ const ReviewMode = () => {
   // Setup audio context cleanup on unmount
   useEffect(() => {
     return () => {
-      // Reset the connected elements set when component unmounts
-      connectedAudioElements.current = new WeakSet();
+      // Don't reset the connected elements set when component unmounts
+      // since the same audio elements might be reused across renders
       
       // If we have an audio context, close it
       if (audioContextRef.current) {
@@ -302,8 +344,12 @@ const ReviewMode = () => {
     // Simplified quality system - only correct/incorrect
     const quality = data.result === 'correct' ? 'correct' : 'incorrect';
 
-    // Update card scheduling
-    review.updateCardSchedulingServer(currentCardId, quality);
+    // Update card scheduling based on result
+    if (data.result === 'correct') {
+      review.markCorrectGetNext();
+    } else if (data.result === 'incorrect') {
+      review.markIncorrectGetNext();
+    }
 
     // Play evaluation audio if available
     if (data.audio) {
@@ -383,7 +429,7 @@ const ReviewMode = () => {
               </div>
             </button>
             <div className="visualizer-container">
-              <AudioVisualizer
+              <RadialAudioVisualizer
                 audioStream={playbackStreamRef.current}
                 isLive={isPlayingAudio}
                 isAiOutput={true}
@@ -406,7 +452,7 @@ const ReviewMode = () => {
               </div>
             </button>
             <div className="visualizer-container">
-              <AudioVisualizer
+              <RadialAudioVisualizer
                 audioStream={recordingStreamRef.current}
                 isLive={isRecording}
                 isAiOutput={false}

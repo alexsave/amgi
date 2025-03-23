@@ -3,14 +3,6 @@ import { evaluateSpeech as apiEvaluateSpeech } from '../network/api';
 export function useSpeechEvaluation({ audio, onEvaluationResult }) {
   const evaluateSpeech = async (recordedBlob, card) => {
     try {
-      console.log('useSpeechEvaluation: Starting evaluation with card:', {
-        back_text: card.back_text,
-        front_lang: card.front_lang,
-        back_lang: card.back_lang,
-        hasRecordedBlob: !!recordedBlob,
-        recordedBlobSize: recordedBlob?.size,
-        back_audio_id: card.back_audio_path
-      });
 
       // Get the expected audio from storage
       if (!card.back_audio_path) {
@@ -19,21 +11,13 @@ export function useSpeechEvaluation({ audio, onEvaluationResult }) {
 
       // I now realize we could just pass the path to the edge function and not load it here
       // Load the expected audio from storage
-      console.log('useSpeechEvaluation: Loading expected audio from storage:', card.back_audio_path);
       await audio.loadAudio(card.back_audio_path);
       
       // Get the audio URL from the ref
       const backAudioUrl = audio.audioRefs.current.get(card.back_audio_path).src;
-      console.log('useSpeechEvaluation: Fetching expected audio from:', backAudioUrl);
 
       // Fetch the audio data
       const audioResponse = await fetch(backAudioUrl);
-      console.log('useSpeechEvaluation: Fetch response:', {
-        ok: audioResponse.ok,
-        status: audioResponse.status,
-        contentType: audioResponse.headers.get('content-type'),
-        contentLength: audioResponse.headers.get('content-length')
-      });
 
       if (!audioResponse.ok) {
         throw new Error(`Failed to fetch expected audio: ${audioResponse.status}`);
@@ -46,29 +30,11 @@ export function useSpeechEvaluation({ audio, onEvaluationResult }) {
       }
 
       const backAudioBlob = await audioResponse.blob();
-      console.log('useSpeechEvaluation: Got expected audio blob:', {
-        size: backAudioBlob.size,
-        type: backAudioBlob.type
-      });
+
 
       // Create MP3 blobs for both recorded and expected audio
       const recordedMp3Blob = new Blob([recordedBlob], { type: 'audio/mp3' });
       const backAudioMp3Blob = new Blob([backAudioBlob], { type: 'audio/mp3' });
-
-      console.log('useSpeechEvaluation: Created MP3 blobs:', {
-        recorded: {
-          size: recordedMp3Blob.size,
-          type: recordedMp3Blob.type,
-          originalSize: recordedBlob.size,
-          originalType: recordedBlob.type
-        },
-        expected: {
-          size: backAudioMp3Blob.size,
-          type: backAudioMp3Blob.type,
-          originalSize: backAudioBlob.size,
-          originalType: backAudioBlob.type
-        }
-      });
 
       // Call the API using the proper implementation
       const result = await apiEvaluateSpeech(
@@ -79,22 +45,13 @@ export function useSpeechEvaluation({ audio, onEvaluationResult }) {
         card.front_lang       // front_lang (the language the user knows)
       );
 
-      console.log('useSpeechEvaluation: Received API result:', {
-        result: result.result,
-        messageLength: result.message?.length,
-        hasAudio: !!result.audio,
-        fullResult: result
-      });
 
       if (!result) {
         throw new Error('No result received from speech evaluation');
       }
 
-      console.log('useSpeechEvaluation: Calling onEvaluationResult with:', result);
       onEvaluationResult(result);
-      console.log('useSpeechEvaluation: Finished evaluation');
     } catch (err) {
-      console.error('Error evaluating speech:', err);
       audio.setError(err.message);
       throw err;
     }
