@@ -283,7 +283,7 @@ const ReviewMode = () => {
       if (audio.isRecording) {
         const audioBlob = await audio.stopRecording();
         if (!audioBlob) return;
-        //await evaluateSpeech(audioBlob, currentCard);
+        await evaluateSpeech(audioBlob, currentCard);
       } else {
         audio.startRecording();
       }
@@ -392,7 +392,6 @@ const ReviewMode = () => {
               />
             </div>
           </div>
-          <div className="button-label">Play</div>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center'}}>
@@ -417,7 +416,6 @@ const ReviewMode = () => {
               />
             </div>
           </div>
-          <div className="button-label">Record</div>
         </div>
       </div>
 

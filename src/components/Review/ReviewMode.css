@@ -370,19 +370,6 @@
   background: linear-gradient(135deg, #777777, #333333);
 }
 
-.play-button::after {
-  content: '';
-  position: absolute;
-  top: -15%;
-  left: -15%;
-  width: 130%;
-  height: 130%;
-  border-radius: 50%;
-  border: 2px dashed rgba(200, 200, 200, 0.3);
-  z-index: -2;
-  animation: rotate 20s linear infinite;
-}
-
 /* Mic button specific styling */
 .mic-button .button-inner {
   background: linear-gradient(135deg, #777777, #333333);

@@ -10,6 +10,14 @@
   z-index: 5;
 }
 
+/* Rectangle visualizer style */
+.audio-canvas.rectangle {
+  border-radius: 8px;
+  height: 60px; /* Fixed height for rectangle visualizer */
+  position: relative;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
 .audio-visualizers-container {
   display: flex;
   justify-content: space-between;
