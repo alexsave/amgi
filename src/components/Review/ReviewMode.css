@@ -279,4 +279,176 @@
 
 .visualizer.ai {
   --visualizer-color: #4CAF50;
+}
+
+/* Audio button container */
+.audio-button-container {
+  position: relative;
+  width: 25vh;
+  height: 25vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 1rem;
+}
+
+/* Circular button styling */
+.audio-button {
+  width: 15vh;
+  height: 15vh;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  position: relative;
+  z-index: 10;
+  outline: none;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: all 0.2s ease;
+}
+
+.audio-button:hover {
+  transform: scale(1.05);
+}
+
+.audio-button:active {
+  transform: scale(0.98);
+}
+
+.button-inner {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: radial-gradient(circle at 30% 30%, #888888, #333333);
+  box-shadow: 
+    inset 0 5px 10px rgba(255, 255, 255, 0.2),
+    inset 0 -5px 10px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(255, 255, 255, 0.1),
+    0 8px 20px rgba(0, 0, 0, 0.5);
+  position: relative;
+  overflow: hidden;
+}
+
+.button-inner::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.15) 0%,
+    rgba(255, 255, 255, 0) 50%
+  );
+  transform: rotate(45deg);
+  pointer-events: none;
+  border-radius: 50%;
+  z-index: 2;
+}
+
+.button-icon {
+  color: #dddddd;
+  width: 30%;
+  height: 30%;
+  z-index: 3;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.5));
+}
+
+/* Play button specific styling */
+.play-button {
+  position: relative;
+}
+
+.play-button .button-inner {
+  background: linear-gradient(135deg, #777777, #333333);
+}
+
+.play-button::after {
+  content: '';
+  position: absolute;
+  top: -15%;
+  left: -15%;
+  width: 130%;
+  height: 130%;
+  border-radius: 50%;
+  border: 2px dashed rgba(200, 200, 200, 0.3);
+  z-index: -2;
+  animation: rotate 20s linear infinite;
+}
+
+/* Mic button specific styling */
+.mic-button .button-inner {
+  background: linear-gradient(135deg, #777777, #333333);
+  transition: all 0.3s ease;
+}
+
+.mic-button.recording .button-inner {
+  background: radial-gradient(circle at 30% 30%, #a755f7, #671caf);
+  box-shadow: 
+    inset 0 5px 15px rgba(255, 255, 255, 0.3),
+    inset 0 -5px 15px rgba(0, 0, 0, 0.4),
+    0 0 20px rgba(167, 85, 247, 0.5);
+}
+
+.mic-button.recording::after {
+  content: '';
+  position: absolute;
+  top: -5%;
+  left: -5%;
+  width: 110%;
+  height: 110%;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at center,
+    rgba(167, 85, 247, 0.2) 0%,
+    rgba(167, 85, 247, 0) 70%
+  );
+  z-index: -1;
+}
+
+.mic-button.recording .button-icon {
+  color: white;
+  filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.7));
+}
+
+.mic-button.loading .button-inner {
+  animation: pulse 1.5s infinite;
+}
+
+/* Button label */
+.button-label {
+  margin-top: 10px;
+  color: var(--text-secondary);
+  font-size: 14px;
+  text-align: center;
+}
+
+/* Visualizer container */
+.visualizer-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 5;
+  pointer-events: none;
+}
+
+/* Animations */
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+@keyframes rotate {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 } 
