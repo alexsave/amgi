@@ -229,12 +229,17 @@ const ReviewMode = () => {
         // Create ended handler
         const endedHandler = () => {
           console.log('Audio ended:', path);
-          setIsPlayingAudio(false);
-          // Small delay before clearing the stream to allow for visualization to complete
+          
+          // Don't immediately stop the visualization, let it decay
+          // but track that playback has ended
           setTimeout(() => {
-            if (!isPlayingAudio) {
-              playbackStreamRef.current = null;
-            }
+            setIsPlayingAudio(false);
+            // Small delay before clearing the stream to allow for decay visualization to complete
+            setTimeout(() => {
+              if (!isPlayingAudio) {
+                playbackStreamRef.current = null;
+              }
+            }, 1500); // Longer delay to allow for decay animation
           }, 100);
         };
         
@@ -300,11 +305,17 @@ const ReviewMode = () => {
         
         const evalEndedHandler = () => {
           console.log('Evaluation audio ended');
-          setIsPlayingAudio(false);
+          
+          // Don't immediately stop the visualization, let it decay
+          // but track that playback has ended
           setTimeout(() => {
-            if (!isPlayingAudio) {
-              playbackStreamRef.current = null;
-            }
+            setIsPlayingAudio(false);
+            // Small delay before clearing the stream to allow for decay visualization to complete
+            setTimeout(() => {
+              if (!isPlayingAudio) {
+                playbackStreamRef.current = null;
+              }
+            }, 1500); // Longer delay to allow for decay animation
           }, 100);
         };
         

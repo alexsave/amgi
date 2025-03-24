@@ -13,19 +13,29 @@ const RadialAudioVisualizer = ({
   const canvasRef = useRef(null);
   const sourceRef = useRef(null);
   const isAnimatingRef = useRef(false);
+  const isDecayingRef = useRef(false);
+  const lastDataRef = useRef(null);
+  const decayFactorRef = useRef(0.9); // Controls how quickly the visualization decays
 
   const startAnimation = () => {
     if (isAnimatingRef.current) return;
     
-    if (!analyserRef.current || !sourceRef.current || !canvasRef.current) {
-      console.log(`Cannot start animation: analyser=${!!analyserRef.current}, source=${!!sourceRef.current}, canvas=${!!canvasRef.current}`);
-      return;
+    if (!analyserRef.current && !isDecayingRef.current) {
+      if (!sourceRef.current || !canvasRef.current) {
+        console.log(`Cannot start animation: analyser=${!!analyserRef.current}, source=${!!sourceRef.current}, canvas=${!!canvasRef.current}`);
+        return;
+      }
     }
 
     isAnimatingRef.current = true;
     const ctx = canvasRef.current.getContext('2d');
-    const bufferLength = analyserRef.current.frequencyBinCount;
-    const dataArray = new Uint8Array(bufferLength);
+    const bufferLength = analyserRef.current ? analyserRef.current.frequencyBinCount : 128;
+    let dataArray = new Uint8Array(bufferLength);
+    
+    // Initialize lastDataRef if needed
+    if (!lastDataRef.current) {
+      lastDataRef.current = new Uint8Array(bufferLength);
+    }
     
     // Get the CSS dimensions (the display size)
     const rect = canvasRef.current.getBoundingClientRect();
@@ -54,14 +64,37 @@ const RadialAudioVisualizer = ({
       if (!isAnimatingRef.current) return;
 
       try {
-        // Always check if analyser still exists
-        if (!analyserRef.current) {
-          console.warn('Analyser was removed mid-animation');
-          isAnimatingRef.current = false;
-          return;
+        // Get data if we have an active analyser
+        if (analyserRef.current && !isDecayingRef.current) {
+          analyserRef.current.getByteFrequencyData(dataArray);
+          // Save the current data for decay mode
+          lastDataRef.current.set(dataArray);
+        } 
+        // If we're in decay mode, gradually reduce the values
+        else if (isDecayingRef.current && lastDataRef.current) {
+          let stillDecaying = false;
+          // Create a new array for this frame's decayed values
+          dataArray = new Uint8Array(lastDataRef.current.length);
+          
+          // Apply decay factor to each value
+          for (let i = 0; i < lastDataRef.current.length; i++) {
+            dataArray[i] = lastDataRef.current[i] * decayFactorRef.current;
+            // Update the stored value for next frame
+            lastDataRef.current[i] = dataArray[i];
+            // Check if we should continue decaying
+            if (dataArray[i] > 0.5) {
+              stillDecaying = true;
+            }
+          }
+          
+          // If all values are effectively zero, stop decaying
+          if (!stillDecaying) {
+            console.log(`Decay complete for ${isAiOutput ? 'AI' : 'user'} visualizer`);
+            isDecayingRef.current = false;
+            isAnimatingRef.current = false;
+            return;
+          }
         }
-
-        analyserRef.current.getByteFrequencyData(dataArray);
 
         // Calculate average for visualization
         let sum = 0;
@@ -86,7 +119,7 @@ const RadialAudioVisualizer = ({
         // Draw rays from center
         for (let i = 0; i < visibleBars; i++) {
           // Get data from the buffer (we'll sample evenly)
-          const dataIndex = Math.floor(i * (bufferLength / visibleBars));
+          const dataIndex = Math.floor(i * (dataArray.length / visibleBars));
           // Calculate normalized ray length (0 to 1)
           const rayLengthNormalized = Math.min(dataArray[dataIndex] / 255.0, 1);
           // Calculate actual ray length
@@ -103,8 +136,8 @@ const RadialAudioVisualizer = ({
           const endY = centerY + Math.sin(angle) * rayLength;
           
           // Set color based on state and sound detection
-          if (hasSound) {
-            if (isLive) {
+          if (hasSound || isDecayingRef.current) {
+            if (isLive || isDecayingRef.current) {
               if (isAiOutput) {
                 // Blue-cyan gradient for AI
                 const hue = 195 + (rayLengthNormalized * 25); // Range 195-220 (cyan to blue)
@@ -142,17 +175,26 @@ const RadialAudioVisualizer = ({
       } catch (error) {
         console.error(`Error in render frame for ${isAiOutput ? 'AI' : 'user'}:`, error);
         isAnimatingRef.current = false;
+        isDecayingRef.current = false;
       }
     };
 
     renderFrame();
   };
 
-  const stopAnimation = () => {
-    isAnimatingRef.current = false;
-    if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current);
-      animationFrameRef.current = null;
+  const stopAnimation = (withDecay = false) => {
+    if (withDecay && isAnimatingRef.current) {
+      // Start decay mode instead of stopping immediately
+      console.log(`Starting decay for ${isAiOutput ? 'AI' : 'user'} visualizer`);
+      isDecayingRef.current = true;
+    } else {
+      // Stop immediately
+      isAnimatingRef.current = false;
+      isDecayingRef.current = false;
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
+      }
     }
   };
 
@@ -363,11 +405,12 @@ const RadialAudioVisualizer = ({
       hasStream: !!audioStream,
       hasSource: !!sourceRef.current,
       isAnimating: isAnimatingRef.current,
-      hasAnalyser: !!analyserRef.current
+      hasAnalyser: !!analyserRef.current,
+      isDecaying: isDecayingRef.current
     });
     
     // If we should be live but aren't animating
-    if (isLive && !isAnimatingRef.current) {
+    if (isLive && !isAnimatingRef.current && !isDecayingRef.current) {
       if (sourceRef.current && analyserRef.current) {
         console.log(`Starting animation for ${isAiOutput ? 'AI' : 'user'} visualizer (isLive change)`);
         startAnimation();
@@ -381,10 +424,10 @@ const RadialAudioVisualizer = ({
         startIdleAnimation();
       }
     } 
-    // If we shouldn't be live but are still animating
-    else if (!isLive && isAnimatingRef.current) {
-      console.log(`Stopping animation for ${isAiOutput ? 'AI' : 'user'} visualizer`);
-      stopAnimation();
+    // If we shouldn't be live but are still animating and not already decaying
+    else if (!isLive && isAnimatingRef.current && !isDecayingRef.current) {
+      console.log(`Stopping animation with decay for ${isAiOutput ? 'AI' : 'user'} visualizer`);
+      stopAnimation(true); // Use decay effect
     }
   }, [isLive, isAiOutput, audioStream]);
 
