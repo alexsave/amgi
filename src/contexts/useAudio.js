@@ -20,6 +20,7 @@ export function AudioProvider({ children }) {
   const blobUrls = useRef(new Map());
   const evaluationAudioRef = useRef(new Audio());
   const audioCache = useRef(new Map());
+  const pendingPlayRequests = useRef(new Map()); // Track play requests by path
 
   // Audio visualization state and refs
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
@@ -76,22 +77,52 @@ export function AudioProvider({ children }) {
       // If we're starting to record
       if (isRecording) {
         try {
-          // Get user media stream for visualization
-          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          console.log('Setting up recording stream for visualization');
           
-          // If we have an existing stream, disconnect and clean it up first
-          if (recordingStreamRef.current) {
-            recordingStreamRef.current.getTracks().forEach(track => track.stop());
+          // If we don't already have a stream (should have been created in startRecording)
+          if (!recordingStreamRef.current) {
+            console.log('No recording stream found, creating one now');
+            // Get user media stream for visualization
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            
+            // Set the new stream
+            recordingStreamRef.current = stream;
+            console.log('Recording stream set for visualization', { streamId: stream.id });
+          } else {
+            console.log('Using existing recording stream', { 
+              streamId: recordingStreamRef.current.id,
+              active: recordingStreamRef.current.active 
+            });
           }
           
-          // Set the new stream
-          recordingStreamRef.current = stream;
+          // Ensure audio context is resumed
+          if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+            await audioContextRef.current.resume();
+            console.log('AudioContext resumed for recording');
+          }
         } catch (error) {
           console.error('Error getting microphone stream for visualization:', error);
         }
       } else {
         // When we stop recording, don't immediately stop the stream
-        // We'll let the cleanup effect handle this when appropriate
+        // We'll leave it for a moment to allow the visualizer to show decay
+        if (recordingStreamRef.current) {
+          console.log('Recording stopped, delaying stream cleanup for decay animation');
+          setTimeout(() => {
+            // Only stop if we're still not recording
+            if (!isRecording && recordingStreamRef.current) {
+              recordingStreamRef.current.getTracks().forEach(track => track.stop());
+              console.log('Recording stream stopped after delay');
+              // Don't set to null immediately to allow decay animation
+              setTimeout(() => {
+                if (!isRecording) {
+                  recordingStreamRef.current = null;
+                  console.log('Recording stream reference cleared');
+                }
+              }, 2000);
+            }
+          }, 2000);
+        }
       }
     };
 
@@ -325,9 +356,38 @@ export function AudioProvider({ children }) {
       await ensureAudioContext();
       await recorder.initAudio();
       await recorder.initWorker();
+      
+      // Get user media stream for visualization BEFORE starting recording
+      try {
+        console.log('Creating recording stream before starting recorder');
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        
+        // Clean up existing stream if any
+        if (recordingStreamRef.current) {
+          recordingStreamRef.current.getTracks().forEach(track => track.stop());
+        }
+        
+        // Set the new stream immediately
+        recordingStreamRef.current = stream;
+        console.log('Recording stream created for visualization', { streamId: stream.id });
+      } catch (streamError) {
+        console.error('Error getting microphone stream for visualization:', streamError);
+      }
+      
+      // Start the actual recording now that we have a stream
       recorder.startRecording();
       setIsLoading(false);
       setIsRecording(true);
+      
+      // Force the audio context to resume if suspended
+      if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+        try {
+          await audioContextRef.current.resume();
+          console.log('Resumed AudioContext for recording');
+        } catch (resumeError) {
+          console.error('Error resuming AudioContext:', resumeError);
+        }
+      }
     } catch (e) {
       setError('Failed to start recording: ' + e.message);
       setIsLoading(false);
@@ -415,6 +475,13 @@ export function AudioProvider({ children }) {
     try {
       await ensureAudioContext();
       
+      // Cancel any pending play requests first
+      for (const [path, controller] of pendingPlayRequests.current.entries()) {
+        console.log(`Cancelling pending play request for ${path}`);
+        controller.abort();
+        pendingPlayRequests.current.delete(path);
+      }
+      
       // Stop all currently playing audio
       for (const audio of audioRefs.current.values()) {
         audio.pause();
@@ -443,13 +510,124 @@ export function AudioProvider({ children }) {
         if (!audioRefs.current.has(audioPath)) {
           audioRefs.current.set(audioPath, new Audio());
         }
-        const audioRef = audioRefs.current.get(audioPath);
-        audioRef.src = audioUrl;
-        await audioRef.play();
+        const audioElement = audioRefs.current.get(audioPath);
+        
+        // Create an abort controller for this play request
+        const controller = new AbortController();
+        pendingPlayRequests.current.set(audioPath, controller);
+        
+        // Set source first and wait for it to load before attempting to play
+        audioElement.src = audioUrl;
+        
+        // Ensure we have a source node connected for visualization
+        if (!connectedAudioElements.current.has(audioElement)) {
+          try {
+            console.log('Setting up audio visualization for playback:', audioPath);
+            
+            // Create a MediaElementAudioSourceNode
+            const source = audioContextRef.current.createMediaElementSource(audioElement);
+            // Connect to destination to hear the audio
+            source.connect(audioContextRef.current.destination);
+            
+            // Create a MediaStream from the audio context for visualization
+            const destination = audioContextRef.current.createMediaStreamDestination();
+            source.connect(destination);
+            
+            // Set the playback stream reference for visualization immediately
+            playbackStreamRef.current = destination.stream;
+            console.log('Playback stream set for visualization', { 
+              streamId: destination.stream.id,
+              hasAudioTracks: destination.stream.getAudioTracks().length
+            });
+            
+            // Mark this element as connected
+            connectedAudioElements.current.add(audioElement);
+            
+            // Store in global cache if available
+            if (window.audioSourceCache) {
+              window.audioSourceCache.set(audioElement, { source, destination });
+              console.log('Added to global audioSourceCache on play:', audioPath);
+            }
+          } catch (error) {
+            pendingPlayRequests.current.delete(audioPath);
+            console.error('Error setting up audio source for visualization:', error);
+          }
+        } else if (window.audioSourceCache && window.audioSourceCache.has(audioElement)) {
+          // If already connected, get the stream from cache
+          const { destination } = window.audioSourceCache.get(audioElement);
+          playbackStreamRef.current = destination.stream;
+          console.log('Using cached stream for visualization:', audioPath, {
+            streamId: destination.stream.id
+          });
+        }
+        
+        // Set state to playing before actually playing
+        // This ensures the visualizer can start preparing right away
+        setIsPlayingAudio(true);
+        
+        // Wait for canplay event before attempting to play
+        const canPlayPromise = new Promise((resolve) => {
+          const canPlayHandler = () => {
+            audioElement.removeEventListener('canplay', canPlayHandler);
+            resolve();
+          };
+          
+          // If already ready to play, resolve immediately
+          if (audioElement.readyState >= 3) {
+            resolve();
+          } else {
+            audioElement.addEventListener('canplay', canPlayHandler);
+          }
+        });
+        
+        try {
+          // Wait for the audio to be ready to play
+          await Promise.race([
+            canPlayPromise,
+            new Promise((_, reject) => {
+              controller.signal.addEventListener('abort', () => 
+                reject(new Error('Play request aborted'))
+              );
+            })
+          ]);
+          
+          // Now try to play if this request hasn't been aborted
+          if (!controller.signal.aborted) {
+            await audioElement.play();
+            console.log('Audio playback started:', audioPath);
+            
+            // Clean up this request's controller now that it's successfully playing
+            pendingPlayRequests.current.delete(audioPath);
+          }
+        } catch (playError) {
+          pendingPlayRequests.current.delete(audioPath);
+          // Don't log abort errors from our own cancellations
+          if (playError.message !== 'Play request aborted') {
+            console.error('Error starting audio playback:', playError);
+          }
+          setIsPlayingAudio(false); // Reset state if playback fails
+          throw playError;
+        }
+        
+        // Set up ended handler to reset state
+        audioElement.onended = () => {
+          console.log('Audio playback ended:', audioPath);
+          setIsPlayingAudio(false);
+          // Don't immediately clear the stream to allow for decay animation
+          setTimeout(() => {
+            if (!isPlayingAudio) {
+              console.log('Clearing playback stream reference after delay');
+              playbackStreamRef.current = null;
+            }
+          }, 2000);
+        };
       }
     } catch (err) {
-      setError(`Failed to play audio: ${err.message}`);
-      throw err;
+      // Don't show error for aborted requests
+      if (err.message !== 'Play request aborted') {
+        setError(`Failed to play audio: ${err.message}`);
+        throw err;
+      }
     }
   };
 

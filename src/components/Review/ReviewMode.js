@@ -14,7 +14,6 @@ const ReviewMode = () => {
   const navigate = useNavigate();
   const audio = useAudio();
   const review = useReview();
-  const [isRecording, setIsRecording] = useState(false);
   const { currentCard, currentCardId, attempts, showAnswer, evaluationResult, newCardsCount, reviewCardsCount, learningCardsCount } = review;
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [isEvaluating, setIsEvaluating] = useState(false);
@@ -22,19 +21,11 @@ const ReviewMode = () => {
   const transitionTimerRef = useRef(null);
   const [transitionCard, setTransitionCard] = useState(null);
   const [showCardContent, setShowCardContent] = useState(false);
+  const [isPlayingLocked, setIsPlayingLocked] = useState(false); // Lock to prevent rapid clicks
 
-  // Audio visualization state and refs
+  // Only retaining the volume scale for the UI, all other audio state moved to contexts
   const [audioScale, setAudioScale] = useState(0);
-  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
-  const audioContextRef = useRef(null);
-  const recordingStreamRef = useRef(null);
-  const playbackStreamRef = useRef(null);
-  const animationFrameRef = useRef(null);
-  const playbackAnimationFrameRef = useRef(null);
 
-  // Track connected audio elements to prevent reconnection errors
-  const connectedAudioElements = useRef(new WeakSet());
-  
   // Load audio when current card changes
   useEffect(() => {
     if (currentCard) {
@@ -46,436 +37,80 @@ const ReviewMode = () => {
         back_lang: currentCard.back_lang
       });
 
-      const setupAudio = async (audioPath) => {
-        if (!audioPath) return;
-        
-        // First load the audio
-        await audio.loadAudio(audioPath);
-        
-        // Then ensure we have an audio context
-        await ensureAudioContext();
-        
-        // Then create source connections right away instead of waiting for play
-        const audioElement = audio.audioRefs.current.get(audioPath);
-        if (audioElement && !window.audioSourceCache?.has(audioElement) && !connectedAudioElements.current.has(audioElement)) {
-          try {
-            console.log('Proactively creating audio source for:', audioPath);
-            // Create a MediaElementAudioSourceNode
-            const source = audioContextRef.current.createMediaElementSource(audioElement);
-            // Connect to destination to hear the audio
-            source.connect(audioContextRef.current.destination);
-            
-            // Create a MediaStream from the audio context for visualization
-            const destination = audioContextRef.current.createMediaStreamDestination();
-            source.connect(destination);
-            
-            // Mark this element as connected in both local and global caches
-            connectedAudioElements.current.add(audioElement);
-            if (window.audioSourceCache) {
-              window.audioSourceCache.set(audioElement, { source, destination });
-              console.log('Proactively added to global audioSourceCache:', audioPath);
-            }
-          } catch (error) {
-            console.error('Error setting up proactive audio connection:', error, 'for path:', audioPath);
-          }
-        }
-      };
-
-      // Load front audio
+      // Preload front audio
       if (currentCard.front_audio_path) {
-        setupAudio(currentCard.front_audio_path);
+        audio.loadAudio(currentCard.front_audio_path).catch(err => {
+          console.error('Error preloading front audio:', err);
+        });
       }
 
-      // Load back audio
+      // Preload back audio
       if (currentCard.back_audio_path) {
-        setupAudio(currentCard.back_audio_path);
+        audio.loadAudio(currentCard.back_audio_path).catch(err => {
+          console.error('Error preloading back audio:', err);
+        });
       }
     }
-  }, [currentCardId]);
-
-  // Create a global cache of audio sources to prevent reconnection errors
-  useEffect(() => {
-    // Create a cache on the window object if it doesn't exist
-    if (!window.audioSourceCache) {
-      window.audioSourceCache = new WeakMap();
-      console.log("Created new global audioSourceCache");
-    } else {
-      console.log("Using existing audioSourceCache");
-    }
-    
-    // Cleanup on unmount
-    return () => {
-      // No cleanup needed for WeakMap as it will be garbage collected 
-      // when audio elements are no longer referenced
-      console.log("ReviewMode unmounted, audioSourceCache remains for reuse");
-    };
-  }, []);
-
-  // Setup audio context
-  useEffect(() => {
-    // Create audio context if it doesn't exist
-    if (!audioContextRef.current) {
-      audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
-    }
-
-    // Clean up function
-    return () => {
-      // Cancel any animations
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-      if (playbackAnimationFrameRef.current) {
-        cancelAnimationFrame(playbackAnimationFrameRef.current);
-      }
-
-      // Stop any streams
-      if (recordingStreamRef.current) {
-        recordingStreamRef.current.getTracks().forEach(track => track.stop());
-      }
-    };
-  }, []);
+  }, [currentCardId, audio]);
 
   // Handle recording state changes
   useEffect(() => {
-    const setupRecordingStream = async () => {
-      // If we're starting to record
-      if (audio.isRecording) {
-        try {
-          // Get user media stream for visualization
-          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-          
-          // If we have an existing stream, disconnect and clean it up first
-          if (recordingStreamRef.current) {
-            recordingStreamRef.current.getTracks().forEach(track => track.stop());
-          }
-          
-          // Set the new stream
-          recordingStreamRef.current = stream;
-          setIsRecording(true);
-        } catch (error) {
-          console.error('Error getting microphone stream for visualization:', error);
-        }
-      } else {
-        // When we stop recording
-        setIsRecording(false);
-        
-        // Don't actually stop the stream immediately, as this might cause issues with the recorded audio
-        // We'll let the cleanup effect handle this when appropriate
-      }
-    };
-
-    setupRecordingStream();
+    if (!audio.isRecording) {
+      // When recording stops
+      setIsEvaluating(false);
+    }
   }, [audio.isRecording]);
 
-  // Track audio playback state
-  useEffect(() => {
-    const setupPlaybackListeners = () => {
-      const listeners = new Map();
-      const audioSources = new Map();
-      
-      // Find all audio elements from audio context
-      audio.audioRefs.current.forEach((audioElement, path) => {
-        // Check global cache first
-        if (window.audioSourceCache && window.audioSourceCache.has(audioElement)) {
-          console.log('Audio element found in global cache, reusing:', path);
-          const { source, destination } = window.audioSourceCache.get(audioElement);
-          audioSources.set(audioElement, { source, destination });
-        } 
-        // If not in global cache and not connected, create new source
-        else if (!connectedAudioElements.current.has(audioElement) && audioContextRef.current) {
-          try {
-            console.log('Creating new audio source for:', path);
-            // Create a MediaElementAudioSourceNode
-            const source = audioContextRef.current.createMediaElementSource(audioElement);
-            // Connect to destination to hear the audio
-            source.connect(audioContextRef.current.destination);
-            
-            // Create a MediaStream from the audio context for visualization
-            const destination = audioContextRef.current.createMediaStreamDestination();
-            source.connect(destination);
-            
-            // Store the source and destination
-            audioSources.set(audioElement, { source, destination });
-            
-            // Mark this element as connected in both local and global caches
-            connectedAudioElements.current.add(audioElement);
-            if (window.audioSourceCache) {
-              window.audioSourceCache.set(audioElement, { source, destination });
-              console.log('Added to global audioSourceCache:', path);
-            }
-            console.log('Connected new audio element:', path);
-          } catch (error) {
-            console.error('Error setting up audio visualization for playback:', error, 'for path:', path);
-          }
-        } else {
-          console.log('Audio element already connected, skipping:', path);
-        }
-        
-        // Create play handler
-        const playHandler = () => {
-          console.log('Audio playing:', path);
-          setIsPlayingAudio(true);
-          
-          // Set the current playback stream for visualization
-          const sourceInfo = window.audioSourceCache?.get(audioElement) || audioSources.get(audioElement);
-          if (sourceInfo) {
-            playbackStreamRef.current = sourceInfo.destination.stream;
-            console.log('Playback stream set:', !!playbackStreamRef.current, 'destination:', !!sourceInfo.destination);
-          } else {
-            console.warn('No sourceInfo found for audio element:', path);
-          }
-        };
-        
-        // Create ended handler
-        const endedHandler = () => {
-          console.log('Audio ended:', path);
-          
-          // Don't immediately stop the visualization, let it decay
-          // but track that playback has ended
-          setTimeout(() => {
-            setIsPlayingAudio(false);
-            // Small delay before clearing the stream to allow for decay visualization to complete
-            setTimeout(() => {
-              if (!isPlayingAudio) {
-                playbackStreamRef.current = null;
-              }
-            }, 1500); // Longer delay to allow for decay animation
-          }, 100);
-        };
-        
-        // Store handlers so we can remove them later
-        listeners.set(audioElement, { playHandler, endedHandler });
-        
-        // Remove existing listeners to prevent duplicates
-        audioElement.removeEventListener('play', playHandler);
-        audioElement.removeEventListener('ended', endedHandler);
-        
-        // Add play event listener
-        audioElement.addEventListener('play', playHandler);
-        
-        // Add ended event listener
-        audioElement.addEventListener('ended', endedHandler);
-      });
-      
-      // Evaluation audio handling
-      if (audio.evaluationAudioRef.current) {
-        // Check global cache first
-        if (window.audioSourceCache && window.audioSourceCache.has(audio.evaluationAudioRef.current)) {
-          console.log('Evaluation audio element found in global cache, reusing');
-          const { source, destination } = window.audioSourceCache.get(audio.evaluationAudioRef.current);
-          audioSources.set(audio.evaluationAudioRef.current, { source, destination });
-        }
-        // If not in global cache and not already connected
-        else if (!connectedAudioElements.current.has(audio.evaluationAudioRef.current) && audioContextRef.current) {
-          try {
-            const source = audioContextRef.current.createMediaElementSource(audio.evaluationAudioRef.current);
-            source.connect(audioContextRef.current.destination);
-            
-            const destination = audioContextRef.current.createMediaStreamDestination();
-            source.connect(destination);
-            
-            audioSources.set(audio.evaluationAudioRef.current, { source, destination });
-            
-            // Mark this element as connected in both local and global caches
-            connectedAudioElements.current.add(audio.evaluationAudioRef.current);
-            if (window.audioSourceCache) {
-              window.audioSourceCache.set(audio.evaluationAudioRef.current, { source, destination });
-            }
-            console.log('Connected new evaluation audio element');
-          } catch (error) {
-            console.error('Error setting up audio visualization for evaluation:', error);
-          }
-        } else {
-          console.log('Evaluation audio element already connected, skipping');
-        }
-        
-        // Create play handler for evaluation audio
-        const evalPlayHandler = () => {
-          console.log('Evaluation audio playing');
-          setIsPlayingAudio(true);
-          
-          // Get source from global cache or local map
-          const sourceInfo = window.audioSourceCache?.get(audio.evaluationAudioRef.current) || 
-                            audioSources.get(audio.evaluationAudioRef.current);
-          if (sourceInfo) {
-            playbackStreamRef.current = sourceInfo.destination.stream;
-            console.log('Evaluation playback stream set');
-          }
-        };
-        
-        const evalEndedHandler = () => {
-          console.log('Evaluation audio ended');
-          
-          // Don't immediately stop the visualization, let it decay
-          // but track that playback has ended
-          setTimeout(() => {
-            setIsPlayingAudio(false);
-            // Small delay before clearing the stream to allow for decay visualization to complete
-            setTimeout(() => {
-              if (!isPlayingAudio) {
-                playbackStreamRef.current = null;
-              }
-            }, 1500); // Longer delay to allow for decay animation
-          }, 100);
-        };
-        
-        listeners.set(audio.evaluationAudioRef.current, { 
-          playHandler: evalPlayHandler, 
-          endedHandler: evalEndedHandler 
-        });
-        
-        // Remove existing listeners to prevent duplicates
-        audio.evaluationAudioRef.current.removeEventListener('play', evalPlayHandler);
-        audio.evaluationAudioRef.current.removeEventListener('ended', evalEndedHandler);
-        
-        // Add event listeners
-        audio.evaluationAudioRef.current.addEventListener('play', evalPlayHandler);
-        audio.evaluationAudioRef.current.addEventListener('ended', evalEndedHandler);
-      }
-      
-      // Return cleanup function
-      return { listeners, audioSources };
-    };
-    
-    const { listeners, audioSources } = setupPlaybackListeners();
-    
-    // Cleanup function
-    return () => {
-      listeners.forEach((handlers, element) => {
-        element.removeEventListener('play', handlers.playHandler);
-        element.removeEventListener('ended', handlers.endedHandler);
-      });
-    };
-  }, [audio.audioRefs.current.size]);
-
-  // Setup audio context cleanup on unmount
-  useEffect(() => {
-    return () => {
-      // Don't reset the connected elements set when component unmounts
-      // since the same audio elements might be reused across renders
-      
-      // If we have an audio context, close it
-      if (audioContextRef.current) {
-        audioContextRef.current.close().catch(e => {
-          console.error('Error closing AudioContext:', e);
-        });
-        audioContextRef.current = null;
-      }
-    };
-  }, []);
-
-  // Ensure audio context is in the right state before use
-  const ensureAudioContext = async () => {
-    if (!audioContextRef.current) {
-      audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
-      console.log("Created new AudioContext");
-    } else if (audioContextRef.current.state === 'suspended') {
-      await audioContextRef.current.resume();
-      console.log("Resumed AudioContext");
-    }
-    return audioContextRef.current;
-  };
-
-  // Update the play button click handler
+  // Play button click handler (simplified)
   const handlePlayButtonClick = async (audioPath) => {
+    // Prevent rapid clicks
+    if (isPlayingLocked || audio.isLoading) {
+      console.log('Ignoring play request - playback locked or loading');
+      return;
+    }
+    
+    setIsPlayingLocked(true);
+    
     try {
-      console.log("Play button clicked for path:", audioPath);
-      await ensureAudioContext();
-      console.log("Audio context ready, state:", audioContextRef.current.state);
-      
-      // Get the audio element and ensure it has a source before playing
-      const audioElement = audio.audioRefs.current.get(audioPath);
-      if (audioElement) {
-        // Check if this element has a source in the cache
-        let sourceInfo = window.audioSourceCache?.get(audioElement);
-        
-        // If no source info found, try to create it now
-        if (!sourceInfo && audioContextRef.current && !connectedAudioElements.current.has(audioElement)) {
-          try {
-            console.log('Creating audio source on demand for:', audioPath);
-            // Create source connections
-            const source = audioContextRef.current.createMediaElementSource(audioElement);
-            source.connect(audioContextRef.current.destination);
-            
-            const destination = audioContextRef.current.createMediaStreamDestination();
-            source.connect(destination);
-            
-            // Store in caches
-            sourceInfo = { source, destination };
-            connectedAudioElements.current.add(audioElement);
-            if (window.audioSourceCache) {
-              window.audioSourceCache.set(audioElement, sourceInfo);
-              console.log('Added to global audioSourceCache on demand:', audioPath);
-            }
-          } catch (error) {
-            console.error('Error creating audio source on demand:', error);
-          }
-        }
-        
-        if (sourceInfo && sourceInfo.destination) {
-          // Pre-set the playback stream before playing
-          playbackStreamRef.current = sourceInfo.destination.stream;
-          console.log("Playback stream set proactively:", !!playbackStreamRef.current);
-          
-          // Trigger play, wait a moment for the event to fire
-          audio.playAudio(audioPath);
-          
-          // Force set isPlayingAudio to true to make visualizer active
-          setTimeout(() => {
-            setIsPlayingAudio(true);
-          }, 50);
-        } else {
-          console.warn("No sourceInfo found for this audio before playing");
-          audio.playAudio(audioPath);
-        }
-      } else {
-        console.warn("Audio element not found for path:", audioPath);
-        audio.playAudio(audioPath);
-      }
-      
-      console.log("Play audio called, playbackStreamRef.current:", !!playbackStreamRef.current);
+      await audio.ensureAudioContext();
+      await audio.playAudio(audioPath);
     } catch (error) {
       console.error("Error playing audio:", error);
+    } finally {
+      // Add small delay to prevent immediate re-click
+      setTimeout(() => {
+        setIsPlayingLocked(false);
+      }, 300);
     }
   };
 
-  // Update the record button click handler
+  // Record button click handler (simplified)
   const handleRecordButtonClick = async () => {
     try {
-      await ensureAudioContext();
+      await audio.ensureAudioContext();
       if (audio.isRecording) {
         const audioBlob = await audio.stopRecording();
         if (!audioBlob) return;
         setIsEvaluating(true);
         
-        // Make sure currentCard is still available
         if (!currentCard) {
           setIsEvaluating(false);
           console.error("Current card is not available for evaluation");
           return;
         }
         
-        // Debug: Log card details before evaluation
-        console.log("Evaluating speech with card:", {
-          id: currentCard.id,
-          front_text: currentCard.front_text,
-          back_text: currentCard.back_text,
-          front_lang: currentCard.front_lang,
-          back_lang: currentCard.back_lang,
-          has_front_audio: !!currentCard.front_audio_path,
-          has_back_audio: !!currentCard.back_audio_path
-        });
-        
-        // Ensure all required properties are present before evaluation
-        if (!currentCard.back_lang || !currentCard.front_lang) {
-          console.error("Missing language information on card:", 
-            { back_lang: currentCard.back_lang, front_lang: currentCard.front_lang });
-        }
-        
         await evaluateSpeech(audioBlob, currentCard);
         setIsEvaluating(false);
       } else {
-        audio.startRecording();
+        // Start recording
+        setAudioScale(0); // Reset the audio scale
+        await audio.startRecording();
+        
+        // Force a small delay to ensure the visualizer detects the stream
+        setTimeout(() => {
+          // This will trigger a re-render and help the visualizer detect the stream change
+          setAudioScale(1);
+        }, 100);
       }
     } catch (error) {
       console.error("Error with recording:", error);
@@ -663,16 +298,13 @@ const ReviewMode = () => {
           <div className="audio-button-container">
             <div className="visualizer-container">
               <RadialAudioVisualizer
-                audioStream={playbackStreamRef.current}
-                isLive={isPlayingAudio}
-                isAiOutput={true}
-                audioContextRef={audioContextRef}
-                animationFrameRef={playbackAnimationFrameRef}
+                visualizerType="ai"
               />
             </div>
             <button
-              className={`audio-button play-button ${isPlayingAudio ? 'playing' : ''}`}
+              className={`audio-button play-button ${audio.isPlayingAudio ? 'playing' : ''} ${isPlayingLocked ? 'loading' : ''}`}
               onClick={() => handlePlayButtonClick(currentCard.front_audio_path)}
+              disabled={audio.isPlayingAudio || isPlayingLocked}
             >
               <div className="button-inner">
                 <PlayIcon className="button-icon" />
@@ -688,16 +320,13 @@ const ReviewMode = () => {
           <div className="audio-button-container">
             <div className="visualizer-container">
               <RadialAudioVisualizer
-                audioStream={recordingStreamRef.current}
-                isLive={isRecording}
-                isAiOutput={false}
-                audioContextRef={audioContextRef}
-                animationFrameRef={animationFrameRef}
+                visualizerType="user"
                 onVolumeChange={setAudioScale}
+                key={`user-visualizer-${audio.isRecording}`} // Force re-mount when recording state changes
               />
             </div>
             <button
-              className={`audio-button mic-button ${isRecording ? 'recording' : ''} ${audio.isLoading || isEvaluating ? 'loading' : ''}`}
+              className={`audio-button mic-button ${audio.isRecording ? 'recording' : ''} ${audio.isLoading || isEvaluating ? 'loading' : ''}`}
               onClick={handleRecordButtonClick}
               disabled={showAnswer || audio.isLoading || isEvaluating}
             >

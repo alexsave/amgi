@@ -1,14 +1,12 @@
 import React, { useEffect, useRef } from 'react';
+import { useAudio } from '../../contexts/useAudio';
 import './AudioVisualizer.css';
 
 const RadialAudioVisualizer = ({ 
-  audioStream, 
-  isLive,
-  isAiOutput,
-  audioContextRef,
-  animationFrameRef,
+  visualizerType, // 'ai' for AI/front card or 'user' for user/back card
   onVolumeChange
 }) => {
+  const audio = useAudio();
   const analyserRef = useRef(null);
   const canvasRef = useRef(null);
   const sourceRef = useRef(null);
@@ -16,7 +14,37 @@ const RadialAudioVisualizer = ({
   const isDecayingRef = useRef(false);
   const lastDataRef = useRef(null);
   const decayFactorRef = useRef(0.9); // Controls how quickly the visualization decays
+  const cleanupTimeoutRef = useRef(null);
+  const previousStreamRef = useRef(null);
+  
+  // Determine properties based on visualizer type
+  const isAiOutput = visualizerType === 'ai';
+  
+  // Get the appropriate stream and isLive state from audio context
+  const audioStream = isAiOutput ? audio.playbackStreamRef.current : audio.recordingStreamRef.current;
+  const isLive = isAiOutput ? audio.isPlayingAudio : audio.isRecording;
+  const animationFrameRef = isAiOutput ? audio.playbackAnimationFrameRef : audio.animationFrameRef;
 
+  // Add a direct reference to the recording status to ensure updates
+  const isRecording = !isAiOutput && audio.isRecording;
+  
+  // Effect specifically for recording state changes
+  useEffect(() => {
+    if (!isAiOutput && isRecording) {
+      console.log('User recording detected, checking for stream');
+      // Force re-setup of visualization when recording starts
+      if (audio.recordingStreamRef.current) {
+        console.log('Recording stream found, setting up visualization');
+        // Stop any existing animation first
+        if (isAnimatingRef.current) {
+          stopAnimation();
+        }
+        // Set up with the new stream
+        setupAudioVisualization();
+      }
+    }
+  }, [isRecording, audio.recordingStreamRef.current]);
+  
   const startAnimation = () => {
     if (isAnimatingRef.current) return;
     
@@ -183,10 +211,30 @@ const RadialAudioVisualizer = ({
   };
 
   const stopAnimation = (withDecay = false) => {
+    // Clear any existing cleanup timeout
+    if (cleanupTimeoutRef.current) {
+      clearTimeout(cleanupTimeoutRef.current);
+      cleanupTimeoutRef.current = null;
+    }
+    
     if (withDecay && isAnimatingRef.current) {
       // Start decay mode instead of stopping immediately
       console.log(`Starting decay for ${isAiOutput ? 'AI' : 'user'} visualizer`);
       isDecayingRef.current = true;
+      
+      // Set a timeout to clean up resources after decay is likely complete
+      cleanupTimeoutRef.current = setTimeout(() => {
+        console.log(`Cleanup timeout executed for ${isAiOutput ? 'AI' : 'user'} visualizer`);
+        if (!isLive) {
+          // Only fully stop if we're not supposed to be live anymore
+          isAnimatingRef.current = false;
+          isDecayingRef.current = false;
+          if (animationFrameRef.current) {
+            cancelAnimationFrame(animationFrameRef.current);
+            animationFrameRef.current = null;
+          }
+        }
+      }, 1500); // Allow enough time for decay animation to complete
     } else {
       // Stop immediately
       isAnimatingRef.current = false;
@@ -200,25 +248,52 @@ const RadialAudioVisualizer = ({
 
   const setupAudioVisualization = () => {
     if (!audioStream) {
-      console.log(`No audioStream for ${isAiOutput ? 'AI' : 'user'} visualizer`);
+      console.log(`No audioStream for ${isAiOutput ? 'AI' : 'user'} visualizer. Stream refs:`, {
+        playbackStream: audio.playbackStreamRef.current ? 'exists' : 'null',
+        recordingStream: audio.recordingStreamRef.current ? 'exists' : 'null',
+        isLive: isLive,
+        currentType: isAiOutput ? 'AI' : 'user'
+      });
+      
+      // For user recording, double-check if there's a stream that wasn't picked up yet
+      if (!isAiOutput && isLive && audio.recordingStreamRef.current) {
+        console.log(`Found recording stream that wasn't passed to visualizer, using it directly`);
+        // Use the stream directly from the context instead
+        const directStream = audio.recordingStreamRef.current;
+        
+        // Set up with this stream
+        setupWithStream(directStream);
+        return;
+      }
       
       // Still set up the canvas for idle animation
       const canvas = canvasRef.current;
       if (canvas) {
         updateCanvasSize();
         
-        // If we are supposed to be live, show an idle animation
+        // If we are supposed to be live or isLive was just set to true, show an idle animation
         if (isLive && !isAnimatingRef.current) {
+          console.log(`Starting idle animation (due to no stream) for ${isAiOutput ? 'AI' : 'user'} visualizer`);
           startIdleAnimation();
         }
       }
       return;
     }
 
+    return setupWithStream(audioStream);
+  };
+
+  // Helper function to set up audio visualization with a given stream
+  const setupWithStream = (stream) => {
+    if (!stream) return;
+    
     console.log(`Setting up audioStream for ${isAiOutput ? 'AI' : 'user'} visualizer`, {
-      streamActive: audioStream.active,
-      streamId: audioStream.id,
-      hasAudioTracks: audioStream.getAudioTracks().length > 0
+      streamActive: stream.active,
+      streamId: stream.id,
+      hasAudioTracks: stream.getAudioTracks().length > 0,
+      isLive: isLive,
+      isPlayingAudio: audio.isPlayingAudio,
+      isRecording: audio.isRecording
     });
     
     // If we're supposed to be live but not yet animating, we should try to start
@@ -235,35 +310,41 @@ const RadialAudioVisualizer = ({
     }
 
     // Create or resume AudioContext
-    if (!audioContextRef.current) {
+    if (!audio.audioContextRef.current) {
       try {
-        audioContextRef.current = new AudioContext();
+        audio.audioContextRef.current = new AudioContext();
+        console.log(`Created new AudioContext for ${isAiOutput ? 'AI' : 'user'} visualizer`);
       } catch (err) {
         console.error('Error creating AudioContext:', err);
+        startIdleAnimation(); // Fall back to idle animation on error
         return;
       }
-    } else if (audioContextRef.current.state === 'suspended') {
-      audioContextRef.current.resume().catch(err => {
+    } else if (audio.audioContextRef.current.state === 'suspended') {
+      audio.audioContextRef.current.resume().catch(err => {
         console.error('Error resuming AudioContext:', err);
+        startIdleAnimation(); // Fall back to idle animation on error
         return;
       });
+      console.log(`Resumed AudioContext for ${isAiOutput ? 'AI' : 'user'} visualizer`);
     }
     
     // Create or get the appropriate analyser
-    if (!analyserRef.current && audioContextRef.current) {
+    if (!analyserRef.current && audio.audioContextRef.current) {
       try {
-        analyserRef.current = audioContextRef.current.createAnalyser();
+        analyserRef.current = audio.audioContextRef.current.createAnalyser();
         analyserRef.current.fftSize = 256;
+        console.log(`Created analyzer for ${isAiOutput ? 'AI' : 'user'} visualizer`);
       } catch (err) {
         console.error('Error creating analyser:', err);
+        startIdleAnimation(); // Fall back to idle animation on error
         return;
       }
     }
 
     try {
       // Create new source for visualization
-      if (audioContextRef.current && audioStream) {
-        sourceRef.current = audioContextRef.current.createMediaStreamSource(audioStream);
+      if (audio.audioContextRef.current && stream) {
+        sourceRef.current = audio.audioContextRef.current.createMediaStreamSource(stream);
         sourceRef.current.connect(analyserRef.current);
         console.log(`Successfully connected stream to analyser for ${isAiOutput ? 'AI' : 'user'} visualizer`);
         
@@ -278,6 +359,7 @@ const RadialAudioVisualizer = ({
       }
     } catch (error) {
       console.error(`Error creating media stream source for ${isAiOutput ? 'AI' : 'user'}:`, error);
+      startIdleAnimation(); // Fall back to idle animation on error
       return;
     }
 
@@ -293,6 +375,7 @@ const RadialAudioVisualizer = ({
 
     // Start animation if we should be live
     if (isLive) {
+      console.log(`Starting animation for ${isAiOutput ? 'AI' : 'user'} visualizer (isLive true)`);
       startAnimation();
     }
 
@@ -348,10 +431,10 @@ const RadialAudioVisualizer = ({
     const centerY = displayHeight / 2;
     
     // Maximum length for the rays
-    const maxRayLength = Math.min(displayWidth, displayHeight) * 0.4;
+    const maxRayLength = Math.min(displayWidth, displayHeight) * 0.6; // Increased from 0.4
     
     // Number of rays to render
-    const rayCount = 12;
+    const rayCount = 16; // Increased from 12
     
     // Animation state
     let animationPhase = 0;
@@ -365,24 +448,24 @@ const RadialAudioVisualizer = ({
       ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
       
       // Update animation phase
-      animationPhase += 0.02;
+      animationPhase += 0.03; // Faster animation
       
       // Draw rays
       for (let i = 0; i < rayCount; i++) {
         const angle = (i / rayCount) * Math.PI * 2;
         const pulse = Math.sin(animationPhase + i * 0.5) * 0.5 + 0.5;
-        const rayLength = maxRayLength * (0.3 + pulse * 0.2);
+        const rayLength = maxRayLength * (0.3 + pulse * 0.4); // Increased range
         
         const endX = centerX + Math.cos(angle) * rayLength;
         const endY = centerY + Math.sin(angle) * rayLength;
         
         // Set color based on type (AI or user)
-        const alpha = 0.2 + pulse * 0.1;
+        const alpha = 0.4 + pulse * 0.3; // Increased alpha for better visibility
         ctx.strokeStyle = isAiOutput 
           ? `rgba(80, 160, 240, ${alpha})` // Blue for AI
           : `rgba(240, 100, 50, ${alpha})`; // Orange for user
         
-        ctx.lineWidth = 2 + pulse * 2;
+        ctx.lineWidth = 3 + pulse * 3; // Increased line width
         
         // Draw the ray
         ctx.beginPath();
@@ -431,15 +514,51 @@ const RadialAudioVisualizer = ({
     }
   }, [isLive, isAiOutput, audioStream]);
 
+  // Effect to start idle animation on initial mount if no stream
+  useEffect(() => {
+    // If no audioStream is available on mount, start idle animation
+    if (!audioStream && !isAnimatingRef.current) {
+      console.log(`Starting idle animation for ${isAiOutput ? 'AI' : 'user'} visualizer on mount`);
+      updateCanvasSize();
+      startIdleAnimation();
+    }
+  }, []);
+
   // Effect to handle audioStream changes
   useEffect(() => {
+    console.log(`Stream changed for ${isAiOutput ? 'AI' : 'user'} visualizer`, {
+      hasStream: !!audioStream,
+      isLive: isLive
+    });
+    
+    // If we have a valid stream, force reset the visualization
+    if (audioStream) {
+      // Clean up existing resources first
+      if (sourceRef.current) {
+        try {
+          sourceRef.current.disconnect();
+          sourceRef.current = null;
+        } catch (err) {
+          console.warn('Error disconnecting source:', err);
+        }
+      }
+      
+      // Stop current animation if any
+      if (isAnimatingRef.current) {
+        stopAnimation();
+      }
+      
+      // Reset analyzer to ensure fresh setup
+      analyserRef.current = null;
+    }
+    
     const cleanup = setupAudioVisualization();
     
     // Clean up function
     return () => {
       if (cleanup) cleanup();
     };
-  }, [audioStream]);
+  }, [audioStream, isAiOutput]);
 
   // Add resize observer for canvas
   useEffect(() => {
@@ -463,6 +582,64 @@ const RadialAudioVisualizer = ({
       resizeObserver.disconnect();
     };
   }, []);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (cleanupTimeoutRef.current) {
+        clearTimeout(cleanupTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Effect to track stream changes and handle stream cleanup
+  useEffect(() => {
+    // If we have a new stream, store the previous one for potential cleanup
+    if (audioStream && previousStreamRef.current !== audioStream) {
+      previousStreamRef.current = audioStream;
+    }
+    
+    // If the stream is removed or changed, we need to handle cleanup
+    return () => {
+      // This will be executed when the component unmounts
+      // or when audioStream changes (with stream becoming null)
+      if (!audioStream && previousStreamRef.current) {
+        console.log(`Stream removed for ${isAiOutput ? 'AI' : 'user'} visualizer, handling cleanup`);
+        
+        // If we're still animating, use decay effect before stopping
+        if (isAnimatingRef.current && !isDecayingRef.current) {
+          stopAnimation(true);
+        }
+        
+        // Clear the previous stream reference after we've handled the cleanup
+        previousStreamRef.current = null;
+      }
+    };
+  }, [audioStream, isAiOutput]);
+
+  // Cleanup on prop changes (when isLive becomes false)
+  useEffect(() => {
+    if (!isLive && previousStreamRef.current) {
+      // Schedule a cleanup after the decay animation finishes
+      const cleanupDelay = 2000; // 2 seconds should be enough for decay to complete
+      
+      if (cleanupTimeoutRef.current) {
+        clearTimeout(cleanupTimeoutRef.current);
+      }
+      
+      cleanupTimeoutRef.current = setTimeout(() => {
+        console.log(`Stream cleanup after animation for ${isAiOutput ? 'AI' : 'user'}`);
+        // The animation has had time to decay, now we can clean up the stream reference
+        previousStreamRef.current = null;
+      }, cleanupDelay);
+    }
+    
+    return () => {
+      if (cleanupTimeoutRef.current) {
+        clearTimeout(cleanupTimeoutRef.current);
+      }
+    };
+  }, [isLive, isAiOutput]);
 
   return (
     <canvas ref={canvasRef} className="audio-canvas" />
