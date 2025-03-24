@@ -441,7 +441,6 @@ export const saveReview = async (cardId, review, userId) => {
       return data;
     } else {
       // Update existing review
-      const currentState = existingReview[0].card_state;
       let newState = review.card_state;
 
 

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { XMarkIcon, ArrowPathIcon, PencilSquareIcon, MicrophoneIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon, ArrowPathIcon, MicrophoneIcon } from '@heroicons/react/24/outline';
 import { useAudio } from '../../contexts/useAudio';
 import { useDecks } from '../../contexts/DeckContext';
 import { useCardGenerationContext } from '../../contexts/CardGenerationContext';
@@ -10,10 +10,9 @@ import './CardModal.css';
 const CardModal = ({ isOpen, onClose }) => {
   const { id: deckId } = useParams();
   const { playAudio } = useAudio();
-  const { decks, addCardToDeck, currentDeckId } = useDecks();
+  const { decks, addCardToDeck } = useDecks();
   const {
     generatedCard,
-    clearGeneratedCard,
     clearInput,
     setEditableText,
     updateCardText,
@@ -24,7 +23,6 @@ const CardModal = ({ isOpen, onClose }) => {
   const modalRef = useRef(null);
 
   const [error, setError] = useState('');
-  const [editMode, setEditMode] = useState({ front: false, back: false });
 
   const currentDeck = decks[deckId];
 
@@ -51,7 +49,6 @@ const CardModal = ({ isOpen, onClose }) => {
   useEffect(() => {
     if (isOpen) {
       setError(null);
-      setEditMode({ front: false, back: false });
     }
   }, [isOpen]);
 

@@ -1,7 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useParams, Navigate } from 'react-router-dom';
 import { useDecks } from '../../contexts/DeckContext';
-import { useCardGenerationContext } from '../../contexts/CardGenerationContext';
 import CardForm from './CardForm';
 import CardModal from './CardModal';
 import './CardList.css';
@@ -10,7 +9,6 @@ import { getLanguageDisplay } from '../../constants/languages';
 const CardList = ({ onCardClick, onBack }) => {
   const { id } = useParams();
   const { decks, currentDeckId } = useDecks();
-  const { generatedCard } = useCardGenerationContext();
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   if (id !== currentDeckId) {

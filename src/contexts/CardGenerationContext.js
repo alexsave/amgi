@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { generateCard as apiGenerateCard, regenerateCardPart as apiRegenerateCardPart } from '../network/api';
-import { saveAudio, loadAudio } from '../db/localStorage';
 
 const CardGenerationContext = createContext();
 
@@ -47,18 +46,8 @@ export const CardGenerationProvider = ({ children }) => {
 
   // Get audio from storage by ID
   const getAudioById = (audioId) => {
-    const audioData = loadAudio(audioId);
-    if (!audioData) {
-      return null;
-    }
-    
-    try {
-      const blob = dataURLtoBlob(audioData.data);
-      const url = URL.createObjectURL(blob);
-      return url;
-    } catch (err) {
-      return null;
-    }
+    console.log('localStorage functionality moved to archives, audio ID not available:', audioId);
+    return null;
   };
 
   // Helper function to restore audio blobs

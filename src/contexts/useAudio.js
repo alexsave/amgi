@@ -183,7 +183,6 @@ export function AudioProvider({ children }) {
       if (evaluationAudioRef.current) {
         // Check global cache first
         if (window.audioSourceCache && window.audioSourceCache.has(evaluationAudioRef.current)) {
-          console.log('Evaluation audio element found in global cache, reusing');
           const { source, destination } = window.audioSourceCache.get(evaluationAudioRef.current);
           audioSources.set(evaluationAudioRef.current, { source, destination });
         }
@@ -203,7 +202,6 @@ export function AudioProvider({ children }) {
             if (window.audioSourceCache) {
               window.audioSourceCache.set(evaluationAudioRef.current, { source, destination });
             }
-            console.log('Connected new evaluation audio element');
           } catch (error) {
             console.error('Error setting up audio visualization for evaluation:', error);
           }
@@ -294,18 +292,7 @@ export function AudioProvider({ children }) {
 
   // Helper function to get audio from storage
   const getAudioFromStorage = (audioPath) => {
-    const audioData = JSON.parse(localStorage.getItem(`audio_storage/${audioPath}`));
-    if (!audioData) {
-      return null;
-    }
-    
-    try {
-      const blob = dataURLtoBlob(audioData.data);
-      const url = URL.createObjectURL(blob);
-      return url;
-    } catch (err) {
-      return null;
-    }
+    return null;
   };
 
   // Helper function to convert data URL to Blob

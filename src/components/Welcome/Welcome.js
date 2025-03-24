@@ -17,7 +17,7 @@ export default function Welcome() {
   const [error, setError] = useState('');
   
   // Control visibility of advanced options
-  const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
+  const showAdvancedOptions = false;
   
   // Auth hooks
   const navigate = useNavigate();

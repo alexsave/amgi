@@ -46,7 +46,6 @@ export const ReviewProvider = ({ children }) => {
 
     // Initialize scheduler with deck cards
     useEffect(() => {
-        console.log('ReviewContext: useEffect', { currentDeckId, decks, location });
         //const isReviewMode = location.pathname.includes('/review');
         //if (!currentDeckId || !isReviewMode) {
             //console.log('ReviewContext: useEffect: not in review mode');
@@ -55,7 +54,6 @@ export const ReviewProvider = ({ children }) => {
 
         const deck = decks[currentDeckId];
         if (!deck) {
-            console.log('ReviewContext: useEffect: no deck');
             return;
         }
 
@@ -63,18 +61,14 @@ export const ReviewProvider = ({ children }) => {
 
         for (let i = 0; i < deck.cards.length; i++) {
             const card = deck.cards[i];
-            console.log('ReviewContext: useEffect: card', card);
             if (!card.review) {
                 cardSchedulerRef.current.pushNewCard(card);
             } else {
                 cardSchedulerRef.current.setReview(card, card.review);
             }
         }
-        console.log(JSON.stringify(cardSchedulerRef.current));
         const nextCardId = cardSchedulerRef.current.peekNext();
-        console.log('ReviewContext: useEffect: nextCardId', nextCardId);
         currentCardIdRef.current = nextCardId;
-        //console.log('ReviewContext: useEffect: currentCardIdRef.current', currentCardIdRef.current);
         setCurrentCard(cardSchedulerRef.current.getFullCard(nextCardId));
         updateCardCounts();
     }, [currentDeckId ]);
@@ -192,9 +186,7 @@ export const ReviewProvider = ({ children }) => {
         const cardId = currentCardIdRef.current;
 
         // Process the card as incorrect
-        console.log('before processCardOutcome ' + JSON.stringify(cardSchedulerRef.current));
         const { nextCard, resetAttempts } = processCardOutcome(cardId, 'incorrect');
-        console.log('after processCardOutcome ' + JSON.stringify(cardSchedulerRef.current));
 
         // If we should reset attempts, move to the next card
         if (resetAttempts) {
@@ -207,7 +199,6 @@ export const ReviewProvider = ({ children }) => {
             // Otherwise, increment attempts and keep the same card
             attemptsRef.current += 1;
             setAttempts(attemptsRef.current);
-            console.log('returning nextCard ' + JSON.stringify(nextCard));
             return nextCard;
         }
     };

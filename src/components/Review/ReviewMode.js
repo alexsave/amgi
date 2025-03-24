@@ -15,7 +15,7 @@ const ReviewMode = () => {
   const audio = useAudio();
   const review = useReview();
   const [isRecording, setIsRecording] = useState(false);
-  const { currentCard, currentCardId, currentCardIdRef, attempts, showAnswer, evaluationResult, newCardsCount, reviewCardsCount, learningCardsCount } = review;
+  const { currentCard, currentCardId, attempts, showAnswer, evaluationResult, newCardsCount, reviewCardsCount, learningCardsCount } = review;
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [transitionTimeLeft, setTransitionTimeLeft] = useState(0);
@@ -539,8 +539,8 @@ const ReviewMode = () => {
         {`New Cards: ${newCardsCount} • Review Cards: ${reviewCardsCount} • Learning Cards: ${learningCardsCount}`}
       </div>
 
-      <div style={{  display: 'flex', flexDirection: 'row', justifyContent: 'space-evenly' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+      <div style={{  width: '100%', height: '100px', display: 'flex', flexDirection: 'row', justifyContent: 'space-evenly' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', flexDirection: 'column', alignItems: 'center' }}>
           <div className="audio-button-container" style={{display: 'flex', flexDirection: 'column', alignItems: 'center'}}>
             <button
               className={`audio-button play-button ${isPlayingAudio ? 'playing' : ''}`}
@@ -568,7 +568,7 @@ const ReviewMode = () => {
           </div>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center'}}>
+        <div style={{ display: 'flex', justifyContent: 'center', flexDirection: 'column', alignItems: 'center'}}>
           <div className="audio-button-container" style={{display: 'flex', flexDirection: 'column', alignItems: 'center'}}>
             <button
               className={`audio-button mic-button ${isRecording ? 'recording' : ''} ${audio.isLoading || isEvaluating ? 'loading' : ''}`}

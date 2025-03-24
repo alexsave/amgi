@@ -26,7 +26,6 @@ export const getEndOfDayTimestamp = (date = new Date()) => {
   endOfDay.setHours(23, 59, 59, 999);
   
   const isoString = endOfDay.toISOString();
-  console.log('End of day timestamp: ' + isoString);
   
   return isoString;
 };

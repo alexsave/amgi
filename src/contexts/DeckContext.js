@@ -2,9 +2,7 @@
 import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { MAX_NEW_CARDS_PER_DAY } from '../constants/constants';
-import * as localDeckStorage from '../services/localDeckStorage';
 import * as supabase from '../db/supabase';
-import { getDueCards } from '../algorithms/spacedRepetition';
 import { useAuth } from './AuthContext';
 
 const DeckContext = createContext({});
@@ -14,15 +12,14 @@ export const DeckProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [currentDeckId, setCurrentDeckId] = useState(null);
   const [newCardsToday, setNewCardsToday] = useState(0);
-  const [dueCards, setDueCards] = useState([]);
   const [error, setError] = useState(null);
-  const { user, isDirectMode } = useAuth();
+  const { user } = useAuth();
   const location = useLocation();
 
   // Add refs for tracking load state and debouncing
   const initialLoadComplete = useRef(false);
   const loadDecksTimeout = useRef(null);
-  const lastAuthState = useRef({ user: null, isDirectMode: false });
+  const lastAuthState = useRef({ user: null });
 
   // Derive mode from location
   const getMode = () => {
@@ -42,27 +39,14 @@ export const DeckProvider = ({ children }) => {
 
     loadDecksTimeout.current = setTimeout(async () => {
       try {
-        // Always load decks from localStorage first
-        const localDecks = localDeckStorage.getLocalDecks();
-        // this gets called for some reason when we hit generate WHY
-        if (Object.keys(localDecks).length > 0) {
-          setDecks(localDecks);
-        }
-        
-        // Only load from Supabase if:
-        // 1. We have a user
-        // 2. We're not in direct mode
-        // 3. The auth state has actually changed
-        if (user && !isDirectMode && 
-            (lastAuthState.current.user?.id !== user.id || 
-             lastAuthState.current.isDirectMode !== isDirectMode)) {
+        // Only load from Supabase if we have a user
+        if (user && 
+            (lastAuthState.current.user?.id !== user.id)) {
           const cloudDecks = await supabase.loadDecks(user.id);
           setDecks(cloudDecks);
-          localDeckStorage.saveLocalDecks(cloudDecks);
           
           // Update last auth state
-          lastAuthState.current = { user, isDirectMode };
-        } else {
+          lastAuthState.current = { user };
         }
 
         // Mark initial load as complete
@@ -80,8 +64,7 @@ export const DeckProvider = ({ children }) => {
   useEffect(() => {
     // Skip if we've already done the initial load and auth state hasn't changed
     if (initialLoadComplete.current && 
-        lastAuthState.current.user?.id === user?.id && 
-        lastAuthState.current.isDirectMode === isDirectMode) {
+        lastAuthState.current.user?.id === user?.id) {
       return;
     }
 
@@ -93,16 +76,13 @@ export const DeckProvider = ({ children }) => {
         clearTimeout(loadDecksTimeout.current);
       }
     };
-  }, [user, isDirectMode]);
+  }, [user]);
 
   const saveDecks = async (newDecks) => {
-    // Always save to localStorage
-    localDeckStorage.saveLocalDecks(newDecks);
-    
-    if (user && !isDirectMode) {
-      // Save each deck to Supabase
+    // Save decks to Supabase if user is authenticated
+    if (user) {
+      // Instead of using a non-existent saveDecks function, save each deck individually
       try {
-        // Put this all in a single transaction
         await Promise.all(
           Object.values(newDecks).map(deck => supabase.saveDeck(deck, user.id))
         );
@@ -120,7 +100,7 @@ export const DeckProvider = ({ children }) => {
     const { name, known_language = 'en', learning_language } = deckData;
     
     try {
-      if (user && !isDirectMode) {
+      if (user) {
         // Create in Supabase
         const newDeck = await supabase.saveDeck({
           name,
@@ -143,7 +123,7 @@ export const DeckProvider = ({ children }) => {
         setDecks(prev => ({ ...prev, [newDeck.id]: transformedDeck }));
         return newDeck.id;
       } else {
-        // Create in local storage only
+        // Create in local state only since localStorage is no longer available
         const id = timestamp.toString();
         const newDeck = {
           id,
@@ -172,7 +152,7 @@ export const DeckProvider = ({ children }) => {
   };
 
   const deleteDeck = async (deckId) => {
-    if (user && !isDirectMode) {
+    if (user) {
       try {
         await supabase.deleteDeck(deckId, user.id);
       } catch (error) {
@@ -181,9 +161,6 @@ export const DeckProvider = ({ children }) => {
         throw error;
       }
     }
-    // Delete from local storage
-    localDeckStorage.deleteLocalDeck(deckId);
-
     // Delete from local state
     setDecks(prev => {
       // It's an object, so we need to filter it
@@ -191,61 +168,16 @@ export const DeckProvider = ({ children }) => {
       delete newDecks[deckId];
       return newDecks;
     });
-
-    // If the call succeeded, we shouldn't have to save the decks again
-    //saveDecks(newDecks);
   };
 
-  // Load initial data
-  useEffect(() => {
-    // Always load from local storage
-    const localDecks = localDeckStorage.getLocalDecks();
-    setDecks(localDecks);
-    
-    const lastDeckId = localDeckStorage.loadCurrentDeck();
-    if (lastDeckId && localDecks[lastDeckId]) {
-      setCurrentDeckId(lastDeckId);
-    }
-
-    // Reset daily counters if needed
-    if (localDeckStorage.resetDailyCounters()) {
-      setNewCardsToday(0);
-    } else {
-      setNewCardsToday(localDeckStorage.loadNewCardsToday());
-    }
-  }, []);
-
-  // Save decks whenever they change
-  useEffect(() => {
-    /*if (Object.keys(decks).length > 0) {
-      localDeckStorage.saveLocalDecks(decks);
-      if (currentDeck) {
-        localDeckStorage.saveCurrentDeck(currentDeck);
-      }
-    }*/
-  }, [decks, currentDeckId]);
-
-  // Save new cards count whenever it changes
-  useEffect(() => {
-    localDeckStorage.saveNewCardsToday(newCardsToday);
-  }, [newCardsToday]);
-
   // Update due cards when necessary
-  useEffect(() => {
-    if (currentDeckId && getMode() === 'review') {
-      // Wtf is this
-      const due = getDueCards(decks[currentDeckId], MAX_NEW_CARDS_PER_DAY, newCardsToday);
-      setDueCards(due);
-
-    }
-  }, [currentDeckId, location.pathname, decks, newCardsToday]);
 
   const addCardToDeck = async (deckId, cardInput) => {
     try {
       // Normalize input to always be an array
       const cards = Array.isArray(cardInput) ? cardInput : [cardInput];
       
-      if (user && !isDirectMode) {
+      if (user) {
         // Add to Supabase using the unified saveCards function
         const newCards = await supabase.saveCards(deckId, cards);
         
@@ -279,15 +211,30 @@ export const DeckProvider = ({ children }) => {
         // If original input was a single card, return just the first card
         return Array.isArray(cardInput) ? newCards : newCards[0];
       } else {
-        // Add to local storage
-        let updatedDeck = decks[deckId];
+        // Add to local state only (since localStorage is no longer available)
+        const updatedDeck = { ...decks[deckId] };
+        const newCards = [];
+        
         for (const card of cards) {
-          updatedDeck = localDeckStorage.addCardToLocalDeck(deckId, card);
+          const cardId = `local_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+          const newCard = {
+            ...card,
+            id: cardId,
+            created: Date.now()
+          };
+          
+          if (!updatedDeck.cards) {
+            updatedDeck.cards = [];
+          }
+          
+          updatedDeck.cards.push(newCard);
+          newCards.push(newCard);
         }
+        
+        updatedDeck.lastModified = Date.now();
         setDecks(prev => ({ ...prev, [deckId]: updatedDeck }));
         
         // Return appropriate card data
-        const newCards = updatedDeck.cards.slice(-cards.length);
         return Array.isArray(cardInput) ? newCards : newCards[0];
       }
     } catch (error) {
@@ -303,7 +250,6 @@ export const DeckProvider = ({ children }) => {
     currentDeckId,
     getMode,
     newCardsToday,
-    dueCards,
     error,
     setCurrentDeckId,
     setNewCardsToday,

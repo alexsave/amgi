@@ -133,38 +133,3 @@ export function processCardReview(card, outcome, attempts, maxAttempts = 3) {
     }
   }
 }
-
-export function getDueCards(deck, maxNewCards, newCardsToday) {
-  if (!deck || !deck.cards) return [];
-
-  const now = new Date();
-
-  // Separate new and review cards
-  const newCards = deck.cards.filter(card => !card.lastReviewed);
-  const reviewCards = deck.cards.filter(card => {
-    if (!card.lastReviewed) return false;
-
-    // If the card has a due timestamp (for cards due in minutes), check against that
-    if (card.dueTimestamp) {
-      return new Date(card.dueTimestamp) <= now;
-    }
-
-    // Check against next review timestamp
-    if (!card.nextReview) return false;
-    return new Date(card.nextReview) <= now;
-  });
-
-  // Sort review cards by due date/timestamp
-  const sortedReviewCards = [...reviewCards].sort((a, b) => {
-    const aTime = a.dueTimestamp ? new Date(a.dueTimestamp) : new Date(a.nextReview);
-    const bTime = b.dueTimestamp ? new Date(b.dueTimestamp) : new Date(b.nextReview);
-    return aTime - bTime;
-  });
-
-  // Calculate how many new cards we can show
-  const remainingNewCards = Math.max(0, maxNewCards - newCardsToday);
-  const limitedNewCards = newCards.slice(0, remainingNewCards);
-
-  // Return new cards first (limited by max), then review cards
-  return [...limitedNewCards, ...sortedReviewCards];
-}

@@ -8,18 +8,8 @@ export function useDeckManagement() {
   const [newCardsToday, setNewCardsToday] = useState(0);
   const [error, setError] = useState(null);
 
-  // Load new cards count from localStorage on mount
-  useEffect(() => {
-    const savedCount = localStorage.getItem('newCardsToday');
-    if (savedCount) {
-      setNewCardsToday(parseInt(savedCount, 10));
-    }
-  }, []);
-
-  // Save new cards count to localStorage whenever it changes
-  useEffect(() => {
-    localStorage.setItem('newCardsToday', newCardsToday.toString());
-  }, [newCardsToday]);
+  // Note: localStorage functionality has been moved to archives
+  // Leaving state management but removing localStorage persistence
 
   const handleCreateDeck = async (name) => {
     if (!name) {
