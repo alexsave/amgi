@@ -46,14 +46,49 @@ const ReviewMode = () => {
         back_lang: currentCard.back_lang
       });
 
+      const setupAudio = async (audioPath) => {
+        if (!audioPath) return;
+        
+        // First load the audio
+        await audio.loadAudio(audioPath);
+        
+        // Then ensure we have an audio context
+        await ensureAudioContext();
+        
+        // Then create source connections right away instead of waiting for play
+        const audioElement = audio.audioRefs.current.get(audioPath);
+        if (audioElement && !window.audioSourceCache?.has(audioElement) && !connectedAudioElements.current.has(audioElement)) {
+          try {
+            console.log('Proactively creating audio source for:', audioPath);
+            // Create a MediaElementAudioSourceNode
+            const source = audioContextRef.current.createMediaElementSource(audioElement);
+            // Connect to destination to hear the audio
+            source.connect(audioContextRef.current.destination);
+            
+            // Create a MediaStream from the audio context for visualization
+            const destination = audioContextRef.current.createMediaStreamDestination();
+            source.connect(destination);
+            
+            // Mark this element as connected in both local and global caches
+            connectedAudioElements.current.add(audioElement);
+            if (window.audioSourceCache) {
+              window.audioSourceCache.set(audioElement, { source, destination });
+              console.log('Proactively added to global audioSourceCache:', audioPath);
+            }
+          } catch (error) {
+            console.error('Error setting up proactive audio connection:', error, 'for path:', audioPath);
+          }
+        }
+      };
+
       // Load front audio
       if (currentCard.front_audio_path) {
-        audio.loadAudio(currentCard.front_audio_path)
+        setupAudio(currentCard.front_audio_path);
       }
 
       // Load back audio
       if (currentCard.back_audio_path) {
-        audio.loadAudio(currentCard.back_audio_path)
+        setupAudio(currentCard.back_audio_path);
       }
     }
   }, [currentCardId]);
@@ -63,12 +98,16 @@ const ReviewMode = () => {
     // Create a cache on the window object if it doesn't exist
     if (!window.audioSourceCache) {
       window.audioSourceCache = new WeakMap();
+      console.log("Created new global audioSourceCache");
+    } else {
+      console.log("Using existing audioSourceCache");
     }
     
     // Cleanup on unmount
     return () => {
       // No cleanup needed for WeakMap as it will be garbage collected 
       // when audio elements are no longer referenced
+      console.log("ReviewMode unmounted, audioSourceCache remains for reuse");
     };
   }, []);
 
@@ -145,6 +184,7 @@ const ReviewMode = () => {
         // If not in global cache and not connected, create new source
         else if (!connectedAudioElements.current.has(audioElement) && audioContextRef.current) {
           try {
+            console.log('Creating new audio source for:', path);
             // Create a MediaElementAudioSourceNode
             const source = audioContextRef.current.createMediaElementSource(audioElement);
             // Connect to destination to hear the audio
@@ -161,10 +201,11 @@ const ReviewMode = () => {
             connectedAudioElements.current.add(audioElement);
             if (window.audioSourceCache) {
               window.audioSourceCache.set(audioElement, { source, destination });
+              console.log('Added to global audioSourceCache:', path);
             }
             console.log('Connected new audio element:', path);
           } catch (error) {
-            console.error('Error setting up audio visualization for playback:', error);
+            console.error('Error setting up audio visualization for playback:', error, 'for path:', path);
           }
         } else {
           console.log('Audio element already connected, skipping:', path);
@@ -179,7 +220,9 @@ const ReviewMode = () => {
           const sourceInfo = window.audioSourceCache?.get(audioElement) || audioSources.get(audioElement);
           if (sourceInfo) {
             playbackStreamRef.current = sourceInfo.destination.stream;
-            console.log('Playback stream set');
+            console.log('Playback stream set:', !!playbackStreamRef.current, 'destination:', !!sourceInfo.destination);
+          } else {
+            console.warn('No sourceInfo found for audio element:', path);
           }
         };
         
@@ -325,8 +368,61 @@ const ReviewMode = () => {
   // Update the play button click handler
   const handlePlayButtonClick = async (audioPath) => {
     try {
+      console.log("Play button clicked for path:", audioPath);
       await ensureAudioContext();
-      audio.playAudio(audioPath);
+      console.log("Audio context ready, state:", audioContextRef.current.state);
+      
+      // Get the audio element and ensure it has a source before playing
+      const audioElement = audio.audioRefs.current.get(audioPath);
+      if (audioElement) {
+        // Check if this element has a source in the cache
+        let sourceInfo = window.audioSourceCache?.get(audioElement);
+        
+        // If no source info found, try to create it now
+        if (!sourceInfo && audioContextRef.current && !connectedAudioElements.current.has(audioElement)) {
+          try {
+            console.log('Creating audio source on demand for:', audioPath);
+            // Create source connections
+            const source = audioContextRef.current.createMediaElementSource(audioElement);
+            source.connect(audioContextRef.current.destination);
+            
+            const destination = audioContextRef.current.createMediaStreamDestination();
+            source.connect(destination);
+            
+            // Store in caches
+            sourceInfo = { source, destination };
+            connectedAudioElements.current.add(audioElement);
+            if (window.audioSourceCache) {
+              window.audioSourceCache.set(audioElement, sourceInfo);
+              console.log('Added to global audioSourceCache on demand:', audioPath);
+            }
+          } catch (error) {
+            console.error('Error creating audio source on demand:', error);
+          }
+        }
+        
+        if (sourceInfo && sourceInfo.destination) {
+          // Pre-set the playback stream before playing
+          playbackStreamRef.current = sourceInfo.destination.stream;
+          console.log("Playback stream set proactively:", !!playbackStreamRef.current);
+          
+          // Trigger play, wait a moment for the event to fire
+          audio.playAudio(audioPath);
+          
+          // Force set isPlayingAudio to true to make visualizer active
+          setTimeout(() => {
+            setIsPlayingAudio(true);
+          }, 50);
+        } else {
+          console.warn("No sourceInfo found for this audio before playing");
+          audio.playAudio(audioPath);
+        }
+      } else {
+        console.warn("Audio element not found for path:", audioPath);
+        audio.playAudio(audioPath);
+      }
+      
+      console.log("Play audio called, playbackStreamRef.current:", !!playbackStreamRef.current);
     } catch (error) {
       console.error("Error playing audio:", error);
     }
@@ -539,67 +635,6 @@ const ReviewMode = () => {
         {`New Cards: ${newCardsCount} • Review Cards: ${reviewCardsCount} • Learning Cards: ${learningCardsCount}`}
       </div>
 
-      <div style={{  width: '100%', height: '100px', display: 'flex', flexDirection: 'row', justifyContent: 'space-evenly' }}>
-        <div style={{ display: 'flex', justifyContent: 'center', flexDirection: 'column', alignItems: 'center' }}>
-          <div className="audio-button-container" style={{display: 'flex', flexDirection: 'column', alignItems: 'center'}}>
-            <button
-              className={`audio-button play-button ${isPlayingAudio ? 'playing' : ''}`}
-              onClick={() => handlePlayButtonClick(currentCard.front_audio_path)}
-            >
-              <div className="button-inner">
-                <PlayIcon className="button-icon" />
-              </div>
-            </button>
-            <div className="visualizer-container">
-              <RadialAudioVisualizer
-                audioStream={playbackStreamRef.current}
-                isLive={isPlayingAudio}
-                isAiOutput={true}
-                audioContextRef={audioContextRef}
-                animationFrameRef={playbackAnimationFrameRef}
-              />
-            </div>
-          {(isTransitioning || showCardContent) && (transitionCard || currentCard) && (
-            //<div className="text-display front-display">
-              //<div className="text-label">Front</div>
-              <div className="text-content">{transitionCard ? transitionCard.front_text : currentCard.front_text}</div>
-            //</div>
-          )}
-          </div>
-        </div>
-
-        <div style={{ display: 'flex', justifyContent: 'center', flexDirection: 'column', alignItems: 'center'}}>
-          <div className="audio-button-container" style={{display: 'flex', flexDirection: 'column', alignItems: 'center'}}>
-            <button
-              className={`audio-button mic-button ${isRecording ? 'recording' : ''} ${audio.isLoading || isEvaluating ? 'loading' : ''}`}
-              onClick={handleRecordButtonClick}
-              disabled={showAnswer || audio.isLoading || isEvaluating}
-            >
-              <div className="button-inner">
-                <MicrophoneIcon className="button-icon" />
-              </div>
-              {isEvaluating && <div className="loading-spinner"></div>}
-            </button>
-            <div className="visualizer-container">
-              <RadialAudioVisualizer
-                audioStream={recordingStreamRef.current}
-                isLive={isRecording}
-                isAiOutput={false}
-                audioContextRef={audioContextRef}
-                animationFrameRef={animationFrameRef}
-                onVolumeChange={setAudioScale}
-              />
-            </div>
-          {(isTransitioning || (showCardContent && showAnswer)) && (transitionCard || currentCard) && (
-            //<div className="text-display back-display">
-              //<div className="text-label">Back</div>
-              <div className="text-content">{transitionCard ? transitionCard.back_text : currentCard.back_text}</div>
-            //</div>
-          )}
-          </div>
-        </div>
-      </div>
-
       <div className="review-controls">
         <div className="attempts-counter">
           Attempts: {attempts}/3
@@ -610,6 +645,61 @@ const ReviewMode = () => {
         ) : (
           <EvaluationResult result={evaluationResult} />
         )}
+      </div>
+
+      <div className="audio-controls-container">
+        <div className="audio-control-column">
+          <div className="audio-button-container">
+            <div className="visualizer-container">
+              <RadialAudioVisualizer
+                audioStream={playbackStreamRef.current}
+                isLive={isPlayingAudio}
+                isAiOutput={true}
+                audioContextRef={audioContextRef}
+                animationFrameRef={playbackAnimationFrameRef}
+              />
+            </div>
+            <button
+              className={`audio-button play-button ${isPlayingAudio ? 'playing' : ''}`}
+              onClick={() => handlePlayButtonClick(currentCard.front_audio_path)}
+            >
+              <div className="button-inner">
+                <PlayIcon className="button-icon" />
+              </div>
+            </button>
+            {(isTransitioning || showCardContent) && (transitionCard || currentCard) && (
+              <div className="text-content">{transitionCard ? transitionCard.front_text : currentCard.front_text}</div>
+            )}
+          </div>
+        </div>
+
+        <div className="audio-control-column">
+          <div className="audio-button-container">
+            <div className="visualizer-container">
+              <RadialAudioVisualizer
+                audioStream={recordingStreamRef.current}
+                isLive={isRecording}
+                isAiOutput={false}
+                audioContextRef={audioContextRef}
+                animationFrameRef={animationFrameRef}
+                onVolumeChange={setAudioScale}
+              />
+            </div>
+            <button
+              className={`audio-button mic-button ${isRecording ? 'recording' : ''} ${audio.isLoading || isEvaluating ? 'loading' : ''}`}
+              onClick={handleRecordButtonClick}
+              disabled={showAnswer || audio.isLoading || isEvaluating}
+            >
+              <div className="button-inner">
+                <MicrophoneIcon className="button-icon" />
+              </div>
+              {isEvaluating && <div className="loading-spinner"></div>}
+            </button>
+            {(isTransitioning || (showCardContent && showAnswer)) && (transitionCard || currentCard) && (
+              <div className="text-content">{transitionCard ? transitionCard.back_text : currentCard.back_text}</div>
+            )}
+          </div>
+        </div>
       </div>
       
       {isTransitioning && (

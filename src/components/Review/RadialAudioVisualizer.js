@@ -159,10 +159,28 @@ const RadialAudioVisualizer = ({
   const setupAudioVisualization = () => {
     if (!audioStream) {
       console.log(`No audioStream for ${isAiOutput ? 'AI' : 'user'} visualizer`);
+      
+      // Still set up the canvas for idle animation
+      const canvas = canvasRef.current;
+      if (canvas) {
+        updateCanvasSize();
+        
+        // If we are supposed to be live, show an idle animation
+        if (isLive && !isAnimatingRef.current) {
+          startIdleAnimation();
+        }
+      }
       return;
     }
 
-    console.log(`Setting up audioStream for ${isAiOutput ? 'AI' : 'user'} visualizer`);
+    console.log(`Setting up audioStream for ${isAiOutput ? 'AI' : 'user'} visualizer`, {
+      streamActive: audioStream.active,
+      streamId: audioStream.id,
+      hasAudioTracks: audioStream.getAudioTracks().length > 0
+    });
+    
+    // If we're supposed to be live but not yet animating, we should try to start
+    const shouldStartAnimation = isLive && !isAnimatingRef.current;
 
     // Clean up existing source if any
     if (sourceRef.current) {
@@ -206,6 +224,15 @@ const RadialAudioVisualizer = ({
         sourceRef.current = audioContextRef.current.createMediaStreamSource(audioStream);
         sourceRef.current.connect(analyserRef.current);
         console.log(`Successfully connected stream to analyser for ${isAiOutput ? 'AI' : 'user'} visualizer`);
+        
+        // Start animation if this is an active stream and we should be live
+        if (shouldStartAnimation) {
+          console.log(`Auto-starting animation for ${isAiOutput ? 'AI' : 'user'} visualizer`);
+          // Delay slightly to ensure everything is connected
+          setTimeout(() => {
+            startAnimation();
+          }, 50);
+        }
       }
     } catch (error) {
       console.error(`Error creating media stream source for ${isAiOutput ? 'AI' : 'user'}:`, error);
@@ -261,16 +288,105 @@ const RadialAudioVisualizer = ({
     canvas.style.height = `${rect.height}px`;
   };
 
+  // Add a simple idle animation when no audio is available
+  const startIdleAnimation = () => {
+    if (isAnimatingRef.current) return;
+    if (!canvasRef.current) return;
+    
+    isAnimatingRef.current = true;
+    const ctx = canvasRef.current.getContext('2d');
+    
+    // Get the CSS dimensions (the display size)
+    const rect = canvasRef.current.getBoundingClientRect();
+    const displayWidth = rect.width;
+    const displayHeight = rect.height;
+    
+    // Calculate center point based on display dimensions
+    const centerX = displayWidth / 2;
+    const centerY = displayHeight / 2;
+    
+    // Maximum length for the rays
+    const maxRayLength = Math.min(displayWidth, displayHeight) * 0.4;
+    
+    // Number of rays to render
+    const rayCount = 12;
+    
+    // Animation state
+    let animationPhase = 0;
+    
+    const renderIdleFrame = () => {
+      if (!isAnimatingRef.current || !canvasRef.current) {
+        return;
+      }
+      
+      // Clear the canvas
+      ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+      
+      // Update animation phase
+      animationPhase += 0.02;
+      
+      // Draw rays
+      for (let i = 0; i < rayCount; i++) {
+        const angle = (i / rayCount) * Math.PI * 2;
+        const pulse = Math.sin(animationPhase + i * 0.5) * 0.5 + 0.5;
+        const rayLength = maxRayLength * (0.3 + pulse * 0.2);
+        
+        const endX = centerX + Math.cos(angle) * rayLength;
+        const endY = centerY + Math.sin(angle) * rayLength;
+        
+        // Set color based on type (AI or user)
+        const alpha = 0.2 + pulse * 0.1;
+        ctx.strokeStyle = isAiOutput 
+          ? `rgba(80, 160, 240, ${alpha})` // Blue for AI
+          : `rgba(240, 100, 50, ${alpha})`; // Orange for user
+        
+        ctx.lineWidth = 2 + pulse * 2;
+        
+        // Draw the ray
+        ctx.beginPath();
+        ctx.moveTo(centerX, centerY);
+        ctx.lineTo(endX, endY);
+        ctx.stroke();
+      }
+      
+      animationFrameRef.current = requestAnimationFrame(renderIdleFrame);
+    };
+    
+    // Start the idle animation
+    renderIdleFrame();
+    console.log(`Started idle animation for ${isAiOutput ? 'AI' : 'user'} visualizer`);
+  };
+
   // Effect to handle animation state changes
   useEffect(() => {
-    console.log(`isLive changed to ${isLive} for ${isAiOutput ? 'AI' : 'user'} visualizer`);
+    console.log(`isLive changed to ${isLive} for ${isAiOutput ? 'AI' : 'user'} visualizer`, {
+      hasStream: !!audioStream,
+      hasSource: !!sourceRef.current,
+      isAnimating: isAnimatingRef.current,
+      hasAnalyser: !!analyserRef.current
+    });
     
-    if (isLive && !isAnimatingRef.current && sourceRef.current) {
-      startAnimation();
-    } else if (!isLive && isAnimatingRef.current) {
+    // If we should be live but aren't animating
+    if (isLive && !isAnimatingRef.current) {
+      if (sourceRef.current && analyserRef.current) {
+        console.log(`Starting animation for ${isAiOutput ? 'AI' : 'user'} visualizer (isLive change)`);
+        startAnimation();
+      } else if (audioStream) {
+        // If we have a stream but no source, try to set it up again
+        console.log(`Re-setting up visualization for ${isAiOutput ? 'AI' : 'user'} visualizer`);
+        setupAudioVisualization();
+      } else {
+        // If we don't have a stream at all, show idle animation
+        console.log(`Starting idle animation for ${isAiOutput ? 'AI' : 'user'} visualizer (no stream)`);
+        startIdleAnimation();
+      }
+    } 
+    // If we shouldn't be live but are still animating
+    else if (!isLive && isAnimatingRef.current) {
+      console.log(`Stopping animation for ${isAiOutput ? 'AI' : 'user'} visualizer`);
       stopAnimation();
     }
-  }, [isLive, isAiOutput]);
+  }, [isLive, isAiOutput, audioStream]);
 
   // Effect to handle audioStream changes
   useEffect(() => {

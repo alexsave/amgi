@@ -262,7 +262,7 @@
 }
 
 .voice-mode-switch.active .mic-icon {
-  color: #fff;
+  color: white;
 }
 
 /* Remove old voice-mode-toggle styles */
@@ -326,13 +326,16 @@
 .audio-button-container {
   position: relative;
   display: flex;
-  justify-content: center;
+  flex-direction: column;
   align-items: center;
-  margin: 1rem;
+  min-width: 120px;
+  padding: 40px;
 }
 
 /* Circular button styling */
 .audio-button {
+  position: relative;
+  z-index: 10;
   width: 80px;
   height: 80px;
   border-radius: 50%;
@@ -340,8 +343,6 @@
   background: transparent;
   padding: 0;
   cursor: pointer;
-  position: relative;
-  z-index: 10;
   outline: none;
   display: flex;
   justify-content: center;
@@ -459,12 +460,12 @@
 /* Visualizer container */
 .visualizer-container {
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 5;
-  pointer-events: none;
+  width: 160px;
+  height: 160px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 0;
 }
 
 /* Animations */
@@ -648,4 +649,19 @@
   .text-content {
     font-size: 0.9rem;
   }
+}
+
+.audio-controls-container {
+  width: 100%;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-evenly;
+  min-height: 200px;
+}
+
+.audio-control-column {
+  display: flex;
+  justify-content: center;
+  flex-direction: column;
+  align-items: center;
 } 

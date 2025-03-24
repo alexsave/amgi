@@ -8,6 +8,8 @@
   left: 0;
   pointer-events: none; /* Allow clicks to pass through to the button */
   z-index: 5;
+  /* Adding a subtle glow effect to make visualizer more visible */
+  filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.1));
 }
 
 /* Rectangle visualizer style */
