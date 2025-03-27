@@ -640,6 +640,56 @@
   100% { opacity: 0.6; }
 }
 
+/* Hint button styling */
+.hint-container {
+  display: flex;
+  justify-content: center;
+  margin-top: 15px;
+  width: 100%;
+}
+
+.hint-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 12px;
+  background-color: rgba(67, 83, 255, 0.1);
+  border: 1px solid rgba(67, 83, 255, 0.3);
+  border-radius: 16px;
+  color: #4353FF;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.hint-button:hover {
+  background-color: rgba(67, 83, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+.hint-button .button-inner {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 6px;
+  background: rgba(67, 83, 255, 0.2);
+}
+
+.hint-button .button-icon {
+  width: 12px;
+  height: 12px;
+  color: #4353FF;
+}
+
+.hint-button.playing, 
+.hint-button.loading {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 /* Optional - add some responsiveness for smaller screens */
 @media (max-width: 600px) {
   .text-display {
@@ -664,4 +714,65 @@
   justify-content: center;
   flex-direction: column;
   align-items: center;
-} 
+}
+
+/* TEMPORARY MANUAL TESTING BUTTONS - DELETE THIS SECTION WHEN DONE */
+.temp-manual-controls {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 30px;
+  margin-bottom: 15px;
+  padding: 10px;
+  background-color: rgba(255, 255, 255, 0.05);
+  border: 1px dashed #666;
+  border-radius: 8px;
+  position: relative;
+  width: 100%;
+  max-width: 400px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.temp-manual-controls::before {
+  content: 'TEMPORARY TESTING CONTROLS';
+  position: absolute;
+  top: -10px;
+  font-size: 10px;
+  background: #222;
+  padding: 0 5px;
+  color: #666;
+}
+
+.manual-button {
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.manual-button:hover {
+  transform: translateY(-2px);
+}
+
+.correct-button {
+  background-color: rgba(40, 167, 69, 0.2);
+  color: #4CAF50;
+  border: 1px solid #4CAF50;
+}
+
+.correct-button:hover {
+  background-color: rgba(40, 167, 69, 0.3);
+}
+
+.incorrect-button {
+  background-color: rgba(220, 53, 69, 0.2);
+  color: #f44336;
+  border: 1px solid #f44336;
+}
+
+.incorrect-button:hover {
+  background-color: rgba(220, 53, 69, 0.3);
+}
+/* END TEMPORARY SECTION */ 

@@ -310,8 +310,23 @@ const ReviewMode = () => {
                 <PlayIcon className="button-icon" />
               </div>
             </button>
-            {(isTransitioning || showCardContent) && (transitionCard || currentCard) && (
+            {(isTransitioning || showCardContent || attempts >= 2) && (transitionCard || currentCard) && (
               <div className="text-content">{transitionCard ? transitionCard.front_text : currentCard.front_text}</div>
+            )}
+            
+            {attempts >= 1 && !showAnswer && currentCard.back_audio_path && (
+              <div className="hint-container">
+                <button 
+                  className={`hint-button play-button ${audio.isPlayingAudio ? 'playing' : ''} ${isPlayingLocked ? 'loading' : ''}`}
+                  onClick={() => handlePlayButtonClick(currentCard.back_audio_path)}
+                  disabled={audio.isPlayingAudio || isPlayingLocked}
+                >
+                  <div className="button-inner">
+                    <PlayIcon className="button-icon" />
+                  </div>
+                  <span>Play Hint Audio</span>
+                </button>
+              </div>
             )}
           </div>
         </div>
@@ -335,7 +350,7 @@ const ReviewMode = () => {
               </div>
               {isEvaluating && <div className="loading-spinner"></div>}
             </button>
-            {(isTransitioning || (showCardContent && showAnswer)) && (transitionCard || currentCard) && (
+            {(isTransitioning || (showCardContent && showAnswer) || attempts >= 2) && (transitionCard || currentCard) && (
               <div className="text-content">{transitionCard ? transitionCard.back_text : currentCard.back_text}</div>
             )}
           </div>
@@ -349,6 +364,29 @@ const ReviewMode = () => {
           </div>
         </div>
       )}
+      
+      {/* TEMPORARY MANUAL TESTING BUTTONS - DELETE THIS SECTION WHEN DONE */}
+      <div className="temp-manual-controls">
+        <button 
+          className="manual-button correct-button"
+          onClick={() => {
+            review.markCorrectGetNext();
+            review.setEvaluationResult(null);
+          }}
+        >
+          Manual Correct
+        </button>
+        <button 
+          className="manual-button incorrect-button"
+          onClick={() => {
+            review.markIncorrectGetNext();
+            review.setEvaluationResult(null);
+          }}
+        >
+          Manual Incorrect
+        </button>
+      </div>
+      {/* END TEMPORARY SECTION */}
     </div>
   );
 };

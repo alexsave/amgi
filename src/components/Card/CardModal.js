@@ -71,6 +71,49 @@ const CardModal = ({ isOpen, onClose }) => {
     }
   };
 
+  // Add this function to handle adding cards with missing audio
+  const handleAddToDeckWithoutAudio = () => {
+    if (!generatedCard) {
+      setError('No card data to add');
+      return;
+    }
+    
+    // Confirm with the user
+    if (!window.confirm('Some audio could not be generated. Add the cards without audio?')) {
+      return;
+    }
+    
+    // Create cards without the missing audio
+    const firstCard = {
+      front_text: generatedCard.front_text,
+      back_text: generatedCard.back_text,
+      front_lang: generatedCard.front_lang || currentDeck.known_language,
+      back_lang: generatedCard.back_lang || currentDeck.learning_language,
+      front_audio_path: generatedCard.front_audio_path || null,
+      back_audio_path: generatedCard.back_audio_path || null
+    };
+
+    const secondCard = {
+      front_text: generatedCard.back_text,
+      back_text: generatedCard.front_text,
+      front_lang: generatedCard.back_lang || currentDeck.learning_language,
+      back_lang: generatedCard.front_lang || currentDeck.known_language,
+      front_audio_path: generatedCard.back_audio_path || null,
+      back_audio_path: generatedCard.front_audio_path || null
+    };
+
+    // Add cards without audio
+    addCardToDeck(deckId, [firstCard, secondCard])
+      .then(() => {
+        clearInput();
+        handleCloseModal();
+      })
+      .catch(err => {
+        console.error('Error adding cards to deck:', err);
+        setError(`Failed to add cards: ${err.message}`);
+      });
+  };
+
   // Handle text change
   const handleTextChange = (part, value) => {
     if (part === 'front_text') {
@@ -95,6 +138,14 @@ const CardModal = ({ isOpen, onClose }) => {
       return;
     }
     try {
+      // Check if audio paths exist
+      const missingAudio = !generatedCard.front_audio_path || !generatedCard.back_audio_path;
+      
+      if (missingAudio) {
+        setError('Some audio could not be generated. You can still add the cards without audio.');
+        return; // Don't proceed with normal add
+      }
+      
       // Create the first card (original direction)
       const firstCard = {
         front_text: generatedCard.front_text,
@@ -258,6 +309,16 @@ const CardModal = ({ isOpen, onClose }) => {
             Add to Deck
           </button>
 
+          {/* Add this button that appears only when there's an audio error */}
+          {error && error.includes('audio') && (
+            <button
+              onClick={handleAddToDeckWithoutAudio}
+              className="add-to-deck-btn add-without-audio"
+              disabled={isGenerating}
+            >
+              Add Without Audio
+            </button>
+          )}
         </div>
 
       </div>
