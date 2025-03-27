@@ -1,4 +1,4 @@
-import { evaluateSpeech as apiEvaluateSpeech } from '../network/api';
+import { evaluateSpeech as apiEvaluateSpeech } from '../network/supabaseApi';
 
 export function useSpeechEvaluation({ audio, onEvaluationResult }) {
   const evaluateSpeech = async (recordedBlob, card) => {

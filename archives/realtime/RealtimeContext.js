@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useRef } from 'react';
-import { getRealtimeToken } from '../network/api';
+import { getRealtimeToken } from '../../src/network/supabaseApi';
 import { configureSession } from './realtime/sessionTools';
 import { setupRealtimeStream } from '../network/openai';
 import { useReview } from './ReviewContext';

@@ -77,28 +77,18 @@ export function AudioProvider({ children }) {
       // If we're starting to record
       if (isRecording) {
         try {
-          console.log('Setting up recording stream for visualization');
-          
           // If we don't already have a stream (should have been created in startRecording)
           if (!recordingStreamRef.current) {
-            console.log('No recording stream found, creating one now');
             // Get user media stream for visualization
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             
             // Set the new stream
             recordingStreamRef.current = stream;
-            console.log('Recording stream set for visualization', { streamId: stream.id });
-          } else {
-            console.log('Using existing recording stream', { 
-              streamId: recordingStreamRef.current.id,
-              active: recordingStreamRef.current.active 
-            });
           }
           
           // Ensure audio context is resumed
           if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
             await audioContextRef.current.resume();
-            console.log('AudioContext resumed for recording');
           }
         } catch (error) {
           console.error('Error getting microphone stream for visualization:', error);
@@ -107,17 +97,14 @@ export function AudioProvider({ children }) {
         // When we stop recording, don't immediately stop the stream
         // We'll leave it for a moment to allow the visualizer to show decay
         if (recordingStreamRef.current) {
-          console.log('Recording stopped, delaying stream cleanup for decay animation');
           setTimeout(() => {
             // Only stop if we're still not recording
             if (!isRecording && recordingStreamRef.current) {
               recordingStreamRef.current.getTracks().forEach(track => track.stop());
-              console.log('Recording stream stopped after delay');
               // Don't set to null immediately to allow decay animation
               setTimeout(() => {
                 if (!isRecording) {
                   recordingStreamRef.current = null;
-                  console.log('Recording stream reference cleared');
                 }
               }, 2000);
             }
@@ -139,7 +126,6 @@ export function AudioProvider({ children }) {
       audioRefs.current.forEach((audioElement, path) => {
         // Check global cache first
         if (window.audioSourceCache && window.audioSourceCache.has(audioElement)) {
-          console.log('Audio element found in global cache, reusing:', path);
           const { source, destination } = window.audioSourceCache.get(audioElement);
           audioSources.set(audioElement, { source, destination });
         } 
@@ -163,30 +149,24 @@ export function AudioProvider({ children }) {
             if (window.audioSourceCache) {
               window.audioSourceCache.set(audioElement, { source, destination });
             }
-            console.log('Connected new audio element:', path);
           } catch (error) {
             console.error('Error setting up audio visualization for playback:', error);
           }
-        } else {
-          console.log('Audio element already connected, skipping:', path);
         }
         
         // Create play handler
         const playHandler = () => {
-          console.log('Audio playing:', path);
           setIsPlayingAudio(true);
           
           // Set the current playback stream for visualization
           const sourceInfo = window.audioSourceCache?.get(audioElement) || audioSources.get(audioElement);
           if (sourceInfo) {
             playbackStreamRef.current = sourceInfo.destination.stream;
-            console.log('Playback stream set');
           }
         };
         
         // Create ended handler
         const endedHandler = () => {
-          console.log('Audio ended:', path);
           setIsPlayingAudio(false);
           // Small delay before clearing the stream to allow for visualization to complete
           setTimeout(() => {
@@ -236,13 +216,10 @@ export function AudioProvider({ children }) {
           } catch (error) {
             console.error('Error setting up audio visualization for evaluation:', error);
           }
-        } else {
-          console.log('Evaluation audio element already connected, skipping');
         }
         
         // Create play handler for evaluation audio
         const evalPlayHandler = () => {
-          console.log('Evaluation audio playing');
           setIsPlayingAudio(true);
           
           // Get source from global cache or local map
@@ -250,12 +227,10 @@ export function AudioProvider({ children }) {
                             audioSources.get(evaluationAudioRef.current);
           if (sourceInfo) {
             playbackStreamRef.current = sourceInfo.destination.stream;
-            console.log('Evaluation playback stream set');
           }
         };
         
         const evalEndedHandler = () => {
-          console.log('Evaluation audio ended');
           setIsPlayingAudio(false);
           setTimeout(() => {
             if (!isPlayingAudio) {
@@ -313,10 +288,8 @@ export function AudioProvider({ children }) {
   const ensureAudioContext = async () => {
     if (!audioContextRef.current) {
       audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
-      console.log("Created new AudioContext");
     } else if (audioContextRef.current.state === 'suspended') {
       await audioContextRef.current.resume();
-      console.log("Resumed AudioContext");
     }
     return audioContextRef.current;
   };
@@ -359,7 +332,6 @@ export function AudioProvider({ children }) {
       
       // Get user media stream for visualization BEFORE starting recording
       try {
-        console.log('Creating recording stream before starting recorder');
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         
         // Clean up existing stream if any
@@ -369,7 +341,6 @@ export function AudioProvider({ children }) {
         
         // Set the new stream immediately
         recordingStreamRef.current = stream;
-        console.log('Recording stream created for visualization', { streamId: stream.id });
       } catch (streamError) {
         console.error('Error getting microphone stream for visualization:', streamError);
       }
@@ -383,7 +354,6 @@ export function AudioProvider({ children }) {
       if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
         try {
           await audioContextRef.current.resume();
-          console.log('Resumed AudioContext for recording');
         } catch (resumeError) {
           console.error('Error resuming AudioContext:', resumeError);
         }
@@ -499,13 +469,10 @@ export function AudioProvider({ children }) {
 
   const playAudio = async (audioPath, shouldPlay = true) => {
     try {
-      console.log(`[DEBUG] Starting playAudio for ${audioPath}`);
       await ensureAudioContext();
-      console.log(`[DEBUG] AudioContext state: ${audioContextRef.current.state}`);
       
       // Cancel any pending play requests first
       for (const [path, controller] of pendingPlayRequests.current.entries()) {
-        console.log(`Cancelling pending play request for ${path}`);
         controller.abort();
         pendingPlayRequests.current.delete(path);
       }
@@ -521,14 +488,11 @@ export function AudioProvider({ children }) {
       // Check cache first
       if (audioCache.current.has(audioPath)) {
         audioUrl = audioCache.current.get(audioPath);
-        console.log(`[DEBUG] Audio found in cache: ${audioPath}`);
       } else {
         // Download and cache if not found
-        console.log(`[DEBUG] Downloading audio: ${audioPath}`);
         audioUrl = await downloadCardAudio(audioPath);
         if (audioUrl) {
           audioCache.current.set(audioPath, audioUrl);
-          console.log(`[DEBUG] Audio cached: ${audioPath}`);
         }
       }
 
@@ -539,13 +503,11 @@ export function AudioProvider({ children }) {
       // Only play if requested
       if (shouldPlay) {
         if (!audioRefs.current.has(audioPath)) {
-          console.log(`[DEBUG] Creating new Audio element for ${audioPath}`);
           const audio = new Audio();
           audio.preload = 'auto';
           audioRefs.current.set(audioPath, audio);
         }
         const audioElement = audioRefs.current.get(audioPath);
-        console.log(`[DEBUG] Audio element ready state before setting src: ${audioElement.readyState}`);
         
         // Create an abort controller for this play request
         const controller = new AbortController();
@@ -554,28 +516,21 @@ export function AudioProvider({ children }) {
         // Detect if we're running on Safari
         const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent) || 
                          (navigator.userAgent.includes('AppleWebKit') && !navigator.userAgent.includes('Chrome'));
-        console.log(`[DEBUG] Browser detected as ${isSafari ? 'Safari' : 'not Safari'}`);
         
         // ===== RAW BUFFER APPROACH FOR SAFARI =====
         if (isSafari) {
           try {
-            console.log(`[DEBUG] Using raw buffer approach for Safari`);
-            
             // Fetch the audio file directly as ArrayBuffer
             const response = await fetch(audioUrl);
-            console.log(`[DEBUG] Fetched audio file, status: ${response.status}`);
             
             if (!response.ok) {
               throw new Error(`Failed to fetch audio file: ${response.statusText}`);
             }
             
             const arrayBuffer = await response.arrayBuffer();
-            console.log(`[DEBUG] Converted to ArrayBuffer, size: ${arrayBuffer.byteLength} bytes`);
             
             // Decode the audio data
-            console.log(`[DEBUG] Decoding audio data...`);
             const audioBuffer = await audioContextRef.current.decodeAudioData(arrayBuffer);
-            console.log(`[DEBUG] Audio decoded successfully, duration: ${audioBuffer.duration}s, channels: ${audioBuffer.numberOfChannels}`);
             
             // Set up visualizer - we'll create a special stream for visualization
             // since we're not using an audio element
@@ -591,7 +546,6 @@ export function AudioProvider({ children }) {
               
               // Set the playback stream for visualization
               playbackStreamRef.current = destination.stream;
-              console.log(`[DEBUG] Created special visualization stream for Safari buffer playback`);
               
               // Set playing state before we start actual playback
               setIsPlayingAudio(true);
@@ -604,12 +558,10 @@ export function AudioProvider({ children }) {
               sourceNode.connect(gainNode);
               
               // Play from beginning
-              console.log(`[DEBUG] Starting raw buffer playback`);
               sourceNode.start(0);
               
               // Set up ended event handling
               sourceNode.onended = () => {
-                console.log(`[DEBUG] Audio buffer playback ended: ${audioPath}, duration: ${audioBuffer.duration}`);
                 setIsPlayingAudio(false);
                 
                 // Clean up request controller
@@ -618,7 +570,6 @@ export function AudioProvider({ children }) {
                 // Don't immediately clear stream to allow for decay animation
                 setTimeout(() => {
                   if (!isPlayingAudio) {
-                    console.log('[DEBUG] Clearing playback stream reference after delay');
                     playbackStreamRef.current = null;
                   }
                 }, 2000);
@@ -630,7 +581,6 @@ export function AudioProvider({ children }) {
               
               return; // Skip the regular approach
             } catch (visualizationError) {
-              console.error(`[DEBUG] Error creating visualization for buffer playback:`, visualizationError);
               // Continue setup without visualization
             }
             
@@ -643,43 +593,33 @@ export function AudioProvider({ children }) {
             sourceNode.connect(audioContextRef.current.destination);
             
             // Play from beginning
-            console.log(`[DEBUG] Starting raw buffer playback (without visualization)`);
             sourceNode.start(0);
             
             // Set up ended event
             sourceNode.onended = () => {
-                console.log(`[DEBUG] Audio buffer playback ended (no viz): ${audioPath}`);
                 setIsPlayingAudio(false);
                 pendingPlayRequests.current.delete(audioPath);
             };
             
             return; // Skip regular approach
           } catch (bufferError) {
-            console.error(`[DEBUG] Raw buffer approach failed:`, bufferError);
-            console.log(`[DEBUG] Falling back to double-play approach for Safari`);
             // Fall through to double-play approach
           }
           
           try {
-            console.log(`[DEBUG] Using double-play approach for Safari`);
-            
             // Set source first (we'll handle playback specially)
             audioElement.src = audioUrl;
-            console.log(`[DEBUG] Set audio src to: ${audioUrl.substring(0, 30)}...`);
             
             // Make sure preload is set 
             audioElement.preload = 'auto';
             
             // Force loading the audio data
             audioElement.load();
-            console.log(`[DEBUG] Called load() on audio element`);
             
             // Connect to Web Audio API if not already connected
             let source, destination;
             if (!connectedAudioElements.current.has(audioElement) && audioContextRef.current) {
               try {
-                console.log('[DEBUG] Setting up audio visualization for Safari playback');
-                
                 // Create a MediaElementAudioSourceNode
                 source = audioContextRef.current.createMediaElementSource(audioElement);
                 // Connect to destination to hear the audio
@@ -695,7 +635,7 @@ export function AudioProvider({ children }) {
                   window.audioSourceCache.set(audioElement, { source, destination });
                 }
               } catch (error) {
-                console.error('[DEBUG] Error setting up Safari audio source:', error);
+                // Connection failed, continue
               }
             } else if (window.audioSourceCache && window.audioSourceCache.has(audioElement)) {
               const sourceInfo = window.audioSourceCache.get(audioElement);
@@ -710,27 +650,22 @@ export function AudioProvider({ children }) {
             // Wait for audio to be loaded
             await new Promise((resolve) => {
               const loadHandler = () => {
-                console.log(`[DEBUG] Audio loadeddata event triggered`);
                 audioElement.removeEventListener('loadeddata', loadHandler);
                 resolve();
               };
               
               if (audioElement.readyState >= 2) {
-                console.log(`[DEBUG] Audio already loaded: readyState=${audioElement.readyState}`);
                 resolve();
               } else {
-                console.log(`[DEBUG] Waiting for audio to load: readyState=${audioElement.readyState}`);
                 audioElement.addEventListener('loadeddata', loadHandler);
               }
             });
             
             // Add extra pre-buffer delay
-            console.log(`[DEBUG] Adding pre-buffer delay (500ms)`);
             await new Promise(resolve => setTimeout(resolve, 500));
             
             // SAFARI AUDIO FIX: Add additional silence to beginning
             try {
-              console.log(`[DEBUG] Attempting prefill with silent audio`);
               // Create a context for mixing
               const offlineCtx = new OfflineAudioContext({
                 numberOfChannels: 2,
@@ -746,56 +681,46 @@ export function AudioProvider({ children }) {
               silentSource.start();
               silentSource.stop(audioContextRef.current.currentTime + 0.1); // Stop after 100ms
               
-              console.log(`[DEBUG] Played silent buffer to warm up audio`);
               await new Promise(resolve => setTimeout(resolve, 100)); // Wait for silent audio
             } catch (silentError) {
-              console.warn(`[DEBUG] Silent audio failed, continuing:`, silentError);
+              // Silent audio failed, continue anyway
             }
             
             // Reset position to start
             audioElement.currentTime = 0;
-            console.log(`[DEBUG] Reset currentTime to 0`);
             
             // === SAFARI TRIPLE-PLAY TECHNIQUE ===
             // First play attempt - this may have cut-off but "warms up" the audio system
-            console.log(`[DEBUG] Safari first play attempt (primer)`);
-            await audioElement.play().catch(e => console.log(`[DEBUG] Expected first play failure:`, e));
+            await audioElement.play().catch(() => {});
             
             // Immediate pause and reset
             audioElement.pause();
             audioElement.currentTime = 0;
-            console.log(`[DEBUG] Paused and reset after first play`);
             
             // Short delay between plays
             await new Promise(resolve => setTimeout(resolve, 70));
             
             // Second play attempt - may still cut off but further primes the system
-            console.log(`[DEBUG] Safari second play attempt (secondary primer)`);
-            await audioElement.play().catch(e => console.log(`[DEBUG] Second play failure:`, e));
+            await audioElement.play().catch(() => {});
             
             // Immediate pause and reset
             audioElement.pause();
             audioElement.currentTime = 0;
-            console.log(`[DEBUG] Paused and reset after second play`);
             
             // Longer delay between second and third plays
             await new Promise(resolve => setTimeout(resolve, 100));
             
             // Third play attempt - this should play correctly without cutoff
-            console.log(`[DEBUG] Safari third play attempt (actual)`);
             await audioElement.play();
-            console.log(`[DEBUG] Safari audio playback started successfully`);
             
             // Clean up controller
             pendingPlayRequests.current.delete(audioPath);
             
             // Add ended handler
             audioElement.onended = () => {
-              console.log(`[DEBUG] Audio playback ended: ${audioPath}, duration: ${audioElement.duration}, current time: ${audioElement.currentTime}`);
               setIsPlayingAudio(false);
               setTimeout(() => {
                 if (!isPlayingAudio) {
-                  console.log('[DEBUG] Clearing playback stream reference after delay');
                   playbackStreamRef.current = null;
                 }
               }, 2000);
@@ -803,8 +728,6 @@ export function AudioProvider({ children }) {
             
             return; // Skip the regular playback code path
           } catch (safariError) {
-            console.error(`[DEBUG] Safari-specific approach failed:`, safariError);
-            console.log(`[DEBUG] Falling back to standard approach`);
             // Continue with standard playback as fallback
           }
         }
@@ -812,20 +735,16 @@ export function AudioProvider({ children }) {
         // ===== STANDARD APPROACH FOR NON-SAFARI =====
         // Set source first and wait for it to load before attempting to play
         audioElement.src = audioUrl;
-        console.log(`[DEBUG] Set audio src to: ${audioUrl.substring(0, 30)}...`);
         
         // Make sure preload is set 
         audioElement.preload = 'auto';
         
         // Force loading the audio data
         audioElement.load();
-        console.log(`[DEBUG] Called load() on audio element`);
         
         // Ensure we have a source node connected for visualization
         if (!connectedAudioElements.current.has(audioElement)) {
           try {
-            console.log('[DEBUG] Setting up audio visualization for playback:', audioPath);
-            
             // Create a MediaElementAudioSourceNode
             const source = audioContextRef.current.createMediaElementSource(audioElement);
             // Connect to destination to hear the audio
@@ -837,10 +756,6 @@ export function AudioProvider({ children }) {
             
             // Set the playback stream reference for visualization immediately
             playbackStreamRef.current = destination.stream;
-            console.log('[DEBUG] Playback stream set for visualization', { 
-              streamId: destination.stream.id,
-              hasAudioTracks: destination.stream.getAudioTracks().length
-            });
             
             // Mark this element as connected
             connectedAudioElements.current.add(audioElement);
@@ -848,19 +763,15 @@ export function AudioProvider({ children }) {
             // Store in global cache if available
             if (window.audioSourceCache) {
               window.audioSourceCache.set(audioElement, { source, destination });
-              console.log('[DEBUG] Added to global audioSourceCache on play:', audioPath);
             }
           } catch (error) {
             pendingPlayRequests.current.delete(audioPath);
-            console.error('[DEBUG] Error setting up audio source for visualization:', error);
+            console.error('Error setting up audio source for visualization:', error);
           }
         } else if (window.audioSourceCache && window.audioSourceCache.has(audioElement)) {
           // If already connected, get the stream from cache
           const { destination } = window.audioSourceCache.get(audioElement);
           playbackStreamRef.current = destination.stream;
-          console.log('[DEBUG] Using cached stream for visualization:', audioPath, {
-            streamId: destination.stream.id
-          });
         }
         
         // Set state to playing before actually playing
@@ -871,31 +782,25 @@ export function AudioProvider({ children }) {
         const waitForAudioReady = new Promise((resolve) => {
           if (isSafari) {
             const loadedDataHandler = () => {
-              console.log(`[DEBUG] loadeddata event fired for ${audioPath}`);
               audioElement.removeEventListener('loadeddata', loadedDataHandler);
               resolve();
             };
             
             if (audioElement.readyState >= 2) {
-              console.log(`[DEBUG] Audio already in loadeddata state: ${audioElement.readyState}`);
               resolve();
             } else {
-              console.log(`[DEBUG] Waiting for loadeddata event, current ready state: ${audioElement.readyState}`);
               audioElement.addEventListener('loadeddata', loadedDataHandler);
             }
           } else {
             // For non-Safari, use canplay as before
             const canPlayHandler = () => {
-              console.log(`[DEBUG] canplay event fired for ${audioPath}`);
               audioElement.removeEventListener('canplay', canPlayHandler);
               resolve();
             };
             
             if (audioElement.readyState >= 3) {
-              console.log(`[DEBUG] Audio already in ready state: ${audioElement.readyState}`);
               resolve();
             } else {
-              console.log(`[DEBUG] Waiting for canplay event, current ready state: ${audioElement.readyState}`);
               audioElement.addEventListener('canplay', canPlayHandler);
             }
           }
@@ -912,11 +817,8 @@ export function AudioProvider({ children }) {
             })
           ]);
           
-          console.log(`[DEBUG] Audio ready to play, current time: ${audioElement.currentTime}`);
-          
           // Add a delay to ensure buffer is loaded
           if (isSafari) {
-            console.log(`[DEBUG] Adding extra delay for Safari buffering`);
             await new Promise(resolve => setTimeout(resolve, 300));
           } else {
             await new Promise(resolve => setTimeout(resolve, 100));
@@ -926,12 +828,10 @@ export function AudioProvider({ children }) {
           if (!controller.signal.aborted) {
             // Reset current time to ensure we start from the beginning
             audioElement.currentTime = 0;
-            console.log(`[DEBUG] Set currentTime to 0 before playing`);
             
             // Create a silent buffer and play it first to "warm up" the audio context
             if (isSafari && audioContextRef.current) {
               try {
-                console.log(`[DEBUG] Creating silent buffer for Safari warm-up`);
                 const silentBuffer = audioContextRef.current.createBuffer(1, 1, 22050);
                 const silentSource = audioContextRef.current.createBufferSource();
                 silentSource.buffer = silentBuffer;
@@ -939,17 +839,14 @@ export function AudioProvider({ children }) {
                 silentSource.start();
                 // Wait a tiny bit after playing the silent buffer
                 await new Promise(resolve => setTimeout(resolve, 20));
-                console.log(`[DEBUG] Finished Safari warm-up with silent buffer`);
               } catch (warmupError) {
-                console.warn(`[DEBUG] Safari warm-up failed, continuing anyway:`, warmupError);
+                // Silent buffer failed, continue anyway
               }
             }
             
             const playPromise = audioElement.play();
-            console.log(`[DEBUG] Called play(), waiting for promise to resolve`);
             
             await playPromise;
-            console.log(`[DEBUG] Audio playback started: ${audioPath}, current time: ${audioElement.currentTime}`);
             
             // Clean up this request's controller now that it's successfully playing
             pendingPlayRequests.current.delete(audioPath);
@@ -958,7 +855,7 @@ export function AudioProvider({ children }) {
           pendingPlayRequests.current.delete(audioPath);
           // Don't log abort errors from our own cancellations
           if (playError.message !== 'Play request aborted') {
-            console.error(`[DEBUG] Error starting audio playback: ${playError.message}`);
+            console.error('Error starting audio playback:', playError);
           }
           setIsPlayingAudio(false); // Reset state if playback fails
           throw playError;
@@ -966,12 +863,10 @@ export function AudioProvider({ children }) {
         
         // Set up ended handler to reset state
         audioElement.onended = () => {
-          console.log(`[DEBUG] Audio playback ended: ${audioPath}, duration: ${audioElement.duration}, current time: ${audioElement.currentTime}`);
           setIsPlayingAudio(false);
           // Don't immediately clear the stream to allow for decay animation
           setTimeout(() => {
             if (!isPlayingAudio) {
-              console.log('[DEBUG] Clearing playback stream reference after delay');
               playbackStreamRef.current = null;
             }
           }, 2000);
@@ -980,7 +875,6 @@ export function AudioProvider({ children }) {
     } catch (err) {
       // Don't show error for aborted requests
       if (err.message !== 'Play request aborted') {
-        console.error(`[DEBUG] Error in playAudio: ${err.message}`);
         setError(`Failed to play audio: ${err.message}`);
         throw err;
       }

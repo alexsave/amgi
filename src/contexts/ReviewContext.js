@@ -5,7 +5,7 @@ import { processCardReview } from '../algorithms/spacedRepetition';
 import { CardScheduler } from '../utils/cardscheduler';
 import { saveReview } from '../db/supabase';
 import { useAuth } from './AuthContext';
-import { getLocalDate } from '../utils/dates';
+import { getLocalDate, getEndOfDayTimestamp } from '../utils/dates';
 
 const ReviewContext = createContext({});
 
@@ -57,7 +57,11 @@ export const ReviewProvider = ({ children }) => {
             return;
         }
 
+        console.log('Loading deck:', deck.name, 'with', deck.cards.length, 'cards');
+        
         cardSchedulerRef.current.clear();
+
+        let reviewCardsDebug = [];
 
         for (let i = 0; i < deck.cards.length; i++) {
             const card = deck.cards[i];
@@ -65,9 +69,36 @@ export const ReviewProvider = ({ children }) => {
                 cardSchedulerRef.current.pushNewCard(card);
             } else {
                 cardSchedulerRef.current.setReview(card, card.review);
+                if (card.review.card_state === 'review') {
+                    reviewCardsDebug.push({
+                        id: card.id,
+                        next_review_date: card.review.next_review_date,
+                        nextReviewTime: new Date(card.review.next_review_date).getTime(),
+                        current_time: Date.now(),
+                        endOfDayTime: new Date(getEndOfDayTimestamp()).getTime(),
+                        isDue: new Date(card.review.next_review_date).getTime() <= new Date(getEndOfDayTimestamp()).getTime()
+                    });
+                }
             }
         }
+
+        console.log('Review cards loaded:', reviewCardsDebug);
+        if (reviewCardsDebug.length > 0) {
+            console.log('Debug timestamps:',
+                'Current time:', new Date().toISOString(),
+                'End of day time:', getEndOfDayTimestamp(),
+                'Current time (ms):', Date.now(),
+                'End of day time (ms):', new Date(getEndOfDayTimestamp()).getTime()
+            );
+            console.log('Card scheduler stats:', 
+                'Review cards in heap:', cardSchedulerRef.current.getReviewCardsCount(),
+                'Review cards due today:', reviewCardsDebug.filter(c => c.isDue).length
+            );
+        }
+        
         const nextCardId = cardSchedulerRef.current.peekNext();
+        console.log('Next card ID from scheduler:', nextCardId);
+        
         currentCardIdRef.current = nextCardId;
         setCurrentCard(cardSchedulerRef.current.getFullCard(nextCardId));
         updateCardCounts();

@@ -7,7 +7,7 @@ import ProtectedRoute from './components/Auth/ProtectedRoute';
 import Welcome from './components/Welcome/Welcome';
 import Signup from './components/Auth/Signup';
 import AppContent from './components/AppContent';
-import SubscriptionPage from './pages/SubscriptionPage';
+import SubscriptionComponent from './components/Subscription/SubscriptionComponent';
 import './App.css';
 
 function App() {
@@ -25,7 +25,7 @@ function App() {
               <Signup />
             </div>
           } />
-          <Route path="/subscription" element={<ProtectedRoute><SubscriptionPage /></ProtectedRoute>} />
+          <Route path="/subscription" element={<ProtectedRoute><SubscriptionComponent /></ProtectedRoute>} />
           <Route
             path="/*"
             element={

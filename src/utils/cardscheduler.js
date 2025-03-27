@@ -1,3 +1,5 @@
+import { getEndOfDayTimestamp } from './dates';
+
 /******************************************************
  * FIFOQueue:
  * Simple queue that stores an array of IDs (strings).
@@ -232,13 +234,55 @@ export class CardScheduler {
    * Update a card's review information
    */
   setReview(card, review) {
-    //j//jconst card = this.getFullCard(id);
-    //jif (!card) return;
-    
     card.review = review;
 
     // Update the card's position in the appropriate queue/heap
-    const nextReviewTime = review.next_review_date ? new Date(review.next_review_date).getTime() : Date.now();
+    let nextReviewTime;
+    
+    if (review.next_review_date) {
+      // Fix timezone issue by manually parsing the date components and creating a local date
+      try {
+        const isoDateStr = review.next_review_date;
+        // Extract date parts: YYYY-MM-DDTHH:MM:SS.sss
+        const dateParts = isoDateStr.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})\.?(\d*)$/);
+        
+        if (dateParts) {
+          // Parse as local time using extracted components
+          const year = parseInt(dateParts[1]);
+          const month = parseInt(dateParts[2]) - 1; // Months are 0-indexed in JS
+          const day = parseInt(dateParts[3]);
+          const hours = parseInt(dateParts[4]);
+          const minutes = parseInt(dateParts[5]);
+          const seconds = parseInt(dateParts[6]);
+          const milliseconds = dateParts[7] ? parseInt(dateParts[7].slice(0, 3).padEnd(3, '0')) : 0;
+          
+          // Create date as local time
+          const localDate = new Date(year, month, day, hours, minutes, seconds, milliseconds);
+          nextReviewTime = localDate.getTime();
+        } else {
+          // Fallback if regex doesn't match
+          console.error('Invalid date format:', isoDateStr);
+          nextReviewTime = Date.now();
+        }
+      } catch (e) {
+        console.error('Error parsing date:', e);
+        nextReviewTime = Date.now();
+      }
+    } else {
+      nextReviewTime = Date.now();
+    }
+    
+    console.log('setReview for card:', { 
+      id: card.id,
+      card_state: review.card_state,
+      next_review_date: review.next_review_date,
+      parsed_local_time: new Date(nextReviewTime).toLocaleString(),
+      nextReviewTime: new Date(nextReviewTime).toISOString(),
+      isReviewDue: nextReviewTime <= new Date(getEndOfDayTimestamp()).getTime(),
+      currentTime: new Date().toISOString(),
+      endOfDay: getEndOfDayTimestamp()
+    });
+    
     this.setReviewTime(card, nextReviewTime, review.card_state);
   }
 
@@ -315,7 +359,7 @@ export class CardScheduler {
    */
   popNext() {
     const currentTime = Date.now();
-    const endOfDayTime = new Date().setHours(23, 59, 59, 999);
+    const endOfDayTime = new Date(getEndOfDayTimestamp()).getTime();
 
     // 1. First priority: Learning cards due now
     const topLearning = this.learningHeap.peek();
@@ -351,27 +395,48 @@ export class CardScheduler {
    */
   peekNext() {
     const currentTime = Date.now();
-    const endOfDayTime = new Date().setHours(23, 59, 59, 999);
+    const endOfDayTime = new Date(getEndOfDayTimestamp()).getTime();
+
+    console.log('CardScheduler.peekNext:', { 
+      currentTime: new Date(currentTime).toISOString(),
+      endOfDayTime: new Date(endOfDayTime).toISOString(),
+      learningHeapSize: this.learningHeap.heap.length,
+      newQueueSize: this.newQueue.size(),
+      reviewHeapSize: this.reviewHeap.heap.length
+    });
 
     const topLearning = this.learningHeap.peek();
     if (topLearning && topLearning.nextReviewTime <= currentTime) {
+      console.log('Returning learning card (due now):', topLearning.id);
       return topLearning.id;
     }
 
     if (this.newQueue.size() > 0) {
+      console.log('Returning new card:', this.newQueue.peek());
       return this.newQueue.peek();
     }
 
     const topReview = this.reviewHeap.peek();
 
+    if (topReview) {
+      console.log('Top review card:', { 
+        id: topReview.id,
+        nextReviewTime: new Date(topReview.nextReviewTime).toISOString(),
+        isDue: topReview.nextReviewTime <= endOfDayTime
+      });
+    }
+
     if (topReview && topReview.nextReviewTime <= endOfDayTime) {
+      console.log('Returning review card (due today):', topReview.id);
       return topReview.id;
     }
 
     if (topLearning) {
+      console.log('Returning learning card (not due yet):', topLearning.id);
       return topLearning.id;
     }
 
+    console.log('No cards to return');
     return null;
   }
 

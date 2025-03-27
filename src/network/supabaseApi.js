@@ -1,10 +1,10 @@
-import { ApiInterface } from './ApiInterface';
-import { blobToBase64 } from '../utils';
-import supabaseClient from '../../db/supabaseClient';
+// Network API operations
+import supabaseClient from '../db/supabaseClient';
+import { blobToBase64 } from './utils';
 
-export class SupabaseApi extends ApiInterface {
+// API instance management
+export class SupabaseApi {
   constructor() {
-    super();
     this.supabase = supabaseClient;
   }
 
@@ -127,21 +127,48 @@ export class SupabaseApi extends ApiInterface {
     }
   }
 
-  async getRealtimeToken() {
-    try {
-      const { data, error } = await this.supabase.functions.invoke('realtime');
-
-      if (error) {
-        throw new Error('Failed to get realtime token: ' + error.message);
-      }
-
-      if (!data.client_secret?.value) {
-        throw new Error('Invalid token response');
-      }
-
-      return data.client_secret.value;
-    } catch (error) {
-      throw new Error('Failed to get realtime token: ' + error.message);
-    }
+  clear() {
+    // Clean up any resources if needed
   }
-} 
+}
+
+// Single API instance
+let apiInstance = null;
+
+// Helper function to get the API instance
+const getApiInstance = () => {
+  if (!apiInstance) {
+    apiInstance = new SupabaseApi();
+  }
+  return apiInstance;
+};
+
+// API mode management
+export const clearApiInstance = () => {
+  if (apiInstance) {
+    apiInstance.clear();
+    apiInstance = null;
+  }
+};
+
+// API Functions
+export const generateCard = async (user_input, known_language, learning_language, onProgress) => {
+  const api = getApiInstance();
+  return api.generateCard(user_input, known_language, learning_language, onProgress);
+};
+
+export const regenerateCardPart = async (currentCard, parts, known_language, learning_language, onProgress) => {
+  const api = getApiInstance();
+  return api.regenerateCardPart(currentCard, parts, known_language, learning_language, onProgress);
+};
+
+export const evaluateSpeech = async (audio_blob, expected_text, back_lang, expected_audio_blob, front_lang) => {
+  console.log('API: Evaluating speech with front_lang:', front_lang);
+  const api = getApiInstance();
+  return api.evaluateSpeech(audio_blob, expected_text, back_lang, expected_audio_blob, front_lang);
+};
+
+export const getRealtimeToken = async () => {
+  const api = getApiInstance();
+  return api.getRealtimeToken();
+}; 

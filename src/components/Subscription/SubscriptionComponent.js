@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../contexts/AuthContext';
-import supabase from '../db/supabaseClient';
+import { useAuth } from '../../contexts/AuthContext';
+import supabase from '../../db/supabaseClient';
 import { useNavigate, useLocation } from 'react-router-dom';
-import Navbar from '../components/Navigation/Navbar';
-import './SubscriptionPage.css';
+import Navbar from '../Navigation/Navbar';
+import './SubscriptionComponent.css';
 
-export default function SubscriptionPage() {
+export default function SubscriptionComponent() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [subscription, setSubscription] = useState(null);
@@ -30,7 +30,7 @@ export default function SubscriptionPage() {
   }, [location.hash]);
   
   useEffect(() => {
-    console.log('SubscriptionPage mounted. User:', user?.id);
+    console.log('SubscriptionComponent mounted. User:', user?.id);
     
     // Check for success or canceled status from Stripe redirect
     const searchParams = new URLSearchParams(location.search);
@@ -53,11 +53,11 @@ export default function SubscriptionPage() {
   }, [location.search]);
 
   useEffect(() => {
-    console.log('User changed in SubscriptionPage:', user?.id);
+    console.log('User changed in SubscriptionComponent:', user?.id);
     if (user) {
       loadSubscriptionData();
     } else {
-      console.warn('No user available in SubscriptionPage');
+      console.warn('No user available in SubscriptionComponent');
     }
   }, [user]);
 
@@ -141,11 +141,8 @@ export default function SubscriptionPage() {
   }
 
   if (loading) return (
-    <div className="App">
-      <Navbar />
-      <div className="subscription-container">
-        <div className="loading-spinner">Loading...</div>
-      </div>
+    <div className="subscription-container">
+      <div className="loading-spinner">Loading...</div>
     </div>
   );
 
@@ -157,12 +154,11 @@ export default function SubscriptionPage() {
       displayPrice: 'Free',
       priceId: 'price_free',
       features: [
-        '5 live practice sessions per month',
+        '5 practice sessions per month',
         '100 pronunciation evaluations per month',
         '100 audio generations for cards per month',
         'Unlimited flashcards'
-      ],
-      popular: false
+      ]
     },
     {
       id: 'standard',
@@ -170,27 +166,12 @@ export default function SubscriptionPage() {
       displayPrice: '$30/month',
       priceId: 'price_1R38iGDkEAsn6R9yOrSesptN',
       features: [
-        '60 live practice sessions per month',
+        '60 practice sessions per month',
         '1,000 pronunciation evaluations per month',
         '1,000 audio generations for cards per month',
         'Priority support',
         'Unlimited flashcards'
-      ],
-      popular: true
-    },
-    {
-      id: 'pro',
-      name: 'Pro',
-      displayPrice: '$100/month',
-      priceId: 'price_1R38iGDkEAsn6R9yLhLsWk2x',
-      features: [
-        'Unlimited live practice sessions',
-        'Unlimited pronunciation evaluations',
-        'Unlimited audio generations for cards',
-        'Premium support',
-        'Early access to new features'
-      ],
-      popular: false
+      ]
     }
   ];
 
@@ -198,47 +179,45 @@ export default function SubscriptionPage() {
   const currentTierName = subscription?.subscription_tiers?.name || 'Free';
 
   return (
-    <div className="App">
-      <Navbar />
-      <div className="subscription-container">
-        {isOnboarding ? (
-          <div className="onboarding-header">
-            <h1>Choose Your Subscription Plan</h1>
-            <p>Select a plan that fits your language learning needs. You can change your plan at any time.</p>
-          </div>
-        ) : (
-          <div className="subscription-header">
-            <h1>Subscription Plans</h1>
-            <p>Upgrade your plan to unlock more language learning features</p>
-          </div>
-        )}
-        
-        {successMessage && <div className="subscription-success">{successMessage}</div>}
-        {error && <div className="subscription-error">{error}</div>}
-        
-        <div className="subscription-tiers">
-          {hardcodedTiers.map(tier => (
-            <div 
-              key={tier.id} 
-              className={`subscription-tier ${currentTierName === tier.name ? 'current-tier' : ''} ${tier.popular ? 'popular-tier' : ''}`}
-            >
-              {tier.popular && <div className="popular-badge">Most Popular</div>}
-              <h2>{tier.name}</h2>
-              <p className="tier-price">{tier.displayPrice}</p>
-              
-              <div className="tier-features">
-                {tier.features.map((feature, index) => (
-                  <div key={index} className="feature-item">
-                    <span className="feature-checkmark">✓</span> {feature}
-                  </div>
-                ))}
-              </div>
-              
+    <div className="subscription-container">
+      {isOnboarding ? (
+        <div className="onboarding-header">
+          <h1>Choose Your Subscription Plan</h1>
+          <p>Select a plan that fits your language learning needs. You can change your plan at any time.</p>
+        </div>
+      ) : (
+        <div className="subscription-header">
+          <h1>Subscription Plans</h1>
+          <p>Upgrade your plan to unlock more language learning features</p>
+        </div>
+      )}
+      
+      {successMessage && <div className="subscription-success">{successMessage}</div>}
+      {error && <div className="subscription-error">{error}</div>}
+      
+      <div className="subscription-tiers">
+        {hardcodedTiers.map(tier => (
+          <div 
+            key={tier.id} 
+            className={`subscription-tier ${currentTierName === tier.name ? 'current-tier' : ''}`}
+          >
+            <h2>{tier.name}</h2>
+            <p className="tier-price">{tier.displayPrice}</p>
+            
+            <div className="tier-features">
+              {tier.features.map((feature, index) => (
+                <div key={index} className="feature-item">
+                  <span className="feature-checkmark">✓</span> {feature}
+                </div>
+              ))}
+            </div>
+            
+            <div className="tier-button-container">
               {isOnboarding ? (
                 <button 
                   onClick={() => tier.name === 'Free' ? handleContinueWithFree() : handleSubscribe(tier.priceId, tier.name)}
                   disabled={loading}
-                  className={`subscribe-button ${tier.popular ? 'popular-button' : ''}`}
+                  className="subscribe-button"
                 >
                   {tier.name === 'Free' ? 'Continue with Free Plan' : `Select ${tier.name} Plan`}
                 </button>
@@ -247,34 +226,17 @@ export default function SubscriptionPage() {
                   <button 
                     onClick={() => handleSubscribe(tier.priceId, tier.name)}
                     disabled={loading}
-                    className={`subscribe-button ${tier.popular ? 'popular-button' : ''}`}
+                    className="subscribe-button"
                   >
                     {tier.name === 'Free' ? 'Downgrade to Free' : `Upgrade to ${tier.name}`}
                   </button>
                 ) : (
-                  tier.name === 'Free' ? (
-                    <button 
-                      onClick={handleContinueWithFree}
-                      className="subscribe-button"
-                    >
-                      Continue to Decks
-                    </button>
-                  ) : (
-                    <div className="current-plan-label">Your Current Plan</div>
-                  )
+                  <div className="current-plan-badge">Current Plan</div>
                 )
               )}
             </div>
-          ))}
-        </div>
-        
-        {isOnboarding && (
-          <div className="onboarding-actions">
-            <button onClick={handleContinueWithFree} className="skip-button">
-              Skip for now
-            </button>
           </div>
-        )}
+        ))}
       </div>
     </div>
   );

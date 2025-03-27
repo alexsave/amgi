@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { generateCard as apiGenerateCard, regenerateCardPart as apiRegenerateCardPart } from '../network/api';
+import { generateCard as apiGenerateCard, regenerateCardPart as apiRegenerateCardPart } from '../network/supabaseApi';
 
 const CardGenerationContext = createContext();
 

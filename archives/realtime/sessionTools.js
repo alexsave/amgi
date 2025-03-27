@@ -1,4 +1,5 @@
-import { INITIAL_PROMPTS, getLanguageName } from '../../constants/languages';
+import { getLanguageName } from '../../src/constants/languages';
+import { INITIAL_PROMPTS } from './initialPrompts';
 
 export const sessionTools = {
     evaluatePronunciation: {
