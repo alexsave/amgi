@@ -284,7 +284,7 @@ const ReviewMode = () => {
     <div className="review-mode" style={{ display: 'flex', flex: 1, height: '100%', flexDirection: 'column', alignItems: 'center' }}>
       <div className="mode-header">
         <button onClick={handleBackToList} className="back-btn">
-          ← Back to Decks
+          ← Decks
         </button>
         <h2>{decks[currentDeckId].name}</h2>
       </div>
@@ -401,28 +401,6 @@ const ReviewMode = () => {
         </div>
       )}
 
-      {/* TEMPORARY MANUAL TESTING BUTTONS - DELETE THIS SECTION WHEN DONE */}
-      <div className="temp-manual-controls">
-        <button
-          className="manual-button correct-button"
-          onClick={() => {
-            review.markCorrectGetNext();
-            review.setEvaluationResult(null);
-          }}
-        >
-          Manual Correct
-        </button>
-        <button
-          className="manual-button incorrect-button"
-          onClick={() => {
-            review.markIncorrectGetNext();
-            review.setEvaluationResult(null);
-          }}
-        >
-          Manual Incorrect
-        </button>
-      </div>
-      {/* END TEMPORARY SECTION */}
     </div>
   );
 };

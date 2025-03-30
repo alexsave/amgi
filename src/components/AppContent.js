@@ -49,14 +49,11 @@ function AppContent() {
               <Route
                 path="/deck/:id/review"
                 element={
-                  <ReviewMode
-                    onBack={handleBackToList}
-                  />
+                  <ReviewMode onBack={handleBackToList} />
                 }
               />
             </Routes>
           </ReviewProvider>
-
         </AudioProvider>
       </div>
     </div>

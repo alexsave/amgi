@@ -1,17 +1,21 @@
 .review-mode {
-  max-width: 1000px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  max-width: 100%;
+  width: 100%;
   margin: 0 auto;
+  overflow: hidden;
 }
 
 .mode-header {
   display: flex;
+  padding: 5px 0;
   align-items: center;
-  gap: 15px;
-  margin-bottom: 20px;
-  border-bottom: 1px solid var(--border-color);
-  padding-bottom: 12px;
   width: 100%;
   justify-content: space-between;
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
 }
 
 .mode-header h2 {
@@ -80,19 +84,18 @@
 .card-progress {
   text-align: center;
   color: var(--text-secondary);
-  margin-bottom: 20px;
+  padding: 10px 0;
+  flex-shrink: 0;
 }
 
 .review-controls {
-  margin-top: 15px;
-  padding-top: 15px;
-  border-top: 1px solid var(--border-color);
+  padding: 10px 0;
+  flex-shrink: 0;
 }
 
 .attempts-counter {
   text-align: center;
   color: var(--text-secondary);
-  margin-bottom: 15px;
 }
 
 .test-buttons {
@@ -388,7 +391,6 @@
   top: 30px;
 }
 
-
 .button-inner {
   width: 100%;
   height: 100%;
@@ -647,13 +649,13 @@
 }
 
 .transition-timer-container {
-  position: fixed;
-  bottom: 20px;
+  position: absolute;
+  bottom: 80px;
   left: 0;
   right: 0;
   display: flex;
   justify-content: center;
-  z-index: 10;
+  z-index: 20;
 }
 
 .transition-timer {
@@ -692,66 +694,6 @@
   min-height: 200px;
 }
 
-/* TEMPORARY MANUAL TESTING BUTTONS - DELETE THIS SECTION WHEN DONE */
-.temp-manual-controls {
-  position: fixed;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 10px;
-  margin-top: 30px;
-  margin-bottom: 15px;
-  padding: 10px;
-  background-color: rgba(255, 255, 255, 0.05);
-  border: 1px dashed #666;
-  border-radius: 8px;
-  max-width: 400px;
-  margin-left: auto;
-  margin-right: auto;
-}
-
-.temp-manual-controls::before {
-  content: 'TEMPORARY TESTING CONTROLS';
-  position: absolute;
-  top: -10px;
-  font-size: 10px;
-  background: #222;
-  padding: 0 5px;
-  color: #666;
-}
-
-.manual-button {
-  padding: 8px 16px;
-  border-radius: 4px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.manual-button:hover {
-  transform: translateY(-2px);
-}
-
-.correct-button {
-  background-color: rgba(40, 167, 69, 0.2);
-  color: #4CAF50;
-  border: 1px solid #4CAF50;
-}
-
-.correct-button:hover {
-  background-color: rgba(40, 167, 69, 0.3);
-}
-
-.incorrect-button {
-  background-color: rgba(220, 53, 69, 0.2);
-  color: #f44336;
-  border: 1px solid #f44336;
-}
-
-.incorrect-button:hover {
-  background-color: rgba(220, 53, 69, 0.3);
-}
-/* END TEMPORARY SECTION */
 
 /* Recording button state */
 .hint-button.recording .button-inner {
@@ -784,14 +726,12 @@
   flex-direction: column;
   width: 100%;
   max-width: 600px;
-  height: 400px;
-  margin: 20px auto;
+  flex: 1;
   border-radius: 12px;
-  border: 1px solid var(--border-color);
   background-color: var(--dark-surface);
   overflow: hidden;
-  position: relative;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+  min-height: 0; /* Important for flex containers */
 }
 
 .flashcard-top, .flashcard-bottom {
@@ -802,6 +742,7 @@
   padding: 20px;
   position: relative;
   overflow-y: auto;
+  min-height: 0; /* Important for nested flex items */
 }
 
 .flashcard-top {
@@ -826,59 +767,103 @@
 
 /* Updated controls container for bottom row layout */
 .bottom-controls-container {
-  width:100%;
-  bottom: 20px;
-  left: 0;
-  right: 0;
   display: flex;
   justify-content: space-evenly;
   z-index: 10;
-  margin-bottom: 10px;
-  padding-bottom: 10px;
+  width: 100%;
+  flex-shrink: 0;
+  align-items: flex-start;
+  padding: 1rem 0;
 }
 
 .button-container {
+  position: relative;
+  height: 80px;
+  width: 100px;
   display: flex;
   flex-direction: column;
   align-items: center;
 }
 
-.left-button {
-  align-self: flex-start;
-}
-
-.center-button {
-  align-self: center;
-}
-
-.right-button {
-  align-self: flex-end;
-}
-
-/* Update existing controls to match new layout */
-.audio-controls-container {
-  display: none; /* Hide the old container */
-}
-
-/* Adjust the temp manual controls */
-.temp-manual-controls {
-  position: fixed;
-}
-
-.bottom-controls-container .button-container {
-  position: relative;
-  width: 100px;
-  height: 110px;
-}
-
 .bottom-controls-container .hint-button {
-  width: 60px;
-  height: 60px;
   position: relative;
   z-index: 2;
+  top: 0;
+  margin-bottom: 8px;
+}
+
+.front-visualizer-container,
+.hint-visualizer-container,
+.mic-visualizer-container {
+  position: absolute;
+  z-index: 0;
+  pointer-events: none;
+  top: -30px;
 }
 
 .button-container .hint-button .button-inner {
   width: 100%;
   height: 100%;
+}
+
+.bottom-controls-container .button-label {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 13px;
+}
+
+/* Fix temp manual controls */
+.temp-manual-controls {
+  position: absolute;
+  bottom: 300px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  background-color: rgba(0, 0, 0, 0.5);
+  border-radius: 8px;
+  padding: 10px;
+  border: 1px dashed #666;
+}
+
+.manual-button {
+  padding: 5px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+/* Hide unused content on small screens */
+@media (max-height: 600px) {
+  .card-progress {
+    padding: 2px 0;
+    font-size: 0.8rem;
+  }
+  
+  .review-controls {
+    padding: 2px 0;
+  }
+  
+  .button-label {
+    font-size: 12px;
+  }
+  
+  .flashcard-text {
+    font-size: 1.2rem;
+  }
+}
+
+/* Improved mobile experience */
+@media (max-height: 700px) {
+  .mode-header h2 {
+    font-size: 1.2rem;
+  }
+  
+  .review-controls {
+    padding: 5px 0;
+  }
 }
