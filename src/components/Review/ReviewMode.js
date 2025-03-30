@@ -324,7 +324,7 @@ const ReviewMode = () => {
                 />
               </div>
               <button
-                className={`audio-button play-button front-button ${audio.isPlayingAudio ? 'playing' : ''} ${isPlayingLocked ? 'loading' : ''}`}
+                className="hint-button"
                 onClick={handlePlayFrontAudio}
                 disabled={audio.isPlayingAudio || isPlayingLocked}
               >
@@ -347,7 +347,7 @@ const ReviewMode = () => {
                   />
                 </div>
                 <button 
-                  className={`audio-button play-button hint-button ${audio.isPlayingAudio ? 'playing' : ''} ${isPlayingLocked ? 'loading' : ''}`}
+                  className="hint-button"
                   onClick={handlePlayHintAudio}
                   disabled={audio.isPlayingAudio || isPlayingLocked}
                 >
@@ -373,7 +373,7 @@ const ReviewMode = () => {
                 />
               </div>
               <button
-                className={`audio-button mic-button ${audio.isRecording ? 'recording' : ''} ${audio.isLoading || isEvaluating ? 'loading' : ''}`}
+                className={`hint-button ${audio.isRecording ? 'recording' : ''}`}
                 onClick={handleRecordButtonClick}
                 disabled={showAnswer || audio.isLoading || isEvaluating}
               >
