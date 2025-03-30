@@ -22,6 +22,7 @@ const ReviewMode = () => {
   const [transitionCard, setTransitionCard] = useState(null);
   const [showCardContent, setShowCardContent] = useState(false);
   const [isPlayingLocked, setIsPlayingLocked] = useState(false); // Lock to prevent rapid clicks
+  const [lastClickedAudio, setLastClickedAudio] = useState(null); // 'front', 'hint', or null
 
   // Only retaining the volume scale for the UI, all other audio state moved to contexts
   const [audioScale, setAudioScale] = useState(0);
@@ -248,6 +249,25 @@ const ReviewMode = () => {
     };
   }, []);
 
+  // When the card changes, reset the lastClickedAudio
+  useEffect(() => {
+    setLastClickedAudio(null);
+  }, [currentCardId]);
+
+  const handlePlayFrontAudio = () => {
+    if (currentCard?.front_audio_path) {
+      setLastClickedAudio('front');
+      handlePlayButtonClick(currentCard.front_audio_path);
+    }
+  };
+
+  const handlePlayHintAudio = () => {
+    if (currentCard?.back_audio_path) {
+      setLastClickedAudio('hint');
+      handlePlayButtonClick(currentCard.back_audio_path);
+    }
+  };
+
   if (!currentCard) {
     return (
       <div className="review-complete">
@@ -296,36 +316,46 @@ const ReviewMode = () => {
       <div className="audio-controls-container">
         <div className="audio-control-column">
           <div className="audio-button-container">
-            <div className="visualizer-container">
-              <RadialAudioVisualizer
-                visualizerType="ai"
-              />
-            </div>
-            <button
-              className={`audio-button play-button ${audio.isPlayingAudio ? 'playing' : ''} ${isPlayingLocked ? 'loading' : ''}`}
-              onClick={() => handlePlayButtonClick(currentCard.front_audio_path)}
-              disabled={audio.isPlayingAudio || isPlayingLocked}
-            >
-              <div className="button-inner">
-                <PlayIcon className="button-icon" />
+            <div className="front-container">
+              <div className="front-visualizer-container">
+                <RadialAudioVisualizer 
+                  visualizerType="front" 
+                  isActive={lastClickedAudio === 'front'} 
+                />
               </div>
-            </button>
+              <button
+                className={`audio-button play-button front-button ${audio.isPlayingAudio ? 'playing' : ''} ${isPlayingLocked ? 'loading' : ''}`}
+                onClick={handlePlayFrontAudio}
+                disabled={audio.isPlayingAudio || isPlayingLocked}
+              >
+                <div className="button-inner">
+                  <PlayIcon className="button-icon" />
+                </div>
+              </button>
+              <div className="button-label">Play Audio</div>
+            </div>
             {(isTransitioning || showCardContent || attempts >= 2) && (transitionCard || currentCard) && (
               <div className="text-content">{transitionCard ? transitionCard.front_text : currentCard.front_text}</div>
             )}
             
             {attempts >= 1 && !showAnswer && currentCard.back_audio_path && (
               <div className="hint-container">
+                <div className="hint-visualizer-container">
+                  <RadialAudioVisualizer 
+                    visualizerType="hint" 
+                    isActive={lastClickedAudio === 'hint'} 
+                  />
+                </div>
                 <button 
-                  className={`hint-button play-button ${audio.isPlayingAudio ? 'playing' : ''} ${isPlayingLocked ? 'loading' : ''}`}
-                  onClick={() => handlePlayButtonClick(currentCard.back_audio_path)}
+                  className={`audio-button play-button hint-button ${audio.isPlayingAudio ? 'playing' : ''} ${isPlayingLocked ? 'loading' : ''}`}
+                  onClick={handlePlayHintAudio}
                   disabled={audio.isPlayingAudio || isPlayingLocked}
                 >
                   <div className="button-inner">
                     <PlayIcon className="button-icon" />
                   </div>
-                  <span>Play Hint Audio</span>
                 </button>
+                <div className="button-label">Play Hint Audio</div>
               </div>
             )}
           </div>
@@ -333,23 +363,27 @@ const ReviewMode = () => {
 
         <div className="audio-control-column">
           <div className="audio-button-container">
-            <div className="visualizer-container">
-              <RadialAudioVisualizer
-                visualizerType="user"
-                onVolumeChange={setAudioScale}
-                key={`user-visualizer-${audio.isRecording}`} // Force re-mount when recording state changes
-              />
-            </div>
-            <button
-              className={`audio-button mic-button ${audio.isRecording ? 'recording' : ''} ${audio.isLoading || isEvaluating ? 'loading' : ''}`}
-              onClick={handleRecordButtonClick}
-              disabled={showAnswer || audio.isLoading || isEvaluating}
-            >
-              <div className="button-inner">
-                <MicrophoneIcon className="button-icon" />
+            <div className="mic-container">
+              <div className="mic-visualizer-container">
+                <RadialAudioVisualizer
+                  visualizerType="user"
+                  isActive={audio.isRecording}
+                  onVolumeChange={setAudioScale}
+                  key={`user-visualizer-${audio.isRecording}`} // Force re-mount when recording state changes
+                />
               </div>
-              {isEvaluating && <div className="loading-spinner"></div>}
-            </button>
+              <button
+                className={`audio-button mic-button ${audio.isRecording ? 'recording' : ''} ${audio.isLoading || isEvaluating ? 'loading' : ''}`}
+                onClick={handleRecordButtonClick}
+                disabled={showAnswer || audio.isLoading || isEvaluating}
+              >
+                <div className="button-inner">
+                  <MicrophoneIcon className="button-icon" />
+                </div>
+                {isEvaluating && <div className="loading-spinner"></div>}
+              </button>
+              <div className="button-label">Record Answer</div>
+            </div>
             {(isTransitioning || (showCardContent && showAnswer) || attempts >= 2) && (transitionCard || currentCard) && (
               <div className="text-content">{transitionCard ? transitionCard.back_text : currentCard.back_text}</div>
             )}
