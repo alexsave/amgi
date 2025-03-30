@@ -100,6 +100,21 @@ const ReviewMode = () => {
           return;
         }
 
+        // Ensure current card has language fields before evaluation
+        if (!currentCard.front_lang || !currentCard.back_lang) {
+          // Get deck languages from context
+          const deck = decks[currentDeckId];
+          if (deck) {
+            // Add language fields if missing
+            if (!currentCard.front_lang) currentCard.front_lang = deck.known_language || 'en';
+            if (!currentCard.back_lang) currentCard.back_lang = deck.learning_language || 'en';
+            console.log("Added missing language fields to card:", {
+              front_lang: currentCard.front_lang,
+              back_lang: currentCard.back_lang
+            });
+          }
+        }
+
         await evaluateSpeech(audioBlob, currentCard);
         setIsEvaluating(false);
       } else {
@@ -116,6 +131,14 @@ const ReviewMode = () => {
     } catch (error) {
       console.error("Error with recording:", error);
       setIsEvaluating(false);
+      audio.setError(error.message);
+      
+      // Display error as evaluation result for consistent UI
+      review.setEvaluationResult({
+        result: 'error',
+        message: error.message,
+        audio: null
+      });
     }
   };
 
@@ -127,50 +150,11 @@ const ReviewMode = () => {
 
     console.log("Received evaluation result:", data);
 
+    // Store card ID for later reference
+    const currentCardId = currentCard.id;
+    console.log(`[DEBUG] Processing evaluation for card ID: ${currentCardId}`);
+
     review.setEvaluationResult(data);
-
-    // Simplified quality system - only correct/incorrect
-    const quality = data.result === 'correct' ? 'correct' : 'incorrect';
-
-    // Update card scheduling based on result
-    if (data.result === 'correct') {
-      const cardToTransition = { ...currentCard };
-      setTransitionCard(cardToTransition);
-      setIsTransitioning(true);
-
-      // Set initial countdown value (3 seconds)
-      setTransitionTimeLeft(10);
-
-      // Clear any existing timer
-      if (transitionTimerRef.current) {
-        clearInterval(transitionTimerRef.current);
-      }
-
-      // Start countdown timer
-      transitionTimerRef.current = setInterval(() => {
-        setTransitionTimeLeft(prev => {
-          if (prev <= 1) {
-            // When timer reaches 0, clear interval and move to next card
-            clearInterval(transitionTimerRef.current);
-
-            // Use setTimeout to ensure state updates happen outside render cycle
-            setTimeout(() => {
-              review.setEvaluationResult(null);
-              review.markCorrectGetNext();
-              setIsTransitioning(false);
-            }, 0);
-
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    } else if (data.result === 'incorrect') {
-      // Use setTimeout to move state updates outside render cycle
-      setTimeout(() => {
-        review.markIncorrectGetNext();
-      }, 0);
-    }
 
     // Play evaluation audio if available
     if (data.audio) {
@@ -186,37 +170,54 @@ const ReviewMode = () => {
       };
     }
 
-    if (data.result === 'quit') {
-      setTransitionTimeLeft(1);
-
-      // Clear any existing timer
+    // Handle different result types
+    if (data.result === 'correct') {
+      // Clear any existing timer before setting up a new one
       if (transitionTimerRef.current) {
-        clearInterval(transitionTimerRef.current);
+        clearTimeout(transitionTimerRef.current);
+        transitionTimerRef.current = null;
       }
-
-      setTimeout(() => {
-        review.setEvaluationResult(null);
-        review.moveToNextCard();
-      }, 500); // Quick skip for quit commands
-    } else if (data.result === 'incorrect') {
-      // Incorrect answer
-      review.setAttempts(prev => {
-        const newAttempts = prev + 1;
-        if (newAttempts >= 3) {
-          // Clear any existing timer
-          if (transitionTimerRef.current) {
-            clearInterval(transitionTimerRef.current);
-          }
-
-          setTimeout(() => {
-            review.setEvaluationResult(null);
-            review.moveToNextCard();
-          }, 2000);
+      
+      const cardToTransition = { ...currentCard };
+      setTransitionCard(cardToTransition);
+      setIsTransitioning(true);
+      
+      // Initial countdown value
+      setTransitionTimeLeft(10);
+      
+      // Use a self-adjusting countdown implementation with one final callback
+      // instead of an interval with nested callbacks
+      const startTime = Date.now();
+      const duration = 10000; // 10 seconds in milliseconds
+      
+      const updateCountdown = () => {
+        const elapsed = Date.now() - startTime;
+        const remaining = Math.max(0, Math.ceil((duration - elapsed) / 1000));
+        
+        setTransitionTimeLeft(remaining);
+        
+        if (remaining <= 0) {
+          // Time's up! Move to next card
+          console.log(`[DEBUG] Timer completed. Moving to next card from ID: ${currentCardId}`);
+          review.setEvaluationResult(null);
+          review.markCorrectGetNext();
+          setIsTransitioning(false);
+          return;
         }
-        return newAttempts;
-      });
+        
+        // Continue updating until we reach zero
+        transitionTimerRef.current = setTimeout(updateCountdown, 200);
+      };
+      
+      // Start the countdown
+      transitionTimerRef.current = setTimeout(updateCountdown, 200);
+      
+    } else if (data.result === 'incorrect') {
+      // Process incorrect answer immediately
+      console.log(`[DEBUG] Processing incorrect answer for card ID: ${currentCardId}`);
+      review.markIncorrectGetNext();
     }
-  }, [currentCard, review]);
+  }, [currentCard, review, audio]);
 
   const { evaluateSpeech } = useSpeechEvaluation({
     audio,
@@ -236,11 +237,12 @@ const ReviewMode = () => {
     navigate('/decks');
   };
 
-  // Cleanup timer on unmount
+  // Cleanup timer on unmount or when component state changes
   useEffect(() => {
     return () => {
       if (transitionTimerRef.current) {
-        clearInterval(transitionTimerRef.current);
+        clearTimeout(transitionTimerRef.current);
+        transitionTimerRef.current = null;
       }
     };
   }, []);

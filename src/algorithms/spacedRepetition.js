@@ -92,8 +92,10 @@ export function processCardReview(card, outcome, attempts, maxAttempts = 3) {
     // - Review cards stay in review if first attempt
     nextCardState = reviewData.card_state;
     
-    // If the card goes to review state, we don't put it back in the scheduler
-    shouldReschedule = nextCardState !== 'review' || quality === 'incorrect';
+    // Fix: Always reschedule new cards going to learning state
+    // Only mature review cards with correct first-attempt answers should not be rescheduled
+    const isNewCard = card.review?.card_state === 'new';
+    shouldReschedule = isNewCard || nextCardState !== 'review' || quality === 'incorrect';
     
     return {
       ...reviewData,

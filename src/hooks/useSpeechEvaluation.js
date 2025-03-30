@@ -16,13 +16,25 @@ export function useSpeechEvaluation({ audio, onEvaluationResult }) {
         back_lang: card.back_lang
       });
 
-      // Validate required language fields
-      if (!card.back_lang) {
-        throw new Error('Missing back_lang (target language) on card');
-      }
+      // Fallback for missing language fields
+      let frontLang = card.front_lang;
+      let backLang = card.back_lang;
       
-      if (!card.front_lang) {
-        throw new Error('Missing front_lang (source language) on card');
+      // Handle missing language fields
+      if (!backLang || !frontLang) {
+        console.warn("Card missing language fields:", card.id);
+        
+        // Try to get language info from the card's deck if available
+        if (card.deck) {
+          if (!frontLang) frontLang = card.deck.known_language || 'en';
+          if (!backLang) backLang = card.deck.learning_language || 'en';
+        } else {
+          // Default fallback
+          if (!frontLang) frontLang = 'en';
+          if (!backLang) backLang = 'en';
+        }
+        
+        console.log("Using fallback languages:", { frontLang, backLang });
       }
 
       // Get the expected audio from storage
@@ -58,17 +70,17 @@ export function useSpeechEvaluation({ audio, onEvaluationResult }) {
 
       console.log("Calling API with params:", {
         text_length: card.back_text?.length || 0,
-        back_lang: card.back_lang,
-        front_lang: card.front_lang
+        back_lang: backLang,
+        front_lang: frontLang
       });
 
       // Call the API using the proper implementation
       const result = await apiEvaluateSpeech(
         recordedMp3Blob,              // audio_blob
         card.back_text,               // expected_text
-        card.back_lang || 'en',       // back_lang (the language of the text being spoken) - default to English if missing
+        backLang,                     // back_lang (the language of the text being spoken)
         backAudioMp3Blob,             // expected_audio_blob
-        card.front_lang || 'en'       // front_lang (the language the user knows) - default to English if missing
+        frontLang                     // front_lang (the language the user knows)
       );
 
       if (!result) {

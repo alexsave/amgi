@@ -18,7 +18,7 @@ const evaluationTools = [{
       "properties": {
         "result": {
           "type": "string",
-          "enum": ["correct", "incorrect", "quit"],
+          "enum": ["correct", "incorrect"],
           "description": "The evaluation result"
         },
         "message": {
@@ -103,9 +103,9 @@ serve(async (req) => {
       messages: [
         {
           role: "system",
-          content: `You are a language learning assistant evaluating pronunciation. First, check if the audio contains commands like "skip", "quit", "next", or "give up". If it does, call evaluate_pronunciation with result "quit" and message "User requested to skip".
+          content: `You are a language learning assistant evaluating pronunciation.
 
-If no command is detected, compare the pronunciation with the expected text "${expected_text}" in ${back_lang}. If the pronunciation is good, call evaluate_pronunciation with result "correct" and a brief praise message. If the pronunciation needs improvement, call evaluate_pronunciation with result "incorrect" and a brief explanation of what was wrong.`
+Compare the pronunciation with the expected text "${expected_text}" in ${back_lang}. If the pronunciation is good, call evaluate_pronunciation with result "correct" and a brief praise message. If the pronunciation needs improvement, call evaluate_pronunciation with result "incorrect" and a brief explanation of what was wrong.`
         },
         {
           role: "user",

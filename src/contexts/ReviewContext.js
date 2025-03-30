@@ -96,11 +96,20 @@ export const ReviewProvider = ({ children }) => {
         }
         
         const nextCardId = cardSchedulerRef.current.peekNext();
-        console.log('Next card ID from scheduler:', nextCardId);
-        
-        currentCardIdRef.current = nextCardId;
-        setCurrentCard(cardSchedulerRef.current.getFullCard(nextCardId));
+        console.log('[Card Scheduler] Getting next card with ID:', nextCardId);
+        const nextCard = cardSchedulerRef.current.getFullCard(nextCardId);
+
+        // Update card counts since states might have changed
         updateCardCounts();
+
+        currentCardIdRef.current = nextCardId;
+        setCurrentCard(nextCard);
+
+        console.log('[Card Scheduler] Initialized with cards:', {
+            new: cardSchedulerRef.current.getNewCardsCount(),
+            learning: cardSchedulerRef.current.getLearningCardsCount(),
+            review: cardSchedulerRef.current.getReviewCardsCount()
+        });
     }, [currentDeckId ]);
 
     // We should sync the cards to the deck once we leave the review page. But not as important
@@ -114,13 +123,15 @@ export const ReviewProvider = ({ children }) => {
 
             const today = getLocalDate();
             
+            console.log('[Supabase] Saving review for card:', cardId, 'with state:', review.card_state);
+            
             // Save to supabase without waiting for the response
             saveReview(cardId, {
                 ...review,
                 last_reviewed_at: new Date().toISOString(),
                 scheduled_date: today
             }, user.id).catch(err => {
-                console.error('Error saving review to server:', err);
+                console.error('[Supabase] Error saving review to server:', err);
             });
         } catch (error) {
             console.error('Error in saveReviewToServer:', error);
@@ -131,10 +142,11 @@ export const ReviewProvider = ({ children }) => {
     const processCardOutcome = (cardId, outcome) => {
         try {
             // Get the card from the scheduler
+            console.log('[Card Scheduler] Getting card details for ID:', cardId);
             const card = cardSchedulerRef.current.getFullCard(cardId);
             
             if (!card) {
-                console.error('Card not found in CardScheduler:', cardId);
+                console.error('[Card Scheduler] Card not found in CardScheduler:', cardId);
                 return {
                     nextCard: null,
                     resetAttempts: true
@@ -192,8 +204,9 @@ export const ReviewProvider = ({ children }) => {
 
     const markCorrectGetNext = () => {
         if (!currentCardIdRef.current) return null;
-
+        
         const cardId = currentCardIdRef.current;
+        console.log('[Card Scheduler] Processing correct answer for card:', cardId);
 
         // Process the card as correct
         const { nextCard, resetAttempts } = processCardOutcome(cardId, 'correct');
@@ -206,14 +219,16 @@ export const ReviewProvider = ({ children }) => {
 
         currentCardIdRef.current = nextCard?.id || null;
         setCurrentCard(nextCard);
+        console.log('[Card Scheduler] Moving to next card:', nextCard?.id || 'No more cards');
 
         return nextCard;
     };
 
     const markIncorrectGetNext = () => {
         if (!currentCardIdRef.current) return null;
-
+        
         const cardId = currentCardIdRef.current;
+        console.log('[Card Scheduler] Processing incorrect answer for card:', cardId);
 
         // Process the card as incorrect
         const { nextCard, resetAttempts } = processCardOutcome(cardId, 'incorrect');
@@ -224,11 +239,15 @@ export const ReviewProvider = ({ children }) => {
             setCurrentCard(nextCard);
             attemptsRef.current = 0;
             setAttempts(0);
+            console.log('[Card Scheduler] Moving to next card after max attempts:', nextCard?.id || 'No more cards');
+            
             return nextCard;
         } else {
             // Otherwise, increment attempts and keep the same card
             attemptsRef.current += 1;
             setAttempts(attemptsRef.current);
+            console.log('[Card Scheduler] Keeping same card, attempts increased to:', attemptsRef.current);
+            
             return nextCard;
         }
     };

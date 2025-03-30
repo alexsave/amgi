@@ -177,9 +177,29 @@ export const DeckProvider = ({ children }) => {
       // Normalize input to always be an array
       const cards = Array.isArray(cardInput) ? cardInput : [cardInput];
       
+      // Ensure the deck exists
+      const deck = decks[deckId];
+      if (!deck) {
+        throw new Error(`Deck with ID ${deckId} not found`);
+      }
+      
+      // Ensure language fields are set for all cards
+      const processedCards = cards.map(card => {
+        const processed = { ...card };
+        if (!processed.front_lang) {
+          processed.front_lang = deck.known_language || 'en';
+          console.log(`Setting missing front_lang to ${processed.front_lang}`);
+        }
+        if (!processed.back_lang) {
+          processed.back_lang = deck.learning_language || 'en';
+          console.log(`Setting missing back_lang to ${processed.back_lang}`);
+        }
+        return processed;
+      });
+      
       if (user) {
         // Add to Supabase using the unified saveCards function
-        const newCards = await supabase.saveCards(deckId, cards);
+        const newCards = await supabase.saveCards(deckId, processedCards);
         
         // Create initial reviews for all cards in a single operation
         const cardIds = newCards.map(card => card.id);
@@ -194,6 +214,8 @@ export const DeckProvider = ({ children }) => {
             back_text: card.back_text,
             front_audio_path: card.front_audio_path,
             back_audio_path: card.back_audio_path,
+            front_lang: card.front_lang,
+            back_lang: card.back_lang,
             created: new Date(card.created_at).getTime(),
             review: Array.isArray(reviews) ? reviews[index] : reviews
           }));
@@ -215,7 +237,7 @@ export const DeckProvider = ({ children }) => {
         const updatedDeck = { ...decks[deckId] };
         const newCards = [];
         
-        for (const card of cards) {
+        for (const card of processedCards) {
           const cardId = `local_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
           const newCard = {
             ...card,

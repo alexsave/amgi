@@ -240,28 +240,17 @@ export class CardScheduler {
     let nextReviewTime;
     
     if (review.next_review_date) {
-      // Fix timezone issue by manually parsing the date components and creating a local date
+      // Handle ISO date parsing in a more robust way
       try {
-        const isoDateStr = review.next_review_date;
-        // Extract date parts: YYYY-MM-DDTHH:MM:SS.sss
-        const dateParts = isoDateStr.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})\.?(\d*)$/);
+        // Use the built-in Date parsing for ISO strings, which handles timezones correctly
+        const date = new Date(review.next_review_date);
         
-        if (dateParts) {
-          // Parse as local time using extracted components
-          const year = parseInt(dateParts[1]);
-          const month = parseInt(dateParts[2]) - 1; // Months are 0-indexed in JS
-          const day = parseInt(dateParts[3]);
-          const hours = parseInt(dateParts[4]);
-          const minutes = parseInt(dateParts[5]);
-          const seconds = parseInt(dateParts[6]);
-          const milliseconds = dateParts[7] ? parseInt(dateParts[7].slice(0, 3).padEnd(3, '0')) : 0;
-          
-          // Create date as local time
-          const localDate = new Date(year, month, day, hours, minutes, seconds, milliseconds);
-          nextReviewTime = localDate.getTime();
+        // Check if the date is valid
+        if (!isNaN(date.getTime())) {
+          nextReviewTime = date.getTime();
         } else {
-          // Fallback if regex doesn't match
-          console.error('Invalid date format:', isoDateStr);
+          // Fallback if date is invalid
+          console.error('Invalid date:', review.next_review_date);
           nextReviewTime = Date.now();
         }
       } catch (e) {

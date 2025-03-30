@@ -41,13 +41,11 @@ const RadialAudioVisualizer = ({
     // If this visualizer should be active but isn't animating
     if (isActive && !isAnimatingRef.current && !isDecayingRef.current) {
       if ((isUserAudio && audio.isRecording) || (isAiOutput && audio.isPlayingAudio)) {
-        console.log(`Activating ${isFrontAudio ? 'front' : isHintAudio ? 'hint' : 'user'} visualizer due to isActive change`);
         setupAudioVisualization();
       }
     } 
     // If this visualizer shouldn't be active but is still animating
     else if (!isActive && isAnimatingRef.current && !isDecayingRef.current && !isUserAudio) {
-      console.log(`Deactivating ${isFrontAudio ? 'front' : isHintAudio ? 'hint' : 'user'} visualizer due to isActive change`);
       stopAnimation(true); // Use decay effect when deactivating
     }
   }, [isActive, audio.isPlayingAudio, audio.isRecording]);
@@ -55,10 +53,8 @@ const RadialAudioVisualizer = ({
   // Effect specifically for recording state changes
   useEffect(() => {
     if (isUserAudio && isRecording) {
-      console.log('User recording detected, checking for stream');
       // Force re-setup of visualization when recording starts
       if (audio.recordingStreamRef.current) {
-        console.log('Recording stream found, setting up visualization');
         // Stop any existing animation first
         if (isAnimatingRef.current) {
           stopAnimation();
@@ -74,7 +70,6 @@ const RadialAudioVisualizer = ({
     
     if (!analyserRef.current && !isDecayingRef.current) {
       if (!sourceRef.current || !canvasRef.current) {
-        console.log(`Cannot start animation: analyser=${!!analyserRef.current}, source=${!!sourceRef.current}, canvas=${!!canvasRef.current}`);
         return;
       }
     }
@@ -141,7 +136,6 @@ const RadialAudioVisualizer = ({
           
           // If all values are effectively zero, stop decaying
           if (!stillDecaying) {
-            console.log(`Decay complete for ${isFrontAudio ? 'front' : isHintAudio ? 'hint' : 'user'} visualizer`);
             isDecayingRef.current = false;
             isAnimatingRef.current = false;
             return;
@@ -235,7 +229,6 @@ const RadialAudioVisualizer = ({
 
         animationFrameRef.current = requestAnimationFrame(renderFrame);
       } catch (error) {
-        console.error(`Error in render frame for ${isFrontAudio ? 'front' : isHintAudio ? 'hint' : 'user'}:`, error);
         isAnimatingRef.current = false;
         isDecayingRef.current = false;
       }
@@ -253,12 +246,10 @@ const RadialAudioVisualizer = ({
     
     if (withDecay && isAnimatingRef.current) {
       // Start decay mode instead of stopping immediately
-      console.log(`Starting decay for ${isFrontAudio ? 'front' : isHintAudio ? 'hint' : 'user'} visualizer`);
       isDecayingRef.current = true;
       
       // Set a timeout to clean up resources after decay is likely complete
       cleanupTimeoutRef.current = setTimeout(() => {
-        console.log(`Cleanup timeout executed for ${isFrontAudio ? 'front' : isHintAudio ? 'hint' : 'user'} visualizer`);
         if (!isLive) {
           // Only fully stop if we're not supposed to be live anymore
           isAnimatingRef.current = false;
@@ -282,16 +273,9 @@ const RadialAudioVisualizer = ({
 
   const setupAudioVisualization = () => {
     if (!audioStream) {
-      console.log(`No audioStream for ${isFrontAudio ? 'front' : isHintAudio ? 'hint' : 'user'} visualizer. Stream refs:`, {
-        playbackStream: audio.playbackStreamRef.current ? 'exists' : 'null',
-        recordingStream: audio.recordingStreamRef.current ? 'exists' : 'null',
-        isLive: isLive,
-        currentType: isFrontAudio ? 'front' : isHintAudio ? 'hint' : 'user'
-      });
       
       // For user recording, double-check if there's a stream that wasn't picked up yet
       if (isUserAudio && isLive && audio.recordingStreamRef.current) {
-        console.log(`Found recording stream that wasn't passed to visualizer, using it directly`);
         // Use the stream directly from the context instead
         const directStream = audio.recordingStreamRef.current;
         
@@ -307,7 +291,6 @@ const RadialAudioVisualizer = ({
         
         // If we are supposed to be live or isLive was just set to true, show an idle animation
         if (isLive && !isAnimatingRef.current) {
-          console.log(`Starting idle animation (due to no stream) for ${isFrontAudio ? 'front' : isHintAudio ? 'hint' : 'user'} visualizer`);
           startIdleAnimation();
         }
       }
@@ -321,15 +304,6 @@ const RadialAudioVisualizer = ({
   const setupWithStream = (stream) => {
     if (!stream) return;
     
-    console.log(`Setting up audioStream for ${isFrontAudio ? 'front' : isHintAudio ? 'hint' : 'user'} visualizer`, {
-      streamActive: stream.active,
-      streamId: stream.id,
-      hasAudioTracks: stream.getAudioTracks().length > 0,
-      isLive: isLive,
-      isPlayingAudio: audio.isPlayingAudio,
-      isRecording: audio.isRecording
-    });
-    
     // If we're supposed to be live but not yet animating, we should try to start
     const shouldStartAnimation = isLive && !isAnimatingRef.current;
 
@@ -338,7 +312,6 @@ const RadialAudioVisualizer = ({
       try {
         sourceRef.current.disconnect();
       } catch (err) {
-        console.warn('Error disconnecting source:', err);
       }
       sourceRef.current = null;
     }
@@ -347,19 +320,15 @@ const RadialAudioVisualizer = ({
     if (!audio.audioContextRef.current) {
       try {
         audio.audioContextRef.current = new AudioContext();
-        console.log(`Created new AudioContext for ${isFrontAudio ? 'front' : isHintAudio ? 'hint' : 'user'} visualizer`);
       } catch (err) {
-        console.error('Error creating AudioContext:', err);
         startIdleAnimation(); // Fall back to idle animation on error
         return;
       }
     } else if (audio.audioContextRef.current.state === 'suspended') {
       audio.audioContextRef.current.resume().catch(err => {
-        console.error('Error resuming AudioContext:', err);
         startIdleAnimation(); // Fall back to idle animation on error
         return;
       });
-      console.log(`Resumed AudioContext for ${isFrontAudio ? 'front' : isHintAudio ? 'hint' : 'user'} visualizer`);
     }
     
     // Create or get the appropriate analyser
@@ -367,9 +336,7 @@ const RadialAudioVisualizer = ({
       try {
         analyserRef.current = audio.audioContextRef.current.createAnalyser();
         analyserRef.current.fftSize = 256;
-        console.log(`Created analyzer for ${isFrontAudio ? 'front' : isHintAudio ? 'hint' : 'user'} visualizer`);
       } catch (err) {
-        console.error('Error creating analyser:', err);
         startIdleAnimation(); // Fall back to idle animation on error
         return;
       }
@@ -380,11 +347,9 @@ const RadialAudioVisualizer = ({
       if (audio.audioContextRef.current && stream) {
         sourceRef.current = audio.audioContextRef.current.createMediaStreamSource(stream);
         sourceRef.current.connect(analyserRef.current);
-        console.log(`Successfully connected stream to analyser for ${isFrontAudio ? 'front' : isHintAudio ? 'hint' : 'user'} visualizer`);
         
         // Start animation if this is an active stream and we should be live
         if (shouldStartAnimation) {
-          console.log(`Auto-starting animation for ${isFrontAudio ? 'front' : isHintAudio ? 'hint' : 'user'} visualizer`);
           // Delay slightly to ensure everything is connected
           setTimeout(() => {
             startAnimation();
@@ -392,7 +357,6 @@ const RadialAudioVisualizer = ({
         }
       }
     } catch (error) {
-      console.error(`Error creating media stream source for ${isFrontAudio ? 'front' : isHintAudio ? 'hint' : 'user'}:`, error);
       startIdleAnimation(); // Fall back to idle animation on error
       return;
     }
@@ -400,7 +364,6 @@ const RadialAudioVisualizer = ({
     // Set up canvas
     const canvas = canvasRef.current;
     if (!canvas) {
-      console.error(`${isFrontAudio ? 'front' : isHintAudio ? 'hint' : 'user'} canvas element not found`);
       return;
     }
     
@@ -409,7 +372,6 @@ const RadialAudioVisualizer = ({
 
     // Start animation if we should be live
     if (isLive) {
-      console.log(`Starting animation for ${isFrontAudio ? 'front' : isHintAudio ? 'hint' : 'user'} visualizer (isLive true)`);
       startAnimation();
     }
 
@@ -419,7 +381,6 @@ const RadialAudioVisualizer = ({
         try {
           sourceRef.current.disconnect();
         } catch (err) {
-          console.warn('Error disconnecting source during cleanup:', err);
         }
         sourceRef.current = null;
       }
@@ -517,37 +478,25 @@ const RadialAudioVisualizer = ({
     
     // Start the idle animation
     renderIdleFrame();
-    console.log(`Started idle animation for ${isFrontAudio ? 'front' : isHintAudio ? 'hint' : 'user'} visualizer`);
   };
 
   // Effect to handle animation state changes
   useEffect(() => {
-    console.log(`isLive changed to ${isLive} for ${isFrontAudio ? 'front' : isHintAudio ? 'hint' : 'user'} visualizer`, {
-      hasStream: !!audioStream,
-      hasSource: !!sourceRef.current,
-      isAnimating: isAnimatingRef.current,
-      hasAnalyser: !!analyserRef.current,
-      isDecaying: isDecayingRef.current
-    });
     
     // If we should be live but aren't animating
     if (isLive && !isAnimatingRef.current && !isDecayingRef.current) {
       if (sourceRef.current && analyserRef.current) {
-        console.log(`Starting animation for ${isFrontAudio ? 'front' : isHintAudio ? 'hint' : 'user'} visualizer (isLive change)`);
         startAnimation();
       } else if (audioStream) {
         // If we have a stream but no source, try to set it up again
-        console.log(`Re-setting up visualization for ${isFrontAudio ? 'front' : isHintAudio ? 'hint' : 'user'} visualizer`);
         setupAudioVisualization();
       } else {
         // If we don't have a stream at all, show idle animation
-        console.log(`Starting idle animation for ${isFrontAudio ? 'front' : isHintAudio ? 'hint' : 'user'} visualizer (no stream)`);
         startIdleAnimation();
       }
     } 
     // If we shouldn't be live but are still animating and not already decaying
     else if (!isLive && isAnimatingRef.current && !isDecayingRef.current) {
-      console.log(`Stopping animation with decay for ${isFrontAudio ? 'front' : isHintAudio ? 'hint' : 'user'} visualizer`);
       stopAnimation(true); // Use decay effect
     }
   }, [isLive, isFrontAudio, isHintAudio, audioStream]);
@@ -556,7 +505,6 @@ const RadialAudioVisualizer = ({
   useEffect(() => {
     // If no audioStream is available on mount, start idle animation
     if (!audioStream && !isAnimatingRef.current) {
-      console.log(`Starting idle animation for ${isFrontAudio ? 'front' : isHintAudio ? 'hint' : 'user'} visualizer on mount`);
       updateCanvasSize();
       startIdleAnimation();
     }
@@ -564,10 +512,6 @@ const RadialAudioVisualizer = ({
 
   // Effect to handle audioStream changes
   useEffect(() => {
-    console.log(`Stream changed for ${isFrontAudio ? 'front' : isHintAudio ? 'hint' : 'user'} visualizer`, {
-      hasStream: !!audioStream,
-      isLive: isLive
-    });
     
     // If we have a valid stream, force reset the visualization
     if (audioStream) {
@@ -577,7 +521,6 @@ const RadialAudioVisualizer = ({
           sourceRef.current.disconnect();
           sourceRef.current = null;
         } catch (err) {
-          console.warn('Error disconnecting source:', err);
         }
       }
       
@@ -642,7 +585,6 @@ const RadialAudioVisualizer = ({
       // This will be executed when the component unmounts
       // or when audioStream changes (with stream becoming null)
       if (!audioStream && previousStreamRef.current) {
-        console.log(`Stream removed for ${isFrontAudio ? 'front' : isHintAudio ? 'hint' : 'user'} visualizer, handling cleanup`);
         
         // If we're still animating, use decay effect before stopping
         if (isAnimatingRef.current && !isDecayingRef.current) {
@@ -666,7 +608,6 @@ const RadialAudioVisualizer = ({
       }
       
       cleanupTimeoutRef.current = setTimeout(() => {
-        console.log(`Stream cleanup after animation for ${isFrontAudio ? 'front' : isHintAudio ? 'hint' : 'user'}`);
         // The animation has had time to decay, now we can clean up the stream reference
         previousStreamRef.current = null;
       }, cleanupDelay);
