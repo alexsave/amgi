@@ -14,7 +14,7 @@ const ReviewMode = () => {
   const navigate = useNavigate();
   const audio = useAudio();
   const review = useReview();
-  const { currentCard, currentCardId, attempts, showAnswer, evaluationResult, newCardsCount, reviewCardsCount, learningCardsCount } = review;
+  const { currentCard, currentCardId, attempts, evaluationResult, newCardsCount, reviewCardsCount, learningCardsCount } = review;
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [transitionTimeLeft, setTransitionTimeLeft] = useState(0);
@@ -137,10 +137,9 @@ const ReviewMode = () => {
       const cardToTransition = { ...currentCard };
       setTransitionCard(cardToTransition);
       setIsTransitioning(true);
-      review.setShowAnswer(true);
 
       // Set initial countdown value (3 seconds)
-      setTransitionTimeLeft(3);
+      setTransitionTimeLeft(10);
 
       // Clear any existing timer
       if (transitionTimerRef.current) {
@@ -188,7 +187,6 @@ const ReviewMode = () => {
     }
 
     if (data.result === 'quit') {
-      review.setShowAnswer(true);
       setTransitionTimeLeft(1);
 
       // Clear any existing timer
@@ -205,8 +203,6 @@ const ReviewMode = () => {
       review.setAttempts(prev => {
         const newAttempts = prev + 1;
         if (newAttempts >= 3) {
-          review.setShowAnswer(true);
-
           // Clear any existing timer
           if (transitionTimerRef.current) {
             clearInterval(transitionTimerRef.current);
@@ -308,14 +304,14 @@ const ReviewMode = () => {
       {/* New flashcard layout with dashed line in the middle */}
       <div className="flashcard-container">
         <div className="flashcard-top">
-          {(attempts >= 2 || showAnswer || isTransitioning) && (
+          {(attempts >= 2 || isTransitioning) && (
             <div className="flashcard-text front">
               {transitionCard ? transitionCard.front_text : currentCard.front_text}
             </div>
           )}
         </div>
         <div className="flashcard-bottom">
-          {(showAnswer || isTransitioning || attempts >= 3) && (
+          {(attempts >= 3 || isTransitioning) && (
             <div className="flashcard-text back">
               {transitionCard ? transitionCard.back_text : currentCard.back_text}
             </div>
@@ -347,7 +343,7 @@ const ReviewMode = () => {
 
         {/* Center (Hint Audio) button - only visible after first attempt and before showing answer */}
         <div className="button-container center-button">
-          {attempts >= 1 && !showAnswer && currentCard.back_audio_path && (
+          {attempts >= 1 && attempts < 3 && !isTransitioning && currentCard.back_audio_path && (
             <>
               <div className="hint-visualizer-container">
                 <RadialAudioVisualizer
@@ -382,7 +378,7 @@ const ReviewMode = () => {
           <button
             className={`hint-button ${audio.isRecording ? 'recording' : ''}`}
             onClick={handleRecordButtonClick}
-            disabled={showAnswer || audio.isLoading || isEvaluating}
+            disabled={attempts >= 3 || audio.isLoading || isEvaluating || isTransitioning || !currentCard}
           >
             <div className="button-inner">
               <MicrophoneIcon className="button-icon" />

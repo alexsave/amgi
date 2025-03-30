@@ -24,7 +24,6 @@ export const ReviewProvider = ({ children }) => {
     const [error, setError] = useState(null);
     const attemptsRef = useRef(0);
     const [attempts, setAttempts] = useState(0);
-    const [showAnswer, setShowAnswer] = useState(false);
 
     // Store the current card ID reference
     const currentCardIdRef = useRef(null);
@@ -238,7 +237,6 @@ export const ReviewProvider = ({ children }) => {
         evaluationResult,
         error,
         attempts,
-        showAnswer,
         currentCardId: currentCardIdRef.current, // Export the current value for consumers
         newCardsCount,
         learningCardsCount,
@@ -246,7 +244,6 @@ export const ReviewProvider = ({ children }) => {
         setEvaluationResult,
         setError,
         setAttempts,
-        setShowAnswer,
         markIncorrectGetNext,
         markCorrectGetNext,
         currentCard,
