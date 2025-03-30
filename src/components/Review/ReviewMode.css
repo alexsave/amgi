@@ -358,7 +358,7 @@
   margin-top: 20px;
 }
 
-/* Visualizer positioning */
+/* Visualizer positioning for new layout */
 .front-visualizer-container,
 .hint-visualizer-container,
 .mic-visualizer-container {
@@ -388,13 +388,6 @@
   top: 30px;
 }
 
-.hint-button:hover {
-  transform: scale(1.05);
-}
-
-.hint-button:active {
-  transform: scale(0.98);
-}
 
 .button-inner {
   width: 100%;
@@ -701,7 +694,9 @@
 
 /* TEMPORARY MANUAL TESTING BUTTONS - DELETE THIS SECTION WHEN DONE */
 .temp-manual-controls {
+  position: fixed;
   display: flex;
+  flex-direction: column;
   justify-content: center;
   gap: 10px;
   margin-top: 30px;
@@ -710,8 +705,6 @@
   background-color: rgba(255, 255, 255, 0.05);
   border: 1px dashed #666;
   border-radius: 8px;
-  position: relative;
-  width: 100%;
   max-width: 400px;
   margin-left: auto;
   margin-right: auto;
@@ -783,4 +776,109 @@
 
 @keyframes spin {
   to { transform: translate(-50%, -50%) rotate(360deg); }
-} 
+}
+
+/* New flashcard layout styles */
+.flashcard-container {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 600px;
+  height: 400px;
+  margin: 20px auto;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  background-color: var(--dark-surface);
+  overflow: hidden;
+  position: relative;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+}
+
+.flashcard-top, .flashcard-bottom {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+  position: relative;
+  overflow-y: auto;
+}
+
+.flashcard-top {
+  border-bottom: 2px dashed var(--border-color);
+}
+
+.flashcard-text {
+  font-size: 1.5rem;
+  color: var(--text-primary);
+  text-align: center;
+  max-width: 90%;
+}
+
+.flashcard-text.front {
+  color: var(--blue, #3b82f6);
+}
+
+.flashcard-text.back {
+  color: var(--flame-orange, rgb(255, 107, 53));
+  font-weight: 500;
+}
+
+/* Updated controls container for bottom row layout */
+.bottom-controls-container {
+  width:100%;
+  bottom: 20px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-evenly;
+  z-index: 10;
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+}
+
+.button-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.left-button {
+  align-self: flex-start;
+}
+
+.center-button {
+  align-self: center;
+}
+
+.right-button {
+  align-self: flex-end;
+}
+
+/* Update existing controls to match new layout */
+.audio-controls-container {
+  display: none; /* Hide the old container */
+}
+
+/* Adjust the temp manual controls */
+.temp-manual-controls {
+  position: fixed;
+}
+
+.bottom-controls-container .button-container {
+  position: relative;
+  width: 100px;
+  height: 110px;
+}
+
+.bottom-controls-container .hint-button {
+  width: 60px;
+  height: 60px;
+  position: relative;
+  z-index: 2;
+}
+
+.button-container .hint-button .button-inner {
+  width: 100%;
+  height: 100%;
+}
