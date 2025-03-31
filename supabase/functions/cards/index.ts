@@ -66,9 +66,10 @@ async function validateAndGenerateAudio(
         try {
             // Generate audio
             const audioMp3 = await openai.audio.speech.create({
-                model: "tts-1",
+                model: "gpt-4o-mini-tts",
                 voice: "alloy",
                 input: text,
+                instructions: `Speak like a native speaker of ${language}. Use proper pronunciation and intonation for language learning purposes.`
             });
 
             const tempBuffer = await audioMp3.arrayBuffer();
@@ -148,12 +149,6 @@ async function processCardAudio(
     oldAudioPath: string | undefined,
     side: 'front' | 'back'
 ): Promise<string> {
-    console.log(`Generating ${side} audio with params:`, {
-        model: "tts-1",
-        voice: "alloy",
-        textLength: text.length,
-        language: language
-    });
 
     try {
         // Generate and validate audio
