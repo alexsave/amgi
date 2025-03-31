@@ -69,6 +69,7 @@ async function validateAndGenerateAudio(
                 model: "gpt-4o-mini-tts",
                 voice: "alloy",
                 input: text,
+                // Consider array of instructions for each language
                 instructions: `Speak like a native speaker of ${language}. Use proper pronunciation and intonation for language learning purposes.`
             });
 

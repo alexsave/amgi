@@ -266,6 +266,37 @@ export const DeckProvider = ({ children }) => {
     }
   };
 
+  // Update cards in a deck with their latest review states
+  const updateDeckCards = (deckId, updatedCards) => {
+    // Make sure the deck exists
+    if (!decks[deckId]) {
+      console.error(`Deck with ID ${deckId} not found`);
+      return;
+    }
+
+    // Create a map of card IDs to updated cards for easy lookup
+    const updatedCardsMap = new Map();
+    updatedCards.forEach(card => updatedCardsMap.set(card.id, card));
+
+    // Update deck with the latest card states
+    setDecks(prev => {
+      const deck = prev[deckId];
+      const updatedDeckCards = deck.cards.map(card => {
+        // If we have an updated version of this card, use it
+        return updatedCardsMap.has(card.id) ? updatedCardsMap.get(card.id) : card;
+      });
+
+      return {
+        ...prev,
+        [deckId]: {
+          ...deck,
+          cards: updatedDeckCards,
+          lastModified: Date.now()
+        }
+      };
+    });
+  };
+
   const value = {
     decks,
     loading,
@@ -280,6 +311,7 @@ export const DeckProvider = ({ children }) => {
     updateDeck,
     deleteDeck,
     addCardToDeck,
+    updateDeckCards,
   };
 
   return (

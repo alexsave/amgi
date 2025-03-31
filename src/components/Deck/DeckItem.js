@@ -84,9 +84,9 @@ const DeckItem = ({ id, deck }) => {
         <small>
           {deck.cards.length} cards (
             {/** TODO: Add learning, new, and review counts better somehow */}
-          <span className="learning-count">{deck.cards.filter(card => card.review.card_state === 'learning').length} learning</span> • {' '}
-          <span className="new-count">{deck.cards.filter(card => card.review.card_state === 'new').length} new</span> • {' '}
-          <span className="review-count">{deck.cards.filter(card => card.review.card_state === 'review').length} review</span>)
+          <span className="learning-count">{deck.cards.filter(card => card.review?.card_state === 'learning').length} learning</span> • {' '}
+          <span className="new-count">{deck.cards.filter(card => card.review?.card_state === 'new').length} new</span> • {' '}
+          <span className="review-count">{deck.cards.filter(card => card.review?.card_state === 'review').length} review</span>)
         </small>
       </div>
       <div className="deck-item-actions">

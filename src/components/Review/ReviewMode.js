@@ -234,10 +234,13 @@ const ReviewMode = () => {
   }, [isTransitioning, currentCard, transitionCard]);
 
   const handleBackToList = () => {
+    // Sync the updated card states from review context back to deck context
+    review.syncCardsToDeck();
+    
     navigate('/decks');
   };
 
-  // Cleanup timer on unmount or when component state changes
+  // Just clean up the timer when unmounting, no need to sync
   useEffect(() => {
     return () => {
       if (transitionTimerRef.current) {

@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, createContext, useContext } from 'react';
-import { useLocation } from 'react-router-dom';
 import { useDecks } from './DeckContext';
 import { processCardReview } from '../algorithms/spacedRepetition';
 import { CardScheduler } from '../utils/cardscheduler';
@@ -17,8 +16,7 @@ export const ReviewProvider = ({ children }) => {
 
     const MAX_ATTEMPTS = 3;
 
-    const location = useLocation();
-    const { currentDeckId, decks } = useDecks();
+    const { currentDeckId, decks, updateDeckCards } = useDecks();
     const { user, isDirectMode } = useAuth();
     const [evaluationResult, setEvaluationResult] = useState(null);
     const [error, setError] = useState(null);
@@ -45,12 +43,6 @@ export const ReviewProvider = ({ children }) => {
 
     // Initialize scheduler with deck cards
     useEffect(() => {
-        //const isReviewMode = location.pathname.includes('/review');
-        //if (!currentDeckId || !isReviewMode) {
-            //console.log('ReviewContext: useEffect: not in review mode');
-            //return;
-        //}
-
         const deck = decks[currentDeckId];
         if (!deck) {
             return;
@@ -110,9 +102,22 @@ export const ReviewProvider = ({ children }) => {
             learning: cardSchedulerRef.current.getLearningCardsCount(),
             review: cardSchedulerRef.current.getReviewCardsCount()
         });
-    }, [currentDeckId ]);
+    }, [currentDeckId, decks]);
 
     // We should sync the cards to the deck once we leave the review page. But not as important
+
+    // Function to sync cards back to the deck context
+    const syncCardsToDeck = () => {
+        if (!currentDeckId || !cardSchedulerRef.current) {
+            return;
+        }
+
+        const updatedCards = Array.from(cardSchedulerRef.current.cardsMap.values());
+        
+        if (updatedCards.length > 0) {
+            updateDeckCards(currentDeckId, updatedCards);
+        }
+    };
 
     // Function to save review data to the server without blocking 
     const saveReviewToServer = async (cardId, review) => {
@@ -267,7 +272,8 @@ export const ReviewProvider = ({ children }) => {
         markCorrectGetNext,
         currentCard,
         cardSchedulerRef,
-        currentCardIdRef
+        currentCardIdRef,
+        syncCardsToDeck
     };
 
     return (
