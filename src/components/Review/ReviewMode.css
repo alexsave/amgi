@@ -234,6 +234,8 @@
 .hint-visualizer-container,
 .mic-visualizer-container {
   position: absolute;
+  height: 120px;
+  width: 120px;
   z-index: 0;
   pointer-events: none;
   top: -30px;
@@ -346,4 +348,8 @@
   .review-controls {
     padding: 5px 0;
   }
+}
+
+.app-content {
+  overflow: hidden!important;
 }

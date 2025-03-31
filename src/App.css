@@ -55,7 +55,7 @@ html, body {
   background: var(--dark-bg);
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow: scroll;
 }
 
 h1 {

@@ -21,8 +21,8 @@ export const getLocalDate = (date = new Date()) => {
  * This is specifically for database filtering when we need to include all timestamps 
  * that occur on or before the current day.
  */
-export const getEndOfDayTimestamp = (date = new Date()) => {
-  const endOfDay = new Date(date);
+export const getEndOfDayTimestamp = () => {
+  const endOfDay = new Date(new Date());
   endOfDay.setHours(23, 59, 59, 999);
   
   const isoString = endOfDay.toISOString();
