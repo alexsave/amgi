@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useDecks } from '../../contexts/DeckContext';
-import { MicrophoneIcon, PlayIcon } from '@heroicons/react/24/solid';
+import { MicrophoneIcon, PlayIcon, ChevronDoubleRightIcon, XMarkIcon } from '@heroicons/react/24/solid';
 import { useNavigate } from 'react-router-dom';
-import EvaluationResult from './EvaluationResult';
 import { useAudio } from '../../contexts/useAudio';
 import { useReview } from '../../contexts/ReviewContext';
 import { useSpeechEvaluation } from '../../hooks/useSpeechEvaluation';
@@ -14,7 +13,8 @@ const ReviewMode = () => {
   const navigate = useNavigate();
   const audio = useAudio();
   const review = useReview();
-  const { currentCard, currentCardId, attempts, evaluationResult, newCardsCount, reviewCardsCount, learningCardsCount } = review;
+  const { currentCard, currentCardId, attempts, newCardsCount, reviewCardsCount, learningCardsCount } = review;
+  const [evaluationResult, setEvaluationResult] = useState(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [transitionTimeLeft, setTransitionTimeLeft] = useState(0);
@@ -23,6 +23,7 @@ const ReviewMode = () => {
   const [showCardContent, setShowCardContent] = useState(false);
   const [isPlayingLocked, setIsPlayingLocked] = useState(false); // Lock to prevent rapid clicks
   const [lastClickedAudio, setLastClickedAudio] = useState(null); // 'front', 'hint', or null
+  const [hasTransitionCanceled, setHasTransitionCanceled] = useState(false); // Track if transition was canceled
 
   // Only retaining the volume scale for the UI, all other audio state moved to contexts
   const [audioScale, setAudioScale] = useState(0);
@@ -118,6 +119,9 @@ const ReviewMode = () => {
         await evaluateSpeech(audioBlob, currentCard);
         setIsEvaluating(false);
       } else {
+        // Clear evaluation result when starting recording
+        setEvaluationResult(null);
+        
         // Start recording
         setAudioScale(0); // Reset the audio scale
         await audio.startRecording();
@@ -134,7 +138,7 @@ const ReviewMode = () => {
       audio.setError(error.message);
       
       // Display error as evaluation result for consistent UI
-      review.setEvaluationResult({
+      setEvaluationResult({
         result: 'error',
         message: error.message,
         audio: null
@@ -154,7 +158,7 @@ const ReviewMode = () => {
     const currentCardId = currentCard.id;
     console.log(`[DEBUG] Processing evaluation for card ID: ${currentCardId}`);
 
-    review.setEvaluationResult(data);
+    setEvaluationResult(data);
 
     // Play evaluation audio if available
     if (data.audio) {
@@ -183,12 +187,12 @@ const ReviewMode = () => {
       setIsTransitioning(true);
       
       // Initial countdown value
-      setTransitionTimeLeft(10);
+      setTransitionTimeLeft(100);
       
       // Use a self-adjusting countdown implementation with one final callback
       // instead of an interval with nested callbacks
       const startTime = Date.now();
-      const duration = 10000; // 10 seconds in milliseconds
+      const duration = 100000; // 10 seconds in milliseconds
       
       const updateCountdown = () => {
         const elapsed = Date.now() - startTime;
@@ -199,7 +203,7 @@ const ReviewMode = () => {
         if (remaining <= 0) {
           // Time's up! Move to next card
           console.log(`[DEBUG] Timer completed. Moving to next card from ID: ${currentCardId}`);
-          review.setEvaluationResult(null);
+          setEvaluationResult(null);
           review.markCorrectGetNext();
           setIsTransitioning(false);
           return;
@@ -215,9 +219,42 @@ const ReviewMode = () => {
     } else if (data.result === 'incorrect') {
       // Process incorrect answer immediately
       console.log(`[DEBUG] Processing incorrect answer for card ID: ${currentCardId}`);
-      review.markIncorrectGetNext();
+      
+      // Check if this is the third incorrect attempt - if so, show the transition state
+      if (attempts >= 2) {
+        // Set up transition state similar to correct answers
+        const cardToTransition = { ...currentCard };
+        setTransitionCard(cardToTransition);
+        setIsTransitioning(true);
+        setTransitionTimeLeft(100);
+        
+        const startTime = Date.now();
+        const duration = 100000; // 10 seconds
+        
+        const updateCountdown = () => {
+          const elapsed = Date.now() - startTime;
+          const remaining = Math.max(0, Math.ceil((duration - elapsed) / 1000));
+          
+          setTransitionTimeLeft(remaining);
+          
+          if (remaining <= 0) {
+            console.log(`[DEBUG] Timer completed after incorrect attempts. Moving to next card from ID: ${currentCardId}`);
+            setEvaluationResult(null);
+            review.markIncorrectGetNext();
+            setIsTransitioning(false);
+            return;
+          }
+          
+          transitionTimerRef.current = setTimeout(updateCountdown, 200);
+        };
+        
+        transitionTimerRef.current = setTimeout(updateCountdown, 200);
+      } else {
+        // For attempts < 3, proceed immediately
+        review.markIncorrectGetNext();
+      }
     }
-  }, [currentCard, review, audio]);
+  }, [currentCard, review, audio, attempts]);
 
   const { evaluateSpeech } = useSpeechEvaluation({
     audio,
@@ -253,6 +290,8 @@ const ReviewMode = () => {
   // When the card changes, reset the lastClickedAudio
   useEffect(() => {
     setLastClickedAudio(null);
+    setEvaluationResult(null);
+    setHasTransitionCanceled(false);
   }, [currentCardId]);
 
   const handlePlayFrontAudio = () => {
@@ -266,6 +305,51 @@ const ReviewMode = () => {
     if (currentCard?.back_audio_path) {
       setLastClickedAudio('hint');
       handlePlayButtonClick(currentCard.back_audio_path);
+    }
+  };
+
+  // Add these new handler functions
+  const handleSkipTransition = () => {
+    if (transitionTimerRef.current) {
+      clearTimeout(transitionTimerRef.current);
+      transitionTimerRef.current = null;
+    }
+    
+    console.log("Skipping transition, moving to next card");
+    setEvaluationResult(null);
+    
+    // Determine if this was a correct or incorrect transition
+    if (evaluationResult && evaluationResult.result === 'correct') {
+      review.markCorrectGetNext();
+    } else {
+      review.markIncorrectGetNext();
+    }
+    
+    setIsTransitioning(false);
+  };
+  
+  const handleCancelTransition = () => {
+    if (transitionTimerRef.current) {
+      clearTimeout(transitionTimerRef.current);
+      transitionTimerRef.current = null;
+    }
+    
+    console.log("Canceling transition, staying on current card");
+    setIsTransitioning(false);
+    setHasTransitionCanceled(true); // Set this flag when transition is canceled
+  };
+
+  // Add a new handler for the Next button
+  const handleNextCard = () => {
+    console.log("Moving to next card after canceled transition");
+    setEvaluationResult(null);
+    setHasTransitionCanceled(false);
+    
+    // Determine if this was a correct or incorrect transition based on the last evaluation
+    if (evaluationResult && evaluationResult.result === 'correct') {
+      review.markCorrectGetNext();
+    } else {
+      review.markIncorrectGetNext();
     }
   };
 
@@ -290,38 +374,51 @@ const ReviewMode = () => {
         <h2>{decks[currentDeckId].name}</h2>
       </div>
 
-      <div className="card-progress">
-        {`New: ${newCardsCount} • Review: ${reviewCardsCount} • Learning: ${learningCardsCount}`}
-      </div>
-
-      <div className="review-controls">
-        <div className="attempts-counter">
-          Attempts: {attempts}/3
-        </div>
-
+      <div className="review-controls" style={{ height: '100px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
         {isEvaluating ? (
           <div className="evaluation-loading">Evaluating your speech...</div>
+        ) : evaluationResult ? (
+          <div className={`evaluation-result ${evaluationResult.result}`}>
+            <p>{evaluationResult.message}</p>
+          </div>
         ) : (
-          <EvaluationResult result={evaluationResult} />
+          <div className="remaining-cards">
+            {`New: ${newCardsCount} • Review: ${reviewCardsCount} • Learning: ${learningCardsCount}`}
+          </div>
         )}
       </div>
 
       {/* New flashcard layout with dashed line in the middle */}
       <div className="flashcard-container">
         <div className="flashcard-top">
-          {(attempts >= 2 || isTransitioning) && (
+          {(attempts >= 2 || isTransitioning || hasTransitionCanceled) && (
             <div className="flashcard-text front">
-              {transitionCard ? transitionCard.front_text : currentCard.front_text}
+              {transitionCard && isTransitioning ? transitionCard.front_text : currentCard.front_text}
             </div>
           )}
         </div>
         <div className="flashcard-bottom">
-          {(attempts >= 3 || isTransitioning) && (
+          {(attempts >= 3 || isTransitioning || hasTransitionCanceled) && (
             <div className="flashcard-text back">
-              {transitionCard ? transitionCard.back_text : currentCard.back_text}
+              {transitionCard && isTransitioning ? transitionCard.back_text : currentCard.back_text}
             </div>
           )}
         </div>
+      {isTransitioning && (
+        <div className="transition-timer-container">
+          <div className="transition-timer">
+            <span>Next card in {transitionTimeLeft} {transitionTimeLeft === 1 ? 'second' : 'seconds'}</span>
+            <div className="transition-controls">
+              <button className="transition-button " onClick={handleSkipTransition} title="Skip to next card">
+                <ChevronDoubleRightIcon className="button-icon" />
+              </button>
+              <button className="transition-button" onClick={handleCancelTransition} title="Stay on current card">
+                <XMarkIcon className="button-icon" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       </div>
 
       {/* Buttons in a row at the bottom of the screen */}
@@ -340,7 +437,7 @@ const ReviewMode = () => {
             disabled={audio.isPlayingAudio || isPlayingLocked}
           >
             <div className="button-inner">
-              <PlayIcon className="button-icon" />
+              <PlayIcon className="button-icon-controls" />
             </div>
           </button>
           <div className="button-label">Play Audio</div>
@@ -362,7 +459,7 @@ const ReviewMode = () => {
                 disabled={audio.isPlayingAudio || isPlayingLocked}
               >
                 <div className="button-inner">
-                  <PlayIcon className="button-icon" />
+                  <PlayIcon className="button-icon-controls" />
                 </div>
               </button>
               <div className="button-label">Hint Audio</div>
@@ -370,7 +467,6 @@ const ReviewMode = () => {
           )}
         </div>
 
-        {/* Right (Microphone) button */}
         <div className="button-container right-button">
           <div className="mic-visualizer-container">
             <RadialAudioVisualizer
@@ -380,27 +476,33 @@ const ReviewMode = () => {
               key={`user-visualizer-${audio.isRecording}`}
             />
           </div>
-          <button
-            className={`hint-button ${audio.isRecording ? 'recording' : ''}`}
-            onClick={handleRecordButtonClick}
-            disabled={attempts >= 3 || audio.isLoading || isEvaluating || isTransitioning || !currentCard}
-          >
-            <div className="button-inner">
-              <MicrophoneIcon className="button-icon" />
-            </div>
-            {isEvaluating && <div className="loading-spinner"></div>}
-          </button>
-          <div className="button-label">Record Answer</div>
+          {hasTransitionCanceled ? (
+            <button
+              className="hint-button"
+              onClick={handleNextCard}
+            >
+              <div className="button-inner">
+                <ChevronDoubleRightIcon className="button-icon-controls" />
+              </div>
+            </button>
+          ) : (
+            <button
+              className={`hint-button ${audio.isRecording ? 'recording' : ''}`}
+              onClick={handleRecordButtonClick}
+              disabled={attempts >= 3 || audio.isLoading || isEvaluating || isTransitioning || !currentCard}
+            >
+              <div className="button-inner">
+                <MicrophoneIcon className="button-icon-controls" />
+              </div>
+              {isEvaluating && <div className="loading-spinner"></div>}
+            </button>
+          )}
+          <div className="button-label">
+            {hasTransitionCanceled ? "Next Card" : "Record Answer"}
+          </div>
         </div>
       </div>
 
-      {isTransitioning && (
-        <div className="transition-timer-container">
-          <div className="transition-timer">
-            Next card in {transitionTimeLeft} {transitionTimeLeft === 1 ? 'second' : 'seconds'}
-          </div>
-        </div>
-      )}
 
     </div>
   );

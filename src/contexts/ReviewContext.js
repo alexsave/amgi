@@ -18,7 +18,6 @@ export const ReviewProvider = ({ children }) => {
 
     const { currentDeckId, decks, updateDeckCards } = useDecks();
     const { user, isDirectMode } = useAuth();
-    const [evaluationResult, setEvaluationResult] = useState(null);
     const [error, setError] = useState(null);
     const attemptsRef = useRef(0);
     const [attempts, setAttempts] = useState(0);
@@ -258,14 +257,12 @@ export const ReviewProvider = ({ children }) => {
     };
 
     const value = {
-        evaluationResult,
         error,
         attempts,
         currentCardId: currentCardIdRef.current, // Export the current value for consumers
         newCardsCount,
         learningCardsCount,
         reviewCardsCount,
-        setEvaluationResult,
         setError,
         setAttempts,
         markIncorrectGetNext,
