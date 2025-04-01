@@ -29,6 +29,8 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  padding: 16px;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .card-modal-header h3 {
@@ -62,6 +64,15 @@
   overflow-y: auto;
   display: flex;
   flex-direction: column;
+  padding: 16px;
+}
+
+.card-modal-footer {
+  display: flex;
+  justify-content: center;
+  padding: 16px;
+  border-top: 1px solid var(--border-color);
+  gap: 10px;
 }
 
 .loading-content {
@@ -84,107 +95,31 @@
   margin: 0;
 }
 
-.card-form {
-  display: flex;
-  flex-direction: column;
-}
-
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.form-group label {
-  font-weight: 500;
-  color: var(--text-primary);
-}
-
-.form-group textarea {
-  padding: 12px;
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  resize: vertical;
-  font-size: 1rem;
-  line-height: 1.5;
-  min-height: 80px;
-  background-color: var(--dark-surface-hover);
-  color: var(--text-primary);
-  transition: border-color 0.2s ease;
-}
-
-.form-group textarea:focus {
-  outline: none;
-  border-color: var(--flame-orange);
-  box-shadow: 0 0 0 2px rgba(255, 107, 53, 0.2);
-}
-
 .error-message {
   color: #e74c3c;
   font-size: 0.875rem;
-  margin-top: 4px;
+  margin-bottom: 12px;
+  padding: 8px;
+  border-radius: 4px;
+  background-color: rgba(231, 76, 60, 0.1);
 }
 
-.generate-button {
-  background-color: var(--flame-orange);
-  color: white;
-  border: none;
-  padding: 12px;
-  border-radius: 6px;
-  font-size: 1rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background-color 0.2s ease, transform 0.1s ease;
-  align-self: flex-start;
-}
-
-.generate-button:hover {
-  background-color: var(--flame-orange-hover);
-  transform: translateY(-1px);
-}
-
-.generate-button:disabled {
-  background-color: var(--dark-surface-hover);
-  color: var(--text-secondary);
-  cursor: not-allowed;
-  transform: none;
-}
-
-.card-result {
+.flashcard-container {
   display: flex;
-  flex-direction: column;
-  gap: 20px;
-  background-color: var(--dark-surface-hover);
-  padding: 16px;
-  border-radius: 8px;
-}
-
-.flashcard {
-  display: flex;
-}
-
-@media (max-width: 768px) {
-  .flashcard {
-    flex-direction: column;
-  }
-
-  .card-modal-content {
-    width: 95%;
-    max-height: 97%;
-  }
-  
-  .card-modal-header {
-    padding: 12px 16px;
-  }
-  
-  .card-modal-body {
-    padding: 0 1rem;
-  }
+  flex-direction: row;
+  width: 100%;
+  position: relative;
+  margin: 10px 0;
 }
 
 .card-side {
   flex: 1;
+  min-width: 200px;
   background-color: var(--dark-surface);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 16px;
+  margin: 5px;
 }
 
 .card-side h3 {
@@ -192,12 +127,31 @@
   margin-bottom: 12px;
   font-size: 1rem;
   color: var(--text-secondary);
+  text-align: center;
 }
 
-.card-side p {
-  margin: 0 0 12px 0;
-  line-height: 1.5;
-  color: var(--text-primary);
+.card-sides-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
+  z-index: 1;
+}
+
+.bidirectional-arrow {
+  width: 24px;
+  height: 24px;
+  color: var(--flame-orange);
+}
+
+.bidirectional-hint {
+  text-align: center;
+  margin-bottom: 10px;
+}
+
+.bidirectional-hint small {
+  color: var(--text-secondary);
+  font-style: italic;
 }
 
 .play-audio-btn {
@@ -238,18 +192,28 @@
   background-color: var(--flame-orange);
   color: white;
   border: none;
-  padding: 12px;
+  padding: 12px 24px;
   border-radius: 6px;
   font-size: 1rem;
   font-weight: 500;
   cursor: pointer;
   transition: background-color 0.2s ease, transform 0.1s ease;
-  align-self: center;
 }
 
 .add-to-deck-btn:hover {
   background-color: var(--flame-orange-hover);
   transform: translateY(-1px);
+}
+
+.add-to-deck-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.add-without-audio {
+  background-color: var(--dark-surface-hover);
+  color: var(--text-primary);
 }
 
 .card-content {
@@ -259,6 +223,8 @@
 }
 
 .card-actions {
+  display: flex;
+  justify-content: center;
   gap: 8px;
   margin-top: 8px;
   flex-wrap: wrap;
@@ -304,24 +270,56 @@
   resize: vertical;
 }
 
-.save-edit-btn {
-  align-self: flex-end;
-  background-color: var(--flame-orange);
-  color: white;
-  border: none;
-  padding: 6px 12px;
-  border-radius: 4px;
-  font-size: 0.875rem;
-  cursor: pointer;
-}
-
-.save-edit-btn:hover {
-  background-color: var(--flame-orange-hover);
+.loading-text-area {
+  background-color: var(--dark-surface-hover);
+  border-radius: 6px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--flame-orange);
+  margin-bottom: 12px;
 }
 
 .spin {
-  height:1rem;
   animation: spin 1s linear infinite;
+}
+
+.ai-disclosure {
+  display: block;
+  color: #666;
+  font-size: 0.75rem;
+  margin-top: 1rem;
+  text-align: center;
+  font-style: italic;
+}
+
+@media (max-width: 600px) {
+  .flashcard-container {
+    flex-direction: column;
+  }
+  
+  .card-side {
+    min-width: auto;
+  }
+  
+  .card-sides-arrow {
+    transform: rotate(90deg);
+    padding: 10px 0;
+  }
+  
+  .card-modal-content {
+    width: 95%;
+    max-height: 97%;
+  }
+  
+  .card-modal-header {
+    padding: 12px 16px;
+  }
+  
+  .card-modal-body {
+    padding: 12px;
+  }
 }
 
 @keyframes spin {
@@ -347,24 +345,4 @@
     opacity: 1;
     transform: translateY(0);
   }
-}
-
-.loading-text-area {
-  background-color: var(--dark-surface-hover);
-  border-radius: 6px;
-  height: 80px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--flame-orange);
-  margin-bottom: 12px;
-}
-
-.card-content.loading .card-actions {
-  opacity: 0.5;
-}
-
-.card-content.loading .play-audio-btn {
-  opacity: 0.5;
-  cursor: not-allowed;
 } 

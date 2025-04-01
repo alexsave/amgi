@@ -413,3 +413,12 @@
 .app-content {
   overflow: hidden !important;
 }
+
+.ai-disclosure {
+  display: block;
+  color: #666;
+  font-size: 0.75rem;
+  margin-top: 0.25rem;
+  text-align: center;
+  font-style: italic;
+}

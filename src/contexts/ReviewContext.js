@@ -17,7 +17,7 @@ export const ReviewProvider = ({ children }) => {
     const MAX_ATTEMPTS = 3;
 
     const { currentDeckId, decks, updateDeckCards } = useDecks();
-    const { user, isDirectMode } = useAuth();
+    const { user } = useAuth();
     const [error, setError] = useState(null);
     const attemptsRef = useRef(0);
     const [attempts, setAttempts] = useState(0);
@@ -121,7 +121,7 @@ export const ReviewProvider = ({ children }) => {
     // Function to save review data to the server without blocking 
     const saveReviewToServer = async (cardId, review) => {
         try {
-            if (!user || isDirectMode) {
+            if (!user) {
                 return;
             }
 

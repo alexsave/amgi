@@ -81,8 +81,7 @@ beforeEach(() => {
   });
 
   useAuth.mockReturnValue({
-    user: { id: 'user1' },
-    isDirectMode: false
+    user: { id: 'user1' }
   });
 
   supabase.saveReview.mockResolvedValue({});
@@ -230,23 +229,6 @@ describe('useReview', () => {
 
       expect(result.current.learningCardsCount).toBe(0);
       expect(result.current.reviewCardsCount).toBe(2);
-    });
-  });
-
-  describe('Direct Mode', () => {
-    test('does not save to server in direct mode', async () => {
-      useAuth.mockReturnValue({
-        user: { id: 'user1' },
-        isDirectMode: true
-      });
-
-      const { result } = renderHook(() => useReview());
-      
-      await act(async () => {
-        result.current.markCorrectGetNext();
-      });
-
-      expect(supabase.saveReview).not.toHaveBeenCalled();
     });
   });
 

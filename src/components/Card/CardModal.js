@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { XMarkIcon, ArrowPathIcon, MicrophoneIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon, ArrowPathIcon, MicrophoneIcon, ArrowsRightLeftIcon } from '@heroicons/react/24/outline';
 import { useAudio } from '../../contexts/useAudio';
 import { useDecks } from '../../contexts/DeckContext';
 import { useCardGenerationContext } from '../../contexts/CardGenerationContext';
@@ -131,6 +131,8 @@ const CardModal = ({ isOpen, onClose }) => {
   if (!currentDeck) return null;
 
   const { known_language = 'en', learning_language = 'ko' } = currentDeck;
+  const knownLanguageDisplay = getLanguageDisplay(known_language).name;
+  const learningLanguageDisplay = getLanguageDisplay(learning_language).name;
 
   const handleAddToDeck = async () => {
     if (!generatedCard) {
@@ -178,7 +180,7 @@ const CardModal = ({ isOpen, onClose }) => {
   };
 
   // Render card content with action buttons
-  const renderCardContent = (textPart, audioPart) => {
+  const renderCardContent = (textPart, audioPart, language) => {
     const isTextRegenerating = regeneratingParts.includes(textPart);
     const isAudioRegenerating = regeneratingParts.includes(audioPart);
 
@@ -199,13 +201,12 @@ const CardModal = ({ isOpen, onClose }) => {
         </div>
 
         <div className="card-actions">
-
           <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', justifyContent: 'space-evenly' }}>
             <button
               className="card-action-btn"
               onClick={() => handleRegeneratePart(textPart)}
               disabled={isGenerating}
-              title={`Regenerate ${textPart === 'front_text' ? 'front' : 'back'} text`}
+              title={`Regenerate ${language} text`}
             >
               <ArrowPathIcon className={`h-5 w-5 ${isTextRegenerating ? 'spin' : ''}`} />
             </button>
@@ -228,7 +229,7 @@ const CardModal = ({ isOpen, onClose }) => {
               className="card-action-btn"
               onClick={() => handleRegeneratePart(audioPart)}
               disabled={isGenerating}
-              title={`Regenerate ${audioPart === 'front_audio_path' ? 'front' : 'back'} audio`}
+              title={`Regenerate ${language} audio`}
             >
               <ArrowPathIcon className={`h-5 w-5 ${isAudioRegenerating ? 'spin' : ''}`} />
             </button>
@@ -258,47 +259,36 @@ const CardModal = ({ isOpen, onClose }) => {
 
         <div className="card-modal-body">
           {error && <div className="error-message">{error}</div>}
+          
+          <div className="bidirectional-hint">
+            <small>Creates cards in both directions</small>
+          </div>
 
-          <p className="language-info">
-            {getLanguageDisplay(currentDeck.known_language).name} → {getLanguageDisplay(currentDeck.learning_language).name}
-          </p>
-          <div className="flashcard">
+          <div className="flashcard-container">
             <div className="card-side">
-              <h3>Front</h3>
+              <h3>{knownLanguageDisplay}</h3>
               {renderCardContent(
                 'front_text',
-                'front_audio_path'
+                'front_audio_path',
+                knownLanguageDisplay
               )}
             </div>
+            
+            <div className="card-sides-arrow">
+              <ArrowsRightLeftIcon className="bidirectional-arrow" />
+            </div>
+            
             <div className="card-side">
-              <h3>Back</h3>
+              <h3>{learningLanguageDisplay}</h3>
               {renderCardContent(
                 'back_text',
-                'back_audio_path'
+                'back_audio_path',
+                learningLanguageDisplay
               )}
             </div>
           </div>
-
-          <p className="language-info">
-            {getLanguageDisplay(currentDeck.learning_language).name} → {getLanguageDisplay(currentDeck.known_language).name}
-          </p>
-          <div className="flashcard">
-            <div className="card-side">
-              <h3>Front</h3>
-              {renderCardContent(
-                'back_text',
-                'back_audio_path'
-              )}
-            </div>
-            <div className="card-side">
-              <h3>Back</h3>
-              {renderCardContent(
-                'front_text',
-                'front_audio_path'
-              )}
-            </div>
-          </div>
-
+          
+          <small className="ai-disclosure">Audio is AI-generated, not human voice</small>
         </div>
         <div className="card-modal-footer">
           <button
@@ -320,7 +310,6 @@ const CardModal = ({ isOpen, onClose }) => {
             </button>
           )}
         </div>
-
       </div>
     </div>
   );
