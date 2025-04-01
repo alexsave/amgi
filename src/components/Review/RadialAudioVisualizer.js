@@ -5,7 +5,6 @@ import './AudioVisualizer.css';
 const RadialAudioVisualizer = ({ 
   visualizerType, // 'front', 'hint', or 'user'
   isActive = false, // Whether this specific visualizer should be active
-  onVolumeChange
 }) => {
   const audio = useAudio();
   const analyserRef = useRef(null);
@@ -143,21 +142,16 @@ const RadialAudioVisualizer = ({
         }
 
         // Calculate average for visualization
-        let sum = 0;
+        //let sum = 0;
         let hasSound = false;
         for (let i = 0; i < dataArray.length; i++) {
-          sum += dataArray[i];
+          //sum += dataArray[i];
           if (dataArray[i] > 5) { // Threshold to detect actual sound vs noise
             hasSound = true;
           }
         }
-        const average = sum / dataArray.length;
-        const volume = Math.min(average / 128, 1);
-        
-        // Only update scale if there's actual sound and it's user audio
-        if (hasSound && isUserAudio && onVolumeChange) {
-          onVolumeChange(volume * 100);
-        }
+        //const average = sum / dataArray.length;
+        //const volume = Math.min(average / 128, 1);
 
         // Clear the entire canvas using actual canvas dimensions
         ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);

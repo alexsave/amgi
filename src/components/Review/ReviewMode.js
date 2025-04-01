@@ -24,9 +24,6 @@ const ReviewMode = () => {
   const [lastClickedAudio, setLastClickedAudio] = useState(null); // 'front', 'hint', or null
   const [hasTransitionCanceled, setHasTransitionCanceled] = useState(false); // Track if transition was canceled
 
-  // Only retaining the volume scale for the UI, all other audio state moved to contexts
-  const [audioScale, setAudioScale] = useState(0);
-
   // Load audio when current card changes
   useEffect(() => {
     if (currentCard) {
@@ -122,14 +119,8 @@ const ReviewMode = () => {
         setEvaluationResult(null);
         
         // Start recording
-        setAudioScale(0); // Reset the audio scale
         await audio.startRecording();
 
-        // Force a small delay to ensure the visualizer detects the stream
-        setTimeout(() => {
-          // This will trigger a re-render and help the visualizer detect the stream change
-          setAudioScale(1);
-        }, 100);
       }
     } catch (error) {
       console.error("Error with recording:", error);
@@ -493,7 +484,6 @@ const ReviewMode = () => {
             <RadialAudioVisualizer
               visualizerType="user"
               isActive={audio.isRecording}
-              onVolumeChange={setAudioScale}
               key={`user-visualizer-${audio.isRecording}`}
             />
           </div>
