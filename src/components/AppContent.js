@@ -3,6 +3,7 @@ import { useNavigate, Routes, Route, Navigate } from 'react-router-dom';
 import DeckList from './Deck/DeckList';
 import CardList from './Card/CardList';
 import ReviewMode from './Review/ReviewMode';
+import Settings from './Settings/Settings';
 import Navbar from './Navigation/Navbar';
 import { AudioProvider } from '../contexts/useAudio';
 import { ReviewProvider } from '../contexts/ReviewContext';
@@ -26,6 +27,7 @@ function AppContent() {
             <Routes>
               <Route path="/" element={<Navigate to="/decks" replace />} />
               <Route path="/decks" element={<DeckList />} />
+              <Route path="/settings" element={<Settings />} />
 
               <Route
                 path="/deck/:id"

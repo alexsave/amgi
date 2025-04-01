@@ -206,4 +206,10 @@ button.action-btn svg {
 .error-overlay .close-button:hover {
   background-color: rgba(231, 76, 60, 0.1);
   border-radius: 50%;
-} 
+}
+
+.settings-icon {
+  color: var(--flame-orange) !important;
+  border: none !important;
+  background: transparent !important;
+}

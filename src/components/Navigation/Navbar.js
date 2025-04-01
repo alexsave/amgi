@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { Cog6ToothIcon } from '@heroicons/react/24/outline';
 import './Navbar.css';
 import { NAME } from '../../constants/names';
 
 export default function Navbar() {
+  const navigate = useNavigate();
   const { signOut, user } = useAuth();
   const [signOutStatus, setSignOutStatus] = useState('');
   const [signOutError, setSignOutError] = useState('');
@@ -34,6 +37,10 @@ export default function Navbar() {
     setSignOutError('');
   };
 
+  const goToSettings = () => {
+    navigate('/settings');
+  };
+
   return (
     <>
       <nav className="navbar">
@@ -42,6 +49,13 @@ export default function Navbar() {
         </div>
         <div className="navbar-actions">
           {signOutStatus && <span className="status-message">{signOutStatus}</span>}
+          <button 
+            className="navbar-button action-btn settings-icon"
+            onClick={goToSettings}
+            title="Settings"
+          >
+            <Cog6ToothIcon />
+          </button>
           <button 
             className="navbar-button"
             onClick={handleSignOut}
@@ -64,7 +78,6 @@ export default function Navbar() {
           </div>
         </div>
       )}
-      
     </>
   );
 } 

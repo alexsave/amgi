@@ -7,6 +7,9 @@ export default function Signup() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [isAdult, setIsAdult] = useState(false);
+  const [hasAcceptedEULA, setHasAcceptedEULA] = useState(false);
+  const [hasAcceptedPrivacy, setHasAcceptedPrivacy] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [verificationSent, setVerificationSent] = useState(false);
@@ -20,11 +23,26 @@ export default function Signup() {
       return setError('Passwords do not match');
     }
 
+    if (!isAdult) {
+      return setError('You must be at least 18 years old to use this application');
+    }
+
+    if (!hasAcceptedEULA || !hasAcceptedPrivacy) {
+      return setError('You must accept both the EULA and Privacy Policy');
+    }
+
     try {
       setError('');
       setLoading(true);
       console.log('Submitting signup for email:', email);
-      const userData = await signUp(email, password);
+      
+      // Pass the additional user metadata
+      const userData = await signUp(email, password, {
+        isAdult,
+        hasAcceptedEULA,
+        hasAcceptedPrivacy
+      });
+      
       console.log('Signup completed, user data:', userData);
       
       // Show verification message instead of trying to sign in
@@ -92,6 +110,54 @@ export default function Signup() {
               autoComplete="new-password"
             />
           </div>
+          
+          <div className="legal-requirements">
+            <div className="checkbox-group">
+              <label className="checkbox-container">
+                <input 
+                  type="checkbox" 
+                  checked={isAdult} 
+                  onChange={() => setIsAdult(!isAdult)}
+                  required
+                />
+                <span className="checkmark"></span>
+                I confirm that I am 18 years of age or older
+              </label>
+            </div>
+            
+            <div className="checkbox-group">
+              <label className="checkbox-container">
+                <input 
+                  type="checkbox" 
+                  checked={hasAcceptedEULA} 
+                  onChange={() => setHasAcceptedEULA(!hasAcceptedEULA)}
+                  required
+                />
+                <span className="checkmark"></span>
+                I have read and agree to the <a href="#" onClick={(e) => {
+                  e.preventDefault();
+                  window.open('/eula.html', '_blank');
+                }}>End User License Agreement</a>
+              </label>
+            </div>
+            
+            <div className="checkbox-group">
+              <label className="checkbox-container">
+                <input 
+                  type="checkbox" 
+                  checked={hasAcceptedPrivacy} 
+                  onChange={() => setHasAcceptedPrivacy(!hasAcceptedPrivacy)}
+                  required
+                />
+                <span className="checkmark"></span>
+                I have read and agree to the <a href="#" onClick={(e) => {
+                  e.preventDefault();
+                  window.open('/privacy.html', '_blank');
+                }}>Privacy Policy</a>
+              </label>
+            </div>
+          </div>
+          
           <button className="submit-button" type="submit" disabled={loading}>
             {loading ? 'Creating Account...' : 'Sign Up'}
           </button>

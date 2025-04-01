@@ -22,7 +22,7 @@ export const AuthProvider = ({ children }) => {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signUp = async (email, password) => {
+  const signUp = async (email, password, metadata = {}) => {
     
     // Set up the redirect URL for after email verification
     const redirectTo = 'https://www.amgi.cards/subscription';
@@ -32,7 +32,12 @@ export const AuthProvider = ({ children }) => {
       email,
       password,
       options: {
-        emailRedirectTo: redirectTo
+        emailRedirectTo: redirectTo,
+        data: {
+          isAdult: metadata.isAdult || false,
+          hasAcceptedEULA: metadata.hasAcceptedEULA || false,
+          hasAcceptedPrivacy: metadata.hasAcceptedPrivacy || false
+        }
       }
     });
     
@@ -99,6 +104,29 @@ export const AuthProvider = ({ children }) => {
     if (error) throw error;
   };
 
+  const updateUserProfile = async (userMetadata) => {
+    try {
+      const { data, error } = await supabase.auth.updateUser({
+        data: {
+          ...user?.user_metadata,
+          ...userMetadata
+        }
+      });
+      
+      if (error) {
+        console.error('Update user profile error:', error);
+        throw error;
+      }
+      
+      // Update the local user state with the new metadata
+      setUser(data.user);
+      return data.user;
+    } catch (error) {
+      console.error('Error updating user profile:', error);
+      throw error;
+    }
+  };
+
   return (
     <AuthContext.Provider value={{
       user,
@@ -107,6 +135,7 @@ export const AuthProvider = ({ children }) => {
       signOut,
       resetPassword,
       updatePassword,
+      updateUserProfile,
       loading
     }}>
       {children}
