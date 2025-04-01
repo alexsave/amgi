@@ -465,6 +465,28 @@ const ReviewMode = () => {
               <div className="button-label">Hint Audio</div>
             </>
           )}
+          
+          {/* Show hint audio during transition */}
+          {isTransitioning && currentCard.back_audio_path && (
+            <>
+              <div className="hint-visualizer-container">
+                <RadialAudioVisualizer
+                  visualizerType="hint"
+                  isActive={lastClickedAudio === 'hint'}
+                />
+              </div>
+              <button
+                className="hint-button"
+                onClick={handlePlayHintAudio}
+                disabled={audio.isPlayingAudio || isPlayingLocked}
+              >
+                <div className="button-inner">
+                  <PlayIcon className="button-icon-controls" />
+                </div>
+              </button>
+              <div className="button-label">Hint Audio</div>
+            </>
+          )}
         </div>
 
         <div className="button-container right-button">
