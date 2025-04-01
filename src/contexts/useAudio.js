@@ -299,30 +299,6 @@ export function AudioProvider({ children }) {
     return null;
   };
 
-  // Helper function to convert data URL to Blob
-  const dataURLtoBlob = (dataurl) => {
-    try {
-      const arr = dataurl.split(',');
-      const mime = arr[0].match(/:(.*?);/)[1];
-      
-      // Ensure we're dealing with audio data
-      if (!mime.startsWith('audio/')) {
-        throw new Error('Invalid audio data');
-      }
-
-      const bstr = atob(arr[1]);
-      let n = bstr.length;
-      const u8arr = new Uint8Array(n);
-      while (n--) {
-        u8arr[n] = bstr.charCodeAt(n);
-      }
-      const blob = new Blob([u8arr], { type: 'audio/mp3' }); // Force MP3 type
-      return blob;
-    } catch (err) {
-      throw new Error('Failed to convert audio data');
-    }
-  };
-
   const startRecording = async () => {
     setIsLoading(true);
     try {
