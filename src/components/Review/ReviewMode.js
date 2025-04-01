@@ -20,7 +20,6 @@ const ReviewMode = () => {
   const [transitionTimeLeft, setTransitionTimeLeft] = useState(0);
   const transitionTimerRef = useRef(null);
   const [transitionCard, setTransitionCard] = useState(null);
-  const [showCardContent, setShowCardContent] = useState(false);
   const [isPlayingLocked, setIsPlayingLocked] = useState(false); // Lock to prevent rapid clicks
   const [lastClickedAudio, setLastClickedAudio] = useState(null); // 'front', 'hint', or null
   const [hasTransitionCanceled, setHasTransitionCanceled] = useState(false); // Track if transition was canceled
