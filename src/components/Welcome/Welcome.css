@@ -4,6 +4,39 @@
   align-items: center;
   justify-content: center;
   height: 100vh;
+  position: relative;
+  overflow: hidden;
+}
+
+.language-pattern {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%;
+  height: 100%;
+  display: grid;
+  grid-template-columns: repeat(30, 40px);
+  grid-template-rows: repeat(30, 40px);
+  z-index: 0;
+  justify-content: center;
+  align-content: center;
+}
+
+.language-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  color: #3a3a3a;
+  font-weight: 500;
+  text-align: center;
+  width: 40px;
+  height: 40px;
+}
+
+.language-cell.filled {
+  /* No background color, just text */
 }
 
 .welcome-card {
@@ -14,6 +47,8 @@
   width: 70%;
   max-width: 600px;
   border: 1px solid var(--border-color);
+  position: relative;
+  z-index: 1;
 }
 
 .welcome-card h1 {
