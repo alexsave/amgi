@@ -96,6 +96,9 @@ button:disabled {
 }
 
 .auth-links {
+  display: flex;
+  justify-content: center;
+  align-items: center;
   margin-top: 1rem;
   text-align: center;
 }

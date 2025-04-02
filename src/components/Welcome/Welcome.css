@@ -8,7 +8,7 @@
 
 .welcome-card {
   background-color: var(--dark-surface);
-  padding: 2rem;
+  padding: 1rem;
   border-radius: 8px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   width: 70%;
@@ -29,6 +29,7 @@
 }
 
 .welcome-section {
+  width: 100%;
   margin-bottom: 2rem;
   padding: 1.5rem;
   border: 1px solid var(--border-color);
@@ -37,8 +38,7 @@
 }
 
 .welcome-sections-container {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
   gap: 1.5rem;
 }
 
@@ -58,7 +58,7 @@
   font-size: 1rem;
   cursor: pointer;
   transition: background-color 0.2s;
-  margin-top: 0.5rem;
+  margin-bottom: 1rem;
 }
 
 .test-account-button:hover {

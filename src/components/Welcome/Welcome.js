@@ -9,10 +9,10 @@ export default function Welcome() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  
+
   // Shared state
   const [error, setError] = useState('');
-  
+
   // Auth hooks
   const navigate = useNavigate();
   const { user, signIn } = useAuth();
@@ -40,12 +40,12 @@ export default function Welcome() {
 
   const handleSignIn = async (e) => {
     e.preventDefault();
-    
+
     if (!email.trim() || !password.trim()) {
       setError('Please enter both email and password');
       return;
     }
-    
+
     try {
       setError('');
       setLoading(true);
@@ -53,7 +53,7 @@ export default function Welcome() {
       navigate('/decks', { replace: true });
     } catch (err) {
       console.error('Sign in error:', err);
-      
+
       // Special handling for email verification errors
       if (err.message && err.message.includes('Email not confirmed')) {
         setError('Your email has not been verified. Please check your inbox for a verification link.');
@@ -74,58 +74,53 @@ export default function Welcome() {
     <div className="welcome-container">
       <div className="welcome-card">
         <h1>Welcome to {NAME}</h1>
-        
+
         {/* Section 1: Test Account */}
-        <button 
-          onClick={handleTestAccount} 
+        <button
+          onClick={handleTestAccount}
           className="test-account-button"
           disabled={loading}
         >
           {loading ? 'Loading...' : 'Try Test Account'}
         </button>
-        
+
         {/* Error display */}
         {error && <div className="error-message">{error}</div>}
-        
-        <div className="welcome-sections-container">
-          {/* Section 2: Regular Sign In */}
-          <div className="welcome-section">
-            <h2>Sign In</h2>
-            <form onSubmit={handleSignIn} className="auth-form">
-              <div className="form-group">
-                <label htmlFor="email">Email</label>
-                <input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="your@email.com"
-                  autoComplete="username"
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="password">Password</label>
-                <input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  autoComplete="current-password"
-                />
-              </div>
-              <button 
-                type="submit" 
-                className="submit-button"
-                disabled={loading}
-              >
-                {loading ? 'Signing In...' : 'Sign In'}
-              </button>
-              <div className="auth-links">
-                <Link to="/signup">Need an account? Sign Up</Link>
-              </div>
-            </form>
+
+        {/* Section 2: Regular Sign In */}
+        <form onSubmit={handleSignIn} className="auth-form">
+          <div className="form-group">
+            <label htmlFor="email">Email</label>
+            <input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="your@email.com"
+              autoComplete="username"
+            />
           </div>
-        </div>
+          <div className="form-group">
+            <label htmlFor="password">Password</label>
+            <input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
+            />
+          </div>
+          <button
+            type="submit"
+            className="submit-button"
+            disabled={loading}
+          >
+            {loading ? 'Signing In...' : 'Sign In'}
+          </button>
+          <div className="auth-links">
+            <Link to="/signup">Need an account? Sign Up</Link>
+          </div>
+        </form>
       </div>
     </div>
   );
