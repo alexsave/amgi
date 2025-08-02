@@ -4,8 +4,8 @@ const yauzl = require('yauzl');
 const yazl = require('yazl');
 const Database = require('better-sqlite3');
 
-const inputFile = 'Korean Vocabulary by Evita (with Audio).apkg';
-const outputFile = 'Korean Vocabulary by Evita (with Audio) - Fixed Timestamps.apkg';
+const inputFile = 'Korean Vocabulary by Evita (with Audio Updated).apkg';
+const outputFile = 'Korean Vocabulary by Evita (with Audio Updated) - Fixed Timestamps.apkg';
 
 console.log('=== FIXING REVIEW TIMESTAMPS FOR ANKI STATISTICS ===');
 console.log(`Input: ${inputFile}`);
