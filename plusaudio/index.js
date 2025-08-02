@@ -886,6 +886,22 @@ async function generateKoreanAudioForNote(koreanText, noteId, index) {
 }
 
 // Run the parser
+// Add a debug mode
+const debugMode = args.includes('--debug');
+
+if (debugMode) {
+    console.log('=== DEBUG MODE: Examining deck structure ===');
+    parseApkgFile().then(async (result) => {
+        console.log('=== PARSING COMPLETE ===');
+        console.log('Field detection:', result.fieldDetection);
+        console.log('Deck analysis:', result.deckAnalysis);
+        console.log('Sample extractions:', result.extracted.slice(0, 3));
+        process.exit(0);
+    }).catch(error => {
+        console.error('Error in debug mode:', error);
+        process.exit(1);
+    });
+} else {
 parseApkgFile().then(async (result) => {
     const { extracted, fieldDetection, deckAnalysis } = result;
     
@@ -1134,4 +1150,5 @@ async function generateAudioForNotesWithoutAudio(maxCount = null) {
             });
         });
     });
+}
 }
