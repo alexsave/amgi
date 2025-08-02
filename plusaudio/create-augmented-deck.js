@@ -93,6 +93,12 @@ async function createAugmentedDeck() {
                                 // Create in-memory database
                                 const db = new Database(buffer);
                                 
+                                // Check what tables exist to ensure we update all relevant ones
+                                console.log('🔍 Checking database structure...');
+                                const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all();
+                                const tableNames = tables.map(t => t.name);
+                                console.log(`   Found tables: ${tableNames.join(', ')}`);
+                                
                                 // Update notes with audio references based on field structure analysis
                                 console.log('🎵 Adding audio references to notes...');
                                 let updatedCount = 0;
@@ -113,6 +119,8 @@ async function createAugmentedDeck() {
                                 const updateStmt = db.prepare("UPDATE notes SET flds = ?, id = ?, guid = ? WHERE id = ?");
                                 const updateCardsStmt = db.prepare("UPDATE cards SET nid = ? WHERE nid = ?");
                                 const selectStmt = db.prepare("SELECT id, flds, guid FROM notes");
+                                const selectCardsStmt = db.prepare("SELECT id, nid FROM cards");
+                                const cardIdMapping = new Map(); // old card ID -> new card ID
                                 
                                 const notes = selectStmt.all();
                                 console.log(`📝 Processing ${notes.length} notes with new IDs to avoid collection conflicts...`);
@@ -163,9 +171,51 @@ async function createAugmentedDeck() {
                                     updateCardsStmt.run(newId, oldId);
                                 }
                                 
-                                console.log(`✅ Generated new IDs for all ${notes.length} notes to avoid collection conflicts`);
+                                // Now update all card IDs and track the mappings for revlog updates
+                                console.log('📝 Generating new card IDs and updating review log...');
+                                const allCards = selectCardsStmt.all();
+                                console.log(`📝 Processing ${allCards.length} cards with new IDs...`);
+                                
+                                for (const card of allCards) {
+                                    const oldCardId = card.id;
+                                    const newCardId = generateNewId();
+                                    cardIdMapping.set(oldCardId, newCardId);
+                                    
+                                    // Update the card with new ID
+                                    const updateCardIdStmt = db.prepare("UPDATE cards SET id = ? WHERE id = ?");
+                                    updateCardIdStmt.run(newCardId, oldCardId);
+                                }
+                                
+                                // Update revlog to reference new card IDs (preserve original timestamps)
+                                console.log('📊 Updating review log with new card IDs (preserving original timestamps)...');
+                                
+                                let revlogUpdated = 0;
+                                for (const [oldCardId, newCardId] of cardIdMapping) {
+                                    // Only update card ID, preserve original timestamps
+                                    const updateRevlogStmt = db.prepare("UPDATE revlog SET cid = ? WHERE cid = ?");
+                                    const result = updateRevlogStmt.run(newCardId, oldCardId);
+                                    revlogUpdated += result.changes;
+                                }
+                                console.log(`📊 Updated ${revlogUpdated} review log entries with new card IDs (timestamps preserved)`);
+                                
+                                console.log(`✅ Generated new IDs for all ${notes.length} notes and ${allCards.length} cards to avoid collection conflicts`);
                                 console.log(`🎵 Updated ${updatedCount} notes with audio references`);
+                                console.log(`📊 Preserved ${revlogUpdated} review history entries`);
                                 console.log(`📁 New media files to add: ${audioFilesToAdd.size}`);
+                                
+                                // Update collection ID to ensure separate import (preserve original creation time)
+                                console.log('📝 Creating new collection ID while preserving original metadata...');
+                                const originalCol = db.prepare("SELECT crt FROM col").get();
+                                const newCollectionId = Date.now();
+                                const currentTime = Math.floor(Date.now() / 1000); // Unix timestamp in seconds
+                                
+                                console.log(`   Changing collection ID: 1 → ${newCollectionId}`);
+                                console.log(`   Preserving original creation time: ${new Date(originalCol.crt * 1000).toISOString()}`);
+                                console.log(`   Setting modification time: ${new Date(currentTime * 1000).toISOString()}`);
+                                
+                                // Update collection with new ID but preserve original creation time
+                                const updateColStmt = db.prepare("UPDATE col SET id = ?, mod = ?");
+                                updateColStmt.run(newCollectionId, currentTime);
                                 
                                 // Generate completely new deck ID to force separate import
                                 console.log('📝 Creating completely new deck with unique ID...');
@@ -367,6 +417,7 @@ async function createAugmentedDeck() {
                     console.log('');
                     console.log('🎉 Your augmented Korean deck is ready!');
                     console.log('   Import it into Anki to use cards with audio.');
+                    console.log('   All your review history and statistics are preserved.');
                     console.log('   The original deck is preserved safely.');
                     
                     resolve();
