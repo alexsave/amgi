@@ -29,3 +29,11 @@ yarn-error.log*
 .vercel
 
 server/audio
+
+# Audio files - generated content
+*.mp3
+*.wav
+*.m4a
+plusaudio/audio/
+plusaudio/*.json
+**/*.apkg
