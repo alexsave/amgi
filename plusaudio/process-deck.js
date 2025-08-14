@@ -24,9 +24,11 @@ const CONFIG = {
     progressFile: 'deck_processing_progress.json',
     tempDir: 'temp_processing',
     voiceStatsFile: 'voice_performance_stats.json', // Voice performance tracking
+    mismatchCacheFile: 'korean_mismatch_cache.json',
+    skipListFile: 'korean_generation_skip_list.json',
     
     // Audio generation settings
-    maxVoicesPerWord: 5,
+    maxVoicesPerWord: 10,
     maxAttemptsPerVoice: 2,
     audioValidationTimeout: 30000, // 30 seconds
     delayBetweenRequests: 500, // 0.5 seconds
@@ -43,6 +45,113 @@ const CONFIG = {
 
 // Available voices for multi-voice fallback
 const VOICES = ['alloy', 'ash', 'ballad', 'coral', 'echo', 'fable', 'nova', 'onyx', 'sage', 'shimmer'];
+
+// Simple JSON-backed mismatch cache for known non-equivalent pairs
+class MismatchCache {
+    constructor(cacheFilePath) {
+        this.cacheFilePath = cacheFilePath;
+        this.cache = this.load();
+    }
+
+    load() {
+        try {
+            if (fs.existsSync(this.cacheFilePath)) {
+                const data = JSON.parse(fs.readFileSync(this.cacheFilePath, 'utf8'));
+                return data && typeof data === 'object' ? data : {};
+            }
+        } catch (error) {
+            console.log('⚠️ Could not load mismatch cache, starting fresh');
+        }
+        return {};
+    }
+
+    save() {
+        try {
+            fs.writeFileSync(this.cacheFilePath, JSON.stringify(this.cache, null, 2));
+        } catch (error) {
+            console.error('⚠️ Could not save mismatch cache:', error.message);
+        }
+    }
+
+    static normalize(text) {
+        return (text || '')
+            .toLowerCase()
+            .trim()
+            .replace(/[^\w\s가-힣]/g, '');
+    }
+
+    hasMismatch(a, b) {
+        const A = MismatchCache.normalize(a);
+        const B = MismatchCache.normalize(b);
+        if (!A || !B || A === B) return false;
+        const listA = this.cache[A] || [];
+        const listB = this.cache[B] || [];
+        return listA.includes(B) || listB.includes(A);
+    }
+
+    addMismatch(a, b) {
+        const A = MismatchCache.normalize(a);
+        const B = MismatchCache.normalize(b);
+        if (!A || !B || A === B) return;
+        if (!this.cache[A]) this.cache[A] = [];
+        if (!this.cache[B]) this.cache[B] = [];
+        if (!this.cache[A].includes(B)) this.cache[A].push(B);
+        if (!this.cache[B].includes(A)) this.cache[B].push(A);
+        this.save();
+    }
+}
+
+// JSON-backed skip list for words that consistently fail generation
+class SkipList {
+    constructor(filePath) {
+        this.filePath = filePath;
+        this.data = this.load();
+    }
+
+    load() {
+        try {
+            if (fs.existsSync(this.filePath)) {
+                const data = JSON.parse(fs.readFileSync(this.filePath, 'utf8'));
+                return Array.isArray(data) ? new Set(data) : new Set();
+            }
+        } catch (error) {
+            console.log('⚠️ Could not load skip list, starting fresh');
+        }
+        return new Set();
+    }
+
+    save() {
+        try {
+            fs.writeFileSync(this.filePath, JSON.stringify(Array.from(this.data), null, 2));
+        } catch (error) {
+            console.error('⚠️ Could not save skip list:', error.message);
+        }
+    }
+
+    static normalize(text) {
+        return (text || '').toLowerCase().trim().replace(/[^\w\s가-힣]/g, '');
+    }
+
+    has(word) {
+        return this.data.has(SkipList.normalize(word));
+    }
+
+    add(word) {
+        const key = SkipList.normalize(word);
+        if (!key) return;
+        if (!this.data.has(key)) {
+            this.data.add(key);
+            this.save();
+        }
+    }
+
+    remove(word) {
+        const key = SkipList.normalize(word);
+        if (this.data.delete(key)) {
+            this.save();
+        }
+    }
+}
 
 // Voice performance tracking
 class VoiceStats {
@@ -452,6 +561,20 @@ async function validateAudioBuffer(audioBuffer, expectedText, language = 'ko') {
 
         const transcriptionResult = JSON.parse(toolCall.function.arguments);
         
+        // Early reject: empty transcription is an obvious non-match
+        if (!transcriptionResult.transcription || transcriptionResult.transcription.trim().length === 0) {
+            return {
+                isValid: false,
+                transcription: transcriptionResult.transcription || '',
+                confidence: transcriptionResult.confidence,
+                languageDetected: transcriptionResult.language_detected,
+                similarity: 0,
+                comparisonReason: 'empty_transcription',
+                phonologyExplanation: 'Empty transcription does not match the expected text',
+                error: null
+            };
+        }
+        
         // Compare transcription with expected text
         // Korean-aware normalization - preserve Hangul characters (가-힣), ASCII word chars, and spaces
         const normalize = (text) => text.toLowerCase().trim().replace(/[^\w\s가-힣]/g, '');
@@ -464,6 +587,7 @@ async function validateAudioBuffer(audioBuffer, expectedText, language = 'ko') {
         let similarity = 0;
         let reason = 'no_match';
         let phonologyExplanation = null;
+        const mismatchCache = new MismatchCache(CONFIG.mismatchCacheFile);
         
         // First try exact match
         if (normalizedTranscription === normalizedExpected) {
@@ -471,15 +595,25 @@ async function validateAudioBuffer(audioBuffer, expectedText, language = 'ko') {
             similarity = 1.0;
             reason = 'exact_match';
         } else {
-            // Try Korean phonological equivalence
-            const phonologyCheck = await checkKoreanPhonologicalEquivalence(expectedText, transcriptionResult.transcription);
-            if (phonologyCheck.isPhonologicallyEquivalent) {
-                isValid = true;
-                similarity = 0.95;
-                reason = 'korean_phonological_match';
-                phonologyExplanation = phonologyCheck.explanation;
+            // If we've already seen this pair as a mismatch (in either direction), skip the phonology call
+            if (mismatchCache.hasMismatch(expectedText, transcriptionResult.transcription)) {
+                isValid = false;
+                similarity = 0;
+                reason = 'cached_non_match';
+                phonologyExplanation = `Known non-match from cache: "${expectedText}" ≠ "${transcriptionResult.transcription}"`;
             } else {
-                phonologyExplanation = phonologyCheck.explanation;
+                // Try Korean phonological equivalence
+                const phonologyCheck = await checkKoreanPhonologicalEquivalence(expectedText, transcriptionResult.transcription);
+                if (phonologyCheck.isPhonologicallyEquivalent) {
+                    isValid = true;
+                    similarity = 0.95;
+                    reason = 'korean_phonological_match';
+                    phonologyExplanation = phonologyCheck.explanation;
+                } else {
+                    phonologyExplanation = phonologyCheck.explanation;
+                    // Record this pair as a known non-match to avoid future API calls
+                    mismatchCache.addMismatch(expectedText, transcriptionResult.transcription);
+                }
             }
         }
 
@@ -579,6 +713,18 @@ function shouldRegenerateAudio(koreanText, currentAudioField) {
 // Generate Korean audio for a single note
 async function generateKoreanAudioForNote(koreanText) {
     try {
+        // Skip list check (unless explicitly forced)
+        const skipList = new SkipList(CONFIG.skipListFile);
+        if (!CONFIG.forceRegenerateWords.includes(koreanText.trim()) && skipList.has(koreanText)) {
+            return {
+                filename: null,
+                filepath: null,
+                status: 'skipped',
+                error: 'Word is in skip list',
+                koreanText,
+            };
+        }
+
         const safeText = createSafeFilename(koreanText);
         const filename = `${safeText}_gpt4o.mp3`;
         const filepath = path.join(CONFIG.audioDir, filename);
@@ -713,7 +859,8 @@ async function generateKoreanAudioForNote(koreanText) {
             }
         }
         
-        // All voices failed
+        // All voices failed — add to skip list to avoid repeated retries on next runs
+        skipList.add(koreanText);
         return {
             filename: null,
             filepath: null,
@@ -929,6 +1076,8 @@ class DeckProcessor {
                                                 console.log(`✅ Generated: ${result.filename}`);
                                             } else if (result.status === 'exists') {
                                                 console.log(`⏭️ Already exists: ${result.filename}`);
+                                            } else if (result.status === 'skipped') {
+                                                console.log(`⏭️ Skipped (in skip list): ${note.koreanText}`);
                                             } else {
                                                 this.state.state.audioGeneration.errorCount++;
                                                 console.log(`❌ Failed: ${result.error}`);
