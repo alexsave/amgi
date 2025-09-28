@@ -65,10 +65,12 @@ const gen = async () => new Promise((res, rej) => {
                                                     const english = fields[englishIdx];
                                                     
                                                     // now lets do this
-                                                    if (i===1025) {
+                                                    if (i>1010 && i < 1020) {
                                                         console.log(korean, '<=>', english);
                                                         await generateNuancedTranslation(korean);
                                                     }
+                                                    if (i >= 1020)
+                                                        break;
 
                                                     // Another good candidate for the ol GPT
                                                     // yeah let's come back to this later, because 'to be', 'the', 'a', 'of' are tricky
@@ -96,86 +98,65 @@ const gen = async () => new Promise((res, rej) => {
     });
 });
 
-const NuanceMap = z.object({
-        core_pick: z.string(),
-        rationale: z.string(),
-        // Collocations-first, 3–6 items (multilingual: "src" instead of "ko")
-        sense_map: z.array(
-                z.object({
-                        src: z.string(),      // source-language collocation
-                        en: z.string()        // best-fit rendering
-                })
-        ).min(3).max(6),
-        // Candidate/near-synonyms list — at least 5, with rare EN equivalents + gloss
-        near_synonyms: z.array(
-                z.object({
-                        src: z.string(),      // source-language near-synonym
-                        en: z.string(),       // rare EN candidate (distinct from others)
-                        gloss: z.string()     // 1-line nuance/gloss
-                })
-        ).min(5),
-        // 2–4 compact examples
-        mini_examples: z.array(
-                z.object({
-                        src: z.string(),
-                        en: z.string()
-                })
-        ).min(2).max(4),
-        why_special: z.string(),
-        // Loanword detection (with Sino-Korean retained for KR focus)
-        loanword: z.object({
-                origin: z.enum(['native', 'sino-korean', 'loanword']),
-                source_language: z.string().nullable(),
-                source_form: z.string().nullable(),
-                notes: z.string().nullable()
-        }),
-        // Final list economy: 3–5 unglossed headwords; first = core_pick
-        // (exception: append " (loanword)" to first item if loanword)
-        final_picks: z.array(z.string()).min(3).max(5)
-});
-
-const generateNuancedTranslation2 = async (korean) => {
-        const response = await openai.chat.completions.parse({
-                model: process.env.OPENAI_MODEL || 'gpt-5-mini-2025-08-07',
-                messages: [
-                        { role: 'system', content: SYSTEM_PROMPT },
-                        { role: 'user', content: korean }
-                ],
-                response_format: zodResponseFormat(NuanceMap, 'NuanceMap'),
-                // temperature: 0.2,
-                // max_tokens: 800, 
-                reasoning: { effort: "low" },
-        });
-
-        const msg = response.choices[0].message;
-        let parsed = msg.parsed;           // validated against Zod schema
-
-        console.log(parsed);
-
-        return parsed;
-};
-
-
 /** 1) System prompt (stateless every call) */
 const SYSTEM_PROMPT = `
 You are a multilingual lexicographer that creates Anki card-ready English definitions optimized for disambiguation and memory.
 Detect the input language automatically and proceed without clarification. Treat conversational speech, fiction, news, academic texts, and slang equally.
 
 Rules (obey strictly):
-1) Headword choice: select a specific, low-frequency English lemma capturing the word’s distinctive nuance. If a common English word is clearly the best translation and no other source-language near-synonym could plausibly match it, you may use it.
+1) Headword choice: select a specific, low-frequency English lemma capturing the word's distinctive nuance. If a common English word is clearly the best translation and no other source-language near-synonym could plausibly match it, you may use it.
 2) If a generic word is unavoidable, qualify it precisely (e.g., "thick (layered)", "cool (invigorating)").
 3) Contrastive focus: clearly state what this word encodes that near-neighbors do not.
-4) Collocations-first: provide 3–6 high-signal source-language collocations → best-fit EN renderings (use domain terms when apt).
+4) Collocations-first: provide 3-6 high-signal source-language collocations → best-fit EN renderings (use domain terms when apt).
 5) Register & valence: highlight formality/tone/affect when relevant.
 6) Polysemy: split only when meanings diverge significantly—avoid shallow or purely syntactic splits.
 7) Candidate list BEFORE final picks: provide ≥5 near-synonyms/candidates as { src → en + gloss } with rare, discriminative English. All English items across near_synonyms and final_picks must be unique—no duplicates.
-8) Final list economy: in "final_picks", output only 3–5 unglossed English headwords, starting with core_pick. If loanword.origin === "loanword", append " (loanword)" ONLY to the first item.
+8) Final list economy: in "final_picks", output only 3-5 unglossed English headwords, starting with core_pick. If loanword.origin === "loanword", append " (loanword)" ONLY to the first item.
 9) Loanword check: fill the loanword object (origin; if loanword, include source_language, source_form, and notes).
 10) Tone: uncommon-but-natural English; concise and precise.
 11) Call the provided function tool with a single argument object that matches its parameters exactly. Do not write prose.
 `.trim();
 
-/** 2) Function tool schema (strict) — This is the JSON you want back */
+const core_tools = [
+  {
+    type: 'function',
+    name: 'emit_nuance_map',
+    description: 'Emit a complete nuance-first mapping for a source-language term as strict JSON.',
+    parameters: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          core_pick: { type: 'string', description: 'Chosen English headword.' },
+          near_synonyms: {
+            type: 'array',
+            minItems: 5,
+            description: 'Candidate list BEFORE final picks; rare EN equivalents with gloss.',
+            items: {
+              type: 'object',
+              additionalProperties: false,
+              properties: {
+                src:   { type: 'string', description: 'Source-language near-synonym/candidate' },
+                en:    { type: 'string', description: 'Distinct English candidate (rare/discriminative)' },
+                gloss: { type: 'string', description: '1-line nuance that differentiates it' }
+              },
+              required: ['src','en','gloss']
+            }
+          },
+          final_picks: {
+            type: 'array',
+            minItems: 3,
+            maxItems: 5,
+            description: '3–5 unglossed headwords; first = core_pick (append " (loanword)" iff loanword).',
+            items: { type: 'string' }
+          }
+        },
+        required: [
+          'core_pick','near_synonyms','final_picks'
+        ]
+      }
+  }
+]
+
 const tools = [
   {
     type: 'function',
@@ -186,7 +167,7 @@ const tools = [
         additionalProperties: false,
         properties: {
           core_pick: { type: 'string', description: 'Chosen English headword.' },
-          rationale: { type: 'string', description: 'One–two sentences justifying the core pick.' },
+          rationale: { type: 'string', description: 'One-two sentences justifying the core pick.' },
           sense_map: {
             type: 'array',
             minItems: 3,
@@ -248,27 +229,57 @@ const tools = [
             type: 'array',
             minItems: 3,
             maxItems: 5,
-            description: '3–5 unglossed headwords; first = core_pick (append " (loanword)" iff loanword).',
+            description: '3-5 unglossed headwords; first = core_pick (append " (loanword)" iff loanword).',
             items: { type: 'string' }
           }
         },
         required: [
-          'core_pick','rationale','sense_map','near_synonyms',
-          'mini_examples','why_special','loanword','final_picks'
+          // Using all of these makes it slower
+          'core_pick','rationale','sense_map','near_synonyms', 'mini_examples','why_special','loanword','final_picks'
         ]
       }
   }
 ];
 
+
+
+// core fields + gpt4.1 2.5-4.2 sec
+// core fields + gpt5 low 17-20 sec
+// core fields + gpt5 medium 39-55 sec
+// core fields + gpt5 high 114 sec
+// core fields + gpt5 mini low 12-19 sec
+// core fields + gpt5 mini medium 29-42 sec
+// core fields + gpt5 mini high 150 sec
+// core fields + gpt5 nano low 4.2-11 sec
+// core fields + gpt5 nano medium 23-28 sec
+// core fields + gpt5 nano high 40-47 sec
+//
+// all fields + gpt4.1 6-10 sec
+// all fields + gpt5 low 15-25 sec
+// all fields + gpt5 medium 26-41 sec
+// all fields + gpt5 high 166s
+// all fields + gpt5 mini low 10-17 sec
+// all fields + gpt5 mini medium 37-61 sec
+// all fields + gpt5 mini high 115 sec
+// all fields + gpt5 nano low 5-11 sec
+// all fields + gpt5 nano medium 27-46 sec
+// all fields + gpt5 nano high 53-78 sec
+
 async function generateNuancedTranslation(term) {
+    const start = new Date();
   const completion = await openai.responses.create({
-    model: 'gpt-5-2025-08-07',
+    //model: 'gpt-5-2025-08-07',
+    //model: 'gpt-5-mini-2025-08-07',
+    //model: 'gpt-5-nano-2025-08-07',
+    //reasoning: { effort: "low" },
+    //
+    //non reasoning is faster lol
+    model: 'gpt-4.1-2025-04-14',
     input: [
       { role: 'system', content: SYSTEM_PROMPT },
       { role: 'user',   content: term },
     ],
-    reasoning: { effort: "low" },
-    tools,
+    core_tools,
     // Force exactly one call to our function tool; no parallel calls.
     tool_choice: { type: 'function', name: 'emit_nuance_map' },
     //tool_choice: { type: "function", function: { name: "emit_nuance_map" } },
@@ -281,6 +292,8 @@ async function generateNuancedTranslation(term) {
   
   const args = JSON.parse(functionCall.arguments);
   console.log(args);
+  const end = new Date();
+  console.log((end-start)/1000);
   return args;
 }
 
