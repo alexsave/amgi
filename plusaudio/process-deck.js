@@ -921,6 +921,7 @@ class DeckProcessor {
         this.state = new ProcessState(inputFile);
         this.fieldDetection = null;
         this.volumeReferenceData = null;
+        this.skipAudio = false;
         
         // Ensure directories exist
         if (!fs.existsSync(CONFIG.audioDir)) {
@@ -940,7 +941,9 @@ class DeckProcessor {
             console.log('');
             
             // Phase 1: Audio Generation
-            if (!this.state.state.audioGeneration.completed) {
+            if (this.skipAudio) {
+                console.log('⏭️ Skipping audio generation (requested)');
+            } else if (!this.state.state.audioGeneration.completed) {
                 await this.audioGenerationPhase();
             } else {
                 console.log('✅ Audio generation already completed, skipping...');
@@ -1191,6 +1194,7 @@ class DeckProcessor {
                 sourceZipfile.on("entry", async (entry) => {
                     if (entry.fileName === 'collection.anki21' || entry.fileName === 'collection.anki2') {
                         // Process the main database
+                        const collectionEntryName = entry.fileName;
                         sourceZipfile.openReadStream(entry, (err, readStream) => {
                             if (err) {
                                 reject(err);
@@ -1249,8 +1253,9 @@ class DeckProcessor {
                                         }
                                         
                                         if (audioInfo) {
-                                            const cardNumber = fields[4] || 'unknown';
-                                            const safeFilename = `${cardNumber}_gpt4o.mp3`;
+                                            // Use the generated audio's own unique filename (based on Korean text)
+                                            // to avoid massive duplication from reused card numbers
+                                            const safeFilename = audioInfo.filename;
                                             
                                             // Set audio reference in field 3
                                             fields[3] = `[sound:${safeFilename}]`;
@@ -1259,7 +1264,6 @@ class DeckProcessor {
                                             audioFilesToAdd.add({
                                                 oldFilename: audioInfo.filename,
                                                 newFilename: safeFilename,
-                                                cardNumber,
                                                 koreanText: audioInfo.koreanText
                                             });
                                             updatedCount++;
@@ -1306,7 +1310,7 @@ class DeckProcessor {
                                             const newDeckId = Date.now() + Math.floor(Math.random() * 100000);
                                             const newDeck = {
                                                 ...deck,
-                                                name: deck.name.replace(' (with Audio 2)', '').replace(' (Enhanced Audio)', '') + ' (with Audio 3)',
+                                                name: 'Korean Vocabulary by Evita (with Audio 3)',
                                                 id: newDeckId,
                                                 mod: Date.now()
                                             };
@@ -1328,7 +1332,7 @@ class DeckProcessor {
                                     const serialized = db.serialize();
                                     db.close();
                                     
-                                    outputZip.addBuffer(Buffer.from(serialized), 'collection.anki21');
+                                    outputZip.addBuffer(Buffer.from(serialized), collectionEntryName);
                                     sourceZipfile.readEntry();
                                     
                                 } catch (error) {
@@ -1358,14 +1362,24 @@ class DeckProcessor {
                                     // Start fresh if no existing media
                                 }
                                 
-                                // Add new audio files
+                                // Add new audio files with de-duplication by filename
                                 const existingIds = Object.keys(existingMedia).map(id => parseInt(id));
                                 let nextMediaId = existingIds.length > 0 ? Math.max(...existingIds) + 1 : 0;
                                 
                                 completeMediaMapping = { ...existingMedia };
+                                const filenameToId = new Map(Object.entries(existingMedia).map(([id, name]) => [name, id]));
+                                
                                 for (const audioFile of audioFilesToAdd) {
-                                    completeMediaMapping[nextMediaId] = audioFile.newFilename;
-                                    nextMediaId++;
+                                    const filename = audioFile.newFilename;
+                                    if (filenameToId.has(filename)) {
+                                        // Reuse existing media id for the same filename
+                                        const reuseId = filenameToId.get(filename);
+                                        completeMediaMapping[reuseId] = filename; // ensure mapping retains the filename
+                                    } else {
+                                        completeMediaMapping[nextMediaId] = filename;
+                                        filenameToId.set(filename, String(nextMediaId));
+                                        nextMediaId++;
+                                    }
                                 }
                                 
                                 const mediaBuffer = Buffer.from(JSON.stringify(completeMediaMapping));
@@ -1543,6 +1557,7 @@ Options:
   --help, -h           Show this help message
   --force-words="단어,단어2"  Comma-separated list of Korean words to force regenerate
   --max-notes=N        Maximum number of notes to process (for testing)
+  --skip-audio         Skip audio generation and just rebuild deck/media
 
 Examples:
   node process-deck.js "Korean Vocabulary.apkg"
@@ -1566,6 +1581,9 @@ Progress is saved continuously and the script can be resumed if interrupted.
         process.exit(1);
     }
     
+    // Parse skip audio
+    const skipAudio = args.includes('--skip-audio');
+
     // Parse force regenerate words option
     const forceWordsArg = args.find(arg => arg.startsWith('--force-words='));
     if (forceWordsArg) {
@@ -1588,6 +1606,7 @@ Progress is saved continuously and the script can be resumed if interrupted.
     
     try {
         const processor = new DeckProcessor(inputFile);
+        processor.skipAudio = skipAudio;
         processor.maxNotes = maxNotes; // Pass the limit to the processor
         await processor.process();
     } catch (error) {

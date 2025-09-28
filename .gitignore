@@ -37,3 +37,4 @@ server/audio
 plusaudio/audio/
 plusaudio/*.json
 **/*.apkg
+**/*.swp
