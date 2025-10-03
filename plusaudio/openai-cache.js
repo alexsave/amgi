@@ -22,98 +22,162 @@ function clone(obj) {
     return obj == null ? obj : JSON.parse(JSON.stringify(obj));
 }
 
-function parseFunctionCallArguments(raw) {
-    if (!raw) {
-        return {};
+function isLikelyJsonString(value) {
+    if (typeof value !== 'string') {
+        return false;
     }
-    if (typeof raw === 'string') {
-        try {
-            return JSON.parse(raw);
-        } catch (error) {
-            return {};
+    const trimmed = value.trim();
+    if (trimmed.length < 2) {
+        return false;
+    }
+    const start = trimmed[0];
+    const end = trimmed[trimmed.length - 1];
+    return (start === '{' && end === '}') || (start === '[' && end === ']');
+}
+
+function coerceValue(value) {
+    if (!isLikelyJsonString(value)) {
+        return value;
+    }
+    try {
+        return JSON.parse(value);
+    } catch (error) {
+        return value;
+    }
+}
+
+function parseSelector(selector) {
+    if (typeof selector !== 'string') {
+        return [];
+    }
+    return selector
+        .replace(/\[(\d+)\]/g, '.$1')
+        .split('.')
+        .map(part => part.trim())
+        .filter(Boolean)
+        .map(part => (/^\d+$/.test(part) ? Number(part) : part));
+}
+
+function buildSelectionTree(selectors) {
+    const root = {};
+    for (const selector of selectors) {
+        const path = parseSelector(selector);
+        if (path.length === 0) {
+            continue;
         }
-    }
-    if (typeof raw === 'object') {
-        return raw;
-    }
-    return {};
-}
-
-function mapFunctionCallOutput(source, transform) {
-    if (!source || !Array.isArray(source.output)) {
-        return { output: [] };
-    }
-
-    const output = source.output
-        .filter(item => item && item.type === 'function_call')
-        .map(item => {
-            const args = clone(parseFunctionCallArguments(item.arguments));
-            return transform(item, args);
-        })
-        .filter(Boolean);
-
-    return { output };
-}
-
-function setNested(target, path, value) {
-    const parts = path.split('.').filter(Boolean);
-    if (parts.length === 0) {
-        return;
-    }
-    let current = target;
-    for (let i = 0; i < parts.length - 1; i++) {
-        const part = parts[i];
-        if (!current[part] || typeof current[part] !== 'object') {
-            current[part] = {};
-        }
-        current = current[part];
-    }
-    current[parts[parts.length - 1]] = value;
-}
-
-function extractOutputSelection(source, selectors) {
-    const list = Array.isArray(selectors) ? selectors : [selectors];
-    return mapFunctionCallOutput(source, (call, args) => {
-        const parsedArgs = parseFunctionCallArguments(args);
-        const entry = {};
-        const ensureArgs = () => {
-            if (!entry.arguments) {
-                entry.arguments = {};
+        let node = root;
+        for (let i = 0; i < path.length; i++) {
+            const segment = path[i];
+            if (!Object.prototype.hasOwnProperty.call(node, segment)) {
+                node[segment] = {};
             }
-            return entry.arguments;
-        };
+            if (i === path.length - 1) {
+                node[segment].__copy = true;
+            }
+            node = node[segment];
+        }
+    }
+    return root;
+}
 
-        for (const selector of list) {
-            const parts = selector.split('.').slice(1); // remove leading 'output'
-            if (parts.length === 0) continue;
+function extractValue(source, selectorNode) {
+    if (source === undefined) {
+        return undefined;
+    }
 
-            if (parts[0] === 'arguments') {
-                const argPath = parts.slice(1).join('.');
-                const value = argPath ? getByPath(parsedArgs, argPath) : clone(parsedArgs);
-                if (value !== undefined && value !== null) {
-                    if (!argPath) {
-                        entry.arguments = clone(value);
-                    } else {
-                        setNested(ensureArgs(), argPath, value);
-                    }
-                }
+    const keys = Object.keys(selectorNode).filter(key => key !== '__copy');
+    const hasCopy = !!selectorNode.__copy;
+
+    let materialized = source;
+    if (hasCopy || keys.length > 0) {
+        materialized = coerceValue(source);
+    }
+
+    if (Array.isArray(materialized)) {
+        const numericSelectors = [];
+        const structuralSelectors = [];
+
+        for (const key of keys) {
+            const index = Number(key);
+            if (!Number.isNaN(index) && (typeof key === 'number' || key === index.toString())) {
+                numericSelectors.push({ key, index });
             } else {
-                const callPath = parts.join('.');
-                const value = getByPath(call, callPath);
-                if (value !== undefined && value !== null) {
-                    setNested(entry, callPath, value);
+                structuralSelectors.push(key);
+            }
+        }
+
+        if (numericSelectors.length === 0 && structuralSelectors.length > 0) {
+            const elementSelectors = {};
+            for (const key of structuralSelectors) {
+                elementSelectors[key] = selectorNode[key];
+            }
+
+            const collected = [];
+            let hasCollected = false;
+            for (let i = 0; i < materialized.length; i++) {
+                const extracted = extractValue(materialized[i], elementSelectors);
+                if (extracted !== undefined) {
+                    collected[i] = extracted;
+                    hasCollected = true;
+                }
+            }
+
+            if (hasCollected) {
+                return collected;
+            }
+
+            return hasCopy ? clone(materialized) : undefined;
+        }
+
+        const result = [];
+        let hasResult = false;
+
+        for (const { key, index } of numericSelectors) {
+            if (index >= 0 && index < materialized.length) {
+                const extracted = extractValue(materialized[index], selectorNode[key]);
+                if (extracted !== undefined) {
+                    result[index] = extracted;
+                    hasResult = true;
                 }
             }
         }
 
-        if (Object.keys(entry).length === 0) {
-            return null;
+        if (hasResult) {
+            return result;
         }
-        if (entry.arguments && Object.keys(entry.arguments).length === 0) {
-            delete entry.arguments;
+
+        return hasCopy ? clone(materialized) : undefined;
+    }
+
+    if (keys.length === 0) {
+        return hasCopy ? clone(materialized) : undefined;
+    }
+
+    if (materialized === null || typeof materialized !== 'object') {
+        return hasCopy ? clone(materialized) : undefined;
+    }
+
+    const result = {};
+    for (const key of keys) {
+        const extracted = extractValue(materialized[key], selectorNode[key]);
+        if (extracted !== undefined) {
+            result[key] = extracted;
         }
-        return entry;
-    });
+    }
+
+    if (Object.keys(result).length === 0) {
+        return hasCopy ? clone(materialized) : undefined;
+    }
+
+    if (hasCopy) {
+        const merged = clone(materialized);
+        for (const [key, value] of Object.entries(result)) {
+            merged[key] = value;
+        }
+        return merged;
+    }
+
+    return result;
 }
 
 function extractBySpec(data, selection) {
@@ -121,88 +185,30 @@ function extractBySpec(data, selection) {
         return data ?? null;
     }
 
-    const visit = (source, spec) => {
-        if (spec === true) {
-            return source;
-        }
+    const stack = Array.isArray(selection) ? [...selection] : [selection];
+    const normalized = [];
 
-        if (source == null) {
-            return undefined;
-        }
-
-        if (typeof spec === 'string') {
-            if (spec.startsWith('output.')) {
-                return extractOutputSelection(source, spec);
-            }
-            return getByPath(source, spec);
-        }
-
-        if (Array.isArray(spec)) {
-            const outputSelectors = spec.filter(selector => typeof selector === 'string' && selector.startsWith('output.'));
-            if (outputSelectors.length === spec.length && outputSelectors.length > 0) {
-                return extractOutputSelection(source, spec);
-            }
-
-            return spec
-                .map(selector => visit(source, selector))
-                .filter(value => value !== undefined);
-        }
-
-        if (typeof spec === 'object') {
-            if (Array.isArray(source)) {
-                const mapped = source
-                    .map(item => visit(item, spec))
-                    .filter(value => value !== undefined);
-                return mapped.length > 0 ? mapped : undefined;
-            }
-
-            const result = {};
-            for (const [key, childSpec] of Object.entries(spec)) {
-                const value = visit(source[key], childSpec);
-                if (value !== undefined) {
-                    result[key] = value;
-                }
-            }
-            return Object.keys(result).length > 0 ? result : undefined;
-        }
-
-        return undefined;
-    };
-
-    const extracted = visit(data, selection);
-    return extracted === undefined ? null : extracted;
-}
-
-function getByPath(source, pathSpec) {
-    if (!pathSpec || !pathSpec.trim()) {
-        return source;
-    }
-    const parts = pathSpec
-        .replace(/\[(\d+)\]/g, '.$1')
-        .split('.')
-        .map(part => part.trim())
-        .filter(Boolean);
-
-    let current = source;
-    for (const part of parts) {
-        if (current == null) {
-            return undefined;
-        }
+    while (stack.length > 0) {
+        const current = stack.pop();
         if (Array.isArray(current)) {
-            const index = Number(part);
-            if (Number.isNaN(index) || index < 0 || index >= current.length) {
-                return undefined;
-            }
-            current = current[index];
-        } else {
-            if (part === 'arguments' && current.arguments !== undefined) {
-                current = parseFunctionCallArguments(current.arguments);
-            } else {
-                current = current[part];
+            stack.push(...current);
+            continue;
+        }
+        if (typeof current === 'string') {
+            const trimmed = current.trim();
+            if (trimmed) {
+                normalized.push(trimmed);
             }
         }
     }
-    return current;
+
+    if (normalized.length === 0) {
+        return data ?? null;
+    }
+
+    const tree = buildSelectionTree(normalized);
+    const extracted = extractValue(data, tree);
+    return extracted === undefined ? null : extracted;
 }
 
 function makeCacheKey(method, payload) {
@@ -304,14 +310,6 @@ class OpenAICache {
                 if (raw && raw.trim().length > 0) {
                     const parsed = JSON.parse(raw);
                     const { cache } = migrateCache(parsed);
-                    if (false) {
-                        try {
-                            ensureDirSync(this.cacheFilePath);
-                            fs.writeFileSync(this.cacheFilePath, serializeCache(cache));
-                        } catch (error) {
-                            console.error('⚠️ Failed to migrate OpenAI cache:', error.message);
-                        }
-                    }
                     return cache;
                 }
             }
@@ -460,11 +458,8 @@ function migrateCache(existing) {
 }
 
 module.exports = {
-    OpenAICache,
-    getSharedOpenAICache,
-    cachedOpenAICall,
-    cachedChatCompletion,
     cachedResponsesCreate,
-    stableStringify
+    cachedChatCompletion,
+    getSharedOpenAICache,
 };
 

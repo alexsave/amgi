@@ -65,39 +65,6 @@ function parseFunctionArguments(raw) {
     return {};
 }
 
-function mapFunctionCallOutput(response, transform) {
-    if (!response || !Array.isArray(response.output)) {
-        return { output: [] };
-    }
-    const output = response.output
-        .filter(item => item && item.type === 'function_call')
-        .map(item => {
-            const args = parseFunctionArguments(item.arguments);
-            return transform(item, args);
-        })
-        .filter(Boolean);
-    return { output };
-}
-
-const NUANCE_SYSTEM_PROMPT = `
-You are a multilingual lexicographer that creates Anki card-ready English definitions optimized for disambiguation and memory.
-Detect the input language automatically and proceed without clarification. Treat conversational speech, fiction, news, academic texts, and slang equally.
-
-Rules (obey strictly):
-1) Headword choice: select a specific, low-frequency English lemma capturing the word's distinctive nuance. If a common English word is clearly the best translation and no plausible near-synonym could replace it, use that common word.
-2) If a generic word is unavoidable, qualify it precisely (e.g., "thick (layered)", "cool (invigorating)").
-3) Verbs must appear in infinitive form with a leading "to " (e.g., "to eat"). Adjectives whose natural gloss is copular must begin with "to be " (e.g., "to be hungry").
-4) Contrastive focus: clearly state what this word encodes that near-neighbors do not.
-5) Collocations-first: provide 3-6 high-signal source-language collocations → best-fit EN renderings (use domain terms when apt).
-6) Register & valence: highlight formality/tone/affect when relevant.
-7) Polysemy: split only when meanings diverge significantly—avoid shallow or purely syntactic splits.
-8) Candidate list BEFORE final picks: provide ≥5 near-synonyms/candidates as { src → en + gloss } with rare, discriminative English. All English items across near_synonyms and final_picks must be unique—no duplicates.
-9) Final list economy: in "final_picks", output only 3-5 unglossed English headwords, starting with core_pick. Append " (loanword)" only when the *Korean source word* is a loanword.
-10) Loanword check: fill the loanword object (origin; if loanword, include source_language, source_form, and notes).
-11) Tone: uncommon-but-natural English; concise and precise.
-12) Call the provided function tool with a single argument object that matches its parameters exactly. Do not write prose.
-`.trim();
-
 const TRANSLATION_TOOL_COMMON_PROPERTIES = {
           core_pick: { type: 'string', description: 'Chosen English headword.' },
           rationale: { type: 'string', description: 'One-two sentences justifying the core pick.' },
@@ -174,12 +141,6 @@ const BASE_TRANSLATION_PARAMETERS = {
     required: ['core_pick','near_synonyms','final_picks']
 };
 
-const FULL_TRANSLATION_PARAMETERS = {
-    type: 'object',
-    additionalProperties: false,
-    properties: TRANSLATION_TOOL_COMMON_PROPERTIES,
-    required: ['core_pick','rationale','sense_map','near_synonyms','mini_examples','why_special','loanword','final_picks']
-};
 
 const GROUP_DISAMBIGUATION_PARAMETERS = {
     type: 'object',
@@ -219,15 +180,6 @@ const BASE_TRANSLATION_TOOLS = [
     }
 ];
 
-const DISAMBIGUATION_TOOLS = [
-    {
-        type: 'function',
-        name: 'emit_nuance_map',
-        description: 'Emit a nuanced translation mapping for a source-language term as strict JSON.',
-        parameters: FULL_TRANSLATION_PARAMETERS
-    }
-];
-
 const GROUP_DISAMBIGUATION_TOOLS = [
     {
         type: 'function',
@@ -245,12 +197,6 @@ Ensure verbs are in infinitive form with a leading "to ". Adjectives that transl
 ReturnONLY the function call specified.
 `.trim();
 
-const DISAMBIGUATION_SYSTEM_PROMPT = `
-You are a multilingual lexicographer refining English translations to avoid collisions with existing flashcard entries.
-You will be given the Korean term and the English core_pick previously generated, along with information about which term already uses that English word.
-Provide an alternative English rendering that preserves nuance while differentiating from the provided collision, keeping verbs in infinitive form with leading "to ".
-Return ONLY the function call specified.
-`.trim();
 const GROUP_DISAMBIGUATION_SYSTEM_PROMPT = `
 You are a multilingual lexicographer resolving translation collisions for Korean flashcard headwords.
 Detect the input language automatically and proceed without clarification. Treat conversational speech, fiction, news, academic texts, and slang equally.
@@ -278,10 +224,6 @@ const BASE_TRANSLATION_INSTRUCTIONS = `
 Output an English translation that native speakers would use most naturally in everyday contexts. Do not deliberately choose rare or unusual vocabulary.
 `.trim();
 
-const DISAMBIGUATION_INSTRUCTIONS = `
-The previously generated English term conflicts with another Korean word. Provide an alternative that differentiates them clearly while staying natural.
-`.trim();
-
 const GROUP_DISAMBIGUATION_INSTRUCTIONS = `
 Differentiate each Korean word in this collision group with a unique, natural English core_pick.
 Preserve nuance relative to the brief context provided and avoid any English headwords already used elsewhere in the deck.
@@ -305,7 +247,11 @@ async function generateTranslationWithTool(term, { openaiClient, model, systemPr
     };
 
     const completion = await cachedResponsesCreate(client, cache, payload, {
-        select: ['output.arguments.core_pick', 'output.type', 'output.name']
+        select: [
+            'output[0].type',
+            'output[0].name',
+            'output[0].arguments.core_pick'
+        ]
     });
     console.log(JSON.stringify(completion));
 
@@ -401,152 +347,6 @@ function detectFieldIndexesFromModels(models, options = {}) {
     return result;
 }
 
-async function generateNuancedTranslation(term, options = {}) {
-    const client = options.openai || getDefaultOpenAIClient();
-    const model = options.model || 'gpt-4.1-2025-04-14';
-    const additionalUserMessages = Array.isArray(options.additionalUserMessages)
-        ? options.additionalUserMessages
-        : [];
-
-    if (!term || !term.trim()) {
-        throw new Error('Term is required to generate nuanced translation');
-    }
-
-    const start = Date.now();
-    const responseCache = getOpenAICache(options.cachePath);
-    const payload = {
-        model: model,
-        input: [
-            { role: 'system', content: NUANCE_SYSTEM_PROMPT },
-            { role: 'user', content: term },
-            ...additionalUserMessages
-        ],
-        tools: BASE_TRANSLATION_TOOLS, // Changed from tools to BASE_TRANSLATION_TOOLS
-        tool_choice: { type: 'function', name: 'emit_base_translation' }, // Changed from tool_choice to emit_base_translation
-        parallel_tool_calls: false
-    };
-
-    const completion = await cachedResponsesCreate(client, responseCache, payload, { select: 'output.arguments' });
-
-    const functionCall = Array.isArray(completion?.output)
-        ? completion.output.find(item => item.type === 'function_call' && item.name === 'emit_base_translation')
-        : null;
-
-    if (!functionCall || !functionCall.arguments) {
-        throw new Error('Nuance response missing emit_nuance_map payload');
-    }
-
-    let parsed;
-    try {
-        parsed = JSON.parse(functionCall.arguments);
-    } catch (error) {
-        throw new Error(`Failed to parse nuance response: ${error.message}`);
-    }
-
-    if (!parsed || typeof parsed.core_pick !== 'string' || !parsed.core_pick.trim()) {
-        throw new Error('Nuance response missing core_pick');
-    }
-
-    const elapsedMs = Date.now() - start;
-
-    return {
-        result: parsed,
-        metadata: {
-            model,
-            elapsedMs
-        }
-    };
-}
-
-async function getOrGenerateNuance(term, cache, options = {}) {
-    const openaiCache = cache || new Map();
-    const cachedEntry = !options.force ? openaiCache.get(term) : null;
-
-    if (cachedEntry && cachedEntry.core_pick) {
-        return {
-            result: cachedEntry,
-            metadata: cachedEntry.model ? { model: cachedEntry.model } : {},
-            fromCache: true
-        };
-    }
-
-    const openaiClient = options.openai;
-    let { result: baseResult, metadata: baseMetadata } = await generateTranslationWithTool(term, {
-        openaiClient,
-        model: options.model,
-        systemPrompt: BASE_TRANSLATION_SYSTEM_PROMPT,
-        instructions: BASE_TRANSLATION_INSTRUCTIONS,
-        tools: BASE_TRANSLATION_TOOLS
-    });
-
-    let finalResult = baseResult;
-    let finalMetadata = baseMetadata;
-    const seenCorePicks = new Set();
-    if (finalResult?.core_pick) {
-        seenCorePicks.add(finalResult.core_pick.toLowerCase());
-    }
-
-    if (options.detectCollision) {
-        const maxAttempts = options.maxDisambiguationAttempts || 5;
-        let attempts = 0;
-        let collision = options.detectCollision(finalResult.core_pick, term);
-
-        while (collision && attempts < maxAttempts) {
-            attempts++;
-            const forbidden = Array.from(seenCorePicks)
-                .map(entry => `"${entry}"`)
-                .join(', ');
-
-            const disambiguation = await generateTranslationWithTool(term, {
-                openaiClient,
-                model: options.model,
-                systemPrompt: DISAMBIGUATION_SYSTEM_PROMPT,
-                instructions: DISAMBIGUATION_INSTRUCTIONS,
-                tools: DISAMBIGUATION_TOOLS,
-                additionalMessages: [
-                    {
-                        role: 'user',
-                        content: `${collision} already uses "${finalResult.core_pick}". Provide a different natural English translation for ${term} that avoids: ${forbidden}.`
-                    }
-                ]
-            });
-
-            finalResult = disambiguation.result;
-            finalMetadata = disambiguation.metadata;
-
-            if (finalResult?.core_pick) {
-                seenCorePicks.add(finalResult.core_pick.toLowerCase());
-            }
-
-            collision = options.detectCollision(finalResult.core_pick, term);
-        }
-    }
-
-    if (options.detectCollision && options.detectCollision(finalResult.core_pick, term)) {
-        console.warn(`⚠️ Collision persists for ${term} with core pick "${finalResult.core_pick}"`);
-    }
-
-    if (cache) {
-        cache.set(term, {
-            core_pick: finalResult.core_pick,
-            final_picks: Array.isArray(finalResult.final_picks) ? finalResult.final_picks.slice(0, 5) : [],
-            model: finalMetadata?.model || null
-        });
-    }
-
-    const stored = cache ? cache.get(term) : {
-        core_pick: finalResult.core_pick,
-        final_picks: Array.isArray(finalResult.final_picks) ? finalResult.final_picks.slice(0, 5) : [],
-        model: finalMetadata?.model || null
-    };
-
-    return {
-        result: stored,
-        metadata: stored.model ? { model: stored.model } : {},
-        fromCache: false
-    };
-}
-
 async function getBaseTranslation(term, options = {}) {
     const { result, metadata } = await generateTranslationWithTool(term, {
         openaiClient: options.openai,
@@ -579,7 +379,9 @@ async function disambiguateGroupTranslations(groupTerms, { openai, model, existi
         parallel_tool_calls: false
     };
 
-    const completion = await cachedResponsesCreate(client, cache, payload, { select: 'output.arguments.assignments' });
+    const completion = await cachedResponsesCreate(client, cache, payload, {
+        select: ['output[0].arguments.assignments']
+    });
 
     const functionCall = Array.isArray(completion?.output)
         ? completion.output.find(item => item.type === 'function_call' && item.name === GROUP_DISAMBIGUATION_TOOLS[0].name)
@@ -760,44 +562,6 @@ async function resolveCollisions(translations, options = {}) {
     return { translations: normalizedMap, collisions: collisions.map(({ terms }) => terms) };
 }
 
-function splitEnglish(text) {
-    if (!text) return [];
-    return text
-        .replace(/<\/?div>|<br>|to\ |be\ |\ the\ |\ a\ |[;()]/g, ' ')
-    .trim()
-        .split(/\s+/);
-}
-
-function loadCollisionMap(filePath) {
-    try {
-        if (fs.existsSync(filePath)) {
-            const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-            if (Array.isArray(data)) {
-                return data;
-            }
-            if (data && typeof data === 'object') {
-                return [data];
-            }
-        }
-    } catch (error) {
-        console.log('⚠️ Could not load collision cache, starting fresh');
-    }
-    return [];
-}
-
-function saveCollisionMap(filePath, phases) {
-    try {
-        const dir = nodePath.dirname(filePath);
-        if (dir && dir !== '.' && !fs.existsSync(dir)) {
-            fs.mkdirSync(dir, { recursive: true });
-        }
-        const content = JSON.stringify(phases, null, 2);
-        fs.writeFileSync(filePath, content);
-    } catch (error) {
-        console.log('⚠️ Could not save collision cache:', error.message);
-    }
-}
-
 function applyCollisionMap(translations, map) {
     Object.entries(map).forEach(([english, mapping]) => {
         Object.entries(mapping).forEach(([korean, corePick]) => {
@@ -832,37 +596,9 @@ function collisionMapsEqual(a, b) {
     return true;
 }
 
-if (require.main === module) {
-    (async () => {
-        const term = process.argv.slice(2).join(' ').trim();
-        if (!term) {
-            console.error('Usage: node unique-words.js <term>');
-            process.exit(1);
-        }
-
-        try {
-            const cache = new Map();
-            const { result, fromCache } = await getOrGenerateNuance(term, cache, {});
-            console.log(JSON.stringify({ fromCache, ...result }, null, 2));
-        } catch (error) {
-            console.error('Nuance generation failed:', error.message);
-            process.exit(1);
-        }
-    })();
-}
-
 module.exports = {
-    //BASE_TRANSLATION_TOOLS,
-    GROUP_DISAMBIGUATION_TOOLS,
-    NUANCE_SYSTEM_PROMPT,
-    generateNuancedTranslation,
-    getOrGenerateNuance,
     getBaseTranslation,
     resolveCollisions,
-    splitEnglish,
     detectFieldIndexesFromModels,
-    loadCollisionMap,
-    saveCollisionMap,
     applyCollisionMap,
-    collisionMapsEqual
 };

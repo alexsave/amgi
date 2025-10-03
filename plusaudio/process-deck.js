@@ -9,7 +9,7 @@ const OpenAI = require('openai');
 const dotenv = require('dotenv');
 const { exec } = require('child_process');
 const { promisify } = require('util');
-const { getBaseTranslation, resolveCollisions, detectFieldIndexesFromModels, loadCollisionMap, saveCollisionMap, applyCollisionMap } = require('./unique-words');
+const { getBaseTranslation, resolveCollisions, detectFieldIndexesFromModels, applyCollisionMap } = require('./unique-words');
 const { getSharedOpenAICache, cachedChatCompletion } = require('./openai-cache');
 
 dotenv.config({ path: '../.env' });
@@ -29,9 +29,6 @@ const CONFIG = {
     voiceStatsFile: 'voice_performance_stats.json', // Voice performance tracking
     mismatchCacheFile: 'korean_mismatch_cache.json',
     skipListFile: 'korean_generation_skip_list.json',
-    nuanceCacheFile: 'korean_nuance_cache.json',
-    baseTranslationCacheFile: 'korean_base_translation.json',
-    collisionCacheFile: 'korean_collision_cache.json',
     
     // Audio generation settings
     maxVoicesPerWord: 10,
@@ -921,84 +918,6 @@ Determine which field contains the target/foreign language and which contains th
     return JSON.parse(toolCall.function.arguments);
 }
 
-async function ensureNuanceForNote(note, fieldIndexes, nuanceCache, openaiClient, stats, options = {}) {
-    const fields = note.flds.split('\x1f');
-    const koreanIdx = fieldIndexes?.targetLangIndex ?? fieldIndexes?.koreanIdx ?? -1;
-    const englishIdx = fieldIndexes?.knownLangIndex ?? fieldIndexes?.englishIdx ?? -1;
-
-    if (koreanIdx < 0 || englishIdx < 0 || koreanIdx >= fields.length || englishIdx >= fields.length) {
-        return { updated: false, reason: 'invalid_field_indexes' };
-    }
-
-    const koreanText = (fields[koreanIdx] || '').trim();
-    const englishText = (fields[englishIdx] || '').trim();
-
-    if (!koreanText || !englishText) {
-        return { updated: false, reason: 'missing_text' };
-    }
-
-    let baselineEnglish = englishText;
-    if (englishText.includes('<br>')) {
-        const parts = englishText.split('<br>');
-        const remainder = parts.slice(1).join('<br>').trim();
-        if (remainder.length > 0) {
-            baselineEnglish = remainder;
-        }
-    }
-
-    try {
-        const detectCollision = options.detectCollision
-            ? (corePick, currentTerm) => options.detectCollision(corePick, koreanText)
-            : undefined;
-
-        const nuance = await getOrGenerateNuance(koreanText, nuanceCache, {
-            openai: openaiClient,
-            detectCollision,
-            model: options.model,
-            force: options.force
-        });
-        const corePick = nuance?.result?.core_pick?.trim();
-
-        if (!corePick) {
-            return { updated: false, reason: 'missing_core_pick' };
-        }
-
-        const newEnglishValue = `${corePick}<br>${baselineEnglish}`;
-        if (fields[englishIdx] === newEnglishValue) {
-            return { updated: false, reason: 'already_updated', corePick };
-        }
-
-        fields[englishIdx] = newEnglishValue;
-        const updatedFlds = fields.join('\x1f');
-
-        return {
-            updated: true,
-            updatedFlds,
-            corePick,
-            metadata: nuance?.metadata || {}
-        };
-    } catch (error) {
-        reuseMapSetFailure(nuanceCache, koreanText, error);
-        if (stats) {
-            stats.errorCount++;
-        }
-        console.log(`⚠️ Nuance generation failed for "${koreanText}": ${error.message}`);
-        return { updated: false, reason: 'error', error };
-    }
-}
-
-function reuseMapSetFailure(cache, key, error) {
-    if (!cache) {
-        return;
-    }
-    cache.set(key, {
-        core_pick: null,
-        final_picks: [],
-        model: null,
-        error: error?.message ?? 'unknown'
-    });
-}
-
 // Main processing phases
 class DeckProcessor {
     constructor(inputFile) {
@@ -1008,7 +927,6 @@ class DeckProcessor {
         this.skipAudio = false;
         this.nuanceCache = new Map();
         this.baseTranslationCache = new Map();
-        this.collisionCachePath = CONFIG.collisionCacheFile;
         this.fieldIndexes = null;
         
         // Ensure directories exist
@@ -1291,306 +1209,6 @@ class DeckProcessor {
         });
     }
 
-    async nuanceGenerationPhase() {
-        console.log('\n=== 📚 PHASE 1: NUANCED TRANSLATION GENERATION ===');
-        this.state.touchPhase('nuance_generation');
-
-        const computeCollisionGroups = (translationMap) => {
-            const groups = new Map();
-            for (const [korean, data] of translationMap.entries()) {
-                const english = data?.core_pick?.trim().toLowerCase();
-                if (!english) continue;
-                if (!groups.has(english)) {
-                    groups.set(english, []);
-                }
-                groups.get(english).push(korean);
-            }
-            return Array.from(groups.values()).filter(list => list.length > 1);
-        };
-
-        return new Promise((resolve, reject) => {
-            yauzl.open(this.state.inputFile, { lazyEntries: true }, async (err, zipfile) => {
-                if (err) {
-                    reject(err);
-                    return;
-                }
-
-                zipfile.readEntry();
-                zipfile.on('entry', (entry) => {
-                    if (entry.fileName === 'collection.anki21' || entry.fileName === 'collection.anki2') {
-                        zipfile.openReadStream(entry, async (err, readStream) => {
-                            if (err) {
-                                reject(err);
-                                return;
-                            }
-
-                            const chunks = [];
-                            readStream.on('data', chunk => chunks.push(chunk));
-                            readStream.on('end', async () => {
-                                try {
-                                    const buffer = Buffer.concat(chunks);
-                                    const db = new Database(buffer);
-
-                                    await this.ensureFieldDetection(db);
-
-                                    const notes = db.prepare('SELECT id, flds FROM notes ORDER BY id').all();
-                                    if (!Array.isArray(notes) || notes.length === 0) {
-                                        console.log('ℹ️ No notes found for nuance generation');
-                                        this.state.nuanceGeneration.completed = true;
-                                        this.state.save();
-                                        db.close();
-                                        resolve();
-                                        return;
-                                    }
-
-                                    const totalNotes = notes.length;
-                                    this.state.nuanceGeneration.totalNotes = totalNotes;
-                                    this.state.nuanceGeneration.processedCount = 0;
-
-                                    const baseTranslations = new Map();
-                                    let errorCount = 0;
-
-                                    for (let i = 0; i < notes.length; i++) {
-                                        const note = notes[i];
-                                        const fields = note.flds.split('\x1f');
-                                        const koreanIdx = this.fieldDetection?.targetLangIndex ?? -1;
-                                        const koreanText = koreanIdx >= 0 ? (fields[koreanIdx] || '').trim() : '';
-
-                                        if (!koreanText) {
-                                            continue;
-                                        }
-
-                                        let translationEntry = null;
-                                        const cached = this.nuanceCache.get(koreanText);
-                                        if (cached && cached.core_pick) {
-                                            translationEntry = {
-                                                core_pick: cached.core_pick,
-                                                final_picks: Array.isArray(cached.final_picks) ? cached.final_picks : [],
-                                                model: cached.model || null
-                                            };
-                                        } else {
-                                            try {
-                                                const baseTranslation = await getBaseTranslation(koreanText, { openai });
-                                                translationEntry = {
-                                                    core_pick: baseTranslation.core_pick,
-                                                    final_picks: Array.isArray(baseTranslation.final_picks) ? baseTranslation.final_picks : [],
-                                                    model: baseTranslation.metadata?.model || null
-                                                };
-                                                this.baseTranslationCache.set(koreanText, translationEntry);
-                                            } catch (error) {
-                                                errorCount++;
-                                                console.log(`⚠️ Base translation failed for "${koreanText}": ${error.message}`);
-                                                translationEntry = null;
-                                            }
-                                        }
-
-                                        if (translationEntry && translationEntry.core_pick) {
-                                            baseTranslations.set(koreanText, translationEntry);
-                                        } else {
-                                            errorCount++;
-                                        }
-
-                                        this.state.nuanceGeneration.processedCount = i + 1;
-                                        this.state.nuanceGeneration.errorCount = errorCount;
-
-                                        if ((i + 1) % 25 === 0) {
-                                            this.state.save();
-                                            console.log(`💾 Base translation progress saved (${i + 1}/${totalNotes})`);
-                                        }
-                                    }
-
-                                    let collisions = computeCollisionGroups(baseTranslations);
-                                    let iteration = 0;
-                                    const maxIterations = 6;
-
-                                    while (collisions.length > 0 && iteration < maxIterations) {
-                                        iteration++;
-                                        console.log(`🔄 Resolving ${collisions.length} translation collision group(s) (pass ${iteration})`);
-
-                                        for (const groupTerms of collisions) {
-                                            const existingEnglish = [];
-                                            for (const [korean, data] of baseTranslations.entries()) {
-                                                if (!data?.core_pick) continue;
-                                                if (groupTerms.includes(korean)) continue;
-                                                existingEnglish.push(data.core_pick.toLowerCase());
-                                            }
-
-                                            const currentTranslations = new Map();
-                                            groupTerms.forEach(term => {
-                                                currentTranslations.set(term, baseTranslations.get(term));
-                                            });
-
-                                            try {
-                                                const disambiguated = await disambiguateGroupTranslations(groupTerms, {
-                                                    openai,
-                                                    model: null,
-                                                    currentTranslations,
-                                                    existingEnglish
-                                                });
-
-                                                disambiguated.forEach(item => {
-                                                    baseTranslations.set(item.korean, {
-                                                        core_pick: item.core_pick,
-                                                        final_picks: Array.isArray(item.final_picks) ? item.final_picks : [],
-                                                        model: item.model || null
-                                                    });
-                                                });
-                                            } catch (error) {
-                                                errorCount++;
-                                                console.log(`⚠️ Group disambiguation failed for [${groupTerms.join(', ')}]: ${error.message}`);
-                                            }
-                                        }
-
-                                        collisions = computeCollisionGroups(baseTranslations);
-                                    }
-
-                                    if (collisions.length > 0) {
-                                        console.log('⚠️ Unable to resolve all collisions after multiple attempts:', collisions);
-                                    }
-
-                                    const updateStmt = db.prepare('UPDATE notes SET flds = ?, id = ?, guid = ? WHERE id = ?');
-                                    const updateCardsStmt = db.prepare('UPDATE cards SET nid = ? WHERE nid = ?');
-                                    const englishCorePickMap = new Map();
-                                    const sampleOutputs = [];
-                                    let updatedCount = 0;
-
-                                    let idCounter = Date.now() * 1000;
-                                    const generateNewId = () => ++idCounter;
-                                    const generateNewGuid = () => {
-                                        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-                                        let result = '';
-                                        for (let i = 0; i < 10; i++) {
-                                            result += chars.charAt(Math.floor(Math.random() * chars.length));
-                                        }
-                                        return result;
-                                    };
-
-                                    for (const note of notes) {
-                                        const fields = note.flds.split('\x1f');
-                                        const koreanIdx = this.fieldDetection?.targetLangIndex ?? -1;
-                                        const englishIdx = this.fieldDetection?.knownLangIndex ?? -1;
-
-                                        const koreanText = koreanIdx >= 0 ? (fields[koreanIdx] || '').trim() : '';
-                                        if (!koreanText) {
-                                            continue;
-                                        }
-
-                                        const translationEntry = baseTranslations.get(koreanText);
-                                        if (!translationEntry || !translationEntry.core_pick) {
-                                            continue;
-                                        }
-
-                                        let baselineEnglish = englishIdx >= 0 ? (fields[englishIdx] || '').trim() : '';
-                                        if (baselineEnglish.includes('<br>')) {
-                                            const parts = baselineEnglish.split('<br>');
-                                            const remainder = parts.slice(1).join('<br>').trim();
-                                            if (remainder.length > 0) {
-                                                baselineEnglish = remainder;
-                                            }
-                                        }
-
-                                        if (englishIdx >= 0) {
-                                            fields[englishIdx] = `${translationEntry.core_pick}<br>${baselineEnglish}`;
-                                        }
-
-                                        const newId = generateNewId();
-                                        const newGuid = generateNewGuid();
-
-                                        updateStmt.run(fields.join('\x1f'), newId, newGuid, note.id);
-                                        updateCardsStmt.run(newId, note.id);
-
-                                        englishCorePickMap.set(translationEntry.core_pick.toLowerCase(), koreanText);
-                                        this.nuanceCache.set(koreanText, translationEntry);
-
-                                        updatedCount++;
-                                        if (sampleOutputs.length < 5) {
-                                            sampleOutputs.push({
-                                                korean: koreanText,
-                                                corePick: translationEntry.core_pick,
-                                                english: fields[englishIdx]
-                                            });
-                                        }
-                                    }
-
-                                    this.state.nuanceGeneration.updatedCount = updatedCount;
-                                    this.state.nuanceGeneration.errorCount = errorCount;
-                                    this.state.nuanceGeneration.processedCount = totalNotes;
-                                    this.state.nuanceGeneration.completed = true;
-                                    this.state.save();
-
-                                    console.log(`✅ Nuance generation complete: Updated ${updatedCount} notes, Errors: ${errorCount}`);
-                                    if (sampleOutputs.length > 0) {
-                                        console.log('\n🔍 Sample nuanced translations:');
-                                        sampleOutputs.forEach((entry, idx) => {
-                                            console.log(`   ${idx + 1}. Korean: ${entry.korean}`);
-                                            console.log(`      Core pick: ${entry.corePick}`);
-                                            console.log(`      English: ${entry.english}`);
-                                        });
-                                    } else {
-                                        console.log('ℹ️ No sample nuanced translations collected.');
-                                    }
-
-                                    this.nuanceCache = baseTranslations;
-
-                                    const serialized = db.serialize();
-                                    db.close();
-
-                                    const writer = new yazl.ZipFile();
-                                    const tempZipPath = path.join(CONFIG.tempDir, `nuance_phase_${Date.now()}.apkg`);
-                                    const writeStream = fs.createWriteStream(tempZipPath);
-                                    writer.outputStream.pipe(writeStream);
-                                    writer.addBuffer(Buffer.from(serialized), entry.fileName);
-
-                                    const pendingEntries = [];
-
-                                    zipfile.on('entry', otherEntry => {
-                                        if (otherEntry.fileName === entry.fileName) {
-                                            return;
-                                        }
-                                        pendingEntries.push(otherEntry);
-                                    });
-
-                                    zipfile.on('end', () => {
-                                        const processNext = () => {
-                                            const next = pendingEntries.shift();
-                                            if (!next) {
-                                                writer.end();
-                                                return;
-                                            }
-                                            zipfile.openReadStream(next, (readErr, stream) => {
-                                                if (readErr) {
-                                                    reject(readErr);
-                                                    return;
-                                                }
-                                                writer.addReadStream(stream, next.fileName, () => {
-                                                    processNext();
-                                                });
-                                            });
-                                        };
-
-                                    processNext();
-                                    });
-
-                                    writeStream.on('close', () => {
-                                        fs.renameSync(tempZipPath, this.state.inputFile);
-                                        resolve();
-                                    });
-                                } catch (error) {
-                                    reject(error);
-                                }
-                            });
-                        });
-                    } else {
-                        zipfile.readEntry();
-                    }
-                });
-
-                zipfile.on('end', () => {
-                });
-            });
-        });
-    }
-    
     async deckCreationPhase() {
         console.log('\n=== 📦 PHASE 2: DECK CREATION ===');
         this.state.touchPhase('deck_creation');
@@ -2101,7 +1719,7 @@ class DeckProcessor {
 
         try {
             const translations = new Map(Object.entries(Object.fromEntries(this.baseTranslationCache)));
-            const collisionPhases = loadCollisionMap(this.collisionCachePath);
+            const collisionPhases = [];
             const currentPhaseMap = {};
 
             console.log(`   ℹ️ Loaded ${collisionPhases.length} collision phase(s) from cache`);
@@ -2148,7 +1766,6 @@ class DeckProcessor {
 
                         const updatedGroups = Object.values(collisionPhases[info.iteration - 1]).length;
                         if (updatedGroups % 5 === 0) {
-                            saveCollisionMap(this.collisionCachePath, collisionPhases);
                             this.state.save();
                             console.log(`💾 Collision resolution progress saved after phase ${info.iteration}, group ${updatedGroups}`);
                         }
@@ -2161,13 +1778,11 @@ class DeckProcessor {
                             ...existingPhase,
                             ...phaseMap
                         };
-                        saveCollisionMap(this.collisionCachePath, collisionPhases);
                     }
                     console.log(`   🔍 Remaining collisions after pass ${iteration}: ${remaining}`);
                 }
             });
 
-            saveCollisionMap(this.collisionCachePath, collisionPhases);
 
             if (collisions && collisions.length > 0) {
                 console.log('⚠️ Unable to resolve all collisions:', collisions);
