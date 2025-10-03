@@ -9,14 +9,17 @@ const OpenAI = require('openai');
 const dotenv = require('dotenv');
 const { exec } = require('child_process');
 const { promisify } = require('util');
+const { getBaseTranslation, resolveCollisions, detectFieldIndexesFromModels, loadCollisionMap, saveCollisionMap, applyCollisionMap } = require('./unique-words');
+const { getSharedOpenAICache, cachedChatCompletion } = require('./openai-cache');
 
 dotenv.config({ path: '../.env' });
 const execAsync = promisify(exec);
 
-// Initialize OpenAI client
+// Initialize OpenAI client with caching layer
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY || process.env.OPENAI_KEY
 });
+const openaiCache = getSharedOpenAICache(path.resolve(__dirname, 'openai_response_cache.json'));
 
 // Configuration
 const CONFIG = {
@@ -26,12 +29,16 @@ const CONFIG = {
     voiceStatsFile: 'voice_performance_stats.json', // Voice performance tracking
     mismatchCacheFile: 'korean_mismatch_cache.json',
     skipListFile: 'korean_generation_skip_list.json',
+    nuanceCacheFile: 'korean_nuance_cache.json',
+    baseTranslationCacheFile: 'korean_base_translation.json',
+    collisionCacheFile: 'korean_collision_cache.json',
     
     // Audio generation settings
     maxVoicesPerWord: 10,
     maxAttemptsPerVoice: 2,
     audioValidationTimeout: 30000, // 30 seconds
     delayBetweenRequests: 500, // 0.5 seconds
+    delayBetweenNuanceRequests: 100, // 0.1 seconds
     
     // Regeneration settings
     ignoreExistingGptAudio: true, // Set to true to regenerate all GPT audio regardless of existing files
@@ -304,71 +311,65 @@ class VoiceStats {
 // Global voice stats instance
 const voiceStats = new VoiceStats();
 
-// Progress state management
-class ProcessState {
+// Session state
+class ProcessorState {
     constructor(inputFile) {
         this.inputFile = inputFile;
         this.baseName = path.basename(inputFile, '.apkg');
-        this.outputFile = `${this.baseName.replace(' (with Audio 2)', '')} (with Audio 3).apkg`;
-        this.progressFile = `${this.baseName}_progress.json`;
+        this.outputFile = `${this.baseName}_out.apkg`;
         this.audioDir = CONFIG.audioDir;
-        
-        this.state = {
-            phase: 'init', // init, audio_generation, deck_creation, timestamp_fixing, complete
-            audioGeneration: {
-                completed: false,
-                totalNotes: 0,
-                processedCount: 0,
-                generatedCount: 0,
-                errorCount: 0,
-                results: []
-            },
-            deckCreation: {
-                completed: false,
-                notesUpdated: 0,
-                audioFilesAdded: 0
-            },
-            timestampFixing: {
-                completed: false,
-                reviewsUpdated: 0
-            },
-            startTime: null,
-            lastSaveTime: null
+
+        this.phase = 'init';
+        this.audioGeneration = {
+            completed: false,
+            totalNotes: 0,
+            processedCount: 0,
+            generatedCount: 0,
+            errorCount: 0,
+            results: []
         };
-        
-        this.loadProgress();
+        this.deckCreation = {
+            completed: false,
+            notesUpdated: 0,
+            audioFilesAdded: 0
+        };
+        this.baseTranslation = {
+            completed: false,
+            processedCount: 0,
+            errorCount: 0
+        };
+        this.collisionResolution = {
+            completed: false,
+            passes: 0,
+            unresolvedCollisions: 0,
+            currentPassGroupsResolved: 0,
+            totalGroupsResolved: 0
+        };
+        this.nuanceGeneration = {
+            completed: false,
+            totalNotes: 0,
+            processedCount: 0,
+            updatedCount: 0,
+            errorCount: 0
+        };
+        this.timestampFixing = {
+            completed: false,
+            reviewsUpdated: 0
+        };
+        this.startTime = new Date().toISOString();
+        this.lastUpdate = this.startTime;
     }
-    
-    loadProgress() {
-        try {
-            if (fs.existsSync(this.progressFile)) {
-                const saved = JSON.parse(fs.readFileSync(this.progressFile, 'utf8'));
-                if (saved.inputFile === this.inputFile) {
-                    this.state = { ...this.state, ...saved };
-                    console.log(`📄 Loaded previous progress from ${this.progressFile}`);
-                    console.log(`   Last phase: ${this.state.phase}`);
-                    console.log(`   Audio generation: ${this.state.audioGeneration.processedCount}/${this.state.audioGeneration.totalNotes} processed`);
-                }
-            }
-        } catch (error) {
-            console.log('⚠️ Could not load previous progress, starting fresh');
-        }
-    }
-    
-    save() {
-        try {
-            this.state.lastSaveTime = new Date().toISOString();
-            fs.writeFileSync(this.progressFile, JSON.stringify(this.state, null, 2));
-        } catch (error) {
-            console.error('⚠️ Could not save progress:', error.message);
-        }
-    }
-    
+
     canResumeFrom(phase) {
-        const phases = ['init', 'audio_generation', 'deck_creation', 'timestamp_fixing', 'complete'];
-        const currentIndex = phases.indexOf(this.state.phase);
+        const phases = ['init', 'base_translation', 'collision_resolution', 'audio_generation', 'deck_creation', 'timestamp_fixing', 'complete'];
+        const currentIndex = phases.indexOf(this.phase);
         const targetIndex = phases.indexOf(phase);
         return currentIndex >= targetIndex;
+    }
+
+    touchPhase(phase) {
+        this.phase = phase;
+        this.lastUpdate = new Date().toISOString();
     }
 }
 
@@ -473,7 +474,7 @@ async function sleep(ms) {
 // Korean phonological equivalence check
 async function checkKoreanPhonologicalEquivalence(expectedText, transcribedText) {
     try {
-        const response = await openai.chat.completions.create({
+        const payload = {
             model: "o4-mini-2025-04-16",
             messages: [
                 {
@@ -495,7 +496,8 @@ Use the function to report whether they sound exactly the same.`
             ],
             tools: koreanPhonologyTools,
             tool_choice: { type: "function", function: { name: "check_korean_phonological_equivalence" } }
-        });
+        };
+        const response = await cachedChatCompletion(openai, openaiCache, payload);
 
         const toolCall = response.choices[0].message.tool_calls?.[0];
         if (!toolCall) {
@@ -527,7 +529,7 @@ async function validateAudioBuffer(audioBuffer, expectedText, language = 'ko') {
     try {
         const audioBase64 = audioBuffer.toString('base64');
 
-        const transcriptionResponse = await openai.chat.completions.create({
+        const payload = {
             model: "gpt-4o-audio-preview",
             modalities: ["text", "audio"],
             audio: { voice: "alloy", format: "mp3" },
@@ -552,7 +554,8 @@ async function validateAudioBuffer(audioBuffer, expectedText, language = 'ko') {
             ],
             tools: audioTranscriptionTools,
             tool_choice: { type: "function", function: { name: "transcribe_audio" } }
-        });
+        };
+        const transcriptionResponse = await cachedChatCompletion(openai, openaiCache, payload);
 
         const toolCall = transcriptionResponse.choices[0].message.tool_calls?.[0];
         if (!toolCall) {
@@ -636,7 +639,7 @@ async function validateAudioBuffer(audioBuffer, expectedText, language = 'ko') {
 // Audio generation with GPT-4o-audio-preview
 async function generateAudioWithGPT4oAudio(text, voice) {
     try {
-        const response = await openai.chat.completions.create({
+        const payload = {
             model: "gpt-4o-audio-preview",
             modalities: ["text", "audio"],
             audio: { voice: voice, format: "mp3" },
@@ -650,7 +653,8 @@ async function generateAudioWithGPT4oAudio(text, voice) {
                     content: `Pronounce this Korean word once: ${text}`
                 }
             ]
-        });
+        };
+        const response = await cachedChatCompletion(openai, openaiCache, payload);
 
         if (response.choices[0].message.audio?.data) {
             const audioBase64 = response.choices[0].message.audio.data;
@@ -886,7 +890,7 @@ async function generateKoreanAudioForNote(koreanText) {
 async function detectFieldLanguages(sampleNote) {
     const fields = sampleNote.flds.split('\x1f');
     
-    const response = await openai.chat.completions.create({
+    const payload = {
         model: "gpt-4o",
         messages: [
             {
@@ -905,7 +909,9 @@ Determine which field contains the target/foreign language and which contains th
         ],
         tools: fieldDetectionTools,
         tool_choice: { type: "function", function: { name: "detect_field_languages" } }
-    });
+    };
+
+    const response = await cachedChatCompletion(openai, openaiCache, payload);
 
     const toolCall = response.choices[0].message.tool_calls?.[0];
     if (!toolCall) {
@@ -915,13 +921,95 @@ Determine which field contains the target/foreign language and which contains th
     return JSON.parse(toolCall.function.arguments);
 }
 
+async function ensureNuanceForNote(note, fieldIndexes, nuanceCache, openaiClient, stats, options = {}) {
+    const fields = note.flds.split('\x1f');
+    const koreanIdx = fieldIndexes?.targetLangIndex ?? fieldIndexes?.koreanIdx ?? -1;
+    const englishIdx = fieldIndexes?.knownLangIndex ?? fieldIndexes?.englishIdx ?? -1;
+
+    if (koreanIdx < 0 || englishIdx < 0 || koreanIdx >= fields.length || englishIdx >= fields.length) {
+        return { updated: false, reason: 'invalid_field_indexes' };
+    }
+
+    const koreanText = (fields[koreanIdx] || '').trim();
+    const englishText = (fields[englishIdx] || '').trim();
+
+    if (!koreanText || !englishText) {
+        return { updated: false, reason: 'missing_text' };
+    }
+
+    let baselineEnglish = englishText;
+    if (englishText.includes('<br>')) {
+        const parts = englishText.split('<br>');
+        const remainder = parts.slice(1).join('<br>').trim();
+        if (remainder.length > 0) {
+            baselineEnglish = remainder;
+        }
+    }
+
+    try {
+        const detectCollision = options.detectCollision
+            ? (corePick, currentTerm) => options.detectCollision(corePick, koreanText)
+            : undefined;
+
+        const nuance = await getOrGenerateNuance(koreanText, nuanceCache, {
+            openai: openaiClient,
+            detectCollision,
+            model: options.model,
+            force: options.force
+        });
+        const corePick = nuance?.result?.core_pick?.trim();
+
+        if (!corePick) {
+            return { updated: false, reason: 'missing_core_pick' };
+        }
+
+        const newEnglishValue = `${corePick}<br>${baselineEnglish}`;
+        if (fields[englishIdx] === newEnglishValue) {
+            return { updated: false, reason: 'already_updated', corePick };
+        }
+
+        fields[englishIdx] = newEnglishValue;
+        const updatedFlds = fields.join('\x1f');
+
+        return {
+            updated: true,
+            updatedFlds,
+            corePick,
+            metadata: nuance?.metadata || {}
+        };
+    } catch (error) {
+        reuseMapSetFailure(nuanceCache, koreanText, error);
+        if (stats) {
+            stats.errorCount++;
+        }
+        console.log(`⚠️ Nuance generation failed for "${koreanText}": ${error.message}`);
+        return { updated: false, reason: 'error', error };
+    }
+}
+
+function reuseMapSetFailure(cache, key, error) {
+    if (!cache) {
+        return;
+    }
+    cache.set(key, {
+        core_pick: null,
+        final_picks: [],
+        model: null,
+        error: error?.message ?? 'unknown'
+    });
+}
+
 // Main processing phases
 class DeckProcessor {
     constructor(inputFile) {
-        this.state = new ProcessState(inputFile);
+        this.state = new ProcessorState(inputFile);
         this.fieldDetection = null;
         this.volumeReferenceData = null;
         this.skipAudio = false;
+        this.nuanceCache = new Map();
+        this.baseTranslationCache = new Map();
+        this.collisionCachePath = CONFIG.collisionCacheFile;
+        this.fieldIndexes = null;
         
         // Ensure directories exist
         if (!fs.existsSync(CONFIG.audioDir)) {
@@ -931,41 +1019,104 @@ class DeckProcessor {
             fs.mkdirSync(CONFIG.tempDir, { recursive: true });
         }
     }
+
+    async ensureFieldDetection(db) {
+        if (this.fieldDetection) {
+            return;
+        }
+
+        console.log('🔍 Analyzing deck structure...');
+
+        let detection = null;
+
+        try {
+            const colRow = db.prepare("SELECT models FROM col LIMIT 1").get();
+            if (colRow?.models) {
+                const models = JSON.parse(colRow.models);
+                const indexes = detectFieldIndexesFromModels(models);
+                if (indexes && indexes.koreanIdx !== -1 && indexes.englishIdx !== -1) {
+                    detection = {
+                        targetLangIndex: indexes.koreanIdx,
+                        targetLanguage: indexes.koreanFieldName || 'Korean',
+                        knownLangIndex: indexes.englishIdx,
+                        knownLanguage: indexes.englishFieldName || 'English',
+                        modelId: indexes.modelId,
+                        modelName: indexes.modelName
+                    };
+                }
+            }
+        } catch (error) {
+            console.log('⚠️ Unable to parse models for deterministic field detection, attempting fallback');
+        }
+
+        if (!detection) {
+            const sampleNote = db.prepare("SELECT flds FROM notes LIMIT 1").get();
+            if (!sampleNote) {
+                throw new Error('Deck contains no notes to analyze fields');
+            }
+            detection = await detectFieldLanguages(sampleNote);
+        }
+
+        if (!detection || detection.targetLangIndex === undefined || detection.knownLangIndex === undefined) {
+            throw new Error('Unable to determine Korean/English field indexes');
+        }
+
+        this.fieldDetection = detection;
+
+        console.log(`   Target Language: ${this.fieldDetection.targetLanguage} (Field ${this.fieldDetection.targetLangIndex})`);
+        console.log(`   Known Language: ${this.fieldDetection.knownLanguage} (Field ${this.fieldDetection.knownLangIndex})`);
+        if (this.fieldDetection.modelName) {
+            console.log(`   Model: ${this.fieldDetection.modelName} (${this.fieldDetection.modelId})`);
+        }
+    }
     
     async process() {
         try {
-            this.state.state.startTime = new Date().toISOString();
+            this.state.touchPhase('init');
             console.log('=== KOREAN DECK AUDIO PROCESSOR ===');
             console.log(`Input: ${this.state.inputFile}`);
             console.log(`Output: ${this.state.outputFile}`);
             console.log('');
             
-            // Phase 1: Audio Generation
+            // Phase 1: Base Translation Generation
+            if (!this.state.baseTranslation.completed) {
+                await this.baseTranslationPhase();
+            } else {
+                console.log('✅ Base translation already completed, skipping...');
+            }
+
+            // Phase 2: Collision Resolution
+            if (!this.state.collisionResolution.completed) {
+                await this.collisionResolutionPhase();
+            } else {
+                console.log('✅ Collision resolution already completed, skipping...');
+            }
+
+            // Phase 3: Audio Generation
             if (this.skipAudio) {
                 console.log('⏭️ Skipping audio generation (requested)');
-            } else if (!this.state.state.audioGeneration.completed) {
+            } else if (!this.state.audioGeneration.completed) {
                 await this.audioGenerationPhase();
             } else {
                 console.log('✅ Audio generation already completed, skipping...');
             }
-            
-            // Phase 2: Deck Creation
-            if (!this.state.state.deckCreation.completed) {
+
+            // Phase 4: Deck Creation
+            if (!this.state.deckCreation.completed) {
                 await this.deckCreationPhase();
             } else {
                 console.log('✅ Deck creation already completed, skipping...');
             }
             
-            // Phase 3: Timestamp Fixing
-            if (!this.state.state.timestampFixing.completed) {
+            // Phase 5: Timestamp Fixing
+            if (!this.state.timestampFixing.completed) {
                 await this.timestampFixingPhase();
             } else {
                 console.log('✅ Timestamp fixing already completed, skipping...');
             }
             
-            this.state.state.phase = 'complete';
-            this.state.save();
-            
+            this.state.touchPhase('complete');
+
             console.log('\n=== 🎉 PROCESSING COMPLETE ===');
             console.log(`📂 Output file: ${this.state.outputFile}`);
             const stats = fs.statSync(this.state.outputFile);
@@ -977,14 +1128,13 @@ class DeckProcessor {
             
         } catch (error) {
             console.error('\n❌ Processing failed:', error.message);
-            this.state.save();
             throw error;
         }
     }
     
     async audioGenerationPhase() {
         console.log('\n=== 🎵 PHASE 1: AUDIO GENERATION ===');
-        this.state.state.phase = 'audio_generation';
+        this.state.touchPhase('audio_generation');
         
         return new Promise((resolve, reject) => {
             yauzl.open(this.state.inputFile, { lazyEntries: true }, async (err, zipfile) => {
@@ -1011,11 +1161,7 @@ class DeckProcessor {
                                     
                                     // Get sample note for field detection if not done already
                                     if (!this.fieldDetection) {
-                                        console.log('🔍 Analyzing deck structure...');
-                                        const sampleNote = db.prepare("SELECT flds FROM notes LIMIT 1").get();
-                                        this.fieldDetection = await detectFieldLanguages(sampleNote);
-                                        console.log(`   Target Language: ${this.fieldDetection.targetLanguage} (Field ${this.fieldDetection.targetLangIndex})`);
-                                        console.log(`   Known Language: ${this.fieldDetection.knownLanguage} (Field ${this.fieldDetection.knownLangIndex})`);
+                                        await this.ensureFieldDetection(db);
                                     }
                                     
                                     // Get all notes that need regeneration
@@ -1046,12 +1192,12 @@ class DeckProcessor {
                                         console.log(`🔢 Limited to first ${this.maxNotes} notes for testing`);
                                     }
                                     
-                                    this.state.state.audioGeneration.totalNotes = notesToRegenerate.length;
+                                    this.state.audioGeneration.totalNotes = notesToRegenerate.length;
                                     console.log(`🎯 Found ${notesToRegenerate.length} notes that need audio generation`);
                                     
                                     if (notesToRegenerate.length === 0) {
                                         console.log('✅ No audio generation needed');
-                                        this.state.state.audioGeneration.completed = true;
+                                        this.state.audioGeneration.completed = true;
                                         this.state.save();
                                         db.close();
                                         resolve();
@@ -1063,7 +1209,7 @@ class DeckProcessor {
                             
                                     
                                     // Process notes for audio generation
-                                    const startIndex = this.state.state.audioGeneration.processedCount;
+                                    const startIndex = this.state.audioGeneration.processedCount;
                                     for (let i = startIndex; i < notesToRegenerate.length; i++) {
                                         const note = notesToRegenerate[i];
                                         
@@ -1071,25 +1217,24 @@ class DeckProcessor {
                                             console.log(`\n--- Note ${i + 1}/${notesToRegenerate.length}: "${note.koreanText}" ---`);
                                             const result = await generateKoreanAudioForNote(note.koreanText);
                                             
-                                            this.state.state.audioGeneration.results.push(result);
-                                            this.state.state.audioGeneration.processedCount = i + 1;
+                                            this.state.audioGeneration.results.push(result);
+                                            this.state.audioGeneration.processedCount = i + 1;
                                             
                                             if (result.status === 'generated') {
-                                                this.state.state.audioGeneration.generatedCount++;
+                                                this.state.audioGeneration.generatedCount++;
                                                 console.log(`✅ Generated: ${result.filename}`);
                                             } else if (result.status === 'exists') {
                                                 console.log(`⏭️ Already exists: ${result.filename}`);
                                             } else if (result.status === 'skipped') {
                                                 console.log(`⏭️ Skipped (in skip list): ${note.koreanText}`);
                                             } else {
-                                                this.state.state.audioGeneration.errorCount++;
+                                                this.state.audioGeneration.errorCount++;
                                                 console.log(`❌ Failed: ${result.error}`);
                                             }
                                             
                                             // Save progress every 10 notes
                                             if ((i + 1) % 10 === 0) {
-                                                this.state.save();
-                                                console.log(`💾 Progress saved (${i + 1}/${notesToRegenerate.length})`);
+                                                console.log(`💾 Progress: ${i + 1}/${notesToRegenerate.length}`);
                                             }
                                             
                                             // Add delay after successful generation
@@ -1106,8 +1251,8 @@ class DeckProcessor {
                                                 return;
                                             }
                                             
-                                            this.state.state.audioGeneration.errorCount++;
-                                            this.state.state.audioGeneration.results.push({
+                                            this.state.audioGeneration.errorCount++;
+                                            this.state.audioGeneration.results.push({
                                                 filename: null,
                                                 status: 'error',
                                                 error: error.message,
@@ -1116,12 +1261,12 @@ class DeckProcessor {
                                         }
                                     }
                                     
-                                    this.state.state.audioGeneration.completed = true;
+                                    this.state.audioGeneration.completed = true;
                                     this.state.save();
                                     
                                     console.log(`\n✅ Audio generation complete:`);
-                                    console.log(`   Generated: ${this.state.state.audioGeneration.generatedCount}`);
-                                    console.log(`   Errors: ${this.state.state.audioGeneration.errorCount}`);
+                                    console.log(`   Generated: ${this.state.audioGeneration.generatedCount}`);
+                                    console.log(`   Errors: ${this.state.audioGeneration.errorCount}`);
                                     
                                     // Display voice performance summary
                                     voiceStats.printSummary();
@@ -1145,10 +1290,310 @@ class DeckProcessor {
             });
         });
     }
+
+    async nuanceGenerationPhase() {
+        console.log('\n=== 📚 PHASE 1: NUANCED TRANSLATION GENERATION ===');
+        this.state.touchPhase('nuance_generation');
+
+        const computeCollisionGroups = (translationMap) => {
+            const groups = new Map();
+            for (const [korean, data] of translationMap.entries()) {
+                const english = data?.core_pick?.trim().toLowerCase();
+                if (!english) continue;
+                if (!groups.has(english)) {
+                    groups.set(english, []);
+                }
+                groups.get(english).push(korean);
+            }
+            return Array.from(groups.values()).filter(list => list.length > 1);
+        };
+
+        return new Promise((resolve, reject) => {
+            yauzl.open(this.state.inputFile, { lazyEntries: true }, async (err, zipfile) => {
+                if (err) {
+                    reject(err);
+                    return;
+                }
+
+                zipfile.readEntry();
+                zipfile.on('entry', (entry) => {
+                    if (entry.fileName === 'collection.anki21' || entry.fileName === 'collection.anki2') {
+                        zipfile.openReadStream(entry, async (err, readStream) => {
+                            if (err) {
+                                reject(err);
+                                return;
+                            }
+
+                            const chunks = [];
+                            readStream.on('data', chunk => chunks.push(chunk));
+                            readStream.on('end', async () => {
+                                try {
+                                    const buffer = Buffer.concat(chunks);
+                                    const db = new Database(buffer);
+
+                                    await this.ensureFieldDetection(db);
+
+                                    const notes = db.prepare('SELECT id, flds FROM notes ORDER BY id').all();
+                                    if (!Array.isArray(notes) || notes.length === 0) {
+                                        console.log('ℹ️ No notes found for nuance generation');
+                                        this.state.nuanceGeneration.completed = true;
+                                        this.state.save();
+                                        db.close();
+                                        resolve();
+                                        return;
+                                    }
+
+                                    const totalNotes = notes.length;
+                                    this.state.nuanceGeneration.totalNotes = totalNotes;
+                                    this.state.nuanceGeneration.processedCount = 0;
+
+                                    const baseTranslations = new Map();
+                                    let errorCount = 0;
+
+                                    for (let i = 0; i < notes.length; i++) {
+                                        const note = notes[i];
+                                        const fields = note.flds.split('\x1f');
+                                        const koreanIdx = this.fieldDetection?.targetLangIndex ?? -1;
+                                        const koreanText = koreanIdx >= 0 ? (fields[koreanIdx] || '').trim() : '';
+
+                                        if (!koreanText) {
+                                            continue;
+                                        }
+
+                                        let translationEntry = null;
+                                        const cached = this.nuanceCache.get(koreanText);
+                                        if (cached && cached.core_pick) {
+                                            translationEntry = {
+                                                core_pick: cached.core_pick,
+                                                final_picks: Array.isArray(cached.final_picks) ? cached.final_picks : [],
+                                                model: cached.model || null
+                                            };
+                                        } else {
+                                            try {
+                                                const baseTranslation = await getBaseTranslation(koreanText, { openai });
+                                                translationEntry = {
+                                                    core_pick: baseTranslation.core_pick,
+                                                    final_picks: Array.isArray(baseTranslation.final_picks) ? baseTranslation.final_picks : [],
+                                                    model: baseTranslation.metadata?.model || null
+                                                };
+                                                this.baseTranslationCache.set(koreanText, translationEntry);
+                                            } catch (error) {
+                                                errorCount++;
+                                                console.log(`⚠️ Base translation failed for "${koreanText}": ${error.message}`);
+                                                translationEntry = null;
+                                            }
+                                        }
+
+                                        if (translationEntry && translationEntry.core_pick) {
+                                            baseTranslations.set(koreanText, translationEntry);
+                                        } else {
+                                            errorCount++;
+                                        }
+
+                                        this.state.nuanceGeneration.processedCount = i + 1;
+                                        this.state.nuanceGeneration.errorCount = errorCount;
+
+                                        if ((i + 1) % 25 === 0) {
+                                            this.state.save();
+                                            console.log(`💾 Base translation progress saved (${i + 1}/${totalNotes})`);
+                                        }
+                                    }
+
+                                    let collisions = computeCollisionGroups(baseTranslations);
+                                    let iteration = 0;
+                                    const maxIterations = 6;
+
+                                    while (collisions.length > 0 && iteration < maxIterations) {
+                                        iteration++;
+                                        console.log(`🔄 Resolving ${collisions.length} translation collision group(s) (pass ${iteration})`);
+
+                                        for (const groupTerms of collisions) {
+                                            const existingEnglish = [];
+                                            for (const [korean, data] of baseTranslations.entries()) {
+                                                if (!data?.core_pick) continue;
+                                                if (groupTerms.includes(korean)) continue;
+                                                existingEnglish.push(data.core_pick.toLowerCase());
+                                            }
+
+                                            const currentTranslations = new Map();
+                                            groupTerms.forEach(term => {
+                                                currentTranslations.set(term, baseTranslations.get(term));
+                                            });
+
+                                            try {
+                                                const disambiguated = await disambiguateGroupTranslations(groupTerms, {
+                                                    openai,
+                                                    model: null,
+                                                    currentTranslations,
+                                                    existingEnglish
+                                                });
+
+                                                disambiguated.forEach(item => {
+                                                    baseTranslations.set(item.korean, {
+                                                        core_pick: item.core_pick,
+                                                        final_picks: Array.isArray(item.final_picks) ? item.final_picks : [],
+                                                        model: item.model || null
+                                                    });
+                                                });
+                                            } catch (error) {
+                                                errorCount++;
+                                                console.log(`⚠️ Group disambiguation failed for [${groupTerms.join(', ')}]: ${error.message}`);
+                                            }
+                                        }
+
+                                        collisions = computeCollisionGroups(baseTranslations);
+                                    }
+
+                                    if (collisions.length > 0) {
+                                        console.log('⚠️ Unable to resolve all collisions after multiple attempts:', collisions);
+                                    }
+
+                                    const updateStmt = db.prepare('UPDATE notes SET flds = ?, id = ?, guid = ? WHERE id = ?');
+                                    const updateCardsStmt = db.prepare('UPDATE cards SET nid = ? WHERE nid = ?');
+                                    const englishCorePickMap = new Map();
+                                    const sampleOutputs = [];
+                                    let updatedCount = 0;
+
+                                    let idCounter = Date.now() * 1000;
+                                    const generateNewId = () => ++idCounter;
+                                    const generateNewGuid = () => {
+                                        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+                                        let result = '';
+                                        for (let i = 0; i < 10; i++) {
+                                            result += chars.charAt(Math.floor(Math.random() * chars.length));
+                                        }
+                                        return result;
+                                    };
+
+                                    for (const note of notes) {
+                                        const fields = note.flds.split('\x1f');
+                                        const koreanIdx = this.fieldDetection?.targetLangIndex ?? -1;
+                                        const englishIdx = this.fieldDetection?.knownLangIndex ?? -1;
+
+                                        const koreanText = koreanIdx >= 0 ? (fields[koreanIdx] || '').trim() : '';
+                                        if (!koreanText) {
+                                            continue;
+                                        }
+
+                                        const translationEntry = baseTranslations.get(koreanText);
+                                        if (!translationEntry || !translationEntry.core_pick) {
+                                            continue;
+                                        }
+
+                                        let baselineEnglish = englishIdx >= 0 ? (fields[englishIdx] || '').trim() : '';
+                                        if (baselineEnglish.includes('<br>')) {
+                                            const parts = baselineEnglish.split('<br>');
+                                            const remainder = parts.slice(1).join('<br>').trim();
+                                            if (remainder.length > 0) {
+                                                baselineEnglish = remainder;
+                                            }
+                                        }
+
+                                        if (englishIdx >= 0) {
+                                            fields[englishIdx] = `${translationEntry.core_pick}<br>${baselineEnglish}`;
+                                        }
+
+                                        const newId = generateNewId();
+                                        const newGuid = generateNewGuid();
+
+                                        updateStmt.run(fields.join('\x1f'), newId, newGuid, note.id);
+                                        updateCardsStmt.run(newId, note.id);
+
+                                        englishCorePickMap.set(translationEntry.core_pick.toLowerCase(), koreanText);
+                                        this.nuanceCache.set(koreanText, translationEntry);
+
+                                        updatedCount++;
+                                        if (sampleOutputs.length < 5) {
+                                            sampleOutputs.push({
+                                                korean: koreanText,
+                                                corePick: translationEntry.core_pick,
+                                                english: fields[englishIdx]
+                                            });
+                                        }
+                                    }
+
+                                    this.state.nuanceGeneration.updatedCount = updatedCount;
+                                    this.state.nuanceGeneration.errorCount = errorCount;
+                                    this.state.nuanceGeneration.processedCount = totalNotes;
+                                    this.state.nuanceGeneration.completed = true;
+                                    this.state.save();
+
+                                    console.log(`✅ Nuance generation complete: Updated ${updatedCount} notes, Errors: ${errorCount}`);
+                                    if (sampleOutputs.length > 0) {
+                                        console.log('\n🔍 Sample nuanced translations:');
+                                        sampleOutputs.forEach((entry, idx) => {
+                                            console.log(`   ${idx + 1}. Korean: ${entry.korean}`);
+                                            console.log(`      Core pick: ${entry.corePick}`);
+                                            console.log(`      English: ${entry.english}`);
+                                        });
+                                    } else {
+                                        console.log('ℹ️ No sample nuanced translations collected.');
+                                    }
+
+                                    this.nuanceCache = baseTranslations;
+
+                                    const serialized = db.serialize();
+                                    db.close();
+
+                                    const writer = new yazl.ZipFile();
+                                    const tempZipPath = path.join(CONFIG.tempDir, `nuance_phase_${Date.now()}.apkg`);
+                                    const writeStream = fs.createWriteStream(tempZipPath);
+                                    writer.outputStream.pipe(writeStream);
+                                    writer.addBuffer(Buffer.from(serialized), entry.fileName);
+
+                                    const pendingEntries = [];
+
+                                    zipfile.on('entry', otherEntry => {
+                                        if (otherEntry.fileName === entry.fileName) {
+                                            return;
+                                        }
+                                        pendingEntries.push(otherEntry);
+                                    });
+
+                                    zipfile.on('end', () => {
+                                        const processNext = () => {
+                                            const next = pendingEntries.shift();
+                                            if (!next) {
+                                                writer.end();
+                                                return;
+                                            }
+                                            zipfile.openReadStream(next, (readErr, stream) => {
+                                                if (readErr) {
+                                                    reject(readErr);
+                                                    return;
+                                                }
+                                                writer.addReadStream(stream, next.fileName, () => {
+                                                    processNext();
+                                                });
+                                            });
+                                        };
+
+                                    processNext();
+                                    });
+
+                                    writeStream.on('close', () => {
+                                        fs.renameSync(tempZipPath, this.state.inputFile);
+                                        resolve();
+                                    });
+                                } catch (error) {
+                                    reject(error);
+                                }
+                            });
+                        });
+                    } else {
+                        zipfile.readEntry();
+                    }
+                });
+
+                zipfile.on('end', () => {
+                });
+            });
+        });
+    }
     
     async deckCreationPhase() {
         console.log('\n=== 📦 PHASE 2: DECK CREATION ===');
-        this.state.state.phase = 'deck_creation';
+        this.state.touchPhase('deck_creation');
         
         // Create temporary output file
         const tempOutputFile = `${this.state.baseName}_temp.apkg`;
@@ -1226,41 +1671,42 @@ class DeckProcessor {
                                     const notes = db.prepare("SELECT id, flds, guid FROM notes").all();
                                     const updateStmt = db.prepare("UPDATE notes SET flds = ?, id = ?, guid = ? WHERE id = ?");
                                     const updateCardsStmt = db.prepare("UPDATE cards SET nid = ? WHERE nid = ?");
-                                    
+
                                     let updatedCount = 0;
                                     const noteIdMapping = new Map();
-                                    
+
                                     for (const note of notes) {
                                         const oldId = note.id;
                                         const newId = generateNewId();
                                         const newGuid = generateNewGuid();
                                         noteIdMapping.set(oldId, newId);
-                                        
+
                                         const fields = note.flds.split('\x1f');
                                         let updatedFields = note.flds;
-                                        
-                                        // Find Korean text and add audio if available
-                                        let koreanText = null;
+                                        let fieldsDirty = false;
+
+                                        // Find Korean text (for audio matching) and add audio if available
+                                        let koreanTextForAudio = null;
                                         let audioInfo = null;
-                                        
+
                                         for (let i = 0; i < Math.min(3, fields.length); i++) {
                                             const fieldText = fields[i]?.trim();
                                             if (fieldText && audioMapping.has(fieldText)) {
-                                                koreanText = fieldText;
+                                                koreanTextForAudio = fieldText;
                                                 audioInfo = audioMapping.get(fieldText);
                                                 break;
                                             }
                                         }
-                                        
+
                                         if (audioInfo) {
                                             // Use the generated audio's own unique filename (based on Korean text)
                                             // to avoid massive duplication from reused card numbers
                                             const safeFilename = audioInfo.filename;
-                                            
+
                                             // Set audio reference in field 3
                                             fields[3] = `[sound:${safeFilename}]`;
-                                            updatedFields = fields.join('\x1f');
-                                            
+                                            fieldsDirty = true;
+
                                             audioFilesToAdd.add({
                                                 oldFilename: audioInfo.filename,
                                                 newFilename: safeFilename,
@@ -1268,7 +1714,11 @@ class DeckProcessor {
                                             });
                                             updatedCount++;
                                         }
-                                        
+
+                                        if (fieldsDirty) {
+                                            updatedFields = fields.join('\x1f');
+                                        }
+
                                         updateStmt.run(updatedFields, newId, newGuid, oldId);
                                         updateCardsStmt.run(newId, oldId);
                                     }
@@ -1295,37 +1745,37 @@ class DeckProcessor {
                                     // Update collection and deck metadata
                                     const newCollectionId = Date.now();
                                     const currentTime = Math.floor(Date.now() / 1000);
-                                    
+
                                     const updateColStmt = db.prepare("UPDATE col SET id = ?, mod = ?");
                                     updateColStmt.run(newCollectionId, currentTime);
-                                    
+
                                     // Update deck name and ID
                                     const deckStmt = db.prepare("SELECT decks FROM col");
                                     const deckData = deckStmt.get();
                                     if (deckData?.decks) {
                                         const decks = JSON.parse(deckData.decks);
                                         const newDecks = {};
-                                        
+
                                         for (const [deckId, deck] of Object.entries(decks)) {
                                             const newDeckId = Date.now() + Math.floor(Math.random() * 100000);
                                             const newDeck = {
                                                 ...deck,
-                                                name: 'Korean Vocabulary by Evita (with Audio 3)',
+                                                name: `${this.state.baseName} _ (nuanced translation)`,
                                                 id: newDeckId,
                                                 mod: Date.now()
                                             };
                                             newDecks[newDeckId] = newDeck;
-                                            
+
                                             // Update cards to reference new deck
                                             const updateCardDeckStmt = db.prepare("UPDATE cards SET did = ? WHERE did = ?");
                                             updateCardDeckStmt.run(newDeckId, parseInt(deckId));
                                         }
-                                        
+
                                         const updateDeckStmt = db.prepare("UPDATE col SET decks = ?");
                                         updateDeckStmt.run(JSON.stringify(newDecks));
                                     }
                                     
-                                    this.state.state.deckCreation.notesUpdated = updatedCount;
+                                    this.state.deckCreation.notesUpdated = updatedCount;
                                     console.log(`✅ Updated ${updatedCount} notes with audio references`);
                                     
                                     // Serialize database
@@ -1424,13 +1874,13 @@ class DeckProcessor {
                         }
                     }
                     
-                    this.state.state.deckCreation.audioFilesAdded = addedAudioCount;
+                    this.state.deckCreation.audioFilesAdded = addedAudioCount;
                     console.log(`🎵 Added ${addedAudioCount} audio files to deck`);
                     
                     outputZip.end();
                     
                     outputStream.on('close', () => {
-                        this.state.state.deckCreation.completed = true;
+                        this.state.deckCreation.completed = true;
                         this.state.save();
                         console.log('✅ Deck creation complete');
                         resolve(tempOutputFile);
@@ -1442,7 +1892,7 @@ class DeckProcessor {
     
     async timestampFixingPhase() {
         console.log('\n=== ⏰ PHASE 3: TIMESTAMP FIXING ===');
-        this.state.state.phase = 'timestamp_fixing';
+        this.state.touchPhase('timestamp_fixing');
         
         const tempFile = `${this.state.baseName}_temp.apkg`;
         
@@ -1493,7 +1943,7 @@ class DeckProcessor {
                                     const updateStmt = db.prepare("UPDATE revlog SET id = id + ?");
                                     const result = updateStmt.run(timeOffset);
                                     
-                                    this.state.state.timestampFixing.reviewsUpdated = result.changes;
+                                    this.state.timestampFixing.reviewsUpdated = result.changes;
                                 }
                                 
                                 // Update collection modification time
@@ -1532,7 +1982,7 @@ class DeckProcessor {
                             // Ignore cleanup errors
                         }
                         
-                        this.state.state.timestampFixing.completed = true;
+                        this.state.timestampFixing.completed = true;
                         this.state.save();
                         console.log('✅ Timestamp fixing complete');
                         resolve();
@@ -1540,6 +1990,217 @@ class DeckProcessor {
                 });
             });
         });
+    }
+
+    async baseTranslationPhase() {
+        console.log('\n=== 📝 PHASE 1: BASE TRANSLATION GENERATION ===');
+        this.state.touchPhase('base_translation');
+
+        const collectKoreanTerms = () => new Promise((resolve, reject) => {
+            yauzl.open(this.state.inputFile, { lazyEntries: true }, (err, zipfile) => {
+                if (err) {
+                    reject(err);
+                    return;
+                }
+
+                const terms = [];
+
+                zipfile.readEntry();
+                zipfile.on('entry', (entry) => {
+                    if (entry.fileName === 'collection.anki21' || entry.fileName === 'collection.anki2') {
+                        zipfile.openReadStream(entry, async (err, readStream) => {
+                            if (err) {
+                                reject(err);
+                                return;
+                            }
+
+                            const chunks = [];
+                            readStream.on('data', chunk => chunks.push(chunk));
+                            readStream.on('end', async () => {
+                                try {
+                                    const buffer = Buffer.concat(chunks);
+                                    const db = new Database(buffer);
+                                    await this.ensureFieldDetection(db);
+                                    const notes = db.prepare('SELECT flds FROM notes ORDER BY id').all();
+                                    const koreanIdx = this.fieldDetection?.targetLangIndex ?? -1;
+                                    notes.forEach(note => {
+                                        const fields = note.flds.split('\x1f');
+                                        const koreanText = koreanIdx >= 0 ? (fields[koreanIdx] || '').trim() : '';
+                                        if (koreanText) {
+                                            terms.push(koreanText);
+                                        }
+                                    });
+                                    db.close();
+                                    zipfile.close();
+                                    resolve(terms);
+                                } catch (error) {
+                                    reject(error);
+                                }
+                            });
+                        });
+                    } else {
+                        zipfile.readEntry();
+                    }
+                });
+            });
+        });
+
+        const terms = await collectKoreanTerms();
+        if (!terms || terms.length === 0) {
+            console.log('ℹ️ No Korean terms found for base translation');
+            this.state.baseTranslation.completed = true;
+            this.state.save();
+            return;
+        }
+
+        const total = terms.length;
+        let errorCount = 0;
+        let processed = 0;
+
+        for (const term of terms) {
+            processed++;
+            const cached = this.baseTranslationCache.get(term);
+            if (cached && cached.core_pick) {
+                console.log(`   ✅ (cache) ${term} → ${cached.core_pick}`);
+            } else {
+                try {
+                    const baseTranslation = await getBaseTranslation(term, { openai });
+                    this.baseTranslationCache.set(term, {
+                        core_pick: baseTranslation.core_pick,
+                        final_picks: baseTranslation.final_picks,
+                        model: baseTranslation.metadata?.model || null
+                    });
+                    console.log(`   ✨ ${term} → ${baseTranslation.core_pick}`);
+                } catch (error) {
+                    errorCount++;
+                    console.log(`   ⚠️ Base translation failed for "${term}": ${error.message}`);
+                    this.baseTranslationCache.set(term, {
+                        core_pick: null,
+                        final_picks: [],
+                        model: null,
+                        error: error.message
+                    });
+                }
+            }
+
+            this.state.baseTranslation.processedCount = processed;
+            this.state.baseTranslation.errorCount = errorCount;
+
+            if (processed % 25 === 0) {
+                console.log(`💾 Base translation progress (${processed}/${total})`);
+            }
+        }
+
+        this.state.baseTranslation.completed = true;
+        this.state.save();
+    }
+
+    async collisionResolutionPhase() {
+        console.log('\n=== 🔄 PHASE 2: COLLISION RESOLUTION ===');
+        this.state.touchPhase('collision_resolution');
+
+        try {
+            const translations = new Map(Object.entries(Object.fromEntries(this.baseTranslationCache)));
+            const collisionPhases = loadCollisionMap(this.collisionCachePath);
+            const currentPhaseMap = {};
+
+            console.log(`   ℹ️ Loaded ${collisionPhases.length} collision phase(s) from cache`);
+            const cachedGroupCount = collisionPhases.reduce((count, phase) => count + Object.keys(phase).length, 0);
+            console.log(`   ℹ️ Cached collision groups: ${cachedGroupCount}`);
+            collisionPhases.forEach((phase, idx) => {
+                Object.entries(phase).forEach(([english, mapping]) => {
+                    const formatted = Object.entries(mapping).map(([korean, corePick]) => `${korean} → ${corePick}`).join('; ');
+                    console.log(`      ✅ (cache phase ${idx + 1}) [${Object.keys(mapping).join(', ')}] shared "${english}" → ${formatted}`);
+                });
+            });
+
+            const { translations: resolved, collisions } = await resolveCollisions(translations, {
+                openai,
+                model: null,
+                collisionMap: collisionPhases,
+                currentTranslations: translations,
+                onInitialSummary: ({ totalEntries, normalizedEntries }) => {
+                    console.log(`   ℹ️ Collision summary: ${totalEntries} total entries, ${normalizedEntries} considered`);
+                },
+                onCollisionComputed: (groups) => {
+                    console.log(`   ℹ️ Collision groups computed: ${groups.length}`);
+                    groups.slice(0, 10).forEach((group, idx) => {
+                        console.log(`      • [${group.terms.join(', ')}] shares "${group.english}"`);
+                    });
+                    if (groups.length > 10) {
+                        console.log('      …');
+                    }
+                },
+                onIterationStart: (iteration, groups) => {
+                    console.log(`   🔁 Collision pass ${iteration}: ${groups.length} group(s)`);
+                },
+                onGroupResolved: (english, group, assignments, info) => {
+                    const before = group.join(', ');
+                    const after = assignments.map(item => `${item.korean} → ${item.core_pick}`).join('; ');
+                    const prefix = info?.cached ? `      ✅ (cache phase ${info.cachedPhase})` : info?.fallback ? `      ✅ (fallback phase ${info.iteration})` : `      ✅ (phase ${info.iteration})`;
+                    console.log(`${prefix} [${before}] shared "${english}" → ${after}`);
+                    if (!info?.cached) {
+                        if (!collisionPhases[info.iteration - 1]) collisionPhases[info.iteration - 1] = {};
+                        collisionPhases[info.iteration - 1][english] = collisionPhases[info.iteration - 1][english] || {};
+                        assignments.forEach(item => {
+                            collisionPhases[info.iteration - 1][english][item.korean] = item.core_pick;
+                        });
+
+                        const updatedGroups = Object.values(collisionPhases[info.iteration - 1]).length;
+                        if (updatedGroups % 5 === 0) {
+                            saveCollisionMap(this.collisionCachePath, collisionPhases);
+                            this.state.save();
+                            console.log(`💾 Collision resolution progress saved after phase ${info.iteration}, group ${updatedGroups}`);
+                        }
+                    }
+                },
+                onIterationEnd: (iteration, remaining, phaseMap) => {
+                    if (phaseMap && Object.keys(phaseMap).length > 0) {
+                        const existingPhase = collisionPhases[iteration - 1] || {};
+                        collisionPhases[iteration - 1] = {
+                            ...existingPhase,
+                            ...phaseMap
+                        };
+                        saveCollisionMap(this.collisionCachePath, collisionPhases);
+                    }
+                    console.log(`   🔍 Remaining collisions after pass ${iteration}: ${remaining}`);
+                }
+            });
+
+            saveCollisionMap(this.collisionCachePath, collisionPhases);
+
+            if (collisions && collisions.length > 0) {
+                console.log('⚠️ Unable to resolve all collisions:', collisions);
+                this.state.collisionResolution.unresolvedCollisions = collisions.length;
+            } else {
+                console.log('   🎉 No remaining collisions.');
+                this.state.collisionResolution.unresolvedCollisions = 0;
+            }
+
+            resolved.forEach((value, key) => {
+                const entry = value && value.core_pick ? {
+                    core_pick: value.core_pick,
+                    final_picks: Array.isArray(value.final_picks) ? value.final_picks : [],
+                    model: value.model || null
+                } : null;
+
+                if (entry) {
+                    this.baseTranslationCache.set(key, entry, { model: entry.model });
+                    this.nuanceCache.set(key, entry, { model: entry.model });
+                }
+            });
+
+            this.baseTranslationCache = new Map(this.baseTranslationCache);
+            this.nuanceCache = resolved;
+            this.state.collisionResolution.passes += 1;
+            this.state.collisionResolution.completed = collisions.length === 0;
+            this.state.save();
+        } catch (error) {
+            console.log('⚠️ Collision resolution failed:', error.message);
+            this.state.collisionResolution.completed = false;
+            this.state.save();
+            throw error;
+        }
     }
 }
 
