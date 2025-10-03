@@ -1,8 +1,5 @@
-const fs = require('fs');
-const nodePath = require('path');
 const dotenv = require('dotenv');
-const OpenAI = require('openai');
-const { getSharedOpenAICache, cachedResponsesCreate } = require('./openai-cache');
+const { cachedResponsesCreate } = require('./openai-cache');
 
 dotenv.config({ path: '../.env' });
 
@@ -28,25 +25,6 @@ let sharedOpenAI = null;
 // all fields + gpt5 nano low 5-11 sec
 // all fields + gpt5 nano medium 27-46 sec
 // all fields + gpt5 nano high 53-78 sec
-function getDefaultOpenAIClient() {
-    if (!sharedOpenAI) {
-        const apiKey = process.env.OPENAI_API_KEY || process.env.OPENAI_KEY;
-        if (!apiKey) {
-            throw new Error('Missing OpenAI API key (OPENAI_API_KEY or OPENAI_KEY)');
-        }
-        sharedOpenAI = new OpenAI({ apiKey });
-        sharedOpenAICache = getSharedOpenAICache(nodePath.resolve(__dirname, 'openai_response_cache.json'));
-    }
-    return sharedOpenAI;
-}
-
-let sharedOpenAICache = null;
-function getOpenAICache(cachePath) {
-    if (!sharedOpenAICache) {
-        sharedOpenAICache = getSharedOpenAICache(cachePath || nodePath.resolve(__dirname, 'openai_response_cache.json'));
-    }
-    return sharedOpenAICache;
-}
 
 function parseFunctionArguments(raw) {
     if (!raw) {
@@ -229,11 +207,9 @@ Differentiate each Korean word in this collision group with a unique, natural En
 Preserve nuance relative to the brief context provided and avoid any English headwords already used elsewhere in the deck.
 `.trim();
 
-async function generateTranslationWithTool(term, { openaiClient, model, systemPrompt, instructions, tools, additionalMessages = [] }) {
-    const client = openaiClient || getDefaultOpenAIClient();
+async function generateTranslationWithTool(term, { model, systemPrompt, instructions, tools, additionalMessages = [] }) {
     const chosenModel = model || 'gpt-4.1-2025-04-14';
 
-    const cache = getOpenAICache();
     const payload = {
         model: chosenModel,
         input: [
@@ -246,7 +222,7 @@ async function generateTranslationWithTool(term, { openaiClient, model, systemPr
         parallel_tool_calls: false
     };
 
-    const completion = await cachedResponsesCreate(client, cache, payload, {
+    const completion = await cachedResponsesCreate(payload, {
         select: [
             'output[0].type',
             'output[0].name',
@@ -362,11 +338,9 @@ async function getBaseTranslation(term, options = {}) {
     };
 }
 
-async function disambiguateGroupTranslations(groupTerms, { openai, model, existingEnglish, currentTranslations, cachePath }) {
-    const client = openai || getDefaultOpenAIClient();
+async function disambiguateGroupTranslations(groupTerms, { model, existingEnglish, currentTranslations, cachePath }) {
     const chosenModel = model || 'gpt-4.1-2025-04-14';
 
-    const cache = getOpenAICache(cachePath);
     const payload = {
         model: chosenModel,
         input: [
@@ -379,9 +353,16 @@ async function disambiguateGroupTranslations(groupTerms, { openai, model, existi
         parallel_tool_calls: false
     };
 
-    const completion = await cachedResponsesCreate(client, cache, payload, {
-        select: ['output[0].arguments.assignments']
+    const completion = await cachedResponsesCreate(payload, {
+        select: [
+            'output[0].type',
+            'output[0].name',
+            'output[0].arguments.assignments[*].korean',
+            'output[0].arguments.assignments[*].core_pick',
+            'output[0].arguments.assignments[*].final_picks'
+        ]
     });
+
 
     const functionCall = Array.isArray(completion?.output)
         ? completion.output.find(item => item.type === 'function_call' && item.name === GROUP_DISAMBIGUATION_TOOLS[0].name)
@@ -393,12 +374,13 @@ async function disambiguateGroupTranslations(groupTerms, { openai, model, existi
 
     let parsed;
     try {
-        parsed = functionCall?.arguments ? JSON.parse(functionCall.arguments) : null;
+        parsed = functionCall?.arguments ? functionCall.arguments : null;
     } catch (error) {
         parsed = null;
     }
 
     if (!parsed || !Array.isArray(parsed.assignments) || parsed.assignments.length === 0) {
+        console.log(parsed, parsed.assignments);
         return groupTerms.map(term => {
             const current = currentTranslations?.get(term);
             const fallbackCore = current?.core_pick || `${term} (alt)`;

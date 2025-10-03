@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const fsPromises = fs.promises;
+const OpenAI = require('openai');
 
 function stableStringify(value) {
     if (value === null || typeof value !== 'object') {
@@ -51,11 +52,16 @@ function parseSelector(selector) {
         return [];
     }
     return selector
-        .replace(/\[(\d+)\]/g, '.$1')
+        .replace(/\[([^\]]+)\]/g, '.$1')
         .split('.')
         .map(part => part.trim())
         .filter(Boolean)
-        .map(part => (/^\d+$/.test(part) ? Number(part) : part));
+        .map(part => {
+            if (part === '*') {
+                return '*';
+            }
+            return /^\d+$/.test(part) ? Number(part) : part;
+        });
 }
 
 function buildSelectionTree(selectors) {
@@ -96,8 +102,13 @@ function extractValue(source, selectorNode) {
     if (Array.isArray(materialized)) {
         const numericSelectors = [];
         const structuralSelectors = [];
+        let wildcardNode = null;
 
         for (const key of keys) {
+            if (key === '*') {
+                wildcardNode = selectorNode[key];
+                continue;
+            }
             const index = Number(key);
             if (!Number.isNaN(index) && (typeof key === 'number' || key === index.toString())) {
                 numericSelectors.push({ key, index });
@@ -106,31 +117,32 @@ function extractValue(source, selectorNode) {
             }
         }
 
-        if (numericSelectors.length === 0 && structuralSelectors.length > 0) {
+        const result = [];
+        let hasResult = false;
+
+        if (wildcardNode) {
+            for (let i = 0; i < materialized.length; i++) {
+                const extracted = extractValue(materialized[i], wildcardNode);
+                if (extracted !== undefined) {
+                    result[i] = extracted;
+                    hasResult = true;
+                }
+            }
+        }
+
+        if (structuralSelectors.length > 0) {
             const elementSelectors = {};
             for (const key of structuralSelectors) {
                 elementSelectors[key] = selectorNode[key];
             }
-
-            const collected = [];
-            let hasCollected = false;
             for (let i = 0; i < materialized.length; i++) {
                 const extracted = extractValue(materialized[i], elementSelectors);
                 if (extracted !== undefined) {
-                    collected[i] = extracted;
-                    hasCollected = true;
+                    result[i] = extracted;
+                    hasResult = true;
                 }
             }
-
-            if (hasCollected) {
-                return collected;
-            }
-
-            return hasCopy ? clone(materialized) : undefined;
         }
-
-        const result = [];
-        let hasResult = false;
 
         for (const { key, index } of numericSelectors) {
             if (index >= 0 && index < materialized.length) {
@@ -143,7 +155,7 @@ function extractValue(source, selectorNode) {
         }
 
         if (hasResult) {
-            return result;
+            return result.filter(item => item !== undefined);
         }
 
         return hasCopy ? clone(materialized) : undefined;
@@ -159,6 +171,16 @@ function extractValue(source, selectorNode) {
 
     const result = {};
     for (const key of keys) {
+        if (key === '*') {
+            const wildcardNode = selectorNode[key];
+            for (const property of Object.keys(materialized)) {
+                const extracted = extractValue(materialized[property], wildcardNode);
+                if (extracted !== undefined) {
+                    result[property] = extracted;
+                }
+            }
+            continue;
+        }
         const extracted = extractValue(materialized[key], selectorNode[key]);
         if (extracted !== undefined) {
             result[key] = extracted;
@@ -231,29 +253,22 @@ ${lines.join(',\n')}
 }`;
 }
 
-let sharedCache = null;
+let defaultCacheInstance = null;
+let defaultOpenAIClient = null;
 
-function getSharedOpenAICache(cacheFilePath) {
-    console.log(cacheFilePath);
-    if (!sharedCache) {
-        sharedCache = new OpenAICache(cacheFilePath);
-        const flush = () => {
-            try {
-                sharedCache?.flush();
-            } catch (error) {
-                console.error('⚠️ Failed to flush OpenAI cache on exit:', error.message);
-            }
-        };
-        process.once('exit', flush);
-        process.once('beforeExit', flush);
-    } else if (cacheFilePath && cacheFilePath !== sharedCache.cacheFilePath) {
-        // If a different path is requested after initialization, warn and reuse existing cache.
-        console.log(`ℹ️ OpenAI cache already initialized at ${sharedCache.cacheFilePath}; ignoring new path ${cacheFilePath}`);
+function getDefaultOpenAIClient() {
+    if (!defaultOpenAIClient) {
+        const apiKey = process.env.OPENAI_API_KEY || process.env.OPENAI_KEY;
+        if (!apiKey) {
+            throw new Error('Missing OpenAI API key (OPENAI_API_KEY or OPENAI_KEY)');
+        }
+        defaultOpenAIClient = new OpenAI({ apiKey });
     }
-    return sharedCache;
+    return defaultOpenAIClient;
 }
 
-async function cachedOpenAICall(cache, method, payload, executor, options = {}) {
+async function cachedOpenAICall(method, payload, executor, options = {}) {
+    const cache = getCache();
     const force = !!options.force;
     if (!force) {
         const cached = cache.get(method, payload);
@@ -269,23 +284,23 @@ async function cachedOpenAICall(cache, method, payload, executor, options = {}) 
     return entry ? clone(entry.response) : null;
 }
 
-async function cachedChatCompletion(openaiClient, cache, payload, options = {}) {
+async function cachedChatCompletion(payload, options) {
+    const client = getDefaultOpenAIClient();
     return cachedOpenAICall(
-        cache,
         'chat.completions.create',
         payload,
-        () => openaiClient.chat.completions.create(payload),
-        options
+        () => client.chat.completions.create(payload),
+        options || {}
     );
 }
 
-async function cachedResponsesCreate(openaiClient, cache, payload, options = {}) {
+async function cachedResponsesCreate(payload, options) {
+    const client = getDefaultOpenAIClient();
     return cachedOpenAICall(
-        cache,
         'responses.create',
         payload,
-        () => openaiClient.responses.create(payload),
-        options
+        () => client.responses.create(payload),
+        options || {}
     );
 }
 
@@ -334,7 +349,7 @@ class OpenAICache {
         const extracted = extractBySpec(response, selection);
         this.cache[key] = {
             //method,
-            createdAt: new Date().toISOString(),
+            //createdAt: new Date().toISOString(),
             //selection: selection ? clone(selection) : undefined,
             response: extracted
         };
@@ -448,7 +463,7 @@ function migrateCache(existing) {
         }
 
         migrated[newKey] = {
-            createdAt: value.createdAt || new Date().toISOString(),
+            //createdAt: value.createdAt || new Date().toISOString(),
             response: value.response
         };
 
@@ -457,9 +472,19 @@ function migrateCache(existing) {
     return { cache: migrated };
 }
 
+function getCache() {
+    if (!defaultCacheInstance) {
+        defaultCacheInstance = new OpenAICache();
+    }
+    return defaultCacheInstance;
+}
+
 module.exports = {
+    getCache,
     cachedResponsesCreate,
     cachedChatCompletion,
-    getSharedOpenAICache,
+
+    extractBySpec,
+    stableStringify,
 };
 

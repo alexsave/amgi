@@ -10,7 +10,7 @@ const dotenv = require('dotenv');
 const { exec } = require('child_process');
 const { promisify } = require('util');
 const { getBaseTranslation, resolveCollisions, detectFieldIndexesFromModels, applyCollisionMap } = require('./unique-words');
-const { getSharedOpenAICache, cachedChatCompletion } = require('./openai-cache');
+const { getCache, cachedChatCompletion } = require('./openai-cache');
 
 dotenv.config({ path: '../.env' });
 const execAsync = promisify(exec);
@@ -19,7 +19,7 @@ const execAsync = promisify(exec);
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY || process.env.OPENAI_KEY
 });
-const openaiCache = getSharedOpenAICache(path.resolve(__dirname, 'openai_response_cache.json'));
+const openaiCache = getCache(path.resolve(__dirname, 'openai_response_cache.json'));
 
 // Configuration
 const CONFIG = {
@@ -1667,7 +1667,6 @@ class DeckProcessor {
         if (!terms || terms.length === 0) {
             console.log('ℹ️ No Korean terms found for base translation');
             this.state.baseTranslation.completed = true;
-            this.state.save();
             return;
         }
 
@@ -1710,7 +1709,6 @@ class DeckProcessor {
         }
 
         this.state.baseTranslation.completed = true;
-        this.state.save();
     }
 
     async collisionResolutionPhase() {
@@ -1720,11 +1718,6 @@ class DeckProcessor {
         try {
             const translations = new Map(Object.entries(Object.fromEntries(this.baseTranslationCache)));
             const collisionPhases = [];
-            const currentPhaseMap = {};
-
-            console.log(`   ℹ️ Loaded ${collisionPhases.length} collision phase(s) from cache`);
-            const cachedGroupCount = collisionPhases.reduce((count, phase) => count + Object.keys(phase).length, 0);
-            console.log(`   ℹ️ Cached collision groups: ${cachedGroupCount}`);
             collisionPhases.forEach((phase, idx) => {
                 Object.entries(phase).forEach(([english, mapping]) => {
                     const formatted = Object.entries(mapping).map(([korean, corePick]) => `${korean} → ${corePick}`).join('; ');
@@ -1763,12 +1756,6 @@ class DeckProcessor {
                         assignments.forEach(item => {
                             collisionPhases[info.iteration - 1][english][item.korean] = item.core_pick;
                         });
-
-                        const updatedGroups = Object.values(collisionPhases[info.iteration - 1]).length;
-                        if (updatedGroups % 5 === 0) {
-                            this.state.save();
-                            console.log(`💾 Collision resolution progress saved after phase ${info.iteration}, group ${updatedGroups}`);
-                        }
                     }
                 },
                 onIterationEnd: (iteration, remaining, phaseMap) => {
@@ -1809,11 +1796,9 @@ class DeckProcessor {
             this.nuanceCache = resolved;
             this.state.collisionResolution.passes += 1;
             this.state.collisionResolution.completed = collisions.length === 0;
-            this.state.save();
         } catch (error) {
             console.log('⚠️ Collision resolution failed:', error.message);
             this.state.collisionResolution.completed = false;
-            this.state.save();
             throw error;
         }
     }
