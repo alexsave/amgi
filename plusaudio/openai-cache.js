@@ -214,9 +214,21 @@ function makeCacheKey(method, payload) {
     return hash.slice(0, 16);
 }
 
+function serializeCache(cache) {
+    const entries = Object.entries(cache || {});
+    if (entries.length === 0) {
+        return '{}';
+    }
+    const lines = entries.map(([key, value]) => `"${key}":${JSON.stringify(value)}`);
+    return `{
+${lines.join(',\n')}
+}`;
+}
+
 let sharedCache = null;
 
 function getSharedOpenAICache(cacheFilePath) {
+    console.log(cacheFilePath);
     if (!sharedCache) {
         sharedCache = new OpenAICache(cacheFilePath);
         const flush = () => {
@@ -291,11 +303,11 @@ class OpenAICache {
                 const raw = fs.readFileSync(this.cacheFilePath, 'utf8');
                 if (raw && raw.trim().length > 0) {
                     const parsed = JSON.parse(raw);
-                    const { cache, changed } = migrateCache(parsed);
-                    if (changed) {
+                    const { cache } = migrateCache(parsed);
+                    if (false) {
                         try {
                             ensureDirSync(this.cacheFilePath);
-                            fs.writeFileSync(this.cacheFilePath, JSON.stringify(cache));
+                            fs.writeFileSync(this.cacheFilePath, serializeCache(cache));
                         } catch (error) {
                             console.error('⚠️ Failed to migrate OpenAI cache:', error.message);
                         }
@@ -304,6 +316,7 @@ class OpenAICache {
                 }
             }
         } catch (error) {
+            console.log(error);
             console.log('⚠️ Unable to load OpenAI cache, starting empty');
         }
         return {};
@@ -362,7 +375,7 @@ class OpenAICache {
                     break;
                 }
 
-                const data = JSON.stringify(this.cache);
+                const data = serializeCache(this.cache);
                 await ensureDirAsync(this.cacheFilePath);
                 await fsPromises.writeFile(this.cacheFilePath, data);
                 this.lastPersistedCounter = targetVersion;
@@ -387,7 +400,7 @@ class OpenAICache {
         }
         try {
             ensureDirSync(this.cacheFilePath);
-            fs.writeFileSync(this.cacheFilePath, JSON.stringify(this.cache));
+            fs.writeFileSync(this.cacheFilePath, serializeCache(this.cache));
             this.lastPersistedCounter = this.changeCounter;
         } catch (error) {
             console.error('⚠️ Failed to save OpenAI cache:', error.message);
@@ -419,52 +432,31 @@ async function ensureDirAsync(filePath) {
 
 function migrateCache(existing) {
     if (!existing || typeof existing !== 'object') {
-        return { cache: {}, changed: true };
+        return { cache: {} };
     }
 
-    let changed = false;
     const migrated = {};
 
     for (const [rawKey, value] of Object.entries(existing)) {
         if (!value || typeof value !== 'object') {
-            changed = true;
             continue;
         }
 
         const keyString = typeof rawKey === 'string' ? rawKey : String(rawKey);
         const newKey = keyString.length > 16 ? keyString.slice(0, 16) : keyString;
-        if (newKey !== keyString) {
-            changed = true;
-        }
-
-        const method = value.method || 'responses.create';
-        if (method !== value.method) {
-            changed = true;
-        }
-
-        const extracted = extractBySpec(value.response, value.selection ?? null);
-        if (JSON.stringify(extracted) !== JSON.stringify(value.response || null)) {
-            changed = true;
-        }
 
         if (migrated[newKey]) {
-            changed = true;
             continue;
         }
 
         migrated[newKey] = {
-            //method,
             createdAt: value.createdAt || new Date().toISOString(),
-            response: extracted,
-            //selection: value.selection ?? null
+            response: value.response
         };
 
-        if (!value.createdAt) {
-            changed = true;
-        }
     }
 
-    return { cache: migrated, changed };
+    return { cache: migrated };
 }
 
 module.exports = {

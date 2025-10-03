@@ -305,7 +305,7 @@ async function generateTranslationWithTool(term, { openaiClient, model, systemPr
     };
 
     const completion = await cachedResponsesCreate(client, cache, payload, {
-        select: ['output.arguments.core_pick', 'output.arguments.final_picks', 'output.type', 'output.name']
+        select: ['output.arguments.core_pick', 'output.type', 'output.name']
     });
     console.log(JSON.stringify(completion));
 
@@ -328,7 +328,7 @@ async function generateTranslationWithTool(term, { openaiClient, model, systemPr
     return {
         result: {
             core_pick: parsedArgs.core_pick,
-            final_picks: Array.isArray(parsedArgs.final_picks) ? parsedArgs.final_picks.slice(0, 5) : []
+            //final_picks: Array.isArray(parsedArgs.final_picks) ? parsedArgs.final_picks.slice(0, 5) : []
         },
         metadata: {
             model: chosenModel
