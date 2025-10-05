@@ -277,32 +277,26 @@ async function cachedOpenAICall(method, payload, executor, options = {}) {
         }
     }
 
-    const response = await executor();
-    cache.set(method, payload, response, options.select);
-    const key = makeCacheKey(method, payload);
-    const entry = cache.cache[key];
-    return entry ? clone(entry.response) : null;
+    const client = getDefaultOpenAIClient();
+    const response = await executor(client);
+    return cache.set(method, payload, response, options.select);
 }
 
-async function cachedChatCompletion(payload, options) {
-    const client = getDefaultOpenAIClient();
-    return cachedOpenAICall(
+const cachedChatCompletion = async (payload, options) => 
+    cachedOpenAICall(
         'chat.completions.create',
         payload,
-        () => client.chat.completions.create(payload),
+        c => c.chat.completions.create(payload),
         options || {}
     );
-}
 
-async function cachedResponsesCreate(payload, options) {
-    const client = getDefaultOpenAIClient();
-    return cachedOpenAICall(
+const cachedResponsesCreate = async (payload, options) => 
+    cachedOpenAICall(
         'responses.create',
         payload,
-        () => client.responses.create(payload),
+        c => c.responses.create(payload),
         options || {}
     );
-}
 
 class OpenAICache {
     constructor(cacheFilePath) {
@@ -312,10 +306,6 @@ class OpenAICache {
         this.lastPersistedCounter = 0;
         this.writePromise = null;
         this.writeRequested = false;
-    }
-
-    makeKey(method, payload) {
-        return makeCacheKey(method, payload);
     }
 
     load() {
@@ -355,6 +345,7 @@ class OpenAICache {
         };
         this.changeCounter++;
         this.save();
+        return clone(extracted);
     }
 
     save(force = false) {
@@ -420,9 +411,6 @@ class OpenAICache {
         }
     }
 
-    flush() {
-        this.performWriteSync();
-    }
 }
 
 function ensureDirSync(filePath) {

@@ -1499,7 +1499,6 @@ class DeckProcessor {
                     
                     outputStream.on('close', () => {
                         this.state.deckCreation.completed = true;
-                        this.state.save();
                         console.log('✅ Deck creation complete');
                         resolve(tempOutputFile);
                     });
@@ -1601,7 +1600,6 @@ class DeckProcessor {
                         }
                         
                         this.state.timestampFixing.completed = true;
-                        this.state.save();
                         console.log('✅ Timestamp fixing complete');
                         resolve();
                     });

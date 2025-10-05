@@ -463,7 +463,7 @@ async function resolveCollisions(translations, options = {}) {
 
     let collisions = computeCollisions();
     let iteration = 0;
-    const maxIterations = options.maxIterations || 6;
+    const maxIterations = options.maxIterations || 10;
     const onIterationStart = typeof options.onIterationStart === 'function' ? options.onIterationStart : null;
     const onGroupResolved = typeof options.onGroupResolved === 'function' ? options.onGroupResolved : null;
     const onIterationEnd = typeof options.onIterationEnd === 'function' ? options.onIterationEnd : null;
