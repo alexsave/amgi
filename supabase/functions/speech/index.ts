@@ -2,8 +2,9 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts"
 import { wrapRequest, HttpError } from "../_shared/handler.ts";
 import { checkAndIncrementUsage } from "../_shared/billing.ts";
-import { createOpenAIClient, SPEECH_EVALUATION_MODEL } from "../_shared/openai.ts";
+import { createOpenAIClient, SPEECH_EVALUATION_MODEL, TTS_MODEL } from "../_shared/openai.ts";
 import { supabaseAdmin } from "../_shared/supabase.ts";
+import type OpenAI from "npm:openai@^6.5.0";
 import { encodeBase64 } from "jsr:@std/encoding@1/base64";
 
 const evaluationTools = [{
@@ -11,7 +12,6 @@ const evaluationTools = [{
   function: {
     name: "evaluate_pronunciation",
     description: "Evaluate the pronunciation of a spoken phrase against an expected text.",
-    strict: true,
     parameters: {
       type: "object",
       properties: {
@@ -39,7 +39,7 @@ const evaluationTools = [{
 async function loadExpectedAudio(
   expectedAudioPath: string | undefined,
   expectedAudioBase64: string | undefined,
-): Promise<string | null> {
+): Promise<string> {
   if (expectedAudioPath) {
     const { data, error } = await supabaseAdmin.storage
       .from('card-audio')
@@ -49,7 +49,30 @@ async function loadExpectedAudio(
     }
     return encodeBase64(await data.arrayBuffer());
   }
-  return expectedAudioBase64 ?? null;
+  if (expectedAudioBase64) {
+    return expectedAudioBase64;
+  }
+  throw new Error('Missing reference audio: provide expected_audio_path or expected_audio_base64');
+}
+
+/**
+ * Turns the written feedback into spoken feedback. Audio-capable chat models
+ * don't emit audio on tool-call turns, so this is a separate TTS step.
+ * Failure here shouldn't sink an otherwise successful evaluation.
+ */
+async function speakFeedback(openai: OpenAI, message: string): Promise<string | null> {
+  try {
+    const speech = await openai.audio.speech.create({
+      model: TTS_MODEL,
+      voice: "alloy",
+      input: message,
+      instructions: "You are a friendly language tutor giving brief spoken feedback. Sound encouraging and natural.",
+    });
+    return encodeBase64(await speech.arrayBuffer());
+  } catch (error) {
+    console.warn('Feedback TTS failed:', error.message);
+    return null;
+  }
 }
 
 Deno.serve(wrapRequest(async ({ user, body }) => {
@@ -71,43 +94,41 @@ Deno.serve(wrapRequest(async ({ user, body }) => {
     throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
   }
 
+  // Load the reference audio BEFORE touching the user's quota — a stale
+  // storage path must not burn an evaluation credit.
+  const expectedAudio = await loadExpectedAudio(expected_audio_path, expected_audio_base64);
+
   const { allowed } = await checkAndIncrementUsage(user.id, 'voice_evaluations_used');
   if (!allowed) {
     throw new HttpError('You have reached your voice evaluation limit for this billing period', 403);
   }
 
-  const expectedAudio = await loadExpectedAudio(expected_audio_path, expected_audio_base64);
-
   const openai = createOpenAIClient();
-
-  const messages = [
-    {
-      role: "system" as const,
-      content: `You are a language learning assistant evaluating pronunciation. The learner knows ${front_lang || 'English'} and is learning ${back_lang}.
-
-Compare the learner's pronunciation with the expected text "${expected_text}" in ${back_lang}. Judge whether the words are right and intelligibly pronounced — be encouraging about accent, strict about wrong or missing words. If the pronunciation is good, call evaluate_pronunciation with result "correct" and a brief praise message. If it needs improvement, call evaluate_pronunciation with result "incorrect" and one concrete, brief tip about what to fix.`
-    },
-    ...(expectedAudio ? [{
-      role: "user" as const,
-      content: [
-        { type: "text" as const, text: "Here is the correct pronunciation:" },
-        { type: "input_audio" as const, input_audio: { data: expectedAudio, format: "mp3" as const } }
-      ]
-    }] : []),
-    {
-      role: "user" as const,
-      content: [
-        { type: "text" as const, text: "Evaluate this pronunciation:" },
-        { type: "input_audio" as const, input_audio: { data: audio_base64!, format: "mp3" as const } }
-      ]
-    }
-  ];
 
   const response = await openai.chat.completions.create({
     model: SPEECH_EVALUATION_MODEL,
-    modalities: ["text", "audio"],
-    audio: { voice: "alloy", format: "mp3" },
-    messages,
+    messages: [
+      {
+        role: "system",
+        content: `You are a language learning assistant evaluating pronunciation. The learner knows ${front_lang || 'English'} and is learning ${back_lang}.
+
+Compare the learner's pronunciation with the expected text "${expected_text}" in ${back_lang}. Judge whether the words are right and intelligibly pronounced — be encouraging about accent, strict about wrong or missing words. If the pronunciation is good, call evaluate_pronunciation with result "correct" and a brief praise message. If it needs improvement, call evaluate_pronunciation with result "incorrect" and one concrete, brief tip about what to fix.`
+      },
+      {
+        role: "user",
+        content: [
+          { type: "text", text: "Here is the correct pronunciation:" },
+          { type: "input_audio", input_audio: { data: expectedAudio, format: "mp3" } }
+        ]
+      },
+      {
+        role: "user",
+        content: [
+          { type: "text", text: "Evaluate this pronunciation:" },
+          { type: "input_audio", input_audio: { data: audio_base64!, format: "mp3" } }
+        ]
+      }
+    ],
     tools: evaluationTools,
     tool_choice: { type: "function", function: { name: "evaluate_pronunciation" } }
   });
@@ -122,6 +143,6 @@ Compare the learner's pronunciation with the expected text "${expected_text}" in
   return {
     result: evaluation.result,
     message: evaluation.message,
-    audio: response.choices[0].message.audio?.data ?? null,
+    audio: await speakFeedback(openai, evaluation.message),
   };
 }));

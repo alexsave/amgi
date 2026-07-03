@@ -10,11 +10,9 @@ const RealtimeContext = createContext(null);
 export const RealtimeProvider = ({ children }) => {
     const [isConnected, setIsConnected] = useState(false);
     const [isSpeaking, setIsSpeaking] = useState(false);
-    const [hasActiveResponse, setHasActiveResponse] = useState(false);
-    const [isRecording, setIsRecording] = useState(false);
+    const [isRecording, setIsRecordingState] = useState(false);
     const [feedback, setFeedback] = useState('Click microphone to start');
     const [buttonState, setButtonState] = useState('default');
-    const [audioScale, setAudioScale] = useState(0);
 
     // WebRTC refs
     const peerConnectionRef = useRef(null);
@@ -28,6 +26,13 @@ export const RealtimeProvider = ({ children }) => {
     const aiAnimationFrameRef = useRef(null);
     const speakingTimeoutRef = useRef(null);
 
+    // The data channel handlers are bound once at connection time, so any
+    // state they need to READ must live in refs — a closure over useState
+    // values would be permanently stale.
+    const isRecordingRef = useRef(false);
+    const responseActiveRef = useRef(false);
+    const responsePendingRef = useRef(false);
+
     const {
         markCorrectGetNext,
         markIncorrectGetNext,
@@ -36,6 +41,18 @@ export const RealtimeProvider = ({ children }) => {
     } = useReview();
 
     const { decks, currentDeckId } = useDecks();
+
+    // Keeps the state (for rendering) and the ref (for the event handlers)
+    // in sync, and mutes/unmutes the actual mic tracks to match.
+    const setIsRecording = (recording) => {
+        isRecordingRef.current = recording;
+        setIsRecordingState(recording);
+        if (mediaStreamRef.current) {
+            mediaStreamRef.current.getAudioTracks().forEach(track => {
+                track.enabled = recording;
+            });
+        }
+    };
 
     const sendFunctionOutput = (callId, output) => {
         if (!dataChannelRef.current) return;
@@ -49,7 +66,7 @@ export const RealtimeProvider = ({ children }) => {
         }));
     };
 
-    const sendNextCardInfo = (nextCard, isLastCard, callId, result = 'correct', message = '') => {
+    const sendNextCardInfo = (nextCard, callId, result = 'correct', message = '') => {
         sendFunctionOutput(callId, {
             result,
             message,
@@ -57,7 +74,7 @@ export const RealtimeProvider = ({ children }) => {
                 front_text: nextCard.front_text,
                 back_text: nextCard.back_text
             } : null,
-            hasMoreCards: !isLastCard
+            hasMoreCards: !!nextCard
         });
     };
 
@@ -67,11 +84,21 @@ export const RealtimeProvider = ({ children }) => {
         });
     };
 
+    /**
+     * Asks the model to speak its next turn. Function-call outputs arrive
+     * while the tool-call response is still open (`response.output_item.done`
+     * fires before `response.done`), so creating a response immediately would
+     * be rejected with "conversation already has an active response" — queue
+     * it and flush on `response.done` instead.
+     */
     const requestNextResponse = () => {
-        if (!dataChannelRef.current || hasActiveResponse) return;
-        dataChannelRef.current.send(JSON.stringify({
-            type: 'response.create'
-        }));
+        if (!dataChannelRef.current) return;
+        if (responseActiveRef.current) {
+            responsePendingRef.current = true;
+            return;
+        }
+        responseActiveRef.current = true;
+        dataChannelRef.current.send(JSON.stringify({ type: 'response.create' }));
     };
 
     // While the model speaks, mute the mic so it doesn't hear itself.
@@ -84,9 +111,10 @@ export const RealtimeProvider = ({ children }) => {
     };
 
     const handleAudioStopped = () => {
+        // Restore the mic only to the state the user chose.
         if (mediaStreamRef.current) {
             mediaStreamRef.current.getAudioTracks().forEach(track => {
-                track.enabled = true;
+                track.enabled = isRecordingRef.current;
             });
         }
 
@@ -97,15 +125,13 @@ export const RealtimeProvider = ({ children }) => {
 
     const handleTranscriptDelta = (event) => {
         setIsSpeaking(true);
-        setHasActiveResponse(true);
         setFeedback(prev => prev + event.delta);
-        // Stop recording indicator while the AI is talking
-        if (isRecording) {
+        // Stop the recording indicator while the AI is talking
+        if (isRecordingRef.current) {
             setIsRecording(false);
             if (animationFrameRef.current) {
                 cancelAnimationFrame(animationFrameRef.current);
             }
-            setAudioScale(0);
         }
         // Mark speaking as done if no new delta arrives for a moment
         if (speakingTimeoutRef.current) {
@@ -116,31 +142,22 @@ export const RealtimeProvider = ({ children }) => {
         }, 500);
     };
 
-    const handleIncorrectResponse = ({ args, callId }) => {
-        setButtonState('error');
+    // Shared handler for both verdicts: flash the button, advance the
+    // scheduler, answer the model's pending function call, and queue the
+    // next spoken turn.
+    const handleEvaluation = (args, callId) => {
+        const correct = args.result === 'correct';
+        setButtonState(correct ? 'success' : 'error');
         setTimeout(() => setButtonState('default'), 500);
 
-        const nextCard = markIncorrectGetNext();
+        const nextCard = correct ? markCorrectGetNext() : markIncorrectGetNext();
 
         if (nextCard) {
-            sendNextCardInfo(nextCard, false, callId, args.result, args.message);
+            sendNextCardInfo(nextCard, callId, args.result, args.message);
         } else {
-            cleanup();
-            return;
-        }
-
-        requestNextResponse();
-    };
-
-    const handleCorrectResponse = ({ args, callId }) => {
-        setButtonState('success');
-        setTimeout(() => setButtonState('default'), 500);
-
-        const nextCard = markCorrectGetNext();
-
-        if (nextCard) {
-            sendNextCardInfo(nextCard, false, callId, args.result, args.message);
-        } else {
+            // Always answer the pending function call — tearing down without
+            // a reply leaves the model hanging mid-conversation. The session
+            // winds down in handleAudioStopped once the goodbye finishes.
             sendCompleteReview(callId);
         }
 
@@ -150,7 +167,6 @@ export const RealtimeProvider = ({ children }) => {
     const handleCompleteReviewFunction = ({ args, callId }) => {
         setFeedback(args.message);
         sendFunctionOutput(callId, { success: true });
-        requestNextResponse();
     };
 
     const handleFunctionCall = (item) => {
@@ -158,11 +174,7 @@ export const RealtimeProvider = ({ children }) => {
 
         if (item.name === 'evaluatePronunciation') {
             setFeedback(args.message);
-            if (args.result === 'correct') {
-                handleCorrectResponse({ args, callId: item.call_id });
-            } else if (args.result === 'incorrect') {
-                handleIncorrectResponse({ args, callId: item.call_id });
-            }
+            handleEvaluation(args, item.call_id);
         } else if (item.name === 'completeReview') {
             handleCompleteReviewFunction({ args, callId: item.call_id });
         }
@@ -176,11 +188,8 @@ export const RealtimeProvider = ({ children }) => {
             case 'output_audio_buffer.stopped':
                 handleAudioStopped();
                 break;
-            // GA event names, with the beta names kept for compatibility.
             case 'response.output_audio_transcript.delta':
-            case 'response.audio_transcript.delta':
             case 'response.output_text.delta':
-            case 'response.text.delta':
                 handleTranscriptDelta(event);
                 break;
             case 'response.output_item.done':
@@ -189,20 +198,22 @@ export const RealtimeProvider = ({ children }) => {
                 }
                 break;
             case 'response.created':
-                setHasActiveResponse(true);
+                responseActiveRef.current = true;
                 // New response incoming — reset the transcript display.
                 setFeedback('');
                 break;
             case 'response.done':
-                setHasActiveResponse(false);
+                responseActiveRef.current = false;
                 setIsSpeaking(false);
+                // Flush a turn that was requested while this response was open.
+                if (responsePendingRef.current) {
+                    responsePendingRef.current = false;
+                    requestNextResponse();
+                }
                 break;
             case 'error':
                 console.error('realtime api error:', event.error);
                 setFeedback('error: ' + event.error.message);
-                if (event.error.message === 'conversation already has an active response') {
-                    setHasActiveResponse(true);
-                }
                 break;
             default:
                 break;
@@ -281,9 +292,11 @@ export const RealtimeProvider = ({ children }) => {
             speakingTimeoutRef.current = null;
         }
 
+        responseActiveRef.current = false;
+        responsePendingRef.current = false;
+        isRecordingRef.current = false;
         setIsConnected(false);
-        setIsRecording(false);
-        setHasActiveResponse(false);
+        setIsRecordingState(false);
         setIsSpeaking(false);
     };
 
@@ -296,6 +309,11 @@ export const RealtimeProvider = ({ children }) => {
         }
 
         try {
+            // Ask for the microphone BEFORE minting the token: a denied
+            // permission prompt must not consume a realtime-session credit.
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaStreamRef.current = stream;
+
             const { client_secret } = await getRealtimeToken();
 
             const pc = new RTCPeerConnection({
@@ -311,8 +329,6 @@ export const RealtimeProvider = ({ children }) => {
                 audioElementRef.current.srcObject = e.streams[0];
             };
 
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            mediaStreamRef.current = stream;
             pc.addTrack(stream.getTracks()[0], stream);
 
             const dc = pc.createDataChannel("oai-events", {
@@ -325,6 +341,7 @@ export const RealtimeProvider = ({ children }) => {
                 setFeedback('Click the microphone to begin');
                 const currentDeck = decks[currentDeckId];
                 configureSession(dc, card, currentDeck?.learning_language, currentDeck?.known_language);
+                responseActiveRef.current = true; // configureSession sends response.create
             };
 
             dc.onclose = () => {
@@ -361,6 +378,7 @@ export const RealtimeProvider = ({ children }) => {
             console.error('Error setting up WebRTC:', error);
             setFeedback('Failed to connect: ' + error.message);
             setIsConnected(false);
+            cleanup();
             return false;
         }
     };
@@ -370,10 +388,8 @@ export const RealtimeProvider = ({ children }) => {
             isConnected,
             isSpeaking,
             isRecording,
-            hasActiveResponse,
             feedback,
             buttonState,
-            audioScale,
             mediaStreamRef,
             audioElementRef,
             audioContextRef,
@@ -382,10 +398,7 @@ export const RealtimeProvider = ({ children }) => {
             setupWebRTC,
             cleanup,
             setIsRecording,
-            setAudioScale,
-            setFeedback,
-            setIsConnected,
-            peerConnectionRef
+            setFeedback
         }}>
             {children}
         </RealtimeContext.Provider>

@@ -4,7 +4,7 @@ import { zodResponseFormat } from "npm:openai@^6.5.0/helpers/zod";
 import { toFile } from "npm:openai@^6.5.0";
 import { z } from "npm:zod@^3.25.0";
 import { wrapRequest, HttpError } from "../_shared/handler.ts";
-import { checkAndIncrementUsage } from "../_shared/billing.ts";
+import { checkAndIncrementUsage, refundUsage } from "../_shared/billing.ts";
 import { createOpenAIClient, TEXT_MODEL, TTS_MODEL, TRANSCRIBE_MODEL } from "../_shared/openai.ts";
 import { supabaseAdmin } from "../_shared/supabase.ts";
 
@@ -194,6 +194,18 @@ async function parseCompletion<T>(
 }
 
 /**
+ * Maps app language codes to what the transcription API expects: ISO-639
+ * primary subtags, except Cantonese which needs 'yue' — plain 'zh' would
+ * make the model transcribe Cantonese TTS audio as Mandarin and fail
+ * validation every time.
+ */
+function transcriptionLanguage(language: string): string {
+    const code = language.toLowerCase().replace(/-/g, '_');
+    if (code === 'zh_hk') return 'yue';
+    return code.split('_')[0];
+}
+
+/**
  * Normalizes text for a lenient transcription comparison: lowercase,
  * no punctuation, collapsed whitespace.
  */
@@ -232,8 +244,7 @@ async function validateAndGenerateAudio(
             const transcription = await openai.audio.transcriptions.create({
                 model: TRANSCRIBE_MODEL,
                 file: await toFile(audioBuffer, 'audio.mp3', { type: 'audio/mpeg' }),
-                // The transcription API takes ISO-639-1 primary subtags ('zh', not 'zh_cn').
-                language: language.toLowerCase().split(/[-_]/)[0],
+                language: transcriptionLanguage(language),
             });
             lastTranscript = transcription.text ?? '';
 
@@ -339,6 +350,12 @@ Deno.serve(wrapRequest(async ({ user, body }) => {
     const needsFrontAudioRegeneration = regenerate_parts.includes('front_audio_path') || needsFrontTextRegeneration || needsFullRegeneration;
     const needsBackAudioRegeneration = regenerate_parts.includes('back_audio_path') || needsBackTextRegeneration || needsFullRegeneration;
 
+    // Reject empty generation requests before any billing or API calls.
+    // (wrapRequest tolerates a missing body, so this is the real gate.)
+    if (needsFullRegeneration && !user_input?.trim()) {
+        throw new Error('user_input is required to generate a card');
+    }
+
     // Check audio generation limits BEFORE making any API calls
     const audioToGenerate = (needsFrontAudioRegeneration ? 1 : 0) + (needsBackAudioRegeneration ? 1 : 0);
 
@@ -426,12 +443,22 @@ Deno.serve(wrapRequest(async ({ user, body }) => {
         throw new Error('Failed to generate or retrieve card data');
     }
 
-    if (needsFrontAudioRegeneration) {
-        frontAudioPath = await processCardAudio(openai, card.front_text, card.front_lang, oldFrontAudioPath, 'front');
-    }
-
-    if (needsBackAudioRegeneration) {
-        backAudioPath = await processCardAudio(openai, card.back_text, card.back_lang, oldBackAudioPath, 'back');
+    // The two sides are independent — generate them concurrently. If audio
+    // generation ultimately fails, refund the pre-charged quota.
+    try {
+        [frontAudioPath, backAudioPath] = await Promise.all([
+            needsFrontAudioRegeneration
+                ? processCardAudio(openai, card.front_text, card.front_lang, oldFrontAudioPath, 'front')
+                : Promise.resolve(frontAudioPath),
+            needsBackAudioRegeneration
+                ? processCardAudio(openai, card.back_text, card.back_lang, oldBackAudioPath, 'back')
+                : Promise.resolve(backAudioPath),
+        ]);
+    } catch (audioError) {
+        if (audioToGenerate > 0) {
+            await refundUsage(user.id, 'card_audio_generations_used', audioToGenerate);
+        }
+        throw audioError;
     }
 
     return {

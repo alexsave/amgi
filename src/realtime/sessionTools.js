@@ -51,11 +51,13 @@ export const configureSession = (dataChannel, card, learning_language, known_lan
     // Instructions localized to the learning language, with English fallback.
     const instructionTemplate = INITIAL_PROMPTS[learning_language] || INITIAL_PROMPTS.en;
 
+    // Replacement callbacks so card text containing `$&`-style patterns is
+    // inserted literally instead of being treated as replacement syntax.
     const instructions = instructionTemplate
-        .replace(/{frontText}/g, card.front_text)
-        .replace(/{backText}/g, card.back_text)
-        .replace(/{known_language}/g, getLanguageName(known_language, known_language))
-        .replace(/{learning_language}/g, getLanguageName(learning_language, known_language));
+        .replace(/{frontText}/g, () => card.front_text)
+        .replace(/{backText}/g, () => card.back_text)
+        .replace(/{known_language}/g, () => getLanguageName(known_language, known_language))
+        .replace(/{learning_language}/g, () => getLanguageName(learning_language, known_language));
 
     const message = {
         type: 'session.update',

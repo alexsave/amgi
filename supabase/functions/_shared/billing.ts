@@ -169,14 +169,40 @@ export async function checkAndIncrementUsage(
     });
 
     if (error) {
-        // RPC missing (migration not applied yet) — fall back to non-atomic path.
+        // RPC missing (migration not applied yet, or PostgREST schema cache
+        // stale) — fall back to the non-atomic path, but say so loudly:
+        // this path can overshoot limits under concurrency.
         if (error.code === 'PGRST202' || error.code === '42883') {
+            console.warn('[billing] check_and_increment_usage RPC unavailable — using non-atomic fallback. Apply migration 20260703090000 and reload the schema cache.');
             return checkAndIncrementUsageLegacy(userId, usageField, incrementAmount, subscription);
         }
         throw error;
     }
 
     return { allowed: data.allowed, usage: data.usage, subscription };
+}
+
+/**
+ * Best-effort refund of usage that was charged for work that then failed
+ * (e.g. audio generation exhausting its retries). Never throws — losing a
+ * refund is better than masking the original error.
+ */
+export async function refundUsage(
+    userId: string,
+    usageField: UsageField,
+    amount: number,
+): Promise<void> {
+    try {
+        const { error } = await supabaseAdmin.rpc('check_and_increment_usage', {
+            p_user_id: userId,
+            p_field: usageField,
+            p_amount: -amount,
+            p_limit: -1, // unlimited: a refund must never be blocked by the limit
+        });
+        if (error) throw error;
+    } catch (error) {
+        console.warn(`[billing] refund of ${amount} ${usageField} for ${userId} failed:`, error.message);
+    }
 }
 
 async function checkAndIncrementUsageLegacy(
