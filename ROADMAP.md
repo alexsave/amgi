@@ -267,19 +267,23 @@ Smaller items, all in `src/contexts/RealtimeContext.js` /
   usage/subscription, already queried in `src/components/Settings/Subscription.js`)
   next to the Voice mode button in `ReviewMode.js`.
 
-### 2.5 Self-compare playback ("shadowing")
+### 2.5 Self-compare playback after AI evaluations
 
-**Why:** Hearing your own attempt right after the native audio is the fastest
-pronunciation feedback loop there is, and it's free (no API call).
+**Status: partially shipped.** Self-check mode (the "▶ Native / ▶ You"
+comparison with self-grading) exists and is the free practice path; the
+recording is already stored in `ReviewMode.js` (`storeUserRecording`) in both
+modes. Remaining piece: also render the "▶ Native / ▶ You" buttons under
+*AI* evaluation results (the `evaluationResult` branch), so paying users can
+shadow after a verdict too. Reuse `handlePlayUserRecording` and the disabled
+conditions from the self-judge panel.
 
-**Steps:** in `ReviewMode.js`, keep the last `recordedBlob` (it's returned by
-`audio.stopRecording()`) in state; after an evaluation result, render a small
-"▶ yours / ▶ native" pair of buttons — yours plays the blob via
-`URL.createObjectURL`, native plays `back_audio_path` through the existing
-`handlePlayButtonClick`. Revoke the object URL on card change.
-
-**Accept:** after any evaluation you can A/B the two recordings without
-network calls.
+**Also worth doing — tier-aware default:** default the mode toggle by plan:
+fetch the user's tier once in Settings-style code (`user_subscriptions` +
+`subscription_tiers`, see `src/components/Settings/Subscription.js`), and if
+the tier is Free, initialize `amgi_self_check` to `'true'` on first run
+(don't override an explicit user choice — only set the localStorage key when
+it is absent). Free users then never touch AI during practice unless they
+opt in; the automatic fallback on quota errors already exists.
 
 ---
 
@@ -418,5 +422,7 @@ show "offline: self-grade" buttons (correct/incorrect) when
   deck can't create any more cards that month. Either bump the free audio
   limit to ~150, or exempt `shared/` cache hits (item 1.5) from the charge —
   the cache makes starter decks nearly free anyway.
-- Voice evaluations at 100/month ≈ 3–4 serious days. Fine as a trial;
-  Standard (1000) is the real daily-driver tier. Revisit after 1.5 lands.
+- Voice evaluations at 100/month ≈ 3–4 serious days of AI checking. With
+  self-check mode shipped, free users can practice indefinitely at zero
+  marginal cost — AI evaluations become the upgrade reason, not the entry
+  ticket. Pair with the tier-aware default in item 2.5.

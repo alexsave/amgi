@@ -28,6 +28,46 @@ const ReviewMode = () => {
   const [lastClickedAudio, setLastClickedAudio] = useState(null); // 'front', 'hint', or null
   const [hasTransitionCanceled, setHasTransitionCanceled] = useState(false); // Track if transition was canceled
 
+  // Self-check mode: no AI during practice. The learner records, compares
+  // their recording against the native audio, and grades themselves.
+  const [selfCheck, setSelfCheckState] = useState(() => localStorage.getItem('amgi_self_check') === 'true');
+  const [isSelfJudging, setIsSelfJudging] = useState(false);
+  const [selfCheckNotice, setSelfCheckNotice] = useState(null);
+  const userRecordingUrlRef = useRef(null);
+  const userAudioElRef = useRef(null);
+
+  const setSelfCheck = (value) => {
+    setSelfCheckState(value);
+    localStorage.setItem('amgi_self_check', String(value));
+  };
+
+  // Keep the latest recording around (in both modes) so it can be replayed
+  // against the native audio.
+  const storeUserRecording = (blob) => {
+    if (userRecordingUrlRef.current) {
+      URL.revokeObjectURL(userRecordingUrlRef.current);
+    }
+    userRecordingUrlRef.current = URL.createObjectURL(new Blob([blob], { type: 'audio/mp3' }));
+  };
+
+  const handlePlayUserRecording = () => {
+    if (!userRecordingUrlRef.current) return;
+    if (!userAudioElRef.current) {
+      userAudioElRef.current = new Audio();
+    }
+    userAudioElRef.current.src = userRecordingUrlRef.current;
+    userAudioElRef.current.play().catch(() => {});
+  };
+
+  // Release the recording URL when leaving the page
+  useEffect(() => {
+    return () => {
+      if (userRecordingUrlRef.current) {
+        URL.revokeObjectURL(userRecordingUrlRef.current);
+      }
+    };
+  }, []);
+
 
   // Handle recording state changes
   useEffect(() => {
@@ -67,13 +107,24 @@ const ReviewMode = () => {
       if (audio.isRecording) {
         const audioBlob = await audio.stopRecording();
         if (!audioBlob) return;
-        setIsEvaluating(true);
 
         if (!currentCard) {
-          setIsEvaluating(false);
           console.error("Current card is not available for evaluation");
           return;
         }
+
+        // Keep the recording for self-comparison in either mode
+        storeUserRecording(audioBlob);
+
+        // Self-check: no AI call — reveal the answer and let the learner
+        // compare their recording against the native audio and judge.
+        if (selfCheck) {
+          setEvaluationResult(null);
+          setIsSelfJudging(true);
+          return;
+        }
+
+        setIsEvaluating(true);
 
         // Starter-deck cards get their audio in the background; without the
         // reference audio there's nothing to evaluate against yet.
@@ -89,25 +140,34 @@ const ReviewMode = () => {
 
         // Ensure current card has language fields before evaluation
         if (!currentCard.front_lang || !currentCard.back_lang) {
-          // Get deck languages from context
           const deck = decks[currentDeckId];
           if (deck) {
-            // Add language fields if missing
             if (!currentCard.front_lang) currentCard.front_lang = deck.known_language || 'en';
             if (!currentCard.back_lang) currentCard.back_lang = deck.learning_language || 'en';
-            console.log("Added missing language fields to card:", {
-              front_lang: currentCard.front_lang,
-              back_lang: currentCard.back_lang
-            });
           }
         }
 
-        await evaluateSpeech(audioBlob, currentCard);
+        try {
+          await evaluateSpeech(audioBlob, currentCard);
+        } catch (error) {
+          // Out of AI evaluations: don't waste the attempt — fall back to
+          // self-check with the recording we already have.
+          if (error.message?.toLowerCase().includes('limit')) {
+            setSelfCheck(true);
+            setSelfCheckNotice('AI evaluations are used up for this billing period — switched to self-check.');
+            setEvaluationResult(null);
+            setIsSelfJudging(true);
+            setIsEvaluating(false);
+            return;
+          }
+          throw error;
+        }
         setIsEvaluating(false);
       } else {
-        // Clear evaluation result when starting recording
+        // Clear previous result when starting a (re-)recording
         setEvaluationResult(null);
-        
+        setIsSelfJudging(false);
+
         // Start recording
         await audio.startRecording();
 
@@ -116,7 +176,7 @@ const ReviewMode = () => {
       console.error("Error with recording:", error);
       setIsEvaluating(false);
       audio.setError(error.message);
-      
+
       // Display error as evaluation result for consistent UI
       setEvaluationResult({
         result: 'error',
@@ -124,6 +184,17 @@ const ReviewMode = () => {
         audio: null
       });
     }
+  };
+
+  // Self-check verdict: feed the learner's own judgment through the same
+  // result flow the AI path uses, so scheduling stays identical.
+  const handleSelfJudge = (correct) => {
+    setIsSelfJudging(false);
+    handleEvaluationResult({
+      result: correct ? 'correct' : 'incorrect',
+      message: correct ? 'Marked correct — nice.' : 'Marked for another try.',
+      audio: null
+    });
   };
 
   const handleEvaluationResult = useCallback((data) => {
@@ -244,6 +315,8 @@ const ReviewMode = () => {
   useEffect(() => {
     setEvaluationResult(null);
     setHasTransitionCanceled(false);
+    setIsSelfJudging(false);
+    setSelfCheckNotice(null);
 
     if (currentCard?.front_audio_path) {
       setLastClickedAudio('front');
@@ -339,6 +412,15 @@ const ReviewMode = () => {
         </button>
         <h2>{decks[currentDeckId].name}</h2>
         <button
+          onClick={() => setSelfCheck(!selfCheck)}
+          className="back-btn"
+          title={selfCheck
+            ? 'Self check: you compare your recording to the native audio and judge yourself — no AI used. Click for AI checking.'
+            : 'AI check: your recording is evaluated by AI (uses your plan\'s evaluations). Click for free self-checking.'}
+        >
+          {selfCheck ? '🪞 Self check' : '✨ AI check'}
+        </button>
+        <button
           onClick={() => navigate(`/deck/${currentDeckId}/voice`)}
           className="back-btn"
           title="Practice with a live voice conversation"
@@ -350,6 +432,42 @@ const ReviewMode = () => {
       <div className="review-controls" style={{ height: '100px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
         {isEvaluating ? (
           <div className="evaluation-loading">Evaluating your speech...</div>
+        ) : isSelfJudging ? (
+          <div className="evaluation-result self-judge" style={{ textAlign: 'center' }}>
+            {selfCheckNotice && (
+              <p style={{ opacity: 0.7, fontSize: '0.85rem', margin: '0 0 0.35rem' }}>{selfCheckNotice}</p>
+            )}
+            <p style={{ margin: 0 }}>Compare, then judge for yourself:</p>
+            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', margin: '0.4rem 0' }}>
+              <button
+                onClick={() => currentCard.back_audio_path && handlePlayButtonClick(currentCard.back_audio_path)}
+                disabled={!currentCard.back_audio_path || audio.isPlayingAudio || isPlayingLocked}
+                style={{ padding: '0.3rem 0.6rem', borderRadius: '6px', cursor: 'pointer' }}
+              >
+                ▶ Native
+              </button>
+              <button
+                onClick={handlePlayUserRecording}
+                style={{ padding: '0.3rem 0.6rem', borderRadius: '6px', cursor: 'pointer' }}
+              >
+                ▶ You
+              </button>
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
+              <button
+                onClick={() => handleSelfJudge(true)}
+                style={{ padding: '0.35rem 0.8rem', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}
+              >
+                ✓ I got it
+              </button>
+              <button
+                onClick={() => handleSelfJudge(false)}
+                style={{ padding: '0.35rem 0.8rem', borderRadius: '6px', cursor: 'pointer' }}
+              >
+                ✗ Not quite
+              </button>
+            </div>
+          </div>
         ) : evaluationResult ? (
           <div className={`evaluation-result ${evaluationResult.result}`}>
             <p>{evaluationResult.message}</p>
@@ -378,14 +496,14 @@ const ReviewMode = () => {
       {/* New flashcard layout with dashed line in the middle */}
       <div className="flashcard-container">
         <div className="flashcard-top">
-          {(attempts >= 2 || isTransitioning || hasTransitionCanceled) && (
+          {(attempts >= 2 || isTransitioning || hasTransitionCanceled || isSelfJudging) && (
             <div className="flashcard-text front">
               {transitionCard && isTransitioning ? transitionCard.front_text : currentCard.front_text}
             </div>
           )}
         </div>
         <div className="flashcard-bottom">
-          {(attempts >= 3 || isTransitioning || hasTransitionCanceled) && (
+          {(attempts >= 3 || isTransitioning || hasTransitionCanceled || isSelfJudging) && (
             <div className="flashcard-text back">
               {transitionCard && isTransitioning ? transitionCard.back_text : currentCard.back_text}
             </div>
