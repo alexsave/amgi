@@ -505,6 +505,30 @@ export const getDueCards = async (userId) => {
   }
 };
 
+// Cards in a deck that still need TTS audio (used by the starter-deck
+// audio backfill). Queries the DB directly because local deck state only
+// holds the scheduled subset of cards.
+export const getCardsMissingAudio = async (deckId) => {
+  const { data, error } = await supabase
+    .from('cards')
+    .select('id, deck_id, position, front_text, back_text, front_lang, back_lang, front_audio_path, back_audio_path')
+    .eq('deck_id', deckId)
+    .or('front_audio_path.is.null,back_audio_path.is.null')
+    .order('position');
+
+  if (error) throw error;
+  return data;
+};
+
+export const updateCardAudioPaths = async (cardId, { front_audio_path, back_audio_path }) => {
+  const { error } = await supabase
+    .from('cards')
+    .update({ front_audio_path, back_audio_path })
+    .eq('id', cardId);
+
+  if (error) throw error;
+};
+
 // Helper function to download audio for a card
 export const downloadCardAudio = async (audioPath) => {
   if (!audioPath) return null;

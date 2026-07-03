@@ -6,12 +6,15 @@ import msgpack from 'msgpack-lite';
 import './DeckItem.css';
 
 const DeckItem = ({ id, deck }) => {
-  const { 
-    deleteDeck, 
+  const {
+    deleteDeck,
     setCurrentDeckId,
+    audioBackfill,
+    startAudioBackfill,
   } = useDecks();
 
   const navigate = useNavigate();
+  const backfill = audioBackfill?.[id];
 
   const handleEditClick = (e, id) => {
     console.log('Edit deck clicked:', id);
@@ -88,6 +91,22 @@ const DeckItem = ({ id, deck }) => {
           <span className="new-count">{deck.cards.filter(card => card.review?.card_state === 'new').length} new</span> • {' '}
           <span className="review-count">{deck.cards.filter(card => card.review?.card_state === 'review').length} review</span>)
         </small>
+        {backfill?.running && (
+          <small style={{ display: 'block', marginTop: '0.25rem', opacity: 0.75 }}>
+            🎙 Generating audio… {backfill.done}/{backfill.total}
+          </small>
+        )}
+        {!backfill?.running && backfill?.error && (
+          <small style={{ display: 'block', marginTop: '0.25rem', color: '#e07050' }}>
+            Audio generation stopped: {backfill.error}{' '}
+            <button
+              onClick={(e) => { e.stopPropagation(); startAudioBackfill(id); }}
+              style={{ textDecoration: 'underline', background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', padding: 0 }}
+            >
+              Retry
+            </button>
+          </small>
+        )}
       </div>
       <div className="deck-item-actions">
         <button 

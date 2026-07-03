@@ -6,7 +6,8 @@ Most flashcard apps (Anki included) train you to read and write; listening and s
 
 ## Features
 
-- **Speak-to-answer reviews** — record your answer, get an AI pronunciation evaluation (text + spoken feedback), retry up to 3 times with an audio hint.
+- **Speak-to-answer reviews** — the card's audio plays, you speak your answer, and an AI evaluates the pronunciation (verdict + what it heard + spoken feedback). You stay the final judge: override the verdict if you disagree. Up to 3 attempts with an audio hint.
+- **Starter decks** — one-click curated common-phrase decks (Korean, Spanish, Japanese) so you can start reviewing immediately; card audio generates in the background with visible progress.
 - **Voice conversation mode** — a live, hands-free review session over WebRTC with OpenAI's realtime model: it reads the card, listens to you, evaluates, and moves through your due cards like a tutor would.
 - **AI-generated cards** — type a phrase in either language; the card's translation, language detection, and TTS audio for both sides are generated for you. Generated audio is transcribed and verified before it's accepted.
 - **Spaced repetition** — an SM-2 style scheduler (new → learning → review) with per-card state persisted in Supabase.
@@ -81,8 +82,11 @@ Requires an `OPENAI_API_KEY` in `plusaudio/.env` for audio generation.
 
 ```
 src/                  React app (contexts, components, scheduler, network layer)
+src/data/             Curated starter decks
 supabase/functions/   Deno edge functions + _shared helpers
 supabase/migrations/  Schema, RLS, and RPCs
 plusaudio/            Node CLI for Anki deck conversion
 archives/             Old implementations kept for reference (not built)
 ```
+
+See [ROADMAP.md](./ROADMAP.md) for planned work, with implementation notes per item.

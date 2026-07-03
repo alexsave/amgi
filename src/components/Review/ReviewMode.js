@@ -28,24 +28,6 @@ const ReviewMode = () => {
   const [lastClickedAudio, setLastClickedAudio] = useState(null); // 'front', 'hint', or null
   const [hasTransitionCanceled, setHasTransitionCanceled] = useState(false); // Track if transition was canceled
 
-  // Load audio when current card changes
-  useEffect(() => {
-    if (currentCard) {
-      // Preload front audio
-      if (currentCard.front_audio_path) {
-        audio.loadAudio(currentCard.front_audio_path).catch(err => {
-          console.error('Error preloading front audio:', err);
-        });
-      }
-
-      // Preload back audio
-      if (currentCard.back_audio_path) {
-        audio.loadAudio(currentCard.back_audio_path).catch(err => {
-          console.error('Error preloading back audio:', err);
-        });
-      }
-    }
-  }, [currentCard, audio]);
 
   // Handle recording state changes
   useEffect(() => {
@@ -90,6 +72,18 @@ const ReviewMode = () => {
         if (!currentCard) {
           setIsEvaluating(false);
           console.error("Current card is not available for evaluation");
+          return;
+        }
+
+        // Starter-deck cards get their audio in the background; without the
+        // reference audio there's nothing to evaluate against yet.
+        if (!currentCard.back_audio_path) {
+          setIsEvaluating(false);
+          setEvaluationResult({
+            result: 'error',
+            message: "This card's audio is still being generated — check back in a moment.",
+            audio: null
+          });
           return;
         }
 
@@ -206,6 +200,17 @@ const ReviewMode = () => {
     onEvaluationResult: handleEvaluationResult
   });
 
+  // The learner is the final judge of their own pronunciation: this reruns
+  // the result flow as correct. (The failed attempt already counted, so the
+  // scheduler treats it as a hard-won success rather than a clean one.)
+  const handleOverrideCorrect = () => {
+    handleEvaluationResult({
+      result: 'correct',
+      message: 'Marked correct — your call.',
+      audio: null
+    });
+  };
+
   // Store current card in state when transitioning to prevent reference issues
   useEffect(() => {
     if (isTransitioning && currentCard && !transitionCard) {
@@ -232,11 +237,27 @@ const ReviewMode = () => {
     };
   }, []);
 
-  // When the card changes, reset the lastClickedAudio
+  // When a card comes up: reset per-card UI state, play its prompt audio
+  // right away (this is a listening-first app — the front audio IS the
+  // question), and preload the back audio for the hint button. Autoplay can
+  // be blocked before the first user gesture; the play button still works.
   useEffect(() => {
-    setLastClickedAudio(null);
     setEvaluationResult(null);
     setHasTransitionCanceled(false);
+
+    if (currentCard?.front_audio_path) {
+      setLastClickedAudio('front');
+      audio.playAudio(currentCard.front_audio_path).catch(() => {});
+    } else {
+      setLastClickedAudio(null);
+    }
+
+    if (currentCard?.back_audio_path) {
+      audio.loadAudio(currentCard.back_audio_path).catch(err => {
+        console.error('Error preloading back audio:', err);
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentCardId]);
 
   const handlePlayFrontAudio = () => {
@@ -332,6 +353,20 @@ const ReviewMode = () => {
         ) : evaluationResult ? (
           <div className={`evaluation-result ${evaluationResult.result}`}>
             <p>{evaluationResult.message}</p>
+            {evaluationResult.transcription && (
+              <p className="evaluation-transcription" style={{ opacity: 0.7, fontSize: '0.85rem', margin: '0.25rem 0 0' }}>
+                Heard: “{evaluationResult.transcription}”
+              </p>
+            )}
+            {evaluationResult.result === 'incorrect' && !isTransitioning && (
+              <button
+                onClick={handleOverrideCorrect}
+                style={{ marginTop: '0.4rem', background: 'none', border: 'none', textDecoration: 'underline', cursor: 'pointer', color: 'inherit', fontSize: '0.85rem', padding: 0 }}
+                title="You judge your own pronunciation — override the AI's verdict"
+              >
+                Actually, I said it right
+              </button>
+            )}
           </div>
         ) : (
           <div className="remaining-cards">
