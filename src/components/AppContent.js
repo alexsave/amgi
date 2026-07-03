@@ -3,10 +3,12 @@ import { useNavigate, Routes, Route, Navigate } from 'react-router-dom';
 import DeckList from './Deck/DeckList';
 import CardList from './Card/CardList';
 import ReviewMode from './Review/ReviewMode';
+import VoiceMode from './Review/VoiceMode';
 import Settings from './Settings/Settings';
 import Navbar from './Navigation/Navbar';
 import { AudioProvider } from '../contexts/useAudio';
 import { ReviewProvider } from '../contexts/ReviewContext';
+import { RealtimeProvider } from '../contexts/RealtimeContext';
 import { useDecks } from '../contexts/DeckContext';
 
 function AppContent() {
@@ -52,6 +54,15 @@ function AppContent() {
                 path="/deck/:id/review"
                 element={
                   <ReviewMode onBack={handleBackToList} />
+                }
+              />
+
+              <Route
+                path="/deck/:id/voice"
+                element={
+                  <RealtimeProvider>
+                    <VoiceMode />
+                  </RealtimeProvider>
                 }
               />
             </Routes>

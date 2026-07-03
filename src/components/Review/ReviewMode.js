@@ -1,12 +1,16 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useDecks } from '../../contexts/DeckContext';
-import { MicrophoneIcon, PlayIcon, ChevronDoubleRightIcon, XMarkIcon } from '@heroicons/react/24/solid';
+import { MicrophoneIcon, PlayIcon, ChevronDoubleRightIcon, XMarkIcon, ChatBubbleLeftRightIcon } from '@heroicons/react/24/solid';
 import { useNavigate } from 'react-router-dom';
 import { useAudio } from '../../contexts/useAudio';
 import { useReview } from '../../contexts/ReviewContext';
 import { useSpeechEvaluation } from '../../hooks/useSpeechEvaluation';
 import RadialAudioVisualizer from './RadialAudioVisualizer';
+import { base64ToBlob } from '../../network/utils';
 import './ReviewMode.css';
+
+// How long the "next card in N seconds" transition lasts.
+const TRANSITION_SECONDS = 10;
 
 const ReviewMode = () => {
   const { decks, currentDeckId } = useDecks();
@@ -27,14 +31,6 @@ const ReviewMode = () => {
   // Load audio when current card changes
   useEffect(() => {
     if (currentCard) {
-      console.log("Current card updated:", {
-        id: currentCard.id,
-        front_text: currentCard.front_text,
-        back_text: currentCard.back_text,
-        front_lang: currentCard.front_lang,
-        back_lang: currentCard.back_lang
-      });
-
       // Preload front audio
       if (currentCard.front_audio_path) {
         audio.loadAudio(currentCard.front_audio_path).catch(err => {
@@ -49,7 +45,7 @@ const ReviewMode = () => {
         });
       }
     }
-  }, [currentCardId, audio]);
+  }, [currentCard, audio]);
 
   // Handle recording state changes
   useEffect(() => {
@@ -142,21 +138,16 @@ const ReviewMode = () => {
       return;
     }
 
-    console.log("Received evaluation result:", data);
-
-    // Store card ID for later reference
-    const currentCardId = currentCard.id;
-    console.log(`[DEBUG] Processing evaluation for card ID: ${currentCardId}`);
-
     setEvaluationResult(data);
 
-    // Play evaluation audio if available
+    // Play evaluation audio if available (base64 mp3 from the speech function)
     if (data.audio) {
-      const audioData = new Uint8Array(data.audio);
-      const blob = new Blob([audioData], { type: 'audio/mpeg' });
+      const blob = base64ToBlob(data.audio);
       const url = URL.createObjectURL(blob);
       audio.evaluationAudioRef.current.src = url;
-      audio.evaluationAudioRef.current.play()
+      audio.evaluationAudioRef.current.play().catch(err => {
+        console.error('Error playing evaluation audio:', err);
+      });
 
       // Clean up the URL when audio ends
       audio.evaluationAudioRef.current.onended = () => {
@@ -164,83 +155,47 @@ const ReviewMode = () => {
       };
     }
 
-    // Handle different result types
-    if (data.result === 'correct') {
-      // Clear any existing timer before setting up a new one
+    // Shows the answer for TRANSITION_SECONDS, then advances to the next card.
+    const startTransition = (advance) => {
       if (transitionTimerRef.current) {
         clearTimeout(transitionTimerRef.current);
         transitionTimerRef.current = null;
       }
-      
-      const cardToTransition = { ...currentCard };
-      setTransitionCard(cardToTransition);
+
+      setTransitionCard({ ...currentCard });
       setIsTransitioning(true);
-      
-      // Initial countdown value
-      setTransitionTimeLeft(100);
-      
-      // Use a self-adjusting countdown implementation with one final callback
-      // instead of an interval with nested callbacks
+      setTransitionTimeLeft(TRANSITION_SECONDS);
+
       const startTime = Date.now();
-      const duration = 100000; // 10 seconds in milliseconds
-      
+      const duration = TRANSITION_SECONDS * 1000;
+
       const updateCountdown = () => {
         const elapsed = Date.now() - startTime;
         const remaining = Math.max(0, Math.ceil((duration - elapsed) / 1000));
-        
+
         setTransitionTimeLeft(remaining);
-        
+
         if (remaining <= 0) {
-          // Time's up! Move to next card
-          console.log(`[DEBUG] Timer completed. Moving to next card from ID: ${currentCardId}`);
           setEvaluationResult(null);
-          review.markCorrectGetNext();
+          advance();
           setIsTransitioning(false);
           return;
         }
-        
-        // Continue updating until we reach zero
+
         transitionTimerRef.current = setTimeout(updateCountdown, 200);
       };
-      
-      // Start the countdown
+
       transitionTimerRef.current = setTimeout(updateCountdown, 200);
-      
+    };
+
+    if (data.result === 'correct') {
+      startTransition(review.markCorrectGetNext);
     } else if (data.result === 'incorrect') {
-      // Process incorrect answer immediately
-      console.log(`[DEBUG] Processing incorrect answer for card ID: ${currentCardId}`);
-      
-      // Check if this is the third incorrect attempt - if so, show the transition state
+      // On the final failed attempt, show the answer before moving on;
+      // otherwise let the user retry immediately.
       if (attempts >= 2) {
-        // Set up transition state similar to correct answers
-        const cardToTransition = { ...currentCard };
-        setTransitionCard(cardToTransition);
-        setIsTransitioning(true);
-        setTransitionTimeLeft(100);
-        
-        const startTime = Date.now();
-        const duration = 100000; // 10 seconds
-        
-        const updateCountdown = () => {
-          const elapsed = Date.now() - startTime;
-          const remaining = Math.max(0, Math.ceil((duration - elapsed) / 1000));
-          
-          setTransitionTimeLeft(remaining);
-          
-          if (remaining <= 0) {
-            console.log(`[DEBUG] Timer completed after incorrect attempts. Moving to next card from ID: ${currentCardId}`);
-            setEvaluationResult(null);
-            review.markIncorrectGetNext();
-            setIsTransitioning(false);
-            return;
-          }
-          
-          transitionTimerRef.current = setTimeout(updateCountdown, 200);
-        };
-        
-        transitionTimerRef.current = setTimeout(updateCountdown, 200);
+        startTransition(review.markIncorrectGetNext);
       } else {
-        // For attempts < 3, proceed immediately
         review.markIncorrectGetNext();
       }
     }
@@ -362,6 +317,13 @@ const ReviewMode = () => {
           ← Decks
         </button>
         <h2>{decks[currentDeckId].name}</h2>
+        <button
+          onClick={() => navigate(`/deck/${currentDeckId}/voice`)}
+          className="back-btn"
+          title="Practice with a live voice conversation"
+        >
+          <ChatBubbleLeftRightIcon className="h-5 w-5" /> Voice mode
+        </button>
       </div>
 
       <div className="review-controls" style={{ height: '100px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>

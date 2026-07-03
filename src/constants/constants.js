@@ -38,4 +38,4 @@ export const INITIAL_CARD_STATE = {
   dueTimestamp: null
 }; 
 
-export const REALTIME_MODEL = "gpt-4o-mini-realtime-preview";
+export const REALTIME_MODEL = "gpt-realtime";

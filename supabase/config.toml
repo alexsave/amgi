@@ -278,6 +278,9 @@ s3_access_key = "env(S3_ACCESS_KEY)"
 s3_secret_key = "env(S3_SECRET_KEY)"
 
 [functions]
+# All functions do their own JWT verification in _shared/auth.ts (or, for the
+# Stripe webhook, verify the Stripe signature instead), so the platform-level
+# JWT check is disabled.
 [functions.speech]
 verify_jwt = false
 
@@ -285,4 +288,10 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.realtime]
+verify_jwt = false
+
+[functions.payment-links]
+verify_jwt = false
+
+[functions.stripe-webhook]
 verify_jwt = false

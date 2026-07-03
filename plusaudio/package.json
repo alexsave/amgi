@@ -1,0 +1,12 @@
+{
+  "name": "plusaudio",
+  "private": true,
+  "description": "Node CLI tools for importing Anki decks and generating augmented audio decks. These are offline utilities and deliberately kept out of the web app's dependency tree.",
+  "dependencies": {
+    "better-sqlite3": "^12.2.0",
+    "dotenv": "^16.4.5",
+    "openai": "^4.79.4",
+    "yauzl": "^3.2.0",
+    "yazl": "^3.3.1"
+  }
+}

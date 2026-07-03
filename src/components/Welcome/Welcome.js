@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { NAME } from '../../constants/names';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { LANGUAGES } from '../../constants/languages';
 import './Welcome.css';
 
 export default function Welcome() {

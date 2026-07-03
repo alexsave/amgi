@@ -1,17 +1,14 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
-import Stripe from "https://esm.sh/stripe@12.6.0?target=deno";
+/// <reference lib="deno.ns" />
+import "jsr:@supabase/functions-js/edge-runtime.d.ts"
+import Stripe from "npm:stripe@14.18.0";
+import { supabaseAdmin as supabaseClient } from "../_shared/supabase.ts";
 
-// Initialize Stripe
+// Initialize Stripe. Pinned to the API version this webhook's field access
+// assumes (e.g. subscription.current_period_* moved off the Subscription
+// object in 2025 API versions — don't bump this without updating handlers).
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') as string, {
   apiVersion: '2023-10-16',
 });
-
-// Initialize Supabase client
-const supabaseClient = createClient(
-  Deno.env.get('SUPABASE_URL') || '',
-  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
-);
 
 // Simple logging function to include timestamps
 function log(message: string, data?: any) {
@@ -22,14 +19,13 @@ function log(message: string, data?: any) {
   }
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   const requestId = crypto.randomUUID();
   log(`[${requestId}] Webhook request received`, {
     method: req.method,
-    url: req.url,
-    headers: Object.fromEntries(req.headers.entries())
+    url: req.url
   });
-  
+
   const signature = req.headers.get('stripe-signature');
   
   if (!signature) {

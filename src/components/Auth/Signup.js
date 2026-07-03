@@ -209,10 +209,7 @@ export default function Signup() {
                   required
                 />
                 <span className="checkmark"></span>
-                I have read and agree to the <a href="#" onClick={(e) => {
-                  e.preventDefault();
-                  window.open('/eula.html', '_blank');
-                }}>End User License Agreement</a>
+                I have read and agree to the <a href="/eula.html" target="_blank" rel="noopener noreferrer">End User License Agreement</a>
               </label>
             </div>
             
@@ -225,10 +222,7 @@ export default function Signup() {
                   required
                 />
                 <span className="checkmark"></span>
-                I have read and agree to the <a href="#" onClick={(e) => {
-                  e.preventDefault();
-                  window.open('/privacy.html', '_blank');
-                }}>Privacy Policy</a>
+                I have read and agree to the <a href="/privacy.html" target="_blank" rel="noopener noreferrer">Privacy Policy</a>
               </label>
             </div>
           </div>

@@ -1,7 +1,6 @@
 // Deck context for managing global deck state
 import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
-import { MAX_NEW_CARDS_PER_DAY } from '../constants/constants';
 import * as supabase from '../db/supabase';
 import { useAuth } from './AuthContext';
 

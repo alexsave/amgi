@@ -10,7 +10,6 @@ export function calculateNextReview(review, quality) {
   let nextReview;
 
   if (quality === 'correct') {
-    // Calculate next review date first
     const now = new Date();
 
     if (cardState === 'new') {
@@ -18,17 +17,17 @@ export function calculateNextReview(review, quality) {
       nextReview = new Date(now.getTime() + 10 * 60 * 1000);
       cardState = 'learning';
     } else {
-      // Review and learning
-      nextReview = new Date(now.getTime() + interval * 24 * 60 * 60 * 1000);
-
+      // Review and learning: grow the interval first, then schedule with it
+      // (SM-2 style — scheduling with the old interval would lag growth by
+      // one review).
       if (repetitions <= 1) {
         interval = 1;
       } else {
-        // Calculate new interval with graduated intervals
         interval = Math.round(interval * easeFactor);
         // Cap at 10 years
         interval = Math.min(interval, 365 * 10);
       }
+      nextReview = new Date(now.getTime() + interval * 24 * 60 * 60 * 1000);
       cardState = 'review';
     }
 

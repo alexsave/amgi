@@ -1,9 +1,13 @@
-import { REALTIME_MODEL } from "../constants/constants";
-
 const OPENAI_API_BASE = "https://api.openai.com/v1";
 
+/**
+ * Exchanges a WebRTC SDP offer for an answer with the OpenAI Realtime API
+ * (GA `/v1/realtime/calls` endpoint). `token` is the short-lived client
+ * secret minted by the `realtime` edge function — the real API key never
+ * reaches the browser.
+ */
 export const setupRealtimeStream = async (offer, token) => {
-    const response = await fetch(`${OPENAI_API_BASE}/realtime?model=${REALTIME_MODEL}`, {
+    const response = await fetch(`${OPENAI_API_BASE}/realtime/calls`, {
         method: "POST",
         body: offer.sdp,
         headers: {
@@ -23,4 +27,4 @@ export const setupRealtimeStream = async (offer, token) => {
         type: "answer",
         sdp
     };
-}; 
+};
