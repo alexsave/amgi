@@ -1,19 +1,13 @@
 /// <reference lib="deno.ns" />
 import "jsr:@supabase/functions-js/edge-runtime.d.ts"
-import { serve } from "std/http/server"
-import { createClient } from "npm:@supabase/supabase-js@2.39.0"
 import Stripe from "npm:stripe@14.18.0"
 import { corsHeaders, handleCors } from "../_shared/cors.ts";
 import { getAuthenticatedUser } from "../_shared/auth.ts";
+import { supabaseAdmin as supabaseClient } from "../_shared/supabase.ts";
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') || '', {
   apiVersion: '2023-10-16',
 });
-
-const supabaseClient = createClient(
-  Deno.env.get('SUPABASE_URL') || '',
-  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
-);
 
 // Simple logging function to include timestamps
 function log(message: string, data?: any) {
@@ -24,14 +18,13 @@ function log(message: string, data?: any) {
   }
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   const requestId = crypto.randomUUID();
   log(`[${requestId}] Payment links function called`, {
     method: req.method,
-    url: req.url,
-    headers: Object.fromEntries(req.headers.entries())
+    url: req.url
   });
-  
+
   // Handle CORS
   const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;

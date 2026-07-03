@@ -1,31 +1,88 @@
-# Create React App
+# amgi
 
-This directory is a brief example of a [Create React App](https://github.com/facebook/create-react-app) site that can be deployed to Vercel with zero configuration.
+Flashcards that make you **speak**.
 
-## Deploy Your Own
+Most flashcard apps (Anki included) train you to read and write; listening and speaking come second, if at all. amgi flips that: every card has native-quality audio on both sides, and the way you answer a card is by **saying it out loud**. Your recording is sent to a speech-capable LLM together with the reference pronunciation, which judges it and talks back — and you stay in control, deciding whether to accept the verdict based on how your voice compared to the expected audio.
 
-Deploy your own Create React App project with Vercel.
+## Features
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/vercel/examples/tree/main/framework-boilerplates/create-react-app&template=create-react-app)
+- **Speak-to-answer reviews** — record your answer, get an AI pronunciation evaluation (text + spoken feedback), retry up to 3 times with an audio hint.
+- **Voice conversation mode** — a live, hands-free review session over WebRTC with OpenAI's realtime model: it reads the card, listens to you, evaluates, and moves through your due cards like a tutor would.
+- **AI-generated cards** — type a phrase in either language; the card's translation, language detection, and TTS audio for both sides are generated for you. Generated audio is transcribed and verified before it's accepted.
+- **Spaced repetition** — an SM-2 style scheduler (new → learning → review) with per-card state persisted in Supabase.
+- **Anki deck import** — the `plusaudio/` CLI tools convert `.apkg` decks (adding generated audio) into importable decks.
+- **Subscriptions** — Stripe-backed tiers with per-feature usage limits (voice evaluations, audio generations, realtime sessions) enforced atomically in the database.
 
-_Live Example: https://create-react-template.vercel.app/_
+## Architecture
 
-## Available Scripts
+- **Frontend**: Create React App (`src/`), deployed on Vercel. Talks to Supabase for auth, data, storage, and edge functions.
+- **Backend**: Supabase — Postgres + RLS (`supabase/migrations/`), storage bucket `card-audio`, and Deno edge functions (`supabase/functions/`):
+  - `cards` — card text generation/translation (structured outputs) + validated TTS audio.
+  - `speech` — pronunciation evaluation: compares your recording against the reference audio and returns a verdict plus spoken feedback.
+  - `realtime` — mints short-lived client secrets for the browser's WebRTC session with the realtime model; the API key never leaves the server.
+  - `payment-links` / `stripe-webhook` — Stripe checkout and subscription lifecycle.
+- **Models** (centralized in `supabase/functions/_shared/openai.ts`): `gpt-audio` for speech evaluation, `gpt-5-mini` for text, `gpt-4o-mini-tts` for card audio, `gpt-4o-mini-transcribe` for audio validation, and `gpt-realtime` for conversation mode.
 
-In the project directory, you can run:
+## Setup
 
-### `npm start`
+### 1. Supabase
 
-Runs the app in the development mode. Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+```bash
+supabase init      # if starting fresh; this repo already has supabase/
+supabase db push   # applies supabase/migrations/
+```
 
-The page will reload when you make changes. You may also see any lint errors in the console.
+Set the edge function secrets:
 
-### `npm test`
+```bash
+supabase secrets set OPENAI_KEY=sk-...
+supabase secrets set STRIPE_SECRET_KEY=sk_live_...
+supabase secrets set STRIPE_WEBHOOK_SECRET=whsec_...
+supabase secrets set APP_URL=https://your-app.example
+```
 
-Launches the test runner in the interactive watch mode. See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+Deploy the functions:
 
-### `npm run build`
+```bash
+supabase functions deploy cards speech realtime payment-links stripe-webhook
+```
 
-Builds the app for production to the `build` folder.
+### 2. Frontend
 
-It correctly bundles React in production mode and optimizes the build for the best performance. The build is minified and the filenames include the hashes.
+Create `.env.local`:
+
+```bash
+REACT_APP_SUPABASE_URL=https://<project-ref>.supabase.co
+REACT_APP_SUPABASE_KEY=<anon key>
+```
+
+Then:
+
+```bash
+npm install
+npm start          # dev server on http://localhost:3000
+npm test           # jest suite
+npm run build      # production build
+```
+
+### 3. plusaudio CLI (optional)
+
+Offline tools for converting Anki decks; kept out of the web app's dependency tree.
+
+```bash
+cd plusaudio
+npm install
+node index.js --help   # see plusaudio/README.md
+```
+
+Requires an `OPENAI_API_KEY` in `plusaudio/.env` for audio generation.
+
+## Repository layout
+
+```
+src/                  React app (contexts, components, scheduler, network layer)
+supabase/functions/   Deno edge functions + _shared helpers
+supabase/migrations/  Schema, RLS, and RPCs
+plusaudio/            Node CLI for Anki deck conversion
+archives/             Old implementations kept for reference (not built)
+```

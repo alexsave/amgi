@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import supabase from '../../db/supabaseClient';
 import { useNavigate, useLocation } from 'react-router-dom';
-import Navbar from '../Navigation/Navbar';
 import './SubscriptionComponent.css';
 
 export default function SubscriptionComponent() {

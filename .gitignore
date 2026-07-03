@@ -39,3 +39,4 @@ plusaudio/audio/
 plusaudio/*.json
 **/*.apkg
 **/*.swp
+!plusaudio/package.json

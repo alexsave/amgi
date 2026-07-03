@@ -257,7 +257,7 @@ export function AudioProvider({ children }) {
       return { listeners, audioSources };
     };
     
-    const { listeners, audioSources } = setupPlaybackListeners();
+    const { listeners } = setupPlaybackListeners();
     
     // Cleanup function
     return () => {

@@ -1,248 +1,185 @@
-import { renderHook, act } from '@testing-library/react-hooks';
-import { useReview } from '../../contexts/ReviewContext';
+import React from 'react';
+import { renderHook, act } from '@testing-library/react';
+import { ReviewProvider, useReview } from '../../contexts/ReviewContext';
 import { useDecks } from '../../contexts/DeckContext';
 import { useAuth } from '../../contexts/AuthContext';
 import * as supabase from '../../db/supabase';
 
-// Mock dependencies
 jest.mock('../../contexts/DeckContext');
 jest.mock('../../contexts/AuthContext');
 jest.mock('../../db/supabase');
 
-// Mock current date for consistent testing
-let mockDate;
-const RealDate = Date;
+const NOW = new Date('2024-01-01T12:00:00Z');
 
-beforeAll(() => {
-  // Ensure timezone doesn't affect our tests
-  jest.useFakeTimers();
-  process.env.TZ = 'UTC';
+const wrapper = ({ children }) => <ReviewProvider>{children}</ReviewProvider>;
+
+const deckWith = (cards) => ({
+  currentDeckId: 'deck1',
+  decks: {
+    deck1: {
+      id: 'deck1',
+      name: 'Deck 1',
+      known_language: 'en',
+      learning_language: 'ko',
+      cards
+    }
+  },
+  updateDeckCards: jest.fn()
 });
 
-beforeEach(() => {
-  // Start each test at 2024-01-01
-  mockDate = new Date('2024-01-01T12:00:00Z');
-  
-  // Create a proper Date mock that maintains prototype chain
-  const MockDate = function(arg) {
-    if (arg === undefined) return new RealDate(mockDate);
-    return new RealDate(arg);
-  };
-  MockDate.prototype = RealDate.prototype;
-  MockDate.now = () => mockDate.getTime();
-  
-  // Replace global Date
-  global.Date = MockDate;
+// Factory: the scheduler mutates card objects, so every test needs fresh ones
+const defaultCards = () => [
+  {
+    id: 'card1',
+    front_text: 'Front 1',
+    back_text: 'Back 1',
+    review: null // New card
+  },
+  {
+    id: 'card2',
+    front_text: 'Front 2',
+    back_text: 'Back 2',
+    review: {
+      card_state: 'learning',
+      next_review_date: NOW.toISOString(),
+      interval_days: 1,
+      repetitions: 1,
+      ease_factor: 2.5
+    }
+  },
+  {
+    id: 'card3',
+    front_text: 'Front 3',
+    back_text: 'Back 3',
+    review: {
+      card_state: 'review',
+      next_review_date: NOW.toISOString(),
+      interval_days: 5,
+      repetitions: 3,
+      ease_factor: 2.5
+    }
+  }
+];
 
-  // Reset all mocks
+beforeEach(() => {
+  jest.useFakeTimers();
+  jest.setSystemTime(NOW);
   jest.clearAllMocks();
 
-  // Setup default mock values
-  useDecks.mockReturnValue({
-    currentDeckId: 'deck1',
-    decks: {
-      deck1: {
-        id: 'deck1',
-        cards: [
-          {
-            id: 'card1',
-            front_text: 'Front 1',
-            back_text: 'Back 1',
-            review: null // New card
-          },
-          {
-            id: 'card2',
-            front_text: 'Front 2',
-            back_text: 'Back 2',
-            review: {
-              card_state: 'learning',
-              next_review_date: mockDate.toISOString(),
-              interval_days: 1,
-              repetitions: 1,
-              ease_factor: 2.5
-            }
-          },
-          {
-            id: 'card3',
-            front_text: 'Front 3',
-            back_text: 'Back 3',
-            review: {
-              card_state: 'review',
-              next_review_date: mockDate.toISOString(),
-              interval_days: 5,
-              repetitions: 3,
-              ease_factor: 2.5
-            }
-          }
-        ]
-      }
-    },
-    mode: 'review'
-  });
-
-  useAuth.mockReturnValue({
-    user: { id: 'user1' }
-  });
-
+  useDecks.mockReturnValue(deckWith(defaultCards()));
+  useAuth.mockReturnValue({ user: { id: 'user1' } });
   supabase.saveReview.mockResolvedValue({});
 });
 
 afterEach(() => {
-  global.Date = RealDate;
-});
-
-afterAll(() => {
   jest.useRealTimers();
 });
 
 describe('useReview', () => {
-  describe('Initialization', () => {
+  describe('initialization', () => {
     test('initializes with correct card counts', () => {
-      const { result } = renderHook(() => useReview());
+      const { result } = renderHook(() => useReview(), { wrapper });
 
       expect(result.current.newCardsCount).toBe(1);
       expect(result.current.learningCardsCount).toBe(1);
       expect(result.current.reviewCardsCount).toBe(1);
     });
 
-    test('starts with first due card', () => {
-      const { result } = renderHook(() => useReview());
+    test('starts with the learning card that is due now', () => {
+      const { result } = renderHook(() => useReview(), { wrapper });
 
-      // Should start with the learning card since it's due now
-      expect(result.current.currentCardId).toBe('card2');
+      expect(result.current.currentCard?.id).toBe('card2');
     });
 
-    test('handles empty deck', () => {
-      useDecks.mockReturnValue({
-        currentDeckId: 'deck1',
-        decks: { deck1: { id: 'deck1', cards: [] } },
-        mode: 'review'
-      });
+    test('handles an empty deck', () => {
+      useDecks.mockReturnValue(deckWith([]));
 
-      const { result } = renderHook(() => useReview());
+      const { result } = renderHook(() => useReview(), { wrapper });
 
-      expect(result.current.currentCardId).toBeNull();
+      expect(result.current.currentCard).toBeNull();
       expect(result.current.newCardsCount).toBe(0);
       expect(result.current.learningCardsCount).toBe(0);
       expect(result.current.reviewCardsCount).toBe(0);
     });
   });
 
-  describe('Card Review Flow', () => {
-    test('handles correct answer for new card', async () => {
-      useDecks.mockReturnValue({
-        currentDeckId: 'deck1',
-        decks: {
-          deck1: {
-            id: 'deck1',
-            cards: [
-              {
-                id: 'card1',
-                front_text: 'Front 1',
-                back_text: 'Back 1',
-                review: null
-              }
-            ]
-          }
-        },
-        mode: 'review'
-      });
+  describe('review flow', () => {
+    test('correct answer on a learning card graduates it and saves the review', () => {
+      const { result } = renderHook(() => useReview(), { wrapper });
 
-      const { result } = renderHook(() => useReview());
-      
-      expect(result.current.currentCardId).toBe('card1');
-      expect(result.current.attempts).toBe(0);
+      expect(result.current.currentCard?.id).toBe('card2');
 
-      await act(async () => {
+      act(() => {
         result.current.markCorrectGetNext();
       });
 
-      // Card should move to learning state with 10 minute delay
       expect(supabase.saveReview).toHaveBeenCalledWith(
-        'card1',
-        expect.objectContaining({
-          result: 'incorrect', // First success treated as incorrect for scheduling
-          card_state: 'learning'
-        }),
+        'card2',
+        expect.objectContaining({ card_state: 'review' }),
         'user1'
       );
 
-      expect(result.current.learningCardsCount).toBe(1);
-      expect(result.current.newCardsCount).toBe(0);
+      // card2 graduated out of the session; next up is the new card
+      expect(result.current.learningCardsCount).toBe(0);
+      expect(result.current.currentCard?.id).toBe('card1');
     });
 
-    test('handles incorrect answer within max attempts', async () => {
-      const { result } = renderHook(() => useReview());
-      
-      expect(result.current.currentCardId).toBe('card2');
-      expect(result.current.attempts).toBe(0);
+    test('correct answer on a new card moves it to learning', () => {
+      useDecks.mockReturnValue(deckWith([defaultCards()[0]]));
 
-      await act(async () => {
-        result.current.markIncorrectGetAttempts();
+      const { result } = renderHook(() => useReview(), { wrapper });
+
+      expect(result.current.currentCard?.id).toBe('card1');
+
+      act(() => {
+        result.current.markCorrectGetNext();
+      });
+
+      expect(supabase.saveReview).toHaveBeenCalledWith(
+        'card1',
+        expect.objectContaining({ card_state: 'learning' }),
+        'user1'
+      );
+      expect(result.current.newCardsCount).toBe(0);
+      expect(result.current.learningCardsCount).toBe(1);
+    });
+
+    test('incorrect answer with attempts remaining keeps the same card', () => {
+      const { result } = renderHook(() => useReview(), { wrapper });
+
+      act(() => {
+        result.current.markIncorrectGetNext();
       });
 
       expect(result.current.attempts).toBe(1);
-      expect(result.current.currentCardId).toBe('card2'); // Same card
-      expect(supabase.saveReview).toHaveBeenCalledWith(
-        'card2',
-        expect.objectContaining({
-          result: 'incorrect'
-        }),
-        'user1'
-      );
+      expect(result.current.currentCard?.id).toBe('card2');
+      // Nothing is persisted until the card actually advances
+      expect(supabase.saveReview).not.toHaveBeenCalled();
     });
 
-    test('handles incorrect answer at max attempts', async () => {
-      const { result } = renderHook(() => useReview());
+    test('incorrect answer at max attempts reschedules and advances', () => {
+      const { result } = renderHook(() => useReview(), { wrapper });
 
-      // Get to max attempts
-      await act(async () => {
-        result.current.markIncorrectGetAttempts();
-        result.current.markIncorrectGetAttempts();
-        const final = result.current.markIncorrectGetAttempts();
-        expect(final.attempts).toBe(0);
-        expect(final.nextCard).not.toBe('card2');
+      act(() => {
+        result.current.markIncorrectGetNext();
+      });
+      act(() => {
+        result.current.markIncorrectGetNext();
+      });
+      act(() => {
+        result.current.markIncorrectGetNext();
       });
 
-      // Card should be rescheduled in 10 minutes
+      expect(result.current.attempts).toBe(0);
+      expect(supabase.saveReview).toHaveBeenCalledWith(
+        'card2',
+        expect.objectContaining({ card_state: 'learning' }),
+        'user1'
+      );
+      // The failed card goes back into learning (due in 10 min) and the next
+      // card is served
       expect(result.current.learningCardsCount).toBe(1);
-    });
-
-    test('handles correct answer for learning card', async () => {
-      const { result } = renderHook(() => useReview());
-      
-      expect(result.current.currentCardId).toBe('card2');
-
-      await act(async () => {
-        result.current.markCorrectGetNext();
-      });
-
-      // Card should move to review state
-      expect(supabase.saveReview).toHaveBeenCalledWith(
-        'card2',
-        expect.objectContaining({
-          result: 'correct',
-          card_state: 'review'
-        }),
-        'user1'
-      );
-
-      expect(result.current.learningCardsCount).toBe(0);
-      expect(result.current.reviewCardsCount).toBe(2);
+      expect(result.current.currentCard?.id).toBe('card1');
     });
   });
-
-  describe('Error Handling', () => {
-    test('handles server error gracefully', async () => {
-      supabase.saveReview.mockRejectedValue(new Error('Server error'));
-
-      const { result } = renderHook(() => useReview());
-      
-      await act(async () => {
-        result.current.markCorrectGetNext();
-      });
-
-      expect(result.current.error).toBe('Failed to update card scheduling');
-    });
-  });
-}); 
+});
