@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import * as supabase from '../db/supabase';
+import { regenerateCardPart } from '../network/supabaseApi';
 import { useAuth } from './AuthContext';
 
 const DeckContext = createContext({});
@@ -265,6 +266,121 @@ export const DeckProvider = ({ children }) => {
     }
   };
 
+  // ---- Starter decks & audio backfill ----
+
+  // Per-deck progress of background audio generation:
+  // { [deckId]: { running, done, total, error } }
+  const [audioBackfill, setAudioBackfill] = useState({});
+  const backfillRunning = useRef(new Set());
+
+  /**
+   * Creates a deck from a starter template: deck + all cards (text only)
+   * in bulk, then kicks off background audio generation. Review works as
+   * soon as a card's audio lands.
+   */
+  const createDeckFromTemplate = async (template) => {
+    const deckId = await createNewDeck({
+      name: template.name,
+      known_language: template.known_language,
+      learning_language: template.learning_language
+    });
+
+    await addCardToDeck(deckId, template.cards.map(card => ({
+      ...card,
+      front_lang: template.known_language,
+      back_lang: template.learning_language
+    })));
+
+    // Fire and forget — progress is reported through audioBackfill state.
+    startAudioBackfill(deckId);
+    return deckId;
+  };
+
+  /**
+   * Generates TTS audio for every card in the deck that's missing it,
+   * two cards at a time. Safe to call again after an interruption or
+   * quota error: it re-queries and picks up whatever is still missing.
+   */
+  const startAudioBackfill = async (deckId) => {
+    if (!user || backfillRunning.current.has(deckId)) return;
+    backfillRunning.current.add(deckId);
+
+    try {
+      const pending = await supabase.getCardsMissingAudio(deckId);
+      if (pending.length === 0) {
+        setAudioBackfill(prev => ({ ...prev, [deckId]: { running: false, done: 0, total: 0, error: null } }));
+        return;
+      }
+
+      let done = 0;
+      let fatalError = null;
+      setAudioBackfill(prev => ({ ...prev, [deckId]: { running: true, done, total: pending.length, error: null } }));
+
+      const queue = [...pending];
+      const worker = async () => {
+        while (queue.length > 0 && !fatalError) {
+          const card = queue.shift();
+          const parts = [
+            !card.front_audio_path && 'front_audio_path',
+            !card.back_audio_path && 'back_audio_path'
+          ].filter(Boolean);
+
+          try {
+            const generated = await regenerateCardPart(card, parts, card.front_lang, card.back_lang);
+            const paths = {
+              front_audio_path: generated.front_audio_path || card.front_audio_path,
+              back_audio_path: generated.back_audio_path || card.back_audio_path
+            };
+            await supabase.updateCardAudioPaths(card.id, paths);
+
+            // Reflect the new paths in any locally loaded copy of the card
+            setDecks(prev => {
+              const deck = prev[deckId];
+              if (!deck) return prev;
+              return {
+                ...prev,
+                [deckId]: {
+                  ...deck,
+                  cards: deck.cards.map(c => c.id === card.id ? { ...c, ...paths } : c)
+                }
+              };
+            });
+          } catch (err) {
+            // A quota error will fail every remaining card too — stop now
+            // and let the user resume after upgrading / next period.
+            if (err.message?.toLowerCase().includes('limit')) {
+              fatalError = err.message;
+            } else {
+              console.error(`Audio generation failed for card ${card.id}:`, err);
+            }
+          } finally {
+            done++;
+            setAudioBackfill(prev => ({
+              ...prev,
+              [deckId]: { running: true, done, total: pending.length, error: fatalError }
+            }));
+          }
+        }
+      };
+
+      await Promise.all([worker(), worker()]);
+
+      const remaining = fatalError ? await supabase.getCardsMissingAudio(deckId).catch(() => []) : [];
+      setAudioBackfill(prev => ({
+        ...prev,
+        [deckId]: { running: false, done, total: pending.length, error: fatalError, remaining: remaining.length }
+      }));
+    } catch (error) {
+      console.error('Audio backfill failed:', error);
+      setAudioBackfill(prev => ({
+        ...prev,
+        [deckId]: { ...(prev[deckId] || { done: 0, total: 0 }), running: false, error: error.message }
+      }));
+    } finally {
+      backfillRunning.current.delete(deckId);
+    }
+  };
+
   // Update cards in a deck with their latest review states
   const updateDeckCards = (deckId, updatedCards) => {
     // Make sure the deck exists
@@ -307,6 +423,9 @@ export const DeckProvider = ({ children }) => {
     setNewCardsToday,
     setError,
     createNewDeck,
+    createDeckFromTemplate,
+    startAudioBackfill,
+    audioBackfill,
     updateDeck,
     deleteDeck,
     addCardToDeck,

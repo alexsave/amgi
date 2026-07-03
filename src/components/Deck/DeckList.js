@@ -2,16 +2,17 @@ import React, { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDecks } from '../../contexts/DeckContext';
 import DeckItem from './DeckItem';
-import { sampleDeck } from '../../sampleDeck';
 import msgpack from 'msgpack-lite';
 import { PlusIcon, ArrowDownTrayIcon, Square3Stack3DIcon } from '@heroicons/react/24/outline';
 import './DeckList.css';
 import { NAME } from '../../constants/names';
 import CreateDeckModal from './CreateDeckModal';
+import StarterDeckModal from './StarterDeckModal';
 
 const DeckList = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const { 
+  const [isStarterModalOpen, setIsStarterModalOpen] = useState(false);
+  const {
     decks,
     setCurrentDeckId,
     updateDeck
@@ -54,23 +55,6 @@ const DeckList = () => {
     }
   };
 
-  const loadSampleDeck = () => {
-    console.log('Loading sample deck');
-    const id = Date.now().toString();
-    const newDeck = {
-      ...sampleDeck,
-      id,
-      lastModified: Date.now()
-    };
-    
-    console.log('Updating deck with ID:', id);
-    updateDeck(id, newDeck);
-    console.log('Setting current deck...');
-    setCurrentDeckId(id);
-    console.log('Navigating to deck page...');
-    navigate(`/deck/${id}`);
-  };
-
   return (
     <div className="deck-management">
       <div className="deck-header">
@@ -89,21 +73,33 @@ const DeckList = () => {
           <button onClick={handleImportClick} className="action-btn" title="Import Deck">
             <ArrowDownTrayIcon />
           </button>
-          <button onClick={loadSampleDeck} className="action-btn" title="Load Sample Deck">
+          <button onClick={() => setIsStarterModalOpen(true)} className="action-btn" title="Starter Decks">
             <Square3Stack3DIcon />
           </button>
         </div>
       </div>
-      
+
       <CreateDeckModal
         isOpen={isCreateModalOpen}
         setIsCreateModalOpen={setIsCreateModalOpen}
+      />
+
+      <StarterDeckModal
+        isOpen={isStarterModalOpen}
+        onClose={() => setIsStarterModalOpen(false)}
       />
       
       <div className="deck-list">
         {Object.entries(decks).length === 0 ? (
           <div className="empty-deck-state">
-            <button 
+            <button
+              onClick={() => setIsStarterModalOpen(true)}
+              className="create-first-deck-btn"
+            >
+              <Square3Stack3DIcon style={{height: '20px', width: '20px'}}/>
+              <span>Start with a ready-made phrase deck</span>
+            </button>
+            <button
               onClick={() => setIsCreateModalOpen(true)}
               className="create-first-deck-btn"
             >

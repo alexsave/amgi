@@ -23,9 +23,13 @@ const evaluationTools = [{
         message: {
           type: "string",
           description: "Feedback message explaining the evaluation"
+        },
+        transcription: {
+          type: "string",
+          description: "What the learner actually said, transcribed in the target language's script"
         }
       },
-      required: ["result", "message"],
+      required: ["result", "message", "transcription"],
       additionalProperties: false
     }
   }
@@ -112,7 +116,7 @@ Deno.serve(wrapRequest(async ({ user, body }) => {
         role: "system",
         content: `You are a language learning assistant evaluating pronunciation. The learner knows ${front_lang || 'English'} and is learning ${back_lang}.
 
-Compare the learner's pronunciation with the expected text "${expected_text}" in ${back_lang}. Judge whether the words are right and intelligibly pronounced — be encouraging about accent, strict about wrong or missing words. If the pronunciation is good, call evaluate_pronunciation with result "correct" and a brief praise message. If it needs improvement, call evaluate_pronunciation with result "incorrect" and one concrete, brief tip about what to fix.`
+Compare the learner's pronunciation with the expected text "${expected_text}" in ${back_lang}. Judge whether the words are right and intelligibly pronounced — be encouraging about accent, strict about wrong or missing words. Call evaluate_pronunciation with: a transcription of what the learner actually said; result "correct" with a brief praise message if the pronunciation is good, or result "incorrect" with one concrete, brief tip about what to fix.`
       },
       {
         role: "user",
@@ -143,6 +147,7 @@ Compare the learner's pronunciation with the expected text "${expected_text}" in
   return {
     result: evaluation.result,
     message: evaluation.message,
+    transcription: evaluation.transcription ?? null,
     audio: await speakFeedback(openai, evaluation.message),
   };
 }));
