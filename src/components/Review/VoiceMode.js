@@ -26,7 +26,6 @@ const VoiceMode = () => {
     isRecording,
     feedback,
     buttonState,
-    audioScale,
     mediaStreamRef,
     audioElementRef,
     audioContextRef,
@@ -68,15 +67,9 @@ const VoiceMode = () => {
       return;
     }
 
-    const newRecordingState = !isRecording;
-    setIsRecording(newRecordingState);
-
-    // Ensure tracks are enabled when we start recording
-    if (newRecordingState && mediaStreamRef.current) {
-      mediaStreamRef.current.getTracks().forEach(track => {
-        track.enabled = true;
-      });
-    }
+    // setIsRecording also mutes/unmutes the actual mic tracks, so toggling
+    // off really stops streaming audio to the model.
+    setIsRecording(!isRecording);
   };
 
   if (!currentCard) {
@@ -131,7 +124,6 @@ const VoiceMode = () => {
           className={`mic-button ${isRecording ? 'recording' : ''} ${isSpeaking ? 'speaking' : ''} ${!isConnected && hasStarted ? 'disabled' : ''} ${buttonState}`}
           onClick={handleMicClick}
           disabled={(hasStarted && !isConnected) || isConnecting}
-          style={{ '--scale': `${audioScale}%` }}
         >
           <MicrophoneIcon className="large-mic-icon" />
         </button>

@@ -18,7 +18,6 @@ const AudioVisualizer = ({
     if (isAnimatingRef.current) return;
     
     if (!analyserRef.current || !sourceRef.current || !canvasRef.current) {
-      console.log(`Cannot start animation: analyser=${!!analyserRef.current}, source=${!!sourceRef.current}, canvas=${!!canvasRef.current}`);
       return;
     }
 
@@ -136,11 +135,9 @@ const AudioVisualizer = ({
 
   const setupAudioVisualization = () => {
     if (!audioStream) {
-      console.log(`No audioStream for ${isAiOutput ? 'AI' : 'user'} visualizer`);
       return;
     }
 
-    console.log(`Setting up audioStream for ${isAiOutput ? 'AI' : 'user'} visualizer`);
 
     // Clean up existing source if any
     if (sourceRef.current) {
@@ -183,7 +180,6 @@ const AudioVisualizer = ({
       if (audioContextRef.current && audioStream) {
         sourceRef.current = audioContextRef.current.createMediaStreamSource(audioStream);
         sourceRef.current.connect(analyserRef.current);
-        console.log(`Successfully connected stream to analyser for ${isAiOutput ? 'AI' : 'user'} visualizer`);
       }
     } catch (error) {
       console.error(`Error creating media stream source for ${isAiOutput ? 'AI' : 'user'}:`, error);
@@ -230,7 +226,6 @@ const AudioVisualizer = ({
 
   // Effect to handle animation state changes
   useEffect(() => {
-    console.log(`isLive changed to ${isLive} for ${isAiOutput ? 'AI' : 'user'} visualizer`);
     
     if (isLive && !isAnimatingRef.current && sourceRef.current) {
       startAnimation();

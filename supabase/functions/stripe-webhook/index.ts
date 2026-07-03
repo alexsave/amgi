@@ -3,9 +3,11 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts"
 import Stripe from "npm:stripe@14.18.0";
 import { supabaseAdmin as supabaseClient } from "../_shared/supabase.ts";
 
-// Initialize Stripe. Pinned to the API version this webhook's field access
-// assumes (e.g. subscription.current_period_* moved off the Subscription
-// object in 2025 API versions — don't bump this without updating handlers).
+// Initialize Stripe. The SDK pin only governs API calls we make (e.g.
+// subscriptions.retrieve); webhook payload shapes follow the API version
+// configured on the webhook endpoint in the Stripe dashboard. These handlers
+// read pre-2025 fields (subscription.current_period_*, invoice.subscription),
+// so keep the endpoint on a pre-2025 version or update the handlers together.
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') as string, {
   apiVersion: '2023-10-16',
 });

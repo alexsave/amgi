@@ -6,7 +6,8 @@
 -- This RPC folds check + increment into a single guarded UPDATE so the limit
 -- is enforced atomically. The limit itself is resolved by the caller (it
 -- depends on subscription state that the edge function already loads) and
--- passed in; -1 means unlimited, amount 0 means "check only".
+-- passed in; -1 means unlimited. A negative amount is a refund and is never
+-- blocked by the limit check (the counter is floored at zero).
 --
 -- Safe to re-run.
 
@@ -32,12 +33,13 @@ begin
     raise exception 'unknown usage field: %', p_field;
   end if;
 
-  -- Guarded atomic increment: only applies when unlimited or within limit.
+  -- Guarded atomic increment: only applies when unlimited, within limit,
+  -- or refunding (negative amount, floored at zero).
   execute format(
     'update usage_tracking
-        set %1$I = %1$I + $1
+        set %1$I = greatest(0, %1$I + $1)
       where user_id = $2
-        and ($3 = -1 or %1$I + $1 <= $3)
+        and ($1 < 0 or $3 = -1 or %1$I + $1 <= $3)
       returning *',
     p_field
   )
