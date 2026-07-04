@@ -8,11 +8,12 @@ drop table if exists decks cascade;
 drop function if exists public.handle_new_user() cascade;
 drop trigger if exists on_auth_user_created on auth.users;
 
--- Create or replace storage bucket for card audio files
-delete from storage.objects where bucket_id = 'card-audio';
-delete from storage.buckets where id = 'card-audio';
-insert into storage.buckets (id, name, public) 
-values ('card-audio', 'card-audio', true);
+-- Create storage bucket for card audio files (idempotent).
+-- Note: newer Supabase blocks direct DELETE from storage.objects/buckets
+-- (Storage API only), so we upsert the bucket instead of delete-then-insert.
+insert into storage.buckets (id, name, public)
+values ('card-audio', 'card-audio', true)
+on conflict (id) do update set public = excluded.public;
 
 -- Set up storage policies for card audio
 drop policy if exists "Anyone can read card audio" on storage.objects;
