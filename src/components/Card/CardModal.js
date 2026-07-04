@@ -187,13 +187,13 @@ const CardModal = ({ isOpen, onClose }) => {
     return (
       <div className="card-content">
         <div className="edit-text-container">
-          {isGenerating ? (
+          {isGenerating || !generatedCard ? (
             <div className="loading-text-area">
               <ArrowPathIcon className="h-5 w-5 spin" />
             </div>
           ) : (
             <textarea
-              value={generatedCard[textPart]}
+              value={generatedCard[textPart] ?? ''}
               onChange={(e) => handleTextChange(textPart, e.target.value)}
               className="edit-text-area"
             />
@@ -211,7 +211,7 @@ const CardModal = ({ isOpen, onClose }) => {
               <ArrowPathIcon className={`h-5 w-5 ${isTextRegenerating ? 'spin' : ''}`} />
             </button>
 
-            {isGenerating ? (
+            {isGenerating || !generatedCard ? (
               <div className="play-audio-btn">
                 <ArrowPathIcon className="h-5 w-5 spin" />
               </div>
