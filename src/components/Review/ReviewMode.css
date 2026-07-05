@@ -317,6 +317,15 @@
   animation: pulse 1.5s infinite;
 }
 
+/* Self-check judgment buttons (Anki-style Good / Again) */
+.button-inner.good {
+  background: radial-gradient(circle at 30% 30%, #4caf72, #1e6b3e);
+}
+
+.button-inner.again {
+  background: radial-gradient(circle at 30% 30%, #e0705a, #9c3524);
+}
+
 /* Transition Timer */
 .transition-timer-container {
   position: absolute;

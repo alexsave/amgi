@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useDecks } from '../../contexts/DeckContext';
-import { MicrophoneIcon, PlayIcon, ChevronDoubleRightIcon, XMarkIcon, ChatBubbleLeftRightIcon } from '@heroicons/react/24/solid';
+import { MicrophoneIcon, PlayIcon, ChevronDoubleRightIcon, XMarkIcon, ChatBubbleLeftRightIcon, CheckIcon, ArrowPathIcon, SpeakerWaveIcon, UserIcon } from '@heroicons/react/24/solid';
 import { useNavigate } from 'react-router-dom';
 import { useAudio } from '../../contexts/useAudio';
 import { useReview } from '../../contexts/ReviewContext';
@@ -116,11 +116,15 @@ const ReviewMode = () => {
         // Keep the recording for self-comparison in either mode
         storeUserRecording(audioBlob);
 
-        // Self-check: no AI call — reveal the answer and let the learner
-        // compare their recording against the native audio and judge.
+        // Self-check: no AI call — reveal the answer, immediately play the
+        // native pronunciation for comparison, and let the learner judge.
         if (selfCheck) {
           setEvaluationResult(null);
           setIsSelfJudging(true);
+          if (currentCard.back_audio_path) {
+            setLastClickedAudio('hint');
+            audio.playAudio(currentCard.back_audio_path).catch(() => {});
+          }
           return;
         }
 
@@ -192,10 +196,28 @@ const ReviewMode = () => {
     setIsSelfJudging(false);
     handleEvaluationResult({
       result: correct ? 'correct' : 'incorrect',
-      message: correct ? 'Marked correct — nice.' : 'Marked for another try.',
+      message: correct ? 'Good — nice one.' : 'Again — one more try.',
       audio: null
     });
   };
+
+  // Keyboard shortcuts while judging: Space = Good, A = Again
+  useEffect(() => {
+    if (!isSelfJudging) return;
+    const onKeyDown = (e) => {
+      if (e.repeat) return;
+      if (e.code === 'Space') {
+        e.preventDefault();
+        handleSelfJudge(true);
+      } else if (e.key === 'a' || e.key === 'A') {
+        e.preventDefault();
+        handleSelfJudge(false);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSelfJudging]);
 
   const handleEvaluationResult = useCallback((data) => {
     if (!data || !currentCard) {
@@ -433,40 +455,12 @@ const ReviewMode = () => {
         {isEvaluating ? (
           <div className="evaluation-loading">Evaluating your speech...</div>
         ) : isSelfJudging ? (
-          <div className="evaluation-result self-judge" style={{ textAlign: 'center' }}>
+          <div className="remaining-cards" style={{ textAlign: 'center' }}>
             {selfCheckNotice && (
-              <p style={{ opacity: 0.7, fontSize: '0.85rem', margin: '0 0 0.35rem' }}>{selfCheckNotice}</p>
+              <div style={{ opacity: 0.7, fontSize: '0.85rem', marginBottom: '0.25rem' }}>{selfCheckNotice}</div>
             )}
-            <p style={{ margin: 0 }}>Compare, then judge for yourself:</p>
-            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', margin: '0.4rem 0' }}>
-              <button
-                onClick={() => currentCard.back_audio_path && handlePlayButtonClick(currentCard.back_audio_path)}
-                disabled={!currentCard.back_audio_path || audio.isPlayingAudio || isPlayingLocked}
-                style={{ padding: '0.3rem 0.6rem', borderRadius: '6px', cursor: 'pointer' }}
-              >
-                ▶ Native
-              </button>
-              <button
-                onClick={handlePlayUserRecording}
-                style={{ padding: '0.3rem 0.6rem', borderRadius: '6px', cursor: 'pointer' }}
-              >
-                ▶ You
-              </button>
-            </div>
-            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
-              <button
-                onClick={() => handleSelfJudge(true)}
-                style={{ padding: '0.35rem 0.8rem', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}
-              >
-                ✓ I got it
-              </button>
-              <button
-                onClick={() => handleSelfJudge(false)}
-                style={{ padding: '0.35rem 0.8rem', borderRadius: '6px', cursor: 'pointer' }}
-              >
-                ✗ Not quite
-              </button>
-            </div>
+            How did you do?{' '}
+            <span style={{ opacity: 0.6 }}>Space = Good · A = Again</span>
           </div>
         ) : evaluationResult ? (
           <div className={`evaluation-result ${evaluationResult.result}`}>
@@ -527,6 +521,63 @@ const ReviewMode = () => {
       </div>
 
       {/* Buttons in a row at the bottom of the screen */}
+      {isSelfJudging ? (
+        /* Self-check judging: prompt / your take / native / again / good */
+        <div className="bottom-controls-container">
+          <div className="button-container">
+            <button
+              className="hint-button"
+              onClick={handlePlayFrontAudio}
+              disabled={audio.isPlayingAudio || isPlayingLocked}
+            >
+              <div className="button-inner">
+                <PlayIcon className="button-icon-controls" />
+              </div>
+            </button>
+            <div className="button-label">Prompt</div>
+          </div>
+
+          <div className="button-container">
+            <button className="hint-button" onClick={handlePlayUserRecording}>
+              <div className="button-inner">
+                <UserIcon className="button-icon-controls" />
+              </div>
+            </button>
+            <div className="button-label">You</div>
+          </div>
+
+          <div className="button-container">
+            <button
+              className="hint-button"
+              onClick={handlePlayHintAudio}
+              disabled={!currentCard.back_audio_path || audio.isPlayingAudio || isPlayingLocked}
+            >
+              <div className="button-inner">
+                <SpeakerWaveIcon className="button-icon-controls" />
+              </div>
+            </button>
+            <div className="button-label">Native</div>
+          </div>
+
+          <div className="button-container">
+            <button className="hint-button" onClick={() => handleSelfJudge(false)}>
+              <div className="button-inner again">
+                <ArrowPathIcon className="button-icon-controls" />
+              </div>
+            </button>
+            <div className="button-label">Again (A)</div>
+          </div>
+
+          <div className="button-container">
+            <button className="hint-button" onClick={() => handleSelfJudge(true)}>
+              <div className="button-inner good">
+                <CheckIcon className="button-icon-controls" />
+              </div>
+            </button>
+            <div className="button-label">Good (Space)</div>
+          </div>
+        </div>
+      ) : (
       <div className="bottom-controls-container">
         {/* Left (Play Front Audio) button */}
         <div className="button-container left-button">
@@ -628,7 +679,7 @@ const ReviewMode = () => {
           </div>
         </div>
       </div>
-
+      )}
 
     </div>
   );
