@@ -5,7 +5,7 @@ import { toFile } from "npm:openai@^6.5.0";
 import { z } from "npm:zod@^3.25.0";
 import { wrapRequest, HttpError } from "../_shared/handler.ts";
 import { checkAndIncrementUsage, refundUsage } from "../_shared/billing.ts";
-import { createOpenAIClient, TEXT_MODEL, TTS_MODEL, TRANSCRIBE_MODEL } from "../_shared/openai.ts";
+import { createOpenAIClient, TEXT_MODEL, TTS_MODEL, TRANSCRIBE_MODEL, SPEECH_EVALUATION_MODEL } from "../_shared/openai.ts";
 import { supabaseAdmin } from "../_shared/supabase.ts";
 
 // ========================
@@ -206,21 +206,132 @@ function transcriptionLanguage(language: string): string {
 }
 
 /**
- * Normalizes text for a lenient transcription comparison: lowercase,
- * no punctuation, collapsed whitespace.
+ * Derives the spoken form of card text. Parenthesized/bracketed annotations
+ * — glosses, readings, usage notes like "oxy (khí oxy)" or "行く [いく]" —
+ * are for the learner's eyes, not the voice: speaking them repeats the
+ * headword or reads metadata aloud, and then fails validation too. Falls
+ * back to the original text when stripping would leave nothing to say.
  */
-function normalizeForComparison(text: string): string {
-    return text
-        .toLowerCase()
-        .replace(/[\p{P}\p{S}]/gu, '')
+function spokenForm(text: string): string {
+    const stripped = text
+        .replace(/[（(][^（()）]*[）)]/g, ' ')
+        .replace(/[［\[][^［\[\]］]*[］\]]/g, ' ')
         .replace(/\s+/g, ' ')
         .trim();
+    return stripped || text.trim();
 }
 
 /**
- * Validates generated audio by transcribing it and checking it matches the
- * expected text. Cheap exact comparison first; an LLM judge only breaks ties
- * (numerals vs words, transcription variants, etc).
+ * Normalizes text for a lenient transcription comparison: Unicode-normalized
+ * (full-width/half-width, compatibility forms), lowercase, no punctuation,
+ * no whitespace (transcribers segment CJK/Thai text inconsistently).
+ */
+function normalizeForComparison(text: string): string {
+    return text
+        .normalize('NFKC')
+        .toLowerCase()
+        .replace(/[\p{P}\p{S}]/gu, '')
+        .replace(/\s+/g, '');
+}
+
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    const chunkSize = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+        binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+    }
+    return btoa(binary);
+}
+
+const AUDIO_JUDGE_SYSTEM_PROMPT = `You are a strict quality judge for text-to-speech audio used on language-learning flashcards. You are given the exact phrase the audio must say and the language it must be spoken in, followed by the audio clip. Listen carefully and judge whether the clip:
+1. Says exactly the expected phrase — no missing, extra, or different words. Natural readings (numerals read out as words, expanded abbreviations, spoken or skipped punctuation) are acceptable.
+2. Is spoken in the expected language with clear, intelligible pronunciation.
+Judge only what you actually hear in the audio. Call judge_audio with what you heard and your verdict.`;
+
+const audioJudgeTools = [{
+    type: "function" as const,
+    function: {
+        name: "judge_audio",
+        description: "Report whether the audio clip says the expected phrase in the expected language",
+        parameters: {
+            type: "object",
+            properties: {
+                heard: { type: "string", description: "What the audio actually says, as heard" },
+                matches: { type: "boolean", description: "True if the audio says exactly the expected phrase in the expected language with intelligible pronunciation" },
+                reason: { type: "string", description: "Brief justification for the verdict" }
+            },
+            required: ["heard", "matches", "reason"]
+        }
+    }
+}];
+
+interface AudioVerdict {
+    matches: boolean;
+    heard: string;
+    reason: string;
+}
+
+/**
+ * Judges generated TTS audio by listening to it directly with an audio-input
+ * chat model. Unlike a transcription round-trip, this works uniformly for any
+ * language: there is no intermediate transcript in a possibly different
+ * script or language to compare against, and it can also catch wrong-language
+ * or garbled pronunciation that a transcript would hide.
+ */
+async function judgeAudio(
+    openai: ReturnType<typeof createOpenAIClient>,
+    audioBuffer: ArrayBuffer,
+    text: string,
+    language: string
+): Promise<AudioVerdict> {
+    const response = await openai.chat.completions.create({
+        model: SPEECH_EVALUATION_MODEL,
+        messages: [
+            { role: "system", content: AUDIO_JUDGE_SYSTEM_PROMPT },
+            {
+                role: "user",
+                content: [
+                    { type: "text", text: `Expected phrase (language: ${language}): "${text}"\nJudge this audio:` },
+                    { type: "input_audio", input_audio: { data: arrayBufferToBase64(audioBuffer), format: "mp3" } }
+                ]
+            }
+        ],
+        tools: audioJudgeTools,
+        tool_choice: { type: "function", function: { name: "judge_audio" } }
+    });
+
+    const toolCall = response.choices[0]?.message?.tool_calls?.[0];
+    if (!toolCall || toolCall.type !== "function") {
+        throw new Error('No tool call in audio judge response');
+    }
+
+    const verdict = JSON.parse(toolCall.function.arguments);
+    return {
+        matches: verdict.matches === true,
+        heard: String(verdict.heard ?? ''),
+        reason: String(verdict.reason ?? '')
+    };
+}
+
+// Retrying with the same voice tends to repeat a systematic mispronunciation;
+// rotating voices lets retries actually explore.
+const TTS_VOICES = ["alloy", "nova", "echo"] as const;
+
+/**
+ * Generates TTS audio and validates it before accepting it.
+ *
+ * Only the spoken form of the text (annotations stripped) is voiced and
+ * validated. Fast path: transcribe the audio and compare against the spoken
+ * form after lenient normalization. On any disagreement, escalate to an
+ * audio-input model that listens to the clip itself and judges whether it
+ * says the expected phrase in the expected language. The transcript is
+ * deliberately not the arbiter: for short phrases, loanwords, and
+ * less-supported languages the transcriber often drifts into another script
+ * or translates what it heard, which is a transcription failure, not an
+ * audio failure.
+ *
+ * Fails closed: if no attempt produces audio that passes validation, throws.
  */
 async function validateAndGenerateAudio(
     openai: ReturnType<typeof createOpenAIClient>,
@@ -228,14 +339,15 @@ async function validateAndGenerateAudio(
     language: string,
     maxAttempts = 3
 ): Promise<ArrayBuffer> {
-    let lastTranscript = '';
+    const spoken = spokenForm(text);
+    let lastFailure = '';
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
         try {
             const audioMp3 = await openai.audio.speech.create({
                 model: TTS_MODEL,
-                voice: "alloy",
-                input: text,
+                voice: TTS_VOICES[(attempt - 1) % TTS_VOICES.length],
+                input: spoken,
                 instructions: getTtsInstructions(language)
             });
 
@@ -246,33 +358,43 @@ async function validateAndGenerateAudio(
                 file: await toFile(audioBuffer, 'audio.mp3', { type: 'audio/mpeg' }),
                 language: transcriptionLanguage(language),
             });
-            lastTranscript = transcription.text ?? '';
+            const transcript = transcription.text ?? '';
 
-            if (normalizeForComparison(lastTranscript) === normalizeForComparison(text)) {
+            if (normalizeForComparison(transcript) === normalizeForComparison(spoken)) {
                 return audioBuffer;
             }
 
-            // Not an exact match — let a text model judge whether the audio
-            // still says the right thing (e.g. "2" vs "two").
-            const verdict = await parseCompletion(
-                openai,
-                "You judge whether a speech transcription matches an expected phrase. Minor transcription differences (punctuation, numerals vs words, spacing, casing) still count as a match. Missing, extra, or different words do not.",
-                `Expected phrase (${language}): "${text}"\nTranscription: "${lastTranscript}"\nDoes the transcription match the expected phrase?`,
-                z.object({ matches: z.boolean() }),
-                "transcription_match"
-            );
+            let verdict: AudioVerdict;
+            try {
+                verdict = await judgeAudio(openai, audioBuffer, spoken, language);
+            } catch (judgeError) {
+                // Audio judge unavailable — fall back to judging the
+                // transcript so a judge outage doesn't take down card
+                // creation entirely.
+                console.warn(`Audio judge failed (${judgeError.message}); falling back to transcript judge`);
+                const textVerdict = await parseCompletion(
+                    openai,
+                    "You judge whether an automatic speech transcription plausibly comes from audio of an expected phrase. The transcriber may normalize punctuation, numerals vs words, spacing, and casing, and for some languages it outputs a different script or a translation of what was actually said — those still count as a match when the spoken content is plausibly the expected phrase. Count it as a mismatch when the transcription indicates different, missing, or extra spoken content.",
+                    `Expected phrase (language: ${language}): "${spoken}"\nTranscription: "${transcript}"\nCould this transcription plausibly come from audio of the expected phrase?`,
+                    z.object({ matches: z.boolean() }),
+                    "transcription_match"
+                );
+                verdict = { matches: textVerdict.matches, heard: transcript, reason: 'transcript-based fallback judgement' };
+            }
 
             if (verdict.matches) {
                 return audioBuffer;
             }
 
-            console.warn(`Audio validation attempt ${attempt}/${maxAttempts} failed for "${text}" (${language}); transcript: "${lastTranscript}"`);
+            lastFailure = `judge heard: "${verdict.heard}"; transcript: "${transcript}"; reason: ${verdict.reason}`;
+            console.warn(`Audio validation attempt ${attempt}/${maxAttempts} failed for "${spoken}" (${language}); ${lastFailure}`);
         } catch (audioError) {
+            lastFailure = audioError.message;
             console.error(`Audio generation attempt ${attempt}/${maxAttempts} failed:`, audioError.message);
         }
     }
 
-    throw new Error(`Failed to generate valid audio for "${text}" after ${maxAttempts} attempts (last transcript: "${lastTranscript}")`);
+    throw new Error(`Failed to generate valid audio for "${spoken}" after ${maxAttempts} attempts (${lastFailure})`);
 }
 
 /**
