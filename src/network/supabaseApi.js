@@ -38,7 +38,11 @@ export const generateCard = async (user_input, known_language, learning_language
     front_lang: data.card.front_lang || known_language,
     back_lang: data.card.back_lang || learning_language,
     front_audio_path: data.card.front_audio_path,
-    back_audio_path: data.card.back_audio_path
+    back_audio_path: data.card.back_audio_path,
+    // Carried, not stored: handing it back on a later request lets the server
+    // check that regenerated audio uses the reading the text was written for.
+    // No card column holds it, so it lives only as long as the modal does.
+    spoken_reading: data.card.spoken_reading || ''
   };
 
   if (typeof onProgress === 'function') {
@@ -62,7 +66,11 @@ export const regenerateCardPart = async (currentCard, parts = [], known_language
     front_lang: data.card.front_lang || known_language,
     back_lang: data.card.back_lang || learning_language,
     front_audio_path: data.card.front_audio_path,
-    back_audio_path: data.card.back_audio_path
+    back_audio_path: data.card.back_audio_path,
+    // Carried, not stored: handing it back on a later request lets the server
+    // check that regenerated audio uses the reading the text was written for.
+    // No card column holds it, so it lives only as long as the modal does.
+    spoken_reading: data.card.spoken_reading || ''
   };
 
   if (typeof onProgress === 'function') {

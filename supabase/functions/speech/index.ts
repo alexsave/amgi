@@ -4,6 +4,7 @@ import { wrapRequest, HttpError } from "../_shared/handler.ts";
 import { checkAndIncrementUsage } from "../_shared/billing.ts";
 import { createOpenAIClient, SPEECH_EVALUATION_MODEL, TTS_MODEL } from "../_shared/openai.ts";
 import { supabaseAdmin } from "../_shared/supabase.ts";
+import { spokenForm } from "../_shared/cardText.ts";
 import type OpenAI from "npm:openai@^6.5.0";
 import { encodeBase64 } from "jsr:@std/encoding@1/base64";
 
@@ -98,7 +99,7 @@ Deno.serve(wrapRequest(async ({ user, body }) => {
     throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
   }
 
-  // Load the reference audio BEFORE touching the user's quota — a stale
+  // Load the reference audio BEFORE touching the user's quota - a stale
   // storage path must not burn an evaluation credit.
   const expectedAudio = await loadExpectedAudio(expected_audio_path, expected_audio_base64);
 
@@ -109,6 +110,14 @@ Deno.serve(wrapRequest(async ({ user, body }) => {
 
   const openai = createOpenAIClient();
 
+  // The learner is graded on what they were asked to SAY. A card's known side
+  // can carry labels the learner reads but nobody speaks - which sense the
+  // card teaches, which politeness level - and cards generated before those
+  // labels had a convention can carry a whole second sense in parentheses.
+  // Grading against that string marks a perfect utterance wrong for omitting
+  // a gloss, so the evaluator only ever sees the spoken form.
+  const expectedSpoken = spokenForm(expected_text!);
+
   const response = await openai.chat.completions.create({
     model: SPEECH_EVALUATION_MODEL,
     messages: [
@@ -116,7 +125,7 @@ Deno.serve(wrapRequest(async ({ user, body }) => {
         role: "system",
         content: `You are a language learning assistant evaluating pronunciation. The learner knows ${front_lang || 'English'} and is learning ${back_lang}.
 
-Compare the learner's pronunciation with the expected text "${expected_text}" in ${back_lang}. Judge whether the words are right and intelligibly pronounced — be encouraging about accent, strict about wrong or missing words. Call evaluate_pronunciation with: a transcription of what the learner actually said; result "correct" with a brief praise message if the pronunciation is good, or result "incorrect" with one concrete, brief tip about what to fix.`
+Compare the learner's pronunciation with the expected text "${expectedSpoken}" in ${back_lang}. Judge whether the words are right and intelligibly pronounced - be encouraging about accent, strict about wrong or missing words. Call evaluate_pronunciation with: a transcription of what the learner actually said; result "correct" with a brief praise message if the pronunciation is good, or result "incorrect" with one concrete, brief tip about what to fix.`
       },
       {
         role: "user",

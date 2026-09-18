@@ -163,7 +163,10 @@ export const CardGenerationProvider = ({ children }) => {
     if (part === 'front_text') {
       setGeneratedCard(prev => ({ ...prev, front_text: text }));
     } else if (part === 'back_text') {
-      setGeneratedCard(prev => ({ ...prev, back_text: text }));
+      // The reading describes the text the server generated. Once the learner
+      // edits that text it describes nothing, and audio regenerated against a
+      // stale reading would be checked for the wrong pronunciation.
+      setGeneratedCard(prev => ({ ...prev, back_text: text, spoken_reading: '' }));
     }
   };
 
