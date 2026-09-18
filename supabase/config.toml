@@ -287,6 +287,9 @@ verify_jwt = false
 [functions.cards]
 verify_jwt = false
 
+[functions.delete-cards]
+verify_jwt = false
+
 [functions.realtime]
 verify_jwt = false
 

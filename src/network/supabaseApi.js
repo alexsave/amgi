@@ -73,6 +73,24 @@ export const regenerateCardPart = async (currentCard, parts = [], known_language
 };
 
 /**
+ * Deletes cards and, server-side, any audio object no remaining card row
+ * references. Both the ownership check and the storage removal need the
+ * service role, so this cannot be done from the browser - see
+ * supabase/functions/_shared/cardDeletion.ts.
+ * Returns `{ deleted_audio, missing_audio }`.
+ */
+export const deleteCards = async (cardIds) => {
+  return invoke('delete-cards', { card_ids: cardIds });
+};
+
+/**
+ * Deletes a deck, its cards (by cascade) and their now-unreferenced audio.
+ */
+export const deleteDeck = async (deckId) => {
+  return invoke('delete-cards', { deck_id: deckId });
+};
+
+/**
  * Sends the learner's recording for evaluation. The reference pronunciation
  * is passed as a storage path so the edge function fetches it server-side -
  * the browser never has to download and re-upload it.

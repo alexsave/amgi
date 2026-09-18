@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { TrashIcon } from '@heroicons/react/24/outline';
 import { useDecks } from '../../contexts/DeckContext';
 import CardForm from './CardForm';
 import CardModal from './CardModal';
@@ -9,8 +10,9 @@ import { getLanguageDisplay } from '../../constants/languages';
 const CardList = ({ onCardClick }) => {
   const { id } = useParams();
   const router = useRouter();
-  const { decks, setCurrentDeckId } = useDecks();
+  const { decks, setCurrentDeckId, deleteCard } = useDecks();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [deletingCardId, setDeletingCardId] = useState(null);
 
   const deck = decks[id];
 
@@ -21,6 +23,23 @@ const CardList = ({ onCardClick }) => {
 
   const closeModal = () => setIsModalOpen(false);
   const handleGenerationStart = () => setIsModalOpen(true);
+
+  // Confirmed the same way a deck deletion is, and the row stays disabled
+  // until the server has actually removed the card and its audio.
+  const handleDeleteClick = async (e, cardData) => {
+    e.stopPropagation();
+    if (!window.confirm(`Delete this card?\n\n${cardData.front_text}`)) return;
+
+    setDeletingCardId(cardData.id);
+    try {
+      await deleteCard(id, cardData.id);
+    } catch (err) {
+      console.error('Error deleting card:', err);
+      alert(`Failed to delete card: ${err.message}`);
+    } finally {
+      setDeletingCardId(null);
+    }
+  };
 
   return (
     <div className="deck-cards">
@@ -49,7 +68,17 @@ const CardList = ({ onCardClick }) => {
                   className={`card-item${onCardClick ? ' is-clickable' : ''}`}
                   onClick={onCardClick ? () => onCardClick(cardData) : undefined}
                 >
-                  <span>Card {index + 1}</span>
+                  <div className="card-item-header">
+                    <span>Card {index + 1}</span>
+                    <button
+                      onClick={(e) => handleDeleteClick(e, cardData)}
+                      className="card-delete-btn"
+                      title="Delete Card"
+                      disabled={deletingCardId === cardData.id}
+                    >
+                      <TrashIcon className="icon" />
+                    </button>
+                  </div>
                   <small>{cardData.front_text}</small>
                   {cardData.lastReviewed && (
                     <div className="card-stats">
@@ -74,4 +103,4 @@ const CardList = ({ onCardClick }) => {
   );
 };
 
-export default CardList; 
+export default CardList;

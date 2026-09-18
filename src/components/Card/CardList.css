@@ -121,6 +121,10 @@
 }
 
 .card-item {
+  /* .App sets text-align: center globally (a Create React App leftover); the
+     card body reads as a list entry, so it opts out the way the deck list
+     and the forms do. */
+  text-align: left;
   padding: 1rem;
   transition: all 0.2s ease;
   border-radius: 8px;
@@ -145,6 +149,49 @@
   color: var(--text-primary);
   margin-bottom: 0.5rem;
   font-size: 1rem;
+}
+
+.card-item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+/* The header row owns the gap below it, so the label must not add its own. */
+.card-item-header span {
+  margin-bottom: 0;
+}
+
+/* Styled here rather than reusing .icon-btn: that rule lives in DeckItem.css,
+   which this route does not necessarily load. */
+.card-delete-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  /* Pulled into the card's padding so the hover target sits in the corner
+     without making the row taller than the label. */
+  margin: -2px -4px -2px 0;
+  padding: 4px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.card-delete-btn:hover:not(:disabled) {
+  background: var(--dark-bg);
+  color: var(--flame-orange);
+}
+
+.card-delete-btn:disabled {
+  opacity: 0.4;
+  cursor: progress;
 }
 
 .card-item small {
