@@ -7,7 +7,7 @@
 }
 
 .auth-container.welcome-container {
-  padding: 0;
+  padding: 20px 16px;
 }
 
 .auth-card {
@@ -17,7 +17,8 @@
   border: 1px solid var(--border-color);
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
   width: 100%;
-  max-width: 400px;
+  max-width: 420px;
+  box-sizing: border-box;
   position: relative;
   z-index: 1;
   background-color: var(--dark-surface);
@@ -68,6 +69,8 @@
 }
 
 .form-group input {
+  width: 100%;
+  box-sizing: border-box;
   padding: 0.75rem;
   border: 1px solid var(--border-color);
   border-radius: 4px;
@@ -133,9 +136,10 @@ button:disabled {
 }
 
 .checkbox-container {
-  display: flex;
+  display: block;
   position: relative;
   padding-left: 1.75rem;
+  text-align: left;
   cursor: pointer;
   user-select: none;
   color: var(--text-primary);
@@ -195,7 +199,6 @@ button:disabled {
 .checkbox-container a {
   color: var(--flame-orange);
   text-decoration: none;
-  display: inline-block;
 }
 
 .checkbox-container a:hover {

@@ -2,6 +2,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 1rem;
   background: var(--dark-surface);
   padding: 15px;
   border-radius: 6px;
@@ -12,6 +13,10 @@
 .deck-item:hover {
   background: var(--dark-surface-hover);
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.deck-info {
+  min-width: 0;
 }
 
 .deck-info h3 {
@@ -26,6 +31,7 @@
 
 .deck-item-actions {
   display: flex;
+  flex-shrink: 0;
   gap: 8px;
   opacity: 0.6;
   transition: opacity 0.2s ease;
@@ -36,6 +42,7 @@
 }
 
 .icon-btn {
+  display: flex;
   align-items: center;
   justify-content: center;
   background: transparent;

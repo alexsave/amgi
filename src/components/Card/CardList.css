@@ -1,6 +1,9 @@
 .deck-cards {
-  max-width: 1200px;
-  padding: 1rem;
+  width: 100%;
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem;
+  box-sizing: border-box;
 }
 
 .deck-cards-header {
@@ -119,7 +122,6 @@
 
 .card-item {
   padding: 1rem;
-  cursor: pointer;
   transition: all 0.2s ease;
   border-radius: 8px;
   background: var(--dark-surface-hover);
@@ -127,7 +129,11 @@
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
-.card-item:hover {
+.card-item.is-clickable {
+  cursor: pointer;
+}
+
+.card-item.is-clickable:hover {
   transform: translateY(-3px);
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
   border-color: var(--flame-orange);
@@ -163,8 +169,15 @@
 
 @media (max-width: 768px) {
   .deck-cards-header {
+    align-items: stretch;
   }
-  
+
+  .deck-cards-header .back-btn {
+    position: static;
+    align-self: flex-start;
+    margin-bottom: 0.5rem;
+  }
+
   .card-list {
     grid-template-columns: 1fr;
   }
