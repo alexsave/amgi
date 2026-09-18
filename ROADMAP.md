@@ -16,7 +16,8 @@ acceptance criteria. Conventions to follow for every item:
 - Charge usage quotas via `checkAndIncrementUsage` **after** validating the
   request but **before** calling OpenAI; refund with `refundUsage` if the work
   then fails entirely.
-- Run `npm test` and `npm run build` before committing; keep both green.
+- Run `pnpm test` and `pnpm build` before committing; keep both green.
+  (The package manager is pnpm, pinned in `package.json#packageManager`.)
 - Model names live in `supabase/functions/_shared/openai.ts` — never hardcode
   a model string anywhere else.
 
@@ -67,7 +68,7 @@ create index if not exists review_log_user_time_idx on review_log(user_id, revie
    `ReviewMode.js`.
 
 **Accept:** finishing a review adds a row; /stats shows non-zero counts;
-`npm test` green (add a small test for the streak-computing function — put the
+`pnpm test` green (add a small test for the streak-computing function - put the
 pure function in `src/utils/stats.js` so it's testable without the network).
 
 ### 1.2 Deck browser that shows ALL cards
@@ -139,8 +140,8 @@ without compromising the audio-first design.
 5. Display: in `ReviewMode.js`, under the back text, render
    `<div className="flashcard-reading">{currentCard.back_reading}</div>` when
    present, but ONLY at the same visibility stage as the back text
-   (attempts >= 3 or transitioning). Add a per-user toggle later; always-on
-   is fine first.
+   (the `answer` phase, i.e. `phase === PHASE.ANSWER`).
+   Add a per-user toggle later; always-on is fine first.
 
 **Accept:** generating an en→ko card returns a reading; review shows it with
 the answer; Latin-language cards show nothing.
@@ -183,10 +184,10 @@ learning step and binary grading. FSRS (open algorithm, used by modern Anki)
 retains measurably better with fewer reviews.
 
 **Steps:**
-1. `npm install ts-fsrs` (pure JS, no native deps).
+1. `pnpm add ts-fsrs` (pure JS, no native deps).
 2. Migration: `alter table reviews add column if not exists stability real, add column if not exists difficulty real;`
 3. New `src/algorithms/fsrs.js` wrapping ts-fsrs: map outcomes to FSRS grades
-   — incorrect→Again, override_correct→Hard, correct with attempts>0→Hard,
+   - self-graded Again→Again, correct with attempts>0 (voice mode's retries)→Hard,
    correct first try→Good. Persist `stability`/`difficulty` alongside the
    existing fields (keep `interval_days`/`ease_factor` written for backward
    compat).
@@ -226,26 +227,10 @@ comprehend cards play target audio first and accept a known-language answer.
 
 ### 2.3 Hands-free classic review (auto-record with silence detection)
 
-**Why:** One tap per card ("record", then implicit stop) is the biggest
-friction in a 30-card session; voice mode solves it but costs a realtime
-session. A cheap middle ground: after the prompt audio ends, auto-start
-recording and auto-stop on ~1.2s of silence.
-
-**Steps:**
-1. New hook `src/hooks/useAutoRecord.js`: given the mic stream (vmsg recorder
-   already requests it in `useAudio.startRecording`), attach an
-   `AnalyserNode`, compute RMS per animation frame, expose
-   `onSpeechEnd(callback, {silenceMs: 1200, minSpeechMs: 400})`.
-2. In `ReviewMode.js`, add a toggle (persist in `localStorage`)
-   "Hands-free". When on: after front audio `ended` (the `audio.playAudio`
-   promise resolves / `onended` fires), call `audio.startRecording()`; when
-   `useAutoRecord` reports speech end, run the same handler as the record
-   button's stop branch.
-3. Guard rails: never auto-record while `isTransitioning || isEvaluating`;
-   stop the loop on error results; cap recording at 15s.
-
-**Accept:** with the toggle on, a full card cycle (prompt → speak → verdict →
-next) needs zero taps for correct answers.
+**Status: shipped**, and not as a toggle - it is the only review flow now.
+`src/utils/voiceActivity.js` (`detectSpeechEnd`) calibrates the noise floor, waits for speech, and ends the turn after 1.2s of silence, bounded by a no-speech timeout and a max utterance length.
+`ReviewMode.js` drives the per-card loop (prompt audio → mic → native audio → self-grade) off it.
+A full card needs zero taps beyond the grade, and one "Start reviewing" click per session for mic consent and autoplay unlock.
 
 ### 2.4 Voice mode polish
 
@@ -265,25 +250,13 @@ Smaller items, all in `src/contexts/RealtimeContext.js` /
   identical).
 - **Session cap awareness:** show remaining realtime sessions (from
   usage/subscription, already queried in `src/components/Settings/Subscription.js`)
-  next to the Voice mode button in `ReviewMode.js`.
+  in `VoiceMode.js`'s own header - the review screen no longer links to voice
+  mode, so there is no button left to hang it off.
 
 ### 2.5 Self-compare playback after AI evaluations
 
-**Status: partially shipped.** Self-check mode (the "▶ Native / ▶ You"
-comparison with self-grading) exists and is the free practice path; the
-recording is already stored in `ReviewMode.js` (`storeUserRecording`) in both
-modes. Remaining piece: also render the "▶ Native / ▶ You" buttons under
-*AI* evaluation results (the `evaluationResult` branch), so paying users can
-shadow after a verdict too. Reuse `handlePlayUserRecording` and the disabled
-conditions from the self-judge panel.
-
-**Also worth doing — tier-aware default:** default the mode toggle by plan:
-fetch the user's tier once in Settings-style code (`user_subscriptions` +
-`subscription_tiers`, see `src/components/Settings/Subscription.js`), and if
-the tier is Free, initialize `amgi_self_check` to `'true'` on first run
-(don't override an explicit user choice — only set the localStorage key when
-it is absent). Free users then never touch AI during practice unless they
-opt in; the automatic fallback on quota errors already exists.
+**Status: shipped.** The answer phase always offers the "Prompt / Native / You" replay row, whether or not an AI verdict is showing, and the recording is stored in `ReviewMode.js` (`storeUserRecording`).
+Self-grading is the single path, so there is no mode toggle to default by plan: AI checking is opt-in per device (`localStorage.amgi_ai_check`) and off unless the reviewer turns it on, which is what the tier-aware default was for.
 
 ---
 
@@ -365,7 +338,7 @@ function's quota-after-audio-load ordering; cards refund-on-failure.
 ### 4.2 CI
 
 `.github/workflows/validate.yml` (mirror foolish's): on PR —
-`npm ci && CI=false npm run build && CI=true npx react-scripts test --watchAll=false`,
+`pnpm install --frozen-lockfile && pnpm lint && pnpm build && pnpm test`,
 plus `deno lint supabase/functions`. Add a `postgres:16` service and run 4.1's
 tests once they exist.
 
@@ -404,13 +377,12 @@ existing objects — write it in `plusaudio/` style as a Node script.
 
 ### 4.6 PWA / offline review
 
-Cache app shell (CRA supports workbox), cache card audio in the Cache API on
+Cache the app shell (a service worker over the Next.js build output), cache card audio in the Cache API on
 first play (`useAudio.playAudio` already funnels every fetch through
 `downloadCardAudio` — add a cache layer there), queue `saveReview` writes in
 IndexedDB with replay-on-reconnect. Speech evaluation stays online-only —
-show "offline: self-grade" buttons (correct/incorrect) when
-`navigator.onLine` is false, which the override path (ReviewMode's
-`handleOverrideCorrect`) already almost provides.
+when `navigator.onLine` is false, skip the AI check (already opt-in) and let
+the reviewer grade themselves, which is what the Again/Good buttons already do.
 
 ---
 
@@ -422,7 +394,7 @@ show "offline: self-grade" buttons (correct/incorrect) when
   deck can't create any more cards that month. Either bump the free audio
   limit to ~150, or exempt `shared/` cache hits (item 1.5) from the charge —
   the cache makes starter decks nearly free anyway.
-- Voice evaluations at 100/month ≈ 3–4 serious days of AI checking. With
-  self-check mode shipped, free users can practice indefinitely at zero
-  marginal cost — AI evaluations become the upgrade reason, not the entry
-  ticket. Pair with the tier-aware default in item 2.5.
+- Voice evaluations at 100/month ≈ 3–4 serious days of AI checking. Because AI
+  checking is opt-in per device and off by default, free users can practice
+  indefinitely at zero marginal cost - AI evaluations become the upgrade
+  reason, not the entry ticket.
