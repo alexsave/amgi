@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef, createContext, useContext } from 'react';
 import { useDecks } from './DeckContext';
-import { processCardReview } from '../algorithms/spacedRepetition';
+import { processCardReview, buildReviewLog, RATINGS } from '../algorithms/spacedRepetition';
 import { CardScheduler } from '../utils/cardscheduler';
 import { saveReview } from '../db/supabase';
 import { useAuth } from './AuthContext';
+import { MAX_NEW_CARDS_PER_DAY } from '../constants/constants';
 import { getLocalDate, getEndOfDayTimestamp } from '../utils/dates';
 
 const ReviewContext = createContext({});
@@ -16,7 +17,7 @@ export const ReviewProvider = ({ children }) => {
 
     const MAX_ATTEMPTS = 3;
 
-    const { currentDeckId, decks, updateDeckCards } = useDecks();
+    const { currentDeckId, decks, updateDeckCards, newCardBudget } = useDecks();
     const { user } = useAuth();
     const [error, setError] = useState(null);
     const attemptsRef = useRef(0);
@@ -50,6 +51,9 @@ export const ReviewProvider = ({ children }) => {
         console.log('Loading deck:', deck.name, 'with', deck.cards.length, 'cards');
         
         cardSchedulerRef.current.clear();
+        // Budget first: it decides whether new cards are served at all, so it
+        // has to be in place before the first card is picked.
+        cardSchedulerRef.current.setNewCardBudget(newCardBudget ?? MAX_NEW_CARDS_PER_DAY);
 
         let reviewCardsDebug = [];
 
@@ -101,7 +105,7 @@ export const ReviewProvider = ({ children }) => {
             learning: cardSchedulerRef.current.getLearningCardsCount(),
             review: cardSchedulerRef.current.getReviewCardsCount()
         });
-    }, [currentDeckId, decks]);
+    }, [currentDeckId, decks, newCardBudget]);
 
     // We should sync the cards to the deck once we leave the review page. But not as important
 
@@ -119,7 +123,7 @@ export const ReviewProvider = ({ children }) => {
     };
 
     // Function to save review data to the server without blocking 
-    const saveReviewToServer = async (cardId, review) => {
+    const saveReviewToServer = async (cardId, review, log) => {
         try {
             if (!user) {
                 return;
@@ -130,11 +134,9 @@ export const ReviewProvider = ({ children }) => {
             console.log('[Supabase] Saving review for card:', cardId, 'with state:', review.card_state);
             
             // Save to supabase without waiting for the response
-            saveReview(cardId, {
-                ...review,
-                last_reviewed_at: new Date().toISOString(),
-                scheduled_date: today
-            }, user.id).catch(err => {
+            // last_reviewed_at is already on the payload, stamped with the
+            // same instant the schedule was computed from.
+            saveReview(cardId, { ...review, scheduled_date: today }, user.id, log).catch(err => {
                 console.error('[Supabase] Error saving review to server:', err);
             });
         } catch (error) {
@@ -159,27 +161,42 @@ export const ReviewProvider = ({ children }) => {
             
             // Process the review outcome with the card's current state and attempt count
             const attempts = attemptsOverride === null ? attemptsRef.current : attemptsOverride;
-            const review = processCardReview(card, outcome, attempts, MAX_ATTEMPTS);
+            // One timestamp for the schedule, the log and last_reviewed_at, so
+            // a card answered twice in a session has a coherent history.
+            const now = new Date();
+            // The scheduling payload is persisted; the control flags stay here.
+            const { review, control } = processCardReview(card, outcome, attempts, MAX_ATTEMPTS, { now });
             let nextCard = null;
 
-            if (review.shouldGoToNextCard) {
+            if (control.shouldGoToNextCard) {
+                // Snapshot the pre-answer state before setReview overwrites it.
+                const log = buildReviewLog(
+                    card.review,
+                    outcome === 'correct' ? RATINGS.GOOD : RATINGS.AGAIN,
+                    { now }
+                );
+                const scheduled = { ...review, last_reviewed_at: now.toISOString() };
+
+                // Spends the new-card budget and buries the reverse card; must
+                // happen while the card is still in the scheduler.
+                cardSchedulerRef.current.recordAnswer(cardId);
 
                 // First remove the card from the scheduler
                 cardSchedulerRef.current.delete(cardId);
 
                 // Now handle based on whether we should reschedule
-                if (review.shouldReschedule) {
+                if (control.shouldReschedule) {
                     // Cards that need to be rescheduled:
                     // - All learning cards
                     // - Cards that were answered incorrectly
                     // Use setReview to update the card data and put it in the right queue
-                    cardSchedulerRef.current.setReview(card, review);
+                    cardSchedulerRef.current.setReview(card, scheduled);
                 }
                 // Otherwise, the card is done and we don't need to do anything. 
                 // If it goes to review, it will be loaded again no sooner than tomorrow
 
                 // Asynchronously save to server without blocking
-                saveReviewToServer(cardId, review);
+                saveReviewToServer(cardId, scheduled, log);
 
                 // Get the next card
                 const nextCardId = cardSchedulerRef.current.peekNext();
@@ -195,7 +212,7 @@ export const ReviewProvider = ({ children }) => {
 
             return {
                 nextCard,
-                resetAttempts: review.resetAttempts
+                resetAttempts: control.resetAttempts
             };
         } catch (error) {
             console.error('Error processing card outcome:', error);

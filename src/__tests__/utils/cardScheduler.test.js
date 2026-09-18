@@ -11,7 +11,8 @@ afterEach(() => {
   jest.useRealTimers();
 });
 
-const card = (id) => ({ id, front_text: `front ${id}`, back_text: `back ${id}` });
+const card = (id, front = `front ${id}`, back = `back ${id}`) =>
+  ({ id, front_text: front, back_text: back });
 
 describe('CardScheduler', () => {
   let scheduler;
@@ -155,6 +156,144 @@ describe('CardScheduler', () => {
       expect(scheduler.peekNext()).toBe('card1');
       expect(scheduler.peekNext()).toBe('card1');
       expect(scheduler.getNewCardsCount()).toBe(1);
+    });
+  });
+
+  describe('learn-ahead limit', () => {
+    test('a learning card whose step is nearly up is served when nothing else is left', () => {
+      scheduler.setReviewTime(card('learning1'), NOW.getTime() + 10 * 60 * 1000, 'learning');
+
+      expect(scheduler.peekNext()).toBe('learning1');
+    });
+
+    test('a learning card well short of its step is not served early', () => {
+      // It used to come straight back, which made the step meaningless
+      scheduler.setReviewTime(card('learning1'), NOW.getTime() + 60 * 60 * 1000, 'learning');
+
+      expect(scheduler.peekNext()).toBeNull();
+      expect(scheduler.popNext()).toBeNull();
+      expect(scheduler.getLearningCardsCount()).toBe(1);
+    });
+
+    test('the learn-ahead card still comes last', () => {
+      scheduler.setReviewTime(card('learning1'), NOW.getTime() + 10 * 60 * 1000, 'learning');
+      scheduler.setReviewTime(card('review1'), NOW.getTime() + 3600000, 'review');
+
+      expect(scheduler.popNext().id).toBe('review1');
+      expect(scheduler.popNext().id).toBe('learning1');
+    });
+  });
+
+  describe('daily new-card budget', () => {
+    test('new cards beyond the budget are not served or counted', () => {
+      scheduler.setNewCardBudget(1);
+      scheduler.pushNewCard(card('new1'));
+      scheduler.pushNewCard(card('new2'));
+
+      expect(scheduler.getNewCardsCount()).toBe(1);
+
+      scheduler.recordAnswer('new1');
+      scheduler.delete('new1');
+
+      expect(scheduler.getNewCardsCount()).toBe(0);
+      expect(scheduler.peekNext()).toBeNull();
+    });
+
+    test('an exhausted budget still lets due cards through', () => {
+      scheduler.setNewCardBudget(0);
+      scheduler.pushNewCard(card('new1'));
+      scheduler.setReviewTime(card('review1'), NOW.getTime(), 'review');
+
+      expect(scheduler.popNext().id).toBe('review1');
+      expect(scheduler.popNext()).toBeNull();
+    });
+
+    test('only new cards spend the budget', () => {
+      scheduler.setNewCardBudget(1);
+      scheduler.setReviewTime(card('review1'), NOW.getTime(), 'review');
+      scheduler.pushNewCard(card('new1'));
+
+      scheduler.recordAnswer('review1');
+      expect(scheduler.newCardsRemaining).toBe(1);
+
+      scheduler.recordAnswer('new1');
+      expect(scheduler.newCardsRemaining).toBe(0);
+    });
+
+    test('without a budget the scheduler serves every new card', () => {
+      scheduler.pushNewCard(card('new1'));
+      scheduler.pushNewCard(card('new2'));
+
+      scheduler.recordAnswer('new1');
+      scheduler.delete('new1');
+
+      expect(scheduler.getNewCardsCount()).toBe(1);
+      expect(scheduler.peekNext()).toBe('new2');
+    });
+
+    test('clear resets the budget', () => {
+      scheduler.setNewCardBudget(0);
+      scheduler.clear();
+      scheduler.pushNewCard(card('new1'));
+
+      expect(scheduler.peekNext()).toBe('new1');
+    });
+  });
+
+  describe('sibling burying', () => {
+    // The two directions of one translation pair share text and audio
+    const forward = () => card('forward', 'Thank you', 'Gomawo');
+    const reverse = () => card('reverse', 'Gomawo', 'Thank you');
+
+    test('answering one direction buries the other', () => {
+      scheduler.pushNewCard(forward());
+      scheduler.pushNewCard(reverse());
+      scheduler.pushNewCard(card('unrelated'));
+
+      expect(scheduler.recordAnswer('forward')).toEqual(['reverse']);
+      scheduler.delete('forward');
+
+      // The reverse card would just echo the answer that was on screen
+      expect(scheduler.peekNext()).toBe('unrelated');
+    });
+
+    test('a buried sibling is served rather than ending the session early', () => {
+      scheduler.pushNewCard(forward());
+      scheduler.pushNewCard(reverse());
+
+      scheduler.recordAnswer('forward');
+      scheduler.delete('forward');
+
+      expect(scheduler.peekNext()).toBe('reverse');
+    });
+
+    test('burying survives the card being rescheduled', () => {
+      scheduler.pushNewCard(forward());
+      scheduler.pushNewCard(reverse());
+      scheduler.pushNewCard(card('unrelated'));
+
+      scheduler.recordAnswer('reverse');
+      scheduler.delete('reverse');
+      // The answered card comes back on a learning step
+      scheduler.setReviewTime(reverse(), NOW.getTime() - 1, 'learning');
+
+      expect(scheduler.isBuried('forward')).toBe(true);
+      expect(scheduler.popNext().id).toBe('reverse');
+      expect(scheduler.popNext().id).toBe('unrelated');
+      expect(scheduler.popNext().id).toBe('forward');
+    });
+
+    test('cards that merely share one side are not siblings', () => {
+      scheduler.pushNewCard(card('a', 'Thank you', 'Gomawo'));
+      scheduler.pushNewCard(card('b', 'Thank you', 'Kamsahamnida'));
+
+      expect(scheduler.recordAnswer('a')).toEqual([]);
+      scheduler.delete('a');
+      expect(scheduler.peekNext()).toBe('b');
+    });
+
+    test('answering an unknown card buries nothing', () => {
+      expect(scheduler.recordAnswer('missing')).toEqual([]);
     });
   });
 });

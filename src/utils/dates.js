@@ -31,6 +31,17 @@ export const getEndOfDayTimestamp = () => {
 };
 
 /**
+ * Get a timestamp for the start of the current day (00:00:00.000) in ISO
+ * format, the lower bound that pairs with getEndOfDayTimestamp.
+ */
+export const getStartOfDayTimestamp = () => {
+  const startOfDay = new Date();
+  startOfDay.setHours(0, 0, 0, 0);
+
+  return startOfDay.toISOString();
+};
+
+/**
  * Parse a YYYY-MM-DD string into a Date object in the user's local timezone.
  * The time will be set to midnight (00:00:00) in the user's timezone.
  */
