@@ -277,3 +277,8 @@
   border-color: var(--flame-orange);
   color: var(--flame-orange);
 } 
+.deck-list-loading {
+  padding: 32px 0;
+  text-align: center;
+  color: var(--text-secondary);
+}
