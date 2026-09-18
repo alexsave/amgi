@@ -7,6 +7,8 @@
   width: 100%;
   max-width: 720px;
   margin: 0 auto;
+  padding: 0 16px;
+  box-sizing: border-box;
   height: 100%;
   min-height: 0;
 }
@@ -16,6 +18,10 @@
   gap: 10px;
   font-size: 0.85rem;
   color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.review-counts span {
   white-space: nowrap;
 }
 
@@ -81,6 +87,7 @@
   max-width: 600px;
   flex: 1;
   min-height: 180px;
+  max-height: 380px;
   border-radius: 12px;
   background-color: var(--dark-surface);
   border: 1px solid var(--border-color);
@@ -176,23 +183,6 @@
   font-size: 0.8rem;
   color: var(--text-secondary);
   opacity: 0.7;
-}
-
-.primary-btn {
-  background-color: var(--flame-orange);
-  color: #fff;
-  border: none;
-  padding: 12px 28px;
-  border-radius: 8px;
-  font-size: 1rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background-color 0.2s ease, transform 0.1s ease;
-}
-
-.primary-btn:hover {
-  background-color: var(--flame-orange-hover);
-  transform: translateY(-1px);
 }
 
 /* Footer: mic state + grading */
@@ -357,9 +347,12 @@
     row-gap: 6px;
   }
 
-  .review-counts {
+  .mode-header .review-counts {
     grid-column: 1 / -1;
+    justify-self: stretch;
     justify-content: center;
+    flex-wrap: wrap;
+    white-space: normal;
   }
 
   .flashcard-text {

@@ -55,7 +55,7 @@ html, body {
   background: var(--dark-bg);
   display: flex;
   flex-direction: column;
-  overflow: scroll;
+  overflow: auto;
 }
 
 h1 {
@@ -98,6 +98,30 @@ textarea, select {
 
 textarea:focus, select:focus {
   outline: 1px solid var(--flame-orange);
+}
+
+.primary-btn {
+  background-color: var(--flame-orange);
+  color: #fff;
+  border: none;
+  padding: 12px 28px;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+.primary-btn:hover {
+  background-color: var(--flame-orange-hover);
+  transform: translateY(-1px);
+}
+
+.primary-btn:disabled {
+  background-color: var(--dark-surface-hover);
+  color: var(--text-secondary);
+  cursor: not-allowed;
+  transform: none;
 }
 
 button.action-btn {

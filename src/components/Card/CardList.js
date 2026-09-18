@@ -44,10 +44,10 @@ const CardList = ({ onCardClick }) => {
           ) : (
             <div className="card-list">
               {deck.cards.map((cardData, index) => (
-                <div 
-                  key={cardData.id} 
-                  className="card-item"
-                  onClick={() => onCardClick(cardData)}
+                <div
+                  key={cardData.id}
+                  className={`card-item${onCardClick ? ' is-clickable' : ''}`}
+                  onClick={onCardClick ? () => onCardClick(cardData) : undefined}
                 >
                   <span>Card {index + 1}</span>
                   <small>{cardData.front_text}</small>

@@ -101,11 +101,7 @@ const CreateDeckModal = ({ isOpen, setIsCreateModalOpen }) => {
           </div>
           
           <div className="button-row">
-            <button 
-              type="submit" 
-              className="primary-btn"
-              style={{ padding: '0.75rem'}}
-            >
+            <button type="submit" className="primary-btn">
               Create Deck
             </button>
           </div>

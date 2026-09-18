@@ -157,8 +157,9 @@ export default function Signup() {
         {error && <div className="auth-error">{error}</div>}
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label>Email</label>
+            <label htmlFor="signup-email">Email</label>
             <input
+              id="signup-email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -167,8 +168,9 @@ export default function Signup() {
             />
           </div>
           <div className="form-group">
-            <label>Password</label>
+            <label htmlFor="signup-password">Password</label>
             <input
+              id="signup-password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -177,8 +179,9 @@ export default function Signup() {
             />
           </div>
           <div className="form-group">
-            <label>Confirm Password</label>
+            <label htmlFor="signup-confirm-password">Confirm Password</label>
             <input
+              id="signup-confirm-password"
               type="password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
