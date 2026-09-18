@@ -18,7 +18,7 @@ export function calculateNextReview(review, quality) {
       cardState = 'learning';
     } else {
       // Review and learning: grow the interval first, then schedule with it
-      // (SM-2 style — scheduling with the old interval would lag growth by
+      // (SM-2 style - scheduling with the old interval would lag growth by
       // one review).
       if (repetitions <= 1) {
         interval = 1;

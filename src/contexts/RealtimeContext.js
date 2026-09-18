@@ -14,6 +14,11 @@ export const RealtimeProvider = ({ children }) => {
     const [feedback, setFeedback] = useState('Click microphone to start');
     const [buttonState, setButtonState] = useState('default');
 
+    // The visualizers render from these, so they have to be state: a ref would
+    // hand them whatever was there on the first render and never update.
+    const [micStream, setMicStream] = useState(null);
+    const [remoteStream, setRemoteStream] = useState(null);
+
     // WebRTC refs
     const peerConnectionRef = useRef(null);
     const dataChannelRef = useRef(null);
@@ -27,7 +32,7 @@ export const RealtimeProvider = ({ children }) => {
     const speakingTimeoutRef = useRef(null);
 
     // The data channel handlers are bound once at connection time, so any
-    // state they need to READ must live in refs — a closure over useState
+    // state they need to READ must live in refs - a closure over useState
     // values would be permanently stale.
     const isRecordingRef = useRef(false);
     const responseActiveRef = useRef(false);
@@ -88,7 +93,7 @@ export const RealtimeProvider = ({ children }) => {
      * Asks the model to speak its next turn. Function-call outputs arrive
      * while the tool-call response is still open (`response.output_item.done`
      * fires before `response.done`), so creating a response immediately would
-     * be rejected with "conversation already has an active response" — queue
+     * be rejected with "conversation already has an active response" - queue
      * it and flush on `response.done` instead.
      */
     const requestNextResponse = () => {
@@ -155,7 +160,7 @@ export const RealtimeProvider = ({ children }) => {
         if (nextCard) {
             sendNextCardInfo(nextCard, callId, args.result, args.message);
         } else {
-            // Always answer the pending function call — tearing down without
+            // Always answer the pending function call - tearing down without
             // a reply leaves the model hanging mid-conversation. The session
             // winds down in handleAudioStopped once the goodbye finishes.
             sendCompleteReview(callId);
@@ -199,7 +204,7 @@ export const RealtimeProvider = ({ children }) => {
                 break;
             case 'response.created':
                 responseActiveRef.current = true;
-                // New response incoming — reset the transcript display.
+                // New response incoming - reset the transcript display.
                 setFeedback('');
                 break;
             case 'response.done':
@@ -229,6 +234,8 @@ export const RealtimeProvider = ({ children }) => {
             });
             mediaStreamRef.current = null;
         }
+        setMicStream(null);
+        setRemoteStream(null);
 
         // Clean up data channel and peer connection
         if (dataChannelRef.current) {
@@ -313,6 +320,7 @@ export const RealtimeProvider = ({ children }) => {
             // permission prompt must not consume a realtime-session credit.
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             mediaStreamRef.current = stream;
+            setMicStream(stream);
 
             const { client_secret } = await getRealtimeToken();
 
@@ -327,6 +335,7 @@ export const RealtimeProvider = ({ children }) => {
             audioElementRef.current.autoplay = true;
             pc.ontrack = e => {
                 audioElementRef.current.srcObject = e.streams[0];
+                setRemoteStream(e.streams[0]);
             };
 
             pc.addTrack(stream.getTracks()[0], stream);
@@ -392,6 +401,8 @@ export const RealtimeProvider = ({ children }) => {
             buttonState,
             mediaStreamRef,
             audioElementRef,
+            micStream,
+            remoteStream,
             audioContextRef,
             animationFrameRef,
             aiAnimationFrameRef,

@@ -194,6 +194,9 @@ const ReviewMode = () => {
   // playback and prompts for the microphone.
   useEffect(() => {
     if (!started || !currentCard) return;
+    // The card run IS the effect: it drives audio playback and the microphone,
+    // and the phase state it sets is how that external work is reported.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     runCard(currentCard);
     // Keyed on the card id so each card runs exactly once, no matter how
     // often runCard's dependencies change identity.

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import supabase from '../../db/supabaseClient';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -16,51 +16,7 @@ export default function SubscriptionComponent() {
   const isOnboarding = searchParams.get('onboarding') === 'true';
   const [successMessage, setSuccessMessage] = useState('');
   
-  // Check if this is an email verification redirect
-  useEffect(() => {
-    // Email verification redirects will have an auth token in the URL
-    if (window.location.hash.includes('access_token')) {
-      console.log('User arrived from email verification');
-      setSuccessMessage('Email verified successfully! Please select your subscription plan.');
-      
-      // Clear the hash from the URL without reloading the page
-      window.history.replaceState({}, document.title, window.location.pathname);
-    }
-  }, []);
-  
-  useEffect(() => {
-    console.log('SubscriptionComponent mounted. User:', user?.id);
-    
-    // Check for success or canceled status from Stripe redirect
-    if (searchParams.get('success') === 'true') {
-      setSuccessMessage('Subscription updated successfully!');
-      // Clear the URL parameter after displaying the message
-      const newUrl = window.location.pathname;
-      window.history.replaceState({}, document.title, newUrl);
-      
-      // Refresh subscription data
-      if (user) loadSubscriptionData();
-    }
-    
-    if (searchParams.get('canceled') === 'true') {
-      setError('Subscription process was canceled.');
-      // Clear the URL parameter after displaying the message
-      const newUrl = window.location.pathname;
-      window.history.replaceState({}, document.title, newUrl);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]);
-
-  useEffect(() => {
-    console.log('User changed in SubscriptionComponent:', user?.id);
-    if (user) {
-      loadSubscriptionData();
-    } else {
-      console.warn('No user available in SubscriptionComponent');
-    }
-  }, [user]);
-
-  async function loadSubscriptionData() {
+  const loadSubscriptionData = useCallback(async () => {
     try {
       setLoading(true);
       
@@ -93,7 +49,54 @@ export default function SubscriptionComponent() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [user]);
+
+  // Check if this is an email verification redirect. The banner is driven by
+  // the URL, which does not exist during SSR, so it can only be read here.
+  useEffect(() => {
+    // Email verification redirects will have an auth token in the URL
+    if (window.location.hash.includes('access_token')) {
+      console.log('User arrived from email verification');
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reading the URL is a browser-only side effect
+      setSuccessMessage('Email verified successfully! Please select your subscription plan.');
+      
+      // Clear the hash from the URL without reloading the page
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
+  
+  useEffect(() => {
+    console.log('SubscriptionComponent mounted. User:', user?.id);
+    
+    // Check for success or canceled status from Stripe redirect
+    if (searchParams.get('success') === 'true') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- the Stripe redirect is only visible in the URL
+      setSuccessMessage('Subscription updated successfully!');
+      // Clear the URL parameter after displaying the message
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, document.title, newUrl);
+      
+      // Refresh subscription data
+      if (user) loadSubscriptionData();
+    }
+    
+    if (searchParams.get('canceled') === 'true') {
+      setError('Subscription process was canceled.');
+      // Clear the URL parameter after displaying the message
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, document.title, newUrl);
+    }
+  }, [searchParams, user, loadSubscriptionData]);
+
+  useEffect(() => {
+    console.log('User changed in SubscriptionComponent:', user?.id);
+    if (user) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- fetching the subscription is exactly the external system an effect is for
+      loadSubscriptionData();
+    } else {
+      console.warn('No user available in SubscriptionComponent');
+    }
+  }, [user, loadSubscriptionData]);
 
   async function handleSubscribe(priceId, tierName) {
     try {
@@ -124,7 +127,7 @@ export default function SubscriptionComponent() {
       
       // For paid tiers, redirect to the payment link
       if (data.url) {
-        window.location.href = data.url;
+        window.location.assign(data.url);
       } else {
         throw new Error('No payment link URL returned');
       }

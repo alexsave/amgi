@@ -17,7 +17,7 @@ const invoke = async (name, body) => {
       const detail = await error.context?.json();
       if (detail?.error) message = detail.error;
     } catch (e) {
-      // Response body wasn't JSON — keep the generic message.
+      // Response body wasn't JSON - keep the generic message.
     }
     throw new Error(message);
   }
@@ -74,7 +74,7 @@ export const regenerateCardPart = async (currentCard, parts = [], known_language
 
 /**
  * Sends the learner's recording for evaluation. The reference pronunciation
- * is passed as a storage path so the edge function fetches it server-side —
+ * is passed as a storage path so the edge function fetches it server-side -
  * the browser never has to download and re-upload it.
  */
 export const evaluateSpeech = async (audioBlob, expectedText, backLang, expectedAudioPath, frontLang) => {

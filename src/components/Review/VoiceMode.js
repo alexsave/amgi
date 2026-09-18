@@ -26,8 +26,8 @@ const VoiceMode = () => {
     isRecording,
     feedback,
     buttonState,
-    mediaStreamRef,
-    audioElementRef,
+    micStream,
+    remoteStream,
     audioContextRef,
     animationFrameRef,
     aiAnimationFrameRef,
@@ -76,7 +76,7 @@ const VoiceMode = () => {
     return (
       <div className="review-complete">
         <h3>🎉 Review Complete!</h3>
-        <p>You've reviewed all due cards in this deck.</p>
+        <p>You&apos;ve reviewed all due cards in this deck.</p>
         <button onClick={handleBack} className="back-btn">
           Back to Decks
         </button>
@@ -103,7 +103,7 @@ const VoiceMode = () => {
         <div className="visualization-container">
           <div className="visualizer user">
             <AudioVisualizer
-              audioStream={mediaStreamRef.current}
+              audioStream={micStream}
               isLive={isRecording}
               isAiOutput={false}
               audioContextRef={audioContextRef}
@@ -112,7 +112,7 @@ const VoiceMode = () => {
           </div>
           <div className="visualizer ai">
             <AudioVisualizer
-              audioStream={audioElementRef.current?.srcObject}
+              audioStream={remoteStream}
               isLive={isSpeaking}
               isAiOutput={true}
               audioContextRef={audioContextRef}

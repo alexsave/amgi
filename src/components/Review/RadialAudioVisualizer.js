@@ -29,40 +29,13 @@ const RadialAudioVisualizer = ({
   // Determine if this visualizer should be live based on both the audio context state AND the isActive prop
   const isLive = isUserAudio ? audio.isRecording : (audio.isPlayingAudio && isActive);
   
-  // Use the appropriate animation frame ref
-  const animationFrameRef = isAiOutput ? audio.playbackAnimationFrameRef : audio.animationFrameRef;
+  // The requestAnimationFrame handle belongs to this component: it is the only
+  // thing that schedules and cancels these frames, and it cleans them up on
+  // unmount below.
+  const animationFrameRef = useRef(null);
 
   // Direct reference to recording status 
   const isRecording = isUserAudio && audio.isRecording;
-  
-  // Effect to handle the isActive prop changes
-  useEffect(() => {
-    // If this visualizer should be active but isn't animating
-    if (isActive && !isAnimatingRef.current && !isDecayingRef.current) {
-      if ((isUserAudio && audio.isRecording) || (isAiOutput && audio.isPlayingAudio)) {
-        setupAudioVisualization();
-      }
-    } 
-    // If this visualizer shouldn't be active but is still animating
-    else if (!isActive && isAnimatingRef.current && !isDecayingRef.current && !isUserAudio) {
-      stopAnimation(true); // Use decay effect when deactivating
-    }
-  }, [isActive, audio.isPlayingAudio, audio.isRecording]);
-
-  // Effect specifically for recording state changes
-  useEffect(() => {
-    if (isUserAudio && isRecording) {
-      // Force re-setup of visualization when recording starts
-      if (audio.recordingStreamRef.current) {
-        // Stop any existing animation first
-        if (isAnimatingRef.current) {
-          stopAnimation();
-        }
-        // Set up with the new stream
-        setupAudioVisualization();
-      }
-    }
-  }, [isRecording, audio.recordingStreamRef.current]);
   
   const startAnimation = () => {
     if (isAnimatingRef.current) return;
@@ -310,19 +283,13 @@ const RadialAudioVisualizer = ({
       sourceRef.current = null;
     }
 
-    // Create or resume AudioContext
+    // The audio provider owns the AudioContext, so ask it to create/resume one
+    // rather than constructing a second context behind its back. Creation is
+    // synchronous, so the analyser below can use it on this same tick.
+    audio.ensureAudioContext().catch(() => {});
     if (!audio.audioContextRef.current) {
-      try {
-        audio.audioContextRef.current = new AudioContext();
-      } catch (err) {
-        startIdleAnimation(); // Fall back to idle animation on error
-        return;
-      }
-    } else if (audio.audioContextRef.current.state === 'suspended') {
-      audio.audioContextRef.current.resume().catch(err => {
-        startIdleAnimation(); // Fall back to idle animation on error
-        return;
-      });
+      startIdleAnimation(); // Fall back to idle animation when there is no context
+      return;
     }
     
     // Create or get the appropriate analyser
@@ -474,6 +441,35 @@ const RadialAudioVisualizer = ({
     renderIdleFrame();
   };
 
+  // Effect to handle the isActive prop changes
+  useEffect(() => {
+    // If this visualizer should be active but isn't animating
+    if (isActive && !isAnimatingRef.current && !isDecayingRef.current) {
+      if ((isUserAudio && audio.isRecording) || (isAiOutput && audio.isPlayingAudio)) {
+        setupAudioVisualization();
+      }
+    } 
+    // If this visualizer shouldn't be active but is still animating
+    else if (!isActive && isAnimatingRef.current && !isDecayingRef.current && !isUserAudio) {
+      stopAnimation(true); // Use decay effect when deactivating
+    }
+  }, [isActive, audio.isPlayingAudio, audio.isRecording]);
+
+  // Effect specifically for recording state changes
+  useEffect(() => {
+    if (isUserAudio && isRecording) {
+      // Force re-setup of visualization when recording starts
+      if (audio.recordingStreamRef.current) {
+        // Stop any existing animation first
+        if (isAnimatingRef.current) {
+          stopAnimation();
+        }
+        // Set up with the new stream
+        setupAudioVisualization();
+      }
+    }
+  }, [isRecording, audio.recordingStreamRef.current]);
+
   // Effect to handle animation state changes
   useEffect(() => {
     
@@ -563,6 +559,10 @@ const RadialAudioVisualizer = ({
     return () => {
       if (cleanupTimeoutRef.current) {
         clearTimeout(cleanupTimeoutRef.current);
+      }
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
       }
     };
   }, []);

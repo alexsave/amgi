@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import './Auth.css';
 import '../Welcome/Welcome.css'; // Import Welcome CSS for language pattern
 
@@ -127,7 +128,7 @@ export default function Signup() {
         <div className="auth-card">
           <h2>Verify Your Email</h2>
           <div className="auth-success">
-            <p>We've sent a verification email to <strong>{email}</strong></p>
+            <p>We&apos;ve sent a verification email to <strong>{email}</strong></p>
             <p>Please check your inbox and click the verification link to complete your signup.</p>
             <p>After verifying your email, you can sign in to access your account.</p>
             <button onClick={() => router.replace('/')}>
@@ -232,7 +233,7 @@ export default function Signup() {
           </button>
         </form>
         <div className="auth-links">
-          <a href="/">Already have an account? Log In</a>
+          <Link href="/">Already have an account? Log In</Link>
         </div>
       </div>
     </div>
