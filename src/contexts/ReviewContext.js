@@ -143,7 +143,7 @@ export const ReviewProvider = ({ children }) => {
     };
 
     // Process card review and update scheduler
-    const processCardOutcome = (cardId, outcome) => {
+    const processCardOutcome = (cardId, outcome, attemptsOverride = null) => {
         try {
             // Get the card from the scheduler
             console.log('[Card Scheduler] Getting card details for ID:', cardId);
@@ -158,7 +158,8 @@ export const ReviewProvider = ({ children }) => {
             }
             
             // Process the review outcome with the card's current state and attempt count
-            const review = processCardReview(card, outcome, attemptsRef.current, MAX_ATTEMPTS);
+            const attempts = attemptsOverride === null ? attemptsRef.current : attemptsOverride;
+            const review = processCardReview(card, outcome, attempts, MAX_ATTEMPTS);
             let nextCard = null;
 
             if (review.shouldGoToNextCard) {
@@ -256,6 +257,23 @@ export const ReviewProvider = ({ children }) => {
         }
     };
 
+    // Self-graded "Again": the reviewer decided they missed it, so the card is
+    // rescheduled as a miss and the session moves on right away — no retries,
+    // the way Anki's Again button behaves.
+    const markAgainGetNext = () => {
+        if (!currentCardIdRef.current) return null;
+
+        const cardId = currentCardIdRef.current;
+        const { nextCard } = processCardOutcome(cardId, 'incorrect', MAX_ATTEMPTS - 1);
+
+        attemptsRef.current = 0;
+        setAttempts(0);
+        currentCardIdRef.current = nextCard?.id || null;
+        setCurrentCard(nextCard);
+
+        return nextCard;
+    };
+
     const value = {
         error,
         attempts,
@@ -267,6 +285,7 @@ export const ReviewProvider = ({ children }) => {
         setAttempts,
         markIncorrectGetNext,
         markCorrectGetNext,
+        markAgainGetNext,
         currentCard,
         cardSchedulerRef,
         currentCardIdRef,

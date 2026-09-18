@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { useDecks } from '../../contexts/DeckContext';
 import DeckItem from './DeckItem';
 import msgpack from 'msgpack-lite';
@@ -18,7 +18,7 @@ const DeckList = () => {
     updateDeck
   } = useDecks();
   
-  const navigate = useNavigate();
+  const router = useRouter();
   const fileInputRef = useRef(null);
 
   const handleImportClick = () => {
@@ -48,7 +48,7 @@ const DeckList = () => {
       console.log('Setting current deck...');
       setCurrentDeckId(id);
       console.log('Navigating to deck page...');
-      navigate(`/deck/${id}`);
+      router.push(`/deck/${id}`);
     } catch (err) {
       console.error('Error importing deck:', err);
       alert('Failed to import deck: ' + err.message);

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams } from 'next/navigation';
 import { XMarkIcon, ArrowPathIcon, MicrophoneIcon, ArrowsRightLeftIcon } from '@heroicons/react/24/outline';
 import { useAudio } from '../../contexts/useAudio';
 import { useDecks } from '../../contexts/DeckContext';
@@ -189,7 +189,7 @@ const CardModal = ({ isOpen, onClose }) => {
         <div className="edit-text-container">
           {isGenerating || !generatedCard ? (
             <div className="loading-text-area">
-              <ArrowPathIcon className="h-5 w-5 spin" />
+              <ArrowPathIcon className="icon spin" />
             </div>
           ) : (
             <textarea
@@ -208,12 +208,12 @@ const CardModal = ({ isOpen, onClose }) => {
               disabled={isGenerating}
               title={`Regenerate ${language} text`}
             >
-              <ArrowPathIcon className={`h-5 w-5 ${isTextRegenerating ? 'spin' : ''}`} />
+              <ArrowPathIcon className={`icon ${isTextRegenerating ? 'spin' : ''}`} />
             </button>
 
             {isGenerating || !generatedCard ? (
               <div className="play-audio-btn">
-                <ArrowPathIcon className="h-5 w-5 spin" />
+                <ArrowPathIcon className="icon spin" />
               </div>
             ) : (
               <button
@@ -231,7 +231,7 @@ const CardModal = ({ isOpen, onClose }) => {
               disabled={isGenerating}
               title={`Regenerate ${language} audio`}
             >
-              <ArrowPathIcon className={`h-5 w-5 ${isAudioRegenerating ? 'spin' : ''}`} />
+              <ArrowPathIcon className={`icon ${isAudioRegenerating ? 'spin' : ''}`} />
             </button>
 
             <button
@@ -239,7 +239,7 @@ const CardModal = ({ isOpen, onClose }) => {
               title="Record your own audio"
               disabled={isGenerating}
             >
-              <MicrophoneIcon className="h-5 w-5" />
+              <MicrophoneIcon className="icon" />
             </button>
           </div>
         </div>
@@ -253,7 +253,7 @@ const CardModal = ({ isOpen, onClose }) => {
         <div className="card-modal-header">
           <h3>Edit New Translation Pair</h3>
           <button onClick={handleCloseModal} className="card-modal-close-btn">
-            <XMarkIcon className="h-5 w-5" />
+            <XMarkIcon className="icon" />
           </button>
         </div>
 

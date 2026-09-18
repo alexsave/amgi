@@ -9,7 +9,7 @@ function getConnectionSpeed() {
 }
 
 export function sendToVercelAnalytics(metric) {
-  const analyticsId = process.env.REACT_APP_VERCEL_ANALYTICS_ID;
+  const analyticsId = process.env.NEXT_PUBLIC_VERCEL_ANALYTICS_ID;
   if (!analyticsId) {
     return;
   }

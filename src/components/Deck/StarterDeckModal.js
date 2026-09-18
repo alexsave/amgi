@@ -3,7 +3,7 @@ import { XMarkIcon } from '@heroicons/react/24/outline';
 import { STARTER_DECKS } from '../../data/starterDecks';
 import { getLanguageDisplay } from '../../constants/languages';
 import { useDecks } from '../../contexts/DeckContext';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 
 /**
  * Lets a new user create a ready-made deck of common phrases in one click.
@@ -13,7 +13,7 @@ import { useNavigate } from 'react-router-dom';
 const StarterDeckModal = ({ isOpen, onClose }) => {
   const [creatingId, setCreatingId] = useState(null);
   const { createDeckFromTemplate } = useDecks();
-  const navigate = useNavigate();
+  const router = useRouter();
 
   if (!isOpen) return null;
 
@@ -23,7 +23,7 @@ const StarterDeckModal = ({ isOpen, onClose }) => {
     try {
       await createDeckFromTemplate(template);
       onClose();
-      navigate('/decks');
+      router.push('/decks');
     } catch (error) {
       console.error('Error creating starter deck:', error);
       alert('Failed to create starter deck: ' + error.message);
@@ -38,7 +38,7 @@ const StarterDeckModal = ({ isOpen, onClose }) => {
         <div className="modal-header">
           <h3>Starter Decks</h3>
           <button onClick={onClose} className="close-btn">
-            <XMarkIcon className="h-5 w-5" />
+            <XMarkIcon className="icon" />
           </button>
         </div>
         <p style={{ margin: '0 0 1rem', opacity: 0.75, fontSize: '0.9rem' }}>

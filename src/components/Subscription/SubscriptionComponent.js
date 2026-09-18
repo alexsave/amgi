@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import supabase from '../../db/supabaseClient';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useRouter, useSearchParams } from 'next/navigation';
 import './SubscriptionComponent.css';
 
 export default function SubscriptionComponent() {
@@ -9,30 +9,29 @@ export default function SubscriptionComponent() {
   const [loading, setLoading] = useState(true);
   const [subscription, setSubscription] = useState(null);
   const [error, setError] = useState('');
-  const navigate = useNavigate();
-  const location = useLocation();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   
   // Check if user is in onboarding flow
-  const isOnboarding = new URLSearchParams(location.search).get('onboarding') === 'true';
+  const isOnboarding = searchParams.get('onboarding') === 'true';
   const [successMessage, setSuccessMessage] = useState('');
   
   // Check if this is an email verification redirect
   useEffect(() => {
     // Email verification redirects will have an auth token in the URL
-    if (location.hash.includes('access_token')) {
+    if (window.location.hash.includes('access_token')) {
       console.log('User arrived from email verification');
       setSuccessMessage('Email verified successfully! Please select your subscription plan.');
       
       // Clear the hash from the URL without reloading the page
       window.history.replaceState({}, document.title, window.location.pathname);
     }
-  }, [location.hash]);
+  }, []);
   
   useEffect(() => {
     console.log('SubscriptionComponent mounted. User:', user?.id);
     
     // Check for success or canceled status from Stripe redirect
-    const searchParams = new URLSearchParams(location.search);
     if (searchParams.get('success') === 'true') {
       setSuccessMessage('Subscription updated successfully!');
       // Clear the URL parameter after displaying the message
@@ -49,7 +48,8 @@ export default function SubscriptionComponent() {
       const newUrl = window.location.pathname;
       window.history.replaceState({}, document.title, newUrl);
     }
-  }, [location.search]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   useEffect(() => {
     console.log('User changed in SubscriptionComponent:', user?.id);
@@ -101,7 +101,7 @@ export default function SubscriptionComponent() {
       
       // For free tier during onboarding, just redirect to dashboard
       if (tierName === 'Free' && isOnboarding && subscription?.subscription_tiers?.name === 'Free') {
-        navigate('/');
+        router.push('/');
         return;
       }
       
@@ -118,7 +118,7 @@ export default function SubscriptionComponent() {
       
       // For free tier, might return redirectUrl instead of url
       if (data.redirectUrl) {
-        navigate(new URL(data.redirectUrl).pathname + new URL(data.redirectUrl).search);
+        router.push(new URL(data.redirectUrl).pathname + new URL(data.redirectUrl).search);
         return;
       }
       
@@ -136,7 +136,7 @@ export default function SubscriptionComponent() {
   }
 
   function handleContinueWithFree() {
-    navigate('/');
+    router.push('/');
   }
 
   if (loading) return (

@@ -18,6 +18,16 @@ code {
   border-radius: 4px;
 }
 
+/* Heroicons render a bare <svg> with no width/height attributes, so an icon
+   with no explicit size falls back to the 300x150 SVG default and blows up
+   its layout. Every inline icon gets this class. */
+.icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+
 /* Global scrollbar styling */
 ::-webkit-scrollbar {
   width: 8px;

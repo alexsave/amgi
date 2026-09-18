@@ -2,13 +2,13 @@ import { useState } from 'react';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import LANGUAGES from '../../constants/languages';
 import { useDecks } from '../../contexts/DeckContext';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 
 const CreateDeckModal = ({ isOpen, setIsCreateModalOpen }) => {
   const [deckName, setDeckName] = useState('');
   const [known_language, setKnownLanguage] = useState('en');
   const [learning_language, setLearningLanguage] = useState('ko');
-  const navigate = useNavigate();
+  const router = useRouter();
 
   const { 
     createNewDeck,
@@ -37,7 +37,7 @@ const CreateDeckModal = ({ isOpen, setIsCreateModalOpen }) => {
       
       setIsCreateModalOpen(false);
       console.log('Navigating to deck page...');
-      navigate(`/deck/${id}/edit`);
+      router.push(`/deck/${id}/edit`);
     } catch (error) {
       console.error('Error creating deck:', error);
       alert('Failed to create deck: ' + error.message);
@@ -52,7 +52,7 @@ const CreateDeckModal = ({ isOpen, setIsCreateModalOpen }) => {
         <div className="modal-header">
           <h3>Create New Deck</h3>
           <button onClick={() => setIsCreateModalOpen(false)} className="close-btn">
-            <XMarkIcon className="h-5 w-5" />
+            <XMarkIcon className="icon" />
           </button>
         </div>
         <form onSubmit={handleSubmit} autoComplete="off">

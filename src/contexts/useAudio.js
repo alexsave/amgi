@@ -2,9 +2,16 @@ import { useRef, useState, createContext, useContext, useEffect } from 'react';
 import vmsg from "vmsg";
 import { downloadCardAudio } from '../db/supabase';
 
-const recorder = new vmsg.Recorder({
-  wasmURL: "https://unpkg.com/vmsg@0.3.0/vmsg.wasm"
-});
+// The recorder touches browser globals as soon as it's constructed, and the
+// encoder wasm is served from this app rather than a third-party CDN, so an
+// outage (or an offline user) can't break recording.
+let recorderInstance = null;
+const getRecorder = () => {
+  if (!recorderInstance) {
+    recorderInstance = new vmsg.Recorder({ wasmURL: '/vmsg.wasm' });
+  }
+  return recorderInstance;
+};
 
 // Create the context
 const AudioContext = createContext(null);
@@ -70,6 +77,12 @@ export function AudioProvider({ children }) {
       }
     };
   }, []);
+
+  // Mirror of isPlayingAudio that callbacks can read without re-subscribing.
+  const isPlayingAudioRef = useRef(false);
+  useEffect(() => {
+    isPlayingAudioRef.current = isPlayingAudio;
+  }, [isPlayingAudio]);
 
   // Handle recording state changes
   useEffect(() => {
@@ -303,6 +316,7 @@ export function AudioProvider({ children }) {
     setIsLoading(true);
     try {
       await ensureAudioContext();
+      const recorder = getRecorder();
       await recorder.initAudio();
       await recorder.initWorker();
       
@@ -342,7 +356,7 @@ export function AudioProvider({ children }) {
 
   const stopRecording = async () => {
     try {
-      const audioBlob = await recorder.stopRecording();
+      const audioBlob = await getRecorder().stopRecording();
       setIsRecording(false);
 
       if (audioBlob.size === 0) {
@@ -356,6 +370,31 @@ export function AudioProvider({ children }) {
       setIsRecording(false);
       return null;
     }
+  };
+
+  // Plays a clip and resolves once it has finished. Playback runs through
+  // several code paths in here (buffer source, media element, Safari decode),
+  // all of which report through isPlayingAudio, so we watch that rather than
+  // hooking each one. The timeouts keep a stalled clip from wedging the
+  // review loop.
+  const playAudioToEnd = async (audioPath, { startTimeoutMs = 2000, maxDurationMs = 30000 } = {}) => {
+    if (!audioPath) return;
+
+    await playAudio(audioPath);
+
+    const waitFor = (predicate, timeoutMs) =>
+      new Promise((resolve) => {
+        const startedAt = Date.now();
+        const tick = () => {
+          if (predicate() || Date.now() - startedAt >= timeoutMs) return resolve();
+          setTimeout(tick, 60);
+        };
+        tick();
+      });
+
+    // Playback state flips asynchronously; wait for it to start, then to end.
+    await waitFor(() => isPlayingAudioRef.current, startTimeoutMs);
+    await waitFor(() => !isPlayingAudioRef.current, maxDurationMs);
   };
 
   const loadAudio = async (audioPath) => {
@@ -884,6 +923,7 @@ export function AudioProvider({ children }) {
     startRecording,
     stopRecording,
     playAudio,
+    playAudioToEnd,
     loadAudio,
     cleanupAudioUrls,
     setError,

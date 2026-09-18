@@ -1,6 +1,5 @@
 // Deck context for managing global deck state
 import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
-import { useLocation } from 'react-router-dom';
 import * as supabase from '../db/supabase';
 import { regenerateCardPart } from '../network/supabaseApi';
 import { useAuth } from './AuthContext';
@@ -14,22 +13,11 @@ export const DeckProvider = ({ children }) => {
   const [newCardsToday, setNewCardsToday] = useState(0);
   const [error, setError] = useState(null);
   const { user } = useAuth();
-  const location = useLocation();
 
   // Add refs for tracking load state and debouncing
   const initialLoadComplete = useRef(false);
   const loadDecksTimeout = useRef(null);
   const lastAuthState = useRef({ user: null });
-
-  // Derive mode from location
-  const getMode = () => {
-    const path = location.pathname;
-    if (path === '/decks') return 'list';
-    if (path.includes('/review')) return 'review';
-    if (path.includes('/edit')) return 'edit';
-    if (path.includes('/create')) return 'create';
-    return 'view';
-  };
 
   // Debounced loadDecks function
   const debouncedLoadDecks = () => {
@@ -416,7 +404,6 @@ export const DeckProvider = ({ children }) => {
     decks,
     loading,
     currentDeckId,
-    getMode,
     newCardsToday,
     error,
     setCurrentDeckId,

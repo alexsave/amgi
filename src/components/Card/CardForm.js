@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams } from 'next/navigation';
 import { useDecks } from '../../contexts/DeckContext';
 import { useCardGenerationContext } from '../../contexts/CardGenerationContext';
 import { getLanguageDisplay } from '../../constants/languages';

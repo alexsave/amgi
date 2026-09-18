@@ -1,56 +1,79 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+'use client';
+
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { MicrophoneIcon, PlayIcon, SpeakerWaveIcon } from '@heroicons/react/24/solid';
 import { useDecks } from '../../contexts/DeckContext';
-import { MicrophoneIcon, PlayIcon, ChevronDoubleRightIcon, XMarkIcon, ChatBubbleLeftRightIcon } from '@heroicons/react/24/solid';
-import { useNavigate } from 'react-router-dom';
 import { useAudio } from '../../contexts/useAudio';
 import { useReview } from '../../contexts/ReviewContext';
 import { useSpeechEvaluation } from '../../hooks/useSpeechEvaluation';
+import { detectSpeechEnd } from '../../utils/voiceActivity';
 import RadialAudioVisualizer from './RadialAudioVisualizer';
-import { base64ToBlob } from '../../network/utils';
 import './ReviewMode.css';
 
-// How long the "next card in N seconds" transition lasts.
-const TRANSITION_SECONDS = 10;
+// One card runs through these phases, hands-free:
+//   prompt    - the card's audio plays; this is the question
+//   listening - the mic is open; voice activity decides when you're done
+//   answer    - the native audio plays back and you grade yourself
+const PHASE = { IDLE: 'idle', PROMPT: 'prompt', LISTENING: 'listening', ANSWER: 'answer' };
+
+// AI pronunciation checking is still here, but it is no longer a button in the
+// header: it's opt-in per device (localStorage.amgi_ai_check = 'true'). Even
+// with it on you grade yourself - the AI verdict is advice, not the score.
+const AI_CHECK_KEY = 'amgi_ai_check';
 
 const ReviewMode = () => {
   const { decks, currentDeckId } = useDecks();
-  const navigate = useNavigate();
+  const router = useRouter();
   const audio = useAudio();
   const review = useReview();
-  const { currentCard, currentCardId, attempts, newCardsCount, reviewCardsCount, learningCardsCount } = review;
-  const [evaluationResult, setEvaluationResult] = useState(null);
-  const [isTransitioning, setIsTransitioning] = useState(false);
-  const [isEvaluating, setIsEvaluating] = useState(false);
-  const [transitionTimeLeft, setTransitionTimeLeft] = useState(0);
-  const transitionTimerRef = useRef(null);
-  const [transitionCard, setTransitionCard] = useState(null);
-  const [isPlayingLocked, setIsPlayingLocked] = useState(false); // Lock to prevent rapid clicks
-  const [lastClickedAudio, setLastClickedAudio] = useState(null); // 'front', 'hint', or null
-  const [hasTransitionCanceled, setHasTransitionCanceled] = useState(false); // Track if transition was canceled
+  const { currentCard, currentCardId, newCardsCount, reviewCardsCount, learningCardsCount } = review;
 
-  // Self-check mode: no AI during practice. The learner records, compares
-  // their recording against the native audio, and grades themselves.
-  const [selfCheck, setSelfCheckState] = useState(() => localStorage.getItem('amgi_self_check') === 'true');
-  const [isSelfJudging, setIsSelfJudging] = useState(false);
-  const [selfCheckNotice, setSelfCheckNotice] = useState(null);
+  const [phase, setPhase] = useState(PHASE.IDLE);
+  const [started, setStarted] = useState(false);
+  const [micDenied, setMicDenied] = useState(false);
+  const [statusNote, setStatusNote] = useState(null);
+  const [aiResult, setAiResult] = useState(null);
+  const [isEvaluating, setIsEvaluating] = useState(false);
+  const [hasRecording, setHasRecording] = useState(false);
+
+  // Bumped whenever the flow is cancelled (card graded, unmounted, restarted)
+  // so in-flight async steps from the previous card bail out instead of
+  // fighting the new one.
+  const runIdRef = useRef(0);
+  const stopVadRef = useRef(null);
   const userRecordingUrlRef = useRef(null);
   const userAudioElRef = useRef(null);
+  const aiCheckRef = useRef(false);
 
-  const setSelfCheck = (value) => {
-    setSelfCheckState(value);
-    localStorage.setItem('amgi_self_check', String(value));
-  };
+  useEffect(() => {
+    try {
+      aiCheckRef.current = window.localStorage.getItem(AI_CHECK_KEY) === 'true';
+    } catch {
+      aiCheckRef.current = false;
+    }
+  }, []);
 
-  // Keep the latest recording around (in both modes) so it can be replayed
-  // against the native audio.
+  const deck = decks[currentDeckId];
+
+  const cancelRun = useCallback(() => {
+    runIdRef.current += 1;
+    if (stopVadRef.current) {
+      stopVadRef.current();
+      stopVadRef.current = null;
+    }
+    return runIdRef.current;
+  }, []);
+
   const storeUserRecording = (blob) => {
     if (userRecordingUrlRef.current) {
       URL.revokeObjectURL(userRecordingUrlRef.current);
     }
     userRecordingUrlRef.current = URL.createObjectURL(new Blob([blob], { type: 'audio/mp3' }));
+    setHasRecording(true);
   };
 
-  const handlePlayUserRecording = () => {
+  const playUserRecording = () => {
     if (!userRecordingUrlRef.current) return;
     if (!userAudioElRef.current) {
       userAudioElRef.current = new Audio();
@@ -59,579 +82,371 @@ const ReviewMode = () => {
     userAudioElRef.current.play().catch(() => {});
   };
 
-  // Release the recording URL when leaving the page
-  useEffect(() => {
-    return () => {
-      if (userRecordingUrlRef.current) {
-        URL.revokeObjectURL(userRecordingUrlRef.current);
-      }
-    };
-  }, []);
-
-
-  // Handle recording state changes
-  useEffect(() => {
-    if (!audio.isRecording) {
-      // When recording stops
-      setIsEvaluating(false);
-    }
-  }, [audio.isRecording]);
-
-  // Play button click handler (simplified)
-  const handlePlayButtonClick = async (audioPath) => {
-    // Prevent rapid clicks
-    if (isPlayingLocked || audio.isLoading) {
-      console.log('Ignoring play request - playback locked or loading');
-      return;
-    }
-
-    setIsPlayingLocked(true);
-
-    try {
-      await audio.ensureAudioContext();
-      await audio.playAudio(audioPath);
-    } catch (error) {
-      console.error("Error playing audio:", error);
-    } finally {
-      // Add small delay to prevent immediate re-click
-      setTimeout(() => {
-        setIsPlayingLocked(false);
-      }, 300);
-    }
-  };
-
-  // Record button click handler (simplified)
-  const handleRecordButtonClick = async () => {
-    try {
-      await audio.ensureAudioContext();
-      if (audio.isRecording) {
-        const audioBlob = await audio.stopRecording();
-        if (!audioBlob) return;
-
-        if (!currentCard) {
-          console.error("Current card is not available for evaluation");
-          return;
-        }
-
-        // Keep the recording for self-comparison in either mode
-        storeUserRecording(audioBlob);
-
-        // Self-check: no AI call — reveal the answer and let the learner
-        // compare their recording against the native audio and judge.
-        if (selfCheck) {
-          setEvaluationResult(null);
-          setIsSelfJudging(true);
-          return;
-        }
-
-        setIsEvaluating(true);
-
-        // Starter-deck cards get their audio in the background; without the
-        // reference audio there's nothing to evaluate against yet.
-        if (!currentCard.back_audio_path) {
-          setIsEvaluating(false);
-          setEvaluationResult({
-            result: 'error',
-            message: "This card's audio is still being generated — check back in a moment.",
-            audio: null
-          });
-          return;
-        }
-
-        // Ensure current card has language fields before evaluation
-        if (!currentCard.front_lang || !currentCard.back_lang) {
-          const deck = decks[currentDeckId];
-          if (deck) {
-            if (!currentCard.front_lang) currentCard.front_lang = deck.known_language || 'en';
-            if (!currentCard.back_lang) currentCard.back_lang = deck.learning_language || 'en';
-          }
-        }
-
-        try {
-          await evaluateSpeech(audioBlob, currentCard);
-        } catch (error) {
-          // Out of AI evaluations: don't waste the attempt — fall back to
-          // self-check with the recording we already have.
-          if (error.message?.toLowerCase().includes('limit')) {
-            setSelfCheck(true);
-            setSelfCheckNotice('AI evaluations are used up for this billing period — switched to self-check.');
-            setEvaluationResult(null);
-            setIsSelfJudging(true);
-            setIsEvaluating(false);
-            return;
-          }
-          throw error;
-        }
-        setIsEvaluating(false);
-      } else {
-        // Clear previous result when starting a (re-)recording
-        setEvaluationResult(null);
-        setIsSelfJudging(false);
-
-        // Start recording
-        await audio.startRecording();
-
-      }
-    } catch (error) {
-      console.error("Error with recording:", error);
-      setIsEvaluating(false);
-      audio.setError(error.message);
-
-      // Display error as evaluation result for consistent UI
-      setEvaluationResult({
-        result: 'error',
-        message: error.message,
-        audio: null
-      });
-    }
-  };
-
-  // Self-check verdict: feed the learner's own judgment through the same
-  // result flow the AI path uses, so scheduling stays identical.
-  const handleSelfJudge = (correct) => {
-    setIsSelfJudging(false);
-    handleEvaluationResult({
-      result: correct ? 'correct' : 'incorrect',
-      message: correct ? 'Marked correct — nice.' : 'Marked for another try.',
-      audio: null
-    });
-  };
-
-  const handleEvaluationResult = useCallback((data) => {
-    if (!data || !currentCard) {
-      console.error("Invalid evaluation result or missing current card");
-      return;
-    }
-
-    setEvaluationResult(data);
-
-    // Play evaluation audio if available (base64 mp3 from the speech function)
-    if (data.audio) {
-      const blob = base64ToBlob(data.audio);
-      const url = URL.createObjectURL(blob);
-      audio.evaluationAudioRef.current.src = url;
-      audio.evaluationAudioRef.current.play().catch(err => {
-        console.error('Error playing evaluation audio:', err);
-      });
-
-      // Clean up the URL when audio ends
-      audio.evaluationAudioRef.current.onended = () => {
-        URL.revokeObjectURL(url);
-      };
-    }
-
-    // Shows the answer for TRANSITION_SECONDS, then advances to the next card.
-    const startTransition = (advance) => {
-      if (transitionTimerRef.current) {
-        clearTimeout(transitionTimerRef.current);
-        transitionTimerRef.current = null;
-      }
-
-      setTransitionCard({ ...currentCard });
-      setIsTransitioning(true);
-      setTransitionTimeLeft(TRANSITION_SECONDS);
-
-      const startTime = Date.now();
-      const duration = TRANSITION_SECONDS * 1000;
-
-      const updateCountdown = () => {
-        const elapsed = Date.now() - startTime;
-        const remaining = Math.max(0, Math.ceil((duration - elapsed) / 1000));
-
-        setTransitionTimeLeft(remaining);
-
-        if (remaining <= 0) {
-          setEvaluationResult(null);
-          advance();
-          setIsTransitioning(false);
-          return;
-        }
-
-        transitionTimerRef.current = setTimeout(updateCountdown, 200);
-      };
-
-      transitionTimerRef.current = setTimeout(updateCountdown, 200);
-    };
-
-    if (data.result === 'correct') {
-      startTransition(review.markCorrectGetNext);
-    } else if (data.result === 'incorrect') {
-      // On the final failed attempt, show the answer before moving on;
-      // otherwise let the user retry immediately.
-      if (attempts >= 2) {
-        startTransition(review.markIncorrectGetNext);
-      } else {
-        review.markIncorrectGetNext();
-      }
-    }
-  }, [currentCard, review, audio, attempts]);
-
   const { evaluateSpeech } = useSpeechEvaluation({
     audio,
-    onEvaluationResult: handleEvaluationResult
+    onEvaluationResult: (data) => setAiResult(data),
   });
 
-  // The learner is the final judge of their own pronunciation: this reruns
-  // the result flow as correct. (The failed attempt already counted, so the
-  // scheduler treats it as a hard-won success rather than a clean one.)
-  const handleOverrideCorrect = () => {
-    handleEvaluationResult({
-      result: 'correct',
-      message: 'Marked correct — your call.',
-      audio: null
-    });
-  };
+  // --- the per-card loop -------------------------------------------------
 
-  // Store current card in state when transitioning to prevent reference issues
+  const revealAnswer = useCallback(
+    async (runId, recording) => {
+      if (runId !== runIdRef.current) return;
+      setPhase(PHASE.ANSWER);
+
+      const card = currentCard;
+      if (card?.back_audio_path) {
+        await audio.playAudioToEnd(card.back_audio_path).catch(() => {});
+      }
+      if (runId !== runIdRef.current) return;
+
+      if (aiCheckRef.current && recording && card?.back_audio_path) {
+        setIsEvaluating(true);
+        try {
+          await evaluateSpeech(recording, card);
+        } catch {
+          // The AI verdict is optional; self-grading carries the session.
+          setAiResult(null);
+        } finally {
+          if (runId === runIdRef.current) setIsEvaluating(false);
+        }
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [audio, currentCard]
+  );
+
+  const finishListening = useCallback(
+    async (runId, reason) => {
+      if (runId !== runIdRef.current) return;
+      if (stopVadRef.current) {
+        stopVadRef.current();
+        stopVadRef.current = null;
+      }
+
+      let recording = null;
+      try {
+        recording = await audio.stopRecording();
+      } catch {
+        recording = null;
+      }
+
+      if (runId !== runIdRef.current) return;
+
+      if (recording && reason !== 'no-speech') {
+        storeUserRecording(recording);
+      }
+      if (reason === 'no-speech') {
+        setStatusNote("Didn't hear an answer - here's the native audio.");
+      }
+
+      await revealAnswer(runId, recording);
+    },
+    [audio, revealAnswer]
+  );
+
+  const runCard = useCallback(
+    async (card) => {
+      const runId = cancelRun();
+
+      setAiResult(null);
+      setStatusNote(null);
+      setHasRecording(false);
+      setPhase(PHASE.PROMPT);
+
+      if (card?.front_audio_path) {
+        await audio.playAudioToEnd(card.front_audio_path).catch(() => {});
+      }
+      if (runId !== runIdRef.current) return;
+
+      if (micDenied) {
+        await revealAnswer(runId, null);
+        return;
+      }
+
+      try {
+        await audio.startRecording();
+      } catch (err) {
+        if (runId !== runIdRef.current) return;
+        setMicDenied(true);
+        setStatusNote(`Microphone unavailable: ${err.message}`);
+        await revealAnswer(runId, null);
+        return;
+      }
+
+      if (runId !== runIdRef.current) {
+        await audio.stopRecording().catch(() => {});
+        return;
+      }
+
+      setPhase(PHASE.LISTENING);
+      stopVadRef.current = detectSpeechEnd({
+        audioContext: audio.audioContextRef.current,
+        stream: audio.recordingStreamRef.current,
+        onEnd: (reason) => finishListening(runId, reason),
+      });
+    },
+    [audio, cancelRun, finishListening, micDenied, revealAnswer]
+  );
+
+  // Each new card restarts the loop. Nothing happens until the reviewer has
+  // started the session, which is also the gesture that unlocks audio
+  // playback and prompts for the microphone.
   useEffect(() => {
-    if (isTransitioning && currentCard && !transitionCard) {
-      setTransitionCard({ ...currentCard });
-    } else if (!isTransitioning) {
-      setTransitionCard(null);
-    }
-  }, [isTransitioning, currentCard, transitionCard]);
+    if (!started || !currentCard) return;
+    runCard(currentCard);
+    // Keyed on the card id so each card runs exactly once, no matter how
+    // often runCard's dependencies change identity.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [started, currentCardId]);
 
-  const handleBackToList = () => {
-    // Sync the updated card states from review context back to deck context
-    review.syncCardsToDeck();
-    
-    navigate('/decks');
-  };
-
-  // Just clean up the timer when unmounting, no need to sync
   useEffect(() => {
     return () => {
-      if (transitionTimerRef.current) {
-        clearTimeout(transitionTimerRef.current);
-        transitionTimerRef.current = null;
-      }
+      runIdRef.current += 1;
+      if (stopVadRef.current) stopVadRef.current();
+      if (userRecordingUrlRef.current) URL.revokeObjectURL(userRecordingUrlRef.current);
     };
   }, []);
 
-  // When a card comes up: reset per-card UI state, play its prompt audio
-  // right away (this is a listening-first app — the front audio IS the
-  // question), and preload the back audio for the hint button. Autoplay can
-  // be blocked before the first user gesture; the play button still works.
+  // --- actions -----------------------------------------------------------
+
+  const handleStart = useCallback(async () => {
+    try {
+      // Asking here (inside the click) is both the consent prompt and the
+      // gesture browsers require before audio may play on its own.
+      await audio.ensureAudioContext();
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach((track) => track.stop());
+      setMicDenied(false);
+    } catch {
+      setMicDenied(true);
+      setStatusNote(
+        'Microphone access was declined - cards still play, and you can grade yourself.'
+      );
+    }
+    setStarted(true);
+  }, [audio]);
+
+  const grade = useCallback(
+    (correct) => {
+      cancelRun();
+      if (audio.isRecording) {
+        audio.stopRecording().catch(() => {});
+      }
+      setPhase(PHASE.IDLE);
+      setAiResult(null);
+      setStatusNote(null);
+      if (correct) {
+        review.markCorrectGetNext();
+      } else {
+        review.markAgainGetNext();
+      }
+    },
+    [audio, cancelRun, review]
+  );
+
+  const stopListeningEarly = useCallback(() => {
+    finishListening(runIdRef.current, 'manual');
+  }, [finishListening]);
+
+  const handleBackToList = () => {
+    cancelRun();
+    if (audio.isRecording) {
+      audio.stopRecording().catch(() => {});
+    }
+    review.syncCardsToDeck();
+    router.push('/decks');
+  };
+
+  // Anki's keys: space (or enter) is "Good", 1 is "Again". While the mic is
+  // open, space means "I'm done talking".
   useEffect(() => {
-    setEvaluationResult(null);
-    setHasTransitionCanceled(false);
-    setIsSelfJudging(false);
-    setSelfCheckNotice(null);
+    const onKeyDown = (event) => {
+      const target = event.target;
+      if (
+        target &&
+        (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)
+      ) {
+        return;
+      }
 
-    if (currentCard?.front_audio_path) {
-      setLastClickedAudio('front');
-      audio.playAudio(currentCard.front_audio_path).catch(() => {});
-    } else {
-      setLastClickedAudio(null);
-    }
+      if (!started) {
+        if (event.code === 'Space' || event.code === 'Enter') {
+          event.preventDefault();
+          handleStart();
+        }
+        return;
+      }
 
-    if (currentCard?.back_audio_path) {
-      audio.loadAudio(currentCard.back_audio_path).catch(err => {
-        console.error('Error preloading back audio:', err);
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentCardId]);
+      if (phase === PHASE.LISTENING && event.code === 'Space') {
+        event.preventDefault();
+        stopListeningEarly();
+        return;
+      }
 
-  const handlePlayFrontAudio = () => {
-    if (currentCard?.front_audio_path) {
-      setLastClickedAudio('front');
-      handlePlayButtonClick(currentCard.front_audio_path);
-    }
-  };
+      if (phase !== PHASE.ANSWER) return;
 
-  const handlePlayHintAudio = () => {
-    if (currentCard?.back_audio_path) {
-      setLastClickedAudio('hint');
-      handlePlayButtonClick(currentCard.back_audio_path);
-    }
-  };
+      if (event.code === 'Space' || event.code === 'Enter' || event.key === '3') {
+        event.preventDefault();
+        grade(true);
+      } else if (event.key === '1') {
+        event.preventDefault();
+        grade(false);
+      }
+    };
 
-  // Add these new handler functions
-  const handleSkipTransition = () => {
-    if (transitionTimerRef.current) {
-      clearTimeout(transitionTimerRef.current);
-      transitionTimerRef.current = null;
-    }
-    
-    console.log("Skipping transition, moving to next card");
-    setEvaluationResult(null);
-    
-    // Determine if this was a correct or incorrect transition
-    if (evaluationResult && evaluationResult.result === 'correct') {
-      review.markCorrectGetNext();
-    } else {
-      review.markIncorrectGetNext();
-    }
-    
-    setIsTransitioning(false);
-  };
-  
-  const handleCancelTransition = () => {
-    if (transitionTimerRef.current) {
-      clearTimeout(transitionTimerRef.current);
-      transitionTimerRef.current = null;
-    }
-    
-    console.log("Canceling transition, staying on current card");
-    setIsTransitioning(false);
-    setHasTransitionCanceled(true); // Set this flag when transition is canceled
-  };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [phase, started, grade, stopListeningEarly, handleStart]);
 
-  // Add a new handler for the Next button
-  const handleNextCard = () => {
-    console.log("Moving to next card after canceled transition");
-    setEvaluationResult(null);
-    setHasTransitionCanceled(false);
-    
-    // Determine if this was a correct or incorrect transition based on the last evaluation
-    if (evaluationResult && evaluationResult.result === 'correct') {
-      review.markCorrectGetNext();
-    } else {
-      review.markIncorrectGetNext();
-    }
-  };
+  // --- render ------------------------------------------------------------
+
+  if (!deck) {
+    return null;
+  }
 
   if (!currentCard) {
     return (
-      <div className="review-complete">
-        <h3>🎉 Review Complete!</h3>
-        <p>You've reviewed all due cards in this deck.</p>
-        <button onClick={handleBackToList} className="back-btn">
-          Back to Decks
-        </button>
+      <div className="review-mode">
+        <div className="review-complete">
+          <h3>🎉 Review Complete!</h3>
+          <p>You&apos;ve reviewed all due cards in this deck.</p>
+          <button onClick={handleBackToList} className="back-btn">
+            Back to Decks
+          </button>
+        </div>
       </div>
     );
   }
 
+  const revealed = phase === PHASE.ANSWER;
+
+  const statusText = () => {
+    if (!started) return 'Ready when you are';
+    if (phase === PHASE.PROMPT) return 'Listen…';
+    if (phase === PHASE.LISTENING) return 'Speak your answer';
+    if (phase === PHASE.ANSWER) {
+      return isEvaluating ? 'Checking your pronunciation…' : 'How did you do?';
+    }
+    return '';
+  };
+
   return (
-    <div className="review-mode" style={{ display: 'flex', flex: 1, height: '100%', flexDirection: 'column', alignItems: 'center' }}>
+    <div className="review-mode">
       <div className="mode-header">
         <button onClick={handleBackToList} className="back-btn">
           ← Decks
         </button>
-        <h2>{decks[currentDeckId].name}</h2>
-        <button
-          onClick={() => setSelfCheck(!selfCheck)}
-          className="back-btn"
-          title={selfCheck
-            ? 'Self check: you compare your recording to the native audio and judge yourself — no AI used. Click for AI checking.'
-            : 'AI check: your recording is evaluated by AI (uses your plan\'s evaluations). Click for free self-checking.'}
-        >
-          {selfCheck ? '🪞 Self check' : '✨ AI check'}
-        </button>
-        <button
-          onClick={() => navigate(`/deck/${currentDeckId}/voice`)}
-          className="back-btn"
-          title="Practice with a live voice conversation"
-        >
-          <ChatBubbleLeftRightIcon className="h-5 w-5" /> Voice mode
-        </button>
+        <h2>{deck.name}</h2>
+        <div className="review-counts">
+          <span className="count-new">{newCardsCount} new</span>
+          <span className="count-learning">{learningCardsCount} learning</span>
+          <span className="count-review">{reviewCardsCount} review</span>
+        </div>
       </div>
 
-      <div className="review-controls" style={{ height: '100px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-        {isEvaluating ? (
-          <div className="evaluation-loading">Evaluating your speech...</div>
-        ) : isSelfJudging ? (
-          <div className="evaluation-result self-judge" style={{ textAlign: 'center' }}>
-            {selfCheckNotice && (
-              <p style={{ opacity: 0.7, fontSize: '0.85rem', margin: '0 0 0.35rem' }}>{selfCheckNotice}</p>
-            )}
-            <p style={{ margin: 0 }}>Compare, then judge for yourself:</p>
-            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', margin: '0.4rem 0' }}>
-              <button
-                onClick={() => currentCard.back_audio_path && handlePlayButtonClick(currentCard.back_audio_path)}
-                disabled={!currentCard.back_audio_path || audio.isPlayingAudio || isPlayingLocked}
-                style={{ padding: '0.3rem 0.6rem', borderRadius: '6px', cursor: 'pointer' }}
-              >
-                ▶ Native
-              </button>
-              <button
-                onClick={handlePlayUserRecording}
-                style={{ padding: '0.3rem 0.6rem', borderRadius: '6px', cursor: 'pointer' }}
-              >
-                ▶ You
-              </button>
-            </div>
-            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
-              <button
-                onClick={() => handleSelfJudge(true)}
-                style={{ padding: '0.35rem 0.8rem', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}
-              >
-                ✓ I got it
-              </button>
-              <button
-                onClick={() => handleSelfJudge(false)}
-                style={{ padding: '0.35rem 0.8rem', borderRadius: '6px', cursor: 'pointer' }}
-              >
-                ✗ Not quite
-              </button>
+      <div className="review-stage">
+        <div className="review-status">
+          <span className={`review-phase review-phase-${phase}`}>{statusText()}</span>
+          {statusNote && <span className="review-note">{statusNote}</span>}
+        </div>
+
+        <div className="flashcard-container">
+          <div className="flashcard-top">
+            <div className={`flashcard-text front ${revealed ? '' : 'is-hidden'}`}>
+              {currentCard.front_text}
             </div>
           </div>
-        ) : evaluationResult ? (
-          <div className={`evaluation-result ${evaluationResult.result}`}>
-            <p>{evaluationResult.message}</p>
-            {evaluationResult.transcription && (
-              <p className="evaluation-transcription" style={{ opacity: 0.7, fontSize: '0.85rem', margin: '0.25rem 0 0' }}>
-                Heard: “{evaluationResult.transcription}”
-              </p>
-            )}
-            {evaluationResult.result === 'incorrect' && !isTransitioning && (
-              <button
-                onClick={handleOverrideCorrect}
-                style={{ marginTop: '0.4rem', background: 'none', border: 'none', textDecoration: 'underline', cursor: 'pointer', color: 'inherit', fontSize: '0.85rem', padding: 0 }}
-                title="You judge your own pronunciation — override the AI's verdict"
-              >
-                Actually, I said it right
-              </button>
-            )}
+          <div className="flashcard-bottom">
+            <div className={`flashcard-text back ${revealed ? '' : 'is-hidden'}`}>
+              {currentCard.back_text}
+            </div>
           </div>
-        ) : (
-          <div className="remaining-cards">
-            {`New: ${newCardsCount} • Review: ${reviewCardsCount} • Learning: ${learningCardsCount}`}
+        </div>
+
+        {aiResult && (
+          <div className={`evaluation-result ${aiResult.result}`}>
+            <p>{aiResult.message}</p>
+            {aiResult.transcription && (
+              <p className="evaluation-transcription">Heard: “{aiResult.transcription}”</p>
+            )}
           </div>
         )}
       </div>
 
-      {/* New flashcard layout with dashed line in the middle */}
-      <div className="flashcard-container">
-        <div className="flashcard-top">
-          {(attempts >= 2 || isTransitioning || hasTransitionCanceled || isSelfJudging) && (
-            <div className="flashcard-text front">
-              {transitionCard && isTransitioning ? transitionCard.front_text : currentCard.front_text}
-            </div>
-          )}
-        </div>
-        <div className="flashcard-bottom">
-          {(attempts >= 3 || isTransitioning || hasTransitionCanceled || isSelfJudging) && (
-            <div className="flashcard-text back">
-              {transitionCard && isTransitioning ? transitionCard.back_text : currentCard.back_text}
-            </div>
-          )}
-        </div>
-      {isTransitioning && (
-        <div className="transition-timer-container">
-          <div className="transition-timer">
-            <span>Next card in {transitionTimeLeft} {transitionTimeLeft === 1 ? 'second' : 'seconds'}</span>
-            <div className="transition-controls">
-              <button className="transition-button " onClick={handleSkipTransition} title="Skip to next card">
-                <ChevronDoubleRightIcon className="button-icon" />
-              </button>
-              <button className="transition-button" onClick={handleCancelTransition} title="Stay on current card">
-                <XMarkIcon className="button-icon" />
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      </div>
-
-      {/* Buttons in a row at the bottom of the screen */}
-      <div className="bottom-controls-container">
-        {/* Left (Play Front Audio) button */}
-        <div className="button-container left-button">
-          <div className="front-visualizer-container">
-            <RadialAudioVisualizer
-              visualizerType="front"
-              isActive={lastClickedAudio === 'front'}
-            />
-          </div>
-          <button
-            className="hint-button"
-            onClick={handlePlayFrontAudio}
-            disabled={audio.isPlayingAudio || isPlayingLocked}
-          >
-            <div className="button-inner">
-              <PlayIcon className="button-icon-controls" />
-            </div>
+      {!started ? (
+        <div className="review-gate">
+          <p className="review-gate-text">
+            You&apos;ll hear the phrase, then amgi listens for your answer and plays the native
+            audio back. Starting gives this page your microphone.
+          </p>
+          <button className="primary-btn" onClick={handleStart}>
+            Start reviewing
           </button>
-          <div className="button-label">Play Audio</div>
+          <p className="review-gate-hint">Space to start</p>
         </div>
-
-        {/* Center (Hint Audio) button - only visible after first attempt and before showing answer */}
-        <div className="button-container center-button">
-          {attempts >= 1 && attempts < 3 && !isTransitioning && currentCard.back_audio_path && (
-            <>
-              <div className="hint-visualizer-container">
-                <RadialAudioVisualizer
-                  visualizerType="hint"
-                  isActive={lastClickedAudio === 'hint'}
-                />
-              </div>
-              <button
-                className="hint-button"
-                onClick={handlePlayHintAudio}
-                disabled={audio.isPlayingAudio || isPlayingLocked}
-              >
-                <div className="button-inner">
-                  <PlayIcon className="button-icon-controls" />
-                </div>
-              </button>
-              <div className="button-label">Hint Audio</div>
-            </>
-          )}
-          
-          {/* Show hint audio during transition */}
-          {isTransitioning && currentCard.back_audio_path && (
-            <>
-              <div className="hint-visualizer-container">
-                <RadialAudioVisualizer
-                  visualizerType="hint"
-                  isActive={lastClickedAudio === 'hint'}
-                />
-              </div>
-              <button
-                className="hint-button"
-                onClick={handlePlayHintAudio}
-                disabled={audio.isPlayingAudio || isPlayingLocked}
-              >
-                <div className="button-inner">
-                  <PlayIcon className="button-icon-controls" />
-                </div>
-              </button>
-              <div className="button-label">Hint Audio</div>
-            </>
-          )}
-        </div>
-
-        <div className="button-container right-button">
-          <div className="mic-visualizer-container">
+      ) : (
+        <div className="review-footer">
+          <div className="review-visualizer">
             <RadialAudioVisualizer
               visualizerType="user"
               isActive={audio.isRecording}
               key={`user-visualizer-${audio.isRecording}`}
             />
+            <div className={`review-mic ${phase === PHASE.LISTENING ? 'is-listening' : ''}`}>
+              {phase === PHASE.LISTENING ? (
+                <MicrophoneIcon className="review-mic-icon" />
+              ) : (
+                <SpeakerWaveIcon className="review-mic-icon" />
+              )}
+            </div>
           </div>
-          {hasTransitionCanceled ? (
-            <button
-              className="hint-button"
-              onClick={handleNextCard}
-            >
-              <div className="button-inner">
-                <ChevronDoubleRightIcon className="button-icon-controls" />
+
+          {phase === PHASE.ANSWER ? (
+            <>
+              <div className="replay-row">
+                <button
+                  className="replay-btn"
+                  onClick={() => audio.playAudio(currentCard.front_audio_path).catch(() => {})}
+                  disabled={!currentCard.front_audio_path}
+                >
+                  <PlayIcon className="icon" /> Prompt
+                </button>
+                <button
+                  className="replay-btn"
+                  onClick={() => audio.playAudio(currentCard.back_audio_path).catch(() => {})}
+                  disabled={!currentCard.back_audio_path}
+                >
+                  <PlayIcon className="icon" /> Native
+                </button>
+                <button className="replay-btn" onClick={playUserRecording} disabled={!hasRecording}>
+                  <PlayIcon className="icon" /> You
+                </button>
               </div>
-            </button>
+              <div className="grade-row">
+                <button className="grade-btn again" onClick={() => grade(false)}>
+                  Again <kbd>1</kbd>
+                </button>
+                <button className="grade-btn good" onClick={() => grade(true)}>
+                  Good <kbd>space</kbd>
+                </button>
+              </div>
+            </>
           ) : (
-            <button
-              className={`hint-button ${audio.isRecording ? 'recording' : ''}`}
-              onClick={handleRecordButtonClick}
-              disabled={attempts >= 3 || audio.isLoading || isEvaluating || isTransitioning || !currentCard}
-            >
-              <div className="button-inner">
-                <MicrophoneIcon className="button-icon-controls" />
-              </div>
-              {isEvaluating && <div className="loading-spinner"></div>}
-            </button>
+            <div className="grade-row">
+              <button
+                className="grade-btn ghost"
+                onClick={stopListeningEarly}
+                disabled={phase !== PHASE.LISTENING}
+              >
+                Done speaking <kbd>space</kbd>
+              </button>
+            </div>
           )}
-          <div className="button-label">
-            {hasTransitionCanceled ? "Next Card" : "Record Answer"}
-          </div>
         </div>
-      </div>
-
-
+      )}
     </div>
   );
 };
 
-export default ReviewMode; 
+export default ReviewMode;

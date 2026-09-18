@@ -1,20 +1,23 @@
 import React, { useState } from 'react';
-import { useParams, Navigate } from 'react-router-dom';
+import { useParams, useRouter } from 'next/navigation';
 import { useDecks } from '../../contexts/DeckContext';
 import CardForm from './CardForm';
 import CardModal from './CardModal';
 import './CardList.css';
 import { getLanguageDisplay } from '../../constants/languages';
 
-const CardList = ({ onCardClick, onBack }) => {
+const CardList = ({ onCardClick }) => {
   const { id } = useParams();
-  const { decks, currentDeckId } = useDecks();
+  const router = useRouter();
+  const { decks, setCurrentDeckId } = useDecks();
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  if (id !== currentDeckId) {
-    return <Navigate to="/decks" replace />;
-  }
   const deck = decks[id];
+
+  const handleBack = () => {
+    setCurrentDeckId(null);
+    router.push('/decks');
+  };
 
   const closeModal = () => setIsModalOpen(false);
   const handleGenerationStart = () => setIsModalOpen(true);
@@ -22,7 +25,7 @@ const CardList = ({ onCardClick, onBack }) => {
   return (
     <div className="deck-cards">
       <div className="deck-cards-header">
-        <button onClick={onBack} className="back-btn">← Back</button>
+        <button onClick={handleBack} className="back-btn">← Back</button>
         <h1>{deck.name}</h1>
         <p className="language-info">
           {getLanguageDisplay(deck.known_language).flag} {getLanguageDisplay(deck.known_language).name} → {getLanguageDisplay(deck.learning_language).flag} {getLanguageDisplay(deck.learning_language).name}

@@ -1,187 +1,91 @@
-.review-mode {
-  width: 100%;
-}
+@import './ReviewShared.css';
 
-.mode-header {
+.review-mode {
   display: flex;
-  padding: 5px 0;
+  flex-direction: column;
   align-items: center;
   width: 100%;
-  justify-content: space-between;
-  border-bottom: 1px solid var(--border-color);
-  flex-shrink: 0;
+  max-width: 720px;
+  margin: 0 auto;
+  height: 100%;
+  min-height: 0;
 }
 
-.mode-header h2 {
+.review-counts {
+  display: flex;
+  gap: 10px;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.count-new {
+  color: #3b82f6;
+}
+
+.count-learning {
+  color: var(--flame-orange-hover);
+}
+
+.count-review {
+  color: #4caf50;
+}
+
+/* Stage: status line + the card itself */
+
+.review-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  width: 100%;
   flex: 1;
+  min-height: 0;
+  padding: 16px 0;
+}
+
+.review-status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-height: 40px;
   text-align: center;
 }
 
-.back-btn {
-  background: none;
-  border: 1px solid var(--flame-orange);
-  color: var(--flame-orange);
-  cursor: pointer;
-  font-size: 1em;
-  padding: 4px 8px;
-  transition: all 0.2s ease;
-  border-radius: 4px;
+.review-phase {
+  font-size: 1rem;
+  letter-spacing: 0.02em;
+  color: var(--text-secondary);
 }
 
-.back-btn:hover {
-  background: var(--flame-orange);
+.review-phase-listening {
+  color: var(--flame-orange-hover);
+}
+
+.review-phase-answer {
   color: var(--text-primary);
 }
 
-.review-card {
-  background: var(--dark-surface);
-  padding: 15px;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-  border: 1px solid var(--border-color);
-}
-
-.card-progress {
-  text-align: center;
+.review-note {
+  font-size: 0.8rem;
   color: var(--text-secondary);
-  padding: 10px 0;
-  flex-shrink: 0;
+  opacity: 0.8;
 }
 
-.review-controls {
-  flex-shrink: 0;
-}
-
-.attempts-counter {
-  text-align: center;
-  color: var(--text-secondary);
-}
-
-.evaluation-result {
-  text-align: center;
-  border-radius: 4px;
-  background: var(--dark-surface);
-}
-
-.evaluation-result.correct {
-  background: rgba(40, 167, 69, 0.1);
-  color: #4CAF50;
-}
-
-.evaluation-result.incorrect {
-  background: rgba(220, 53, 69, 0.1);
-  color: #f44336;
-}
-
-.evaluation-result.quit {
-  background: rgba(255, 193, 7, 0.1);
-  color: #ffc107;
-}
-
-.result-icon {
-  font-size: 1.2em;
-  margin-bottom: 5px;
-}
-
-.review-complete {
-  text-align: center;
-  padding: 40px;
-  background: var(--dark-surface);
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-  border: 1px solid var(--border-color);
-}
-
-.review-complete h3 {
-  color: #4CAF50;
-  margin-bottom: 15px;
-}
-
-.review-complete p {
-  color: var(--text-secondary);
-  margin-bottom: 20px;
-}
-
-/* Voice mode toggle styles are no longer needed as per comment */
-
-.visualizer.user {
-  --visualizer-color: var(--flame-orange, rgb(255, 107, 53));
-}
-
-.visualizer.ai {
-  --visualizer-color: #4CAF50;
-}
-
-.loading-spinner {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 20px;
-  height: 20px;
-  border: 3px solid rgba(255, 255, 255, 0.3);
-  border-radius: 50%;
-  border-top-color: #ffffff;
-  animation: spin 1s linear infinite;
-  z-index: 11;
-}
-
-.evaluation-loading {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 40px;
-  color: #6b7280;
-  font-style: italic;
-  animation: pulse 1.5s infinite;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes spin {
-  to {
-    transform: translate(-50%, -50%) rotate(360deg);
-  }
-}
-
-@keyframes pulse {
-  0% {
-    opacity: 0.6;
-  }
-
-  50% {
-    opacity: 1;
-  }
-
-  100% {
-    opacity: 0.6;
-  }
-}
-
-/* New flashcard layout styles */
 .flashcard-container {
-  position: relative;
   display: flex;
   flex-direction: column;
   width: 100%;
   max-width: 600px;
   flex: 1;
+  min-height: 180px;
   border-radius: 12px;
   background-color: var(--dark-surface);
+  border: 1px solid var(--border-color);
   overflow: hidden;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
-  min-height: 0;
-  /* Important for flex containers */
 }
 
 .flashcard-top,
@@ -191,10 +95,8 @@
   justify-content: center;
   align-items: center;
   padding: 20px;
-  position: relative;
   overflow-y: auto;
   min-height: 0;
-  /* Important for nested flex items */
 }
 
 .flashcard-top {
@@ -203,222 +105,268 @@
 
 .flashcard-text {
   font-size: 1.5rem;
-  color: var(--text-primary);
   text-align: center;
   max-width: 90%;
+  transition: opacity 0.15s ease;
 }
 
 .flashcard-text.front {
-  color: var(--blue, #3b82f6);
+  color: #3b82f6;
 }
 
 .flashcard-text.back {
-  color: var(--flame-orange, rgb(255, 107, 53));
+  color: var(--flame-orange-hover);
   font-weight: 500;
 }
 
-/* Controls container for bottom row layout */
-.bottom-controls-container {
-  display: flex;
-  justify-content: space-evenly;
-  z-index: 10;
-  width: 100%;
-  flex-shrink: 0;
-  align-items: flex-start;
-  padding: 1rem 0;
+/* Hidden rather than removed, so revealing the answer doesn't jump the card. */
+.flashcard-text.is-hidden {
+  opacity: 0;
 }
 
-.button-container {
-  position: relative;
-  height: 80px;
-  width: 100px;
+.evaluation-result {
+  text-align: center;
+  border-radius: 8px;
+  padding: 8px 14px;
+  background: var(--dark-surface);
+  max-width: 600px;
+}
+
+.evaluation-result p {
+  margin: 0;
+}
+
+.evaluation-result.correct {
+  background: rgba(40, 167, 69, 0.1);
+  color: #4caf50;
+}
+
+.evaluation-result.incorrect {
+  background: rgba(220, 53, 69, 0.1);
+  color: #f44336;
+}
+
+.evaluation-transcription {
+  opacity: 0.7;
+  font-size: 0.85rem;
+  margin-top: 0.25rem;
+}
+
+/* Consent gate */
+
+.review-gate {
   display: flex;
   flex-direction: column;
   align-items: center;
+  gap: 10px;
+  text-align: center;
+  padding: 20px 0 28px;
+  max-width: 460px;
 }
 
-.bottom-controls-container .hint-button {
-  position: relative;
-  z-index: 2;
-  top: 0;
-  margin-bottom: 8px;
+.review-gate-text {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  line-height: 1.45;
 }
 
-.front-visualizer-container,
-.hint-visualizer-container,
-.mic-visualizer-container {
-  position: absolute;
-  height: 120px;
-  width: 120px;
-  z-index: 0;
-  pointer-events: none;
-  top: -30px;
+.review-gate-hint {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  opacity: 0.7;
 }
 
-.hint-button {
-  position: relative;
-  z-index: 10;
-  width: 60px;
-  height: 60px;
-  border-radius: 50%;
+.primary-btn {
+  background-color: var(--flame-orange);
+  color: #fff;
   border: none;
-  background: transparent;
-  padding: 0;
+  padding: 12px 28px;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 500;
   cursor: pointer;
-  outline: none;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+.primary-btn:hover {
+  background-color: var(--flame-orange-hover);
+  transform: translateY(-1px);
+}
+
+/* Footer: mic state + grading */
+
+.review-footer {
   display: flex;
-  justify-content: center;
+  flex-direction: column;
   align-items: center;
+  gap: 14px;
+  padding: 10px 0 24px;
+  flex-shrink: 0;
+}
+
+.review-visualizer {
+  position: relative;
+  width: 110px;
+  height: 110px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.review-mic {
+  width: 62px;
+  height: 62px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at 30% 30%, #6a6a6a, #2b2b2b);
+  box-shadow: inset 0 4px 8px rgba(255, 255, 255, 0.12),
+    inset 0 -4px 8px rgba(0, 0, 0, 0.5), 0 6px 16px rgba(0, 0, 0, 0.5);
+  transition: background 0.2s ease;
+}
+
+.review-mic.is-listening {
+  background: radial-gradient(circle at 30% 30%, var(--flame-orange-hover), var(--flame-orange));
+  animation: review-pulse 1.6s infinite ease-in-out;
+}
+
+.review-mic-icon {
+  width: 26px;
+  height: 26px;
+  color: #eee;
+}
+
+@keyframes review-pulse {
+  0%,
+  100% {
+    box-shadow: inset 0 4px 8px rgba(255, 255, 255, 0.12), 0 0 0 0 rgba(211, 47, 47, 0.45);
+  }
+  50% {
+    box-shadow: inset 0 4px 8px rgba(255, 255, 255, 0.12), 0 0 0 14px rgba(211, 47, 47, 0);
+  }
+}
+
+.replay-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.replay-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  cursor: pointer;
   transition: all 0.2s ease;
 }
 
-.button-inner {
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
+.replay-btn:hover:not(:disabled) {
+  color: var(--text-primary);
+  border-color: var(--flame-orange);
+}
+
+.replay-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.replay-btn .icon {
+  width: 14px;
+  height: 14px;
+}
+
+.grade-row {
   display: flex;
+  gap: 12px;
   justify-content: center;
+  flex-wrap: wrap;
+}
+
+.grade-btn {
+  display: inline-flex;
   align-items: center;
-  background: radial-gradient(circle at 30% 30%, #888888, #333333);
-  box-shadow:
-    inset 0 5px 10px rgba(255, 255, 255, 0.2),
-    inset 0 -5px 10px rgba(0, 0, 0, 0.5),
-    0 0 0 1px rgba(255, 255, 255, 0.1),
-    0 8px 20px rgba(0, 0, 0, 0.5);
-  position: relative;
-  overflow: hidden;
-}
-
-.button-icon {
-  color: #dddddd;
-  z-index: 3;
-  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.5));
-}
-
-.button-icon-controls {
-  color: #dddddd;
-  z-index: 3;
-  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.5));
-  width: 30px;
-}
-
-.button-label {
-  position: absolute;
-  bottom: 0;
-  width: 100%;
-  text-align: center;
-  color: var(--text-secondary);
-  font-size: 14px;
-}
-
-/* Recording button state */
-.hint-button.recording .button-inner {
-  background: radial-gradient(circle at 30% 30%, #ff6f45, #ff4f21);
-  animation: pulse 1.5s infinite;
-}
-
-/* Transition Timer */
-.transition-timer-container {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  display: flex;
+  gap: 8px;
+  min-width: 150px;
   justify-content: center;
-  align-items: center;
-  z-index: 1000;
-}
-
-.transition-timer {
-  background-color: rgba(0, 0, 0, 0.4);
-  color: white;
-  padding: 8px 16px;
-  height: 30px;
-  border-radius: 30px;
-  font-size: 14px;
-  display: flex;
-  align-items: center;
-  gap: 15px;
-}
-
-.transition-controls {
-  display: flex;
-  gap: 10px;
-}
-
-.transition-button {
-  background: none;
-  border: none;
-  color: white;
-  font-size: 16px;
+  padding: 12px 22px;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 500;
   cursor: pointer;
-  padding: 0;
-  border-radius: 50%;
-  width: 30px;
-  height: 30px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background-color 0.2s ease;
+  border: 1px solid transparent;
+  transition: all 0.15s ease;
 }
 
-.transition-button.skip {
-  background-color: rgba(0, 128, 0, 0.5);
+.grade-btn kbd {
+  font-family: inherit;
+  font-size: 0.7rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.14);
+  color: inherit;
 }
 
-.transition-button.cancel {
-  background-color: rgba(255, 0, 0, 0.5);
+.grade-btn.again {
+  background: transparent;
+  border-color: #b3261e;
+  color: #ef5350;
 }
 
-.transition-button:hover {
-  background-color: rgba(255, 255, 255, 0.2);
+.grade-btn.again:hover {
+  background: rgba(179, 38, 30, 0.18);
 }
 
-.transition-button.skip:hover {
-  background-color: rgba(0, 128, 0, 0.8);
+.grade-btn.good {
+  background: #2e7d32;
+  color: #fff;
 }
 
-.transition-button.cancel:hover {
-  background-color: rgba(255, 0, 0, 0.8);
+.grade-btn.good:hover {
+  background: #388e3c;
 }
 
-/* Hide unused content on small screens */
-@media (max-height: 600px) {
-  .card-progress {
-    padding: 2px 0;
-    font-size: 0.8rem;
+.grade-btn.ghost {
+  background: transparent;
+  border-color: var(--border-color);
+  color: var(--text-secondary);
+}
+
+.grade-btn.ghost:hover:not(:disabled) {
+  color: var(--text-primary);
+  border-color: var(--flame-orange);
+}
+
+.grade-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+@media (max-width: 600px) {
+  .mode-header {
+    grid-template-columns: auto 1fr;
+    row-gap: 6px;
   }
 
-  .review-controls {}
-
-  .button-label {
-    font-size: 12px;
+  .review-counts {
+    grid-column: 1 / -1;
+    justify-content: center;
   }
 
   .flashcard-text {
-    font-size: 1.2rem;
-  }
-}
-
-/* Improved mobile experience */
-@media (max-height: 700px) {
-  .mode-header h2 {
-    font-size: 1.2rem;
+    font-size: 1.25rem;
   }
 
-  .review-controls {}
-}
-
-.app-content {
-  overflow: hidden !important;
-}
-
-.ai-disclosure {
-  display: block;
-  color: #666;
-  font-size: 0.75rem;
-  margin-top: 0.25rem;
-  text-align: center;
-  font-style: italic;
+  .grade-btn {
+    min-width: 130px;
+  }
 }

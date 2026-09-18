@@ -1,0 +1,4 @@
+# Dependencies allowed to run install scripts (pnpm asks before running any).
+allowBuilds:
+  '@parcel/watcher': true
+  unrs-resolver: true

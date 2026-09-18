@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '../../contexts/AuthContext';
 import supabase from '../../db/supabaseClient';
 import './Settings.css';
 
 const Settings = () => {
-  const navigate = useNavigate();
+  const router = useRouter();
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
@@ -85,7 +85,7 @@ const Settings = () => {
   return (
     <div className="settings-page">
       <div className="settings-header">
-        <button className="back-button" onClick={() => navigate(-1)}>
+        <button className="back-button" onClick={() => router.back()}>
           ← Back
         </button>
         <h2>Settings</h2>

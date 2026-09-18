@@ -7,8 +7,8 @@ class SupabaseClient {
     }
 
     this.client = createClient(
-      process.env.REACT_APP_SUPABASE_URL,
-      process.env.REACT_APP_SUPABASE_KEY
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_KEY
     );
 
     SupabaseClient.instance = this;
