@@ -12,7 +12,9 @@ alter table reviews add column if not exists lapses int not null default 0;
 -- state, so without this there is no history to compute statistics from and
 -- nothing an FSRS optimiser could ever be trained on.
 create table if not exists review_logs (
-  id uuid default uuid_generate_v4() primary key,
+  -- gen_random_uuid() is built into Postgres 13+, unlike uuid_generate_v4(),
+  -- which needs uuid-ossp installed in a schema this role can see.
+  id uuid default gen_random_uuid() primary key,
   card_id uuid references cards(id) on delete cascade not null,
   user_id uuid references auth.users on delete cascade not null,
   reviewed_at timestamptz not null default now(),
