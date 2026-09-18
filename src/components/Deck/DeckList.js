@@ -14,6 +14,7 @@ const DeckList = () => {
   const [isStarterModalOpen, setIsStarterModalOpen] = useState(false);
   const {
     decks,
+    loading,
     setCurrentDeckId,
     updateDeck
   } = useDecks();
@@ -90,7 +91,11 @@ const DeckList = () => {
       />
       
       <div className="deck-list">
-        {Object.entries(decks).length === 0 ? (
+        {loading ? (
+          // Without this, the first paint of a signed-in user's deck list is
+          // the "you have no decks" pitch, which then flips to their decks.
+          <div className="deck-list-loading">Loading your decks…</div>
+        ) : Object.entries(decks).length === 0 ? (
           <div className="empty-deck-state">
             <button
               onClick={() => setIsStarterModalOpen(true)}
