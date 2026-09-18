@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { NAME } from '../../constants/names';
-import { Link, useNavigate } from 'react-router-dom';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '../../contexts/AuthContext';
 import './Welcome.css';
 
@@ -14,7 +15,7 @@ export default function Welcome() {
   const [error, setError] = useState('');
 
   // Auth hooks
-  const navigate = useNavigate();
+  const router = useRouter();
   const { user, signIn } = useAuth();
 
   // Sample phrases or characters from each language - shorter for density
@@ -74,9 +75,9 @@ export default function Welcome() {
   useEffect(() => {
     // If user is authenticated, redirect to decks
     if (user) {
-      navigate('/decks', { replace: true });
+      router.replace('/decks');
     }
-  }, [user, navigate]);
+  }, [user, router]);
 
   const handleTestAccount = async (e) => {
     e.preventDefault();
@@ -84,7 +85,7 @@ export default function Welcome() {
     try {
       setLoading(true);
       await signIn('test@amgi.cards', 'password');
-      navigate('/decks', { replace: true });
+      router.replace('/decks');
     } catch (err) {
       setError('Failed to sign in with test account: ' + err.message);
     } finally {
@@ -104,7 +105,7 @@ export default function Welcome() {
       setError('');
       setLoading(true);
       await signIn(email, password);
-      navigate('/decks', { replace: true });
+      router.replace('/decks');
     } catch (err) {
       console.error('Sign in error:', err);
 
@@ -182,7 +183,7 @@ export default function Welcome() {
             {loading ? 'Signing In...' : 'Sign In'}
           </button>
           <div className="auth-links">
-            <Link to="/signup">Need an account? Sign Up</Link>
+            <Link href="/signup">Need an account? Sign Up</Link>
           </div>
         </form>
       </div>

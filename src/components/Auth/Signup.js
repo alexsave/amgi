@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import './Auth.css';
 import '../Welcome/Welcome.css'; // Import Welcome CSS for language pattern
 
@@ -15,7 +15,7 @@ export default function Signup() {
   const [loading, setLoading] = useState(false);
   const [verificationSent, setVerificationSent] = useState(false);
   const { signUp } = useAuth();
-  const navigate = useNavigate();
+  const router = useRouter();
 
   // Sample phrases or characters from each language - shorter for density
   const languagePhrases = [
@@ -130,7 +130,7 @@ export default function Signup() {
             <p>We've sent a verification email to <strong>{email}</strong></p>
             <p>Please check your inbox and click the verification link to complete your signup.</p>
             <p>After verifying your email, you can sign in to access your account.</p>
-            <button onClick={() => navigate('/', { replace: true })}>
+            <button onClick={() => router.replace('/')}>
               Return to Sign In
             </button>
           </div>

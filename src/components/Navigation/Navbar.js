@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '../../contexts/AuthContext';
 import { Cog6ToothIcon } from '@heroicons/react/24/outline';
 import './Navbar.css';
 import { NAME } from '../../constants/names';
 
 export default function Navbar() {
-  const navigate = useNavigate();
+  const router = useRouter();
   const { signOut, user } = useAuth();
   const [signOutStatus, setSignOutStatus] = useState('');
   const [signOutError, setSignOutError] = useState('');
@@ -38,7 +38,7 @@ export default function Navbar() {
   };
 
   const goToSettings = () => {
-    navigate('/settings');
+    router.push('/settings');
   };
 
   return (

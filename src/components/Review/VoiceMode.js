@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { MicrophoneIcon } from '@heroicons/react/24/solid';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { useReview } from '../../contexts/ReviewContext';
 import { useDecks } from '../../contexts/DeckContext';
 import AudioVisualizer from './AudioVisualizer';
@@ -14,7 +14,7 @@ import { useRealtime } from '../../contexts/RealtimeContext';
  */
 const VoiceMode = () => {
   const review = useReview();
-  const navigate = useNavigate();
+  const router = useRouter();
   const { decks, currentDeckId } = useDecks();
   const { attempts, currentCard } = review;
   const [isConnecting, setIsConnecting] = useState(false);
@@ -47,7 +47,7 @@ const VoiceMode = () => {
 
   const handleBack = () => {
     review.syncCardsToDeck();
-    navigate('/decks');
+    router.push('/decks');
   };
 
   const handleMicClick = async () => {
@@ -92,7 +92,7 @@ const VoiceMode = () => {
         </button>
         <h2>{decks[currentDeckId]?.name}</h2>
         <button
-          onClick={() => navigate(`/deck/${currentDeckId}/review`)}
+          onClick={() => router.push(`/deck/${currentDeckId}/review`)}
           className="back-btn"
           title="Switch to classic review"
         >

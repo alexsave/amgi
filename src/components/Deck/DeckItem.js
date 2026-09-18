@@ -1,6 +1,6 @@
 import React from 'react';
 import { useDecks } from '../../contexts/DeckContext';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
 import { SparklesIcon, TrashIcon, ArrowUpTrayIcon } from '@heroicons/react/24/outline';
 import msgpack from 'msgpack-lite';
 import './DeckItem.css';
@@ -13,19 +13,19 @@ const DeckItem = ({ id, deck }) => {
     startAudioBackfill,
   } = useDecks();
 
-  const navigate = useNavigate();
+  const router = useRouter();
   const backfill = audioBackfill?.[id];
 
   const handleEditClick = (e, id) => {
     console.log('Edit deck clicked:', id);
     e.stopPropagation();
     setCurrentDeckId(id);
-    navigate(`/deck/${id}/edit`);
+    router.push(`/deck/${id}/edit`);
   };
 
   const handleDeckClick = (id) => {
     setCurrentDeckId(id);
-    navigate(`/deck/${id}/review`);
+    router.push(`/deck/${id}/review`);
   };
 
   const handleDeleteClick = (e) => {
@@ -114,21 +114,21 @@ const DeckItem = ({ id, deck }) => {
           className="icon-btn"
           title="Edit Deck"
         >
-          <SparklesIcon className="h-5 w-5" />
+          <SparklesIcon className="icon" />
         </button>
         <button 
           onClick={handleExportClick}
           className="icon-btn"
           title="Export Deck"
         >
-          <ArrowUpTrayIcon className="h-5 w-5" />
+          <ArrowUpTrayIcon className="icon" />
         </button>
         <button 
           onClick={handleDeleteClick}
           className="icon-btn"
           title="Delete Deck"
         >
-          <TrashIcon className="h-5 w-5" />
+          <TrashIcon className="icon" />
         </button>
       </div>
     </div>

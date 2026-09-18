@@ -1,3 +1,5 @@
+@import './ReviewShared.css';
+
 .voice-mode {
   padding: 40px;
   display: flex;

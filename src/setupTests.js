@@ -4,7 +4,7 @@
 // learn more: https://github.com/testing-library/jest-dom
 import '@testing-library/jest-dom';
 
-// jsdom doesn't provide TextEncoder/TextDecoder, which react-router v7 needs.
+// jsdom doesn't provide TextEncoder/TextDecoder, which some dependencies need.
 import { TextEncoder, TextDecoder } from 'util';
 if (typeof global.TextEncoder === 'undefined') {
   global.TextEncoder = TextEncoder;
@@ -13,5 +13,5 @@ if (typeof global.TextEncoder === 'undefined') {
 
 // The supabase client is created at module load; give it harmless defaults
 // so importing app modules doesn't crash in tests.
-process.env.REACT_APP_SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL || 'http://localhost:54321';
-process.env.REACT_APP_SUPABASE_KEY = process.env.REACT_APP_SUPABASE_KEY || 'test-anon-key';
+process.env.NEXT_PUBLIC_SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'http://localhost:54321';
+process.env.NEXT_PUBLIC_SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_KEY || 'test-anon-key';
