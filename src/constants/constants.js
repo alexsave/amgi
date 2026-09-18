@@ -1,5 +1,7 @@
 // Application constants
 
+// Fallback cap on new cards introduced per day, used when the user has never
+// saved a "Daily Goal (cards)" preference. See loadDailyNewCardBudget.
 export const MAX_NEW_CARDS_PER_DAY = 25;
 
 export const ROUTES = {

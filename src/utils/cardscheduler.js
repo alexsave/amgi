@@ -175,6 +175,23 @@ class MinHeap {
   }
 }
 
+/**
+ * How far ahead of its step a learning card may be pulled when there is
+ * nothing else to show. Anki's learn-ahead limit, same default. Without a
+ * bound a card graded Again came straight back and the step meant nothing.
+ */
+export const LEARN_AHEAD_MINUTES = 20;
+
+/**
+ * A translation pair generates two cards, A->B and B->A, which share their
+ * text and their audio. Ordering the two sides gives both of them the same
+ * key, so siblings can be found without a pair_id column. The scheduler only
+ * ever holds one deck, so the key does not need a deck id.
+ */
+const siblingKey = (card) => JSON.stringify(
+  [(card?.front_text || '').trim(), (card?.back_text || '').trim()].sort()
+);
+
 /**************************************************************
  * CardScheduler:
  * - learningHeap: MinHeap of learning cards.
@@ -182,11 +199,12 @@ class MinHeap {
  * - reviewHeap: MinHeap of (id, nextReviewTime).
  * - cardsMap: Map of all cards by ID (single source of truth)
  *
- * popNext logic:
- *  1) If earliest scheduled card <= currentTime, pop it.
- *  2) Else if newQueue not empty, pop from FIFO.
- *  3) Else if earliest scheduled <= endOfDayTime, pop it (early review).
- *  4) Else return null.
+ * Selection order:
+ *  1) Learning cards whose step is up.
+ *  2) New cards, while the daily new-card budget lasts.
+ *  3) Review cards due by end of day.
+ *  4) Learning cards within the learn-ahead window (nothing else left).
+ * Buried siblings are skipped in every tier unless they are all that remain.
  **************************************************************/
 export class CardScheduler {
   constructor() {
@@ -194,6 +212,17 @@ export class CardScheduler {
     this.newQueue = new FIFOQueue();   // Second priority
     this.reviewHeap = new MinHeap();   // Lowest priority
     this.cardsMap = new Map();         // Map of all cards by ID (single source of truth)
+    this.idsBySiblingKey = new Map();  // sibling key => Set of card ids
+    this.buriedIds = new Set();        // siblings already answered this session
+    this.newCardsRemaining = Infinity; // until a daily budget is supplied
+  }
+
+  /**
+   * Daily budget of new cards still available to this session. Callers get it
+   * from the user's preference minus what the day has already used.
+   */
+  setNewCardBudget(remaining) {
+    this.newCardsRemaining = Number.isFinite(remaining) ? Math.max(0, remaining) : Infinity;
   }
 
   /**
@@ -201,7 +230,7 @@ export class CardScheduler {
    */
   pushNewCard(card) {
     const id = card.id;
-    this.cardsMap.set(id, card);
+    this.indexCard(card);
     this.newQueue.enqueue(id);
   }
 
@@ -212,12 +241,10 @@ export class CardScheduler {
   setReviewTime(card, nextReviewTime, cardState = 'review') {
     const id = card.id;
     // Store the card in our cards map
-    this.cardsMap.set(id, card);
-    
+    this.indexCard(card);
+
     // First remove from any existing queue/heap
-    this.newQueue.items = this.newQueue.items.filter(x => x !== id);
-    this.learningHeap.delete(id);
-    this.reviewHeap.delete(id);
+    this.removeFromQueues(id);
 
     // Then add to appropriate queue/heap
     if (cardState === 'learning') {
@@ -238,13 +265,13 @@ export class CardScheduler {
 
     // Update the card's position in the appropriate queue/heap
     let nextReviewTime;
-    
+
     if (review.next_review_date) {
       // Handle ISO date parsing in a more robust way
       try {
         // Use the built-in Date parsing for ISO strings, which handles timezones correctly
         const date = new Date(review.next_review_date);
-        
+
         // Check if the date is valid
         if (!isNaN(date.getTime())) {
           nextReviewTime = date.getTime();
@@ -260,19 +287,49 @@ export class CardScheduler {
     } else {
       nextReviewTime = Date.now();
     }
-    
-    console.log('setReview for card:', { 
-      id: card.id,
-      card_state: review.card_state,
-      next_review_date: review.next_review_date,
-      parsed_local_time: new Date(nextReviewTime).toLocaleString(),
-      nextReviewTime: new Date(nextReviewTime).toISOString(),
-      isReviewDue: nextReviewTime <= new Date(getEndOfDayTimestamp()).getTime(),
-      currentTime: new Date().toISOString(),
-      endOfDay: getEndOfDayTimestamp()
-    });
-    
+
     this.setReviewTime(card, nextReviewTime, review.card_state);
+  }
+
+  /**
+   * Record that a card has been graded. This is the moment a new card counts
+   * against the daily budget, and the moment its sibling stops being worth
+   * showing: the pair share their text and their audio, so the reverse card
+   * straight after the forward one is an echo, not recall.
+   *
+   * Must be called while the card is still in the scheduler.
+   *
+   * @returns {string[]} ids buried by this answer
+   */
+  recordAnswer(cardId) {
+    if (this.getCardState(cardId) === 'new') {
+      this.newCardsRemaining = Math.max(0, this.newCardsRemaining - 1);
+    }
+    return this.burySiblingsOf(cardId);
+  }
+
+  /**
+   * Bury every other card that came from the same translation pair.
+   */
+  burySiblingsOf(cardId) {
+    const card = this.cardsMap.get(cardId);
+    if (!card) return [];
+
+    const siblings = this.idsBySiblingKey.get(siblingKey(card));
+    if (!siblings) return [];
+
+    const buried = [];
+    for (const otherId of siblings) {
+      if (otherId !== cardId) {
+        this.buriedIds.add(otherId);
+        buried.push(otherId);
+      }
+    }
+    return buried;
+  }
+
+  isBuried(id) {
+    return this.buriedIds.has(id);
   }
 
   /**
@@ -291,19 +348,19 @@ export class CardScheduler {
     if (this.newQueue.items.includes(id)) {
       return 'new';
     }
-    
+
     // Check learning heap
     const learningIndex = this.learningHeap.indexMap.get(id);
     if (learningIndex !== undefined) {
       return 'learning';
     }
-    
+
     // Check review heap
     const reviewIndex = this.reviewHeap.indexMap.get(id);
     if (reviewIndex !== undefined) {
       return 'review';
     }
-    
+
     // Not found in any queue
     return null;
   }
@@ -313,25 +370,14 @@ export class CardScheduler {
    */
   delete(id) {
     let found = false;
-    
-    // Remove from the cardsMap
-    const wasInMap = this.cardsMap.delete(id);
-    if (wasInMap) found = true;
-    
-    // Check new queue
-    const newQueueIndex = this.newQueue.items.indexOf(id);
-    if (newQueueIndex !== -1) {
-      this.newQueue.items.splice(newQueueIndex, 1);
+
+    const card = this.cardsMap.get(id);
+    if (card) {
+      this.unindexCard(card);
       found = true;
     }
 
-    // Check learning heap
-    if (this.learningHeap.delete(id)) {
-      found = true;
-    }
-
-    // Check review heap
-    if (this.reviewHeap.delete(id)) {
+    if (this.removeFromQueues(id)) {
       found = true;
     }
 
@@ -341,100 +387,80 @@ export class CardScheduler {
 
   /**
    * Return the card for the "next" ID or null if none.
-   * Priority order:
-   * 1. Learning cards due now
-   * 2. New cards
-   * 3. Review cards due today
    */
   popNext() {
-    const currentTime = Date.now();
-    const endOfDayTime = new Date(getEndOfDayTimestamp()).getTime();
+    const id = this.selectNextId();
+    if (id === null) return null;
 
-    // 1. First priority: Learning cards due now
-    const topLearning = this.learningHeap.peek();
-    if (topLearning && topLearning.nextReviewTime <= currentTime) {
-      const learningCardItem = this.learningHeap.pop();
-      return this.getFullCard(learningCardItem.id);
-    }
-
-    // 2. Second priority: New cards
-    if (this.newQueue.size() > 0) {
-      const newCardId = this.newQueue.dequeue();
-      return this.getFullCard(newCardId);
-    }
-
-    // 3. Third priority: Review cards due today
-    const topReview = this.reviewHeap.peek();
-    if (topReview && topReview.nextReviewTime <= endOfDayTime) {
-      const reviewCardItem = this.reviewHeap.pop();
-      return this.getFullCard(reviewCardItem.id);
-    }
-
-    // 4. Finally, check for any remaining learning cards
-    if (topLearning) {
-      const learningCardItem = this.learningHeap.pop();
-      return this.getFullCard(learningCardItem.id);
-    }
-
-    return null;
+    this.removeFromQueues(id);
+    return this.getFullCard(id);
   }
 
   /**
    * Peek the ID of the next card without removing it.
    */
   peekNext() {
+    return this.selectNextId();
+  }
+
+  /**
+   * Candidate ids for this moment, most urgent tier first.
+   *
+   * `dueTiers` are cards the session actually owes the reviewer. `learnAhead`
+   * is the last resort: learning cards pulled in ahead of their step, which
+   * is only ever better than ending the session.
+   */
+  candidateTiers() {
     const currentTime = Date.now();
     const endOfDayTime = new Date(getEndOfDayTimestamp()).getTime();
+    const learnAheadTime = currentTime + LEARN_AHEAD_MINUTES * 60 * 1000;
 
-    console.log('CardScheduler.peekNext:', { 
-      currentTime: new Date(currentTime).toISOString(),
-      endOfDayTime: new Date(endOfDayTime).toISOString(),
-      learningHeapSize: this.learningHeap.heap.length,
-      newQueueSize: this.newQueue.size(),
-      reviewHeapSize: this.reviewHeap.heap.length
-    });
+    const dueBy = (heap, cutoff) => heap.heap
+      .filter(item => item.nextReviewTime <= cutoff)
+      .sort((a, b) => a.nextReviewTime - b.nextReviewTime)
+      .map(item => item.id);
 
-    const topLearning = this.learningHeap.peek();
-    if (topLearning && topLearning.nextReviewTime <= currentTime) {
-      console.log('Returning learning card (due now):', topLearning.id);
-      return topLearning.id;
+    return {
+      dueTiers: [
+        dueBy(this.learningHeap, currentTime),
+        this.newCardsRemaining > 0 ? [...this.newQueue.items] : [],
+        dueBy(this.reviewHeap, endOfDayTime)
+      ],
+      learnAhead: dueBy(this.learningHeap, learnAheadTime)
+    };
+  }
+
+  selectNextId() {
+    const { dueTiers, learnAhead } = this.candidateTiers();
+
+    for (const tier of dueTiers) {
+      const next = tier.find(id => !this.isBuried(id));
+      if (next !== undefined) return next;
     }
 
-    if (this.newQueue.size() > 0) {
-      console.log('Returning new card:', this.newQueue.peek());
-      return this.newQueue.peek();
+    // Only buried siblings are due. Showing one beats repeating the card that
+    // buried it, so they outrank the learn-ahead tier.
+    for (const tier of dueTiers) {
+      if (tier.length > 0) return tier[0];
     }
 
-    const topReview = this.reviewHeap.peek();
+    const early = learnAhead.find(id => !this.isBuried(id));
+    if (early !== undefined) return early;
 
-    if (topReview) {
-      console.log('Top review card:', { 
-        id: topReview.id,
-        nextReviewTime: new Date(topReview.nextReviewTime).toISOString(),
-        isDue: topReview.nextReviewTime <= endOfDayTime
-      });
-    }
-
-    if (topReview && topReview.nextReviewTime <= endOfDayTime) {
-      console.log('Returning review card (due today):', topReview.id);
-      return topReview.id;
-    }
-
-    if (topLearning) {
-      console.log('Returning learning card (not due yet):', topLearning.id);
-      return topLearning.id;
-    }
-
-    console.log('No cards to return');
-    return null;
+    return learnAhead.length > 0 ? learnAhead[0] : null;
   }
 
   getLearningCardsCount() {
     return this.learningHeap.heap.length;
   }
 
+  /**
+   * New cards this session can still introduce, not new cards in the deck -
+   * anything past the daily budget will not be shown, so counting it would
+   * only mislead the review screen.
+   */
   getNewCardsCount() {
-    return this.newQueue.size();
+    return Math.min(this.newQueue.size(), this.newCardsRemaining);
   }
 
   getReviewCardsCount() {
@@ -450,6 +476,45 @@ export class CardScheduler {
     this.newQueue = new FIFOQueue();
     this.reviewHeap = new MinHeap();
     this.cardsMap = new Map();
+    this.idsBySiblingKey = new Map();
+    this.buriedIds = new Set();
+    this.newCardsRemaining = Infinity;
+  }
+
+  // --- Internal helpers ---
+
+  indexCard(card) {
+    this.cardsMap.set(card.id, card);
+
+    const key = siblingKey(card);
+    if (!this.idsBySiblingKey.has(key)) {
+      this.idsBySiblingKey.set(key, new Set());
+    }
+    this.idsBySiblingKey.get(key).add(card.id);
+  }
+
+  unindexCard(card) {
+    this.cardsMap.delete(card.id);
+
+    const key = siblingKey(card);
+    const siblings = this.idsBySiblingKey.get(key);
+    if (siblings) {
+      siblings.delete(card.id);
+      if (siblings.size === 0) {
+        this.idsBySiblingKey.delete(key);
+      }
+    }
+  }
+
+  removeFromQueues(id) {
+    const wasNew = this.newQueue.items.includes(id);
+    if (wasNew) {
+      this.newQueue.items = this.newQueue.items.filter(x => x !== id);
+    }
+    const wasLearning = this.learningHeap.delete(id);
+    const wasReview = this.reviewHeap.delete(id);
+
+    return wasNew || wasLearning || wasReview;
   }
 
   printSummary() {

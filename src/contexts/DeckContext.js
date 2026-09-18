@@ -11,6 +11,9 @@ export const DeckProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [currentDeckId, setCurrentDeckId] = useState(null);
   const [newCardsToday, setNewCardsToday] = useState(0);
+  // New cards this user may still introduce today, loaded with the decks so
+  // the review session never opens with a stale budget.
+  const [newCardBudget, setNewCardBudget] = useState(null);
   const [error, setError] = useState(null);
   const { user } = useAuth();
 
@@ -30,8 +33,13 @@ export const DeckProvider = ({ children }) => {
         // Only load from Supabase if we have a user
         if (user && 
             (lastAuthState.current.user?.id !== user.id)) {
-          const cloudDecks = await supabase.loadDecks(user.id);
+          const [cloudDecks, budget] = await Promise.all([
+            supabase.loadDecks(user.id),
+            supabase.loadDailyNewCardBudget(user.id)
+          ]);
           setDecks(cloudDecks);
+          setNewCardsToday(budget?.used ?? 0);
+          setNewCardBudget(budget?.remaining ?? null);
           
           // Update last auth state
           lastAuthState.current = { user };
@@ -405,6 +413,7 @@ export const DeckProvider = ({ children }) => {
     loading,
     currentDeckId,
     newCardsToday,
+    newCardBudget,
     error,
     setCurrentDeckId,
     setNewCardsToday,

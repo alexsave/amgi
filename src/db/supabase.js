@@ -1,4 +1,5 @@
-import { getLocalDate, getEndOfDayTimestamp } from '../utils/dates';
+import { getLocalDate, getEndOfDayTimestamp, getStartOfDayTimestamp } from '../utils/dates';
+import { MAX_NEW_CARDS_PER_DAY } from '../constants/constants';
 import supabase from './supabaseClient';
 
 // Load all decks for the current user
@@ -21,6 +22,9 @@ const loadNewCards = async (userId) => {
           interval_days,
           ease_factor,
           repetitions,
+          lapses,
+          learning_step,
+          last_reviewed_at,
           next_review_date,
           card_state
         )
@@ -61,6 +65,9 @@ const loadLearningCards = async (userId) => {
           interval_days,
           ease_factor,
           repetitions,
+          lapses,
+          learning_step,
+          last_reviewed_at,
           next_review_date,
           card_state
         )
@@ -101,6 +108,9 @@ const loadDueCards = async (userId) => {
           interval_days,
           ease_factor,
           repetitions,
+          lapses,
+          learning_step,
+          last_reviewed_at,
           next_review_date,
           card_state
         )
@@ -404,67 +414,88 @@ export const newReview = async (cardIdInput, userId) => {
   return data;
 }
 
-// Save review data for a card
-// assume we already have it
-export const saveReview = async (cardId, review, userId) => {
-  try {
-    // First check if a review exists
-    const { data: existingReview, error: fetchError } = await supabase
-      .from('reviews')
-      .select()
-      .eq('card_id', cardId)
-      .eq('user_id', userId);
+// Save the scheduling state for a card and append the answer to the review
+// log. The payload is the scheduler's output, which is authoritative: the
+// server used to recompute `repetitions` itself and disagree with the client
+// on every lapse, and its insert branch wrote a hard-coded learning state that
+// ignored the computed review entirely.
+export const saveReview = async (cardId, review, userId, log = null) => {
+  // A unique (card_id, user_id) constraint makes this an upsert rather than a
+  // read-then-branch, so two answers racing cannot both take the insert path.
+  const { data, error } = await supabase
+    .from('reviews')
+    .upsert({
+      card_id: cardId,
+      user_id: userId,
+      scheduled_date: review.scheduled_date || getLocalDate(),
+      interval_days: review.interval_days,
+      ease_factor: review.ease_factor,
+      repetitions: review.repetitions,
+      lapses: review.lapses ?? 0,
+      learning_step: review.learning_step ?? 0,
+      last_reviewed_at: review.last_reviewed_at || new Date().toISOString(),
+      next_review_date: review.next_review_date,
+      card_state: review.card_state
+    }, { onConflict: 'card_id,user_id' })
+    .select()
+    .single();
 
-    if (fetchError && fetchError.code !== 'PGRST116') throw fetchError;
+  if (error) throw error;
 
-    const today = getLocalDate();
+  if (log) {
+    // The schedule is what the reviewer sees, so a failed log must not look
+    // like a failed review. It is still loud, because a gap in the log is
+    // unrecoverable.
+    const { error: logError } = await supabase
+      .from('review_logs')
+      .insert({ card_id: cardId, user_id: userId, ...log });
 
-    if (existingReview.length === 0) {
-      // Create new review with default values
-      const { data, error } = await supabase
-        .from('reviews')
-        .insert({
-          card_id: cardId,
-          user_id: userId,
-          scheduled_date: today,
-          interval_days: 1,
-          ease_factor: 2.5,
-          repetitions: 1,
-          last_reviewed_at: new Date().toISOString(),// this is wrong
-          next_review_date: review.next_review_date || today,
-          card_state: 'learning' // Always start in learning state
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
-    } else {
-      // Update existing review
-      let newState = review.card_state;
-
-
-      const { data, error } = await supabase
-        .from('reviews')
-        .update({
-          interval_days: review.interval_days || existingReview[0].interval_days,
-          ease_factor: review.ease_factor || existingReview[0].ease_factor,
-          repetitions: (existingReview[0].repetitions || 0) + 1,
-          last_reviewed_at: review.last_reviewed_at || new Date().toISOString(),
-          next_review_date: review.next_review_date,
-          card_state: newState
-        })
-        .eq('card_id', cardId)
-        .eq('user_id', userId)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
+    if (logError) {
+      console.error('[Supabase] Failed to write review log for card:', cardId, logError);
     }
-  } catch (err) {
-    throw err;
   }
+
+  return data;
+};
+
+// How many new cards today's session may still introduce.
+//
+// The limit is the user's "Daily Goal (cards)" preference, falling back to
+// MAX_NEW_CARDS_PER_DAY when the user has never saved settings. Usage is
+// counted from the review log: a card is only ever answered once while its
+// state is still 'new', so one such row per card is exactly one introduction.
+//
+// Never throws - a failed lookup must not stop a review session, so it falls
+// back to the full default budget.
+export const loadDailyNewCardBudget = async (userId) => {
+  let limit = MAX_NEW_CARDS_PER_DAY;
+  let used = 0;
+
+  try {
+    const { data, error } = await supabase
+      .from('user_preferences')
+      .select('daily_goal')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (data?.daily_goal > 0) limit = data.daily_goal;
+
+    const { count, error: countError } = await supabase
+      .from('review_logs')
+      .select('card_id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('card_state', 'new')
+      .gte('reviewed_at', getStartOfDayTimestamp());
+
+    if (countError) throw countError;
+    used = count || 0;
+  } catch (err) {
+    console.error('[Supabase] Could not load the daily new-card budget:', err);
+    return { limit, used: 0, remaining: limit };
+  }
+
+  return { limit, used, remaining: Math.max(0, limit - used) };
 };
 
 // Get cards due for review
