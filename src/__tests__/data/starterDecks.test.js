@@ -19,7 +19,7 @@ describe('starter decks', () => {
       expect(card.back_text?.trim()).toBeTruthy();
     }
 
-    // No duplicate targets — duplicate back_text makes speech evaluation
+    // No duplicate targets - duplicate back_text makes speech evaluation
     // ambiguous between cards
     const backs = deck.cards.map(c => c.back_text);
     expect(new Set(backs).size).toBe(backs.length);

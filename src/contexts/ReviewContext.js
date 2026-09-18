@@ -258,7 +258,7 @@ export const ReviewProvider = ({ children }) => {
     };
 
     // Self-graded "Again": the reviewer decided they missed it, so the card is
-    // rescheduled as a miss and the session moves on right away — no retries,
+    // rescheduled as a miss and the session moves on right away - no retries,
     // the way Anki's Again button behaves.
     const markAgainGetNext = () => {
         if (!currentCardIdRef.current) return null;
@@ -277,7 +277,7 @@ export const ReviewProvider = ({ children }) => {
     const value = {
         error,
         attempts,
-        currentCardId: currentCardIdRef.current, // Export the current value for consumers
+        currentCardId: currentCard?.id ?? null, // Derived from state so consumers re-render when the card changes
         newCardsCount,
         learningCardsCount,
         reviewCardsCount,

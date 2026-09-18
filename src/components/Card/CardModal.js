@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { XMarkIcon, ArrowPathIcon, MicrophoneIcon, ArrowsRightLeftIcon } from '@heroicons/react/24/outline';
 import { useAudio } from '../../contexts/useAudio';
@@ -26,36 +26,30 @@ const CardModal = ({ isOpen, onClose }) => {
 
   const currentDeck = decks[deckId];
 
+  // Every exit clears the error, so the modal never reopens showing the
+  // failure from last time.
+  const handleCloseModal = useCallback(() => {
+    setError(null);
+    onClose();
+  }, [onClose]);
+
   // Close on escape key
   useEffect(() => {
     const handleEscKey = (event) => {
       if (event.key === 'Escape' && isOpen) {
-        onClose();
+        handleCloseModal();
       }
     };
 
     document.addEventListener('keydown', handleEscKey);
     return () => document.removeEventListener('keydown', handleEscKey);
-  }, [isOpen, onClose]);
+  }, [isOpen, handleCloseModal]);
 
   // Handle clicking outside modal
   const handleBackdropClick = (e) => {
     if (modalRef.current && !modalRef.current.contains(e.target)) {
-      onClose();
+      handleCloseModal();
     }
-  };
-
-  // Reset error when modal opens
-  useEffect(() => {
-    if (isOpen) {
-      setError(null);
-    }
-  }, [isOpen]);
-
-  // Handle modal close cleanly
-  const handleCloseModal = () => {
-    setError(null);
-    onClose();
   };
 
   // Handle regenerating a part of the card

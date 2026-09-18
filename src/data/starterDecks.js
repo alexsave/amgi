@@ -5,7 +5,7 @@
  * (see startAudioBackfill in DeckContext).
  *
  * front_text is always in the known language (en), back_text in the
- * learning language — same convention as generated cards.
+ * learning language - same convention as generated cards.
  */
 export const STARTER_DECKS = [
   {

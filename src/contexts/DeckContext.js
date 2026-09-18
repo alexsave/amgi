@@ -279,7 +279,7 @@ export const DeckProvider = ({ children }) => {
       back_lang: template.learning_language
     })));
 
-    // Fire and forget — progress is reported through audioBackfill state.
+    // Fire and forget - progress is reported through audioBackfill state.
     startAudioBackfill(deckId);
     return deckId;
   };
@@ -334,7 +334,7 @@ export const DeckProvider = ({ children }) => {
               };
             });
           } catch (err) {
-            // A quota error will fail every remaining card too — stop now
+            // A quota error will fail every remaining card too - stop now
             // and let the user resume after upgrading / next period.
             if (err.message?.toLowerCase().includes('limit')) {
               fatalError = err.message;

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../contexts/AuthContext';
 import supabase from '../../db/supabaseClient';
@@ -16,13 +16,7 @@ const Settings = () => {
     darkMode: true
   });
 
-  useEffect(() => {
-    if (user) {
-      loadUserPreferences();
-    }
-  }, [user]);
-
-  const loadUserPreferences = async () => {
+  const loadUserPreferences = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('user_preferences')
@@ -44,7 +38,14 @@ const Settings = () => {
       console.error('Error loading preferences:', error);
       setMessage({ type: 'error', text: 'Failed to load preferences' });
     }
-  };
+  }, [user]);
+
+  useEffect(() => {
+    if (user) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- the loader only writes state after its await, once the fetch resolves
+      loadUserPreferences();
+    }
+  }, [user, loadUserPreferences]);
 
   const handleSave = async () => {
     if (!user) return;

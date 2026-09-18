@@ -29,6 +29,23 @@ export function AudioProvider({ children }) {
   const audioCache = useRef(new Map());
   const pendingPlayRequests = useRef(new Map()); // Track play requests by path
 
+  // Elements are created lazily as cards are played, and the playback-listener
+  // effect below has to wire each new one up. Mutating the ref map can't
+  // trigger that on its own, so the count is state.
+  const [registeredAudioCount, setRegisteredAudioCount] = useState(0);
+
+  const getOrCreateAudioElement = (audioPath) => {
+    let element = audioRefs.current.get(audioPath);
+    if (!element) {
+      element = new Audio();
+      // SAFARI FIX: Set preload attribute to help prevent cutoff
+      element.preload = 'auto';
+      audioRefs.current.set(audioPath, element);
+      setRegisteredAudioCount(audioRefs.current.size);
+    }
+    return element;
+  };
+
   // Audio visualization state and refs
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const audioContextRef = useRef(null);
@@ -279,7 +296,7 @@ export function AudioProvider({ children }) {
         element.removeEventListener('ended', handlers.endedHandler);
       });
     };
-  }, [audioRefs.current.size]);
+  }, [registeredAudioCount]);
 
   // Setup audio context cleanup on unmount
   useEffect(() => {
@@ -408,14 +425,7 @@ export function AudioProvider({ children }) {
       // First try to get audio from local storage
       audioUrl = getAudioFromStorage(audioPath);
       if (audioUrl) {
-        // Create new audio element if needed
-        if (!audioRefs.current.has(audioPath)) {
-          const audio = new Audio();
-          // SAFARI FIX: Set preload attribute to help prevent cutoff
-          audio.preload = 'auto';
-          audioRefs.current.set(audioPath, audio);
-        }
-        const audioRef = audioRefs.current.get(audioPath);
+        const audioRef = getOrCreateAudioElement(audioPath);
         audioRef.src = audioUrl;
         blobUrls.current.set(audioPath, audioUrl);
         return audioUrl;
@@ -434,13 +444,7 @@ export function AudioProvider({ children }) {
       }
 
       if (audioUrl) {
-        if (!audioRefs.current.has(audioPath)) {
-          const audio = new Audio();
-          // SAFARI FIX: Set preload attribute to help prevent cutoff
-          audio.preload = 'auto';
-          audioRefs.current.set(audioPath, audio);
-        }
-        const audioRef = audioRefs.current.get(audioPath);
+        const audioRef = getOrCreateAudioElement(audioPath);
         audioRef.src = audioUrl;
         
         // SAFARI FIX: Trigger load and prefetch
@@ -517,12 +521,7 @@ export function AudioProvider({ children }) {
 
       // Only play if requested
       if (shouldPlay) {
-        if (!audioRefs.current.has(audioPath)) {
-          const audio = new Audio();
-          audio.preload = 'auto';
-          audioRefs.current.set(audioPath, audio);
-        }
-        const audioElement = audioRefs.current.get(audioPath);
+        const audioElement = getOrCreateAudioElement(audioPath);
         
         // Create an abort controller for this play request
         const controller = new AbortController();
@@ -913,6 +912,7 @@ export function AudioProvider({ children }) {
     }
     blobUrls.current.clear();
     audioRefs.current.clear();
+    setRegisteredAudioCount(0);
   };
 
   const contextValue = {
