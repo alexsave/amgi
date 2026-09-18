@@ -347,20 +347,9 @@ export const saveCards = async (deckId, cardsInput) => {
   }
 };
 
-// Delete a deck and all its cards
-export const deleteDeck = async (deckId, userId) => {
-  try {
-    const { error } = await supabase
-      .from('decks')
-      .delete()
-      .eq('id', deckId)
-      .eq('user_id', userId);
-
-    if (error) throw error;
-  } catch (err) {
-    throw err;
-  }
-};
+// Deleting decks and cards lives in the `delete-cards` edge function
+// (src/network/supabaseApi.js): dropping the rows from here would leave their
+// audio behind in the bucket, and the browser cannot remove those objects.
 
 // Load review data for a card
 export const loadReview = async (cardId, userId) => {

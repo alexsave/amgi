@@ -42,6 +42,7 @@ The grading keys are Anki's, so the muscle memory carries over.
   Talks to Supabase for auth, data, storage, and edge functions.
 - **Backend**: Supabase - Postgres + RLS (`supabase/migrations/`), storage bucket `card-audio`, and Deno edge functions (`supabase/functions/`):
   - `cards` - card text generation/translation (structured outputs) + validated TTS audio.
+  - `delete-cards` - deletes cards or a whole deck and removes the audio no remaining card references; card audio is uploaded by the service role, so only the server can delete it.
   - `speech` - pronunciation evaluation: compares your recording against the reference audio and returns a verdict plus spoken feedback.
   - `realtime` - mints short-lived client secrets for the browser's WebRTC session with the realtime model; the API key never leaves the server.
   - `payment-links` / `stripe-webhook` - Stripe checkout and subscription lifecycle.
@@ -71,7 +72,7 @@ supabase secrets set APP_URL=https://your-app.example
 Deploy the functions:
 
 ```bash
-supabase functions deploy cards speech realtime payment-links stripe-webhook
+supabase functions deploy cards delete-cards speech realtime payment-links stripe-webhook
 ```
 
 ### 2. Frontend

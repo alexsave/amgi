@@ -1,7 +1,7 @@
 // Deck context for managing global deck state
 import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import * as supabase from '../db/supabase';
-import { regenerateCardPart } from '../network/supabaseApi';
+import { regenerateCardPart, deleteCards as deleteCardsRemote, deleteDeck as deleteDeckRemote } from '../network/supabaseApi';
 import { useAuth } from './AuthContext';
 
 const DeckContext = createContext({});
@@ -147,10 +147,16 @@ export const DeckProvider = ({ children }) => {
     saveDecks(newDecks);
   };
 
+  // Both deletions go through the `delete-cards` edge function: it is the only
+  // place that can also remove the cards' audio from the bucket, and it only
+  // removes an object once no remaining card row references it (a translation
+  // pair shares its two audio files between its two cards). A failure is
+  // re-thrown rather than swallowed - dropping the rows without the audio is
+  // exactly the leak this replaces.
   const deleteDeck = async (deckId) => {
     if (user) {
       try {
-        await supabase.deleteDeck(deckId, user.id);
+        await deleteDeckRemote(deckId);
       } catch (error) {
         console.error('Error deleting deck from cloud:', error);
         setError(error.message);
@@ -163,6 +169,30 @@ export const DeckProvider = ({ children }) => {
       const newDecks = { ...prev };
       delete newDecks[deckId];
       return newDecks;
+    });
+  };
+
+  const deleteCard = async (deckId, cardId) => {
+    if (user) {
+      try {
+        await deleteCardsRemote([cardId]);
+      } catch (error) {
+        console.error('Error deleting card from cloud:', error);
+        setError(error.message);
+        throw error;
+      }
+    }
+    setDecks(prev => {
+      const deck = prev[deckId];
+      if (!deck) return prev;
+      return {
+        ...prev,
+        [deckId]: {
+          ...deck,
+          cards: deck.cards.filter(card => card.id !== cardId),
+          lastModified: Date.now()
+        }
+      };
     });
   };
 
@@ -424,6 +454,7 @@ export const DeckProvider = ({ children }) => {
     audioBackfill,
     updateDeck,
     deleteDeck,
+    deleteCard,
     addCardToDeck,
     updateDeckCards,
   };
