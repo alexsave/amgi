@@ -1,6 +1,9 @@
 .settings-page {
   width: 100%;
-  max-width: 800px;
+  /* Narrow enough that the save button reads as part of the form: the
+     controls cap at 300px, so an 800px card left it stranded far to the
+     right of the fields it saves. */
+  max-width: 560px;
   margin: 0 auto;
   padding: 24px 20px;
   box-sizing: border-box;
