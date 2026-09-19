@@ -44,12 +44,15 @@ There is no scheduled subset any more, because amgi keeps no scheduling state of
 **Status: superseded by Anki.** `MAX_NEW_CARDS_PER_DAY` and the app-side enforcement this item wanted are gone along with the rest of the in-app scheduler.
 Anki's own deck options (New Cards > New cards/day) already do exactly this, per deck, and are already enforced by the client the user reviews in.
 
-### 1.4 Romanization / reading line for non-Latin scripts
+### 1.4 A reading line for scripts a beginner can't read yet, in the language's own script
 
 **Status: still open, needs rescoping.** The motivation still holds: a beginner memorizing Korean or Japanese phrases by ear may not read the script yet.
-Some of the groundwork exists already, but for a different purpose: `plusaudio/lib/cardGeneration/cardText.ts` (`readingIsAmbiguous`, `romanizationSystem`, the `spoken_reading` field) computes a romanization for reading-ambiguous languages (`ja`, `zh_cn`, `zh_hk`) so generated audio can be validated when the written form does not determine its own pronunciation - but that romanization is never shown to a learner anywhere; it is internal to the generator's own validation loop.
+The fix is not a Latin transliteration: a learner of Japanese reads かな, not "itta", so any reading line this item ever produces has to be furigana/kana for Japanese, zhuyin for Chinese, and whatever the equivalent native annotation is for any other opaque script - never a romanization.
+Romanization of any kind is not an acceptable form for this feature, full stop.
+Some groundwork exists already, but for a different purpose and in the wrong script for this: `plusaudio/lib/cardGeneration/cardText.ts` (`readingIsAmbiguous`, `romanizationSystem`, the `spoken_reading` field) computes a reading for reading-ambiguous languages (`ja`, `zh_cn`, `zh_hk`) so generated audio can be validated when the written form does not determine its own pronunciation - today that reading is a Latin romanization (Hepburn romaji, Pinyin, Jyutping), and it is never shown to a learner anywhere; it is purely internal to the generator's own validation loop.
+That internal reading is being moved to each language's own script (kana, zhuyin) as a follow-up to this task, so by the time this item is picked back up the groundwork should already be in the right script, not just the right shape.
 The app also no longer generates card text or translations at all - `CardForm.js` only generates audio for a field the user already typed - so there is no "the AI wrote this card, also give it a reading" moment left to hook into.
-If this is still wanted, it needs its own field on the Anki note type (a `Reading` field alongside `Prompt`/`Answer`) and a place in `plusaudio/`'s or the add-on's fill-audio flow that writes it, not a Postgres column or a `ReviewMode.js` render.
+If this is still wanted, it needs its own field on the Anki note type (a `Reading` field alongside `Prompt`/`Answer`, holding kana/zhuyin/etc., never a Latin spelling) and a place in `plusaudio/`'s or the add-on's fill-audio flow that writes it, not a Postgres column or a `ReviewMode.js` render.
 
 ### 1.5 TTS audio dedupe / cache
 
