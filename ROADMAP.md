@@ -264,16 +264,16 @@ Self-grading is the single path, so there is no mode toggle to default by plan: 
 
 ### 3.1 In-app Anki import
 
-**Why:** `plusaudio/` already converts `.apkg` (SQLite + media) but only as a
-local Node CLI. Learners have existing Anki decks; meeting them where they are
-is the cheapest growth lever.
+**Why:** `plusaudio/` already reads and writes `.apkg` (SQLite + media) but only
+as a local Node CLI. Learners have existing Anki decks; meeting them where they
+are is the cheapest growth lever.
 
 **Steps:**
 1. Client-side parse: `.apkg` is a zip — use `fflate` (small, browser-friendly;
    add to package.json) to unzip in the browser, and `sql.js` (wasm SQLite) to
-   read the `col`/`notes`/`cards` tables. Port the field-extraction logic from
-   `plusaudio/process-deck.js` (front/back = first two fields; strip HTML with
-   a DOMParser).
+   read the `col`/`notes`/`cards` tables. Reuse the field-extraction logic from
+   `plusaudio/lib/deck.js`, which resolves fields per note type and strips HTML
+   the way Anki itself does.
 2. Preview screen: show parsed rows in a table with checkboxes; user picks
    known/learning languages (defaults from deck creation modal).
 3. Create via existing bulk path: `createNewDeck` + `addCardToDeck(deckId,
