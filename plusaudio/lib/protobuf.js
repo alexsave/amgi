@@ -82,6 +82,60 @@ function* readFields(buffer) {
   }
 }
 
+/** Advance past a varint without decoding it - see readFieldsLenient. */
+function skipVarint(buffer, offset) {
+  let at = offset;
+  while (buffer[at] & 0x80) at += 1;
+  return at + 1;
+}
+
+/**
+ * Like readFields, but a varint field number that is not in `wanted` is
+ * skipped rather than decoded into a JS number.
+ *
+ * readFields (and readVarint underneath it) refuses a varint that cannot be
+ * represented exactly as a double, which is the right thing for the small
+ * field numbers, lengths and counters this module was first written for -
+ * but a real message can legitimately carry a 64-bit value in a field a
+ * caller has no interest in (Anki's Notetype.Template.Config.id, for
+ * instance, an arbitrary random id nothing here ever reads). Skipping those
+ * without decoding them means a message like that can still be read for the
+ * one or two fields a caller does want, instead of failing on a field it was
+ * never going to look at.
+ */
+function* readFieldsLenient(buffer, wanted) {
+  let at = 0;
+  while (at < buffer.length) {
+    const tag = readVarint(buffer, at);
+    const number = Math.floor(tag.value / 8);
+    const wireType = tag.value % 8;
+    at = tag.next;
+
+    if (wireType === WIRE_VARINT) {
+      if (wanted.has(number)) {
+        const field = readVarint(buffer, at);
+        at = field.next;
+        yield { number, wireType, value: field.value, bytes: null };
+      } else {
+        at = skipVarint(buffer, at);
+      }
+    } else if (wireType === WIRE_LENGTH) {
+      const length = readVarint(buffer, at);
+      const end = length.next + length.value;
+      if (end > buffer.length) throw new Error('truncated protobuf field');
+      yield { number, wireType, value: 0, bytes: buffer.subarray(length.next, end) };
+      at = end;
+    } else if (wireType === WIRE_FIXED64 || wireType === WIRE_FIXED32) {
+      const width = wireType === WIRE_FIXED64 ? 8 : 4;
+      if (at + width > buffer.length) throw new Error('truncated protobuf field');
+      yield { number, wireType, value: 0, bytes: buffer.subarray(at, at + width) };
+      at += width;
+    } else {
+      throw new Error(`unsupported protobuf wire type ${wireType}`);
+    }
+  }
+}
+
 function writeVarint(value) {
   if (!Number.isSafeInteger(value) || value < 0) {
     throw new Error(`cannot encode ${value} as a protobuf varint`);
@@ -114,6 +168,7 @@ module.exports = {
   WIRE_LENGTH,
   WIRE_VARINT,
   readFields,
+  readFieldsLenient,
   readVarint,
   writeBytesField,
   writeVarint,
