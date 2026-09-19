@@ -36,6 +36,11 @@ export const SPEECH_END_DEFAULTS = {
  * started) or 'max-duration' (ran long).
  *
  * @returns {() => void} stop - tears down the analyser; safe to call twice.
+ *   The AnalyserNode this creates over the microphone is also attached as
+ *   `stop.analyser` (absent when there was no stream to analyse). A host that
+ *   wants to draw something reactive - the Anki card's visualizer does - reads
+ *   levels off this node instead of opening a second one: one AudioContext,
+ *   one analyser, one mic stream, always.
  */
 export function detectSpeechEnd({ audioContext, stream, onEnd, options = {} }) {
   const opts = { ...SPEECH_END_DEFAULTS, ...options };
@@ -129,5 +134,6 @@ export function detectSpeechEnd({ audioContext, stream, onEnd, options = {} }) {
   }
 
   timer = setTimeout(tick, opts.pollMs);
+  stop.analyser = analyser;
   return stop;
 }

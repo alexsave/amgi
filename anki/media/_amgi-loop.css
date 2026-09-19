@@ -11,6 +11,30 @@
   flex-direction: column;
   align-items: center;
   gap: 1rem;
+
+  /* One fixed colour per audio SOURCE, not per phase, so a glance tells you
+     whose voice you are hearing whether it is playing automatically or being
+     replayed by hand: pressing "Prompt" is always this blue, "Native" is
+     always this green, and the learner's own voice - live on the mic or
+     replayed as "You" - is always this orange, regardless of which phase the
+     card is in. Exposed as custom properties (read by anki-loop.js's
+     visualizer, not hard-coded in it) so the palette can be retuned here
+     without touching the drawing code. Chosen as much by lightness as by hue -
+     62%/50%/36% - so the three stay distinguishable under red-green colour
+     blindness too, not only by hue. The retired web app's
+     RadialAudioVisualizer.js/AudioVisualizer.css (see git history) put the
+     learner's own voice on the same brand orange and the AI/native side on
+     green; this keeps that split and adds a dedicated blue for the prompt,
+     which the old three-way 'front'/'hint'/'user' split didn't need to tell
+     apart from the native clip. */
+  --amgi-color-prompt: hsl(212, 88%, 62%); /* the phrase being played to you */
+  --amgi-color-you: hsl(20, 82%, 50%); /* your own voice, live or replayed */
+  --amgi-color-native: hsl(158, 55%, 36%); /* the native/translation audio */
+  --amgi-color-neutral: hsl(215, 12%, 60%); /* an audio source we can't identify */
+  /* A multiplier on every ray's alpha (drawing code stays untouched; retune
+     here). 1 = the rays' own 0.55-1.0 range; turn this down for a subtler
+     card, up is clamped at fully opaque. */
+  --amgi-visualizer-opacity: 1;
 }
 
 /* The audio elements are driven by the loop, not by the learner. */
@@ -27,44 +51,31 @@
   opacity: 0.65;
 }
 
-/* One dot carries the whole state: filling while the prompt plays, pulsing
-   while the microphone is open, still once the answer is up. */
-.amgi-orb {
-  width: 3.5rem;
-  height: 3.5rem;
-  border-radius: 50%;
-  background: currentColor;
-  opacity: 0.12;
-  transition: opacity 180ms ease, transform 180ms ease;
+/* There is no static orb any more: the rays anki-loop.js draws onto the
+   canvas, one per frequency bin and coloured by whichever audio source is
+   currently playing, are the only thing here, sitting directly on the card
+   background rather than on top of a grey disc. When there is nothing to
+   draw - no AnalyserNode, a suspended AudioContext, a client that doesn't
+   support any of this, or simply a quiet moment between clips - the canvas is
+   just empty, which is deliberate: a blank patch of card, not a placeholder
+   puck. .amgi-visual still reserves the space at a fixed size, so the layout
+   does not jump when the visualizer starts and stops. See anki-loop.js's
+   createVisualizer for the drawing code and the degrade-to-nothing rules. */
+.amgi-visual {
+  position: relative;
+  width: 6rem;
+  height: 6rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.amgi[data-amgi-phase="prompt"] .amgi-orb {
-  opacity: 0.3;
-}
-
-.amgi[data-amgi-phase="listening"] .amgi-orb {
-  opacity: 0.55;
-  animation: amgi-pulse 1.4s ease-in-out infinite;
-}
-
-.amgi[data-amgi-phase="waiting"] .amgi-orb {
-  opacity: 0.2;
-}
-
-@keyframes amgi-pulse {
-  0%,
-  100% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.12);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .amgi-orb {
-    animation: none;
-  }
+.amgi-visualizer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
 }
 
 .amgi-text {
@@ -98,21 +109,43 @@
   font: inherit;
   font-size: 0.95rem;
   padding: 0.55rem 1.1rem;
+  min-height: 2.75rem;
   border: 1px solid currentColor;
   border-radius: 999px;
   background: transparent;
   color: inherit;
   cursor: pointer;
   opacity: 0.85;
+  transition: opacity 120ms ease, background-color 120ms ease, transform 80ms ease;
 }
 
 .amgi-btn:hover {
   opacity: 1;
 }
 
+.amgi-btn:active {
+  transform: scale(0.96);
+}
+
+/* The replay controls (Prompt/Native/You). They need to read as real,
+   tappable buttons - not captions - while still sitting a clear step below
+   Again/Good, which stay the loudest thing on this side of the card: a
+   visible neutral-grey pill with its own hover/active feedback, rather than
+   the colour-matched, near-full-opacity treatment the grading buttons get. */
 .amgi-btn-quiet {
-  border-color: transparent;
-  opacity: 0.55;
+  border-color: currentColor;
+  opacity: 0.72;
+  background: rgba(128, 128, 128, 0.12);
+}
+
+.amgi-btn-quiet:hover {
+  opacity: 0.95;
+  background: rgba(128, 128, 128, 0.2);
+}
+
+.amgi-btn-quiet:active {
+  opacity: 1;
+  background: rgba(128, 128, 128, 0.28);
 }
 
 .amgi-btn-again {
