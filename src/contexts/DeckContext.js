@@ -3,6 +3,7 @@ import React, { createContext, useCallback, useContext, useEffect, useState, use
 import * as supabase from '../db/supabase';
 import { regenerateCardPart, deleteCards as deleteCardsRemote, deleteDeck as deleteDeckRemote } from '../network/supabaseApi';
 import { useAuth } from './AuthContext';
+import { uniqueImportDeckName } from '../utils/deckExport';
 
 const DeckContext = createContext({});
 
@@ -177,6 +178,75 @@ export const DeckProvider = ({ children }) => {
       setError(error.message);
       throw error;
     }
+  };
+
+  // Imports a previously exported deck (see src/utils/deckExport.js for the
+  // payload shape and the reasoning behind it).
+  //
+  // Always creates a brand new deck rather than merging into or overwriting
+  // one that already exists - a name collision only gets a distinguishing
+  // suffix, never a silent merge, so an existing deck's cards and scheduling
+  // can never be corrupted by an import. Cards land as fresh "new" cards:
+  // review/scheduling state is never part of the payload, so there is
+  // nothing to inherit. Audio never travels either (see deckExport.js) - the
+  // new deck goes through the same TTS backfill used for starter decks,
+  // which already has UI (progress, or an error + retry) for the outcome.
+  const importDeck = async (payload) => {
+    if (!user) {
+      throw new Error('Sign in to import a deck');
+    }
+
+    const name = uniqueImportDeckName(payload.deck.name, Object.values(decks).map(d => d.name));
+
+    const newDeck = await supabase.saveDeck({
+      name,
+      known_language: payload.deck.known_language,
+      learning_language: payload.deck.learning_language,
+      created_at: new Date().toISOString()
+    }, user.id);
+
+    let transformedCards = [];
+    if (payload.cards.length > 0) {
+      const savedCards = await supabase.saveCards(newDeck.id, payload.cards);
+      const cardIds = savedCards.map(card => card.id);
+      const reviews = await supabase.newReview(cardIds, user.id);
+      const reviewsByCardId = new Map(
+        (Array.isArray(reviews) ? reviews : [reviews]).map(r => [r.card_id, r])
+      );
+
+      transformedCards = savedCards.map(card => ({
+        id: card.id,
+        front_text: card.front_text,
+        back_text: card.back_text,
+        front_audio_path: card.front_audio_path,
+        back_audio_path: card.back_audio_path,
+        front_lang: card.front_lang,
+        back_lang: card.back_lang,
+        position: card.position,
+        created: new Date(card.created_at).getTime(),
+        review: reviewsByCardId.get(card.id) || null
+      }));
+    }
+
+    const timestamp = Date.now();
+    const transformedDeck = {
+      id: newDeck.id,
+      name: newDeck.name,
+      known_language: newDeck.known_language,
+      learning_language: newDeck.learning_language,
+      cards: transformedCards,
+      created: timestamp,
+      lastModified: timestamp
+    };
+
+    setDecks(prev => ({ ...prev, [newDeck.id]: transformedDeck }));
+
+    // Fire and forget, same as a starter deck: every imported card is
+    // missing audio by design, so this either fills it in or leaves the
+    // existing "generation stopped, retry" UI to explain why not.
+    startAudioBackfill(newDeck.id);
+
+    return newDeck.id;
   };
 
   const updateDeck = (deckId, updatedDeck) => {
@@ -498,6 +568,7 @@ export const DeckProvider = ({ children }) => {
     setNewCardsToday,
     setError,
     createNewDeck,
+    importDeck,
     createDeckFromTemplate,
     startAudioBackfill,
     audioBackfill,
