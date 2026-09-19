@@ -1,0 +1,24 @@
+/* amgi Listening - Styling.
+   Paste this into Cards... > Styling for the "amgi Listening" note type.
+
+   Everything else lives in _amgi-loop.css in the media folder, so the look can
+   be updated by replacing one file instead of re-pasting the note type. Anki
+   tracks the quoted underscore filename as a used media file
+   (rslib/src/text.rs, UNDERSCORED_CSS_IMPORTS), and never reports an
+   underscore-prefixed file as unused (rslib/src/media/check.rs). */
+
+@import url("_amgi-loop.css");
+
+.card {
+  font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 20px;
+  text-align: center;
+  color: #1c2430;
+  background: #f6f7f9;
+}
+
+.nightMode .card,
+.night_mode .card {
+  color: #e8ecf1;
+  background: #202429;
+}

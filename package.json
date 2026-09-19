@@ -26,7 +26,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "jest && node --test plusaudio/test/"
+    "test": "jest && node --test plusaudio/test/ anki/test/"
   },
   "browserslist": {
     "production": [

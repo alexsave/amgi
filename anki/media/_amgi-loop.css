@@ -1,0 +1,145 @@
+/* amgi Listening - the loop's own styling.
+   Copy this into the collection's media folder, keeping the leading
+   underscore. It is cosmetic only: nothing here is load-bearing for hiding the
+   answer, because the answer is simply not rendered on the question side. */
+
+.amgi {
+  margin: 0 auto;
+  max-width: 34rem;
+  padding: 1.5rem 1rem 2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+/* The audio elements are driven by the loop, not by the learner. */
+.amgi-slot,
+.amgi-slot audio,
+.amgi-slot img {
+  display: none;
+}
+
+.amgi-status {
+  margin: 0;
+  font-size: 0.95rem;
+  letter-spacing: 0.02em;
+  text-transform: lowercase;
+  opacity: 0.65;
+}
+
+/* One dot carries the whole state: filling while the prompt plays, pulsing
+   while the microphone is open, still once the answer is up. */
+.amgi-orb {
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.12;
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.amgi[data-amgi-phase="prompt"] .amgi-orb {
+  opacity: 0.3;
+}
+
+.amgi[data-amgi-phase="listening"] .amgi-orb {
+  opacity: 0.55;
+  animation: amgi-pulse 1.4s ease-in-out infinite;
+}
+
+.amgi[data-amgi-phase="waiting"] .amgi-orb {
+  opacity: 0.2;
+}
+
+@keyframes amgi-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.12);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .amgi-orb {
+    animation: none;
+  }
+}
+
+.amgi-text {
+  margin: 0;
+  line-height: 1.4;
+}
+
+.amgi-text-prompt {
+  font-size: 1.05rem;
+  opacity: 0.7;
+}
+
+.amgi-text-answer {
+  font-size: 1.6rem;
+  font-weight: 600;
+}
+
+.amgi-text-notes {
+  font-size: 0.9rem;
+  opacity: 0.6;
+}
+
+.amgi-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.amgi-btn {
+  font: inherit;
+  font-size: 0.95rem;
+  padding: 0.55rem 1.1rem;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  opacity: 0.85;
+}
+
+.amgi-btn:hover {
+  opacity: 1;
+}
+
+.amgi-btn-quiet {
+  border-color: transparent;
+  opacity: 0.55;
+}
+
+.amgi-btn-again {
+  border-color: #c2553f;
+  color: #c2553f;
+}
+
+.amgi-btn-good {
+  border-color: #2f7d5d;
+  color: #2f7d5d;
+}
+
+.amgi-btn kbd {
+  font: inherit;
+  font-size: 0.75em;
+  opacity: 0.6;
+  margin-left: 0.4em;
+}
+
+.amgi-grade {
+  margin-top: 0.5rem;
+}
+
+.amgi-note {
+  margin: 0;
+  font-size: 0.85rem;
+  opacity: 0.7;
+  max-width: 28rem;
+}

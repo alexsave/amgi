@@ -1,0 +1,45 @@
+<!-- amgi Listening - Back Template.
+     Paste this into Cards... > Back Template for the "amgi Listening" note type.
+
+     This side does not use {{FrontSide}}: it renders its own copy of the
+     prompt audio so the replay row works, and keeping one amgi card element on
+     the page keeps the loop's bookkeeping simple. -->
+
+<div class="amgi" data-amgi-card data-amgi-side="back" data-amgi-phase="answer">
+  <p class="amgi-status" data-amgi-status>How did you do?</p>
+
+  <div class="amgi-text amgi-text-prompt">{{Prompt}}</div>
+  <div class="amgi-text amgi-text-answer">{{Answer}}</div>
+  {{#Notes}}<div class="amgi-text amgi-text-notes">{{Notes}}</div>{{/Notes}}
+
+  <div class="amgi-slot" data-amgi-prompt-audio>{{PromptAudio}}</div>
+  <div class="amgi-slot" data-amgi-answer-audio>{{AnswerAudio}}</div>
+
+  <div class="amgi-actions">
+    <button type="button" class="amgi-btn tappable" data-amgi-action="play" hidden>
+      Play the answer
+    </button>
+    <button type="button" class="amgi-btn amgi-btn-quiet tappable" data-amgi-action="replay-prompt">
+      Prompt
+    </button>
+    <button type="button" class="amgi-btn amgi-btn-quiet tappable" data-amgi-action="replay-native">
+      Native
+    </button>
+    <button type="button" class="amgi-btn amgi-btn-quiet tappable" data-amgi-action="replay-you" hidden>
+      You
+    </button>
+  </div>
+
+  <div class="amgi-actions amgi-grade">
+    <button type="button" class="amgi-btn amgi-btn-again tappable" data-amgi-action="again">
+      Again <kbd>1</kbd>
+    </button>
+    <button type="button" class="amgi-btn amgi-btn-good tappable" data-amgi-action="good">
+      Good <kbd>space</kbd>
+    </button>
+  </div>
+
+  <p class="amgi-note" data-amgi-note hidden></p>
+</div>
+
+<script src="_amgi-loop.js"></script>
