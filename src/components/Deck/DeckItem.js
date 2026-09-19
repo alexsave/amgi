@@ -85,8 +85,10 @@ const DeckItem = ({ id, deck }) => {
       <div className="deck-info">
         <h3>{deck.name}</h3>
         <small>
-          {deck.cards.length} cards (
-            {/** TODO: Add learning, new, and review counts better somehow */}
+          {/* Not the deck's size: `deck.cards` is the review queue, capped and
+              filtered to what today's session serves. The deck's own page is
+              where the whole deck is listed. */}
+          {deck.cards.length} to study today (
           <span className="learning-count">{deck.cards.filter(card => card.review?.card_state === 'learning').length} learning</span> • {' '}
           <span className="new-count">{deck.cards.filter(card => card.review?.card_state === 'new').length} new</span> • {' '}
           <span className="review-count">{deck.cards.filter(card => card.review?.card_state === 'review').length} review</span>)

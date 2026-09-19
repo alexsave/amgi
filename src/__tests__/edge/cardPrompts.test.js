@@ -36,6 +36,25 @@ describe('card generation prompt', () => {
     expect(prompt).toContain('sense_tag');
   });
 
+  test('tells the model that a sense tag is the exception, not the routine', () => {
+    // Live generations came back as "Are you hungry? (hungry now)" and
+    // "(feeling hungry)": restatements, on inputs with nothing to disambiguate.
+    const prompt = generation('ko');
+    expect(prompt).toContain('SENSE_TAG IS EMPTY UNLESS IT TELLS TWO CARDS APART.');
+    expect(prompt).toContain('name the OTHER card');
+    expect(prompt).toContain('"Are you hungry?" has none');
+    expect(prompt).toMatch(/[Nn]ever restate or paraphrase the card/);
+    // The old rule asked for lower case, which is how "I am okay" became
+    // "i am okay" on a card.
+    expect(prompt).not.toContain('lower case');
+    expect(prompt).toContain('capitalised the way English spells those words in running text');
+  });
+
+  test('the corrective retry does not force a tag onto a single-sense input', () => {
+    const retry = buildUnspeakableRetryPrompt('previous prompt', '날짜, 데이트', 'it lists two senses');
+    expect(retry).toContain('otherwise leave sense_tag empty');
+  });
+
   test('the system prompt says what a card is for', () => {
     expect(CARD_GENERATION_SYSTEM_PROMPT).toMatch(/heard and spoken/);
     expect(CARD_REGENERATION_SYSTEM_PROMPT).toMatch(/heard and spoken/);

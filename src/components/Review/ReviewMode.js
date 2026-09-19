@@ -29,7 +29,15 @@ const ReviewMode = () => {
   const router = useRouter();
   const audio = useAudio();
   const review = useReview();
-  const { currentCard, currentCardId, newCardsCount, reviewCardsCount, learningCardsCount } = review;
+  const {
+    currentCard,
+    currentCardId,
+    newCardsCount,
+    reviewCardsCount,
+    learningCardsCount,
+    saveState,
+    retryFailedSaves
+  } = review;
 
   const [phase, setPhase] = useState(PHASE.IDLE);
   const [started, setStarted] = useState(false);
@@ -284,9 +292,22 @@ const ReviewMode = () => {
 
   const revealed = phase === PHASE.ANSWER;
 
+  // A card with no prompt audio has nothing to play and nothing to show, since
+  // the front is normally hidden until the answer - so it would be a silent
+  // blank screen. Show the text and say why instead. Cards land in this state
+  // legitimately: a starter deck is created before its audio is generated, and
+  // generation can fail on quota.
+  const silentPrompt = !currentCard.front_audio_path;
+  const showFront = revealed || silentPrompt;
+
+  // Deliberately persistent: an answer that did not reach the server stays
+  // unsaved, and the whole point of the outbox is that it says so.
+  const failedSaves = saveState?.failed ?? 0;
+  const retryingSaves = (saveState?.pending ?? 0) > 0 && Boolean(saveState?.lastError);
+
   const statusText = () => {
     if (!started) return 'Ready when you are';
-    if (phase === PHASE.PROMPT) return 'Listen…';
+    if (phase === PHASE.PROMPT) return silentPrompt ? 'Read it out loud' : 'Listen…';
     if (phase === PHASE.LISTENING) return 'Speak your answer';
     if (phase === PHASE.ANSWER) {
       return isEvaluating ? 'Checking your pronunciation…' : 'How did you do?';
@@ -308,15 +329,33 @@ const ReviewMode = () => {
         </div>
       </div>
 
+      {(failedSaves > 0 || retryingSaves) && (
+        <div className="review-save-warning" role="status">
+          <span>
+            {failedSaves > 0
+              ? `${failedSaves} answer${failedSaves === 1 ? '' : 's'} could not be saved.`
+              : 'Trouble reaching the server - still retrying your answers.'}
+          </span>
+          {failedSaves > 0 && (
+            <button type="button" className="review-save-retry" onClick={retryFailedSaves}>
+              Retry
+            </button>
+          )}
+        </div>
+      )}
+
       <div className="review-stage">
         <div className="review-status">
           <span className={`review-phase review-phase-${phase}`}>{statusText()}</span>
           {statusNote && <span className="review-note">{statusNote}</span>}
+          {started && silentPrompt && !statusNote && (
+            <span className="review-note">This card has no audio yet - read it instead.</span>
+          )}
         </div>
 
         <div className="flashcard-container">
           <div className="flashcard-top">
-            <div className={`flashcard-text front ${revealed ? '' : 'is-hidden'}`}>
+            <div className={`flashcard-text front ${showFront ? '' : 'is-hidden'}`}>
               {currentCard.front_text}
             </div>
           </div>

@@ -132,6 +132,51 @@ const loadDueCards = async (userId) => {
   }, {});
 };
 
+// Every card in one deck, with whatever review state the user has on it.
+//
+// Deliberately NOT the same read as loadDecks. That one builds a review
+// session, so it is capped at 40 new cards and filtered down to what is due -
+// exactly right for the queue, and exactly wrong for browsing, where it made
+// a fully reviewed deck look empty on its own edit page. Browsing shows the
+// deck; the session shows the session.
+//
+// The join on reviews is a left join (no `!inner`), because a card whose
+// review row has not been created yet is still a card in the deck.
+export const loadDeckCards = async (deckId) => {
+  const { data, error } = await supabase
+    .from('cards')
+    .select(`
+      id,
+      front_text,
+      back_text,
+      front_audio_path,
+      back_audio_path,
+      front_lang,
+      back_lang,
+      position,
+      created_at,
+      reviews (
+        interval_days,
+        ease_factor,
+        repetitions,
+        lapses,
+        learning_step,
+        last_reviewed_at,
+        next_review_date,
+        card_state
+      )
+    `)
+    .eq('deck_id', deckId)
+    .order('position', { ascending: true });
+
+  if (error) throw error;
+
+  return data.map(({ reviews, ...card }) => ({
+    ...card,
+    review: reviews?.[0] || null
+  }));
+};
+
 export const loadDecks = async (userId) => {
   try {
     // Get basic deck info
@@ -432,16 +477,20 @@ export const saveReview = async (cardId, review, userId, log = null) => {
   if (error) throw error;
 
   if (log) {
-    // The schedule is what the reviewer sees, so a failed log must not look
-    // like a failed review. It is still loud, because a gap in the log is
-    // unrecoverable.
+    // A gap in the log is unrecoverable, so a failed log fails the whole save
+    // and the caller's outbox retries it. That is safe to repeat: the review
+    // above is an upsert of identical values, and the log carries a
+    // client-generated id, so a retry after a lost response is ignored rather
+    // than inserted twice.
+    const { id, ...fields } = log;
+    const row = { card_id: cardId, user_id: userId, ...fields };
+    if (id) row.id = id;
+
     const { error: logError } = await supabase
       .from('review_logs')
-      .insert({ card_id: cardId, user_id: userId, ...log });
+      .upsert(row, { onConflict: 'id', ignoreDuplicates: true });
 
-    if (logError) {
-      console.error('[Supabase] Failed to write review log for card:', cardId, logError);
-    }
+    if (logError) throw logError;
   }
 
   return data;

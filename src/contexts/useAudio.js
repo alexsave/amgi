@@ -324,11 +324,6 @@ export function AudioProvider({ children }) {
     return audioContextRef.current;
   };
 
-  // Helper function to get audio from storage
-  const getAudioFromStorage = (audioPath) => {
-    return null;
-  };
-
   const startRecording = async () => {
     setIsLoading(true);
     try {
@@ -421,17 +416,7 @@ export function AudioProvider({ children }) {
       }
 
       let audioUrl;
-      
-      // First try to get audio from local storage
-      audioUrl = getAudioFromStorage(audioPath);
-      if (audioUrl) {
-        const audioRef = getOrCreateAudioElement(audioPath);
-        audioRef.src = audioUrl;
-        blobUrls.current.set(audioPath, audioUrl);
-        return audioUrl;
-      }
-      
-      // If not in storage, try to download and cache it
+
       // Check cache first
       if (audioCache.current.has(audioPath)) {
         audioUrl = audioCache.current.get(audioPath);

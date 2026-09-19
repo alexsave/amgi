@@ -312,6 +312,14 @@ export function unspeakableReason(text: string): string | null {
 }
 
 /**
+ * Separates labels of different kinds on the known side. A comma reads as a
+ * list, which makes two unrelated labels - which meaning, how polite - look
+ * like exactly the list of senses this whole module exists to keep off a card:
+ * "date (calendar day, casual)" invites being read as two meanings.
+ */
+const LABEL_SEPARATOR = ' \u00b7 ';
+
+/**
  * Builds the known-language side: the utterance, plus the labels the learner
  * needs to read and nobody should say. Any annotation already on the base text
  * is dropped first, so recomposing a card (regenerating one side) cannot stack
@@ -327,7 +335,7 @@ export function composeKnownSide(text: string | undefined, tags: (string | null 
         seen.add(label.toLowerCase());
         labels.push(label);
     }
-    return labels.length > 0 ? `${base} (${labels.join(', ')})` : base;
+    return labels.length > 0 ? `${base} (${labels.join(LABEL_SEPARATOR)})` : base;
 }
 
 export interface GeneratedCardFields {
