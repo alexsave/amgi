@@ -216,18 +216,31 @@ def make_handler_class(
             for key in ("deckId", "notetypeId", "fields"):
                 if key not in body:
                     raise BridgeBadRequest(f'"{key}" is required')
+            # language/learningFieldIndex are optional: they only feed the
+            # romanisation guard (bridge_ops._romanization_warning). Omitting
+            # either is exactly what every client did before that guard
+            # existed, and still means nothing is checked.
+            learning_field_index = body.get("learningFieldIndex")
             return dispatcher.add_note(
                 deck_id=int(body["deckId"]),
                 notetype_id=int(body["notetypeId"]),
                 fields=list(body["fields"]),
                 tags=list(body.get("tags", [])),
+                language=body.get("language"),
+                learning_field_index=int(learning_field_index) if learning_field_index is not None else None,
             )
 
         def _op_update_note(self, params: dict, query: dict, body: Optional[dict]) -> dict:
             body = body or {}
             if "fields" not in body:
                 raise BridgeBadRequest('"fields" is required')
-            return dispatcher.update_note(int(params["note_id"]), list(body["fields"]))
+            learning_field_index = body.get("learningFieldIndex")
+            return dispatcher.update_note(
+                int(params["note_id"]),
+                list(body["fields"]),
+                language=body.get("language"),
+                learning_field_index=int(learning_field_index) if learning_field_index is not None else None,
+            )
 
         def _op_add_media(self, params: dict, query: dict, body: Optional[dict]) -> dict:
             body = body or {}

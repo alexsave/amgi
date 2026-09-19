@@ -64,8 +64,8 @@ class Collection {
     return this._withBackup(() => addNote(this.path, note));
   }
 
-  updateNote(noteId, fields) {
-    return this._withBackup(() => updateNoteFields(this.path, noteId, fields));
+  updateNote(noteId, fields, language, learningFieldIndex) {
+    return this._withBackup(() => updateNoteFields(this.path, noteId, fields, language, learningFieldIndex));
   }
 
   /**

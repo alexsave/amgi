@@ -56,12 +56,20 @@ class FakeDispatcher:
         self._record("create_deck", name)
         return {"deck": {"id": 42, "name": name}, "created": True}
 
-    def add_note(self, *, deck_id, notetype_id, fields, tags):
-        self._record("add_note", deck_id=deck_id, notetype_id=notetype_id, fields=fields, tags=tags)
+    def add_note(self, *, deck_id, notetype_id, fields, tags, language=None, learning_field_index=None):
+        self._record(
+            "add_note",
+            deck_id=deck_id,
+            notetype_id=notetype_id,
+            fields=fields,
+            tags=tags,
+            language=language,
+            learning_field_index=learning_field_index,
+        )
         return {"noteId": 7, "guid": "abc123", "cardIds": [8]}
 
-    def update_note(self, note_id, fields):
-        self._record("update_note", note_id, fields)
+    def update_note(self, note_id, fields, language=None, learning_field_index=None):
+        self._record("update_note", note_id, fields, language=language, learning_field_index=learning_field_index)
         return {"noteId": note_id}
 
     def add_media(self, filename, data):
@@ -241,8 +249,34 @@ class RoutingTests(BridgeServerTestCase):
         self.assertEqual(body, {"noteId": 7, "guid": "abc123", "cardIds": [8]})
         self.assertEqual(
             self.dispatcher.calls,
-            [("add_note", (), {"deck_id": 1, "notetype_id": 1, "fields": ["front", "back"], "tags": ["x"]})],
+            [
+                (
+                    "add_note",
+                    (),
+                    {
+                        "deck_id": 1,
+                        "notetype_id": 1,
+                        "fields": ["front", "back"],
+                        "tags": ["x"],
+                        "language": None,
+                        "learning_field_index": None,
+                    },
+                )
+            ],
         )
+
+    def test_add_note_passes_through_the_optional_romanisation_guard_fields(self):
+        payload = {
+            "deckId": 1,
+            "notetypeId": 1,
+            "fields": ["front", "back"],
+            "tags": ["x"],
+            "language": "ko",
+            "learningFieldIndex": 1,
+        }
+        self._request("POST", "/notes", headers=self._auth_headers(), body=json.dumps(payload))
+        self.assertEqual(self.dispatcher.calls[0][2]["language"], "ko")
+        self.assertEqual(self.dispatcher.calls[0][2]["learning_field_index"], 1)
 
     def test_add_note_defaults_tags_to_empty(self):
         payload = {"deckId": 1, "notetypeId": 1, "fields": ["a", "b"]}
@@ -263,7 +297,16 @@ class RoutingTests(BridgeServerTestCase):
         )
         self.assertEqual(status, 200)
         self.assertEqual(body, {"noteId": 55})
-        self.assertEqual(self.dispatcher.calls, [("update_note", (55, ["x", "y"]), {})])
+        self.assertEqual(
+            self.dispatcher.calls,
+            [("update_note", (55, ["x", "y"]), {"language": None, "learning_field_index": None})],
+        )
+
+    def test_update_note_passes_through_the_optional_romanisation_guard_fields(self):
+        payload = {"fields": ["x", "y"], "language": "ja", "learningFieldIndex": 0}
+        self._request("PATCH", "/notes/55", headers=self._auth_headers(), body=json.dumps(payload))
+        self.assertEqual(self.dispatcher.calls[0][2]["language"], "ja")
+        self.assertEqual(self.dispatcher.calls[0][2]["learning_field_index"], 0)
 
     def test_add_media_decodes_base64(self):
         data = b"not really audio"

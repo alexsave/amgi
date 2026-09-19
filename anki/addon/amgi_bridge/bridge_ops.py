@@ -27,6 +27,16 @@ from __future__ import annotations
 import dataclasses
 from typing import TYPE_CHECKING, Any, Optional, Sequence
 
+try:
+    # The normal case: Anki has amgi_bridge's parent directory on sys.path and
+    # imports this as part of the amgi_bridge package.
+    from .deck_text import looks_romanized
+except ImportError:
+    # test/ imports this module directly, with the add-on's own directory on
+    # sys.path (see test/test_bridge_ops.py) - the same dual-import tolerance
+    # core.py uses for deck_text.py.
+    from deck_text import looks_romanized
+
 if TYPE_CHECKING:
     from anki.collection import Collection, OpChanges
 
@@ -191,12 +201,47 @@ def create_deck(col: "Collection", human_name: str) -> OpResult:
     return OpResult(payload=payload, changes=changes)
 
 
-def add_note(col: "Collection", *, deck_id: int, notetype_id: int, fields: Sequence[str], tags: Sequence[str] = ()) -> OpResult:
+def _romanization_warning(
+    field_names: Sequence[str], fields: Sequence[str], language: Optional[str], learning_field_index: Optional[int]
+) -> Optional[str]:
+    """Port of plusaudio/lib/collection/notes.js's romanizationWarning - see
+    cardText.ts's looksRomanized (mirrored here by deck_text.looks_romanized)
+    for the policy. Both `language` and `learning_field_index` are optional
+    and caller-supplied (a bridge client typing a note by hand can send
+    neither, and nothing is checked); only the ONE field the caller names is
+    ever looked at, never every field, so a note's known-language side being
+    ordinary English is never mistaken for the bug this exists to catch.
+    """
+    if not language or learning_field_index is None:
+        return None
+    if not (0 <= learning_field_index < len(fields)):
+        return None
+    text = fields[learning_field_index]
+    if not looks_romanized(text, language):
+        return None
+    name = field_names[learning_field_index] if learning_field_index < len(field_names) else f"field {learning_field_index}"
+    return f'"{name}" looks fully romanised for a {language} note - check it is not meant to be written in {language}\'s own script.'
+
+
+def add_note(
+    col: "Collection",
+    *,
+    deck_id: int,
+    notetype_id: int,
+    fields: Sequence[str],
+    tags: Sequence[str] = (),
+    language: Optional[str] = None,
+    learning_field_index: Optional[int] = None,
+) -> OpResult:
     """Add a note to `deck_id`, letting Anki generate whatever cards its note
     type's templates (or cloze numbers) call for - `col.add_note` does that
     itself; this function's only job is validating the field count against
     the note type first, so a mismatch is a clear error instead of Anki
     silently padding or truncating.
+
+    `language`/`learning_field_index` are optional and only feed the
+    romanisation guard (see _romanization_warning) - omitting either just
+    means nothing is checked, same as before this guard existed.
     """
     notetype = col.models.get(notetype_id)
     if notetype is None:
@@ -211,12 +256,29 @@ def add_note(col: "Collection", *, deck_id: int, notetype_id: int, fields: Seque
     if tags:
         note.tags = list(tags)
 
-    changes = col.add_note(note, deck_id)
+    # col.add_note() returns OpChangesWithCount, not a bare OpChanges (unlike
+    # col.update_note() below) - its own .changes field is the real OpChanges
+    # that aqt.operations.on_op_finished expects. Storing the wrapper itself
+    # here used to hand deckbrowser.op_executed/browser/table/table.py an
+    # object missing the study_queues/browser_table attributes they read off
+    # a real OpChanges, crashing Anki's own UI-refresh hooks (AttributeError)
+    # right after every successful add - the note was written correctly, only
+    # the live refresh blew up.
+    changes = col.add_note(note, deck_id).changes
+    warning = _romanization_warning(field_names, fields, language, learning_field_index)
     payload = {"noteId": note.id, "guid": note.guid, "cardIds": [c.id for c in note.cards()]}
+    if warning:
+        payload["warning"] = warning
     return OpResult(payload=payload, changes=changes)
 
 
-def update_note(col: "Collection", note_id: int, fields: Sequence[str]) -> OpResult:
+def update_note(
+    col: "Collection",
+    note_id: int,
+    fields: Sequence[str],
+    language: Optional[str] = None,
+    learning_field_index: Optional[int] = None,
+) -> OpResult:
     """Replace a note's field contents in place. Like
     plusaudio/lib/collection/notes.js's updateNoteFields, this never touches
     tags or regenerates cards - a card's existence was decided once, at add
@@ -234,7 +296,11 @@ def update_note(col: "Collection", note_id: int, fields: Sequence[str]) -> OpRes
         note.fields[index] = value
 
     changes = col.update_note(note)
-    return OpResult(payload={"noteId": note.id}, changes=changes)
+    warning = _romanization_warning(field_names, fields, language, learning_field_index)
+    payload = {"noteId": note.id}
+    if warning:
+        payload["warning"] = warning
+    return OpResult(payload=payload, changes=changes)
 
 
 def add_media(col: "Collection", desired_name: str, data: bytes) -> dict:

@@ -14,8 +14,8 @@
 import {
     languageName,
     readingIsAmbiguous,
+    readingSystem,
     registerGuidance,
-    romanizationSystem,
     varietyGuidance,
 } from "./cardText.ts";
 
@@ -42,7 +42,7 @@ function speakingRules({ knownLanguage, learningLanguage }: CardLanguages): stri
     const known = languageName(knownLanguage);
     const learning = languageName(learningLanguage);
     const variety = varietyGuidance(learningLanguage);
-    const romanization = romanizationSystem(learningLanguage);
+    const reading = readingSystem(learningLanguage);
 
     const rules = [
         `SPEAKABLE TEXT ONLY. known_text and learning_text are synthesised verbatim. They contain the words to be said and nothing else: no parentheses or brackets, no slashes, no "or", no second translation, no romanisation, no part-of-speech or gender labels, no quotation marks, no numbering, no commentary. Sentence punctuation (? ! . ,) is fine.`,
@@ -60,8 +60,8 @@ function speakingRules({ knownLanguage, learningLanguage }: CardLanguages): stri
         rules.push(`VARIETY. Write ${variety}`);
     }
 
-    if (readingIsAmbiguous(learningLanguage) && romanization) {
-        rules.push(`READING. ${learning} spelling does not determine pronunciation, and the audio is checked against the text, so a wrong reading of the right characters would go unnoticed. Fill spoken_reading with ${romanization}: exactly how learning_text must be read aloud, in the Latin alphabet, nothing else.`);
+    if (readingIsAmbiguous(learningLanguage) && reading) {
+        rules.push(`READING. ${learning} spelling does not determine pronunciation, and the audio is checked against the text, so a wrong reading of the right characters would go unnoticed. Fill spoken_reading with ${reading}: exactly how learning_text must be read aloud, in ${learning}'s own script, never romanised.`);
     } else {
         rules.push(`READING. Leave spoken_reading empty: ${learning} spelling already determines the pronunciation.`);
     }

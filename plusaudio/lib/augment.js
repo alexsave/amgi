@@ -28,6 +28,7 @@ const {
   stripHtmlPreservingMedia,
 } = require('./deck');
 const { AudioCache, isOwnedMediaName, mediaName } = require('./audio-store');
+const { looksRomanized } = require('./cardGeneration/cardText.ts');
 
 /**
  * @param {object} options
@@ -114,6 +115,17 @@ async function augmentPackage(options) {
       if (!text) {
         summary.skipped.push({ id: note.id, reason: 'empty-text' });
         continue;
+      }
+      // A soft signal, not a rule: an English loanword or a proper noun can
+      // legitimately be all-Latin even in an otherwise non-Latin-script
+      // note, so this warns rather than skipping the note - see
+      // cardText.ts's looksRomanized for the full policy. This is the "hand-
+      // authored notes entering through the CLI" case: a deck this tool did
+      // not generate can carry romanised text nobody meant to leave in.
+      if (looksRomanized(text, language)) {
+        log(
+          `warning: note ${note.id}'s text field looks fully romanised for a "${language}" note ("${text}") - check it is not meant to be written in its own script`,
+        );
       }
 
       const wanted = mediaName(text, language);

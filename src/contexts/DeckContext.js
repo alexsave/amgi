@@ -128,10 +128,20 @@ export const DeckProvider = ({ children }) => {
   /**
    * Add a note to an Anki deck (fields already in the note type's field
    * order - the caller, CardForm, owns the field mapping the user picked).
+   * `language`/`learningFieldIndex` are optional and only feed the
+   * romanisation guard on the server (see route.js and cardText.ts's
+   * looksRomanized) - omitting either just means nothing is checked.
    * Refreshes the deck's note count and the first page of its card list.
    */
-  const addAnkiNote = useCallback(async (deckId, { notetypeId, fields, tags = [] }) => {
-    const result = await ankiApi.addNote({ deckId: Number(deckId), notetypeId, fields, tags });
+  const addAnkiNote = useCallback(async (deckId, { notetypeId, fields, tags = [], language, learningFieldIndex }) => {
+    const result = await ankiApi.addNote({
+      deckId: Number(deckId),
+      notetypeId,
+      fields,
+      tags,
+      language,
+      learningFieldIndex,
+    });
     await Promise.all([
       loadDeckCards(deckId, { offset: 0, limit: deckCards[deckId]?.limit || 20 }),
       refreshAnkiDecks(),

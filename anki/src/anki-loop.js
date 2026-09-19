@@ -331,6 +331,7 @@ function bootFront(root) {
 
   var loop = createReviewLoop({
     vadOptions: AMGI_CONFIG.vad,
+    micTimeoutMs: AMGI_CONFIG.micTimeoutMs,
     playPrompt: function () {
       return playClip(prompt, ui);
     },
@@ -411,18 +412,17 @@ function bootBack(root) {
     grade(3);
   });
 
-  bindKeys(root, function (event) {
-    if (event.key === ' ' || event.key === 'Enter' || event.key === 'Spacebar' || event.key === '3') {
-      grade(3);
-      return true;
-    }
-    if (event.key === '1') {
-      grade(1);
-      return true;
-    }
-    return false;
-  });
-
+  // Deliberately no bindKeys() here. Verified in real Anki (26.09.2, Qt 6.11):
+  // space/1 are bound twice at once on desktop - once as this template's own
+  // keydown handler, once as Anki's native QShortcut on the main window - and
+  // which one wins the race varies from keypress to keypress. Grading is the
+  // one place on this card where a double-fire is not idempotent: a second
+  // pycmd("easeN") would grade the *next* card, corrupting its schedule
+  // silently. Anki's own Again/Hard/Good/Easy bar is visible right below
+  // these buttons and already grades correctly on every desktop, mobile and
+  // web client, so the template does not compete for these keys at all - it
+  // only drives the reveal (see bootFront) and leaves grading to Anki's own
+  // shortcuts and to the on-screen buttons above.
   var loop = createReviewLoop({
     playNative: function () {
       return playClip(native, ui);
@@ -499,6 +499,21 @@ function boot() {
   // The previous side or card may still be listening in this same document.
   if (store.loop) store.loop.cancel();
   if (store.stream) stopMicrophone();
+
+  // A stale keydown listener from the render this one replaces would
+  // otherwise keep firing (harmlessly, since it self-removes on noticing its
+  // own root is disconnected - see bindKeys) until the next keypress happens
+  // to trigger that cleanup. Clearing it here up front, on every render
+  // rather than only inside bootFront's own bindKeys call, is what makes the
+  // back side provably free of amgi's own keydown handling the instant it
+  // renders: verified live in real Anki (26.09.2) that without this, a stale
+  // front-side listener remains registered on `document` for a bootBack
+  // render (bootBack never calls bindKeys itself, by design - see "Keys" in
+  // anki/README.md).
+  if (store.keyHandler) {
+    document.removeEventListener('keydown', store.keyHandler, true);
+    store.keyHandler = null;
+  }
 
   try {
     if (root.getAttribute('data-amgi-side') === 'back') bootBack(root);

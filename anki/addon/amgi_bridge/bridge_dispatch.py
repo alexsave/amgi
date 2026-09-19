@@ -162,13 +162,34 @@ class AqtBridgeDispatcher:
             raise BridgeBadRequest("deck name must not be blank")
         return self._run_write(lambda col: bridge_ops.create_deck(col, name))
 
-    def add_note(self, *, deck_id: int, notetype_id: int, fields: list, tags: list) -> dict:
+    def add_note(
+        self,
+        *,
+        deck_id: int,
+        notetype_id: int,
+        fields: list,
+        tags: list,
+        language: Optional[str] = None,
+        learning_field_index: Optional[int] = None,
+    ) -> dict:
         return self._run_write(
-            lambda col: bridge_ops.add_note(col, deck_id=deck_id, notetype_id=notetype_id, fields=fields, tags=tags)
+            lambda col: bridge_ops.add_note(
+                col,
+                deck_id=deck_id,
+                notetype_id=notetype_id,
+                fields=fields,
+                tags=tags,
+                language=language,
+                learning_field_index=learning_field_index,
+            )
         )
 
-    def update_note(self, note_id: int, fields: list) -> dict:
-        return self._run_write(lambda col: bridge_ops.update_note(col, note_id, fields))
+    def update_note(
+        self, note_id: int, fields: list, language: Optional[str] = None, learning_field_index: Optional[int] = None
+    ) -> dict:
+        return self._run_write(
+            lambda col: bridge_ops.update_note(col, note_id, fields, language=language, learning_field_index=learning_field_index)
+        )
 
     def add_media(self, filename: str, data: bytes) -> dict:
         # QueryOp, not CollectionOp: col.media.write_data touches the media

@@ -15,6 +15,29 @@ const { idAllocationExpr, randomGuid } = require('./ids');
 const { withCollection } = require('./open');
 const { ordinalsForNewNote } = require('./template');
 const { readNotetypes } = require('./notetypes');
+const { looksRomanized } = require('../cardGeneration/cardText.ts');
+
+/**
+ * A human-readable nudge when the note's LEARNING-language field looks
+ * romanised - see cardText.ts's looksRomanized for the policy and why this
+ * warns rather than refuses. Both `language` and `learningFieldIndex` are
+ * optional and caller-supplied (the add-note form's language picker and its
+ * "read aloud" field choice, or a CLI's --language/--text-field); omitting
+ * either just means nothing is checked, the same as today.
+ *
+ * Deliberately does NOT scan every field: a note's known-language side is
+ * routinely plain English (or whatever the learner already speaks), and
+ * flagging that would be noise on almost every note rather than a signal on
+ * the rare bad one. Only the one field the caller identifies as the
+ * learning-language text is ever checked.
+ */
+function romanizationWarning(fieldNames, fields, language, learningFieldIndex) {
+    if (!language || !Number.isInteger(learningFieldIndex)) return undefined;
+    const text = fields[learningFieldIndex];
+    if (!looksRomanized(text, language)) return undefined;
+    const name = fieldNames[learningFieldIndex] ?? `field ${learningFieldIndex}`;
+    return `"${name}" looks fully romanised for a ${language} note - check it is not meant to be written in ${language}'s own script.`;
+}
 
 const NOTE_ADD_ID = idAllocationExpr('notes');
 const CARD_ADD_ID = idAllocationExpr('cards');
@@ -130,8 +153,10 @@ function listNotesInDeck(collectionPath, deckId, { offset = 0, limit = 200 } = {
  * @param {number} note.notetypeId
  * @param {string[]} note.fields  one entry per field, in the note type's field order
  * @param {string[]} [note.tags]
+ * @param {string} [note.language]  the learning language, for the romanisation guard only
+ * @param {number} [note.learningFieldIndex]  which field is the learning-language text, for the same guard
  */
-function addNote(collectionPath, { deckId, notetypeId, fields, tags = [] }) {
+function addNote(collectionPath, { deckId, notetypeId, fields, tags = [], language, learningFieldIndex }) {
   return withCollection(collectionPath, ({ db, schemaVersion, path: collectionPath2 }) => {
     const notetypes = readNotetypes(db, schemaVersion, collectionPath2);
     const notetype = notetypes.get(notetypeId);
@@ -141,6 +166,7 @@ function addNote(collectionPath, { deckId, notetypeId, fields, tags = [] }) {
         `note type "${notetype.name}" has ${notetype.fieldNames.length} fields, got ${fields.length}`,
       );
     }
+    const warning = romanizationWarning(notetype.fieldNames, fields, language, learningFieldIndex);
 
     const now = Math.floor(Date.now() / 1000);
     const guid = randomGuid();
@@ -177,7 +203,7 @@ function addNote(collectionPath, { deckId, notetypeId, fields, tags = [] }) {
 
     touchCollectionMod(db);
 
-    return { noteId: Number(insertedNoteId), guid, cardIds };
+    return { noteId: Number(insertedNoteId), guid, cardIds, ...(warning ? { warning } : {}) };
   });
 }
 
@@ -188,7 +214,7 @@ function addNote(collectionPath, { deckId, notetypeId, fields, tags = [] }) {
  * type's templates; changing field text doesn't retroactively remove or add
  * cards in real Anki either, short of a full "empty cards" pass).
  */
-function updateNoteFields(collectionPath, noteId, fields) {
+function updateNoteFields(collectionPath, noteId, fields, language, learningFieldIndex) {
   return withCollection(collectionPath, ({ db, schemaVersion, path: collectionPath2 }) => {
     const existing = db.prepare('SELECT mid FROM notes WHERE id = ?').get(noteId);
     if (!existing) throw new Error(`no note with id ${noteId} in this collection`);
@@ -201,6 +227,7 @@ function updateNoteFields(collectionPath, noteId, fields) {
         `note type "${notetype.name}" has ${notetype.fieldNames.length} fields, got ${fields.length}`,
       );
     }
+    const warning = romanizationWarning(notetype.fieldNames, fields, language, learningFieldIndex);
 
     const now = Math.floor(Date.now() / 1000);
     const flds = joinFields(fields);
@@ -209,6 +236,7 @@ function updateNoteFields(collectionPath, noteId, fields) {
 
     db.prepare(UPDATE_NOTE_SQL).run(now, flds, sortText, csum, noteId);
     touchCollectionMod(db);
+    return warning ? { warning } : undefined;
   });
 }
 

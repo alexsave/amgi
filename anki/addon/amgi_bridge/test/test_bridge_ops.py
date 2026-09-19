@@ -140,6 +140,41 @@ class AddNoteTests(BridgeOpsTestCase):
         with self.assertRaises(ValueError):
             bridge_ops.add_note(self.col, deck_id=deck_id, notetype_id=999999999, fields=["a", "b"])
 
+    def test_warns_when_the_named_learning_field_looks_romanised(self):
+        deck_id = self.col.decks.id("Korean")
+        result = bridge_ops.add_note(
+            self.col,
+            deck_id=deck_id,
+            notetype_id=self._basic_notetype_id(),
+            fields=["hello", "annyeonghaseyo"],
+            language="ko",
+            learning_field_index=1,
+        )
+        self.assertIn("Back", result.payload["warning"])
+        self.assertIn("ko", result.payload["warning"])
+
+    def test_does_not_warn_when_the_learning_field_is_real_hangul(self):
+        deck_id = self.col.decks.id("Korean")
+        result = bridge_ops.add_note(
+            self.col,
+            deck_id=deck_id,
+            notetype_id=self._basic_notetype_id(),
+            fields=["hello", "안녕하세요"],
+            language="ko",
+            learning_field_index=1,
+        )
+        self.assertNotIn("warning", result.payload)
+
+    def test_does_not_warn_without_language_or_field_index(self):
+        deck_id = self.col.decks.id("Korean")
+        result = bridge_ops.add_note(
+            self.col,
+            deck_id=deck_id,
+            notetype_id=self._basic_notetype_id(),
+            fields=["hello", "annyeonghaseyo"],
+        )
+        self.assertNotIn("warning", result.payload)
+
 
 class UpdateNoteTests(BridgeOpsTestCase):
     def test_replaces_field_contents(self):
@@ -148,6 +183,16 @@ class UpdateNoteTests(BridgeOpsTestCase):
         bridge_ops.update_note(self.col, added.payload["noteId"], ["a2", "b2"])
         note = self.col.get_note(added.payload["noteId"])
         self.assertEqual(list(note.fields), ["a2", "b2"])
+
+    def test_warns_the_same_way_add_note_does(self):
+        deck_id = self.col.decks.id("Korean")
+        added = bridge_ops.add_note(
+            self.col, deck_id=deck_id, notetype_id=self._basic_notetype_id(), fields=["hello", "안녕"]
+        )
+        result = bridge_ops.update_note(
+            self.col, added.payload["noteId"], ["hello", "annyeong"], language="ko", learning_field_index=1
+        )
+        self.assertIn("Back", result.payload["warning"])
 
     def test_does_not_touch_tags(self):
         deck_id = self.col.decks.id("Korean")
