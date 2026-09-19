@@ -77,6 +77,26 @@ function touchCollectionMod(db) {
 }
 
 /**
+ * How many notes belong to `deckId` (via their cards) - the same join
+ * listNotesInDeck pages through, just counted instead of fetched, so a
+ * caller building a deck list with note counts pays for one small
+ * COUNT(DISTINCT ...) per deck rather than loading every row.
+ *
+ * Deliberately the same WHERE clause as listNotesInDeck (did = ?, no
+ * subdeck expansion): the total this returns must match what paging through
+ * listNotesInDeck would actually enumerate, page by page, or a UI showing
+ * both would disagree with itself.
+ */
+function countNotesInDeck(collectionPath, deckId) {
+  return withCollection(collectionPath, ({ db }) => {
+    const row = db
+      .prepare('SELECT COUNT(DISTINCT n.id) AS total FROM notes n JOIN cards c ON c.nid = n.id WHERE c.did = ?')
+      .get(deckId);
+    return Number(row.total);
+  });
+}
+
+/**
  * Notes belonging to `deckId` (via their cards), oldest id first, paginated
  * so a large collection is never loaded in one gulp.
  */
@@ -192,4 +212,4 @@ function updateNoteFields(collectionPath, noteId, fields) {
   });
 }
 
-module.exports = { addNote, listNotesInDeck, updateNoteFields };
+module.exports = { addNote, countNotesInDeck, listNotesInDeck, updateNoteFields };

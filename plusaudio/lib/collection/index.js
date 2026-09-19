@@ -11,7 +11,7 @@ const { openCollection } = require('./open');
 const { backupCollectionFile } = require('./backup');
 const { listDecks, resolveOrCreateDeck } = require('./decks');
 const { readNotetypes } = require('./notetypes');
-const { addNote, listNotesInDeck, updateNoteFields } = require('./notes');
+const { addNote, countNotesInDeck, listNotesInDeck, updateNoteFields } = require('./notes');
 const { addMediaFile, mediaDirFor } = require('./media');
 const { withCollection } = require('./open');
 
@@ -49,6 +49,11 @@ class Collection {
 
   listNotesInDeck(deckId, options) {
     return listNotesInDeck(this.path, deckId, options);
+  }
+
+  /** How many notes are in `deckId`, without paging through them - see notes.js. */
+  countNotesInDeck(deckId) {
+    return countNotesInDeck(this.path, deckId);
   }
 
   createDeck(humanName) {

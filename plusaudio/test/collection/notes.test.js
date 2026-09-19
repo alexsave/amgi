@@ -155,3 +155,38 @@ print("INTEGRITY:", problems.problems if hasattr(problems, "problems") else prob
     fs.rmSync(dir, { recursive: true, force: true });
   },
 );
+
+for (const schema of [11, 18]) {
+  test(
+    `countNotesInDeck (schema ${schema}): matches the number of rows listNotesInDeck actually pages through`,
+    { skip: !anki && 'no python3 with the anki library on PATH (set ANKI_PYTHON_BIN)' },
+    () => {
+      const { dir, col } = setUp(schema);
+      const basic = col.listNotetypes().result.find((n) => n.name === 'Basic');
+      const deck = col.createDeck('Count Test').result.deck;
+
+      // A brand new deck starts at zero, not undefined or an error.
+      assert.equal(col.countNotesInDeck(deck.id).result, 0);
+
+      for (let i = 0; i < 5; i += 1) {
+        col.addNote({ deckId: deck.id, notetypeId: basic.id, fields: [`front ${i}`, `back ${i}`] });
+      }
+      assert.equal(col.countNotesInDeck(deck.id).result, 5);
+
+      // Paging through with a small page size must visit exactly that many
+      // notes, no more and no fewer than the count reports - the property
+      // that makes the count trustworthy for a pager built on top of it.
+      let seen = 0;
+      let offset = 0;
+      for (;;) {
+        const page = col.listNotesInDeck(deck.id, { offset, limit: 2 }).result;
+        seen += page.length;
+        if (page.length < 2) break;
+        offset += 2;
+      }
+      assert.equal(seen, 5);
+
+      fs.rmSync(dir, { recursive: true, force: true });
+    },
+  );
+}

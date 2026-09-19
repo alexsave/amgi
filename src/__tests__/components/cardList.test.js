@@ -8,25 +8,14 @@ jest.mock('next/navigation', () => ({
   useParams: () => ({ id: 'deck1' }),
   useRouter: () => ({ push: jest.fn() })
 }));
-// The form and the modal each pull in the generation context and the audio
-// stack; neither is what this file is about.
+// The form pulls in ankiApi and the field-mapping guess; neither is what
+// this file is about - it is about what the note list itself renders.
 jest.mock('../../components/Card/CardForm', () => {
   const CardFormStub = () => <div data-testid="card-form" />;
   return CardFormStub;
 });
-jest.mock('../../components/Card/CardModal', () => {
-  const CardModalStub = () => null;
-  return CardModalStub;
-});
 
-const deck = {
-  id: 'deck1',
-  name: 'Korean Phrases',
-  known_language: 'en',
-  learning_language: 'ko',
-  // The review queue: what today's session would serve, which is not the deck.
-  cards: []
-};
+const deck = { id: 'deck1', name: 'Korean Phrases', noteCount: 1 };
 
 const renderList = (library) => {
   const loadDeckCards = jest.fn();
@@ -35,80 +24,53 @@ const renderList = (library) => {
     deckCards: library ? { deck1: library } : {},
     loadDeckCards,
     setCurrentDeckId: jest.fn(),
-    deleteCard: jest.fn()
   });
   render(<CardList />);
   return { loadDeckCards };
 };
 
 describe('the deck card list', () => {
-  test('asks for the whole deck, not the review queue', () => {
+  test('asks for the first page, not the whole deck at once', () => {
     const { loadDeckCards } = renderList({ cards: [], loading: true, error: null });
-    expect(loadDeckCards).toHaveBeenCalledWith('deck1');
+    // Pagination that survives a large Anki deck - one page fetched at a
+    // time, not the whole deck loaded up front.
+    expect(loadDeckCards).toHaveBeenCalledWith('deck1', { offset: 0, limit: 20 });
   });
 
-  test('shows cards the review queue would not serve', () => {
+  test('renders a note with its note type and audio status', () => {
     renderList({
-      cards: [
-        {
-          id: 'c1',
-          front_text: 'Hello',
-          review: { card_state: 'review', next_review_date: '2099-01-01T00:00:00.000Z', interval_days: 30, ease_factor: 2.5, lapses: 0 }
-        }
-      ],
+      cards: [{ id: 1, notetypeName: "Retro's sentences", front_text: '안녕하세요', hasAudio: true }],
       loading: false,
-      error: null
+      error: null,
     });
 
-    // A fully reviewed deck used to report itself empty on its own edit page.
-    expect(screen.getByText('Hello')).toBeInTheDocument();
-    expect(screen.queryByText('No cards in this deck yet.')).not.toBeInTheDocument();
+    expect(screen.getByText('안녕하세요')).toBeInTheDocument();
+    expect(screen.getByText("Retro's sentences")).toBeInTheDocument();
+    expect(screen.getByText('🔊 has audio')).toBeInTheDocument();
+    expect(document.querySelector('.card-stats').textContent).toContain('Scheduled in Anki');
   });
 
-  test('renders the schedule a loaded card actually carries', () => {
+  test('says a note has no audio yet rather than hiding that', () => {
     renderList({
-      cards: [
-        {
-          id: 'c1',
-          front_text: 'Hello',
-          review: {
-            card_state: 'review',
-            next_review_date: '2099-03-04T00:00:00.000Z',
-            interval_days: 30,
-            ease_factor: 2.34,
-            lapses: 2
-          }
-        }
-      ],
+      cards: [{ id: 1, notetypeName: 'Basic', front_text: 'hello', hasAudio: false }],
       loading: false,
-      error: null
+      error: null,
     });
 
-    const stats = document.querySelector('.card-stats');
-    expect(stats).not.toBeNull();
-    expect(stats.textContent).toContain('Interval: 30 days');
-    expect(stats.textContent).toContain('Ease: 2.34');
-    expect(stats.textContent).toContain('Lapses: 2');
-    expect(stats.textContent).toContain(new Date('2099-03-04T00:00:00.000Z').toLocaleDateString());
-  });
-
-  test('a card with no review yet reads as new rather than rendering nothing', () => {
-    renderList({ cards: [{ id: 'c1', front_text: 'Hello', review: null }], loading: false, error: null });
-
-    expect(document.querySelector('.card-stats').textContent).toContain('New - not studied yet');
+    expect(screen.getByText('no audio yet')).toBeInTheDocument();
   });
 
   test('does not claim the deck is empty before the read comes back', () => {
     renderList({ cards: [], loading: true, error: null });
 
-    expect(screen.getByText('Loading cards…')).toBeInTheDocument();
-    expect(screen.queryByText('No cards in this deck yet.')).not.toBeInTheDocument();
+    expect(screen.getByText('Loading notes…')).toBeInTheDocument();
+    expect(screen.queryByText('No notes in this deck yet.')).not.toBeInTheDocument();
   });
 
   test('says the deck is empty once it really is', () => {
     renderList({ cards: [], loading: false, error: null });
 
-    expect(screen.getByText('No cards in this deck yet.')).toBeInTheDocument();
+    expect(screen.getByText('No notes in this deck yet.')).toBeInTheDocument();
   });
 
   test('surfaces a failed read instead of showing it as an empty deck', () => {

@@ -3,13 +3,10 @@
   "packageManager": "pnpm@11.5.0",
   "dependencies": {
     "@heroicons/react": "^2.2.0",
-    "@stripe/stripe-js": "^6.0.0",
-    "@supabase/supabase-js": "^2.48.1",
-    "msgpack-lite": "^0.1.26",
     "next": "^16.3.5",
+    "plusaudio": "workspace:*",
     "react": "^19.3.0",
-    "react-dom": "^19.3.0",
-    "vmsg": "^0.4.0"
+    "react-dom": "^19.3.0"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^7.0.1",
@@ -22,8 +19,8 @@
     "puppeteer-core": "^25.11.0"
   },
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
+    "dev": "next dev --webpack",
+    "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
     "test": "jest && node --test \"plusaudio/test/**/*.test.js\" \"anki/test/**/*.test.js\" && python3 -m unittest discover -s anki/addon/amgi_bridge/test -p \"test_*.py\" -v"

@@ -1,49 +1,34 @@
 import { useState } from 'react';
 import { XMarkIcon } from '@heroicons/react/24/outline';
-import LANGUAGES from '../../constants/languages';
 import { useDecks } from '../../contexts/DeckContext';
 import { useRouter } from 'next/navigation';
 
 const CreateDeckModal = ({ isOpen, setIsCreateModalOpen }) => {
   const [deckName, setDeckName] = useState('');
-  const [known_language, setKnownLanguage] = useState('en');
-  const [learning_language, setLearningLanguage] = useState('ko');
+  const [error, setError] = useState('');
   const router = useRouter();
 
-  const { 
-    createNewDeck,
-    setCurrentDeckId,
-  } = useDecks();
+  const { createNewDeck, setCurrentDeckId } = useDecks();
 
   if (!isOpen) return null;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    const finalDeckName = deckName.trim() === '' 
-      ? `${LANGUAGES[known_language].name} -> ${LANGUAGES[learning_language].name}`
-      : deckName;
-
-    console.log('Creating new deck with name:', finalDeckName);
-    try {
-      console.log('Calling createNewDeck...');
-      const id = await createNewDeck({
-        name: finalDeckName,
-        known_language,
-        learning_language
-      });
-      console.log('Created deck with ID:', id);
-      setCurrentDeckId(id);
-      
-      setIsCreateModalOpen(false);
-      console.log('Navigating to deck page...');
-      router.push(`/deck/${id}/edit`);
-    } catch (error) {
-      console.error('Error creating deck:', error);
-      alert('Failed to create deck: ' + error.message);
+    if (!deckName.trim()) {
+      setError('Enter a deck name');
+      return;
     }
-
-    setDeckName('');
+    setError('');
+    try {
+      const id = await createNewDeck({ name: deckName.trim() });
+      setCurrentDeckId(id);
+      setIsCreateModalOpen(false);
+      setDeckName('');
+      router.push(`/deck/${id}`);
+    } catch (err) {
+      console.error('Error creating deck:', err);
+      setError('Failed to create deck: ' + err.message);
+    }
   };
 
   return (
@@ -63,43 +48,16 @@ const CreateDeckModal = ({ isOpen, setIsCreateModalOpen }) => {
               type="text"
               value={deckName}
               onChange={(e) => setDeckName(e.target.value)}
-              placeholder="Enter deck name"
+              placeholder="e.g. Korean::Verbs"
               autoFocus
             />
+            <small style={{ display: 'block', marginTop: '0.35rem', opacity: 0.75 }}>
+              Use <code>::</code> to nest under a parent deck (created automatically if it does not exist yet).
+            </small>
           </div>
-          
-          <div className="form-group">
-            <label htmlFor="known_language">I know</label>
-            <select
-              id="known_language"
-              value={known_language}
-              onChange={(e) => setKnownLanguage(e.target.value)}
-              className="language-select"
-            >
-              {Object.entries(LANGUAGES).map(([code, { name, flag }]) => (
-                <option key={code} value={code}>
-                  {flag} {name}
-                </option>
-              ))}
-            </select>
-          </div>
-          
-          <div className="form-group">
-            <label htmlFor="learning_language">I want to learn</label>
-            <select
-              id="learning_language"
-              value={learning_language}
-              onChange={(e) => setLearningLanguage(e.target.value)}
-              className="language-select"
-            >
-              {Object.entries(LANGUAGES).map(([code, { name, flag }]) => (
-                <option key={code} value={code}>
-                  {flag} {name}
-                </option>
-              ))}
-            </select>
-          </div>
-          
+
+          {error && <div className="error-message">{error}</div>}
+
           <div className="button-row">
             <button type="submit" className="primary-btn">
               Create Deck
