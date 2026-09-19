@@ -18,8 +18,13 @@ acceptance criteria. Conventions to follow for every item:
   then fails entirely.
 - Run `pnpm test` and `pnpm build` before committing; keep both green.
   (The package manager is pnpm, pinned in `package.json#packageManager`.)
-- Model names live in `supabase/functions/_shared/openai.ts` — never hardcode
+- Model names live in `supabase/functions/_shared/models.ts` - never hardcode
   a model string anywhere else.
+- How a card is written and how its audio is validated live in
+  `supabase/functions/_shared/cardGeneration.ts`, which the `cards` function and
+  the `plusaudio/` CLI both run. It takes the OpenAI client and the model ids as
+  arguments and imports nothing from Deno, npm or Supabase. Keep it that way, or
+  Node can no longer load it and the CLI grows a second, worse generator.
 
 ---
 

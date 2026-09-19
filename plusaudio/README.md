@@ -49,6 +49,10 @@ node add-audio.js <deck.apkg> [options]
 
 `--dry-run` needs no API key. Generating audio needs `OPENAI_API_KEY`.
 
+`--language` is an amgi language code (`ko`, `ja`, `zh_cn`, `zh_hk`, `es`, ...).
+It picks the speaking instructions the voice is given and the language the validator transcribes in,
+so a wrong one makes clips that are rejected rather than clips that are quietly wrong.
+
 Fields are resolved per note type. If a note type has no field whose name looks like an audio field,
 the tool stops and asks for `--audio-field` rather than guessing and overwriting real content.
 
@@ -111,8 +115,12 @@ Export, generate, import.
 
 ## Requirements
 
-Node 24 or later, for `node:sqlite`. No native builds, and the only runtime dependency is the
-`openai` SDK, which is loaded lazily so `--dry-run` and the tests need neither it nor a key.
+Node 24 or later, for `node:sqlite` and for running the shared generator's TypeScript without a
+build step. No native builds, and the only runtime dependency is the `openai` SDK, which is loaded
+lazily so `--dry-run` and the tests need neither it nor a key.
+
+The `openai` package here and the one the edge function imports are different majors on purpose:
+the shared module never imports the SDK, it is handed a client, so each runtime brings its own.
 
 ## Tests
 
@@ -153,8 +161,13 @@ Generate for it with `--audio-tag html`; its README covers converting a deck tha
 ## What this is not
 
 It does not create cards.
-The card generation policy lives in `supabase/functions/_shared/` and is being lifted into a module
-both amgi and this CLI can call; `lib/tts.js` is the interim generator until then.
+It adds audio to notes that already exist, using amgi's own generator:
+`lib/generator.js` is a thin adapter over `supabase/functions/_shared/cardGeneration.ts`, the module
+the web app's `cards` edge function runs.
+So the clips are made with the same models, the same per-language speaking instructions and the same
+refusal to keep audio that does not say what the note says.
+Writing new notes into a deck is the next step and is not built yet: it needs a source of terms and a
+place to put the generated sides, not a different generator.
 
 The scripts that produced the owner's original deck are in `archives/plusaudio-2025/`, with a note on
 why they were retired and what is worth mining from them.
