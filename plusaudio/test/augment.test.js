@@ -190,6 +190,102 @@ describe('augmentPackage', () => {
     );
   });
 
+  it('writes HTML media references with --audio-tag html', async () => {
+    const input = makeSource('html.apkg');
+    const output = path.join(dir, 'html-out.apkg');
+    const { summary } = await run(input, output, { audioTag: 'html' });
+
+    assert.equal(summary.notesChanged, 3);
+    assert.equal(summary.audioGenerated, 3);
+
+    const result = inspectPackage(output);
+    const byId = new Map(result.notes.map((n) => [n.id, n.flds.split('\x1f')]));
+    assert.match(byId.get(1547294175188)[1], /^<audio src="plusaudio-[0-9a-f]{20}\.mp3"><\/audio>$/);
+
+    // The author's own sound tag is not ours to convert, so it stays a sound tag.
+    const authorRecording = byId.get(1547294381723)[1];
+    assert.match(authorRecording, /\[sound:1-1-13-2\.mp3\]/);
+    assert.match(authorRecording, /<img src="pic\.jpg">/);
+    assert.match(authorRecording, /<audio src="plusaudio-[0-9a-f]{20}\.mp3"><\/audio>$/);
+
+    for (const note of result.notes) {
+      for (const [, name] of note.flds.matchAll(/<audio src="([^"]+)">/g)) {
+        assert.ok(result.mediaNames.has(name), `${name} is referenced but not in the package`);
+      }
+    }
+    assert.equal(result.mediaNames.size, 5, '2 original media files plus 3 generated clips');
+  });
+
+  it('is a no-op when re-run on its own output in html mode', async () => {
+    const input = makeSource('html-idempotent.apkg');
+    const first = path.join(dir, 'html-idempotent-1.apkg');
+    const second = path.join(dir, 'html-idempotent-2.apkg');
+
+    await run(input, first, { audioTag: 'html' });
+    const { summary, calls } = await run(first, second, { audioTag: 'html', now: NOW_RUN_2 });
+
+    assert.equal(summary.notesChanged, 0);
+    assert.equal(summary.audioUpToDate, 3);
+    assert.equal(calls.length, 0);
+    assert.deepEqual(
+      fs.readFileSync(second),
+      fs.readFileSync(first),
+      're-running on the output must reproduce it byte for byte',
+    );
+  });
+
+  it('converts between the two forms without regenerating a single clip', async () => {
+    const input = makeSource('convert.apkg');
+    const sound = path.join(dir, 'convert-sound.apkg');
+    const html = path.join(dir, 'convert-html.apkg');
+    const backToSound = path.join(dir, 'convert-back.apkg');
+
+    await run(input, sound);
+    const soundNotes = new Map(inspectPackage(sound).notes.map((n) => [n.id, n]));
+
+    // No cache dir on purpose: the clips are already in the package, so a
+    // conversion that needed to generate would have to call the generator.
+    const forward = await run(sound, html, { audioTag: 'html', now: NOW_RUN_2 });
+    assert.equal(forward.calls.length, 0, 'switching form must not regenerate audio');
+    assert.equal(forward.summary.audioGenerated, 0);
+    assert.equal(forward.summary.audioFromCache, 0);
+    assert.equal(forward.summary.mediaAdded, 0);
+    assert.equal(forward.summary.notesChanged, 3);
+
+    const converted = inspectPackage(html);
+    assert.equal(converted.mediaNames.size, 5, 'no clip is added or dropped by the conversion');
+    for (const note of converted.notes) {
+      const audioField = note.flds.split('\x1f')[1];
+      const owned = [...audioField.matchAll(/plusaudio-[0-9a-f]{20}\.mp3/g)];
+      assert.ok(owned.length <= 1, `note ${note.id} ended up with ${owned.length} references`);
+      assert.ok(!/\[sound:plusaudio-/.test(audioField), 'the sound tag must be gone, not kept alongside');
+      if (owned.length === 1) {
+        assert.match(audioField, /<audio src="plusaudio-[0-9a-f]{20}\.mp3"><\/audio>/);
+        assert.equal(note.mod, NOW_RUN_2, 'a converted note is a changed note');
+      } else {
+        assert.equal(note.mod, soundNotes.get(note.id).mod);
+      }
+    }
+
+    // And back again, to exactly the package we started from.
+    const back = await run(html, backToSound, { now: NOW_RUN_1 });
+    assert.equal(back.calls.length, 0);
+    assert.equal(back.summary.notesChanged, 3);
+    assert.deepEqual(
+      inspectPackage(backToSound).notes.map((n) => n.flds),
+      inspectPackage(sound).notes.map((n) => n.flds),
+      'converting there and back must restore the original fields',
+    );
+  });
+
+  it('rejects an audio tag form it does not know', async () => {
+    const input = makeSource('badform.apkg');
+    await assert.rejects(
+      () => run(input, path.join(dir, 'badform-out.apkg'), { audioTag: 'marquee' }),
+      /unknown audio tag form/,
+    );
+  });
+
   it('regenerates only the note whose text changed', async () => {
     const input = makeSource('edit.apkg');
     const first = path.join(dir, 'edit-1.apkg');
