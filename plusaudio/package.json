@@ -3,10 +3,10 @@
   "private": true,
   "description": "Node CLI that adds generated audio to an existing Anki deck without changing its identity. Deliberately kept out of the web app's dependency tree.",
   "engines": {
-    "node": ">=26.1.0"
+    "node": "^24.12.0 || ^25.1.0 || >=26.0.0"
   },
   "scripts": {
-    "test": "node --test test/"
+    "test": "node --test \"test/**/*.test.js\""
   },
   "dependencies": {
     "openai": "^4.79.4"

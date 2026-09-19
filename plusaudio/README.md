@@ -132,9 +132,10 @@ Export, generate, import.
 
 ## Requirements
 
-Node 26.1 or later, for `node:sqlite`'s `serialize` and for running the shared generator's
-TypeScript without a build step. No native builds, and the only runtime dependency is the `openai`
-SDK, which is loaded lazily so `--dry-run` and the tests need neither it nor a key.
+Node 24.12, 25.1 or 26 and later, which is what `engines` says.
+The floor is `node:sqlite`'s `enableDefensive`, needed to read a modern collection's `unicase` collation, and type stripping, which runs the shared generator's TypeScript with no build step.
+`enableDefensive` landed in 25.1.0 and was backported to 24.12.0, so 25.0.x is out while 24.12 and later is in - hence the three ranges rather than one `>=`.
+No native builds, and the only runtime dependency is the `openai` SDK, which is loaded lazily so `--dry-run` and the tests need neither it nor a key.
 
 The `openai` package here and the one the edge function imports are different majors on purpose:
 the shared module never imports the SDK, it is handed a client, so each runtime brings its own.
@@ -142,7 +143,7 @@ the shared module never imports the SDK, it is handed a client, so each runtime 
 ## Tests
 
 ```bash
-node --test test/        # or: npm test, or pnpm test at the repo root
+node --test "test/**/*.test.js"   # or: npm test, or pnpm test at the repo root
 ```
 
 ## Verifying against Anki itself

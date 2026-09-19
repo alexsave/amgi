@@ -226,6 +226,9 @@ function openPackage(filePath) {
       filePath,
       format: format.name,
       collectionName: format.collection,
+      // The unpacked database. writePackage reads the finished collection
+      // back off disk from here rather than serializing it out of SQLite.
+      collectionPath,
       schemaVersion,
       entries,
       db,
@@ -364,7 +367,15 @@ function writePackage(pkg, outPath, addedMedia = new Map()) {
     ? planModernMedia(pkg, addedMedia)
     : planLegacyMedia(pkg, addedMedia);
 
-  const collection = Buffer.from(pkg.db.serialize());
+  // The file on disk is the collection. node:sqlite runs in autocommit, so
+  // every statement the caller ran is already committed; the checkpoint folds
+  // any WAL frames back into the main file, which is a no-op for the rollback
+  // journal every Anki export actually uses. Reading it back is byte for byte
+  // what DatabaseSync.serialize() returns - and serialize() landed in Node
+  // 26.1, which was the only thing forcing this CLI onto a runtime almost
+  // nobody has installed.
+  pkg.db.exec('PRAGMA wal_checkpoint(TRUNCATE)');
+  const collection = fs.readFileSync(pkg.collectionPath);
   const collectionMember = format.zstd ? zlib.zstdCompressSync(collection) : collection;
 
   const out = [];
