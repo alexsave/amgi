@@ -141,8 +141,11 @@ The floor is `node:sqlite`'s `enableDefensive`, needed to read a modern collecti
 `enableDefensive` landed in 25.1.0 and was backported to 24.12.0, so 25.0.x is out while 24.12 and later is in - hence the three ranges rather than one `>=`.
 No native builds, and the only runtime dependency is the `openai` SDK, which is loaded lazily so `--dry-run` and the tests need neither it nor a key.
 
-The `openai` package here and the one the edge function imports are different majors on purpose:
-the shared module never imports the SDK, it is handed a client, so each runtime brings its own.
+The `openai` package here and the one the app's own server code (`src/server/anki/audio.js`, by
+way of `generate-clip.js`) uses are free to differ, and did while a Deno edge function was a third
+runtime too (it imported `npm:openai@6`; that edge function is retired - see
+`archives/supabase-2026/`): the shared module never imports the SDK, it is handed a client, so
+each runtime brings its own.
 
 ## Tests
 
@@ -208,8 +211,9 @@ so a clip made through either entry point is made to the same standard.
 
 It does not create cards.
 It adds audio to notes that already exist, using amgi's own generator:
-`lib/generator.js` is a thin adapter over `supabase/functions/_shared/cardGeneration.ts`, the module
-the web app's `cards` edge function runs.
+`lib/generator.js` is a thin adapter over `lib/cardGeneration/cardGeneration.ts`, the same module
+the app's own local generation path (`src/server/anki/audio.js`, by way of `generate-clip.js`) and the
+Anki add-on's bridge run.
 So the clips are made with the same models, the same per-language speaking instructions and the same
 refusal to keep audio that does not say what the note says.
 Writing new notes into a deck is the next step and is not built yet: it needs a source of terms and a
