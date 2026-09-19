@@ -1,7 +1,16 @@
 // Injects a synthetic microphone: getUserMedia returns a stream that is
 // silent for `leadMs`, then noise-shaped "speech" for `speechMs`, then
-// silence. Deterministic, and it exercises the app's real audio path
-// (Chrome's --use-file-for-fake-audio-capture is a no-op on this machine).
+// silence. Deterministic, and it exercises the real voice-activity-detection
+// path in src/utils/voiceActivity.js (Chrome's --use-file-for-fake-audio-capture
+// is a no-op on this machine, which makes the review loop look broken when
+// it is not - do not spend time regenerating wav files, it is not a format
+// problem).
+//
+// The amgi web app has no microphone of its own any more (reviewing happens
+// in Anki, not in a browser tab - see README.md), so today the only consumer
+// of this file is anki/test/harness/drive.js, driving the card template
+// against a stand-in Anki reviewer. Load-bearing: do not move or rename this
+// file without updating that require() too.
 module.exports = function fakeVoiceScript({ leadMs = 600, speechMs = 1500, totalMs = 12000 } = {}) {
   return `(() => {
     const leadMs = ${leadMs}, speechMs = ${speechMs}, totalMs = ${totalMs};

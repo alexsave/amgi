@@ -1,47 +1,133 @@
-// Screenshots a list of routes as the signed-in test user.
+'use strict';
+
+// Screenshots amgi's own screens against a fixture Anki collection - there
+// is no login and no seeded Supabase project any more, so this walks: the
+// deck list, a deck's notes, creating a new deck, and adding a note to it
+// (audio generation included). With no OPENAI_API_KEY set, that last step
+// exercises the mocked-stub-clip path every first-run user without a key
+// also hits - see src/server/anki/audio.js.
 //
-//   node .claude/skills/e2e-ui/scripts/shoot.js /decks /settings
-//   VIEWPORT=390x844 OUT=.e2e/shots-mobile node .../shoot.js /decks
+//   node .claude/skills/e2e-ui/scripts/fixture.js .e2e/fixture
+//   npx next dev --webpack -p 3111 &
+//   ANKI_COLLECTION=.e2e/fixture/collection.anki2 node .claude/skills/e2e-ui/scripts/shoot.js
 //
 // Prints every console error, failed request and 4xx/5xx it saw, which is
 // usually where the real bugs turn up.
+
 const path = require('path');
 const fs = require('fs');
 const { launch, watch, sleep } = require('./lib');
+const ankiSettingsScript = require('./ankiSettings');
+const { directSettings } = ankiSettingsScript;
 
 const BASE = process.env.BASE || 'http://localhost:3111';
 const OUT = process.env.OUT || path.join(process.cwd(), '.e2e', 'shots');
-const [width, height] = (process.env.VIEWPORT || '1280x900').split('x').map(Number);
+const COLLECTION = process.env.ANKI_COLLECTION;
+
+/** The three selects after the note type picker, in the JSX order CardForm.js renders them. */
+async function fieldSelects(page) {
+  const handles = await page.$$('form.card-form select');
+  return { notetype: handles[0], text: handles[1], audio: handles[2], language: handles[3] };
+}
 
 (async () => {
-  const routes = process.argv.slice(2);
-  if (!routes.length) {
-    console.error('usage: shoot.js <route> [route...]');
+  if (!COLLECTION) {
+    console.error('usage: ANKI_COLLECTION=<path to a fixture collection.anki2> node shoot.js');
+    console.error('build one with: node .claude/skills/e2e-ui/scripts/fixture.js .e2e/fixture');
     process.exit(1);
   }
 
   fs.mkdirSync(OUT, { recursive: true });
-  const browser = await launch({ width, height });
+  const browser = await launch();
   const page = await browser.newPage();
   const logs = [];
   watch(page, logs);
+  await page.evaluateOnNewDocument(ankiSettingsScript(directSettings(COLLECTION)));
 
-  await page.goto(`${BASE}/`, { waitUntil: 'networkidle2' });
-  const testAccount = await page.$('.test-account-button');
-  if (testAccount) {
-    await testAccount.click();
-    await page.waitForSelector('.deck-item, .empty-deck-state', { timeout: 20000 }).catch(() => {});
-  }
+  const shot = (name) => page.screenshot({ path: path.join(OUT, `${name}.png`) });
 
-  for (const route of routes) {
-    const name = route.replace(/[^a-z0-9]+/gi, '_') || 'root';
-    await page.goto(BASE + route, { waitUntil: 'networkidle2' }).catch((e) => logs.push(`[goto ${route}] ${e.message}`));
-    await sleep(1200);
-    await page.screenshot({ path: path.join(OUT, `${name}.png`) });
-    console.log(`${route} -> ${path.join(OUT, name)}.png (landed on ${page.url()})`);
-  }
+  // 1. The deck list.
+  await page.goto(`${BASE}/decks`, { waitUntil: 'networkidle2' });
+  await page.waitForSelector('.deck-item', { timeout: 20000 });
+  await shot('01-deck-list');
+  const deckCount = await page.$$eval('.deck-item', (els) => els.length);
+  console.log(`deck list shows ${deckCount} deck(s)`);
+
+  // 2. A deck's notes - the deck with the most notes, so the screenshot
+  // actually shows something rather than whichever deck happens to sort
+  // first (often an empty "Default").
+  const deckItems = await page.$$('.deck-item');
+  const noteCounts = await page.$$eval('.deck-item', (els) =>
+    els.map((el) => parseInt(el.querySelector('small')?.textContent || '0', 10)),
+  );
+  await deckItems[noteCounts.indexOf(Math.max(...noteCounts))].click();
+  await page.waitForSelector('.deck-cards', { timeout: 20000 });
+  await page.waitForFunction(
+    () => !document.querySelector('.deck-cards-list p')?.textContent?.includes('Loading notes'),
+    { timeout: 20000 },
+  );
+  // The app's own layout is a fixed-height shell with an inner scrolling
+  // region (see App.css: `height: 100vh; overflow: hidden` on the shell,
+  // `overflow-y: auto` inside it), so Puppeteer's `fullPage` screenshot
+  // option does nothing useful here - it measures the outer document, which
+  // never grows. Scroll the heading into view instead.
+  await page.evaluate(() => document.querySelector('.deck-cards-list h3')?.scrollIntoView({ block: 'start' }));
+  await sleep(150);
+  await shot('02-deck-notes');
+  const noteCount = await page.$$eval('.card-item', (els) => els.length);
+  console.log(`deck page shows ${noteCount} note(s) on the first page`);
+
+  // 3. Creating a deck. CreateDeckModal navigates to the new deck on success,
+  // so this and step 4 (adding a note) land on the same page.
+  await page.goto(`${BASE}/decks`, { waitUntil: 'networkidle2' });
+  await page.waitForSelector('.deck-item', { timeout: 20000 });
+  await page.click('.deck-actions .action-btn');
+  await page.waitForSelector('#deckName', { timeout: 5000 });
+  const deckName = `e2e-ui ${Date.now()}`;
+  await page.type('#deckName', deckName);
+  await shot('03-create-deck-modal');
+  await page.click('.modal-content button[type="submit"]');
+  await page.waitForFunction(() => !document.querySelector('.modal-overlay'), { timeout: 10000 });
+  await page.waitForFunction((name) => document.querySelector('h1')?.textContent === name, { timeout: 10000 }, deckName);
+  await shot('04-new-deck-empty');
+
+  // 4. Adding a note, with generated audio.
+  await page.waitForSelector('form.card-form', { timeout: 20000 });
+  const selects = await fieldSelects(page);
+  const fieldCount = await page.evaluate((el) => el.options.length, selects.text);
+  const textIdx = 0;
+  const audioIdx = fieldCount > 1 ? 1 : 0;
+  await selects.text.select(String(textIdx));
+  await selects.audio.select(String(audioIdx));
+  await page.type(`#ankiField-${textIdx}`, 'hello from the e2e-ui skill');
+  await shot('05-note-form-filled');
+
+  await page.click('.generate-button'); // "Generate Audio" - the first .generate-button in the form
+  await page.waitForFunction(
+    () => /Audio generated/.test(document.querySelector('.error-message')?.textContent || ''),
+    { timeout: 15000 },
+  );
+  const audioResultText = await page.$eval('.error-message', (el) => el.textContent);
+  console.log(`audio result: ${audioResultText}`);
+  await shot('06-audio-generated');
+
+  const notesBefore = await page.$$eval('.card-item', (els) => els.length);
+  await page.click('form.card-form button[type="submit"]'); // "Add Note"
+  await page.waitForFunction(
+    (before) => document.querySelectorAll('.card-item').length > before,
+    { timeout: 15000 },
+    notesBefore,
+  );
+  await page.evaluate(() => document.querySelector('.deck-cards-list h3')?.scrollIntoView({ block: 'start' }));
+  await sleep(150);
+  await shot('07-note-added');
+  console.log('note added; deck now shows', await page.$$eval('.card-item', (els) => els.length), 'note(s)');
 
   const problems = logs.filter((l) => /pageerror|requestfailed|console\.error|\[http [45]/.test(l));
   console.log(problems.length ? `\nproblems:\n${problems.join('\n')}` : '\nno console errors or failed requests');
+  await sleep(200);
   await browser.close();
-})();
+})().catch((error) => {
+  console.error(error);
+  process.exit(1);
+});
