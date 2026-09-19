@@ -37,7 +37,10 @@ node add-audio.js <deck.apkg> [options]
 
   --out <path>          output package (default: "<input> (with audio).apkg")
   --text-field <name>   field to read aloud (name or 0-based index)
-  --audio-field <name>  field to write the [sound:] tag into (name or index)
+  --audio-field <name>  field to write the clip reference into (name or index)
+  --audio-tag <form>    sound: [sound:clip.mp3] (default, Anki plays it itself)
+                        html:  <audio src="clip.mp3"></audio>, which the anki/
+                               card template can read and drive
   --language <tag>      language of the text being spoken (default: ko)
   --cache-dir <dir>     clips kept between runs (default: ./plusaudio-audio)
   --limit <n>           generate at most n clips this run
@@ -49,6 +52,30 @@ node add-audio.js <deck.apkg> [options]
 Fields are resolved per note type. If a note type has no field whose name looks like an audio field,
 the tool stops and asks for `--audio-field` rather than guessing and overwriting real content.
 
+## Which reference to write
+
+A note can point at a clip in two ways, and `--audio-tag` picks which one.
+
+`sound` writes `[sound:clip.mp3]`, and it is the default.
+It is what works in every Anki client including AnkiWeb, Anki plays it with its own player, and the learner gets Anki's native replay key `R` for free.
+
+`html` writes `<audio src="clip.mp3"></audio>`, which is what the card template in [`../anki/`](../anki/README.md) needs.
+Anki strips sound tags out of a card before the template's JavaScript ever sees them ([rslib/src/text.rs][text], `AV_TAGS`), so a template can never learn the filename or notice that playback ended, and the review loop cannot be sequenced.
+An `<audio src="...">` element survives into the page, and Anki still counts it as used media ([rslib/src/text.rs][text], `HTML_MEDIA_TAGS`), so Check Media keeps the clip and an export carries it along.
+Do not use it without that note type: nothing else plays the element, and Anki's own replay buttons will not appear.
+
+[text]: https://github.com/ankitects/anki/blob/main/rslib/src/text.rs
+
+### Switching a deck from one form to the other
+
+Re-running with the other `--audio-tag` converts the deck.
+The generated reference is rewritten in place in the form you asked for, and any further reference to a generated clip in the same field is dropped, so a note never ends up pointing at the same clip twice.
+Clip filenames are content hashes of the text, so the clips themselves are untouched: a conversion generates nothing, adds no media and removes none.
+
+Converting does change the field, so those notes get a new `mod` and Anki applies the update on import.
+The usual rule therefore applies: convert a fresh export, not a month-old one.
+References the tool did not write, such as the deck author's own recordings, are left in whatever form they were in.
+
 ## How a re-run stays cheap
 
 A clip's filename is derived from the text it was generated from
@@ -59,7 +86,7 @@ If the text has changed, the name changes with it and the stale clip is replaced
 Nothing has to be remembered between runs for this to work, and clips are also kept in `--cache-dir`
 so rebuilding a deleted output costs nothing.
 
-Sound tags the tool did not write - the deck author's own recordings - are left exactly where they
+References the tool did not write - the deck author's own recordings - are left exactly where they
 are, alongside the generated one. Tags written by the retired 2025 scripts (`*_gpt4o.mp3`) are
 recognised as the tool's own and replaced rather than duplicated.
 
@@ -99,19 +126,29 @@ node --test test/        # or: npm test, or pnpm test at the repo root
 against a fixture exported from Anki with review history.
 
 ```bash
-# Two runs over the same input, with audio generation stubbed.
-node tools/verify-runs.js "My Deck.apkg" /tmp/plusaudio-verify
+# Two runs over the same input, then two more in the other reference form,
+# with audio generation stubbed.
+node tools/verify-runs.js "My Deck.apkg" /tmp/plusaudio-verify [--audio-tag sound|html]
 
 # Then check the outputs against Anki's own importer (needs: pip install anki).
 python tools/verify-with-anki.py "My Deck.apkg" \
   /tmp/plusaudio-verify/run1.apkg /tmp/plusaudio-verify/run2.apkg
+
+# Pass the converted package as the second import to watch a deck switch form
+# inside a real collection.
+python tools/verify-with-anki.py "My Deck.apkg" \
+  /tmp/plusaudio-verify/run1.apkg /tmp/plusaudio-verify/switch1.apkg
 ```
+
+`verify-with-anki.py` imports each package into a collection seeded from the input deck and runs Anki's own media check after every import.
+On the 333-note deck it reports 999 files in the media folder and none of them unused, in both forms.
+That is the point of writing `<audio src>` rather than a bare filename: Anki keeps counting the clip as used.
 
 ## Speaking practice inside Anki
 
 The audio this adds is what the card template in [`../anki/`](../anki/README.md) plays.
 That note type runs amgi's own review loop inside Anki: the prompt plays, the microphone opens by itself where the client allows it, and the answer stays hidden until you have spoken.
-Its README covers converting the `[sound:...]` tags this tool writes into the HTML media references the template reads.
+Generate for it with `--audio-tag html`; its README covers converting a deck that already has `[sound:...]` tags.
 
 ## What this is not
 

@@ -1,13 +1,16 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const { describe, it } = require('node:test');
 
 const {
+  audioReferences,
   fieldChecksum,
+  renderAudioReference,
   resolveFields,
-  setOwnedSound,
-  soundFilenames,
+  setOwnedAudio,
   spokenText,
   stripHtmlPreservingMedia,
 } = require('../lib/deck');
@@ -33,6 +36,11 @@ const ANKI_CASES = [
     stripped: '[sound:1-1-13-1.mp3] paste-abc.jpg ',
     csum: 795728447,
   },
+  {
+    field: '<audio src="plusaudio-abc.mp3"></audio><img src="paste-abc.jpg">',
+    stripped: ' plusaudio-abc.mp3  paste-abc.jpg ',
+    csum: 1074455562,
+  },
 ];
 
 describe('field text', () => {
@@ -53,27 +61,80 @@ describe('field text', () => {
   });
 });
 
-describe('sound tags', () => {
-  it('finds every tag in a field', () => {
-    assert.deepEqual(soundFilenames('x[sound:a.mp3]y[sound:b.mp3]'), ['a.mp3', 'b.mp3']);
+describe('clip references', () => {
+  it('finds every reference in a field, in either form, in order', () => {
+    assert.deepEqual(
+      audioReferences('x[sound:a.mp3]y<audio src="b.mp3"></audio>').map((r) => [r.name, r.form]),
+      [
+        ['a.mp3', 'sound'],
+        ['b.mp3', 'html'],
+      ],
+    );
   });
 
-  it('replaces only the tags this tool owns', () => {
+  it('reads an <audio> reference however it is written', () => {
+    const names = (field) => audioReferences(field).map((r) => r.name);
+    assert.deepEqual(names("<audio src='b.mp3'>"), ['b.mp3']);
+    assert.deepEqual(names('<audio controls src=b.mp3 class="x">'), ['b.mp3']);
+    assert.deepEqual(names('<AUDIO SRC="b.mp3"></AUDIO>'), ['b.mp3']);
+    // Anki decodes entities in a src before looking the file up, so we must too.
+    assert.deepEqual(names('<audio src="a&amp;b.mp3"></audio>'), ['a&b.mp3']);
+  });
+
+  it('replaces only the references this tool owns', () => {
     const clip = mediaName('hello', 'ko');
     const field = '[sound:author.mp3]<img src="p.jpg">[sound:old_gpt4o.mp3]';
-    const updated = setOwnedSound(field, clip, isOwnedMediaName);
+    const updated = setOwnedAudio(field, clip, isOwnedMediaName);
     assert.equal(updated, `[sound:author.mp3]<img src="p.jpg">[sound:${clip}]`);
   });
 
-  it('collapses duplicate owned tags to one', () => {
-    const field = '[sound:a_gpt4o.mp3][sound:b_gpt4o.mp3]';
-    assert.equal(setOwnedSound(field, 'plusaudio-00000000000000000000.mp3', isOwnedMediaName),
-      '[sound:plusaudio-00000000000000000000.mp3]');
+  it('writes an HTML media reference when asked for one', () => {
+    const clip = mediaName('hello', 'ko');
+    assert.equal(
+      setOwnedAudio('[sound:author.mp3]', clip, isOwnedMediaName, 'html'),
+      `[sound:author.mp3]<audio src="${clip}"></audio>`,
+    );
+    assert.equal(renderAudioReference('c.mp3', 'html'), '<audio src="c.mp3"></audio>');
+    assert.equal(renderAudioReference('c.mp3', 'sound'), '[sound:c.mp3]');
   });
 
-  it('appends when the field has no owned tag', () => {
-    assert.equal(setOwnedSound('<img src="p.jpg">', 'c.mp3', () => true), '<img src="p.jpg">[sound:c.mp3]');
-    assert.equal(setOwnedSound('', 'c.mp3', () => true), '[sound:c.mp3]');
+  it('converts between the two forms in place rather than adding a second reference', () => {
+    const clip = mediaName('hello', 'ko');
+    const sound = `<img src="p.jpg">[sound:${clip}]after`;
+    const html = setOwnedAudio(sound, clip, isOwnedMediaName, 'html');
+    assert.equal(html, `<img src="p.jpg"><audio src="${clip}"></audio>after`);
+    assert.equal(setOwnedAudio(html, clip, isOwnedMediaName, 'sound'), sound);
+    assert.equal(audioReferences(html).filter((r) => isOwnedMediaName(r.name)).length, 1);
+  });
+
+  it('collapses duplicate owned references to one, across both forms', () => {
+    const field = '[sound:a_gpt4o.mp3]<audio src="b_gpt4o.mp3"></audio>';
+    assert.equal(
+      setOwnedAudio(field, 'plusaudio-00000000000000000000.mp3', isOwnedMediaName),
+      '[sound:plusaudio-00000000000000000000.mp3]',
+    );
+    assert.equal(
+      setOwnedAudio(field, 'plusaudio-00000000000000000000.mp3', isOwnedMediaName, 'html'),
+      '<audio src="plusaudio-00000000000000000000.mp3"></audio>',
+    );
+  });
+
+  it('writes the reference the anki/ card template actually reads', () => {
+    // The template is the only consumer of the html form, so the shape it
+    // looks for is the specification. If it changes, this has to change with
+    // it rather than the two drifting into separate conventions.
+    const loop = fs.readFileSync(path.join(__dirname, '..', '..', 'anki', 'src', 'anki-loop.js'), 'utf8');
+    const selector = loop.match(/slot\.querySelector\('([^']+)'\)/)?.[1];
+    assert.equal(selector, 'audio[src]', 'anki/src/anki-loop.js no longer looks for an <audio src>');
+
+    const [, tag, attribute] = selector.match(/^(\w+)\[(\w+)\]$/);
+    assert.equal(renderAudioReference('clip.mp3', 'html'), `<${tag} ${attribute}="clip.mp3"></${tag}>`);
+  });
+
+  it('appends when the field has no owned reference', () => {
+    assert.equal(setOwnedAudio('<img src="p.jpg">', 'c.mp3', () => true), '<img src="p.jpg">[sound:c.mp3]');
+    assert.equal(setOwnedAudio('', 'c.mp3', () => true), '[sound:c.mp3]');
+    assert.equal(setOwnedAudio('', 'c.mp3', () => true, 'html'), '<audio src="c.mp3"></audio>');
   });
 });
 

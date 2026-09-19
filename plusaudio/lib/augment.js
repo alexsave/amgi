@@ -16,12 +16,13 @@
 
 const { openPackage, writePackage } = require('./package');
 const {
+  AUDIO_TAG_FORMS,
+  audioReferences,
   fieldChecksum,
   joinFields,
   readNotetypes,
   resolveFields,
-  setOwnedSound,
-  soundFilenames,
+  setOwnedAudio,
   spokenText,
   splitFields,
   stripHtmlPreservingMedia,
@@ -37,6 +38,7 @@ const { AudioCache, isOwnedMediaName, mediaName } = require('./audio-store');
  * @param {string} [options.language]       language tag passed to the generator
  * @param {string|number} [options.textField]   field name or index to read aloud
  * @param {string|number} [options.audioField]  field name or index to write into
+ * @param {'sound'|'html'} [options.audioTag]   reference to write: [sound:] or <audio src>
  * @param {number} [options.limit]          stop after this many generations
  * @param {boolean} [options.dryRun]        report the plan; generate and write nothing
  * @param {number} [options.now]            epoch seconds to stamp changed notes with
@@ -51,11 +53,16 @@ async function augmentPackage(options) {
     language = 'ko',
     textField,
     audioField,
+    audioTag = 'sound',
     limit = Infinity,
     dryRun = false,
     now = Math.floor(Date.now() / 1000),
     log = () => {},
   } = options;
+
+  if (!AUDIO_TAG_FORMS.includes(audioTag)) {
+    throw new Error(`unknown audio tag form "${audioTag}"; expected one of ${AUDIO_TAG_FORMS.join(', ')}`);
+  }
 
   const pkg = openPackage(inputPath);
   try {
@@ -110,10 +117,16 @@ async function augmentPackage(options) {
       }
 
       const wanted = mediaName(text, language);
-      const currentOwned = soundFilenames(fields[audioIndex] ?? '').filter(isOwnedMediaName);
+      const currentOwned = audioReferences(fields[audioIndex] ?? '').filter((reference) =>
+        isOwnedMediaName(reference.name),
+      );
+      // The form counts as much as the filename: a deck augmented with
+      // [sound:] tags and re-run with --audio-tag html has the right clip in
+      // the wrong shape, and has to be rewritten to the new one.
       const upToDate =
         currentOwned.length === 1 &&
-        currentOwned[0] === wanted &&
+        currentOwned[0].name === wanted &&
+        currentOwned[0].form === audioTag &&
         (presentMedia.has(wanted) || addedMedia.has(wanted));
       if (upToDate) {
         summary.audioUpToDate += 1;
@@ -154,7 +167,7 @@ async function augmentPackage(options) {
       // separator count Anki expects once we write into the audio field.
       while (fields.length < notetype.fieldNames.length) fields.push('');
 
-      fields[audioIndex] = setOwnedSound(fields[audioIndex] ?? '', wanted, isOwnedMediaName);
+      fields[audioIndex] = setOwnedAudio(fields[audioIndex] ?? '', wanted, isOwnedMediaName, audioTag);
       const flds = joinFields(fields);
       if (flds === note.flds) {
         summary.audioUpToDate += 1;

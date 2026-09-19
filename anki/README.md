@@ -52,10 +52,23 @@ An `<audio src="...">` element survives into the page, and Anki still counts it 
 A bare filename in the field also works, because the loop falls back to reading the field as text.
 It is not recommended: Anki does not recognise a bare filename as a media reference, so Check Media will offer to delete the file and an export will leave it behind.
 
-### Converting a deck that already has sound tags
+### Generating the audio
 
-Decks built by `plusaudio/` store `[sound:plusaudio-....mp3]`.
-Convert them in Anki itself, with no scripting: Browse, select the notes, Notes > Find and Replace, tick "treat input as regular expression", limit it to the audio field, and replace
+`plusaudio/` writes the fields for you.
+Give it `--audio-tag html` and it writes `<audio src="...">` references in exactly the form above:
+
+```bash
+node plusaudio/add-audio.js "My Deck.apkg" --audio-tag html
+```
+
+Its default is `--audio-tag sound`, which is right for an ordinary Anki deck and wrong for this note type.
+A deck already generated one way converts to the other by re-running with the other flag: the clip filenames are content hashes, so nothing is regenerated and no note ends up with two references to the same clip.
+See [`../plusaudio/README.md`](../plusaudio/README.md).
+
+### Converting a deck you cannot regenerate
+
+If the deck is not one you can put back through `plusaudio/` - someone else's, or one you have edited in Anki since - convert it in Anki itself, with no scripting.
+Browse, select the notes, Notes > Find and Replace, tick "treat input as regular expression", limit it to the audio field, and replace
 
 ```
 \[sound:(.+?)\]

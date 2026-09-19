@@ -7,6 +7,13 @@ const crypto = require('node:crypto');
 
 const FIELD_SEPARATOR = '\x1f';
 const SOUND_TAG = /\[sound:([^\]]*)\]/g;
+// An <audio> element with a src, closing tag optional, which is what Anki's own
+// media tracker treats as a reference (rslib/src/text.rs, HTML_MEDIA_TAGS).
+const HTML_AUDIO_TAG =
+  /<\s*audio\b[^>]*?\bsrc\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]*))[^>]*>(?:\s*<\/\s*audio\s*>)?/gi;
+
+/** The two ways a note can point at a clip. See README.md, "Which reference to write". */
+const AUDIO_TAG_FORMS = ['sound', 'html'];
 
 const AUDIO_FIELD_NAMES = /^(audio|sound|pronunciation|tts|speech)$/i;
 const TEXT_FIELD_NAMES =
@@ -81,26 +88,62 @@ function joinFields(fields) {
   return fields.join(FIELD_SEPARATOR);
 }
 
-function soundFilenames(fieldText) {
-  return [...fieldText.matchAll(SOUND_TAG)].map((m) => m[1]);
+/**
+ * Every clip a field points at, in either form, in the order they appear.
+ * @returns {Array<{name: string, form: 'sound'|'html', index: number, length: number}>}
+ */
+function audioReferences(fieldText) {
+  const found = [];
+  for (const match of fieldText.matchAll(SOUND_TAG)) {
+    found.push({ name: match[1], form: 'sound', index: match.index, length: match[0].length });
+  }
+  for (const match of fieldText.matchAll(HTML_AUDIO_TAG)) {
+    // Anki decodes entities in a media src before it looks the file up, so a
+    // name read back here has to be decoded too or it would never match.
+    found.push({
+      name: decodeEntities(match[1] ?? match[2] ?? match[3] ?? ''),
+      form: 'html',
+      index: match.index,
+      length: match[0].length,
+    });
+  }
+  return found.sort((a, b) => a.index - b.index);
+}
+
+function renderAudioReference(filename, form) {
+  if (form === 'html') {
+    const src = filename.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+    return `<audio src="${src}"></audio>`;
+  }
+  return `[sound:${filename}]`;
 }
 
 /**
- * Replace the sound tags this tool owns with a single new one, leaving any
- * other content of the field - images, the deck author's own recordings, plain
- * text - exactly where it was.
+ * Replace the clip references this tool owns with a single new one in the
+ * requested form, leaving any other content of the field - images, the deck
+ * author's own recordings, plain text - exactly where it was.
+ *
+ * Owned references beyond the first are dropped rather than rewritten, so
+ * re-running with the other --audio-tag converts a deck instead of leaving it
+ * pointing at the same clip twice.
  */
-function setOwnedSound(fieldText, filename, isOwned) {
-  let replaced = false;
-  const tag = filename === null ? '' : `[sound:${filename}]`;
-  const next = fieldText.replace(SOUND_TAG, (match, name) => {
-    if (!isOwned(name)) return match;
-    if (replaced) return '';
-    replaced = true;
-    return tag;
+function setOwnedAudio(fieldText, filename, isOwned, form = 'sound') {
+  const owned = audioReferences(fieldText).filter((reference) => isOwned(reference.name));
+  const tag = filename === null ? '' : renderAudioReference(filename, form);
+
+  if (owned.length === 0) {
+    if (tag === '') return fieldText;
+    return fieldText.length === 0 ? tag : `${fieldText}${tag}`;
+  }
+
+  let out = '';
+  let cursor = 0;
+  owned.forEach((reference, i) => {
+    out += fieldText.slice(cursor, reference.index);
+    if (i === 0) out += tag;
+    cursor = reference.index + reference.length;
   });
-  if (replaced || filename === null) return next;
-  return next.length === 0 ? tag : `${next}${tag}`;
+  return out + fieldText.slice(cursor);
 }
 
 /** Note types, read from the schema 11 `col.models` JSON blob. */
@@ -172,14 +215,16 @@ function resolveFields(notetype, { textField, audioField } = {}) {
 }
 
 module.exports = {
+  AUDIO_TAG_FORMS,
   FIELD_SEPARATOR,
+  audioReferences,
   decodeEntities,
   fieldChecksum,
   joinFields,
   readNotetypes,
+  renderAudioReference,
   resolveFields,
-  setOwnedSound,
-  soundFilenames,
+  setOwnedAudio,
   spokenText,
   splitFields,
   stripHtmlPreservingMedia,

@@ -13,6 +13,7 @@
 
 const path = require('node:path');
 const { augmentPackage } = require('./lib/augment');
+const { AUDIO_TAG_FORMS } = require('./lib/deck');
 const { UnsupportedPackageError } = require('./lib/package');
 const { createGenerator } = require('./lib/tts');
 
@@ -20,7 +21,10 @@ const USAGE = `Usage: node add-audio.js <deck.apkg> [options]
 
   --out <path>          output package (default: "<input> (with audio).apkg")
   --text-field <name>   field to read aloud (name or 0-based index)
-  --audio-field <name>  field to write the [sound:] tag into (name or index)
+  --audio-field <name>  field to write the clip reference into (name or index)
+  --audio-tag <form>    sound: [sound:clip.mp3] (default, Anki plays it itself)
+                        html:  <audio src="clip.mp3"></audio>, which the anki/
+                               card template can read and drive
   --language <tag>      language of the text being spoken (default: ko)
   --cache-dir <dir>     clips kept between runs (default: ./plusaudio-audio)
   --limit <n>           generate at most n clips this run
@@ -31,6 +35,7 @@ const FLAGS_WITH_VALUES = new Set([
   '--out',
   '--text-field',
   '--audio-field',
+  '--audio-tag',
   '--language',
   '--cache-dir',
   '--limit',
@@ -74,6 +79,11 @@ async function main(argv) {
   const inputPath = options.positional[0];
   const outputPath = options.out ?? defaultOutputPath(inputPath);
   const dryRun = options.dryRun === true;
+  const audioTag = options['audio-tag'] ?? 'sound';
+  if (!AUDIO_TAG_FORMS.includes(audioTag)) {
+    process.stderr.write(`--audio-tag must be one of ${AUDIO_TAG_FORMS.join(', ')}\n`);
+    return 1;
+  }
 
   let generate = () => {
     throw new Error('OPENAI_API_KEY is not set');
@@ -102,6 +112,7 @@ async function main(argv) {
     language: options.language ?? 'ko',
     textField: options['text-field'],
     audioField: options['audio-field'],
+    audioTag,
     cacheDir: options['cache-dir'] ?? path.join(process.cwd(), 'plusaudio-audio'),
     limit: options.limit ? Number(options.limit) : Infinity,
     log: (line) => console.log(line),
@@ -109,6 +120,7 @@ async function main(argv) {
 
   console.log('');
   console.log(`package format:   ${summary.format}`);
+  console.log(`audio tag:        ${audioTag}`);
   console.log(`notes:            ${summary.notesTotal}`);
   console.log(`already current:  ${summary.audioUpToDate}`);
   console.log(`clips from cache: ${summary.audioFromCache}`);
