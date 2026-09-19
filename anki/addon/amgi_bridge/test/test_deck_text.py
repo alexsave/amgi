@@ -22,7 +22,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import deck_text  # noqa: E402
 
-# .../test/test_deck_text.py -> test -> amgi_audio -> addon -> anki -> repo root
+# .../test/test_deck_text.py -> test -> amgi_bridge -> addon -> anki -> repo root
 REPO_ROOT = os.path.dirname(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 )

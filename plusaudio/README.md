@@ -50,7 +50,7 @@ node add-audio.js <deck.apkg> [options]
 `--dry-run` needs no API key. Generating audio needs `OPENAI_API_KEY`.
 
 This tool works on a `.apkg` file: export, run it, import the result back.
-For a deck you already have open in Anki, [`../anki/addon/amgi_audio/`](../anki/addon/amgi_audio/README.md) does the same job directly against your live collection, with no export or import step.
+For a deck you already have open in Anki, [`../anki/addon/amgi_bridge/`](../anki/addon/amgi_bridge/README.md) does the same job directly against your live collection, with no export or import step.
 Use this one for a deck meant to be shared, or one you cannot open directly right now.
 
 `--language` is an amgi language code (`ko`, `ja`, `zh_cn`, `zh_hk`, `es`, ...).
@@ -186,7 +186,7 @@ Generate for it with `--audio-tag html`; its README covers converting a deck tha
 ## generate-clip.js: the seam the Anki add-on shells out to
 
 `add-audio.js` is built for a `.apkg` file: a whole deck, read once and written once.
-[`../anki/addon/amgi_audio/`](../anki/addon/amgi_audio/README.md) needs something different - one clip
+[`../anki/addon/amgi_bridge/`](../anki/addon/amgi_bridge/README.md) needs something different - one clip
 at a time, for whichever note in a live collection needs one - and it is Python, so it cannot
 `require()` `lib/generator.js` the way this CLI does.
 
@@ -214,7 +214,7 @@ So the clips are made with the same models, the same per-language speaking instr
 refusal to keep audio that does not say what the note says.
 Writing new notes into a deck is the next step and is not built yet: it needs a source of terms and a
 place to put the generated sides, not a different generator.
-`../anki/addon/amgi_audio/README.md`, "What v2 would need", says more about what that step looks like
+`../anki/addon/amgi_bridge/README.md`, "What v2 would need", says more about what that step looks like
 now that an add-on can have Anki itself do the writing.
 
 The scripts that produced the owner's original deck are in `archives/plusaudio-2025/`, with a note on

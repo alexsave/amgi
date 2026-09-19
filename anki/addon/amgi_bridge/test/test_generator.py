@@ -21,7 +21,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import generator  # noqa: E402
 
-# test/test_generator.py -> test -> amgi_audio -> addon -> anki -> repo root.
+# test/test_generator.py -> test -> amgi_bridge -> addon -> anki -> repo root.
 REAL_PLUSAUDIO_DIR = str(Path(__file__).resolve().parents[4] / "plusaudio")
 
 

@@ -3,7 +3,7 @@
 
 // One clip, generated on demand, for a caller that is not Node.
 //
-// anki/addon/amgi_audio/generator.py's NodeCliAudioGenerator shells out to this file to
+// anki/addon/amgi_bridge/generator.py's NodeCliAudioGenerator shells out to this file to
 // fill audio into a live Anki collection without a second copy of the generation policy
 // in Python (see lib/generator.js's own comment for why: one policy, cardGeneration.ts,
 // called from Node - that rule is not up for grabs here). This file is therefore a

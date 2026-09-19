@@ -21,8 +21,8 @@ import dataclasses
 from typing import TYPE_CHECKING, Callable, Optional
 
 try:
-    # The normal case: Anki has amgi_audio's parent directory on sys.path and
-    # imports this as part of the amgi_audio package.
+    # The normal case: Anki has amgi_bridge's parent directory on sys.path and
+    # imports this as part of the amgi_bridge package.
     from .deck_text import AUDIO_TAG_FORMS, audio_references, is_owned_media_name, media_name, set_owned_audio, spoken_text
 except ImportError:
     # test/ imports this add-on's modules directly, with the add-on's own

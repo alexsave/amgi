@@ -2,7 +2,7 @@
 
 // The Node side of the boundary generate-clip.js documents at its own top: text and a
 // language in, one clip written to --out, a clean exit code, and nothing else load
-// bearing on stdout or stderr. anki/addon/amgi_audio's test/test_generator.py proves the
+// bearing on stdout or stderr. anki/addon/amgi_bridge's test/test_generator.py proves the
 // Python side of the same contract.
 //
 // `run()` is exercised here with a stubbed generator, never a real OpenAI client - there
