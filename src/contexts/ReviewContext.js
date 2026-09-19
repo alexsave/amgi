@@ -2,12 +2,20 @@ import { useState, useEffect, useRef, createContext, useContext } from 'react';
 import { useDecks } from './DeckContext';
 import { processCardReview, buildReviewLog, RATINGS } from '../algorithms/spacedRepetition';
 import { CardScheduler } from '../utils/cardscheduler';
+import { createReviewOutbox } from '../utils/reviewOutbox';
 import { saveReview } from '../db/supabase';
 import { useAuth } from './AuthContext';
 import { MAX_NEW_CARDS_PER_DAY } from '../constants/constants';
 import { getLocalDate, getEndOfDayTimestamp } from '../utils/dates';
 
 const ReviewContext = createContext({});
+
+// Identifies the log row so that a retry after a lost response inserts it once
+// rather than twice - a duplicate would double-count against the daily
+// new-card budget, which is read straight off this table. The column is a
+// uuid, so there is no home-rolled fallback: where randomUUID is missing the
+// server generates the id and the retry is merely at-least-once.
+const newLogId = () => globalThis.crypto?.randomUUID?.() ?? null;
 
 // Interesting note: it works with 1 en->ko card. It works with 2 en->ko cads. After that idk
 // Ok as long as you don't get anything wrong, it works with N en->ko cards.
@@ -122,27 +130,57 @@ export const ReviewProvider = ({ children }) => {
         }
     };
 
-    // Function to save review data to the server without blocking 
-    const saveReviewToServer = async (cardId, review, log) => {
-        try {
-            if (!user) {
-                return;
-            }
+    // What the reviewer is told about persistence. Zero/zero is the silent
+    // happy path; anything else is rendered, because an answer that never
+    // reached the server used to disappear without a trace.
+    const [saveState, setSaveState] = useState({ pending: 0, failed: 0, lastError: null });
 
-            const today = getLocalDate();
-            
-            console.log('[Supabase] Saving review for card:', cardId, 'with state:', review.card_state);
-            
-            // Save to supabase without waiting for the response
-            // last_reviewed_at is already on the payload, stamped with the
-            // same instant the schedule was computed from.
-            saveReview(cardId, { ...review, scheduled_date: today }, user.id, log).catch(err => {
-                console.error('[Supabase] Error saving review to server:', err);
-            });
-        } catch (error) {
-            console.error('Error in saveReviewToServer:', error);
+    // One outbox for the life of the provider: it owns the ordering guarantee,
+    // so it must not be rebuilt when React hands the provider new identities.
+    // A lazy useState initializer rather than a ref, because it is built once
+    // and React must not see it created during a render.
+    const [outbox] = useState(() => createReviewOutbox({
+        send: ({ cardId, review, userId, log }) => saveReview(cardId, review, userId, log),
+        onChange: setSaveState
+    }));
+
+    // The learner must never wait on the network to see the next card, so the
+    // save is queued rather than awaited. The queue - not this function - is
+    // what makes it reliable: it is serialized, retried and, if it finally
+    // gives up, visible.
+    const saveReviewToServer = (cardId, review, log) => {
+        if (!user) {
+            return;
         }
+
+        const today = getLocalDate();
+
+        console.log('[Supabase] Queueing review for card:', cardId, 'with state:', review.card_state);
+
+        // last_reviewed_at is already on the payload, stamped with the same
+        // instant the schedule was computed from.
+        outbox.enqueue({
+            cardId,
+            userId: user.id,
+            review: { ...review, scheduled_date: today },
+            log: log ? { id: newLogId(), ...log } : null
+        });
     };
+
+    const retryFailedSaves = () => outbox.retryFailed();
+
+    // Closing the tab with answers still in flight would lose them, and the
+    // queue is deliberately not persisted, so the browser asks first.
+    useEffect(() => {
+        if (saveState.pending === 0 && saveState.failed === 0) return undefined;
+
+        const warn = (event) => {
+            event.preventDefault();
+            event.returnValue = '';
+        };
+        window.addEventListener('beforeunload', warn);
+        return () => window.removeEventListener('beforeunload', warn);
+    }, [saveState.pending, saveState.failed]);
 
     // Process card review and update scheduler
     const processCardOutcome = (cardId, outcome, attemptsOverride = null) => {
@@ -195,7 +233,7 @@ export const ReviewProvider = ({ children }) => {
                 // Otherwise, the card is done and we don't need to do anything. 
                 // If it goes to review, it will be loaded again no sooner than tomorrow
 
-                // Asynchronously save to server without blocking
+                // Queued, not awaited: the next card must not wait on a request.
                 saveReviewToServer(cardId, scheduled, log);
 
                 // Get the next card
@@ -306,7 +344,9 @@ export const ReviewProvider = ({ children }) => {
         currentCard,
         cardSchedulerRef,
         currentCardIdRef,
-        syncCardsToDeck
+        syncCardsToDeck,
+        saveState,
+        retryFailedSaves
     };
 
     return (

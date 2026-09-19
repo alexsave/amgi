@@ -363,3 +363,35 @@
     min-width: 130px;
   }
 }
+
+/* Unsaved answers. Loud on purpose: the review is gone if the learner walks
+   away while this is showing. */
+.review-save-warning {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  width: 100%;
+  padding: 8px 16px;
+  border-radius: 8px;
+  background-color: rgba(220, 76, 60, 0.12);
+  border: 1px solid rgba(220, 76, 60, 0.45);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.review-save-retry {
+  padding: 4px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background-color: var(--dark-surface);
+  color: var(--text-primary);
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.review-save-retry:hover {
+  border-color: var(--flame-orange-hover);
+}

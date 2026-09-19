@@ -94,7 +94,12 @@ describe('composeKnownSide', () => {
   test('puts the labels where only the eye sees them', () => {
     expect(composeKnownSide('date', ['calendar day'])).toBe('date (calendar day)');
     expect(composeKnownSide("It's okay.", ['casual'])).toBe("It's okay. (casual)");
-    expect(composeKnownSide('date', ['calendar day', 'casual'])).toBe('date (calendar day, casual)');
+  });
+
+  test('two labels of different kinds are not joined like a list of senses', () => {
+    // "date (calendar day, casual)" reads as two meanings, which is the exact
+    // shape this module exists to keep off a card.
+    expect(composeKnownSide('date', ['calendar day', 'casual'])).toBe('date (calendar day \u00b7 casual)');
   });
 
   test('leaves an unambiguous card unlabelled', () => {

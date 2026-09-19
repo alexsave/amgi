@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { XMarkIcon, ArrowPathIcon, MicrophoneIcon, ArrowsRightLeftIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon, ArrowPathIcon, ArrowsRightLeftIcon } from '@heroicons/react/24/outline';
 import { useAudio } from '../../contexts/useAudio';
 import { useDecks } from '../../contexts/DeckContext';
 import { useCardGenerationContext } from '../../contexts/CardGenerationContext';
@@ -72,8 +72,15 @@ const CardModal = ({ isOpen, onClose }) => {
       return;
     }
     
-    // Confirm with the user
-    if (!window.confirm('Some audio could not be generated. Add the cards without audio?')) {
+    // Says what actually happens in review, rather than implying the card is
+    // merely a bit worse: a card with no audio cannot be played, so the loop
+    // shows the text and asks the learner to read it. Audio can be filled in
+    // later from the deck's card list.
+    if (!window.confirm(
+      'Some audio could not be generated.\n\n' +
+      'Cards without audio are not played in review - they show their text to read out loud instead. ' +
+      'You can generate the audio later.\n\nAdd them anyway?'
+    )) {
       return;
     }
     
@@ -138,7 +145,7 @@ const CardModal = ({ isOpen, onClose }) => {
       const missingAudio = !generatedCard.front_audio_path || !generatedCard.back_audio_path;
       
       if (missingAudio) {
-        setError('Some audio could not be generated. You can still add the cards without audio.');
+        setError('Some audio could not be generated. Regenerate it with the 🔄 button, or add the cards without audio - they will be shown to read rather than played.');
         return; // Don't proceed with normal add
       }
       
@@ -228,13 +235,6 @@ const CardModal = ({ isOpen, onClose }) => {
               <ArrowPathIcon className={`icon ${isAudioRegenerating ? 'spin' : ''}`} />
             </button>
 
-            <button
-              className="card-action-btn"
-              title="Record your own audio"
-              disabled={isGenerating}
-            >
-              <MicrophoneIcon className="icon" />
-            </button>
           </div>
         </div>
       </div>

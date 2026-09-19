@@ -223,6 +223,7 @@ describe('useReview', () => {
 
       const [, , , log] = supabase.saveReview.mock.calls[0];
       expect(log).toEqual({
+        id: expect.any(String),
         reviewed_at: NOW.toISOString(),
         rating: 'again',
         card_state: 'review',
@@ -246,7 +247,7 @@ describe('useReview', () => {
       expect(log.card_state).toBe('learning');
     });
 
-    test('a card answered twice in one session has elapsed time, not a gap', () => {
+    test('a card answered twice in one session has elapsed time, not a gap', async () => {
       useDecks.mockReturnValue(deckWith([defaultCards()[0]]));
 
       const { result } = renderHook(() => useReview(), { wrapper });
@@ -256,6 +257,11 @@ describe('useReview', () => {
       });
       act(() => {
         result.current.markAgainGetNext();
+      });
+
+      // Saves are serialized, so the second one is sent once the first lands.
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(0);
       });
 
       const [, payload] = supabase.saveReview.mock.calls[0];
@@ -317,6 +323,110 @@ describe('useReview', () => {
       const { result } = renderHook(() => useReview(), { wrapper });
 
       expect(result.current.newCardsCount).toBe(2);
+    });
+  });
+
+  describe('persisting answers', () => {
+    // The learner never waits on the network, so every assertion here is about
+    // what happens after the card has already advanced.
+    const settle = async () => {
+      await act(async () => {
+        await jest.advanceTimersByTimeAsync(60000);
+      });
+    };
+
+    test('the answer is not lost when the request fails', async () => {
+      supabase.saveReview
+        .mockRejectedValueOnce(new Error('offline'))
+        .mockResolvedValue({});
+
+      const { result } = renderHook(() => useReview(), { wrapper });
+
+      act(() => {
+        result.current.markCorrectGetNext();
+      });
+
+      // The next card is served immediately, failure or not
+      expect(result.current.currentCard?.id).toBe('card1');
+
+      await settle();
+
+      expect(supabase.saveReview).toHaveBeenCalledTimes(2);
+      expect(result.current.saveState).toEqual({ pending: 0, failed: 0, lastError: null });
+    });
+
+    test('a retry resends the same log row id, so the log cannot be written twice', async () => {
+      supabase.saveReview
+        .mockRejectedValueOnce(new Error('offline'))
+        .mockResolvedValue({});
+
+      const { result } = renderHook(() => useReview(), { wrapper });
+
+      act(() => {
+        result.current.markCorrectGetNext();
+      });
+      await settle();
+
+      const [, , , first] = supabase.saveReview.mock.calls[0];
+      const [, , , second] = supabase.saveReview.mock.calls[1];
+      expect(first.id).toEqual(expect.any(String));
+      expect(second.id).toBe(first.id);
+    });
+
+    test('two rapid grades are sent one at a time, oldest first', async () => {
+      useDecks.mockReturnValue(deckWith(defaultCards()));
+
+      let release;
+      supabase.saveReview.mockImplementationOnce(
+        () => new Promise((resolve) => { release = resolve; })
+      );
+
+      const { result } = renderHook(() => useReview(), { wrapper });
+
+      act(() => {
+        result.current.markCorrectGetNext();
+      });
+      act(() => {
+        result.current.markCorrectGetNext();
+      });
+
+      // The second answer waits: sending both at once could land them in the
+      // wrong order and leave the older schedule stored.
+      expect(supabase.saveReview).toHaveBeenCalledTimes(1);
+      expect(result.current.saveState.pending).toBe(2);
+
+      await act(async () => {
+        release({});
+        await Promise.resolve();
+      });
+
+      expect(supabase.saveReview).toHaveBeenCalledTimes(2);
+      expect(supabase.saveReview.mock.calls[0][0]).toBe('card2');
+      expect(supabase.saveReview.mock.calls[1][0]).toBe('card1');
+    });
+
+    test('an answer that never saves is reported rather than silently dropped', async () => {
+      supabase.saveReview.mockRejectedValue(new Error('offline'));
+
+      const { result } = renderHook(() => useReview(), { wrapper });
+
+      act(() => {
+        result.current.markCorrectGetNext();
+      });
+      await settle();
+      await settle();
+      await settle();
+
+      expect(result.current.saveState.failed).toBe(1);
+      expect(result.current.saveState.lastError.message).toBe('offline');
+
+      supabase.saveReview.mockResolvedValue({});
+      await act(async () => {
+        result.current.retryFailedSaves();
+        await Promise.resolve();
+      });
+
+      expect(result.current.saveState.failed).toBe(0);
     });
   });
 

@@ -132,7 +132,7 @@ describe('structured output formats', () => {
             },
             sense_tag: {
               type: 'string',
-              description: "Two or three words in the learner's own language naming which meaning of the input this card teaches, for example 'calendar day'. Empty when the input has only one everyday meaning.",
+              description: "Usually empty. Fill it only when the input genuinely has a second, equally everyday meaning that a different card could teach - then two or three words in the learner's own language naming which of those meanings this card teaches, for example 'calendar day' for 'date'. Never a restatement, summary, topic or tone of the card itself.",
             },
             register: {
               type: 'string',
@@ -167,7 +167,7 @@ describe('structured output formats', () => {
             },
             sense_tag: {
               type: 'string',
-              description: "Two or three words in the learner's own language naming which meaning of the input this card teaches, for example 'calendar day'. Empty when the input has only one everyday meaning.",
+              description: "Usually empty. Fill it only when the input genuinely has a second, equally everyday meaning that a different card could teach - then two or three words in the learner's own language naming which of those meanings this card teaches, for example 'calendar day' for 'date'. Never a restatement, summary, topic or tone of the card itself.",
             },
             register: {
               type: 'string',
@@ -202,7 +202,7 @@ describe('structured output formats', () => {
             },
             sense_tag: {
               type: 'string',
-              description: "Two or three words in the learner's own language naming which meaning of the input this card teaches, for example 'calendar day'. Empty when the input has only one everyday meaning.",
+              description: "Usually empty. Fill it only when the input genuinely has a second, equally everyday meaning that a different card could teach - then two or three words in the learner's own language naming which of those meanings this card teaches, for example 'calendar day' for 'date'. Never a restatement, summary, topic or tone of the card itself.",
             },
             register: {
               type: 'string',
@@ -447,7 +447,7 @@ describe('generateCardText: rewriting one side', () => {
       },
     ]);
     expect(body.response_format).toBe(KNOWN_SIDE_FORMAT);
-    expect(card.front_text).toBe('calendar date (calendar day, formal)');
+    expect(card.front_text).toBe('calendar date (calendar day \u00b7 formal)');
     expect(card.back_text).toBe('날짜');
   });
 

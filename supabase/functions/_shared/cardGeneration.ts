@@ -221,7 +221,11 @@ export function getTtsInstructions(language: string): string {
 
 const SENSE_TAG_FIELD = {
     type: "string",
-    description: "Two or three words in the learner's own language naming which meaning of the input this card teaches, for example 'calendar day'. Empty when the input has only one everyday meaning.",
+    // Empty is the normal answer, and the description says so first: the
+    // field's own wording is the last thing read before it is filled in, and
+    // describing what a tag contains before saying when to omit one is what
+    // produced "Are you hungry? (hungry now)".
+    description: "Usually empty. Fill it only when the input genuinely has a second, equally everyday meaning that a different card could teach - then two or three words in the learner's own language naming which of those meanings this card teaches, for example 'calendar day' for 'date'. Never a restatement, summary, topic or tone of the card itself.",
 } as const;
 
 const REGISTER_FIELD = {

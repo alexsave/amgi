@@ -1,5 +1,5 @@
 // Deck context for managing global deck state
-import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useState, useRef } from 'react';
 import * as supabase from '../db/supabase';
 import { regenerateCardPart, deleteCards as deleteCardsRemote, deleteDeck as deleteDeckRemote } from '../network/supabaseApi';
 import { useAuth } from './AuthContext';
@@ -15,6 +15,11 @@ export const DeckProvider = ({ children }) => {
   // the review session never opens with a stale budget.
   const [newCardBudget, setNewCardBudget] = useState(null);
   const [error, setError] = useState(null);
+  // Browsing state, kept apart from `decks[id].cards` on purpose: that list is
+  // the review queue (capped, due-only), and showing it on the deck's own page
+  // hid every card the session was not going to serve. Keyed by deck id,
+  // `{ cards, loading, error }`, and only populated for a deck someone opened.
+  const [deckCards, setDeckCards] = useState({});
   const { user } = useAuth();
 
   // Add refs for tracking load state and debouncing
@@ -73,6 +78,38 @@ export const DeckProvider = ({ children }) => {
       }
     };
   }, [user]);
+
+  // Applies a change to a deck's browse list, if that deck has been browsed.
+  // A deck nobody opened stays absent rather than being half-populated, so the
+  // next open still does one honest full read.
+  const patchDeckCards = (deckId, patch) => {
+    setDeckCards(prev => {
+      const entry = prev[deckId];
+      if (!entry) return prev;
+      return { ...prev, [deckId]: { ...entry, cards: patch(entry.cards) } };
+    });
+  };
+
+  /** Loads every card in a deck for the card list. Safe to call repeatedly. */
+  const loadDeckCards = useCallback(async (deckId) => {
+    if (!deckId) return;
+
+    setDeckCards(prev => ({
+      ...prev,
+      [deckId]: { cards: prev[deckId]?.cards || [], loading: true, error: null }
+    }));
+
+    try {
+      const cards = await supabase.loadDeckCards(deckId);
+      setDeckCards(prev => ({ ...prev, [deckId]: { cards, loading: false, error: null } }));
+    } catch (err) {
+      console.error('Error loading deck cards:', err);
+      setDeckCards(prev => ({
+        ...prev,
+        [deckId]: { cards: prev[deckId]?.cards || [], loading: false, error: err.message }
+      }));
+    }
+  }, []);
 
   const saveDecks = async (newDecks) => {
     // Save decks to Supabase if user is authenticated
@@ -170,6 +207,12 @@ export const DeckProvider = ({ children }) => {
       delete newDecks[deckId];
       return newDecks;
     });
+    setDeckCards(prev => {
+      if (!prev[deckId]) return prev;
+      const next = { ...prev };
+      delete next[deckId];
+      return next;
+    });
   };
 
   const deleteCard = async (deckId, cardId) => {
@@ -194,6 +237,7 @@ export const DeckProvider = ({ children }) => {
         }
       };
     });
+    patchDeckCards(deckId, cards => cards.filter(card => card.id !== cardId));
   };
 
   // Update due cards when necessary
@@ -231,21 +275,22 @@ export const DeckProvider = ({ children }) => {
         const cardIds = newCards.map(card => card.id);
         const reviews = await supabase.newReview(cardIds, user.id);
         
+        const transformedCards = newCards.map((card, index) => ({
+          id: card.id,
+          front_text: card.front_text,
+          back_text: card.back_text,
+          front_audio_path: card.front_audio_path,
+          back_audio_path: card.back_audio_path,
+          front_lang: card.front_lang,
+          back_lang: card.back_lang,
+          position: card.position,
+          created: new Date(card.created_at).getTime(),
+          review: Array.isArray(reviews) ? reviews[index] : reviews
+        }));
+
         // Update local state
         setDecks(prev => {
           const deck = prev[deckId];
-          const transformedCards = newCards.map((card, index) => ({
-            id: card.id,
-            front_text: card.front_text,
-            back_text: card.back_text,
-            front_audio_path: card.front_audio_path,
-            back_audio_path: card.back_audio_path,
-            front_lang: card.front_lang,
-            back_lang: card.back_lang,
-            created: new Date(card.created_at).getTime(),
-            review: Array.isArray(reviews) ? reviews[index] : reviews
-          }));
-          
           return {
             ...prev,
             [deckId]: {
@@ -255,7 +300,8 @@ export const DeckProvider = ({ children }) => {
             }
           };
         });
-        
+        patchDeckCards(deckId, cards => [...cards, ...transformedCards]);
+
         // If original input was a single card, return just the first card
         return Array.isArray(cardInput) ? newCards : newCards[0];
       } else {
@@ -371,6 +417,7 @@ export const DeckProvider = ({ children }) => {
                 }
               };
             });
+            patchDeckCards(deckId, cards => cards.map(c => c.id === card.id ? { ...c, ...paths } : c));
           } catch (err) {
             // A quota error will fail every remaining card too - stop now
             // and let the user resume after upgrading / next period.
@@ -440,6 +487,8 @@ export const DeckProvider = ({ children }) => {
 
   const value = {
     decks,
+    deckCards,
+    loadDeckCards,
     loading,
     currentDeckId,
     newCardsToday,

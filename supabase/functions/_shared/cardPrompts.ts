@@ -46,7 +46,9 @@ function speakingRules({ knownLanguage, learningLanguage }: CardLanguages): stri
     const rules = [
         `SPEAKABLE TEXT ONLY. known_text and learning_text are synthesised verbatim. They contain the words to be said and nothing else: no parentheses or brackets, no slashes, no "or", no second translation, no romanisation, no part-of-speech or gender labels, no quotation marks, no numbering, no commentary. Sentence punctuation (? ! . ,) is fine.`,
 
-        `EXACTLY ONE SENSE. If the input can mean more than one thing, pick the single meaning a learner is most likely to have meant in everyday speech and write the card for that meaning alone. Never put two meanings on one card: a side that reads "calendar day, romantic outing" is not something anyone says. Name the meaning you picked in sense_tag, written in ${known}, two or three words, lower case, no parentheses - for example "calendar day" for the English word "date". Leave sense_tag empty when the input has only one everyday meaning; an unnecessary tag is clutter on the card.`,
+        `EXACTLY ONE SENSE. If the input can mean more than one thing, pick the single meaning a learner is most likely to have meant in everyday speech and write the card for that meaning alone. Never put two meanings on one card: a side that reads "calendar day, romantic outing" is not something anyone says.`,
+
+        `SENSE_TAG IS EMPTY UNLESS IT TELLS TWO CARDS APART. It is a disambiguator, not a description, and it is printed on the card, so a tag that adds nothing is text the learner reads past on every repetition. Before writing one, name the OTHER card: the different, equally everyday meaning of the same input that someone could have meant instead. If you cannot name that other card, sense_tag is empty. The English word "date" has one ("calendar day" against "romantic outing"). "Are you hungry?" has none, so its sense_tag is empty - "hungry now" and "feeling hungry" are the same meaning said again. A sentence almost never needs a tag; a bare word sometimes does. Never restate or paraphrase the card, never name its topic, its situation or its tone, and never repeat what the register field already reports. When a tag is genuinely needed, write the meaning in ${known}, two or three words, no parentheses, spelled and capitalised the way ${known} spells those words in running text.`,
 
         `KEEP THE SHAPE OF THE INPUT. A single word becomes a single word in its citation form, a phrase becomes a phrase, a sentence becomes a sentence. Do not pad a word into a full sentence and do not reduce a sentence to a word.`,
 
@@ -98,7 +100,7 @@ export function buildKnownSideRegenerationPrompt({
 
 The learner rejected this ${known} side of it: "${rejectedKnownText}"
 
-Write a better known_text: what a ${known} speaker would actually say to mean that ${learning} utterance, matching its register and its level of formality. Report in register which level the ${learning} utterance above uses, and in sense_tag which meaning of it the card teaches, if it has more than one.
+Write a better known_text: what a ${known} speaker would actually say to mean that ${learning} utterance, matching its register and its level of formality. Report in register which level the ${learning} utterance above uses. Leave sense_tag empty unless the utterance really has a second everyday meaning a separate card would teach.
 
 ${speakingRules({ knownLanguage, learningLanguage })}`;
 }
@@ -155,5 +157,5 @@ ${speakingRules({ knownLanguage, learningLanguage })}`;
 export function buildUnspeakableRetryPrompt(previousPrompt: string, rejectedText: string, reason: string): string {
     return `${previousPrompt}
 
-YOUR PREVIOUS ANSWER WAS REJECTED. You returned learning_text as "${rejectedText}", but ${reason}. That text goes straight to a speech synthesiser, so it has to be one thing a person says. Choose the single most likely everyday meaning, write only that utterance in learning_text, and put the label for the meaning you chose in sense_tag.`;
+YOUR PREVIOUS ANSWER WAS REJECTED. You returned learning_text as "${rejectedText}", but ${reason}. That text goes straight to a speech synthesiser, so it has to be one thing a person says. Choose the single most likely everyday meaning and write only that utterance in learning_text. Put the meaning you chose in sense_tag only if the input really does have a second, equally everyday meaning that a different card would teach; otherwise leave sense_tag empty.`;
 }
