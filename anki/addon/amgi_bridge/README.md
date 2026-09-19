@@ -109,7 +109,7 @@ See `core.apply_fill`'s docstring for why, and `test_core_collection.py`'s cance
 
 ## Generation: local, not the edge function
 
-The generation policy - prompts, the TTS voice instructions, the transcribe-then-judge validation loop - lives in exactly one place, `supabase/functions/_shared/cardGeneration.ts`, and this add-on does not get a second copy of it in Python.
+The generation policy - prompts, the TTS voice instructions, the transcribe-then-judge validation loop - lives in exactly one place, `plusaudio/lib/cardGeneration/cardGeneration.ts`, and this add-on does not get a second copy of it in Python.
 It is Python, so it cannot `require()` that TypeScript module the way `plusaudio/lib/generator.js` does.
 Instead `generator.py` shells out to `plusaudio/generate-clip.js`, a small Node entry point built for exactly this - text and a language in, one clip written to a file, over a documented contract (see that file's own top-of-file comment) - which in turn calls the same shared generator `plusaudio/add-audio.js` uses.
 
@@ -126,7 +126,7 @@ That reasoning no longer applies now that reaching into a live collection with n
 
 ## Local HTTP bridge
 
-amgi is moving to local-first: the React UI stays as a visual deck builder, and reviewing and editing happen against a local Anki collection instead of Supabase.
+amgi is local-first: the React UI is a visual deck builder, and reviewing and editing happen against a local Anki collection instead of a hosted backend.
 When Anki is closed, the UI reaches the collection file directly, through `plusaudio/lib/collection/` (Node, no Anki install required - see that folder's own `index.js`).
 When Anki is open, the collection file is locked in `locking_mode=exclusive` and cannot even be read from outside the Anki process (see `plusaudio/lib/collection/open.js`'s module comment for the experiments that pinned that down), so the only way in is from inside Anki itself.
 That is what this bridge is: a small local HTTP server, run by this add-on, that the UI can talk to instead of the file, picking whichever transport is available and otherwise not caring which one it is using.

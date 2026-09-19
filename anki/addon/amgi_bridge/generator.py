@@ -2,7 +2,7 @@
 #
 # The generation policy - prompts, TTS voice instructions, the
 # transcribe-then-judge validation loop - lives in exactly one place,
-# supabase/functions/_shared/cardGeneration.ts, and is not allowed a second
+# plusaudio/lib/cardGeneration/cardGeneration.ts, and is not allowed a second
 # copy. This add-on is Python and cannot require() that TypeScript module the
 # way plusaudio/lib/generator.js does, so it shells out instead, to
 # plusaudio/generate-clip.js - a small Node entry point built for exactly

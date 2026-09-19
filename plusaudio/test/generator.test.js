@@ -2,17 +2,19 @@
 
 // The CLI's half of the shared generator.
 //
-// The policy itself is tested from jest (src/__tests__/edge/cardGeneration.test.js),
-// against the same module. What is worth testing HERE is that plain Node can
-// load that TypeScript module at all - no jest, no bundler, no build step - and
-// that what comes back out of it is a Buffer of the right bytes, because that
-// is the contract augmentPackage relies on.
+// What is worth testing HERE is that plain Node can load that TypeScript
+// module at all - no jest, no bundler, no build step - and that what comes
+// back out of it is a Buffer of the right bytes, because that is the contract
+// augmentPackage relies on. The policy's own logic (prompts, retries, the
+// audio judge) is exercised through this same seam - there is no separate
+// edge-function runtime to test it from any more; see
+// ../lib/cardGeneration/cardGeneration.ts for where it lives now and why.
 
 const assert = require('node:assert/strict');
 const { test } = require('node:test');
 
 const { createGenerator } = require('../lib/generator');
-const { CARD_MODELS } = require('../../supabase/functions/_shared/models.ts');
+const { CARD_MODELS } = require('../lib/cardGeneration/models.ts');
 
 function scriptedClient({ transcript, clip }) {
   const calls = { speech: [], transcription: [], chat: [] };

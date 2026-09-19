@@ -4,17 +4,24 @@
 //
 // Everything about how a clip is made - which voice, the per-language speaking
 // instructions, and the refusal to keep a clip that does not say what the card
-// says - lives in supabase/functions/_shared/cardGeneration.ts, which is the
-// same module the web app's `cards` edge function runs. A deck built here is
+// says - lives in ./cardGeneration/cardGeneration.ts, which is the same module
+// amgi's own local generation path (src/server/anki/audio.js, by way of
+// generate-clip.js) and the Anki add-on's bridge run. A deck built here is
 // therefore built to the standard the app already holds itself to, and there is
 // only one place to improve when that standard moves.
+//
+// This module used to live in supabase/functions/_shared/, back when a hosted
+// edge function was the other runtime that needed it. That backend is retired
+// (see archives/supabase-2026/); the policy moved here, into plusaudio's own
+// package, because plusaudio/lib/generator.js and plusaudio/test/generator.test.js
+// are now its only importers.
 //
 // Requiring the TypeScript module directly (Node strips the types) is
 // deliberate: no build step means no generated copy that can drift from its
 // source, which is the failure this whole exercise exists to prevent.
 
-const { generateCardAudio } = require('../../supabase/functions/_shared/cardGeneration.ts');
-const { CARD_MODELS } = require('../../supabase/functions/_shared/models.ts');
+const { generateCardAudio } = require('./cardGeneration/cardGeneration.ts');
+const { CARD_MODELS } = require('./cardGeneration/models.ts');
 
 /**
  * Build a generator for augmentPackage.

@@ -19,9 +19,10 @@
 //      the speech evaluator ever sees it. The learning-language side is a
 //      bare utterance, always.
 //
-// Imported by the `cards` and `speech` edge functions (Deno) and unit tested
-// from jest (src/__tests__/edge/cardText.test.js), so it must stay free of
-// Deno APIs and of npm:/jsr: imports.
+// Imported by plusaudio/lib/generator.js and, before the replatform, by the
+// `cards` and `speech` edge functions (Deno) - which is why it still stays
+// free of Deno APIs and of npm:/jsr: imports, even though Node is now its
+// only runtime.
 
 /** English names for the app's languages, mirroring src/constants/languages.js. */
 export const LANGUAGE_NAMES: Record<string, string> = {

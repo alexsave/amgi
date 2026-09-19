@@ -5,11 +5,12 @@
 // Shelling out to plusaudio/generate-clip.js (rather than requiring
 // plusaudio/lib/generator.js in-process) is deliberate, for the same reason
 // anki/addon/amgi_bridge/generator.py does it: lib/generator.js itself
-// requires cardGeneration.ts (a Deno-flavoured TypeScript file meant for a
-// Supabase edge function), which has no place in this app's server bundle
-// even with plusaudio itself now a workspace package - see
-// next.config.js's `serverExternalPackages` comment for what that option
-// does and does not change. A subprocess keeps that boundary real.
+// requires plusaudio/lib/cardGeneration/cardGeneration.ts, a plain
+// TypeScript file with no build step (Node strips the types at require()
+// time), which has no place in this app's server bundle even with plusaudio
+// itself now a workspace package - see next.config.js's
+// `serverExternalPackages` comment for what that option does and does not
+// change. A subprocess keeps that boundary real.
 
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';

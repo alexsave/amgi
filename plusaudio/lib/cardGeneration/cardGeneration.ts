@@ -2,22 +2,28 @@
 // loop that refuses audio which does not say what the card says.
 //
 // This is the whole generation policy, and it is deliberately the only copy.
-// It runs in two places - the `cards` edge function (Deno) and the plusaudio
-// CLI (Node) - so a deck built from the command line is built to the same
-// standard as a card made in the web app, instead of drifting into a second,
-// worse generator.
+// It is Node's, run from plusaudio/lib/generator.js - by the plusaudio CLI
+// directly, and by the app's own local generation path and the Anki add-on's
+// bridge, both of which shell out to plusaudio/generate-clip.js - so a deck
+// built any of those ways is built to the same standard, instead of drifting
+// into a second, worse generator.
+//
+// This module used to run in a Deno edge function too (the hosted Supabase
+// backend, retired - see archives/supabase-2026/), which is why it still
+// avoids Deno APIs and npm:/jsr: imports: those constraints cost nothing now
+// and there is no reason to add either kind of dependency to a module that
+// otherwise has none.
 //
 // What is in here: prompts (via cardPrompts.ts), schemas, assembly (via
 // cardText.ts), the corrective retry for unspeakable text, the TTS voice
 // instructions, and the transcribe-then-judge validation loop.
 //
 // What is NOT in here, and must stay out: authentication, quota, storage,
-// the database, Deno APIs, environment variables, and npm:/jsr: imports.
-// The OpenAI client and the model ids are injected (see CardGenerationContext)
-// because the two runtimes get them from different places, and because a test
-// can then drive the whole policy without a key or a network. Keeping the
-// module free of npm: specifiers is what lets Node require it directly, with
-// no build step and so no artifact that can drift from its source.
+// the database, environment variables, and any runtime-specific API. The
+// OpenAI client and the model ids are injected (see CardGenerationContext)
+// so a test can drive the whole policy without a key or a network. Keeping
+// the module free of npm: specifiers is what lets Node require it directly,
+// with no build step and so no artifact that can drift from its source.
 
 import {
     assembleCard,
@@ -45,8 +51,8 @@ import type { CardModels } from "./models.ts";
 // THE INJECTED CLIENT
 // ========================
 //
-// Structural types rather than the SDK's own: the edge function runs
-// npm:openai@6 and the CLI runs the Node package, and a test passes neither.
+// Structural types rather than the SDK's own: the retired edge function ran
+// npm:openai@6, the CLI runs the Node package, and a test passes neither.
 // Only the four calls this module makes are described.
 
 interface ChatToolCall {

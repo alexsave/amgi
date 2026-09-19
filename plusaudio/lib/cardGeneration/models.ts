@@ -5,10 +5,12 @@
 // - gpt-4o-mini-transcribe: transcription used to validate generated TTS audio
 // - gpt-realtime: GA realtime speech model for live conversation practice
 //
-// Separate from openai.ts because the client there is Deno-only (Deno.env,
-// npm: specifier) while the ids are runtime-agnostic policy: the plusaudio CLI
-// has to generate with the same models the web app does, or the two produce
-// audibly different decks.
+// Kept separate from an OpenAI client wrapper so it stays runtime-agnostic
+// policy: the plusaudio CLI has to generate with the same models the app's
+// own local generation path does, or the two produce audibly different
+// decks. (Before the replatform this also had to be Deno-safe, because the
+// same ids were re-exported to a `cards`/`speech` edge function's own
+// Deno-only openai.ts; that edge function is retired.)
 
 export const SPEECH_EVALUATION_MODEL = "gpt-audio";
 export const TEXT_MODEL = "gpt-5-mini";
