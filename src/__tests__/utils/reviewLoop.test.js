@@ -134,6 +134,29 @@ describe('createReviewLoop', () => {
     expect(loop.micUnavailable).toBe(true);
   });
 
+  test('a microphone request that never settles falls back once micTimeoutMs elapses', async () => {
+    // Real Anki desktop (Qt 6.11, no permission-handling add-on) leaves an
+    // unanswered getUserMedia() pending forever - it never rejects. This is
+    // the case the "without a microphone" test above (an immediate rejection)
+    // does not cover.
+    const host = makeHost({
+      openMic: () => new Promise(() => {}),
+      micTimeoutMs: 20,
+      onPhase: (phase, info, self) => {
+        if (phase === PHASE.WAITING) self.loop.endTurn('no-mic');
+      },
+    });
+    const loop = createReviewLoop(host);
+    host.loop = loop;
+
+    await loop.start();
+
+    expect(host.onMicUnavailable).toHaveBeenCalledTimes(1);
+    expect(host.phases).toEqual([PHASE.PROMPT, PHASE.WAITING, PHASE.ANSWER]);
+    // No stream was ever opened, so there is nothing to close and nothing to replay.
+    expect(host.calls).toEqual(['playPrompt', 'reveal', 'playNative', 'onAnswerReady']);
+  });
+
   test('a cancelled card does not reveal anything', async () => {
     const host = makeHost();
     const loop = createReviewLoop(host);

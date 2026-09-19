@@ -48,12 +48,41 @@ const safeAsync = async (fn) => {
   }
 };
 
+// A permission prompt is not guaranteed to ever settle. Real Anki desktop
+// (Qt 6.11/WebEngine, no permission-handling add-on installed) leaves an
+// unanswered getUserMedia() request in "ask" state forever: it neither
+// resolves nor rejects. openMic() is host code this file does not control,
+// so it is raced against a timer instead of trusted to always settle - the
+// same shape the host already applies to clip playback (CLIP_START_TIMEOUT_MS
+// in anki-loop.js), just for the one host promise that has no such guard.
+const DEFAULT_MIC_TIMEOUT_MS = 15000;
+
+const withTimeout = (promise, ms) =>
+  new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`microphone request timed out after ${ms}ms`)), ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      }
+    );
+  });
+
 /**
  * @param {object} host
  * @param {() => Promise<void>} [host.playPrompt]   resolves when the prompt audio has finished
  * @param {() => Promise<{audioContext: any, stream: any}>} [host.openMic]
- *        resolves with a live stream, or rejects if the microphone is unavailable
+ *        resolves with a live stream, or rejects if the microphone is unavailable.
+ *        May also simply never settle (a real risk - see micTimeoutMs), so it is
+ *        always raced against a timeout rather than awaited bare.
  * @param {() => Promise<any>} [host.closeMic]      resolves with a recording, or null
+ * @param {number} [host.micTimeoutMs] how long to wait for openMic() before treating
+ *        it as unavailable, same as a rejection. Defaults to 15s: long enough for a
+ *        first-time permission prompt a learner has to notice and click.
  * @param {(result) => void|Promise<void>} [host.reveal]        show the answer
  * @param {() => Promise<void>} [host.playNative]   resolves when the native audio has finished
  * @param {(phase, info) => void} [host.onPhase]
@@ -74,6 +103,7 @@ export function createReviewLoop(host = {}) {
     onAnswerReady = noop,
     detect = detectSpeechEnd,
     vadOptions,
+    micTimeoutMs = DEFAULT_MIC_TIMEOUT_MS,
   } = host;
 
   // Bumped whenever a run is cancelled, so async steps from the previous card
@@ -174,7 +204,7 @@ export function createReviewLoop(host = {}) {
     let mic = null;
     if (openMic && !micUnavailable) {
       try {
-        mic = await openMic();
+        mic = await withTimeout(openMic(), micTimeoutMs);
       } catch (error) {
         micUnavailable = true;
         safe(() => onMicUnavailable(error));

@@ -190,3 +190,87 @@ for (const schema of [11, 18]) {
     },
   );
 }
+
+// The romanisation guard (cardText.ts's flagRomanizedFields): a soft warning
+// on the returned result, never a thrown error - see that file's own
+// docstring for why a hand-authored note is warned about, not refused.
+test(
+  'addNote warns when a non-Latin-script note is written entirely in Latin letters',
+  { skip: !anki && 'no python3 with the anki library on PATH (set ANKI_PYTHON_BIN)' },
+  () => {
+    const { dir, col } = setUp(18);
+    const basic = col.listNotetypes().result.find((n) => n.name === 'Basic');
+    const deck = col.createDeck('Romanisation Test').result.deck;
+
+    // Basic's fields are ["Front", "Back"]; index 1 ("Back") is the field the
+    // caller identifies as the learning-language text, the same way
+    // CardForm.js's own "read aloud" field picker would.
+    const romanized = col.addNote({
+      deckId: deck.id,
+      notetypeId: basic.id,
+      fields: ['hello', 'annyeonghaseyo'],
+      language: 'ko',
+      learningFieldIndex: 1,
+    }).result;
+    assert.match(romanized.warning, /Back/);
+    assert.match(romanized.warning, /ko/);
+
+    const native = col.addNote({
+      deckId: deck.id,
+      notetypeId: basic.id,
+      fields: ['hello', '안녕하세요'],
+      language: 'ko',
+      learningFieldIndex: 1,
+    }).result;
+    assert.equal(native.warning, undefined, 'real Hangul must not be flagged');
+
+    // Pointing the check at "Front" (index 0, "hello") instead of "Back"
+    // demonstrates it only ever looks at the ONE field it is told about: the
+    // check does not know or guess which field is the known-language side,
+    // it trusts the caller entirely, which is why a real add-note form must
+    // pass its own "read aloud" field choice as learningFieldIndex rather
+    // than leaving it unset.
+    const wrongFieldPointedAt = col.addNote({
+      deckId: deck.id,
+      notetypeId: basic.id,
+      fields: ['hello', '안녕하세요'],
+      language: 'ko',
+      learningFieldIndex: 0,
+    }).result;
+    assert.match(wrongFieldPointedAt.warning, /Front/);
+
+    const noLanguage = col.addNote({
+      deckId: deck.id,
+      notetypeId: basic.id,
+      fields: ['hello', 'annyeonghaseyo'],
+      learningFieldIndex: 1,
+    }).result;
+    assert.equal(noLanguage.warning, undefined, 'omitting language must skip the check entirely');
+
+    const noFieldIndex = col.addNote({
+      deckId: deck.id,
+      notetypeId: basic.id,
+      fields: ['hello', 'annyeonghaseyo'],
+      language: 'ko',
+    }).result;
+    assert.equal(noFieldIndex.warning, undefined, 'omitting learningFieldIndex must skip the check entirely');
+
+    fs.rmSync(dir, { recursive: true, force: true });
+  },
+);
+
+test(
+  'updateNote warns the same way addNote does',
+  { skip: !anki && 'no python3 with the anki library on PATH (set ANKI_PYTHON_BIN)' },
+  () => {
+    const { dir, col } = setUp(18);
+    const basic = col.listNotetypes().result.find((n) => n.name === 'Basic');
+    const deck = col.createDeck('Romanisation Update Test').result.deck;
+    const added = col.addNote({ deckId: deck.id, notetypeId: basic.id, fields: ['hello', '안녕'] }).result;
+
+    const updated = col.updateNote(added.noteId, ['hello', 'annyeong'], 'ko', 1).result;
+    assert.match(updated.warning, /Back/);
+
+    fs.rmSync(dir, { recursive: true, force: true });
+  },
+);

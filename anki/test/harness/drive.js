@@ -30,14 +30,14 @@ const CARDS = [
   {
     Prompt: 'the shop closes at six',
     PromptAudio: '<audio src="prompt-1.wav"></audio>',
-    Answer: 'GAGEneun YEOseosie MUNeul DADayo',
+    Answer: '가게는 여섯 시에 문을 닫아요',
     AnswerAudio: '<audio src="native-1.wav"></audio>',
     Notes: '',
   },
   {
     Prompt: 'see you tomorrow',
     PromptAudio: '<audio src="prompt-2.wav"></audio>',
-    Answer: 'NAEil BWAyo',
+    Answer: '내일 봐요',
     AnswerAudio: '<audio src="native-2.wav"></audio>',
     Notes: '',
   },
@@ -195,10 +195,24 @@ async function withMicrophone(browser, port, logs) {
   });
   check('the learner\'s own recording is offered for replay', you.offered, JSON.stringify(you));
 
+  // Space and 1 are deliberately NOT handled by the template on the answer
+  // side any more (see anki/README.md, "Keys"): real Anki's own native
+  // shortcuts and the webview's own keydown handler used to both fire on
+  // these keys, racing unpredictably, and a double pycmd("easeN") corrupts
+  // the *next* card's schedule silently. Grading here goes through the
+  // on-screen buttons instead, exactly as a learner clicking them would, and
+  // this check proves the template no longer reacts to the key at all.
   await page.keyboard.press('Space');
+  await sleep(200);
+  check(
+    'space no longer grades the card itself - that is Anki\'s own shortcut\'s job now',
+    await page.evaluate(() => !window.harness.commands.some((entry) => entry.command.startsWith('ease')))
+  );
+
+  await page.click('[data-amgi-action="good"]');
   await waitFor(page, () => window.harness.cardIndex === 1, { label: 'the next card' });
   check(
-    'space grades the card Good, as pycmd("ease3")',
+    'the Good button grades the card, as pycmd("ease3")',
     await page.evaluate(() => window.harness.commands.some((entry) => entry.command === 'ease3')),
     await page.evaluate(() => JSON.stringify(window.harness.commands.map((c) => c.command)))
   );
@@ -212,9 +226,15 @@ async function withMicrophone(browser, port, logs) {
   });
   await waitFor(page, () => window.phaseIs('answer'), { timeout: 20000, label: 'the second answer' });
   await page.keyboard.press('Digit1');
+  await sleep(200);
+  check(
+    '1 no longer grades the card itself either',
+    await page.evaluate(() => !window.harness.commands.some((entry) => entry.command === 'ease1'))
+  );
+  await page.click('[data-amgi-action="again"]');
   await waitFor(page, () => !!document.getElementById('congrats'), { label: 'the session to finish' });
   check(
-    '1 grades the card Again, as pycmd("ease1")',
+    'the Again button grades the card, as pycmd("ease1")',
     await page.evaluate(() => window.harness.commands.some((entry) => entry.command === 'ease1'))
   );
 
@@ -279,10 +299,70 @@ async function withoutMicrophone(browser, port, logs) {
   const you = await page.evaluate(() => document.querySelector('[data-amgi-action="replay-you"]').hidden);
   check('no recording is offered, because there was none', you === true);
 
-  await page.keyboard.press('Space');
+  // As above: grading is Anki's own native shortcut's job now, not the
+  // template's keydown handler, so the button is what actually grades here.
+  await page.click('[data-amgi-action="good"]');
   await waitFor(page, () => window.harness.cardIndex === 1, { label: 'the next card' });
   check(
     'grading still works',
+    await page.evaluate(() => window.harness.commands.some((entry) => entry.command === 'ease3'))
+  );
+
+  const leaks = await page.evaluate(() => window.harness.leaks);
+  check('the answer never appeared early', leaks.length === 0, JSON.stringify(leaks));
+  await page.close();
+}
+
+async function withHangingMicrophone(browser, port, logs) {
+  process.stdout.write('\nthe fallback path, with a microphone permission that never settles\n');
+  const page = await browser.newPage();
+  watch(page, logs);
+  // What real Anki desktop does (Qt 6.11, no permission-handling add-on
+  // installed): getUserMedia() is left in "ask" state forever - it neither
+  // resolves nor rejects. The plain-rejection scenario above does not cover
+  // this; confirmed against real Anki, see anki/README.md.
+  await page.evaluateOnNewDocument(`
+    window.amgiLoopConfig = { micTimeoutMs: 400 };
+    navigator.mediaDevices.getUserMedia = () => new Promise(() => {});
+  `);
+  await startReview(page, port);
+
+  const startedAt = Date.now();
+  await waitFor(page, () => window.phaseIs('waiting'), {
+    timeout: 5000,
+    label: 'the timeout fallback to kick in',
+  });
+  const elapsedMs = Date.now() - startedAt;
+  check(
+    'a microphone request that never settles still reaches the fallback, on the configured timeout',
+    elapsedMs < 5000,
+    `reached "waiting" after ${elapsedMs}ms`
+  );
+
+  const waiting = await page.evaluate(() => ({
+    text: document.body.textContent,
+    note: document.querySelector('[data-amgi-note]').textContent,
+    noteShown: !document.querySelector('[data-amgi-note]').hidden,
+    commands: window.harness.commands.length,
+  }));
+  check('the card does not reveal itself once it falls back', waiting.commands === 0);
+  check('the answer text is still nowhere in the DOM', !waiting.text.includes(CARDS[0].Answer));
+  check('the learner is told what to do', waiting.noteShown && /space/i.test(waiting.note), waiting.note);
+
+  await page.keyboard.press('Space');
+  await waitFor(page, () => window.phaseIs('answer'), { label: 'space to reveal after the fallback' });
+  check('space still reveals the card after the timeout fallback', true);
+  check(
+    'the reveal went through pycmd("ans")',
+    await page.evaluate(() => window.harness.commands[0].command === 'ans')
+  );
+
+  // Grading is Anki's own native shortcut's job now (see the two scenarios
+  // above), so the button is what actually grades here, not the key.
+  await page.click('[data-amgi-action="good"]');
+  await waitFor(page, () => window.harness.cardIndex === 1, { label: 'the next card' });
+  check(
+    'grading still works after a microphone request that never settled',
     await page.evaluate(() => window.harness.commands.some((entry) => entry.command === 'ease3'))
   );
 
@@ -302,7 +382,7 @@ async function main() {
   });
 
   try {
-    for (const run of [withMicrophone, withoutMicrophone]) {
+    for (const run of [withMicrophone, withoutMicrophone, withHangingMicrophone]) {
       await run(browser, port, logs);
     }
   } finally {

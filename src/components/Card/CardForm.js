@@ -25,6 +25,7 @@ const CardForm = ({ deckId }) => {
   const [audioResult, setAudioResult] = useState(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [saveWarning, setSaveWarning] = useState('');
   // Which note type the form (fields, guess) was last reset for - compared
   // during render, not in an effect, so picking a note type resets the form
   // in the same commit rather than flashing the old fields for a frame.
@@ -55,6 +56,7 @@ const CardForm = ({ deckId }) => {
     setAudioFieldIndex(guess.audioIndex);
     setAudioResult(null);
     setError('');
+    setSaveWarning('');
   }
 
   const ready = ANKI_READY_MODES.has(ankiStatus?.mode);
@@ -62,6 +64,7 @@ const CardForm = ({ deckId }) => {
   const handleFieldChange = (index, value) => {
     setFields((prev) => prev.map((f, i) => (i === index ? value : f)));
     setAudioResult(null);
+    setSaveWarning('');
   };
 
   const handleGenerate = async () => {
@@ -92,9 +95,25 @@ const CardForm = ({ deckId }) => {
     e.preventDefault();
     if (!notetype) return;
     setError('');
+    setSaveWarning('');
     setSaving(true);
     try {
-      await addAnkiNote(deckId, { notetypeId: notetype.id, fields, tags: [] });
+      // language/textFieldIndex are the same picks the "Generate Audio"
+      // button already uses - passing them along too lets the server flag a
+      // learning-language field that looks entirely romanised (see
+      // DeckContext.addAnkiNote and cardText.ts's looksRomanized). Omitted
+      // when no "read aloud" field is chosen, so nothing is checked then.
+      const result = await addAnkiNote(deckId, {
+        notetypeId: notetype.id,
+        fields,
+        tags: [],
+        language,
+        learningFieldIndex: textFieldIndex === null ? undefined : textFieldIndex,
+      });
+      // A romanisation warning is not an error: the note was added, this is
+      // only worth a glance (see cardText.ts's looksRomanized docstring for
+      // why it never blocks the save).
+      if (result?.warning) setSaveWarning(result.warning);
       setFields(notetype.fieldNames.map(() => ''));
       setAudioResult(null);
     } catch (err) {
@@ -182,6 +201,12 @@ const CardForm = ({ deckId }) => {
         )}
 
         {error && <div className="error-message">{error}</div>}
+
+        {saveWarning && (
+          <div className="error-message" style={{ background: 'none', color: '#d0a030', border: '1px solid #d0a030' }}>
+            {saveWarning}
+          </div>
+        )}
 
         {audioResult && (
           <div className="error-message" style={{ background: 'none', color: audioResult.mocked ? '#d0a030' : '#4caf50', border: `1px solid ${audioResult.mocked ? '#d0a030' : '#4caf50'}` }}>

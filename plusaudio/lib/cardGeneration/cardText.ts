@@ -228,14 +228,82 @@ export function readingIsAmbiguous(language: string): boolean {
     return READING_OPAQUE_LANGUAGES.includes(normalizeLanguageCode(language));
 }
 
-const ROMANIZATION_SYSTEMS: Record<string, string> = {
-    ja: 'Hepburn romaji (for example 行った read as one word: "itta")',
-    zh_cn: 'Hanyu Pinyin with tone numbers (for example "xing2 le")',
-    zh_hk: 'Jyutping with tone numbers (for example "hang4 zo2")',
+/**
+ * Native-script detector for the app's non-Latin-script languages, used only
+ * for the romanisation GUARD below - a different, narrower job than
+ * READING_OPAQUE_LANGUAGES above (which is about which languages need a
+ * spoken_reading at all). Korean is phonemic and not reading-opaque, but it
+ * is very much not Latin script, and a note that is supposed to teach Hangul
+ * but reads "annyeonghaseyo" is exactly the failure this guard exists to
+ * catch.
+ */
+const NATIVE_SCRIPT_PATTERNS: Record<string, RegExp> = {
+    ko: /\p{Script=Hangul}/u,
+    ja: /\p{Script=Hiragana}|\p{Script=Katakana}|\p{Script=Han}/u,
+    zh_cn: /\p{Script=Han}/u,
+    zh_hk: /\p{Script=Han}/u,
+    ru: /\p{Script=Cyrillic}/u,
+    ar: /\p{Script=Arabic}/u,
+    ur: /\p{Script=Arabic}/u,
+    hi: /\p{Script=Devanagari}/u,
+    th: /\p{Script=Thai}/u,
 };
 
-export function romanizationSystem(language: string): string | null {
-    return ROMANIZATION_SYSTEMS[normalizeLanguageCode(language)] ?? null;
+export function usesNonLatinScript(language: string): boolean {
+    return normalizeLanguageCode(language) in NATIVE_SCRIPT_PATTERNS;
+}
+
+/**
+ * The owner's rule, restated for text that ENTERS the system already
+ * written rather than text a model generates: "if you're learning a
+ * language, you use that language to read it." A model generation is
+ * already covered - CARD_GENERATION_SYSTEM_PROMPT's speakingRules() rule 1
+ * forbids romanisation outright - so this exists for the paths that never
+ * go through that prompt at all: a hand-authored note (the add-note form,
+ * a bridge POST/PATCH typed by hand, or an .apkg someone built outside
+ * amgi) and plusaudio's own CLI reading one of those decks.
+ *
+ * This is a soft SIGNAL, not a rule: an English loanword, a proper noun, or
+ * deliberate code-switching can legitimately leave a non-Latin-script field
+ * entirely in Latin letters, so callers should warn a human rather than
+ * refuse the text outright (see notes.js's addNote/updateNoteFields and
+ * bridge_ops.py's add_note/update_note for where this is wired in as a
+ * warning, never an error). Mixed text - a gloss in parentheses, a reading
+ * hint - is deliberately NOT flagged: this only fires when the language's
+ * own script is entirely absent from the field.
+ */
+export function looksRomanized(text: string, language: string): boolean {
+    const pattern = NATIVE_SCRIPT_PATTERNS[normalizeLanguageCode(language)];
+    if (!pattern) return false;
+    const trimmed = (text || '').trim();
+    if (!trimmed) return false;
+    if (pattern.test(trimmed)) return false;
+    return /[a-zA-Z]/.test(trimmed);
+}
+
+/**
+ * Reading systems for the writing systems in READING_OPAQUE_LANGUAGES, kept
+ * in the learner's own script rather than romanised.
+ *
+ * The owner's rule, stated plainly: if you're learning a language, you use
+ * that language to read it. A learner of Japanese who has not yet learned
+ * kana has not yet learned enough Japanese to be shown romaji as a reading
+ * aid - and kana is also the better TTS pronunciation hint of the two,
+ * because it fixes the reading (a kanji compound can hide more than one) the
+ * same way spoken_reading needs it fixed, without teaching a Latin-alphabet
+ * crutch the learner will need to unlearn. Hiragana is used for the reading
+ * even where the headword is written with kanji: it is the one script every
+ * Japanese learner reads before any other, the same role zhuyin/bopomofo
+ * plays for a Mandarin learner who has not yet committed to pinyin.
+ */
+const READING_SYSTEMS: Record<string, string> = {
+    ja: 'hiragana (for example 行った read as one word: "いった" - never romaji)',
+    zh_cn: 'Zhuyin/Bopomofo (注音符号) with tone marks (for example "ㄒㄧㄥˊ ㄌㄜ˙" - never pinyin)',
+    zh_hk: 'Cantonese Bopomofo (粵語注音符號) - never Jyutping or Yale romanization',
+};
+
+export function readingSystem(language: string): string | null {
+    return READING_SYSTEMS[normalizeLanguageCode(language)] ?? null;
 }
 
 // ========================
@@ -351,7 +419,7 @@ export interface GeneratedCardFields {
 export interface AssembledCard {
     front_text: string;
     back_text: string;
-    /** Romanisation of back_text, '' unless the script hides the reading. */
+    /** Reading of back_text in its own script (never romanised), '' unless the script hides the reading. */
     spoken_reading: string;
     /** Set when the model broke the speakable rule and the text had to be repaired. */
     repairedReason: string | null;

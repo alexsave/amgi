@@ -242,7 +242,7 @@ const REGISTER_FIELD = {
 
 const SPOKEN_READING_FIELD = {
     type: "string",
-    description: "How the learning-language text must be read aloud, romanised. Empty unless the writing system leaves the reading open (Japanese, Chinese).",
+    description: "How the learning-language text must be read aloud, in the learning language's own script (kana for Japanese, zhuyin/bopomofo for Chinese) - never romanised. Empty unless the writing system leaves the reading open (Japanese, Chinese).",
 } as const;
 
 const JSON_SCHEMA_DRAFT = "http://json-schema.org/draft-07/schema#";
@@ -456,7 +456,7 @@ export interface CardAudioRequest {
     /** Card text as the learner sees it; annotations are stripped before synthesis. */
     text: string;
     language: string;
-    /** Romanisation of `text`, only meaningful where the script hides the reading. */
+    /** The reading of `text` in its own script (see cardText.ts's READING_SYSTEMS), only meaningful where the script hides the reading. */
     reading?: string;
     maxAttempts?: number;
 }
@@ -526,7 +526,11 @@ export async function generateCardAudio(
             const transcription = await ctx.openai.audio.transcriptions.create({
                 model: ctx.models.transcribe,
                 file: new File([audioBuffer], 'audio.mp3', { type: 'audio/mpeg' }),
-                language: transcriptionLanguage(language),
+                // gpt-transcribe replaces the singular `language` field
+                // gpt-4o-mini-transcribe took with a `languages` array (see
+                // models.ts) - confirmed against OpenAI's speech-to-text
+                // guide, 2026-09-19.
+                languages: [transcriptionLanguage(language)],
             });
             const transcript = transcription.text ?? '';
             const transcriptMatches = normalizeForComparison(transcript) === normalizeForComparison(spoken);
@@ -583,7 +587,7 @@ export async function generateCardAudio(
 export interface CardText {
     front_text: string;
     back_text: string;
-    /** Romanisation of back_text, '' unless the script hides the reading. */
+    /** Reading of back_text in its own script (never romanised), '' unless the script hides the reading. */
     spoken_reading: string;
 }
 

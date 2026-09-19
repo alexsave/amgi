@@ -479,4 +479,33 @@ describe('augmentPackage', () => {
     assert.equal(failed.flds, before.get(1547294381723).flds);
     assert.equal(failed.mod, before.get(1547294381723).mod);
   });
+
+  it('warns, but still generates, when a note text-field looks fully romanised for its language', async () => {
+    // "annyeonghaseyo" in place of "안녕하세요": exactly the shape of romanised
+    // Korean text this guard exists to catch in a deck augmentPackage did not
+    // itself generate (see cardText.ts's looksRomanized).
+    const input = makeSource('romanised.apkg', {
+      notes: [{ id: 9001, guid: 'romanised1', mod: 1597946183, fields: ['annyeonghaseyo', '', '1-1-13-1'] }],
+    });
+    const output = path.join(dir, 'romanised-out.apkg');
+    const lines = [];
+    const { summary } = await run(input, output, { language: 'ko', log: (line) => lines.push(line) });
+
+    assert.equal(summary.notesChanged, 1, 'the note is still augmented - this is a warning, not a refusal');
+    assert.ok(
+      lines.some((line) => line.includes('romanised') && line.includes('ko')),
+      `expected a romanisation warning among: ${JSON.stringify(lines)}`,
+    );
+  });
+
+  it('does not warn about real Hangul', async () => {
+    const input = makeSource('native.apkg', {
+      notes: [{ id: 9002, guid: 'native1', mod: 1597946183, fields: ['안녕하세요', '', '1-1-13-1'] }],
+    });
+    const output = path.join(dir, 'native-out.apkg');
+    const lines = [];
+    await run(input, output, { language: 'ko', log: (line) => lines.push(line) });
+
+    assert.ok(!lines.some((line) => line.includes('romanised')));
+  });
 });
