@@ -150,6 +150,38 @@ export const DeckProvider = ({ children }) => {
   }, [loadDeckCards, refreshAnkiDecks, deckCards]);
 
   /**
+   * Add several notes to an Anki deck in one call - the bulk-add-from-paste
+   * screen's write path (see BulkAddForm.js). `notes` is already shaped as
+   * the transport wants it (one {notetypeId, fields, tags, language,
+   * learningFieldIndex} per line); this only adds `deckId` and refreshes the
+   * deck once at the end, the same "refresh after the write, not during it"
+   * shape addAnkiNote uses - refreshing per note would mean 60 re-fetches
+   * for one paste.
+   */
+  const addAnkiNotesBulk = useCallback(async (deckId, notes) => {
+    const { results } = await ankiApi.addNotesBulk(notes.map((note) => ({ ...note, deckId: Number(deckId) })));
+    await Promise.all([
+      loadDeckCards(deckId, { offset: 0, limit: deckCards[deckId]?.limit || 20 }),
+      refreshAnkiDecks(),
+    ]);
+    return results;
+  }, [loadDeckCards, refreshAnkiDecks, deckCards]);
+
+  /**
+   * Replace one note's field contents in place, without touching tags or
+   * regenerating its cards - what the bulk-add screen's audio-generation
+   * follow-up pass uses to write a clip into a note after the note itself
+   * was already added (see ankiApi.updateNote). Deliberately does not
+   * refresh the deck's card list itself: a follow-up pass calls this once
+   * per line, and refreshing after every single one would be the same
+   * "spam the UI 60 times" problem the bulk-add endpoint exists to avoid on
+   * the write side - the caller refreshes once when the whole pass finishes.
+   */
+  const updateAnkiNote = useCallback(async (noteId, fields, options) => {
+    return ankiApi.updateNote(noteId, fields, options);
+  }, []);
+
+  /**
    * Create a deck directly in the Anki collection - "::" nesting is handled
    * server-side the same way Anki's own "Create Deck" would (see
    * plusaudio/lib/collection/decks.js).
@@ -203,6 +235,8 @@ export const DeckProvider = ({ children }) => {
     setError,
     createNewDeck,
     addAnkiNote,
+    addAnkiNotesBulk,
+    updateAnkiNote,
     ankiStatus,
     ankiNotetypes,
     ensureAnkiNotetypes,

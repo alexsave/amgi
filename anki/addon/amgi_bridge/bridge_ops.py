@@ -149,6 +149,98 @@ def list_notes_in_deck(col: "Collection", deck_id: int, *, offset: int = 0, limi
     return {"notes": notes, "total": total, "offset": offset, "limit": limit}
 
 
+def list_field_values(col: "Collection", deck_id: int, notetype_id: int, field_index: int) -> list[str]:
+    """One field's value across every note of `notetype_id` already in
+    `deck_id` - what the web UI's bulk-add-from-paste screen checks a pasted
+    line against before writing it, so pasting the same song twice doesn't
+    produce a second set of notes.
+
+    Deliberately a raw `flds` split rather than `col.get_note()` per row (the
+    way list_notes_in_deck reads a page of notes): a bulk paste needs every
+    matching note's text at once to dedupe against, not one page, and a
+    Note object's extra bookkeeping (tags, note type lookup) is wasted work
+    when all that's wanted is one field's string. Same WHERE clause as
+    list_notes_in_deck (did = ?, no subdeck expansion) plus the note-type
+    filter, so this only ever compares against the note type bulk add is
+    about to write into.
+    """
+    deck_ids = tuple(col.decks.deck_and_child_ids(deck_id))
+    if not deck_ids:
+        return []
+    placeholders = ",".join("?" for _ in deck_ids)
+    rows = col.db.all(
+        f"SELECT DISTINCT n.id, n.flds FROM notes n JOIN cards c ON c.nid = n.id "
+        f"WHERE c.did IN ({placeholders}) AND n.mid = ?",
+        *deck_ids,
+        notetype_id,
+    )
+    values = []
+    for _note_id, flds in rows:
+        fields = flds.split("\x1f")
+        values.append(fields[field_index] if 0 <= field_index < len(fields) else "")
+    return values
+
+
+def has_media(col: "Collection", filename: str) -> bool:
+    """Whether a content-hashed clip name (see plusaudio/lib/audio-store.js's
+    mediaName, mirrored by deck_text.media_name) is already in this
+    collection's media folder - the same resumability check
+    plan_fill/apply_fill make with `col.media.have()` in core.py, exposed here
+    so the web UI's bulk-add screen can skip a generation call it would only
+    throw away.
+    """
+    return col.media.have(filename)
+
+
+def add_notes_bulk(col: "Collection", notes: Sequence[dict]) -> OpResult:
+    """Add several notes in one call, so the bridge dispatcher (see
+    bridge_dispatch.add_notes_bulk) can wrap the whole batch in a single
+    `CollectionOp` - one undo step and one round of Anki's own change hooks
+    firing, instead of one of each per note. A bulk paste of 60 lines through
+    60 separate `POST /notes` calls would each open and close their own
+    CollectionOp on Anki's main thread, which is slow and (worse) repaints
+    the browser/deck list 60 times in a row for what the user experiences as
+    a single action.
+
+    Each note is validated and added independently; one bad note (wrong field
+    count, unknown note type) is reported in its own result slot rather than
+    aborting notes already added earlier in the same batch - a paste is a
+    batch of independent lines, not a single transaction that should all
+    fail together over one bad line.
+
+    `changes` on the returned OpResult is whichever successful add's own
+    OpChanges was seen last, not a real union of all of them - every
+    successful call in this loop sets the same flags (a note and its cards
+    were added), so any one of them is equally correct as the signal
+    CollectionOp forwards to Anki's change hooks. An empty, real OpChanges is
+    used when nothing was actually added, the same convention create_deck
+    above uses for its own no-op case.
+    """
+    results = []
+    changes: Optional["OpChanges"] = None
+    for note in notes:
+        try:
+            op_result = add_note(
+                col,
+                deck_id=note["deck_id"],
+                notetype_id=note["notetype_id"],
+                fields=note["fields"],
+                tags=note.get("tags", ()),
+                language=note.get("language"),
+                learning_field_index=note.get("learning_field_index"),
+            )
+            results.append({"ok": True, **op_result.payload})
+            changes = op_result.changes
+        except Exception as error:  # noqa: BLE001 - reported per note, batch continues
+            results.append({"ok": False, "error": str(error)})
+
+    if changes is None:
+        from anki.collection import OpChanges
+
+        changes = OpChanges()
+    return OpResult(payload={"results": results}, changes=changes)
+
+
 def create_deck(col: "Collection", human_name: str) -> OpResult:
     """Find-or-create `human_name`, creating any missing `::` ancestors,
     the same contract as Anki's own "Create Deck" dialog and as

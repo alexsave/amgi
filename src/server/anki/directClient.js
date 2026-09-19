@@ -72,11 +72,38 @@ export function createDirectOps(collectionPath) {
     async countNotesInDeck(deckId) {
       return locked(() => unwrap(col.countNotesInDeck(deckId)));
     },
+    /** Every value already in `fieldIndex` for `notetypeId`'s notes in `deckId` - the bulk-add-vs-deck dupe check. */
+    async existingFieldValues(deckId, notetypeId, fieldIndex) {
+      return locked(() => unwrap(col.listFieldValuesInDeck(deckId, notetypeId, fieldIndex)));
+    },
     async createDeck(name) {
       return locked(() => unwrap(col.createDeck(name)));
     },
     async addNote(note) {
       return locked(() => unwrap(col.addNote(note)));
+    },
+    /**
+     * Add several notes as one unit of work. Direct mode has no "Anki's UI"
+     * to spam the way the bridge does (there is no running Anki to refresh),
+     * so this is a plain loop rather than a new collection-layer primitive -
+     * the one thing worth keeping is that it runs inside a single lock
+     * acquisition, so 60 notes pasted at once don't interleave with some
+     * other request's own direct-mode call mid-batch.
+     */
+    async addNotesBulk(notes) {
+      return locked(() => notes.map((note) => {
+        try {
+          return { ok: true, ...unwrap(col.addNote(note)) };
+        } catch (error) {
+          return { ok: false, error: error.message };
+        }
+      }));
+    },
+    async updateNote(noteId, fields, language, learningFieldIndex) {
+      return locked(() => unwrap(col.updateNote(noteId, fields, language, learningFieldIndex)));
+    },
+    async hasMedia(filename) {
+      return locked(() => col.hasMedia(filename));
     },
     async addMedia(filename, data) {
       // Unlike every other Collection method, addMedia returns the stored

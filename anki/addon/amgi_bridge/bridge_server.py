@@ -78,10 +78,13 @@ ROUTES: list[Route] = [
     ("GET", re.compile(r"^/decks$"), "list_decks"),
     ("GET", re.compile(r"^/notetypes$"), "list_notetypes"),
     ("GET", re.compile(r"^/decks/(?P<deck_id>\d+)/notes$"), "list_notes"),
+    ("GET", re.compile(r"^/decks/(?P<deck_id>\d+)/notes/field-values$"), "list_field_values"),
     ("POST", re.compile(r"^/decks$"), "create_deck"),
     ("POST", re.compile(r"^/notes$"), "add_note"),
+    ("POST", re.compile(r"^/notes/bulk$"), "add_notes_bulk"),
     ("PATCH", re.compile(r"^/notes/(?P<note_id>\d+)$"), "update_note"),
     ("POST", re.compile(r"^/media$"), "add_media"),
+    ("GET", re.compile(r"^/media/(?P<filename>[^/]+)$"), "has_media"),
 ]
 
 
@@ -205,6 +208,14 @@ def make_handler_class(
             limit = int(query.get("limit", "200"))
             return dispatcher.list_notes(int(params["deck_id"]), offset=offset, limit=limit)
 
+        def _op_list_field_values(self, params: dict, query: dict, body: Optional[dict]) -> dict:
+            if "notetypeId" not in query or "fieldIndex" not in query:
+                raise BridgeBadRequest('"notetypeId" and "fieldIndex" query parameters are required')
+            values = dispatcher.list_field_values(
+                int(params["deck_id"]), int(query["notetypeId"]), int(query["fieldIndex"])
+            )
+            return {"values": values}
+
         def _op_create_deck(self, params: dict, query: dict, body: Optional[dict]) -> dict:
             name = (body or {}).get("name")
             if not name or not isinstance(name, str):
@@ -229,6 +240,29 @@ def make_handler_class(
                 language=body.get("language"),
                 learning_field_index=int(learning_field_index) if learning_field_index is not None else None,
             )
+
+        def _op_add_notes_bulk(self, params: dict, query: dict, body: Optional[dict]) -> dict:
+            body = body or {}
+            raw_notes = body.get("notes")
+            if not isinstance(raw_notes, list) or not raw_notes:
+                raise BridgeBadRequest('"notes" must be a non-empty array')
+            notes = []
+            for entry in raw_notes:
+                for key in ("deckId", "notetypeId", "fields"):
+                    if key not in entry:
+                        raise BridgeBadRequest(f'each note requires "{key}"')
+                learning_field_index = entry.get("learningFieldIndex")
+                notes.append(
+                    {
+                        "deck_id": int(entry["deckId"]),
+                        "notetype_id": int(entry["notetypeId"]),
+                        "fields": list(entry["fields"]),
+                        "tags": list(entry.get("tags", [])),
+                        "language": entry.get("language"),
+                        "learning_field_index": int(learning_field_index) if learning_field_index is not None else None,
+                    }
+                )
+            return dispatcher.add_notes_bulk(notes)
 
         def _op_update_note(self, params: dict, query: dict, body: Optional[dict]) -> dict:
             body = body or {}
@@ -255,6 +289,9 @@ def make_handler_class(
             except (ValueError, binascii.Error) as error:
                 raise BridgeBadRequest(f"invalid base64 in dataBase64: {error}") from error
             return dispatcher.add_media(filename, data)
+
+        def _op_has_media(self, params: dict, query: dict, body: Optional[dict]) -> dict:
+            return {"exists": dispatcher.has_media(params["filename"])}
 
         # -- output -----------------------------------------------------
 

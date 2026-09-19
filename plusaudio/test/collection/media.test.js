@@ -6,7 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { test } = require('node:test');
 
-const { addMediaFile, mediaDirFor } = require('../../lib/collection/media');
+const { addMediaFile, mediaDirFor, mediaFileExists } = require('../../lib/collection/media');
 const { anki, buildFixtureCollection, tempDir, withAnkiLibrary } = require('./helpers/anki-python');
 const { Collection } = require('../../lib/collection');
 
@@ -36,6 +36,31 @@ test('addMediaFile: a name collision with different content gets a hash suffix, 
   assert.equal(fs.readFileSync(path.join(dir, second), 'utf8'), 'different content');
   fs.rmSync(dir, { recursive: true, force: true });
 });
+
+test('mediaFileExists: false before the file exists, true after it is written', () => {
+  const dir = tempDir();
+  assert.equal(mediaFileExists(dir, 'clip.mp3'), false);
+  addMediaFile(dir, 'clip.mp3', Buffer.from('clip contents'));
+  assert.equal(mediaFileExists(dir, 'clip.mp3'), true);
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test(
+  'Collection.hasMedia: the resumability check a clip generator makes before calling out to a real TTS API',
+  { skip: !anki && 'no python3 with the anki library on PATH (set ANKI_PYTHON_BIN)' },
+  () => {
+    const dir = tempDir();
+    const collectionPath = path.join(dir, 'collection.anki2');
+    buildFixtureCollection(collectionPath);
+    const col = new Collection(collectionPath);
+
+    assert.equal(col.hasMedia('clip.mp3'), false);
+    col.addMedia('clip.mp3', Buffer.from('audio bytes'));
+    assert.equal(col.hasMedia('clip.mp3'), true);
+
+    fs.rmSync(dir, { recursive: true, force: true });
+  },
+);
 
 test(
   'Collection.addMedia: a file dropped in the folder while Anki is closed is picked up by col.media.check() on reopen',

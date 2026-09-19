@@ -68,6 +68,14 @@ class FakeDispatcher:
         )
         return {"noteId": 7, "guid": "abc123", "cardIds": [8]}
 
+    def list_field_values(self, deck_id, notetype_id, field_index):
+        self._record("list_field_values", deck_id, notetype_id, field_index)
+        return ["one", "two"]
+
+    def add_notes_bulk(self, notes):
+        self._record("add_notes_bulk", notes)
+        return {"results": [{"ok": True, "noteId": i + 1, "guid": f"g{i}", "cardIds": [i + 1]} for i in range(len(notes))]}
+
     def update_note(self, note_id, fields, language=None, learning_field_index=None):
         self._record("update_note", note_id, fields, language=language, learning_field_index=learning_field_index)
         return {"noteId": note_id}
@@ -75,6 +83,10 @@ class FakeDispatcher:
     def add_media(self, filename, data):
         self._record("add_media", filename, data)
         return {"filename": filename}
+
+    def has_media(self, filename):
+        self._record("has_media", filename)
+        return filename == "already-there.mp3"
 
 
 class FailingDispatcher(FakeDispatcher):
@@ -290,6 +302,70 @@ class RoutingTests(BridgeServerTestCase):
         )
         self.assertEqual(status, 400)
         self.assertIn("notetypeId", body["error"])
+
+    def test_list_field_values(self):
+        status, _headers, body = self._request(
+            "GET", "/decks/9/notes/field-values?notetypeId=3&fieldIndex=1", headers=self._auth_headers()
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(body, {"values": ["one", "two"]})
+        self.assertEqual(self.dispatcher.calls, [("list_field_values", (9, 3, 1), {})])
+
+    def test_list_field_values_requires_notetype_id_and_field_index(self):
+        status, _headers, body = self._request(
+            "GET", "/decks/9/notes/field-values?notetypeId=3", headers=self._auth_headers()
+        )
+        self.assertEqual(status, 400)
+        self.assertIn("fieldIndex", body["error"])
+
+    def test_add_notes_bulk(self):
+        payload = {
+            "notes": [
+                {"deckId": 1, "notetypeId": 1, "fields": ["a", "b"]},
+                {"deckId": 1, "notetypeId": 1, "fields": ["c", "d"], "language": "ko", "learningFieldIndex": 1},
+            ]
+        }
+        status, _headers, body = self._request(
+            "POST", "/notes/bulk", headers=self._auth_headers(), body=json.dumps(payload)
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(len(body["results"]), 2)
+        self.assertTrue(all(r["ok"] for r in body["results"]))
+        name, args, _kwargs = self.dispatcher.calls[0]
+        self.assertEqual(name, "add_notes_bulk")
+        notes = args[0]
+        self.assertEqual(notes[0], {"deck_id": 1, "notetype_id": 1, "fields": ["a", "b"], "tags": [], "language": None, "learning_field_index": None})
+        self.assertEqual(notes[1]["language"], "ko")
+        self.assertEqual(notes[1]["learning_field_index"], 1)
+
+    def test_add_notes_bulk_requires_a_non_empty_notes_array(self):
+        status, _headers, body = self._request(
+            "POST", "/notes/bulk", headers=self._auth_headers(), body=json.dumps({"notes": []})
+        )
+        self.assertEqual(status, 400)
+        self.assertIn("notes", body["error"])
+
+    def test_add_notes_bulk_missing_a_required_field_is_a_bad_request(self):
+        payload = {"notes": [{"deckId": 1, "fields": ["a", "b"]}]}
+        status, _headers, body = self._request(
+            "POST", "/notes/bulk", headers=self._auth_headers(), body=json.dumps(payload)
+        )
+        self.assertEqual(status, 400)
+        self.assertIn("notetypeId", body["error"])
+
+    def test_has_media(self):
+        status, _headers, body = self._request(
+            "GET", "/media/already-there.mp3", headers=self._auth_headers()
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(body, {"exists": True})
+
+    def test_has_media_false_for_a_name_not_present(self):
+        status, _headers, body = self._request(
+            "GET", "/media/missing.mp3", headers=self._auth_headers()
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(body, {"exists": False})
 
     def test_update_note(self):
         status, _headers, body = self._request(

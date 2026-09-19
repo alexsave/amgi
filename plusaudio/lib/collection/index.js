@@ -11,8 +11,8 @@ const { openCollection } = require('./open');
 const { backupCollectionFile } = require('./backup');
 const { listDecks, resolveOrCreateDeck } = require('./decks');
 const { readNotetypes } = require('./notetypes');
-const { addNote, countNotesInDeck, listNotesInDeck, updateNoteFields } = require('./notes');
-const { addMediaFile, mediaDirFor } = require('./media');
+const { addNote, countNotesInDeck, listNotesInDeck, noteFieldValuesInDeck, updateNoteFields } = require('./notes');
+const { addMediaFile, mediaDirFor, mediaFileExists } = require('./media');
 const { withCollection } = require('./open');
 
 /**
@@ -56,6 +56,11 @@ class Collection {
     return countNotesInDeck(this.path, deckId);
   }
 
+  /** One field's value across every note of `notetypeId` already in `deckId` - see notes.js. */
+  listFieldValuesInDeck(deckId, notetypeId, fieldIndex) {
+    return noteFieldValuesInDeck(this.path, deckId, notetypeId, fieldIndex);
+  }
+
   createDeck(humanName) {
     return this._withBackup(() => resolveOrCreateDeck(this.path, humanName));
   }
@@ -79,6 +84,18 @@ class Collection {
   addMedia(desiredName, data) {
     this._ensureBackedUp();
     return addMediaFile(mediaDirFor(this.path), desiredName, data);
+  }
+
+  /**
+   * Whether a content-hashed clip name (see plusaudio/lib/audio-store.js's
+   * mediaName) is already sitting in this collection's media folder - a
+   * plain file check, no backup needed since nothing is written. This is
+   * what makes re-running audio generation over a deck free for the clips it
+   * already made: the caller checks this before spending an API call, not
+   * after.
+   */
+  hasMedia(filename) {
+    return mediaFileExists(mediaDirFor(this.path), filename);
   }
 
   /**

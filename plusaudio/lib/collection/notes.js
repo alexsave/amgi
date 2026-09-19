@@ -240,4 +240,30 @@ function updateNoteFields(collectionPath, noteId, fields, language, learningFiel
   });
 }
 
-module.exports = { addNote, countNotesInDeck, listNotesInDeck, updateNoteFields };
+/**
+ * The raw value of one field, for every note with a card in `deckId` and
+ * note type `notetypeId` - what a bulk-add paste screen checks "is this line
+ * already in the deck" against, without paging through full note objects the
+ * way listNotesInDeck does (a bulk paste needs the whole set at once to
+ * dedupe against, not a page at a time).
+ *
+ * Scoped to one note type deliberately: bulk add only ever writes into the
+ * note type the caller chose in CardForm, so comparing against a different
+ * note type's differently-shaped fields would be comparing unrelated text.
+ * Same WHERE clause as countNotesInDeck/listNotesInDeck (did = ?, no subdeck
+ * expansion) plus the note-type filter, still one indexed join.
+ */
+function noteFieldValuesInDeck(collectionPath, deckId, notetypeId, fieldIndex) {
+  return withCollection(collectionPath, ({ db }) => {
+    const rows = db
+      .prepare(
+        `SELECT DISTINCT n.id, n.flds
+         FROM notes n JOIN cards c ON c.nid = n.id
+         WHERE c.did = ? AND n.mid = ?`,
+      )
+      .all(deckId, notetypeId);
+    return rows.map((row) => splitFields(row.flds)[fieldIndex] ?? '');
+  });
+}
+
+module.exports = { addNote, countNotesInDeck, listNotesInDeck, noteFieldValuesInDeck, updateNoteFields };

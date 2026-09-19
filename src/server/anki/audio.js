@@ -68,9 +68,24 @@ export async function generateClip({ text, language }) {
   return { data, mocked: false };
 }
 
-/** Generate a clip and add it to the current collection's media, returning the stored filename. */
+/**
+ * Generate a clip and add it to the current collection's media, returning the
+ * stored filename.
+ *
+ * The filename is content-hashed on (language, text) (see audio-store.js's
+ * mediaName), so if a clip for this exact text already exists - a previous
+ * run that got this far before being cancelled, or a second pass over a deck
+ * that already has some audio - there is nothing to generate. Checking
+ * `ops.hasMedia` before calling out to the real generator is what makes that
+ * true in practice, not just in principle: generateClip() itself has no way
+ * to know a file already exists, so skipping the call here is the only place
+ * a re-run actually avoids paying for a clip it would immediately discard.
+ */
 export async function generateAndStoreClip({ text, language, ops }) {
   const desiredName = mediaName(text, language);
+  if (await ops.hasMedia(desiredName)) {
+    return { filename: desiredName, mocked: false, reused: true };
+  }
   const { data, mocked, reason } = await generateClip({ text, language });
   const filename = await ops.addMedia(desiredName, data);
   return { filename, mocked, reason };
