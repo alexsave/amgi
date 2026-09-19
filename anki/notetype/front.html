@@ -1,0 +1,33 @@
+<!-- amgi Listening - Front Template.
+     Paste this into Cards... > Front Template for the "amgi Listening" note type.
+
+     There is deliberately no answer text here. The learner answers from
+     listening, so the only way to be sure the text cannot be read early is for
+     it not to be on the page at all. Do not add the Prompt or Answer fields to
+     this side, whatever CSS you hide them with. Anki substitutes fields inside
+     HTML comments too, so do not name them in a comment either. -->
+
+<div class="amgi" data-amgi-card data-amgi-side="front" data-amgi-phase="idle">
+  <div class="amgi-orb" aria-hidden="true"></div>
+
+  <p class="amgi-status" data-amgi-status>Listen</p>
+
+  <!-- Anki plays a sound tag through its own player, which gives a template
+       no way to know when playback ended. The field holds an ordinary HTML
+       media reference instead, and the loop drives it as an <audio> element.
+       See the README for the field format. -->
+  <div class="amgi-slot" data-amgi-prompt-audio>{{PromptAudio}}</div>
+
+  <div class="amgi-actions">
+    <button type="button" class="amgi-btn tappable" data-amgi-action="play" hidden>
+      Play the prompt
+    </button>
+    <button type="button" class="amgi-btn tappable" data-amgi-action="reveal">
+      Done speaking <kbd>space</kbd>
+    </button>
+  </div>
+
+  <p class="amgi-note" data-amgi-note hidden></p>
+</div>
+
+<script src="_amgi-loop.js"></script>

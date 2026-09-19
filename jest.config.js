@@ -5,5 +5,11 @@ const createJestConfig = nextJest({ dir: './' });
 module.exports = createJestConfig({
   testEnvironment: 'jest-environment-jsdom',
   setupFilesAfterEnv: ['<rootDir>/src/setupTests.js'],
-  testPathIgnorePatterns: ['<rootDir>/.next/', '<rootDir>/node_modules/', '<rootDir>/plusaudio/'],
+  // plusaudio and anki are node:test suites, run separately by `pnpm test`.
+  testPathIgnorePatterns: [
+    '<rootDir>/.next/',
+    '<rootDir>/node_modules/',
+    '<rootDir>/plusaudio/',
+    '<rootDir>/anki/',
+  ],
 });

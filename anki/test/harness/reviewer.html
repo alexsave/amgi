@@ -1,0 +1,131 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>amgi loop harness</title>
+    <!--
+      A stand-in for Anki's reviewer, close enough to test the template against.
+
+      What it copies from the real thing (qt/aqt/reviewer.py and
+      ts/reviewer/index.ts):
+        - one long-lived document with a #qa element whose innerHTML is
+          replaced for the question and then the answer,
+        - <script> tags re-executed after each replacement, because setting
+          innerHTML does not run them,
+        - pycmd as the only channel back to the client, accepting the same
+          commands _linkHandler whitelists.
+
+      What it cannot copy: Qt's own keyboard shortcuts, the media server, and
+      the client's audio stack. Those are listed as unverified in the README.
+    -->
+    <link rel="stylesheet" href="_amgi-loop.css" />
+    <style>
+      body {
+        font-family: -apple-system, sans-serif;
+        margin: 0;
+        color: #1c2430;
+        background: #f6f7f9;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="qa"></div>
+
+    <script>
+      // Everything the harness observes, for the driver to read back.
+      window.harness = {
+        commands: [],
+        renders: [],
+        cards: [],
+        cardIndex: 0,
+        phases: [],
+        // Every moment the answer's text was found in the DOM before the card
+        // was revealed. This is the promise the whole design rests on, so the
+        // harness watches for it continuously rather than sampling once.
+        leaks: [],
+      };
+
+      window.phaseIs = function (name) {
+        const root = document.querySelector('[data-amgi-card]');
+        return !!root && root.getAttribute('data-amgi-phase') === name;
+      };
+
+      function sample() {
+        const root = document.querySelector('[data-amgi-card]');
+        const phase = root ? root.getAttribute('data-amgi-phase') : null;
+        if (phase !== window.harness.lastPhase) {
+          window.harness.lastPhase = phase;
+          window.harness.phases.push({ phase: phase, at: Date.now() });
+        }
+        const card = window.harness.cards[window.harness.cardIndex] || {};
+        // textContent, not innerText: text hidden with CSS would still count
+        // as a leak, because a learner can select it or read the page source.
+        if (card.Answer && phase !== 'answer' && document.body.textContent.includes(card.Answer)) {
+          window.harness.leaks.push({ phase: phase, at: Date.now() });
+        }
+      }
+
+      new MutationObserver(sample).observe(document.body, {
+        subtree: true,
+        childList: true,
+        attributes: true,
+        characterData: true,
+      });
+      setInterval(sample, 25);
+
+      window.pycmd = function (command) {
+        window.harness.commands.push({ command: command, at: Date.now() });
+        if (command === 'ans') {
+          showSide('back');
+        } else if (/^ease[1-4]$/.test(command)) {
+          window.harness.cardIndex += 1;
+          if (window.harness.cardIndex < window.harness.cards.length) showSide('front');
+          else document.getElementById('qa').innerHTML = '<p id="congrats">Congratulations!</p>';
+        }
+      };
+
+      // ts/reviewer/index.ts: innerHTML does not execute scripts, so each one
+      // is re-created. Keeping that behaviour is the whole point of the
+      // harness, because it is what makes the template's script run twice.
+      async function setInnerHTML(element, html) {
+        element.innerHTML = html;
+        for (const old of Array.from(element.getElementsByTagName('script'))) {
+          await new Promise((resolve) => {
+            const fresh = document.createElement('script');
+            if (old.src) {
+              fresh.addEventListener('load', resolve);
+              fresh.addEventListener('error', resolve);
+            }
+            for (const attribute of old.attributes) {
+              fresh.setAttribute(attribute.name, attribute.value);
+            }
+            fresh.appendChild(document.createTextNode(old.innerHTML));
+            old.replaceWith(fresh);
+            if (!old.src) resolve();
+          });
+        }
+      }
+
+      function render(template, card) {
+        return template.replace(/\{\{#Notes\}\}([\s\S]*?)\{\{\/Notes\}\}/g, (all, inner) =>
+          card.Notes ? inner : ''
+        ).replace(/\{\{(\w+)\}\}/g, (all, field) => card[field] || '');
+      }
+
+      async function showSide(side) {
+        const card = window.harness.cards[window.harness.cardIndex];
+        const template = side === 'front' ? window.harness.front : window.harness.back;
+        window.harness.renders.push({ side: side, at: Date.now() });
+        await setInnerHTML(document.getElementById('qa'), render(template, card));
+      }
+
+      window.harness.start = async function (config) {
+        window.harness.front = config.front;
+        window.harness.back = config.back;
+        window.harness.cards = config.cards;
+        window.harness.cardIndex = 0;
+        await showSide('front');
+      };
+    </script>
+  </body>
+</html>

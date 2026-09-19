@@ -107,6 +107,12 @@ python tools/verify-with-anki.py "My Deck.apkg" \
   /tmp/plusaudio-verify/run1.apkg /tmp/plusaudio-verify/run2.apkg
 ```
 
+## Speaking practice inside Anki
+
+The audio this adds is what the card template in [`../anki/`](../anki/README.md) plays.
+That note type runs amgi's own review loop inside Anki: the prompt plays, the microphone opens by itself where the client allows it, and the answer stays hidden until you have spoken.
+Its README covers converting the `[sound:...]` tags this tool writes into the HTML media references the template reads.
+
 ## What this is not
 
 It does not create cards.

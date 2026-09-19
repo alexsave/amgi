@@ -22,6 +22,7 @@ Then the native recording plays back against yours and you grade yourself, the w
   Generated audio is transcribed and verified before it's accepted.
 - **Spaced repetition** - an SM-2 style scheduler (new → learning → review) with per-card state persisted in Supabase.
 - **Anki deck audio** - the `plusaudio/` CLI adds generated audio to an existing `.apkg` in place, preserving note GUIDs and review history so a re-run updates the deck instead of cloning it.
+- **The loop inside Anki** - `anki/` packages the same hands-free loop as an Anki note type, running the very same `src/utils/reviewLoop.js` and `src/utils/voiceActivity.js` the app does, with a small desktop add-on for microphone access and a press-a-key fallback everywhere else.
 - **Subscriptions** - Stripe-backed tiers with per-feature usage limits (voice evaluations, audio generations, realtime sessions) enforced atomically in the database.
 
 ### Review keyboard shortcuts
@@ -116,18 +117,21 @@ Needs Node 24 or later. `--dry-run` needs nothing else; generating audio needs `
 `.claude/skills/e2e-ui/` runs the app locally against a seeded local Supabase and drives it in headless Chrome, including the review loop with a synthetic microphone.
 Use it to screenshot a screen as a signed-in user, measure layout, or watch the hands-free flow end to end; the skill has the setup and the scripts.
 
+`anki/test/harness/drive.js` does the same for the Anki card template, against a stand-in for Anki's reviewer, since the loop there runs the same shared code.
+
 ## Repository layout
 
 ```
 src/app/              Next.js App Router routes
 src/components/       UI, including the client-only signed-in shell
 src/contexts/         Auth, decks, audio, review, and realtime state
-src/utils/            Card scheduler, dates, voice-activity detection
+src/utils/            Card scheduler, dates, the review loop and its voice-activity detection
 src/data/             Curated starter decks
 public/               Static assets, including vmsg.wasm (the mp3 encoder)
 supabase/functions/   Deno edge functions + _shared helpers
 supabase/migrations/  Schema, RLS, and RPCs
 plusaudio/            Node CLI that adds generated audio to an Anki deck
+anki/                 The review loop as an Anki card template, plus a mic add-on
 archives/             Old implementations kept for reference (not built)
 ```
 

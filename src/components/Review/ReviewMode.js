@@ -7,7 +7,7 @@ import { useDecks } from '../../contexts/DeckContext';
 import { useAudio } from '../../contexts/useAudio';
 import { useReview } from '../../contexts/ReviewContext';
 import { useSpeechEvaluation } from '../../hooks/useSpeechEvaluation';
-import { detectSpeechEnd } from '../../utils/voiceActivity';
+import { createReviewLoop, PHASE } from '../../utils/reviewLoop';
 import RadialAudioVisualizer from './RadialAudioVisualizer';
 import './ReviewMode.css';
 
@@ -15,7 +15,9 @@ import './ReviewMode.css';
 //   prompt    - the card's audio plays; this is the question
 //   listening - the mic is open; voice activity decides when you're done
 //   answer    - the native audio plays back and you grade yourself
-const PHASE = { IDLE: 'idle', PROMPT: 'prompt', LISTENING: 'listening', ANSWER: 'answer' };
+//
+// The sequencing itself lives in utils/reviewLoop.js, which the Anki card
+// template in anki/ ships too. This component supplies the effects.
 
 // AI pronunciation checking is still here, but it is no longer a button in the
 // header: it's opt-in per device (localStorage.amgi_ai_check = 'true'). Even
@@ -31,20 +33,22 @@ const ReviewMode = () => {
 
   const [phase, setPhase] = useState(PHASE.IDLE);
   const [started, setStarted] = useState(false);
-  const [micDenied, setMicDenied] = useState(false);
   const [statusNote, setStatusNote] = useState(null);
   const [aiResult, setAiResult] = useState(null);
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [hasRecording, setHasRecording] = useState(false);
 
-  // Bumped whenever the flow is cancelled (card graded, unmounted, restarted)
-  // so in-flight async steps from the previous card bail out instead of
-  // fighting the new one.
-  const runIdRef = useRef(0);
-  const stopVadRef = useRef(null);
   const userRecordingUrlRef = useRef(null);
   const userAudioElRef = useRef(null);
   const aiCheckRef = useRef(false);
+
+  // The loop is created once and lives as long as the screen does, so its
+  // effects read the current card and audio context through refs rather than
+  // being rebuilt whenever React hands us new identities.
+  const audioRef = useRef(audio);
+  const cardRef = useRef(currentCard);
+  const evaluateRef = useRef(null);
+  const loopRef = useRef(null);
 
   useEffect(() => {
     try {
@@ -55,15 +59,6 @@ const ReviewMode = () => {
   }, []);
 
   const deck = decks[currentDeckId];
-
-  const cancelRun = useCallback(() => {
-    runIdRef.current += 1;
-    if (stopVadRef.current) {
-      stopVadRef.current();
-      stopVadRef.current = null;
-    }
-    return runIdRef.current;
-  }, []);
 
   const storeUserRecording = (blob) => {
     if (userRecordingUrlRef.current) {
@@ -87,129 +82,94 @@ const ReviewMode = () => {
     onEvaluationResult: (data) => setAiResult(data),
   });
 
+  // Keep the loop's view of the world current without rebuilding it.
+  useEffect(() => {
+    audioRef.current = audio;
+    cardRef.current = currentCard;
+    evaluateRef.current = evaluateSpeech;
+  });
+
   // --- the per-card loop -------------------------------------------------
 
-  const revealAnswer = useCallback(
-    async (runId, recording) => {
-      if (runId !== runIdRef.current) return;
-      setPhase(PHASE.ANSWER);
-
-      const card = currentCard;
-      if (card?.back_audio_path) {
-        await audio.playAudioToEnd(card.back_audio_path).catch(() => {});
-      }
-      if (runId !== runIdRef.current) return;
-
-      if (aiCheckRef.current && recording && card?.back_audio_path) {
+  // Built in an effect rather than during render: the loop holds the mic and
+  // the audio element, which are exactly the things a render must not touch.
+  useEffect(() => {
+    const loop = createReviewLoop({
+      playPrompt: async () => {
+        const card = cardRef.current;
+        if (card?.front_audio_path) await audioRef.current.playAudioToEnd(card.front_audio_path);
+      },
+      openMic: async () => {
+        await audioRef.current.startRecording();
+        return {
+          audioContext: audioRef.current.audioContextRef.current,
+          stream: audioRef.current.recordingStreamRef.current,
+        };
+      },
+      closeMic: () => audioRef.current.stopRecording(),
+      onMicUnavailable: (error) => {
+        setStatusNote(`Microphone unavailable: ${error?.message ?? 'no access'}`);
+      },
+      reveal: ({ reason, recording }) => {
+        if (recording) storeUserRecording(recording);
+        if (reason === 'no-speech') {
+          setStatusNote("Didn't hear an answer - here's the native audio.");
+        }
+      },
+      playNative: async () => {
+        const card = cardRef.current;
+        if (card?.back_audio_path) await audioRef.current.playAudioToEnd(card.back_audio_path);
+      },
+      onAnswerReady: async ({ recording }) => {
+        const card = cardRef.current;
+        if (!aiCheckRef.current || !recording || !card?.back_audio_path) return;
         setIsEvaluating(true);
         try {
-          await evaluateSpeech(recording, card);
+          await evaluateRef.current(recording, card);
         } catch {
           // The AI verdict is optional; self-grading carries the session.
           setAiResult(null);
         } finally {
-          if (runId === runIdRef.current) setIsEvaluating(false);
+          setIsEvaluating(false);
         }
-      }
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [audio, currentCard]
-  );
+      },
+      onPhase: (next) => {
+        setPhase(next);
+        // With no microphone amgi does not make the learner press anything:
+        // the native audio and the grade buttons come straight away. The Anki
+        // template answers this phase differently, which is why the loop asks
+        // rather than deciding.
+        if (next === PHASE.WAITING) loop.endTurn('no-mic');
+      },
+    });
+    loopRef.current = loop;
+    return () => {
+      loop.cancel();
+      loopRef.current = null;
+      if (userRecordingUrlRef.current) URL.revokeObjectURL(userRecordingUrlRef.current);
+    };
+  }, []);
 
-  const finishListening = useCallback(
-    async (runId, reason) => {
-      if (runId !== runIdRef.current) return;
-      if (stopVadRef.current) {
-        stopVadRef.current();
-        stopVadRef.current = null;
-      }
-
-      let recording = null;
-      try {
-        recording = await audio.stopRecording();
-      } catch {
-        recording = null;
-      }
-
-      if (runId !== runIdRef.current) return;
-
-      if (recording && reason !== 'no-speech') {
-        storeUserRecording(recording);
-      }
-      if (reason === 'no-speech') {
-        setStatusNote("Didn't hear an answer - here's the native audio.");
-      }
-
-      await revealAnswer(runId, recording);
-    },
-    [audio, revealAnswer]
-  );
-
-  const runCard = useCallback(
-    async (card) => {
-      const runId = cancelRun();
-
-      setAiResult(null);
-      setStatusNote(null);
-      setHasRecording(false);
-      setPhase(PHASE.PROMPT);
-
-      if (card?.front_audio_path) {
-        await audio.playAudioToEnd(card.front_audio_path).catch(() => {});
-      }
-      if (runId !== runIdRef.current) return;
-
-      if (micDenied) {
-        await revealAnswer(runId, null);
-        return;
-      }
-
-      try {
-        await audio.startRecording();
-      } catch (err) {
-        if (runId !== runIdRef.current) return;
-        setMicDenied(true);
-        setStatusNote(`Microphone unavailable: ${err.message}`);
-        await revealAnswer(runId, null);
-        return;
-      }
-
-      if (runId !== runIdRef.current) {
-        await audio.stopRecording().catch(() => {});
-        return;
-      }
-
-      setPhase(PHASE.LISTENING);
-      stopVadRef.current = detectSpeechEnd({
-        audioContext: audio.audioContextRef.current,
-        stream: audio.recordingStreamRef.current,
-        onEnd: (reason) => finishListening(runId, reason),
-      });
-    },
-    [audio, cancelRun, finishListening, micDenied, revealAnswer]
-  );
+  const runCard = useCallback(() => {
+    setAiResult(null);
+    setStatusNote(null);
+    setHasRecording(false);
+    loopRef.current?.start();
+  }, []);
 
   // Each new card restarts the loop. Nothing happens until the reviewer has
-  // started the session, which is also the gesture that unlocks audio
-  // playback and prompts for the microphone.
+  // started the session, which is also the gesture that unlocks audio playback
+  // and prompts for the microphone.
   useEffect(() => {
     if (!started || !currentCard) return;
     // The card run IS the effect: it drives audio playback and the microphone,
     // and the phase state it sets is how that external work is reported.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    runCard(currentCard);
-    // Keyed on the card id so each card runs exactly once, no matter how
-    // often runCard's dependencies change identity.
+    runCard();
+    // Keyed on the card id so each card runs exactly once, no matter how often
+    // runCard's dependencies change identity.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [started, currentCardId]);
-
-  useEffect(() => {
-    return () => {
-      runIdRef.current += 1;
-      if (stopVadRef.current) stopVadRef.current();
-      if (userRecordingUrlRef.current) URL.revokeObjectURL(userRecordingUrlRef.current);
-    };
-  }, []);
 
   // --- actions -----------------------------------------------------------
 
@@ -220,9 +180,9 @@ const ReviewMode = () => {
       await audio.ensureAudioContext();
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       stream.getTracks().forEach((track) => track.stop());
-      setMicDenied(false);
     } catch {
-      setMicDenied(true);
+      // The loop remembers this too, so it stops asking on every card.
+      loopRef.current?.disableMic();
       setStatusNote(
         'Microphone access was declined - cards still play, and you can grade yourself.'
       );
@@ -232,7 +192,7 @@ const ReviewMode = () => {
 
   const grade = useCallback(
     (correct) => {
-      cancelRun();
+      loopRef.current?.cancel();
       if (audio.isRecording) {
         audio.stopRecording().catch(() => {});
       }
@@ -245,15 +205,15 @@ const ReviewMode = () => {
         review.markAgainGetNext();
       }
     },
-    [audio, cancelRun, review]
+    [audio, review]
   );
 
   const stopListeningEarly = useCallback(() => {
-    finishListening(runIdRef.current, 'manual');
-  }, [finishListening]);
+    loopRef.current?.endTurn('manual');
+  }, []);
 
   const handleBackToList = () => {
-    cancelRun();
+    loopRef.current?.cancel();
     if (audio.isRecording) {
       audio.stopRecording().catch(() => {});
     }

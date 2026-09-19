@@ -1,0 +1,7 @@
+{
+  "package": "amgi_mic",
+  "name": "amgi microphone for cards",
+  "homepage": "https://github.com/alexsave/amgi/tree/main/anki",
+  "min_point_version": 50,
+  "conflicts": []
+}
