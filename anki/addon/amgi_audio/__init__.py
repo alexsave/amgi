@@ -22,41 +22,35 @@ from aqt.utils import showWarning, tooltip
 
 from .core import AudioFillConfig, FillResult, apply_fill, plan_fill
 from .dialogs import FillAudioDialog
-from .generator import EdgeFunctionAudioGenerator, GenerationError, SupabaseSession
-
-CONFIG_KEYS = ("supabase_url", "supabase_anon_key", "email", "password")
+from .generator import GenerationError, NodeCliAudioGenerator
 
 
 def _config() -> dict:
     return mw.addonManager.getConfig(__name__) or {}
 
 
-def _build_generator(config: dict) -> EdgeFunctionAudioGenerator:
-    missing = [key for key in CONFIG_KEYS if not config.get(key)]
-    if missing:
-        raise GenerationError(
-            "amgi audio fill needs its Supabase settings first: open Tools > Add-ons, "
-            f"select amgi_audio, click Config, and fill in {', '.join(missing)}."
-        )
-    session = SupabaseSession(
-        config["supabase_url"], config["supabase_anon_key"], config["email"], config["password"]
+def _build_generator(config: dict) -> NodeCliAudioGenerator:
+    return NodeCliAudioGenerator(
+        node_path=(config.get("node_path") or "node"),
+        plusaudio_dir=(config.get("plusaudio_dir") or ""),
+        openai_api_key=(config.get("openai_api_key") or None),
     )
-    return EdgeFunctionAudioGenerator(config["supabase_url"], session)
 
 
 def _run_fill(fill_config: AudioFillConfig) -> None:
+    generator = _build_generator(_config())
     try:
-        generator = _build_generator(_config())
+        # A missing Node, repo checkout or API key is a local, instant check
+        # (no subprocess, no network) - do it before the progress dialog even
+        # opens, so a bad config is one clear message, not a background op
+        # that starts and then immediately fails.
+        generator.ensure_ready()
     except GenerationError as error:
         showWarning(str(error))
         return
 
     def op(col) -> FillResult:
         plan = plan_fill(col, fill_config)
-        if plan.to_fill:
-            # Fails once, up front, instead of as one identical failure per
-            # note if the configured account can't sign in at all.
-            generator.ensure_authenticated()
 
         def progress(done: int, total: int, text: str) -> None:
             mw.taskman.run_on_main(

@@ -67,6 +67,7 @@ A deck already generated one way converts to the other by re-running with the ot
 See [`../plusaudio/README.md`](../plusaudio/README.md).
 
 If the deck you want audio in is one you already have open in Anki, [`addon/amgi_audio/`](addon/amgi_audio/README.md) does the same generation directly against your live collection, with no export or import step.
+It runs entirely on your own machine against your own OpenAI key - no amgi account, same as `plusaudio/` itself - but it does need Node and a checkout of this repo; see its README's "Install" section.
 
 ### Converting a deck you cannot regenerate
 

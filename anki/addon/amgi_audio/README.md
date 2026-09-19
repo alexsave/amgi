@@ -31,10 +31,29 @@ It does not create notes, does not touch any field but the one you pointed it at
 
 ## Install
 
+This add-on generates audio on your own machine, with your own OpenAI key.
+There is no amgi account, no hosted service, and no quota but your own OpenAI account's - see
+"Generation: local, not the edge function" below for why, and for what this used to depend on that
+it no longer does.
+
+That does mean it needs a few things a purely-installed add-on would not:
+
+- **Node.js**, to run the same generator `plusaudio/` uses.
+  This is a real install step, not a nicety: if you do not already have Node, get it from
+  [nodejs.org](https://nodejs.org) first.
+- **A checkout of [this repo](https://github.com/alexsave/amgi)**, so `plusaudio/generate-clip.js`
+  and the shared generation policy it runs exist on disk somewhere.
+- **An OpenAI API key**, in the environment, in `plusaudio/.env`, or pasted into this add-on's own
+  config (see below).
+
 1. Copy the `amgi_audio` folder into your Anki add-ons folder (Tools > Add-ons > View Files puts you in the right place), then restart Anki.
-2. Tools > Add-ons, select amgi_audio, click Config, and fill in your amgi account's email, password, and the project's `supabase_url` / `supabase_anon_key`.
-   See `config.md` (shown next to the config editor) for where to find each value and what "plain text" means for the password.
+2. Tools > Add-ons, select amgi_audio, click Config, and set `plusaudio_dir` to the `plusaudio` folder of your checkout.
+   Set `node_path` too if `node` is not on the `PATH` Anki itself runs with, and `openai_api_key` if you are not already setting `OPENAI_API_KEY` some other way.
+   See `config.md` (shown next to the config editor) for all three, in the order they are checked.
 3. Tools > amgi: Fill missing audio...
+
+If any of the above is missing or misconfigured, this add-on says so before a run starts - a message
+naming what to fix, not a stack trace partway through your deck.
 
 ## Field mapping
 
@@ -81,16 +100,22 @@ A note's field is only changed after its clip has already been generated and wri
 The collection's database itself is not touched until the very end of a run, in a single write covering every note finished so far.
 See `core.apply_fill`'s docstring for why, and `test_core_collection.py`'s cancellation test for what a cancelled run leaves behind: the notes done so far, committed; the rest, simply not started yet, and picked back up the same way on the next run.
 
-## Generation: why the edge function, not a local script
+## Generation: local, not the edge function
 
 The generation policy - prompts, the TTS voice instructions, the transcribe-then-judge validation loop - lives in exactly one place, `supabase/functions/_shared/cardGeneration.ts`, and this add-on does not get a second copy of it in Python.
 It is Python, so it cannot `require()` that TypeScript module the way `plusaudio/lib/generator.js` does.
-Instead `generator.py` calls the deployed `cards` edge function over HTTPS, the same function `src/network/supabaseApi.js` calls from the web app, reusing its existing "regenerate only this side's audio" request shape (`regenerate_parts: ["back_audio_path"]` with a `current_card` whose `back_text` already is the note's text - see `cardTextMode`'s `'none'` branch in `cardGeneration.ts`) rather than adding a bare TTS endpoint that would be a second entry point into the same policy.
+Instead `generator.py` shells out to `plusaudio/generate-clip.js`, a small Node entry point built for exactly this - text and a language in, one clip written to a file, over a documented contract (see that file's own top-of-file comment) - which in turn calls the same shared generator `plusaudio/add-audio.js` uses.
 
-This also means every clip goes through the account's existing auth and quota, same as the web app - this add-on does not bypass either.
+That contract is the seam `core.apply_fill` depends on: it takes any `fetch_audio(text) -> bytes` callable (see `generator.AudioGenerator`), so it has no idea, and does not need one, that the other end is a subprocess.
 
-The alternative - shelling out to `node plusaudio/add-audio.js`'s generator locally - was not built for v1, because it would ask a user who just wants their own deck filled in to also have Node, this repo, and a local Supabase instance running, trading the manual export/import round trip for a different manual setup.
-It stays a small change to add later: `core.apply_fill` takes any `fetch_audio(text) -> bytes` callable (see `generator.AudioGenerator`), so a `NodeCliAudioGenerator` implementing that same interface would need no change to `core.py` or `__init__.py` - only a different object passed in from `__init__.py`.
+This add-on used to call a deployed `cards` edge function over HTTPS instead, signed in with an amgi account's email and password stored in this add-on's own config.
+That is gone.
+Generating locally, against your own OpenAI key, removes a real liability - an amgi account's password sitting in plaintext in an Anki add-on's config file - and removes the amgi account, the hosted quota, and the network dependency on Supabase entirely.
+The only network call this add-on makes now is the one `plusaudio/generate-clip.js` makes to OpenAI, from your own machine, with your own key.
+
+The tradeoff is Node and a repo checkout become real requirements, not optional ones - see "Install" above.
+That was the whole reason the edge-function version existed in the first place: everyone who could already use the amgi web app had what it needed and nothing else.
+That reasoning no longer applies now that reaching into a live collection with no amgi account at all is the point.
 
 ## Testing
 
@@ -100,8 +125,9 @@ It stays a small change to add later: `core.apply_fill` takes any `fetch_audio(t
 `pnpm test` runs them.
 
 - `test_deck_text.py` checks `deck_text.py` against `plusaudio/lib/deck.js` and `audio-store.js` themselves, by shelling out to Node on the same inputs and asserting equality - not against a second, hand-written idea of what those functions do.
-- `test_generator.py` checks the edge-function seam - request shape, auth headers, the regenerate-only body, token refresh on a 401, error mapping - by mocking `urllib.request.urlopen`.
-  There is no Supabase project or API key available to these tests, and this add-on must never be exercised against the production project; mocking at the transport boundary is what "keep the seam narrow enough to mock" (see the top of `generator.py`) means in practice.
+- `test_generator.py` checks the subprocess seam - the command built, the environment passed through, exit-code and stderr handling, temp-file cleanup, and the actionable errors for a missing Node, a missing repo checkout, and a missing API key - by mocking `subprocess.run`.
+  There is no OpenAI API key available to these tests, and live calls are not authorised; mocking at the transport boundary is what "keep the seam narrow enough to mock" (see the top of `generator.py`) means in practice.
+  `../../plusaudio/test/generate-clip.test.js` checks the other side of the same contract from Node, with a stubbed generator - also never a real OpenAI client.
 - `test_core_config.py` checks `AudioFillConfig`'s own validation.
 
 `test/test_core_collection.py` runs `core.plan_fill`/`core.apply_fill` against a REAL `anki.collection.Collection`: real notes, real `Note.__setitem__`, real `col.media.add_file`/`write_data`/`check()`.
@@ -149,9 +175,9 @@ To check it:
    This was written against the operations API's documented shape as of Anki 2.1.45+, but its exact keyword arguments (`.with_progress(label=...)` in particular) have not been checked against the installed Anki version's `aqt/operations/__init__.py`.
    If the dialog or the run raises a `TypeError` about an unexpected keyword, that file is the first place to look.
 
-5. **The edge-function call against the real deployment.**
-   `test_generator.py` proves the request this add-on builds is correctly shaped; it does not prove the deployed `cards` function accepts it, because there is no Supabase project or API key available to test against here, and this add-on must not be pointed at the production project as part of building it.
-   To check: configure a real account against a real (non-production, if you have one) deployment, run the add-on on a small test deck, and confirm a clip comes back and plays.
+5. **`generate-clip.js` against a real OpenAI key.**
+   `test_generator.py` proves the command this add-on builds and the way it handles the result are correct; `generate-clip.test.js` proves the Node side of the same contract. Neither proves a real OpenAI account accepts the request, because there is no API key available to test against here.
+   To check: set `OPENAI_API_KEY` (or `plusaudio/.env`), configure `plusaudio_dir` in this add-on, run it on a small test deck, and confirm a clip comes back and plays.
 
 ## What v2 would need
 
@@ -159,6 +185,6 @@ Adding new notes, not just filling in audio for ones that exist.
 Given this add-on already has a live `Collection`, most of what made that hard before is gone:
 
 - **Anki does the writing.** `col.new_note(notetype)` / `col.add_note(note, deck_id)` are the same shape `apply_fill` already uses for `update_note` - no GUID minting, no card creation math (Anki creates a note's cards itself from its note type's templates), no revlog to leave alone because there is none yet for a new card.
-- **What is actually new work**: a source of terms (the missing piece `plusaudio/README.md`'s own "What this is not" section already names - "it needs a source of terms... not a different generator"), and calling `cardGeneration.ts`'s text-generation path (`generateCardText`, not just `generateCardAudio`) through the same edge-function seam this add-on already has open, since writing a new note needs both sides' text, not just a clip for text that already exists.
+- **What is actually new work**: a source of terms (the missing piece `plusaudio/README.md`'s own "What this is not" section already names - "it needs a source of terms... not a different generator"), and a new Node entry point alongside `generate-clip.js` for `cardGeneration.ts`'s text-generation path (`generateCardText`, not just `generateCardAudio`), since writing a new note needs both sides' text, not just a clip for text that already exists.
 - **The dialog** would grow an input for what to generate cards *about*, or a way to point at a word list, in place of - or alongside - the deck+field picker this version has.
 - **Duplicate handling** the CLI tools never had to consider: Anki's own `col.find_dupes` / note-duplicate detection is not currently called anywhere in `core.py`, and a v2 that creates notes should use it before adding one, since nothing here currently stops the same term being generated twice into the same deck.
