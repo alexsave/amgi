@@ -5,6 +5,8 @@
 
 const crypto = require('node:crypto');
 
+const { WIRE_VARINT, readFields } = require('./protobuf');
+
 const FIELD_SEPARATOR = '\x1f';
 const SOUND_TAG = /\[sound:([^\]]*)\]/g;
 // An <audio> element with a src, closing tag optional, which is what Anki's own
@@ -146,8 +148,23 @@ function setOwnedAudio(fieldText, filename, isOwned, form = 'sound') {
   return out + fieldText.slice(cursor);
 }
 
-/** Note types, read from the schema 11 `col.models` JSON blob. */
-function readNotetypes(db) {
+/**
+ * Note types, by id.
+ *
+ * Schema 11 keeps them as a JSON blob in `col.models`. Schema 18, which is what
+ * a modern package carries, keeps them in tables instead, with everything that
+ * is not a name or an id in a protobuf blob: `notetypes.config` is a
+ * Notetype.Config (proto/anki/notetypes.proto), whose field 2 is the index of
+ * the sort field. Both shapes answer the same two questions - what the fields
+ * are called, and which of them Anki sorts on.
+ *
+ * @param {object} pkg  an open package; see lib/package.js openPackage
+ */
+function readNotetypes(pkg) {
+  return pkg.schemaVersion === 11 ? readLegacyNotetypes(pkg.db) : readSchema18Notetypes(pkg.metadataDb);
+}
+
+function readLegacyNotetypes(db) {
   const models = JSON.parse(db.prepare('SELECT models FROM col').get().models);
   const notetypes = new Map();
   for (const [id, model] of Object.entries(models)) {
@@ -159,6 +176,40 @@ function readNotetypes(db) {
     });
   }
   return notetypes;
+}
+
+const NOTETYPE_CONFIG_SORT_FIELD_IDX = 2;
+
+function readSchema18Notetypes(db) {
+  const notetypes = new Map();
+  for (const row of db.prepare('SELECT id, name, config FROM notetypes').all()) {
+    notetypes.set(Number(row.id), {
+      id: Number(row.id),
+      name: row.name,
+      sortFieldIndex: sortFieldIndex(Buffer.from(row.config)),
+      fieldNames: [],
+    });
+  }
+
+  // Read whole and sorted here rather than in SQL: the copy these tables are
+  // read from has had Anki's collation stripped from its schema, so the order
+  // SQLite would return them in is not one to rely on.
+  const fields = db.prepare('SELECT ntid, ord, name FROM fields').all();
+  fields.sort((a, b) => a.ord - b.ord);
+  for (const field of fields) {
+    notetypes.get(Number(field.ntid))?.fieldNames.push(field.name);
+  }
+  return notetypes;
+}
+
+function sortFieldIndex(config) {
+  for (const field of readFields(config)) {
+    if (field.number === NOTETYPE_CONFIG_SORT_FIELD_IDX && field.wireType === WIRE_VARINT) {
+      return field.value;
+    }
+  }
+  // proto3 leaves a zero off the wire, and zero is the first field.
+  return 0;
 }
 
 function findFieldIndex(fieldNames, wanted) {
