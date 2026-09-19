@@ -26,7 +26,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "jest && node --test \"plusaudio/test/**/*.test.js\" \"anki/test/**/*.test.js\""
+    "test": "jest && node --test \"plusaudio/test/**/*.test.js\" \"anki/test/**/*.test.js\" && python3 -m unittest discover -s anki/addon/amgi_audio/test -p \"test_*.py\" -v"
   },
   "browserslist": {
     "production": [

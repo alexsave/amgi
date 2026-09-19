@@ -15,6 +15,7 @@ anki/
   tools/build-loop.js  builds media/_amgi-loop.js from amgi's own source
   test/              a node:test suite, and a Chrome harness that drives the template
   addon/amgi_mic/    the desktop add-on that grants the microphone
+  addon/amgi_audio/  the desktop add-on that fills in missing audio from inside a live collection
 ```
 
 ## Install
@@ -64,6 +65,8 @@ node plusaudio/add-audio.js "My Deck.apkg" --audio-tag html
 Its default is `--audio-tag sound`, which is right for an ordinary Anki deck and wrong for this note type.
 A deck already generated one way converts to the other by re-running with the other flag: the clip filenames are content hashes, so nothing is regenerated and no note ends up with two references to the same clip.
 See [`../plusaudio/README.md`](../plusaudio/README.md).
+
+If the deck you want audio in is one you already have open in Anki, [`addon/amgi_audio/`](addon/amgi_audio/README.md) does the same generation directly against your live collection, with no export or import step.
 
 ### Converting a deck you cannot regenerate
 

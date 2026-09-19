@@ -1,0 +1,7 @@
+{
+  "package": "amgi_audio",
+  "name": "amgi: fill missing audio",
+  "homepage": "https://github.com/alexsave/amgi/tree/main/anki",
+  "min_point_version": 50,
+  "conflicts": []
+}
