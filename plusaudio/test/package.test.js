@@ -321,6 +321,38 @@ describe('the modern media map', () => {
     }
   });
 
+  it('writes what the caller committed, even in WAL mode', () => {
+    // The collection is read back off disk rather than serialized out of
+    // SQLite, so anything still sitting in a write-ahead log would be missing
+    // from the package. Anki's own exports use the rollback journal, but the
+    // guarantee must not depend on that.
+    const input = path.join(dir, 'wal-in.apkg');
+    buildPackage(input, { notes: NOTES, media: { 'pic.jpg': 'JPEGDATA' }, format: 'modern' });
+    const output = path.join(dir, 'wal-out.apkg');
+
+    const pkg = openPackage(input);
+    let noteId;
+    try {
+      pkg.db.exec('PRAGMA journal_mode = WAL');
+      assert.equal(pkg.db.prepare('PRAGMA journal_mode').get().journal_mode, 'wal');
+
+      const note = pkg.db.prepare('SELECT id, flds FROM notes LIMIT 1').get();
+      noteId = note.id;
+      pkg.db.prepare('UPDATE notes SET flds = ? WHERE id = ?').run('written in wal mode', noteId);
+      writePackage(pkg, output);
+    } finally {
+      pkg.close();
+    }
+
+    const written = openPackage(output);
+    try {
+      const note = written.db.prepare('SELECT flds FROM notes WHERE id = ?').get(noteId);
+      assert.equal(note.flds, 'written in wal mode');
+    } finally {
+      written.close();
+    }
+  });
+
   it('encodes what Anki would encode', () => {
     const input = path.join(dir, 'golden-out-in.apkg');
     buildPackage(input, { notes: NOTES, media: { 'pic.jpg': 'JPEGDATA' }, format: 'modern' });

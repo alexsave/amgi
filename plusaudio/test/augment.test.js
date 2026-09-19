@@ -424,11 +424,14 @@ describe('augmentPackage', () => {
     const input = path.join(dir, 'schema17.apkg');
     const members = readZip(source).map((e) => ({ name: e.name, data: e.data() }));
     const collection = members.find((m) => m.name === 'collection.anki2');
-    const db = new DatabaseSync(':memory:');
-    db.deserialize(collection.data);
+    // Through a file rather than deserialize()/serialize(), which need a
+    // newer Node than anything this package actually requires.
+    const scratch = path.join(dir, 'schema17-collection.anki2');
+    fs.writeFileSync(scratch, collection.data);
+    const db = new DatabaseSync(scratch);
     db.prepare('UPDATE col SET ver = 17').run();
-    collection.data = Buffer.from(db.serialize());
     db.close();
+    collection.data = fs.readFileSync(scratch);
     writeZip(input, members);
 
     await assert.rejects(

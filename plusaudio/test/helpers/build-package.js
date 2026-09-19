@@ -162,16 +162,24 @@ function insertNotesAndCards(db, spec) {
   }
 }
 
+// Built on disk and read back, like the schema 18 fixture below, rather than
+// in memory and serialized out: DatabaseSync.serialize() only exists on very
+// recent Node, and nothing else here needs a runtime that new.
 function buildSchema11Collection(spec) {
-  const db = new DatabaseSync(':memory:');
-  db.exec(SCHEMA_11 + SHARED_TABLES);
-  db.prepare(
-    'INSERT INTO col VALUES (1, 1536289200, 1599388703765, 1599388703000, 11, 0, 0, 0, ?, ?, ?, ?, ?)',
-  ).run('{"schedVer": 2}', JSON.stringify(MODELS), JSON.stringify(DECKS), '{}', '{}');
-  insertNotesAndCards(db, spec);
-  const collection = Buffer.from(db.serialize());
-  db.close();
-  return collection;
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'plusaudio-fixture-'));
+  const dbPath = path.join(dir, 'collection.anki2');
+  try {
+    const db = new DatabaseSync(dbPath);
+    db.exec(SCHEMA_11 + SHARED_TABLES);
+    db.prepare(
+      'INSERT INTO col VALUES (1, 1536289200, 1599388703765, 1599388703000, 11, 0, 0, 0, ?, ?, ?, ?, ?)',
+    ).run('{"schedVer": 2}', JSON.stringify(MODELS), JSON.stringify(DECKS), '{}', '{}');
+    insertNotesAndCards(db, spec);
+    db.close();
+    return fs.readFileSync(dbPath);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 }
 
 function schemaStatements(schema) {
