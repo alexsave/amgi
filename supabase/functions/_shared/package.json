@@ -1,0 +1,5 @@
+{
+  "//": "Not an npm package. Node reads this when it require()s the policy modules in this directory and would otherwise try to parse them as CommonJS first; Deno ignores it. Nothing here has dependencies, and nothing imports it.",
+  "private": true,
+  "type": "module"
+}

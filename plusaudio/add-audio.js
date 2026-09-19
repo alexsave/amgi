@@ -15,7 +15,7 @@ const path = require('node:path');
 const { augmentPackage } = require('./lib/augment');
 const { AUDIO_TAG_FORMS } = require('./lib/deck');
 const { UnsupportedPackageError } = require('./lib/package');
-const { createGenerator } = require('./lib/tts');
+const { createGenerator } = require('./lib/generator');
 
 const USAGE = `Usage: node add-audio.js <deck.apkg> [options]
 

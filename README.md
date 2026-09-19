@@ -47,7 +47,9 @@ The grading keys are Anki's, so the muscle memory carries over.
   - `speech` - pronunciation evaluation: compares your recording against the reference audio and returns a verdict plus spoken feedback.
   - `realtime` - mints short-lived client secrets for the browser's WebRTC session with the realtime model; the API key never leaves the server.
   - `payment-links` / `stripe-webhook` - Stripe checkout and subscription lifecycle.
-- **Models** (centralized in `supabase/functions/_shared/openai.ts`): `gpt-audio` for speech evaluation, `gpt-5-mini` for text, `gpt-4o-mini-tts` for card audio, `gpt-4o-mini-transcribe` for audio validation, and `gpt-realtime` for conversation mode.
+- **Models** (centralized in `supabase/functions/_shared/models.ts`): `gpt-audio` for speech evaluation, `gpt-5-mini` for text, `gpt-4o-mini-tts` for card audio, `gpt-4o-mini-transcribe` for audio validation, and `gpt-realtime` for conversation mode.
+- **Card generation policy** (`supabase/functions/_shared/cardGeneration.ts`, with `cardPrompts.ts` and `cardText.ts`): the prompts, schemas, assembly and audio validation loop that decide what a card is.
+  It runs unchanged in Deno and in Node - the `cards` function and the `plusaudio/` CLI both call it, with the OpenAI client and the model ids injected - so a deck built from the command line is built to the same standard as a card made in the app.
 
 ## Setup
 

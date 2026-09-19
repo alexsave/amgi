@@ -24,10 +24,27 @@ Every one of them rewrites the deck's identity, which is what `plusaudio/` now e
 
 ## What is worth mining before deleting these for good
 
-- `index.js` has audio quality gates that the replacement does not: a syllable-count duration proxy
-  (`validateAudioDuration`) and an ffmpeg mean/max volume comparison against the deck's own original
-  audio, with a gain boost for quiet clips (`validateAudioVolume`).
-- `index.js` has the Korean phonological-equivalence judge, which `plusaudio/lib/tts.js` kept.
+Judged once the generator moved to `supabase/functions/_shared/cardGeneration.ts`, which is now what
+both amgi and `plusaudio/` run.
+
+- `validateAudioDuration` (`index.js`): a syllable-count duration proxy, from the mp3's byte length.
+  Not carried.
+  It is a size proxy for a duration proxy for a content check, tuned to Korean syllables at one
+  bitrate, and the thing it approximates - did the voice say the phrase once, and all of it - is
+  exactly what the transcript comparison and the audio judge decide directly.
+  Pointed at another language or another TTS model it would reject good clips.
+- `validateAudioVolume` (`index.js`): an ffmpeg mean/max volume comparison against the deck's own
+  original audio, with a gain boost for quiet clips.
+  Not carried, but the problem it solves is real and is specific to this CLI.
+  amgi plays clips from one synthesiser, so its levels are already consistent; a deck being augmented
+  has the author's own recordings next to freshly generated ones, and those can differ audibly.
+  It does not belong in the shared generator either way: it needs an external binary, which an edge
+  function cannot have, and a reference baseline, which only a deck can supply.
+  If a real level mismatch shows up, the place for it is a post-processing step in `plusaudio/`,
+  behind a flag, measured against the deck's existing media.
+- `index.js` has the Korean phonological-equivalence judge.
+  Superseded: the shared generator escalates any transcript disagreement to a model that listens to
+  the clip itself, which settles a Korean sound-change case the same way without being about Korean.
 - `openai-cache.js` is a sound, vendor-agnostic response cache keyed on a stable hash of the request
   payload. The replacement caches generated clips on disk instead, which covers the expensive case,
   but the request cache is the better tool if the generator starts making cheap text calls too.

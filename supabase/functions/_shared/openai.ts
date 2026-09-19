@@ -1,16 +1,17 @@
 import OpenAI from "npm:openai@^6.5.0";
 
-// Model roster, kept in one place so upgrades are a one-line change.
-// - gpt-audio: GA speech-in/speech-out chat model (successor of gpt-4o-audio-preview)
-// - gpt-5-mini: fast text model for translation / card generation
-// - gpt-4o-mini-tts: steerable TTS with per-language instructions
-// - gpt-4o-mini-transcribe: transcription used to validate generated TTS audio
-// - gpt-realtime: GA realtime speech model for live conversation practice
-export const SPEECH_EVALUATION_MODEL = "gpt-audio";
-export const TEXT_MODEL = "gpt-5-mini";
-export const TTS_MODEL = "gpt-4o-mini-tts";
-export const TRANSCRIBE_MODEL = "gpt-4o-mini-transcribe";
-export const REALTIME_MODEL = "gpt-realtime";
+// The model ids live in models.ts, which stays free of Deno APIs and npm:
+// specifiers so the plusaudio CLI can import them too. Re-exported here so
+// every edge function keeps importing its models from one place.
+export {
+    CARD_MODELS,
+    REALTIME_MODEL,
+    SPEECH_EVALUATION_MODEL,
+    TEXT_MODEL,
+    TRANSCRIBE_MODEL,
+    TTS_MODEL,
+    type CardModels,
+} from "./models.ts";
 
 /**
  * Creates and returns an initialized OpenAI client.
