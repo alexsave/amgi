@@ -71,14 +71,14 @@ def _find_node(node_path: str) -> str:
             return node_path
         raise GenerationError(
             f"amgi audio fill's configured node_path ({node_path!r}) is not an executable file. "
-            "Fix node_path in Tools > Add-ons > amgi_audio > Config, or clear it to search PATH."
+            "Fix node_path in Tools > Add-ons > amgi_bridge > Config, or clear it to search PATH."
         )
     found = shutil.which(node_path)
     if found is None:
         raise GenerationError(
             "amgi audio fill needs Node.js to generate audio and could not find "
             f"{node_path!r} on PATH. Install Node (https://nodejs.org) or set node_path in "
-            "Tools > Add-ons > amgi_audio > Config to its full path (run `which node` in a "
+            "Tools > Add-ons > amgi_bridge > Config to its full path (run `which node` in a "
             "terminal where `node` already works to find it)."
         )
     return found
@@ -88,14 +88,14 @@ def _find_script(plusaudio_dir: str) -> str:
     if not plusaudio_dir:
         raise GenerationError(
             "amgi audio fill needs plusaudio_dir set to your amgi checkout's plusaudio folder "
-            "first: open Tools > Add-ons, select amgi_audio, click Config, and fill it in."
+            "first: open Tools > Add-ons, select amgi_bridge, click Config, and fill it in."
         )
     script_path = os.path.join(plusaudio_dir, "generate-clip.js")
     if not os.path.isfile(script_path):
         raise GenerationError(
             f"amgi audio fill's configured plusaudio_dir ({plusaudio_dir!r}) has no "
             "generate-clip.js in it. Point plusaudio_dir at the plusaudio/ folder of a checkout "
-            "of https://github.com/alexsave/amgi (Tools > Add-ons > amgi_audio > Config)."
+            "of https://github.com/alexsave/amgi (Tools > Add-ons > amgi_bridge > Config)."
         )
     return script_path
 
@@ -154,7 +154,7 @@ class NodeCliAudioGenerator:
             return
         raise GenerationError(
             "amgi audio fill needs an OpenAI API key and found none. Set openai_api_key in "
-            "Tools > Add-ons > amgi_audio > Config, or set OPENAI_API_KEY in the environment "
+            "Tools > Add-ons > amgi_bridge > Config, or set OPENAI_API_KEY in the environment "
             f"Anki runs in, or put OPENAI_API_KEY=... in {os.path.join(self._plusaudio_dir, '.env')}."
         )
 

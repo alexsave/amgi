@@ -1,6 +1,6 @@
 {
-  "package": "amgi_audio",
-  "name": "amgi: fill missing audio",
+  "package": "amgi_bridge",
+  "name": "amgi: bridge",
   "homepage": "https://github.com/alexsave/amgi/tree/main/anki",
   "min_point_version": 50,
   "conflicts": []

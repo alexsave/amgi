@@ -12,7 +12,7 @@
 # a Python that has `anki` installed:
 #
 #   python -m venv anki-test-env && anki-test-env/bin/pip install anki
-#   cd anki/addon/amgi_audio && anki-test-env/bin/python -m unittest test.test_core_collection -v
+#   cd anki/addon/amgi_bridge && anki-test-env/bin/python -m unittest test.test_core_collection -v
 #
 # The `cd` matters, not just the pip install: see the sys.path note below.
 
@@ -25,9 +25,9 @@ import tempfile
 import unittest
 
 # Import this add-on's own modules directly, from its own directory, rather
-# than as `anki.addon.amgi_audio.core`. This repo's own top-level anki/
+# than as `anki.addon.amgi_bridge.core`. This repo's own top-level anki/
 # directory has no __init__.py, and neither does the real `anki` pip package
-# (it is an implicit namespace package - see anki/addon/amgi_audio/README.md,
+# (it is an implicit namespace package - see anki/addon/amgi_bridge/README.md,
 # "A namespace collision worth knowing about"). If this file's own directory
 # is not what ends up on sys.path - for instance if these tests are run with
 # the repo root as the working directory - Python can merge the repo's anki/
