@@ -20,6 +20,27 @@
   transition: all 0.2s ease;
 }
 
+.card-form-mode-toggle {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.card-form-mode-toggle button {
+  flex: 1;
+  padding: 0.6rem;
+  border-radius: 4px;
+  border: 1px solid var(--border-color);
+  background: var(--dark-surface-hover);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.card-form-mode-toggle button.card-form-mode-active {
+  border-color: var(--flame-orange);
+  color: var(--flame-orange);
+}
+
 .form-group label {
   display: block;
   margin-bottom: 0.5rem;
@@ -83,6 +104,33 @@
   height: 1rem;
   object-fit: cover;
   border-radius: 2px;
+}
+
+/* The "Generate Audio" button (type="button") shares this class with "Add
+   Note" (type="submit"), but only the submit selector below paints the
+   flame-orange primary style - without a rule of its own this one rendered
+   as an unstyled browser-default button, which stood out badly next to its
+   sibling. A plain secondary look (bordered, no fill) reads as "the other
+   action" without competing with the primary button's color. */
+.generate-button {
+  background: var(--dark-surface-hover);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  padding: 10px 20px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1em;
+  transition: all 0.2s ease;
+}
+
+.generate-button:hover:not(:disabled) {
+  border-color: var(--flame-orange);
+  color: var(--flame-orange);
+}
+
+.generate-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .card-form button[type="submit"] {

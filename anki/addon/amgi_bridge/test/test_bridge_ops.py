@@ -257,6 +257,122 @@ class ListNotesInDeckTests(BridgeOpsTestCase):
         self.assertEqual(page, {"notes": [], "total": 0, "offset": 0, "limit": 200})
 
 
+class ListFieldValuesTests(BridgeOpsTestCase):
+    def _add(self, deck_id, front, back):
+        return bridge_ops.add_note(
+            self.col, deck_id=deck_id, notetype_id=self._basic_notetype_id(), fields=[front, back]
+        ).payload["noteId"]
+
+    def test_returns_the_named_fields_value_for_every_note_of_that_notetype(self):
+        deck_id = self.col.decks.id("Korean")
+        self._add(deck_id, "one", "front one")
+        self._add(deck_id, "two", "front two")
+        values = bridge_ops.list_field_values(self.col, deck_id, self._basic_notetype_id(), 0)
+        self.assertEqual(sorted(values), ["one", "two"])
+
+    def test_scoped_to_the_requested_notetype_only(self):
+        deck_id = self.col.decks.id("Korean")
+        self._add(deck_id, "basic front", "basic back")
+        cloze_id = self.col.models.by_name("Cloze")["id"]
+        note = self.col.new_note(self.col.models.get(cloze_id))
+        note["Text"] = "a {{c1::cloze}} note"
+        self.col.add_note(note, deck_id)
+        values = bridge_ops.list_field_values(self.col, deck_id, self._basic_notetype_id(), 0)
+        self.assertEqual(values, ["basic front"])
+
+    def test_subdeck_notes_are_included(self):
+        parent = self.col.decks.id("Korean")
+        child = self.col.decks.id("Korean::Verbs")
+        self._add(parent, "p", "p2")
+        self._add(child, "c", "c2")
+        values = bridge_ops.list_field_values(self.col, parent, self._basic_notetype_id(), 0)
+        self.assertEqual(sorted(values), ["c", "p"])
+
+    def test_an_empty_deck_returns_an_empty_list_not_an_error(self):
+        deck_id = self.col.decks.id("Empty deck")
+        values = bridge_ops.list_field_values(self.col, deck_id, self._basic_notetype_id(), 0)
+        self.assertEqual(values, [])
+
+
+class HasMediaTests(BridgeOpsTestCase):
+    def test_false_before_the_file_exists_true_after(self):
+        self.assertFalse(bridge_ops.has_media(self.col, "clip.mp3"))
+        bridge_ops.add_media(self.col, "clip.mp3", b"FAKE-AUDIO-BYTES")
+        self.assertTrue(bridge_ops.has_media(self.col, "clip.mp3"))
+
+
+class AddNotesBulkTests(BridgeOpsTestCase):
+    def test_adds_every_note_and_reports_one_result_per_note_in_order(self):
+        deck_id = self.col.decks.id("Korean")
+        notetype_id = self._basic_notetype_id()
+        result = bridge_ops.add_notes_bulk(
+            self.col,
+            [
+                {"deck_id": deck_id, "notetype_id": notetype_id, "fields": ["one", "front one"]},
+                {"deck_id": deck_id, "notetype_id": notetype_id, "fields": ["two", "front two"]},
+                {"deck_id": deck_id, "notetype_id": notetype_id, "fields": ["three", "front three"]},
+            ],
+        )
+        self.assertEqual(len(result.payload["results"]), 3)
+        self.assertTrue(all(r["ok"] for r in result.payload["results"]))
+        note_ids = [r["noteId"] for r in result.payload["results"]]
+        self.assertEqual(len(set(note_ids)), 3)
+        for note_id, text in zip(note_ids, ["one", "two", "three"]):
+            self.assertEqual(self.col.get_note(note_id)["Front"], text)
+
+    def test_one_bad_note_does_not_abort_the_rest_of_the_batch(self):
+        deck_id = self.col.decks.id("Korean")
+        notetype_id = self._basic_notetype_id()
+        result = bridge_ops.add_notes_bulk(
+            self.col,
+            [
+                {"deck_id": deck_id, "notetype_id": notetype_id, "fields": ["good", "front good"]},
+                {"deck_id": deck_id, "notetype_id": notetype_id, "fields": ["only one field"]},
+                {"deck_id": deck_id, "notetype_id": notetype_id, "fields": ["also good", "front also good"]},
+            ],
+        )
+        results = result.payload["results"]
+        self.assertEqual([r["ok"] for r in results], [True, False, True])
+        self.assertIn("error", results[1])
+
+    def test_carries_the_romanisation_warning_per_note(self):
+        deck_id = self.col.decks.id("Korean")
+        notetype_id = self._basic_notetype_id()
+        result = bridge_ops.add_notes_bulk(
+            self.col,
+            [
+                {
+                    "deck_id": deck_id,
+                    "notetype_id": notetype_id,
+                    "fields": ["hello", "annyeonghaseyo"],
+                    "language": "ko",
+                    "learning_field_index": 1,
+                },
+            ],
+        )
+        self.assertIn("warning", result.payload["results"][0])
+
+    def test_produces_a_single_changes_object_not_one_per_note(self):
+        deck_id = self.col.decks.id("Korean")
+        notetype_id = self._basic_notetype_id()
+        result = bridge_ops.add_notes_bulk(
+            self.col,
+            [
+                {"deck_id": deck_id, "notetype_id": notetype_id, "fields": ["a", "b"]},
+                {"deck_id": deck_id, "notetype_id": notetype_id, "fields": ["c", "d"]},
+            ],
+        )
+        self.assertTrue(result.changes.note)
+
+    def test_an_all_failing_batch_still_returns_a_real_empty_changes(self):
+        deck_id = self.col.decks.id("Korean")
+        result = bridge_ops.add_notes_bulk(
+            self.col, [{"deck_id": deck_id, "notetype_id": 999999999, "fields": ["a", "b"]}]
+        )
+        self.assertFalse(result.payload["results"][0]["ok"])
+        self.assertIsNotNone(result.changes)
+
+
 class AddMediaTests(BridgeOpsTestCase):
     def test_writes_the_file_and_returns_the_stored_name(self):
         result = bridge_ops.add_media(self.col, "clip.mp3", b"FAKE-AUDIO-BYTES")

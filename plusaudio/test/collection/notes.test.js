@@ -259,6 +259,50 @@ test(
   },
 );
 
+for (const schema of [11, 18]) {
+  test(
+    `listFieldValuesInDeck (schema ${schema}): returns one field's value for every note of that note type in the deck`,
+    { skip: !anki && 'no python3 with the anki library on PATH (set ANKI_PYTHON_BIN)' },
+    () => {
+      const { dir, col } = setUp(schema);
+      const basic = col.listNotetypes().result.find((n) => n.name === 'Basic');
+      const deck = col.createDeck('Bulk Add Test').result.deck;
+      col.addNote({ deckId: deck.id, notetypeId: basic.id, fields: ['line one', 'a'] });
+      col.addNote({ deckId: deck.id, notetypeId: basic.id, fields: ['line two', 'b'] });
+
+      const values = col.listFieldValuesInDeck(deck.id, basic.id, 0).result;
+      assert.deepEqual(values.sort(), ['line one', 'line two']);
+
+      // A different field index off the same notes - proving this reads the
+      // requested column, not always field 0.
+      const backValues = col.listFieldValuesInDeck(deck.id, basic.id, 1).result;
+      assert.deepEqual(backValues.sort(), ['a', 'b']);
+
+      fs.rmSync(dir, { recursive: true, force: true });
+    },
+  );
+
+  test(
+    `listFieldValuesInDeck (schema ${schema}): scoped to the requested note type, an empty deck returns nothing`,
+    { skip: !anki && 'no python3 with the anki library on PATH (set ANKI_PYTHON_BIN)' },
+    () => {
+      const { dir, col } = setUp(schema);
+      const basic = col.listNotetypes().result.find((n) => n.name === 'Basic');
+      const cloze = col.listNotetypes().result.find((n) => n.name === 'Cloze');
+      const deck = col.createDeck('Scoped Test').result.deck;
+      col.addNote({ deckId: deck.id, notetypeId: basic.id, fields: ['basic front', 'basic back'] });
+      col.addNote({ deckId: deck.id, notetypeId: cloze.id, fields: ['a {{c1::cloze}} note', 'extra'] });
+
+      assert.deepEqual(col.listFieldValuesInDeck(deck.id, basic.id, 0).result, ['basic front']);
+
+      const emptyDeck = col.createDeck('Truly Empty').result.deck;
+      assert.deepEqual(col.listFieldValuesInDeck(emptyDeck.id, basic.id, 0).result, []);
+
+      fs.rmSync(dir, { recursive: true, force: true });
+    },
+  );
+}
+
 test(
   'updateNote warns the same way addNote does',
   { skip: !anki && 'no python3 with the anki library on PATH (set ANKI_PYTHON_BIN)' },

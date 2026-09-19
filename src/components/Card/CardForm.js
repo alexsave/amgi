@@ -4,6 +4,7 @@ import { ankiApi } from '../../utils/ankiApi';
 import { guessFields, stripHtmlForPreview } from '../../utils/ankiFields';
 import LANGUAGES from '../../constants/languages';
 import { ANKI_READY_MODES } from '../../utils/ankiModeText';
+import BulkAddForm from './BulkAddForm';
 import './CardForm.css';
 
 /**
@@ -26,6 +27,12 @@ const CardForm = ({ deckId }) => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [saveWarning, setSaveWarning] = useState('');
+  // 'single' is today's one-field-at-a-time form; 'bulk' is the
+  // paste-lyrics-get-many-cards screen (BulkAddForm.js). Both share the
+  // note type / field-mapping / language controls above, on purpose - see
+  // BulkAddForm.js's own module comment for why it takes those as props
+  // rather than asking again.
+  const [mode, setMode] = useState('single');
   // Which note type the form (fields, guess) was last reset for - compared
   // during render, not in an effect, so picking a note type resets the form
   // in the same commit rather than flashing the old fields for a frame.
@@ -147,7 +154,26 @@ const CardForm = ({ deckId }) => {
           </select>
         </div>
 
-        {notetype?.fieldNames.map((name, index) => (
+        {notetype && (
+          <div className="form-group card-form-mode-toggle" role="group" aria-label="Add one note or paste many lines">
+            <button
+              type="button"
+              className={mode === 'single' ? 'card-form-mode-active' : ''}
+              onClick={() => setMode('single')}
+            >
+              One note
+            </button>
+            <button
+              type="button"
+              className={mode === 'bulk' ? 'card-form-mode-active' : ''}
+              onClick={() => setMode('bulk')}
+            >
+              Paste multiple lines
+            </button>
+          </div>
+        )}
+
+        {mode === 'single' && notetype?.fieldNames.map((name, index) => (
           <div className="form-group" key={name}>
             <label htmlFor={`ankiField-${index}`}>{name}</label>
             <textarea
@@ -200,39 +226,54 @@ const CardForm = ({ deckId }) => {
           </div>
         )}
 
-        {error && <div className="error-message">{error}</div>}
+        {mode === 'single' && error && <div className="error-message">{error}</div>}
 
-        {saveWarning && (
+        {mode === 'single' && saveWarning && (
           <div className="error-message" style={{ background: 'none', color: '#d0a030', border: '1px solid #d0a030' }}>
             {saveWarning}
           </div>
         )}
 
-        {audioResult && (
+        {mode === 'single' && audioResult && (
           <div className="error-message" style={{ background: 'none', color: audioResult.mocked ? '#d0a030' : '#4caf50', border: `1px solid ${audioResult.mocked ? '#d0a030' : '#4caf50'}` }}>
             {audioResult.mocked
               ? `Audio generated (mocked - ${audioResult.reason})`
-              : `Audio generated: ${audioResult.filename}`}
+              : audioResult.reused
+                ? `Audio reused (already generated): ${audioResult.filename}`
+                : `Audio generated: ${audioResult.filename}`}
           </div>
         )}
 
-        <div style={{ display: 'flex', gap: '0.75rem' }}>
-          <button
-            type="button"
-            className="generate-button"
-            onClick={handleGenerate}
-            disabled={!ready || generating || saving}
-          >
-            {generating ? 'Generating…' : 'Generate Audio'}
-          </button>
-          <button type="submit" className="generate-button" disabled={!ready || saving || generating}>
-            {saving ? 'Adding…' : 'Add Note'}
-          </button>
-        </div>
+        {mode === 'single' && (
+          <div style={{ display: 'flex', gap: '0.75rem' }}>
+            <button
+              type="button"
+              className="generate-button"
+              onClick={handleGenerate}
+              disabled={!ready || generating || saving}
+            >
+              {generating ? 'Generating…' : 'Generate Audio'}
+            </button>
+            <button type="submit" className="generate-button" disabled={!ready || saving || generating}>
+              {saving ? 'Adding…' : 'Add Note'}
+            </button>
+          </div>
+        )}
         {!ready && (
           <small style={{ display: 'block', marginTop: '0.5rem', opacity: 0.75 }}>
             Anki is not reachable right now - see the status banner above.
           </small>
+        )}
+
+        {mode === 'bulk' && notetype && (
+          <BulkAddForm
+            deckId={deckId}
+            notetype={notetype}
+            textFieldIndex={textFieldIndex}
+            audioFieldIndex={audioFieldIndex}
+            language={language}
+            ready={ready}
+          />
         )}
       </form>
     </div>

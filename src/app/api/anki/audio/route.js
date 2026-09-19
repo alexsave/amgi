@@ -17,8 +17,8 @@ export async function POST(request) {
   }
 
   try {
-    const { filename, mocked, reason } = await generateAndStoreClip({ text, language, ops: result.ops });
-    return NextResponse.json({ mode: result.mode, filename, mocked, reason });
+    const { filename, mocked, reason, reused } = await generateAndStoreClip({ text, language, ops: result.ops });
+    return NextResponse.json({ mode: result.mode, filename, mocked, reason, reused });
   } catch (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

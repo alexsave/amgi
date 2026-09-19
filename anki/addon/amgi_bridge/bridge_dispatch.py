@@ -157,6 +157,15 @@ class AqtBridgeDispatcher:
     def list_notes(self, deck_id: int, *, offset: int, limit: int) -> dict:
         return self._run_read(lambda col: bridge_ops.list_notes_in_deck(col, deck_id, offset=offset, limit=limit))
 
+    def list_field_values(self, deck_id: int, notetype_id: int, field_index: int) -> list:
+        return self._run_read(lambda col: bridge_ops.list_field_values(col, deck_id, notetype_id, field_index))
+
+    def has_media(self, filename: str) -> bool:
+        # QueryOp, not CollectionOp, for the same reason add_media below uses
+        # it: col.media.have() only reads the media folder, never the
+        # undo-tracked notes/cards/decks tables.
+        return self._run_read(lambda col: bridge_ops.has_media(col, filename))
+
     def create_deck(self, name: str) -> dict:
         if not name.strip():
             raise BridgeBadRequest("deck name must not be blank")
@@ -183,6 +192,9 @@ class AqtBridgeDispatcher:
                 learning_field_index=learning_field_index,
             )
         )
+
+    def add_notes_bulk(self, notes: list) -> dict:
+        return self._run_write(lambda col: bridge_ops.add_notes_bulk(col, notes))
 
     def update_note(
         self, note_id: int, fields: list, language: Optional[str] = None, learning_field_index: Optional[int] = None

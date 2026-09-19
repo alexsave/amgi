@@ -6,8 +6,10 @@
 import { loadAnkiSettings } from './ankiSettings';
 
 async function call(path, options = {}) {
+  const { signal, ...rest } = options;
   const response = await fetch(`/api/anki${path}`, {
-    ...options,
+    ...rest,
+    signal,
     headers: {
       'X-Amgi-Anki-Settings': JSON.stringify(loadAnkiSettings()),
       ...(options.body ? { 'Content-Type': 'application/json' } : {}),
@@ -33,5 +35,17 @@ export const ankiApi = {
   notesInDeck: (deckId, { offset = 0, limit = 50 } = {}) =>
     call(`/decks/${deckId}/notes?offset=${offset}&limit=${limit}`),
   addNote: (note) => call('/notes', { method: 'POST', body: JSON.stringify(note) }),
-  generateAudio: (text, language) => call('/audio', { method: 'POST', body: JSON.stringify({ text, language }) }),
+  // The bulk-add-from-paste screen's write path (see BulkAddForm.js) - one
+  // request for the whole batch so the bridge transport can run it as one
+  // CollectionOp instead of one per line (see notes/bulk/route.js).
+  addNotesBulk: (notes) => call('/notes/bulk', { method: 'POST', body: JSON.stringify({ notes }) }),
+  updateNote: (noteId, fields, { language, learningFieldIndex } = {}) =>
+    call(`/notes/${noteId}`, { method: 'PATCH', body: JSON.stringify({ fields, language, learningFieldIndex }) }),
+  // Every value already in one field of one note type in a deck - the
+  // bulk-add-vs-deck dupe check (see src/utils/lyricsParse.js's
+  // existingKeySet for how the response is turned into a comparable set).
+  fieldValuesInDeck: (deckId, notetypeId, fieldIndex) =>
+    call(`/decks/${deckId}/notes/field-values?notetypeId=${notetypeId}&fieldIndex=${fieldIndex}`),
+  generateAudio: (text, language, { signal } = {}) =>
+    call('/audio', { method: 'POST', body: JSON.stringify({ text, language }), signal }),
 };

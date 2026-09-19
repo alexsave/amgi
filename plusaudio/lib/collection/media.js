@@ -93,4 +93,17 @@ function mediaDirFor(collectionPath) {
   return `${collectionPath.replace(/\.anki2$/, '')}.media`;
 }
 
-module.exports = { addMediaFile, mediaDirFor, normalizeFilename };
+/**
+ * Whether `filename` (a name this module or audio-store.js's mediaName
+ * already produced - never a caller-supplied "desired" name) is already on
+ * disk. This is the resumability check a clip generator uses to decide
+ * whether it needs to call out to a real TTS API at all: content-hashed
+ * filenames (see audio-store.js) mean the same text always wants the same
+ * name, so a re-run that finds the name already present can skip generation
+ * entirely instead of paying for a clip it is only going to throw away.
+ */
+function mediaFileExists(mediaDir, filename) {
+  return fs.existsSync(path.join(mediaDir, filename));
+}
+
+module.exports = { addMediaFile, mediaDirFor, mediaFileExists, normalizeFilename };

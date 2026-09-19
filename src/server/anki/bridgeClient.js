@@ -65,11 +65,40 @@ function createBridgeOps(baseUrl, token) {
       const page = await bridgeFetch(baseUrl, token, `/decks/${deckId}/notes?offset=0&limit=1`);
       return page.total;
     },
+    /** Every value already in `fieldIndex` for `notetypeId`'s notes in `deckId` - the bulk-add-vs-deck dupe check. */
+    async existingFieldValues(deckId, notetypeId, fieldIndex) {
+      const result = await bridgeFetch(
+        baseUrl,
+        token,
+        `/decks/${deckId}/notes/field-values?notetypeId=${notetypeId}&fieldIndex=${fieldIndex}`,
+      );
+      return result.values;
+    },
     async createDeck(name) {
       return bridgeFetch(baseUrl, token, '/decks', { method: 'POST', body: { name } });
     },
     async addNote(note) {
       return bridgeFetch(baseUrl, token, '/notes', { method: 'POST', body: note });
+    },
+    /**
+     * Add several notes through one `POST /notes/bulk` call, which the
+     * add-on's dispatcher runs as a single `CollectionOp` (see
+     * bridge_ops.add_notes_bulk) - one undo step and one round of Anki's own
+     * change-hook firing for the whole paste, instead of 60 of each.
+     */
+    async addNotesBulk(notes) {
+      const result = await bridgeFetch(baseUrl, token, '/notes/bulk', { method: 'POST', body: { notes } });
+      return result.results;
+    },
+    async updateNote(noteId, fields, language, learningFieldIndex) {
+      return bridgeFetch(baseUrl, token, `/notes/${noteId}`, {
+        method: 'PATCH',
+        body: { fields, language, learningFieldIndex },
+      });
+    },
+    async hasMedia(filename) {
+      const result = await bridgeFetch(baseUrl, token, `/media/${encodeURIComponent(filename)}`);
+      return result.exists;
     },
     async addMedia(filename, data) {
       const result = await bridgeFetch(baseUrl, token, '/media', {
