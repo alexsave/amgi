@@ -1,559 +1,186 @@
-// Deck context for managing global deck state
-import React, { createContext, useCallback, useContext, useEffect, useState, useRef } from 'react';
-import * as supabase from '../db/supabase';
-import { regenerateCardPart, deleteCards as deleteCardsRemote, deleteDeck as deleteDeckRemote } from '../network/supabaseApi';
-import { useAuth } from './AuthContext';
-import { uniqueImportDeckName } from '../utils/deckExport';
+// Deck context: the data layer every deck/card screen reads from.
+//
+// amgi is local-first now - there is no account, no cloud deck, and no
+// spaced-repetition state of its own. Every deck here is a real Anki deck,
+// reached through whichever transport is live (see src/server/anki/transport.js);
+// this context's job is picking that transport's results up through
+// src/utils/ankiApi.js and reshaping them into the deck/card shape
+// DeckList, DeckItem and CardList already know how to render.
+'use client';
+
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { ankiApi } from '../utils/ankiApi';
+import { guessFields, hasAudioReference, stripHtmlForPreview } from '../utils/ankiFields';
+import { ANKI_SETTINGS_CHANGED_EVENT } from '../utils/ankiSettings';
 
 const DeckContext = createContext({});
+
+/** A real Anki deck, reshaped into what DeckList/DeckItem render. */
+function mapAnkiDeck(remote) {
+  return {
+    id: String(remote.id),
+    ankiDeckId: remote.id,
+    name: remote.name,
+    noteCount: remote.noteCount,
+  };
+}
+
+/**
+ * Which field is "the prompt" and which is "the audio" is a per-note-type
+ * guess (see ankiFields.js) - a deck can mix note types, so this is computed
+ * per note, not once per deck. `front_text`/`back_text` are display-only
+ * here (HTML stripped for a browsing list); `fields` keeps the real values
+ * for anything that needs to write them back untouched.
+ */
+function mapAnkiNoteToCard(note, notetype) {
+  const { textIndex, audioIndex } = guessFields(notetype || { fieldNames: note.fields.map((_, i) => `Field ${i}`) });
+  const promptRaw = textIndex != null ? note.fields[textIndex] : note.fields[0];
+  const audioFieldText = audioIndex != null ? note.fields[audioIndex] : undefined;
+  return {
+    id: note.id,
+    notetypeId: note.notetypeId,
+    notetypeName: notetype?.name || `Note type ${note.notetypeId}`,
+    fields: note.fields,
+    fieldNames: notetype?.fieldNames || [],
+    textFieldIndex: textIndex,
+    audioFieldIndex: audioIndex,
+    front_text: stripHtmlForPreview(promptRaw ?? ''),
+    back_text: audioFieldText !== undefined ? stripHtmlForPreview(audioFieldText) : '',
+    hasAudio: audioFieldText !== undefined && hasAudioReference(audioFieldText),
+    tags: note.tags,
+  };
+}
 
 export const DeckProvider = ({ children }) => {
   const [decks, setDecks] = useState({});
   const [loading, setLoading] = useState(true);
   const [currentDeckId, setCurrentDeckId] = useState(null);
-  const [newCardsToday, setNewCardsToday] = useState(0);
-  // New cards this user may still introduce today, loaded with the decks so
-  // the review session never opens with a stale budget.
-  const [newCardBudget, setNewCardBudget] = useState(null);
   const [error, setError] = useState(null);
-  // Browsing state, kept apart from `decks[id].cards` on purpose: that list is
-  // the review queue (capped, due-only), and showing it on the deck's own page
-  // hid every card the session was not going to serve. Keyed by deck id,
-  // `{ cards, loading, error }`, and only populated for a deck someone opened.
+  // Browsing state, one page at a time, keyed by deck id:
+  // { cards, loading, error, offset, limit, hasMore }.
   const [deckCards, setDeckCards] = useState({});
-  const { user } = useAuth();
 
-  // Add refs for tracking load state and debouncing
-  const initialLoadComplete = useRef(false);
-  const loadDecksTimeout = useRef(null);
-  const lastAuthState = useRef({ user: null });
+  // What mode the Anki transport is in right now: 'bridge' | 'direct' |
+  // 'locked' | 'not-found' | 'unsupported-schema' | 'bridge-no-collection' |
+  // 'unconfigured'. This is the app's central piece of visible state (see
+  // AnkiModeBadge) - re-fetched on an interval so it reflects reality
+  // without needing a page reload when Anki opens, closes, or the bridge
+  // toggles.
+  const [ankiStatus, setAnkiStatus] = useState({ mode: 'unconfigured' });
+  const [ankiNotetypes, setAnkiNotetypes] = useState([]);
+  const notetypesRef = useRef(null);
 
-  // Debounced loadDecks function
-  const debouncedLoadDecks = () => {
-    if (loadDecksTimeout.current) {
-      clearTimeout(loadDecksTimeout.current);
-    }
+  const ensureAnkiNotetypes = useCallback(async () => {
+    if (notetypesRef.current) return notetypesRef.current;
+    const { notetypes } = await ankiApi.notetypes();
+    const byId = new Map(notetypes.map((nt) => [nt.id, nt]));
+    notetypesRef.current = byId;
+    setAnkiNotetypes(notetypes);
+    return byId;
+  }, []);
 
-    loadDecksTimeout.current = setTimeout(async () => {
-      try {
-        // Only load from Supabase if we have a user
-        if (user && 
-            (lastAuthState.current.user?.id !== user.id)) {
-          const [cloudDecks, budget] = await Promise.all([
-            supabase.loadDecks(user.id),
-            supabase.loadDailyNewCardBudget(user.id)
-          ]);
-          setDecks(cloudDecks);
-          setNewCardsToday(budget?.used ?? 0);
-          setNewCardBudget(budget?.remaining ?? null);
-          
-          // Update last auth state
-          lastAuthState.current = { user };
-        }
-
-        // Mark initial load as complete
-        initialLoadComplete.current = true;
-      } catch (error) {
-        console.error('Error loading decks:', error);
-        setError(error.message);
-      } finally {
-        setLoading(false);
-      }
-    }, 300); // 300ms debounce
-  };
-
-  // Effect for loading decks
-  useEffect(() => {
-    // Skip if we've already done the initial load and auth state hasn't changed
-    if (initialLoadComplete.current && 
-        lastAuthState.current.user?.id === user?.id) {
-      return;
-    }
-
-    debouncedLoadDecks();
-
-    // Cleanup
-    return () => {
-      if (loadDecksTimeout.current) {
-        clearTimeout(loadDecksTimeout.current);
-      }
-    };
-  }, [user]);
-
-  // Applies a change to a deck's browse list, if that deck has been browsed.
-  // A deck nobody opened stays absent rather than being half-populated, so the
-  // next open still does one honest full read.
-  const patchDeckCards = (deckId, patch) => {
-    setDeckCards(prev => {
-      const entry = prev[deckId];
-      if (!entry) return prev;
-      return { ...prev, [deckId]: { ...entry, cards: patch(entry.cards) } };
-    });
-  };
-
-  /** Loads every card in a deck for the card list. Safe to call repeatedly. */
-  const loadDeckCards = useCallback(async (deckId) => {
-    if (!deckId) return;
-
-    setDeckCards(prev => ({
-      ...prev,
-      [deckId]: { cards: prev[deckId]?.cards || [], loading: true, error: null }
-    }));
-
+  /** Refetch the deck list from whichever Anki transport is currently reachable. */
+  const refreshAnkiDecks = useCallback(async () => {
     try {
-      const cards = await supabase.loadDeckCards(deckId);
-      setDeckCards(prev => ({ ...prev, [deckId]: { cards, loading: false, error: null } }));
+      const { mode, decks: remoteDecks } = await ankiApi.decks();
+      setAnkiStatus((prev) => (prev.mode === mode ? prev : { mode }));
+      setDecks((prev) => {
+        const next = {};
+        for (const remote of remoteDecks) {
+          next[String(remote.id)] = mapAnkiDeck(remote);
+        }
+        return next;
+      });
+      setError(null);
     } catch (err) {
-      console.error('Error loading deck cards:', err);
-      setDeckCards(prev => ({
-        ...prev,
-        [deckId]: { cards: prev[deckId]?.cards || [], loading: false, error: err.message }
-      }));
+      // Not reachable right now (no profile picked, locked, bridge down) -
+      // reported through ankiStatus, not the generic `error` state: this is
+      // a mode the UI explains, not a failure it apologizes for.
+      setAnkiStatus({ mode: err.mode || 'unconfigured', error: err.message });
+    } finally {
+      setLoading(false);
     }
   }, []);
 
-  const saveDecks = async (newDecks) => {
-    // Save decks to Supabase if user is authenticated
-    if (user) {
-      // Instead of using a non-existent saveDecks function, save each deck individually
-      try {
-        await Promise.all(
-          Object.values(newDecks).map(deck => supabase.saveDeck(deck, user.id))
-        );
-      } catch (error) {
-        console.error('Error saving decks to cloud:', error);
-        setError(error.message);
-      }
-    }
-    setDecks(newDecks);
-  };
-
-  const createNewDeck = async (deckData) => {
-    console.log('Creating new deck with data:', deckData);
-    const timestamp = Date.now();
-    const { name, known_language = 'en', learning_language } = deckData;
-    
+  /** One page of a deck's notes, reshaped into the card list's card shape. */
+  const loadDeckCards = useCallback(async (deckId, { offset = 0, limit = 20 } = {}) => {
+    if (!deckId) return;
+    setDeckCards((prev) => ({
+      ...prev,
+      [deckId]: { cards: prev[deckId]?.cards || [], loading: true, error: null, offset, limit },
+    }));
     try {
-      if (user) {
-        // Create in Supabase
-        const newDeck = await supabase.saveDeck({
-          name,
-          known_language,
-          learning_language,
-          created_at: new Date(timestamp).toISOString(),
-          cards: {}
-        }, user.id);
-        
-        const transformedDeck = {
-          id: newDeck.id,
-          name: newDeck.name,
-          known_language: newDeck.known_language,
-          learning_language: newDeck.learning_language,
-          cards: [],
-          created: timestamp,
-          lastModified: timestamp
-        };
-        
-        setDecks(prev => ({ ...prev, [newDeck.id]: transformedDeck }));
-        return newDeck.id;
-      } else {
-        // Create in local state only since localStorage is no longer available
-        const id = timestamp.toString();
-        const newDeck = {
-          id,
-          name,
-          known_language,
-          learning_language,
-          cards: [],
-          created: timestamp,
-          lastModified: timestamp
-        };
-        
-        const newDecks = { ...decks, [id]: newDeck };
-        await saveDecks(newDecks);
-        return id;
-      }
-    } catch (error) {
-      console.error('Error creating deck:', error);
-      setError(error.message);
-      throw error;
-    }
-  };
-
-  // Imports a previously exported deck (see src/utils/deckExport.js for the
-  // payload shape and the reasoning behind it).
-  //
-  // Always creates a brand new deck rather than merging into or overwriting
-  // one that already exists - a name collision only gets a distinguishing
-  // suffix, never a silent merge, so an existing deck's cards and scheduling
-  // can never be corrupted by an import. Cards land as fresh "new" cards:
-  // review/scheduling state is never part of the payload, so there is
-  // nothing to inherit. Audio never travels either (see deckExport.js) - the
-  // new deck goes through the same TTS backfill used for starter decks,
-  // which already has UI (progress, or an error + retry) for the outcome.
-  const importDeck = async (payload) => {
-    if (!user) {
-      throw new Error('Sign in to import a deck');
-    }
-
-    const name = uniqueImportDeckName(payload.deck.name, Object.values(decks).map(d => d.name));
-
-    const newDeck = await supabase.saveDeck({
-      name,
-      known_language: payload.deck.known_language,
-      learning_language: payload.deck.learning_language,
-      created_at: new Date().toISOString()
-    }, user.id);
-
-    let transformedCards = [];
-    if (payload.cards.length > 0) {
-      const savedCards = await supabase.saveCards(newDeck.id, payload.cards);
-      const cardIds = savedCards.map(card => card.id);
-      const reviews = await supabase.newReview(cardIds, user.id);
-      const reviewsByCardId = new Map(
-        (Array.isArray(reviews) ? reviews : [reviews]).map(r => [r.card_id, r])
-      );
-
-      transformedCards = savedCards.map(card => ({
-        id: card.id,
-        front_text: card.front_text,
-        back_text: card.back_text,
-        front_audio_path: card.front_audio_path,
-        back_audio_path: card.back_audio_path,
-        front_lang: card.front_lang,
-        back_lang: card.back_lang,
-        position: card.position,
-        created: new Date(card.created_at).getTime(),
-        review: reviewsByCardId.get(card.id) || null
+      const notetypesById = await ensureAnkiNotetypes();
+      const page = await ankiApi.notesInDeck(deckId, { offset, limit });
+      const cards = page.notes.map((note) => mapAnkiNoteToCard(note, notetypesById.get(note.notetypeId)));
+      setDeckCards((prev) => ({
+        ...prev,
+        [deckId]: { cards, loading: false, error: null, offset: page.offset, limit: page.limit, hasMore: page.hasMore },
+      }));
+    } catch (err) {
+      setDeckCards((prev) => ({
+        ...prev,
+        [deckId]: { ...(prev[deckId] || { cards: [] }), loading: false, error: err.message },
       }));
     }
+  }, [ensureAnkiNotetypes]);
 
-    const timestamp = Date.now();
-    const transformedDeck = {
-      id: newDeck.id,
-      name: newDeck.name,
-      known_language: newDeck.known_language,
-      learning_language: newDeck.learning_language,
-      cards: transformedCards,
-      created: timestamp,
-      lastModified: timestamp
+  /**
+   * Add a note to an Anki deck (fields already in the note type's field
+   * order - the caller, CardForm, owns the field mapping the user picked).
+   * Refreshes the deck's note count and the first page of its card list.
+   */
+  const addAnkiNote = useCallback(async (deckId, { notetypeId, fields, tags = [] }) => {
+    const result = await ankiApi.addNote({ deckId: Number(deckId), notetypeId, fields, tags });
+    await Promise.all([
+      loadDeckCards(deckId, { offset: 0, limit: deckCards[deckId]?.limit || 20 }),
+      refreshAnkiDecks(),
+    ]);
+    return result;
+  }, [loadDeckCards, refreshAnkiDecks, deckCards]);
+
+  /**
+   * Create a deck directly in the Anki collection - "::" nesting is handled
+   * server-side the same way Anki's own "Create Deck" would (see
+   * plusaudio/lib/collection/decks.js).
+   */
+  const createNewDeck = useCallback(async ({ name }) => {
+    const { deck: created } = await ankiApi.createDeck(name);
+    await refreshAnkiDecks();
+    return String(created.id);
+  }, [refreshAnkiDecks]);
+
+  // Status is polled independently of the deck list itself: a person leaving
+  // Anki open on the setup screen, or toggling the bridge, should see the
+  // banner change within a few seconds with no action of their own -
+  // "re-probe when the situation changes rather than forcing a page reload"
+  // is the whole reason this is an interval instead of a one-shot effect.
+  useEffect(() => {
+    let cancelled = false;
+    const pollStatus = async () => {
+      try {
+        const status = await ankiApi.status();
+        if (!cancelled) setAnkiStatus(status);
+      } catch {
+        // The /api/anki/status route itself always answers 200 with a mode;
+        // reaching this catch means the fetch call failed outright (dev
+        // server not up yet), which is not a mode worth reporting.
+      }
     };
-
-    setDecks(prev => ({ ...prev, [newDeck.id]: transformedDeck }));
-
-    // Fire and forget, same as a starter deck: every imported card is
-    // missing audio by design, so this either fills it in or leaves the
-    // existing "generation stopped, retry" UI to explain why not.
-    startAudioBackfill(newDeck.id);
-
-    return newDeck.id;
-  };
-
-  const updateDeck = (deckId, updatedDeck) => {
-    const newDecks = { ...decks, [deckId]: updatedDeck };
-    saveDecks(newDecks);
-  };
-
-  // Both deletions go through the `delete-cards` edge function: it is the only
-  // place that can also remove the cards' audio from the bucket, and it only
-  // removes an object once no remaining card row references it (a translation
-  // pair shares its two audio files between its two cards). A failure is
-  // re-thrown rather than swallowed - dropping the rows without the audio is
-  // exactly the leak this replaces.
-  const deleteDeck = async (deckId) => {
-    if (user) {
-      try {
-        await deleteDeckRemote(deckId);
-      } catch (error) {
-        console.error('Error deleting deck from cloud:', error);
-        setError(error.message);
-        throw error;
-      }
-    }
-    // Delete from local state
-    setDecks(prev => {
-      // It's an object, so we need to filter it
-      const newDecks = { ...prev };
-      delete newDecks[deckId];
-      return newDecks;
-    });
-    setDeckCards(prev => {
-      if (!prev[deckId]) return prev;
-      const next = { ...prev };
-      delete next[deckId];
-      return next;
-    });
-  };
-
-  const deleteCard = async (deckId, cardId) => {
-    if (user) {
-      try {
-        await deleteCardsRemote([cardId]);
-      } catch (error) {
-        console.error('Error deleting card from cloud:', error);
-        setError(error.message);
-        throw error;
-      }
-    }
-    setDecks(prev => {
-      const deck = prev[deckId];
-      if (!deck) return prev;
-      return {
-        ...prev,
-        [deckId]: {
-          ...deck,
-          cards: deck.cards.filter(card => card.id !== cardId),
-          lastModified: Date.now()
-        }
-      };
-    });
-    patchDeckCards(deckId, cards => cards.filter(card => card.id !== cardId));
-  };
-
-  // Update due cards when necessary
-
-  const addCardToDeck = async (deckId, cardInput) => {
-    try {
-      // Normalize input to always be an array
-      const cards = Array.isArray(cardInput) ? cardInput : [cardInput];
-      
-      // Ensure the deck exists
-      const deck = decks[deckId];
-      if (!deck) {
-        throw new Error(`Deck with ID ${deckId} not found`);
-      }
-      
-      // Ensure language fields are set for all cards
-      const processedCards = cards.map(card => {
-        const processed = { ...card };
-        if (!processed.front_lang) {
-          processed.front_lang = deck.known_language || 'en';
-          console.log(`Setting missing front_lang to ${processed.front_lang}`);
-        }
-        if (!processed.back_lang) {
-          processed.back_lang = deck.learning_language || 'en';
-          console.log(`Setting missing back_lang to ${processed.back_lang}`);
-        }
-        return processed;
-      });
-      
-      if (user) {
-        // Add to Supabase using the unified saveCards function
-        const newCards = await supabase.saveCards(deckId, processedCards);
-        
-        // Create initial reviews for all cards in a single operation
-        const cardIds = newCards.map(card => card.id);
-        const reviews = await supabase.newReview(cardIds, user.id);
-        
-        const transformedCards = newCards.map((card, index) => ({
-          id: card.id,
-          front_text: card.front_text,
-          back_text: card.back_text,
-          front_audio_path: card.front_audio_path,
-          back_audio_path: card.back_audio_path,
-          front_lang: card.front_lang,
-          back_lang: card.back_lang,
-          position: card.position,
-          created: new Date(card.created_at).getTime(),
-          review: Array.isArray(reviews) ? reviews[index] : reviews
-        }));
-
-        // Update local state
-        setDecks(prev => {
-          const deck = prev[deckId];
-          return {
-            ...prev,
-            [deckId]: {
-              ...deck,
-              cards: [...deck.cards, ...transformedCards],
-              lastModified: Date.now()
-            }
-          };
-        });
-        patchDeckCards(deckId, cards => [...cards, ...transformedCards]);
-
-        // If original input was a single card, return just the first card
-        return Array.isArray(cardInput) ? newCards : newCards[0];
-      } else {
-        // Add to local state only (since localStorage is no longer available)
-        const updatedDeck = { ...decks[deckId] };
-        const newCards = [];
-        
-        for (const card of processedCards) {
-          const cardId = `local_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-          const newCard = {
-            ...card,
-            id: cardId,
-            created: Date.now()
-          };
-          
-          if (!updatedDeck.cards) {
-            updatedDeck.cards = [];
-          }
-          
-          updatedDeck.cards.push(newCard);
-          newCards.push(newCard);
-        }
-        
-        updatedDeck.lastModified = Date.now();
-        setDecks(prev => ({ ...prev, [deckId]: updatedDeck }));
-        
-        // Return appropriate card data
-        return Array.isArray(cardInput) ? newCards : newCards[0];
-      }
-    } catch (error) {
-      console.error('Error adding card(s):', error);
-      setError(error.message);
-      throw error;
-    }
-  };
-
-  // ---- Starter decks & audio backfill ----
-
-  // Per-deck progress of background audio generation:
-  // { [deckId]: { running, done, total, error } }
-  const [audioBackfill, setAudioBackfill] = useState({});
-  const backfillRunning = useRef(new Set());
-
-  /**
-   * Creates a deck from a starter template: deck + all cards (text only)
-   * in bulk, then kicks off background audio generation. Review works as
-   * soon as a card's audio lands.
-   */
-  const createDeckFromTemplate = async (template) => {
-    const deckId = await createNewDeck({
-      name: template.name,
-      known_language: template.known_language,
-      learning_language: template.learning_language
-    });
-
-    await addCardToDeck(deckId, template.cards.map(card => ({
-      ...card,
-      front_lang: template.known_language,
-      back_lang: template.learning_language
-    })));
-
-    // Fire and forget - progress is reported through audioBackfill state.
-    startAudioBackfill(deckId);
-    return deckId;
-  };
-
-  /**
-   * Generates TTS audio for every card in the deck that's missing it,
-   * two cards at a time. Safe to call again after an interruption or
-   * quota error: it re-queries and picks up whatever is still missing.
-   */
-  const startAudioBackfill = async (deckId) => {
-    if (!user || backfillRunning.current.has(deckId)) return;
-    backfillRunning.current.add(deckId);
-
-    try {
-      const pending = await supabase.getCardsMissingAudio(deckId);
-      if (pending.length === 0) {
-        setAudioBackfill(prev => ({ ...prev, [deckId]: { running: false, done: 0, total: 0, error: null } }));
-        return;
-      }
-
-      let done = 0;
-      let fatalError = null;
-      setAudioBackfill(prev => ({ ...prev, [deckId]: { running: true, done, total: pending.length, error: null } }));
-
-      const queue = [...pending];
-      const worker = async () => {
-        while (queue.length > 0 && !fatalError) {
-          const card = queue.shift();
-          const parts = [
-            !card.front_audio_path && 'front_audio_path',
-            !card.back_audio_path && 'back_audio_path'
-          ].filter(Boolean);
-
-          try {
-            const generated = await regenerateCardPart(card, parts, card.front_lang, card.back_lang);
-            const paths = {
-              front_audio_path: generated.front_audio_path || card.front_audio_path,
-              back_audio_path: generated.back_audio_path || card.back_audio_path
-            };
-            await supabase.updateCardAudioPaths(card.id, paths);
-
-            // Reflect the new paths in any locally loaded copy of the card
-            setDecks(prev => {
-              const deck = prev[deckId];
-              if (!deck) return prev;
-              return {
-                ...prev,
-                [deckId]: {
-                  ...deck,
-                  cards: deck.cards.map(c => c.id === card.id ? { ...c, ...paths } : c)
-                }
-              };
-            });
-            patchDeckCards(deckId, cards => cards.map(c => c.id === card.id ? { ...c, ...paths } : c));
-          } catch (err) {
-            // A quota error will fail every remaining card too - stop now
-            // and let the user resume after upgrading / next period.
-            if (err.message?.toLowerCase().includes('limit')) {
-              fatalError = err.message;
-            } else {
-              console.error(`Audio generation failed for card ${card.id}:`, err);
-            }
-          } finally {
-            done++;
-            setAudioBackfill(prev => ({
-              ...prev,
-              [deckId]: { running: true, done, total: pending.length, error: fatalError }
-            }));
-          }
-        }
-      };
-
-      await Promise.all([worker(), worker()]);
-
-      const remaining = fatalError ? await supabase.getCardsMissingAudio(deckId).catch(() => []) : [];
-      setAudioBackfill(prev => ({
-        ...prev,
-        [deckId]: { running: false, done, total: pending.length, error: fatalError, remaining: remaining.length }
-      }));
-    } catch (error) {
-      console.error('Audio backfill failed:', error);
-      setAudioBackfill(prev => ({
-        ...prev,
-        [deckId]: { ...(prev[deckId] || { done: 0, total: 0 }), running: false, error: error.message }
-      }));
-    } finally {
-      backfillRunning.current.delete(deckId);
-    }
-  };
-
-  // Update cards in a deck with their latest review states
-  const updateDeckCards = (deckId, updatedCards) => {
-    // Make sure the deck exists
-    if (!decks[deckId]) {
-      console.error(`Deck with ID ${deckId} not found`);
-      return;
-    }
-
-    // Create a map of card IDs to updated cards for easy lookup
-    const updatedCardsMap = new Map();
-    updatedCards.forEach(card => updatedCardsMap.set(card.id, card));
-
-    // Update deck with the latest card states
-    setDecks(prev => {
-      const deck = prev[deckId];
-      const updatedDeckCards = deck.cards.map(card => {
-        // If we have an updated version of this card, use it
-        return updatedCardsMap.has(card.id) ? updatedCardsMap.get(card.id) : card;
-      });
-
-      return {
-        ...prev,
-        [deckId]: {
-          ...deck,
-          cards: updatedDeckCards,
-          lastModified: Date.now()
-        }
-      };
-    });
-  };
+    pollStatus();
+    refreshAnkiDecks();
+    const interval = setInterval(pollStatus, 4000);
+    const onSettingsChanged = () => {
+      pollStatus();
+      refreshAnkiDecks();
+    };
+    window.addEventListener(ANKI_SETTINGS_CHANGED_EVENT, onSettingsChanged);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      window.removeEventListener(ANKI_SETTINGS_CHANGED_EVENT, onSettingsChanged);
+    };
+  }, [refreshAnkiDecks]);
 
   const value = {
     decks,
@@ -561,22 +188,15 @@ export const DeckProvider = ({ children }) => {
     loadDeckCards,
     loading,
     currentDeckId,
-    newCardsToday,
-    newCardBudget,
-    error,
     setCurrentDeckId,
-    setNewCardsToday,
+    error,
     setError,
     createNewDeck,
-    importDeck,
-    createDeckFromTemplate,
-    startAudioBackfill,
-    audioBackfill,
-    updateDeck,
-    deleteDeck,
-    deleteCard,
-    addCardToDeck,
-    updateDeckCards,
+    addAnkiNote,
+    ankiStatus,
+    ankiNotetypes,
+    ensureAnkiNotetypes,
+    refreshAnkiDecks,
   };
 
   return (
@@ -592,4 +212,4 @@ export const useDecks = () => {
     throw new Error('useDecks must be used within a DeckProvider');
   }
   return context;
-}; 
+};

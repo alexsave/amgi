@@ -1,11 +1,13 @@
 'use client';
 
-import Welcome from '../components/Welcome/Welcome';
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
+// No welcome/login screen any more - amgi opens straight to the deck list.
 export default function HomePage() {
-  return (
-    <div className="App">
-      <Welcome />
-    </div>
-  );
+  const router = useRouter();
+  useEffect(() => {
+    router.replace('/decks');
+  }, [router]);
+  return null;
 }

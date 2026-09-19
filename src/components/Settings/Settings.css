@@ -64,6 +64,7 @@
 }
 
 .preference-item input[type="number"],
+.preference-item input[type="text"],
 .preference-item select {
   box-sizing: border-box;
   padding: 8px 12px;
@@ -74,6 +75,17 @@
   font-size: 1rem;
   width: 100%;
   max-width: 300px;
+}
+
+/* A collection path, bridge URL or token is much longer than the numeric/
+   short settings above - let those specific fields use the full width
+   rather than the same 300px cap. */
+.preference-item input[type="text"] {
+  max-width: 100%;
+}
+
+.preference-item input[type="text"]::placeholder {
+  color: var(--text-secondary);
 }
 
 .preference-item.checkbox {

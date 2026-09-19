@@ -1,91 +1,217 @@
-import React, { useState } from 'react';
-import { useParams } from 'next/navigation';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useDecks } from '../../contexts/DeckContext';
-import { useCardGenerationContext } from '../../contexts/CardGenerationContext';
-import { getLanguageDisplay } from '../../constants/languages';
+import { ankiApi } from '../../utils/ankiApi';
+import { guessFields, stripHtmlForPreview } from '../../utils/ankiFields';
+import LANGUAGES from '../../constants/languages';
+import { ANKI_READY_MODES } from '../../utils/ankiModeText';
 import './CardForm.css';
 
-const CardForm = ({ onCardGenerated, onGenerationStart }) => {
-  const { id: deckId } = useParams();
-  const { decks } = useDecks();
-  const { 
-    user_input, 
-    setUserInput, 
-    isGenerating,
-    error: contextError,
-    setError: setContextError, 
-    generateCard 
-  } = useCardGenerationContext();
+/**
+ * Add a note to an Anki deck, with generated audio for one of its fields.
+ *
+ * The field mapping (which field is read aloud, which field receives the
+ * clip) is guessed per note type (see ankiFields.js) but always shown and
+ * changeable - a note type is the user's own, not ours, the same principle
+ * anki/addon/amgi_bridge's own fill-audio dialog is built on.
+ */
+const CardForm = ({ deckId }) => {
+  const { ankiNotetypes, ensureAnkiNotetypes, addAnkiNote, ankiStatus } = useDecks();
+  const [notetypeId, setNotetypeId] = useState(null);
+  const [fields, setFields] = useState([]);
+  const [textFieldIndex, setTextFieldIndex] = useState(null);
+  const [audioFieldIndex, setAudioFieldIndex] = useState(null);
+  const [language, setLanguage] = useState('ko');
+  const [generating, setGenerating] = useState(false);
+  const [audioResult, setAudioResult] = useState(null);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  // Which note type the form (fields, guess) was last reset for - compared
+  // during render, not in an effect, so picking a note type resets the form
+  // in the same commit rather than flashing the old fields for a frame.
+  const [resetForNotetypeId, setResetForNotetypeId] = useState(null);
 
-  const currentDeck = decks[deckId];
+  useEffect(() => {
+    ensureAnkiNotetypes();
+  }, [ensureAnkiNotetypes]);
 
-  if (!currentDeck) {
-    return <div className="loading">Loading deck information...</div>;
+  // Defaults to the first note type once the list arrives; derived directly
+  // from render inputs rather than mirrored into its own state, so there is
+  // nothing to keep in sync via an effect.
+  const effectiveNotetypeId = notetypeId ?? ankiNotetypes[0]?.id ?? null;
+  const notetype = useMemo(
+    () => ankiNotetypes.find((nt) => nt.id === effectiveNotetypeId) || null,
+    [ankiNotetypes, effectiveNotetypeId],
+  );
+
+  // Resetting fields and the field-mapping guess when the note type changes
+  // (see React's own guidance on adjusting state during rendering, rather
+  // than in an effect, for exactly this "derived state after a prop/selection
+  // change" case).
+  if (notetype && notetype.id !== resetForNotetypeId) {
+    setResetForNotetypeId(notetype.id);
+    setFields(notetype.fieldNames.map(() => ''));
+    const guess = guessFields(notetype);
+    setTextFieldIndex(guess.textIndex);
+    setAudioFieldIndex(guess.audioIndex);
+    setAudioResult(null);
+    setError('');
   }
 
-  const { known_language = 'en', learning_language = 'ko' } = currentDeck;
+  const ready = ANKI_READY_MODES.has(ankiStatus?.mode);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    console.log('CardForm: handleSubmit called with user_input:', user_input);
-    if (!user_input.trim()) {
-      setError('Please enter some text');
-      setContextError('Please enter some text');
+  const handleFieldChange = (index, value) => {
+    setFields((prev) => prev.map((f, i) => (i === index ? value : f)));
+    setAudioResult(null);
+  };
+
+  const handleGenerate = async () => {
+    if (textFieldIndex === null || audioFieldIndex === null) {
+      setError('Pick both a "read aloud" and a "write audio into" field first.');
+      return;
+    }
+    const text = stripHtmlForPreview(fields[textFieldIndex]);
+    if (!text) {
+      setError('The field to read aloud is empty.');
       return;
     }
     setError('');
-    setContextError(null);
-
-    // Call onGenerationStart before starting generation
-    if (onGenerationStart) {
-      onGenerationStart();
-    }
-
+    setGenerating(true);
+    setAudioResult(null);
     try {
-      const result = await generateCard(
-        user_input,
-        known_language,
-        learning_language
-      );
-  
-      if (result && onCardGenerated) {
-        console.log('CardForm: Card generated successfully, calling onCardGenerated');
-        onCardGenerated(result);
-      } else if (!result) {
-        console.warn('CardForm: No result returned from generateCard');
-      }
+      const result = await ankiApi.generateAudio(text, language);
+      setAudioResult(result);
+      setFields((prev) => prev.map((f, i) => (i === audioFieldIndex ? `${f}[sound:${result.filename}]` : f)));
     } catch (err) {
-      console.error('CardForm: Error generating card:', err);
       setError(err.message);
+    } finally {
+      setGenerating(false);
     }
   };
 
-  // Use either local error or context error
-  const displayError = error || contextError;
+  const handleSave = async (e) => {
+    e.preventDefault();
+    if (!notetype) return;
+    setError('');
+    setSaving(true);
+    try {
+      await addAnkiNote(deckId, { notetypeId: notetype.id, fields, tags: [] });
+      setFields(notetype.fieldNames.map(() => ''));
+      setAudioResult(null);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (ankiNotetypes.length === 0) {
+    return (
+      <div className="card-form-container">
+        <p>Loading note types…</p>
+      </div>
+    );
+  }
 
   return (
     <div className="card-form-container">
-      <form onSubmit={handleSubmit} className="card-form">
+      <form onSubmit={handleSave} className="card-form">
         <div className="form-group">
-          <label htmlFor="user_input">Text to Translate</label>
-          <textarea
-            id="user_input"
-            value={user_input}
-            onChange={(e) => setUserInput(e.target.value)}
-            placeholder={`Enter text in ${getLanguageDisplay(known_language).name} or ${getLanguageDisplay(learning_language).name}`}
-            rows={2}
-          />
+          <label htmlFor="ankiNotetype">Note type</label>
+          <select
+            id="ankiNotetype"
+            value={notetypeId ?? ''}
+            onChange={(e) => setNotetypeId(Number(e.target.value))}
+          >
+            {ankiNotetypes.map((nt) => (
+              <option key={nt.id} value={nt.id}>{nt.name}</option>
+            ))}
+          </select>
         </div>
 
-        {displayError && <div className="error-message">{displayError}</div>}
+        {notetype?.fieldNames.map((name, index) => (
+          <div className="form-group" key={name}>
+            <label htmlFor={`ankiField-${index}`}>{name}</label>
+            <textarea
+              id={`ankiField-${index}`}
+              value={fields[index] || ''}
+              onChange={(e) => handleFieldChange(index, e.target.value)}
+              rows={2}
+            />
+          </div>
+        ))}
 
-        <button type="submit" disabled={isGenerating} className="generate-button">
-          {isGenerating ? 'Generating...' : 'Generate Card'}
-        </button>
+        {notetype && (
+          <div className="form-group" style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+            <label style={{ flex: '1 1 auto' }}>
+              Read aloud
+              <select
+                value={textFieldIndex ?? ''}
+                onChange={(e) => setTextFieldIndex(Number(e.target.value))}
+                style={{ display: 'block', width: '100%', marginTop: '0.25rem' }}
+              >
+                {notetype.fieldNames.map((name, index) => (
+                  <option key={name} value={index}>{name}</option>
+                ))}
+              </select>
+            </label>
+            <label style={{ flex: '1 1 auto' }}>
+              Write audio into
+              <select
+                value={audioFieldIndex ?? ''}
+                onChange={(e) => setAudioFieldIndex(Number(e.target.value))}
+                style={{ display: 'block', width: '100%', marginTop: '0.25rem' }}
+              >
+                {notetype.fieldNames.map((name, index) => (
+                  <option key={name} value={index}>{name}</option>
+                ))}
+              </select>
+            </label>
+            <label style={{ flex: '1 1 auto' }}>
+              Language
+              <select
+                value={language}
+                onChange={(e) => setLanguage(e.target.value)}
+                style={{ display: 'block', width: '100%', marginTop: '0.25rem' }}
+              >
+                {Object.entries(LANGUAGES).map(([code, { name, flag }]) => (
+                  <option key={code} value={code}>{flag} {name}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+        )}
+
+        {error && <div className="error-message">{error}</div>}
+
+        {audioResult && (
+          <div className="error-message" style={{ background: 'none', color: audioResult.mocked ? '#d0a030' : '#4caf50', border: `1px solid ${audioResult.mocked ? '#d0a030' : '#4caf50'}` }}>
+            {audioResult.mocked
+              ? `Audio generated (mocked - ${audioResult.reason})`
+              : `Audio generated: ${audioResult.filename}`}
+          </div>
+        )}
+
+        <div style={{ display: 'flex', gap: '0.75rem' }}>
+          <button
+            type="button"
+            className="generate-button"
+            onClick={handleGenerate}
+            disabled={!ready || generating || saving}
+          >
+            {generating ? 'Generating…' : 'Generate Audio'}
+          </button>
+          <button type="submit" className="generate-button" disabled={!ready || saving || generating}>
+            {saving ? 'Adding…' : 'Add Note'}
+          </button>
+        </div>
+        {!ready && (
+          <small style={{ display: 'block', marginTop: '0.5rem', opacity: 0.75 }}>
+            Anki is not reachable right now - see the status banner above.
+          </small>
+        )}
       </form>
     </div>
   );
 };
 
-export default CardForm; 
+export default CardForm;
