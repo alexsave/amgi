@@ -183,6 +183,27 @@ The audio this adds is what the card template in [`../anki/`](../anki/README.md)
 That note type runs amgi's own review loop inside Anki: the prompt plays, the microphone opens by itself where the client allows it, and the answer stays hidden until you have spoken.
 Generate for it with `--audio-tag html`; its README covers converting a deck that already has `[sound:...]` tags.
 
+## generate-clip.js: the seam the Anki add-on shells out to
+
+`add-audio.js` is built for a `.apkg` file: a whole deck, read once and written once.
+[`../anki/addon/amgi_audio/`](../anki/addon/amgi_audio/README.md) needs something different - one clip
+at a time, for whichever note in a live collection needs one - and it is Python, so it cannot
+`require()` `lib/generator.js` the way this CLI does.
+
+`generate-clip.js` is the small Node entry point that closes that gap:
+
+```bash
+node generate-clip.js --text "안녕하세요" --language ko --out clip.mp3
+```
+
+Text and a language in, one clip written to `--out`, nothing else.
+It is a supported boundary between the two languages, not an internal detail, so its contract is
+documented at the top of the file itself - arguments, exit codes (0 success, 1 generation failure, 2
+usage error), and what stdout and stderr each carry - and `test/generate-clip.test.js` tests it
+directly, the way `test/generator.test.js` tests `lib/generator.js`.
+It calls the exact same `lib/generator.js` adapter over `cardGeneration.ts` that `add-audio.js` does,
+so a clip made through either entry point is made to the same standard.
+
 ## What this is not
 
 It does not create cards.

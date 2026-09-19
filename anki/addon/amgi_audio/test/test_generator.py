@@ -1,166 +1,214 @@
-# Tests for the edge-function seam, mocked at the transport boundary
-# (urllib.request.urlopen) rather than run against the real deployment: there
-# is no Supabase project or API key available to this add-on's automated
-# tests, and it must never touch the production project regardless. These
-# tests check everything on this side of that boundary - request shape, auth
-# headers, token refresh on a 401, and error mapping - which is the part a
-# mock can prove and a live call could not prove any better.
+# Tests for the subprocess seam, mocked at the transport boundary
+# (subprocess.run) rather than run against a real Node process: there is no
+# OpenAI API key available to this add-on's automated tests, and live calls
+# are not authorised regardless. These tests check everything on this side
+# of that boundary - argument construction, exit-code handling, error
+# messages, and temp-file cleanup - the same way the previous, edge-function
+# version of this file mocked urllib.request.urlopen. generate-clip.js's own
+# test/generate-clip.test.js (plusaudio/test/) proves the other side of the
+# same contract from Node.
 
 from __future__ import annotations
 
-import io
-import json
 import os
+import subprocess
 import sys
 import unittest
-import urllib.error
+from pathlib import Path
 from unittest import mock
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import generator  # noqa: E402
 
-
-def http_response(payload: dict) -> mock.MagicMock:
-    response = mock.MagicMock()
-    response.read.return_value = json.dumps(payload).encode("utf-8")
-    response.__enter__.return_value = response
-    response.__exit__.return_value = False
-    return response
+# test/test_generator.py -> test -> amgi_audio -> addon -> anki -> repo root.
+REAL_PLUSAUDIO_DIR = str(Path(__file__).resolve().parents[4] / "plusaudio")
 
 
-def http_error(code: int, body: bytes = b"{}") -> urllib.error.HTTPError:
-    return urllib.error.HTTPError(url="https://example.test", code=code, msg="error", hdrs=None, fp=io.BytesIO(body))
+def completed(returncode: int, stdout: str = "", stderr: str = "") -> subprocess.CompletedProcess:
+    return subprocess.CompletedProcess(args=["node"], returncode=returncode, stdout=stdout, stderr=stderr)
 
 
-class SupabaseSessionTests(unittest.TestCase):
-    def test_signs_in_lazily_and_caches_the_access_token(self):
-        session = generator.SupabaseSession("https://proj.supabase.co", "anon", "a@b.com", "pw")
-        with mock.patch("urllib.request.urlopen", return_value=http_response({"access_token": "t1", "refresh_token": "r1"})) as urlopen:
-            self.assertEqual(session.access_token(), "t1")
-            self.assertEqual(session.access_token(), "t1")
-            urlopen.assert_called_once()
-            request = urlopen.call_args[0][0]
-            self.assertEqual(request.full_url, "https://proj.supabase.co/auth/v1/token?grant_type=password")
-            self.assertEqual(request.headers["Apikey"], "anon")
+class FindNodeTests(unittest.TestCase):
+    def test_a_bare_command_is_resolved_against_path(self):
+        with mock.patch("generator.shutil.which", return_value="/usr/local/bin/node") as which:
+            self.assertEqual(generator._find_node("node"), "/usr/local/bin/node")
+            which.assert_called_once_with("node")
 
-    def test_refresh_uses_the_refresh_token_when_one_is_held(self):
-        session = generator.SupabaseSession("https://proj.supabase.co", "anon", "a@b.com", "pw")
-        with mock.patch("urllib.request.urlopen", return_value=http_response({"access_token": "t1", "refresh_token": "r1"})):
-            session.access_token()
-        with mock.patch("urllib.request.urlopen", return_value=http_response({"access_token": "t2", "refresh_token": "r2"})) as urlopen:
-            self.assertEqual(session.refresh(), "t2")
-            request = urlopen.call_args[0][0]
-            self.assertIn("grant_type=refresh_token", request.full_url)
-            self.assertEqual(json.loads(request.data), {"refresh_token": "r1"})
+    def test_a_bare_command_not_on_path_is_a_clear_generation_error(self):
+        with mock.patch("generator.shutil.which", return_value=None):
+            with self.assertRaises(generator.GenerationError) as ctx:
+                generator._find_node("node")
+        self.assertIn("could not find", str(ctx.exception))
+        self.assertIn("node_path", str(ctx.exception))
 
-    def test_refresh_falls_back_to_password_sign_in_when_the_refresh_token_is_dead(self):
-        session = generator.SupabaseSession("https://proj.supabase.co", "anon", "a@b.com", "pw")
-        with mock.patch("urllib.request.urlopen", return_value=http_response({"access_token": "t1", "refresh_token": "r1"})):
-            session.access_token()
-
-        calls = [http_error(401), http_response({"access_token": "t2", "refresh_token": "r2"})]
-
-        def side_effect(*_args, **_kwargs):
-            result = calls.pop(0)
-            if isinstance(result, Exception):
-                raise result
-            return result
-
-        with mock.patch("urllib.request.urlopen", side_effect=side_effect):
-            self.assertEqual(session.refresh(), "t2")
-
-    def test_missing_access_token_in_response_is_an_auth_error(self):
-        session = generator.SupabaseSession("https://proj.supabase.co", "anon", "a@b.com", "pw")
-        with mock.patch("urllib.request.urlopen", return_value=http_response({"error": "invalid credentials"})):
-            with self.assertRaises(generator.SupabaseAuthError):
-                session.access_token()
+    def test_an_explicit_path_that_is_not_executable_is_a_clear_generation_error(self):
+        with self.assertRaises(generator.GenerationError) as ctx:
+            generator._find_node("/definitely/not/a/real/node/binary")
+        self.assertIn("not an executable file", str(ctx.exception))
 
 
-def make_session(token: str = "t1") -> generator.SupabaseSession:
-    session = generator.SupabaseSession("https://proj.supabase.co", "anon-key", "a@b.com", "pw")
-    with mock.patch("urllib.request.urlopen", return_value=http_response({"access_token": token, "refresh_token": "r1"})):
-        session.access_token()
-    return session
+class FindScriptTests(unittest.TestCase):
+    def test_an_empty_plusaudio_dir_is_a_clear_generation_error(self):
+        with self.assertRaises(generator.GenerationError) as ctx:
+            generator._find_script("")
+        self.assertIn("plusaudio_dir", str(ctx.exception))
+
+    def test_a_plusaudio_dir_missing_generate_clip_js_is_a_clear_generation_error(self, ):
+        with self.assertRaises(generator.GenerationError) as ctx:
+            generator._find_script("/definitely/not/a/real/plusaudio/checkout")
+        self.assertIn("generate-clip.js", str(ctx.exception))
+
+    def test_the_real_plusaudio_dir_in_this_checkout_resolves(self):
+        real_plusaudio_dir = REAL_PLUSAUDIO_DIR
+        script_path = generator._find_script(real_plusaudio_dir)
+        self.assertTrue(script_path.endswith("generate-clip.js"))
+        self.assertTrue(os.path.isfile(script_path))
 
 
-class EdgeFunctionAudioGeneratorTests(unittest.TestCase):
-    def test_ensure_authenticated_raises_before_any_note_is_attempted(self):
-        session = generator.SupabaseSession("https://proj.supabase.co", "anon", "a@b.com", "wrong-password")
-        gen = generator.EdgeFunctionAudioGenerator("https://proj.supabase.co", session)
-        with mock.patch("urllib.request.urlopen", side_effect=http_error(400, b'{"error_description":"Invalid login"}')):
+class EnsureReadyTests(unittest.TestCase):
+    def setUp(self):
+        self.real_plusaudio_dir = REAL_PLUSAUDIO_DIR
+
+    def test_raises_when_node_is_missing(self):
+        gen = generator.NodeCliAudioGenerator("node", self.real_plusaudio_dir, openai_api_key="sk-test")
+        with mock.patch("generator.shutil.which", return_value=None):
             with self.assertRaises(generator.GenerationError):
-                gen.ensure_authenticated()
+                gen.ensure_ready()
 
-    def test_fetch_audio_sends_a_regenerate_only_request_and_downloads_the_result(self):
-        gen = generator.EdgeFunctionAudioGenerator("https://proj.supabase.co", make_session())
-        cards_response = http_response({"card": {"back_audio_path": "1700000000_back_abcd1234.mp3"}})
-        audio_response = mock.MagicMock()
-        audio_response.read.return_value = b"\x00mp3bytes"
-        audio_response.__enter__.return_value = audio_response
-        audio_response.__exit__.return_value = False
+    def test_raises_when_plusaudio_dir_has_no_script(self):
+        gen = generator.NodeCliAudioGenerator("node", "/nowhere", openai_api_key="sk-test")
+        with mock.patch("generator.shutil.which", return_value="/usr/bin/node"):
+            with self.assertRaises(generator.GenerationError):
+                gen.ensure_ready()
 
-        calls = [cards_response, audio_response]
-        with mock.patch("urllib.request.urlopen", side_effect=lambda *_a, **_k: calls.pop(0)) as urlopen:
+    def test_raises_when_no_key_is_configured_environed_or_in_a_dotenv_file(self):
+        gen = generator.NodeCliAudioGenerator("node", self.real_plusaudio_dir)
+        with mock.patch("generator.shutil.which", return_value="/usr/bin/node"), \
+             mock.patch.dict(os.environ, {}, clear=False), \
+             mock.patch("generator._env_file_has_key", return_value=False):
+            os.environ.pop("OPENAI_API_KEY", None)
+            with self.assertRaises(generator.GenerationError) as ctx:
+                gen.ensure_ready()
+        self.assertIn("OpenAI API key", str(ctx.exception))
+
+    def test_passes_when_the_key_comes_from_config(self):
+        gen = generator.NodeCliAudioGenerator("node", self.real_plusaudio_dir, openai_api_key="sk-test")
+        with mock.patch("generator.shutil.which", return_value="/usr/bin/node"), \
+             mock.patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("OPENAI_API_KEY", None)
+            gen.ensure_ready()  # does not raise
+
+    def test_passes_when_the_key_comes_from_the_environment(self):
+        gen = generator.NodeCliAudioGenerator("node", self.real_plusaudio_dir)
+        with mock.patch("generator.shutil.which", return_value="/usr/bin/node"), \
+             mock.patch.dict(os.environ, {"OPENAI_API_KEY": "sk-test"}):
+            gen.ensure_ready()  # does not raise
+
+    def test_passes_when_the_key_comes_from_a_dotenv_file(self):
+        gen = generator.NodeCliAudioGenerator("node", self.real_plusaudio_dir)
+        with mock.patch("generator.shutil.which", return_value="/usr/bin/node"), \
+             mock.patch.dict(os.environ, {}, clear=False), \
+             mock.patch("generator._env_file_has_key", return_value=True):
+            os.environ.pop("OPENAI_API_KEY", None)
+            gen.ensure_ready()  # does not raise
+
+
+class FetchAudioTests(unittest.TestCase):
+    def setUp(self):
+        self.real_plusaudio_dir = REAL_PLUSAUDIO_DIR
+        self.which_patch = mock.patch("generator.shutil.which", return_value="/usr/bin/node")
+        self.which_patch.start()
+        self.addCleanup(self.which_patch.stop)
+
+    def test_success_writes_the_clip_generate_clip_js_left_behind_and_cleans_up(self):
+        gen = generator.NodeCliAudioGenerator("node", self.real_plusaudio_dir, openai_api_key="sk-test")
+
+        def fake_run(args, **kwargs):
+            out_path = args[args.index("--out") + 1]
+            with open(out_path, "wb") as handle:
+                handle.write(b"\xff\xfb\x90\x00")
+            return completed(0)
+
+        with mock.patch("generator.subprocess.run", side_effect=fake_run) as run:
             audio = gen.fetch_audio("안녕하세요", "ko")
 
-        self.assertEqual(audio, b"\x00mp3bytes")
-        self.assertEqual(urlopen.call_count, 2)
+        self.assertEqual(audio, b"\xff\xfb\x90\x00")
+        args, kwargs = run.call_args
+        command = args[0]
+        self.assertEqual(command[0], "/usr/bin/node")
+        self.assertTrue(command[1].endswith("generate-clip.js"))
+        self.assertEqual(command[2:], ["--text", "안녕하세요", "--language", "ko", "--out", command[-1]])
+        self.assertEqual(kwargs["env"]["OPENAI_API_KEY"], "sk-test")
+        # The temp file generate-clip.js "wrote" is cleaned up afterwards.
+        self.assertFalse(os.path.exists(command[-1]))
 
-        cards_request = urlopen.call_args_list[0][0][0]
-        self.assertEqual(cards_request.full_url, "https://proj.supabase.co/functions/v1/cards")
-        self.assertEqual(cards_request.headers["Authorization"], "Bearer t1")
-        self.assertEqual(cards_request.headers["Apikey"], "anon-key")
-        body = json.loads(cards_request.data)
-        self.assertEqual(body["regenerate_parts"], ["back_audio_path"])
-        self.assertEqual(body["current_card"]["back_text"], "안녕하세요")
-        self.assertEqual(body["learning_language"], "ko")
-        # Only the audio side is asked for; nothing here should smuggle in a
-        # second, competing text-generation request.
-        self.assertNotIn("user_input", body)
+    def test_config_key_overrides_whatever_is_already_in_the_environment(self):
+        gen = generator.NodeCliAudioGenerator("node", self.real_plusaudio_dir, openai_api_key="sk-config")
 
-        audio_request = urlopen.call_args_list[1][0][0]
-        self.assertEqual(
-            audio_request.full_url,
-            "https://proj.supabase.co/storage/v1/object/public/card-audio/1700000000_back_abcd1234.mp3",
-        )
+        def fake_run(args, **kwargs):
+            out_path = args[args.index("--out") + 1]
+            with open(out_path, "wb") as handle:
+                handle.write(b"x")
+            return completed(0)
 
-    def test_a_401_from_the_cards_function_is_retried_once_after_a_refresh(self):
-        gen = generator.EdgeFunctionAudioGenerator("https://proj.supabase.co", make_session())
-        refresh_response = http_response({"access_token": "t2", "refresh_token": "r2"})
-        retried_cards_response = http_response({"card": {"back_audio_path": "clip.mp3"}})
-        audio_response = mock.MagicMock()
-        audio_response.read.return_value = b"bytes"
-        audio_response.__enter__.return_value = audio_response
-        audio_response.__exit__.return_value = False
+        with mock.patch("generator.subprocess.run", side_effect=fake_run) as run, \
+             mock.patch.dict(os.environ, {"OPENAI_API_KEY": "sk-environment"}):
+            gen.fetch_audio("text", "ko")
 
-        calls = [http_error(401), refresh_response, retried_cards_response, audio_response]
+        self.assertEqual(run.call_args.kwargs["env"]["OPENAI_API_KEY"], "sk-config")
 
-        def side_effect(*_args, **_kwargs):
-            result = calls.pop(0)
-            if isinstance(result, Exception):
-                raise result
-            return result
-
-        with mock.patch("urllib.request.urlopen", side_effect=side_effect):
-            audio = gen.fetch_audio("text", "ja")
-        self.assertEqual(audio, b"bytes")
-
-    def test_missing_back_audio_path_raises_generation_error(self):
-        gen = generator.EdgeFunctionAudioGenerator("https://proj.supabase.co", make_session())
-        with mock.patch("urllib.request.urlopen", return_value=http_response({"card": {}})):
-            with self.assertRaises(generator.GenerationError):
-                gen.fetch_audio("text", "ko")
-
-    def test_a_quota_error_from_the_cards_function_surfaces_the_server_message(self):
-        gen = generator.EdgeFunctionAudioGenerator("https://proj.supabase.co", make_session())
+    def test_a_non_zero_exit_raises_with_generate_clip_js_stderr_as_the_message(self):
+        gen = generator.NodeCliAudioGenerator("node", self.real_plusaudio_dir, openai_api_key="sk-test")
         with mock.patch(
-            "urllib.request.urlopen",
-            side_effect=http_error(403, json.dumps({"error": "quota exceeded"}).encode()),
+            "generator.subprocess.run",
+            return_value=completed(1, stderr="OPENAI_API_KEY is not set (checked the environment and plusaudio/.env).\n"),
         ):
             with self.assertRaises(generator.GenerationError) as ctx:
                 gen.fetch_audio("text", "ko")
-        self.assertIn("quota exceeded", str(ctx.exception))
+        self.assertIn("OPENAI_API_KEY is not set", str(ctx.exception))
+
+    def test_a_non_zero_exit_with_empty_stderr_still_raises_a_readable_error(self):
+        gen = generator.NodeCliAudioGenerator("node", self.real_plusaudio_dir, openai_api_key="sk-test")
+        with mock.patch("generator.subprocess.run", return_value=completed(1, stderr="")):
+            with self.assertRaises(generator.GenerationError) as ctx:
+                gen.fetch_audio("text", "ko")
+        self.assertIn("exited 1", str(ctx.exception))
+
+    def test_a_missing_node_binary_at_spawn_time_is_a_clear_generation_error(self):
+        gen = generator.NodeCliAudioGenerator("node", self.real_plusaudio_dir, openai_api_key="sk-test")
+        with mock.patch("generator.subprocess.run", side_effect=FileNotFoundError("no such file")):
+            with self.assertRaises(generator.GenerationError) as ctx:
+                gen.fetch_audio("text", "ko")
+        self.assertIn("could not run", str(ctx.exception))
+
+    def test_a_timeout_is_a_clear_generation_error(self):
+        gen = generator.NodeCliAudioGenerator("node", self.real_plusaudio_dir, openai_api_key="sk-test", timeout=5)
+        with mock.patch(
+            "generator.subprocess.run", side_effect=subprocess.TimeoutExpired(cmd=["node"], timeout=5)
+        ):
+            with self.assertRaises(generator.GenerationError) as ctx:
+                gen.fetch_audio("text", "ko")
+        self.assertIn("did not finish", str(ctx.exception))
+
+    def test_exit_zero_but_no_clip_written_is_treated_as_a_generation_error_not_a_crash(self):
+        gen = generator.NodeCliAudioGenerator("node", self.real_plusaudio_dir, openai_api_key="sk-test")
+        with mock.patch("generator.subprocess.run", return_value=completed(0)):
+            with self.assertRaises(generator.GenerationError):
+                gen.fetch_audio("text", "ko")
+
+    def test_warnings_on_stderr_do_not_fail_a_successful_run(self):
+        gen = generator.NodeCliAudioGenerator("node", self.real_plusaudio_dir, openai_api_key="sk-test")
+
+        def fake_run(args, **kwargs):
+            out_path = args[args.index("--out") + 1]
+            with open(out_path, "wb") as handle:
+                handle.write(b"clip")
+            return completed(0, stderr="No expected reading for ...; the transcript check cannot tell\n")
+
+        with mock.patch("generator.subprocess.run", side_effect=fake_run):
+            audio = gen.fetch_audio("text", "ja")
+        self.assertEqual(audio, b"clip")
 
 
 if __name__ == "__main__":

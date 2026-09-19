@@ -1,6 +1,5 @@
 {
-  "supabase_url": "",
-  "supabase_anon_key": "",
-  "email": "",
-  "password": ""
+  "plusaudio_dir": "",
+  "node_path": "",
+  "openai_api_key": ""
 }
