@@ -66,7 +66,7 @@ async function augmentPackage(options) {
 
   const pkg = openPackage(inputPath);
   try {
-    const notetypes = readNotetypes(pkg.db);
+    const notetypes = readNotetypes(pkg);
     const fieldsByNotetype = new Map();
     // A media map entry whose numbered member is missing from the zip is a
     // dangling reference; treat the file as absent so it gets regenerated
@@ -189,7 +189,7 @@ async function augmentPackage(options) {
     if (!dryRun) writePackage(pkg, outputPath, addedMedia);
     return summary;
   } finally {
-    pkg.db.close();
+    pkg.close();
   }
 }
 

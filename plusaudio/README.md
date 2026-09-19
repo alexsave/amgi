@@ -96,15 +96,32 @@ recognised as the tool's own and replaced rather than duplicated.
 
 ## Package formats
 
-| Format | Members | Supported |
-| --- | --- | --- |
-| Legacy | `collection.anki2`, JSON `media` | yes |
-| Legacy 2 | `meta`, `collection.anki21`, `collection.anki2` stub, JSON `media` | yes |
-| Modern | `meta`, `collection.anki21b` (zstd), protobuf `media` | no, refused with a message |
+All three layouts Anki writes are read and written, including the modern one it produces by default.
 
-Modern packages are refused rather than half-handled.
-Export with "Support older Anki versions" ticked.
-Only collection schema 11 is supported, which is what both legacy layouts carry.
+| Format | Members | Collection schema |
+| --- | --- | --- |
+| Legacy 1 | `collection.anki2`, JSON `media` | 11 |
+| Legacy 2 | `meta`, `collection.anki21`, `collection.anki2` stub, JSON `media` | 11 |
+| Modern | `meta`, `collection.anki21b` (zstd), `collection.anki2` stub, protobuf `media` | 18 |
+
+A package comes out in the layout it went in as.
+A modern deck is never quietly downgraded, which would strand it on an older client's format, and a legacy deck is never upgraded out from under a client that cannot read the result.
+Which layout a package is in is read from `meta`, the way Anki reads it ([meta.rs][meta]), not guessed from which members happen to be in the zip.
+
+In a modern package the collection, the media map and every media file are zstd-compressed, and the media map is a `MediaEntries` protobuf rather than a JSON object ([import_export.proto][proto], [media.rs][media]).
+An entry's position in that list is the name of the zip member holding its bytes, so clips are appended and the files already there never move.
+Both are read and written here with `node:zlib`'s built-in zstd and a hand-rolled protobuf codec ([`lib/protobuf.js`](lib/protobuf.js)), which is a hundred lines for two messages of three fields and keeps the package dependency-free.
+
+Collection schemas 11 and 18 are understood; schema 18 keeps note types, fields and decks in tables of their own rather than in JSON blobs in `col`.
+Any other schema is refused by name rather than written to on the assumption that its tables still mean what this tool thinks they mean.
+
+Reading schema 18 needs one trick worth knowing about.
+Its name columns are declared `COLLATE unicase`, a collation Anki registers in its own Rust backend, and SQLite refuses to plan any statement whose table or index needs a collation it cannot resolve - which from Node makes the `fields` table unreadable and an in-memory copy of the collection unopenable.
+So the note type metadata is read from a throwaway copy of the collection with that declaration taken out of the schema text, and the collection that gets written back keeps the schema Anki wrote, byte for byte.
+
+[meta]: https://github.com/ankitects/anki/blob/main/rslib/src/import_export/package/meta.rs
+[media]: https://github.com/ankitects/anki/blob/main/rslib/src/import_export/package/media.rs
+[proto]: https://github.com/ankitects/anki/blob/main/proto/anki/import_export.proto
 
 ## Generate from a fresh export
 
@@ -115,9 +132,9 @@ Export, generate, import.
 
 ## Requirements
 
-Node 24 or later, for `node:sqlite` and for running the shared generator's TypeScript without a
-build step. No native builds, and the only runtime dependency is the `openai` SDK, which is loaded
-lazily so `--dry-run` and the tests need neither it nor a key.
+Node 26.1 or later, for `node:sqlite`'s `serialize` and for running the shared generator's
+TypeScript without a build step. No native builds, and the only runtime dependency is the `openai`
+SDK, which is loaded lazily so `--dry-run` and the tests need neither it nor a key.
 
 The `openai` package here and the one the edge function imports are different majors on purpose:
 the shared module never imports the SDK, it is handed a client, so each runtime brings its own.
@@ -149,8 +166,11 @@ python tools/verify-with-anki.py "My Deck.apkg" \
 ```
 
 `verify-with-anki.py` imports each package into a collection seeded from the input deck and runs Anki's own media check after every import.
-On the 333-note deck it reports 999 files in the media folder and none of them unused, in both forms.
+On the 333-note deck it reports 999 files in the media folder, none of them unused and none missing, in both reference forms and in both the legacy and the modern layout.
 That is the point of writing `<audio src>` rather than a bare filename: Anki keeps counting the clip as used.
+
+Run both harnesses against a modern export as well as a legacy one.
+Exporting the same deck from Anki with and without "Support older Anki versions" gives two packages that should come out with the same 333 notes, the same card ids and the same review log.
 
 ## Speaking practice inside Anki
 

@@ -6,6 +6,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { after, before, describe, it } = require('node:test');
+const { DatabaseSync } = require('node:sqlite');
 
 const { augmentPackage } = require('../lib/augment');
 const { UnsupportedPackageError } = require('../lib/package');
@@ -335,13 +336,18 @@ describe('augmentPackage', () => {
   });
 
   it('edits the database that meta points at, not whichever one is present', async () => {
-    // A version 1 package carrying a stray collection.anki21: Anki reads
-    // collection.anki2, so editing the other one would be a silent no-op.
+    // A package that declares version 1 while carrying a stray
+    // collection.anki21: Anki reads collection.anki2, so editing the other one
+    // would be a silent no-op (meta.rs, Version::collection_filename).
     const source = makeSource('meta-source.apkg');
     const input = path.join(dir, 'meta.apkg');
     const members = readZip(source).map((e) => ({ name: e.name, data: e.data() }));
     const collection = members.find((m) => m.name === 'collection.anki2').data;
-    writeZip(input, [...members, { name: 'collection.anki21', data: collection }]);
+    writeZip(input, [
+      { name: 'meta', data: Buffer.from([0x08, 0x01]) },
+      ...members,
+      { name: 'collection.anki21', data: collection },
+    ]);
 
     const output = path.join(dir, 'meta-out.apkg');
     const { summary } = await run(input, output);
@@ -350,6 +356,24 @@ describe('augmentPackage', () => {
     const edited = new Map(readZip(output).map((e) => [e.name, e.data()]));
     assert.ok(!edited.get('collection.anki2').equals(collection), 'collection.anki2 must be the one edited');
     assert.deepEqual(edited.get('collection.anki21'), collection, 'the stray database must be left alone');
+  });
+
+  it('reads a package with no meta member the way Anki does', async () => {
+    // Meta::from_archive: with no `meta` to go on, a package is version 2 if it
+    // has a collection.anki21 and version 1 otherwise.
+    const source = makeSource('no-meta-source.apkg');
+    const input = path.join(dir, 'no-meta.apkg');
+    const members = readZip(source).map((e) => ({ name: e.name, data: e.data() }));
+    const collection = members.find((m) => m.name === 'collection.anki2').data;
+    writeZip(input, [...members, { name: 'collection.anki21', data: collection }]);
+
+    const output = path.join(dir, 'no-meta-out.apkg');
+    const { summary } = await run(input, output);
+    assert.equal(summary.format, 'legacy2');
+
+    const edited = new Map(readZip(output).map((e) => [e.name, e.data()]));
+    assert.ok(!edited.get('collection.anki21').equals(collection), 'collection.anki21 must be the one edited');
+    assert.deepEqual(edited.get('collection.anki2'), collection, 'the other database must be left alone');
   });
 
   it('regenerates a clip whose media file has gone missing from the package', async () => {
@@ -378,18 +402,40 @@ describe('augmentPackage', () => {
     assert.ok(fixed.has(restoredId), 'the missing clip must be back in the package');
   });
 
-  it('refuses a modern package rather than silently passing it through', async () => {
-    const input = path.join(dir, 'modern.apkg');
+  it('refuses a package layout newer than it knows, by name', async () => {
+    const input = path.join(dir, 'version4.apkg');
     writeZip(input, [
-      { name: 'meta', data: Buffer.from([0x08, 0x03]) },
-      { name: 'collection.anki21b', data: Buffer.from('zstd') },
-      { name: 'media', data: Buffer.from(' binary') },
+      { name: 'meta', data: Buffer.from([0x08, 0x04]) },
+      { name: 'collection.anki21c', data: Buffer.from('whatever comes next') },
     ]);
 
     await assert.rejects(
-      () => run(input, path.join(dir, 'modern-out.apkg')),
+      () => run(input, path.join(dir, 'version4-out.apkg')),
       (error) =>
-        error instanceof UnsupportedPackageError && /Support older Anki versions/.test(error.message),
+        error instanceof UnsupportedPackageError &&
+        /declares package version 4, which is newer than any layout/.test(error.message),
+    );
+  });
+
+  it('refuses a collection schema it does not understand, by name', async () => {
+    // Better than writing into a collection whose tables may not mean what
+    // this tool thinks they mean.
+    const source = makeSource('schema-source.apkg');
+    const input = path.join(dir, 'schema17.apkg');
+    const members = readZip(source).map((e) => ({ name: e.name, data: e.data() }));
+    const collection = members.find((m) => m.name === 'collection.anki2');
+    const db = new DatabaseSync(':memory:');
+    db.deserialize(collection.data);
+    db.prepare('UPDATE col SET ver = 17').run();
+    collection.data = Buffer.from(db.serialize());
+    db.close();
+    writeZip(input, members);
+
+    await assert.rejects(
+      () => run(input, path.join(dir, 'schema17-out.apkg')),
+      (error) =>
+        error instanceof UnsupportedPackageError &&
+        /uses collection schema 17; this tool understands 11 and 18/.test(error.message),
     );
   });
 

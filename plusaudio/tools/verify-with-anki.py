@@ -13,13 +13,15 @@ Pass the packages in the order a user would import them. Passing a [sound:] run
 followed by an <audio src> run is the interesting case: it is what a learner who
 re-generates with --audio-tag html actually does to their collection.
 
+Works on any of the three package layouts, legacy or modern, and prints which
+one each package is in.
+
 Needs the `anki` package: python -m venv env && env/bin/pip install anki
 """
 
 import os
 import re
 import shutil
-import sqlite3
 import sys
 import tempfile
 import zipfile
@@ -97,26 +99,34 @@ def package_references(path, workdir):
     only updates a matched note when the incoming copy is newer, so a package
     whose notes carry the same `mod` as the collection's is reported as
     duplicate and its fields never land.
+
+    Read by importing the package into a scratch collection of its own rather
+    than by opening its database directly: a modern package's collection is
+    zstd-compressed inside the zip, and Anki's own importer is both the only
+    reader to hand that can decompress it and the most honest one to use.
     """
+    scratch = tempfile.mkdtemp(dir=workdir)
+    col = Collection(os.path.join(scratch, "collection.anki2"))
+    try:
+        import_package(col, path)
+        return references(col)
+    finally:
+        col.close()
+        shutil.rmtree(scratch, ignore_errors=True)
+
+
+PACKAGE_FORMATS = {1: "legacy1", 2: "legacy2", 3: "modern"}
+
+
+def package_format(path):
+    """The layout the package is in, as its `meta` member declares it."""
     with zipfile.ZipFile(path) as package:
         names = set(package.namelist())
-        meta = package.read("meta") if "meta" in names else b""
-        version = meta[1] if len(meta) >= 2 and meta[0] == 0x08 else 1
-        member = "collection.anki21" if version == 2 else "collection.anki2"
-        target = os.path.join(workdir, "package.anki2")
-        with package.open(member) as source, open(target, "wb") as out:
-            shutil.copyfileobj(source, out)
-
-    db = sqlite3.connect(target)
-    try:
-        found = {"sound": [], "html": []}
-        for (flds,) in db.execute("select flds from notes"):
-            found["sound"] += SOUND_REFERENCE.findall(flds)
-            found["html"] += HTML_REFERENCE.findall(flds)
-        return found
-    finally:
-        db.close()
-        os.remove(target)
+        if "meta" not in names:
+            return "legacy2" if "collection.anki21" in names else "legacy1"
+        meta = package.read("meta")
+        version = meta[1] if len(meta) >= 2 and meta[0] == 0x08 else 0
+    return PACKAGE_FORMATS.get(version, f"version {version}")
 
 
 def notes_with_audio(col):
@@ -135,7 +145,7 @@ def main(argv):
     tmp = tempfile.mkdtemp()
     col = Collection(os.path.join(tmp, "collection.anki2"))
 
-    print(f"seeding a collection from {os.path.basename(source)}")
+    print(f"seeding a collection from {os.path.basename(source)} ({package_format(source)})")
     print("  ", import_package(col, source))
     base_guids = guids(col)
     base_sched = scheduling(col)
@@ -149,7 +159,7 @@ def main(argv):
 
     for index, package in enumerate(packages, start=1):
         label = f"run {index}"
-        print(f"importing {label}: {os.path.basename(package)}")
+        print(f"importing {label}: {os.path.basename(package)} ({package_format(package)})")
         counts = import_package(col, package)
         print("  ", counts)
         notes = col.db.scalar("select count() from notes")
@@ -211,6 +221,14 @@ def main(argv):
             f"{label}: Anki's media check finds no generated clip missing",
             not missing,
             f"{len(missing)} missing, {len(report.missing)} missing files overall",
+        )
+        # The same, for the collection as a whole and not just this tool's
+        # clips: a deck that came in clean has to stay clean.
+        check(
+            f"{label}: Anki's media check reports nothing unused and nothing missing",
+            not report.unused and not report.missing,
+            f"{len(os.listdir(media_dir))} files in the media folder, "
+            f"{len(report.unused)} unused, {len(report.missing)} missing",
         )
         print("")
 
