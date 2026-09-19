@@ -125,6 +125,49 @@ async function waitFor(page, predicate, { timeout = 15000, label = 'condition' }
   }
 }
 
+/**
+ * The average colour of whatever the visualizer canvas currently has drawn on
+ * it (transparent pixels excluded), or null if it is blank. Sampling the
+ * actual rendered pixels - not just checking the canvas got sized - is what
+ * proves each audio source really gets its own colour rather than all three
+ * sharing whatever the last one drew.
+ */
+async function dominantColor(page) {
+  return page.evaluate(() => {
+    const canvas = document.querySelector('[data-amgi-visualizer]');
+    if (!canvas || !canvas.width) return null;
+    const { data } = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height);
+    let r = 0;
+    let g = 0;
+    let b = 0;
+    let n = 0;
+    for (let i = 0; i < data.length; i += 4) {
+      if (data[i + 3] < 10) continue; // skip transparent (undrawn) pixels
+      r += data[i];
+      g += data[i + 1];
+      b += data[i + 2];
+      n += 1;
+    }
+    return n ? { r: r / n, g: g / n, b: b / n, n } : null;
+  });
+}
+
+async function waitForColor(page, matches, { timeout = 4000, label = 'a colour' } = {}) {
+  const deadline = Date.now() + timeout;
+  for (;;) {
+    const color = await dominantColor(page);
+    if (color && matches(color)) return color;
+    if (Date.now() > deadline) {
+      throw new Error(`timed out waiting for ${label}, last saw ${JSON.stringify(color)}`);
+    }
+    await sleep(50);
+  }
+}
+
+const isOrangeDominant = (c) => c.r > c.g + 15 && c.r > c.b + 15;
+const isGreenDominant = (c) => c.g > c.r + 10 && c.g >= c.b;
+const isBlueDominant = (c) => c.b > c.r + 10 && c.b > c.g + 10;
+
 async function startReview(page, port) {
   const front = fs.readFileSync(path.join(ROOT, 'anki', 'notetype', 'front.html'), 'utf8');
   const back = fs.readFileSync(path.join(ROOT, 'anki', 'notetype', 'back.html'), 'utf8');
@@ -143,9 +186,37 @@ async function withMicrophone(browser, port, logs) {
   await page.evaluateOnNewDocument(fakeVoiceScript({ leadMs: 500, speechMs: 1500 }));
   await startReview(page, port);
 
+  check(
+    'the visualizer canvas is present on the front template',
+    await page.evaluate(() => !!document.querySelector('[data-amgi-visualizer]'))
+  );
+
   await waitFor(page, () => window.phaseIs('listening'), { label: 'the microphone to open' });
   const openedAt = Date.now();
   check('the microphone opens by itself after the prompt', true);
+
+  // The canvas keeps its browser-default backing size (300x150) until
+  // anki-loop.js's visualizer actually sizes and draws on it, which only
+  // happens once a real AnalyserNode is feeding it - so a size change here is
+  // proof the mic's own analyser (see voiceActivity.js) is reaching the
+  // drawing code, not a second graph built for the visualizer alone.
+  await waitFor(
+    page,
+    () => {
+      const canvas = document.querySelector('[data-amgi-visualizer]');
+      return !!canvas && canvas.width > 0 && canvas.width !== 300;
+    },
+    { label: 'the visualizer to size and draw while the microphone is open' }
+  );
+  check('the visualizer reacts while the microphone is open', true);
+
+  // The mic is always the learner's own voice - drawn in the "you" colour
+  // whether it is live (here) or a later "You" replay - and the fake stream's
+  // 180Hz tone during its "speech" window is real enough signal to prove it.
+  const micColor = await waitForColor(page, isOrangeDominant, {
+    label: 'the visualizer to draw the microphone in the orange "you" colour',
+  });
+  check('the microphone draws in the "you" colour, not the prompt or native colour', true, JSON.stringify(micColor));
 
   const duringListening = await page.evaluate(() => ({
     text: document.body.textContent,
@@ -188,12 +259,43 @@ async function withMicrophone(browser, port, logs) {
     { label: 'the native audio to play' }
   );
   check('the native audio played on reveal', true);
+  check(
+    'the visualizer canvas is present on the back template',
+    await page.evaluate(() => !!document.querySelector('[data-amgi-visualizer]'))
+  );
+  await waitFor(
+    page,
+    () => {
+      const canvas = document.querySelector('[data-amgi-visualizer]');
+      return !!canvas && canvas.width > 0 && canvas.width !== 300;
+    },
+    { label: 'the visualizer to size and draw for the automatic native playback' }
+  );
+  check('the visualizer reacts to the native audio on reveal', true);
+
+  const nativeColor = await waitForColor(page, isGreenDominant, {
+    label: 'the visualizer to draw the native audio in the green "native" colour',
+  });
+  check('the native audio draws in its own colour, not the "you" colour', true, JSON.stringify(nativeColor));
 
   const you = await page.evaluate(() => {
     const button = document.querySelector('[data-amgi-action="replay-you"]');
     return { present: !!button, offered: button ? !button.hidden : false };
   });
   check('the learner\'s own recording is offered for replay', you.offered, JSON.stringify(you));
+
+  // Replaying the prompt from the answer side has to be its own colour too -
+  // the source, not the phase, is what the colour is keyed to (see
+  // _amgi-loop.css), so "answer phase, prompt clip" must still draw blue.
+  await page.click('[data-amgi-action="replay-prompt"]');
+  const promptColor = await waitForColor(page, isBlueDominant, {
+    label: 'replaying the prompt on the answer side to draw in the blue "prompt" colour',
+  });
+  check(
+    'replaying the prompt from the answer side draws in the prompt colour, not the native one',
+    true,
+    JSON.stringify(promptColor)
+  );
 
   // Space and 1 are deliberately NOT handled by the template on the answer
   // side any more (see anki/README.md, "Keys"): real Anki's own native
@@ -371,6 +473,76 @@ async function withHangingMicrophone(browser, port, logs) {
   await page.close();
 }
 
+async function withoutAudioContext(browser, port, logs) {
+  process.stdout.write('\nthe fallback path, with no Web Audio at all (no AudioContext)\n');
+  const page = await browser.newPage();
+  watch(page, logs);
+  // A client with no Web Audio implementation is a real, not hypothetical,
+  // case (see anki/README.md's client survey) and a stricter one than "the
+  // permission prompt was denied": microphone() already needs an AudioContext
+  // for VAD, before the visualizer existed, and the visualizer's own
+  // ensureAudioContext() must degrade the exact same way - a blank visualizer
+  // and a working card, never a stuck phase or a thrown error.
+  await page.evaluateOnNewDocument(`
+    delete window.AudioContext;
+    delete window.webkitAudioContext;
+  `);
+  await startReview(page, port);
+
+  check(
+    'the visualizer canvas is present even with no Web Audio in the client',
+    await page.evaluate(() => !!document.querySelector('[data-amgi-visualizer]'))
+  );
+
+  await waitFor(page, () => window.phaseIs('waiting'), { label: 'the no-microphone phase (no AudioContext at all)' });
+  check(
+    'no microphone is offered without Web Audio, and the card asks the learner to press space',
+    await page.evaluate(() => /space/i.test(document.querySelector('[data-amgi-note]').textContent))
+  );
+
+  await page.keyboard.press('Space');
+  await waitFor(page, () => window.phaseIs('answer'), { label: 'space to reveal with no Web Audio' });
+  check('space still reveals the card with no Web Audio in the client', true);
+
+  await waitFor(
+    page,
+    () => {
+      const el = document.querySelector('[data-amgi-answer-audio] audio');
+      return !!el && el.played && el.played.length > 0;
+    },
+    { label: 'the native audio to still play with no Web Audio' }
+  );
+  check('the native audio still plays with no AudioContext to route it through - never silent', true);
+
+  // The canvas keeps its untouched browser-default backing size (300x150):
+  // proof the visualizer's own sizing/drawing code never ran at all, rather
+  // than running and happening to draw nothing.
+  const untouched = await page.evaluate(() => {
+    const canvas = document.querySelector('[data-amgi-visualizer]');
+    return canvas.width === 300 && canvas.height === 150;
+  });
+  check('the visualizer canvas is never sized or drawn on - the card area stays blank, not broken', untouched);
+
+  await page.click('[data-amgi-action="replay-native"]');
+  await sleep(200);
+  const stillUntouched = await page.evaluate(() => {
+    const canvas = document.querySelector('[data-amgi-visualizer]');
+    return canvas.width === 300 && canvas.height === 150;
+  });
+  check('replaying a clip by hand does not draw either, with no Web Audio available', stillUntouched);
+
+  await page.click('[data-amgi-action="good"]');
+  await waitFor(page, () => window.harness.cardIndex === 1, { label: 'the next card' });
+  check(
+    'grading still works with no Web Audio in the client',
+    await page.evaluate(() => window.harness.commands.some((entry) => entry.command === 'ease3'))
+  );
+
+  const leaks = await page.evaluate(() => window.harness.leaks);
+  check('the answer never appeared early', leaks.length === 0, JSON.stringify(leaks));
+  await page.close();
+}
+
 async function main() {
   const dir = mediaFolder();
   const { server, port } = await serve(dir);
@@ -382,7 +554,7 @@ async function main() {
   });
 
   try {
-    for (const run of [withMicrophone, withoutMicrophone, withHangingMicrophone]) {
+    for (const run of [withMicrophone, withoutMicrophone, withHangingMicrophone, withoutAudioContext]) {
       await run(browser, port, logs);
     }
   } finally {
