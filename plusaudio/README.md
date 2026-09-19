@@ -1,106 +1,117 @@
-# Korean Deck Audio Processor
+# plusaudio
 
-A unified tool that enhances Korean Anki decks with high-quality AI-generated audio using GPT-4o.
-
-## Features
-
-- **Smart Audio Generation**: Uses GPT-4o-audio-preview with Korean phonological validation
-- **Multi-voice Fallback**: Tries up to 5 different voices if validation fails
-- **Progress Saving**: Automatically saves progress and can resume from interruptions
-- **Unified Processing**: Combines audio generation, deck creation, and timestamp fixing in one command
-- **Conflict-Free Import**: Creates new deck with unique IDs to avoid collection conflicts
-- **Review History Preservation**: Maintains all your existing review statistics
-
-## Quick Start
+Adds generated audio to an existing Anki deck, in place, without changing anything else about it.
 
 ```bash
-# Process a Korean deck with enhanced audio
-node process-deck.js "Korean Vocabulary by Evita (with Audio).apkg"
+node add-audio.js "My Deck.apkg" --out "My Deck (with audio).apkg"
 ```
+
+The output is the input plus audio.
+Same note GUIDs, same note and card ids, same note types, same deck names, byte-identical review log.
+Import it into the collection the deck came from and Anki updates those notes' fields in place and
+leaves their cards' scheduling and due dates alone.
+
+Run it again and it only generates the audio whose text has changed since last time.
+
+## Why identity matters
+
+Anki's package importer matches notes by GUID and nothing else, updates a matched note only when the
+incoming copy is newer, and never touches an existing card's scheduling when it updates a note
+([notes.rs][notes], [cards.rs][cards]).
+Decks are matched by name and note types by id ([decks.rs][decks]).
+
+So a tool that renumbers notes, cards, decks or note types can only ever produce a second copy of the
+deck; and a tool that stamps `mod` on every note overwrites edits the user made themselves.
+This one changes a note only when it changes that note's audio field, and stamps `mod` only on the
+notes it changed.
+It never writes to `revlog`, `cards` or `col`.
+
+[notes]: https://github.com/ankitects/anki/blob/main/rslib/src/import_export/package/apkg/import/notes.rs
+[cards]: https://github.com/ankitects/anki/blob/main/rslib/src/import_export/package/apkg/import/cards.rs
+[decks]: https://github.com/ankitects/anki/blob/main/rslib/src/import_export/package/apkg/import/decks.rs
 
 ## Usage
 
-```bash
-node process-deck.js <path-to-apkg-file> [options]
+```
+node add-audio.js <deck.apkg> [options]
 
-Options:
-  --help, -h                    Show help message
-  --force-words="word1,word2"   Force regenerate specific Korean words
-  --max-notes=N                 Limit processing to N notes (for testing)
-
-Examples:
-  node process-deck.js "Korean Vocabulary.apkg"
-  node process-deck.js "Korean Vocabulary.apkg" --force-words="대사관,학교"
-  node process-deck.js "Korean Vocabulary.apkg" --max-notes=10
+  --out <path>          output package (default: "<input> (with audio).apkg")
+  --text-field <name>   field to read aloud (name or 0-based index)
+  --audio-field <name>  field to write the [sound:] tag into (name or index)
+  --language <tag>      language of the text being spoken (default: ko)
+  --cache-dir <dir>     clips kept between runs (default: ./plusaudio-audio)
+  --limit <n>           generate at most n clips this run
+  --dry-run             report what would be generated; write nothing
 ```
 
-## Processing Phases
+`--dry-run` needs no API key. Generating audio needs `OPENAI_API_KEY`.
 
-### Phase 1: Audio Generation 🎵
-- Analyzes your deck structure and detects Korean vocabulary
-- Generates high-quality audio using GPT-4o-audio-preview
-- Validates audio through blind transcription and Korean phonological analysis
-- Saves audio files to `audio/` directory with progress tracking
+Fields are resolved per note type. If a note type has no field whose name looks like an audio field,
+the tool stops and asks for `--audio-field` rather than guessing and overwriting real content.
 
-### Phase 2: Deck Creation 📦
-- Creates a new .apkg deck with embedded audio files
-- Updates note references to include audio in the appropriate fields
-- Generates new unique IDs to avoid conflicts with existing collection
-- Preserves all review history and card relationships
+## How a re-run stays cheap
 
-### Phase 3: Timestamp Fixing ⏰
-- Adjusts review timestamps to be in the recent past
-- Ensures proper display in Anki's statistics and calendar views
-- Maintains the original review timeline span
+A clip's filename is derived from the text it was generated from
+(`plusaudio-<hash of profile, language and text>.mp3`).
+If the text has not changed, the note already points at exactly the file the tool would produce, so
+there is nothing to generate and nothing to write.
+If the text has changed, the name changes with it and the stale clip is replaced.
+Nothing has to be remembered between runs for this to work, and clips are also kept in `--cache-dir`
+so rebuilding a deleted output costs nothing.
 
-## Interruption Handling
+Sound tags the tool did not write - the deck author's own recordings - are left exactly where they
+are, alongside the generated one. Tags written by the retired 2025 scripts (`*_gpt4o.mp3`) are
+recognised as the tool's own and replaced rather than duplicated.
 
-The script automatically saves progress and can be resumed:
+## Package formats
 
-1. **During Audio Generation**: Progress saved every 10 notes
-2. **If Interrupted**: Run the same command again to resume
-3. **Phase Completion**: Each phase completion is saved, completed phases are skipped on resume
+| Format | Members | Supported |
+| --- | --- | --- |
+| Legacy | `collection.anki2`, JSON `media` | yes |
+| Legacy 2 | `meta`, `collection.anki21`, `collection.anki2` stub, JSON `media` | yes |
+| Modern | `meta`, `collection.anki21b` (zstd), protobuf `media` | no, refused with a message |
 
-## Output
+Modern packages are refused rather than half-handled.
+Export with "Support older Anki versions" ticked.
+Only collection schema 11 is supported, which is what both legacy layouts carry.
 
-- **Enhanced Deck**: `[Original Name] (with Audio Enhanced).apkg`
-- **Audio Files**: Saved in `audio/` directory as `{korean_text}_gpt4o.mp3`
-- **Progress File**: `[Original Name]_progress.json` for resumption
+## Generate from a fresh export
+
+`mod` is set to now on the notes the tool changes, which is what makes Anki apply the update.
+If you generate from a month-old export and have edited those same notes in Anki since, the import
+will overwrite your edits to them.
+Export, generate, import.
 
 ## Requirements
 
-- Node.js with required packages (yauzl, yazl, better-sqlite3, openai)
-- OpenAI API key in `.env` file
-- ffmpeg (optional, for audio analysis)
+Node 24 or later, for `node:sqlite`. No native builds, and the only runtime dependency is the
+`openai` SDK, which is loaded lazily so `--dry-run` and the tests need neither it nor a key.
 
-## Error Handling
+## Tests
 
-- **Rate Limits**: Automatically detected, script stops gracefully
-- **Audio Validation**: Multiple voices tried if transcription fails
-- **Critical Errors**: Progress saved before exit, resume from last checkpoint
-
-## Configuration
-
-Edit the `CONFIG` object in `process-deck.js` to customize:
-- Audio directory location
-- Generation parameters (voices, attempts, delays)
-- Force regenerate word list
-
-## Workflow Comparison
-
-### Before (3 separate scripts):
-1. `node index.js` - Generate audio
-2. `node update-augmented-deck.js` - Create deck
-3. `node fix-review-timestamps.js` - Fix timestamps
-
-### After (1 unified script):
 ```bash
-node process-deck.js "Korean Vocabulary.apkg"
+node --test test/        # or: npm test, or pnpm test at the repo root
 ```
 
-## Safety
+## Verifying against Anki itself
 
-- Original deck is never modified
-- All generated content uses unique IDs
-- Review history and statistics fully preserved
-- Can be safely imported alongside original deck
+`tools/` holds the harness the design was checked with, against a real 333-note shared deck and
+against a fixture exported from Anki with review history.
+
+```bash
+# Two runs over the same input, with audio generation stubbed.
+node tools/verify-runs.js "My Deck.apkg" /tmp/plusaudio-verify
+
+# Then check the outputs against Anki's own importer (needs: pip install anki).
+python tools/verify-with-anki.py "My Deck.apkg" \
+  /tmp/plusaudio-verify/run1.apkg /tmp/plusaudio-verify/run2.apkg
+```
+
+## What this is not
+
+It does not create cards.
+The card generation policy lives in `supabase/functions/_shared/` and is being lifted into a module
+both amgi and this CLI can call; `lib/tts.js` is the interim generator until then.
+
+The scripts that produced the owner's original deck are in `archives/plusaudio-2025/`, with a note on
+why they were retired and what is worth mining from them.

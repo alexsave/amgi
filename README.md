@@ -21,7 +21,7 @@ Then the native recording plays back against yours and you grade yourself, the w
 - **AI-generated cards** - type a phrase in either language; the card's translation, language detection, and TTS audio for both sides are generated for you.
   Generated audio is transcribed and verified before it's accepted.
 - **Spaced repetition** - an SM-2 style scheduler (new → learning → review) with per-card state persisted in Supabase.
-- **Anki deck import** - the `plusaudio/` CLI tools convert `.apkg` decks (adding generated audio) into importable decks.
+- **Anki deck audio** - the `plusaudio/` CLI adds generated audio to an existing `.apkg` in place, preserving note GUIDs and review history so a re-run updates the deck instead of cloning it.
 - **Subscriptions** - Stripe-backed tiers with per-feature usage limits (voice evaluations, audio generations, realtime sessions) enforced atomically in the database.
 
 ### Review keyboard shortcuts
@@ -101,15 +101,15 @@ pnpm start         # serve the production build
 
 ### 3. plusaudio CLI (optional)
 
-Offline tools for converting Anki decks; kept out of the web app's dependency tree.
+An offline tool that adds generated audio to an Anki deck; kept out of the web app's dependency tree.
 
 ```bash
 cd plusaudio
-npm install
-node index.js --help   # see plusaudio/README.md
+node add-audio.js "My Deck.apkg" --dry-run   # see plusaudio/README.md
 ```
 
-Requires an `OPENAI_API_KEY` in `plusaudio/.env` for audio generation.
+Needs Node 24 or later. `--dry-run` needs nothing else; generating audio needs `npm install` and an
+`OPENAI_API_KEY`, in the environment or in `plusaudio/.env`.
 
 ## Verifying changes
 
@@ -127,7 +127,7 @@ src/data/             Curated starter decks
 public/               Static assets, including vmsg.wasm (the mp3 encoder)
 supabase/functions/   Deno edge functions + _shared helpers
 supabase/migrations/  Schema, RLS, and RPCs
-plusaudio/            Node CLI for Anki deck conversion
+plusaudio/            Node CLI that adds generated audio to an Anki deck
 archives/             Old implementations kept for reference (not built)
 ```
 
