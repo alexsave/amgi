@@ -1,8 +1,11 @@
 import React from 'react';
 import { useDecks } from '../../contexts/DeckContext';
+import { useAuth } from '../../contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { SparklesIcon, TrashIcon, ArrowUpTrayIcon } from '@heroicons/react/24/outline';
 import msgpack from 'msgpack-lite';
+import { loadDeckCards } from '../../db/supabase';
+import { buildDeckExportPayload } from '../../utils/deckExport';
 import './DeckItem.css';
 
 const DeckItem = ({ id, deck }) => {
@@ -14,6 +17,7 @@ const DeckItem = ({ id, deck }) => {
   } = useDecks();
 
   const router = useRouter();
+  const { user } = useAuth();
   const backfill = audioBackfill?.[id];
 
   const handleEditClick = (e, id) => {
@@ -38,8 +42,14 @@ const DeckItem = ({ id, deck }) => {
   const handleExportClick = async (e) => {
     e.stopPropagation();
     try {
-      // Encode deck data using MessagePack for smaller file size
-      const encoded = msgpack.encode(deck);
+      // `deck.cards` is the review queue (capped at 40 new plus learning and
+      // due), not the deck - exporting it silently truncates any deck bigger
+      // than that cap. A signed-in deck lives in Supabase, so load the whole
+      // thing for real; a local-only (signed-out) deck has no server copy,
+      // but `deck.cards` there already holds every card since nothing caps it.
+      const cards = user ? await loadDeckCards(id) : (deck.cards || []);
+      const payload = buildDeckExportPayload(deck, cards);
+      const encoded = msgpack.encode(payload);
       const blob = new Blob([encoded], { type: 'application/x-msgpack' });
       
       try {

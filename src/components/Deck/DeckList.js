@@ -4,6 +4,7 @@ import { useDecks } from '../../contexts/DeckContext';
 import DeckItem from './DeckItem';
 import msgpack from 'msgpack-lite';
 import { PlusIcon, ArrowDownTrayIcon, Square3Stack3DIcon } from '@heroicons/react/24/outline';
+import { parseDeckImportPayload } from '../../utils/deckExport';
 import './DeckList.css';
 import { NAME } from '../../constants/names';
 import CreateDeckModal from './CreateDeckModal';
@@ -16,40 +17,30 @@ const DeckList = () => {
     decks,
     loading,
     setCurrentDeckId,
-    updateDeck
+    importDeck
   } = useDecks();
-  
+
   const router = useRouter();
   const fileInputRef = useRef(null);
 
   const handleImportClick = () => {
-    console.log('Import button clicked');
     fileInputRef.current?.click();
   };
 
   const handleFileSelect = async (event) => {
     const file = event.target.files?.[0];
+    // Cleared unconditionally so re-selecting the same file after a failed
+    // import still fires onChange.
+    event.target.value = '';
     if (!file) return;
 
-    console.log('Importing file:', file.name);
     try {
       const buffer = await file.arrayBuffer();
-      const deck = msgpack.decode(new Uint8Array(buffer));
-      console.log('Decoded deck:', deck);
-      
-      const id = Date.now().toString();
-      const newDeck = {
-        ...deck,
-        id,
-        lastModified: Date.now()
-      };
-      
-      console.log('Updating deck with ID:', id);
-      updateDeck(id, newDeck);
-      console.log('Setting current deck...');
-      setCurrentDeckId(id);
-      console.log('Navigating to deck page...');
-      router.push(`/deck/${id}`);
+      const decoded = msgpack.decode(new Uint8Array(buffer));
+      const payload = parseDeckImportPayload(decoded);
+      const deckId = await importDeck(payload);
+      setCurrentDeckId(deckId);
+      router.push(`/deck/${deckId}`);
     } catch (err) {
       console.error('Error importing deck:', err);
       alert('Failed to import deck: ' + err.message);
