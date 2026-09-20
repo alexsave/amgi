@@ -36,6 +36,7 @@ export const ankiApi = {
   // settings header: the Settings panel keeps an unsaved override in React
   // state, and installing to a folder other than the one on screen is how
   // you write add-ons into somebody's real Anki by accident.
+  installState: () => call('/install'),
   install: (baseDirOverride) =>
     call('/install', { method: 'POST', body: JSON.stringify({ baseDirOverride: baseDirOverride || '' }) }),
   decks: () => call('/decks'),

@@ -1,15 +1,28 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useDecks } from '../../contexts/DeckContext';
 import DeckItem from './DeckItem';
 import { PlusIcon } from '@heroicons/react/24/outline';
 import './DeckList.css';
 import CreateDeckModal from './CreateDeckModal';
 import { ANKI_READY_MODES, ankiModePresentation } from '../../utils/ankiModeText';
+import FirstRun from '../Setup/FirstRun';
+import { ankiApi } from '../../utils/ankiApi';
 
 const DeckList = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const { decks, loading, ankiStatus } = useDecks();
   const ready = ANKI_READY_MODES.has(ankiStatus?.mode);
+  // null while unknown, so a slow answer shows the deck list rather than
+  // flashing the setup screen at someone who set up months ago.
+  const [installed, setInstalled] = useState(null);
+
+  useEffect(() => {
+    let live = true;
+    ankiApi.installState()
+      .then((state) => { if (live) setInstalled(state.installed); })
+      .catch(() => { if (live) setInstalled(true); });
+    return () => { live = false; };
+  }, [ankiStatus?.mode]);
 
   const emptyState = () => {
     // An empty deck list because Anki is locked, unconfigured, or otherwise
@@ -18,6 +31,10 @@ const DeckList = () => {
     // for the former would look like data loss instead of the mode the
     // navbar badge is already naming. Say the same thing here, not "create
     // one" as if nothing was wrong.
+    // Never set up on this machine at all is not an error state, it is the
+    // beginning - so it gets the setup screen rather than a sentence
+    // pointing at Settings. Every other not-ready mode IS something going
+    // wrong with a collection that was working, and still explains itself.
     if (!ready) {
       const presentation = ankiModePresentation(ankiStatus?.mode);
       return (
@@ -38,6 +55,13 @@ const DeckList = () => {
       </div>
     );
   };
+
+  // Setup is the entire screen, not an empty state inside the deck list:
+  // "Decks" and a New Deck button above a machine that cannot make one yet
+  // is chrome for a thing that does not exist.
+  if (installed === false || ankiStatus?.mode === 'unconfigured') {
+    return <div className="deck-management"><FirstRun /></div>;
+  }
 
   return (
     <div className="deck-management">

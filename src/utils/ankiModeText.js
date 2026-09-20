@@ -9,12 +9,17 @@ export const ANKI_READY_MODES = new Set(['bridge', 'direct']);
 
 export const ANKI_MODE_PRESENTATION = {
   bridge: {
-    label: 'Anki (bridge)',
+    // Both working modes read as the same thing to a person - amgi can see
+    // their collection - so they say the same thing. Which transport got
+    // there is in the tooltip, where it belongs: it matters when something
+    // breaks and never otherwise. "Anki (closed)" in particular read as a
+    // fault rather than as the ordinary, fastest case that it is.
+    label: 'Anki connected',
     color: '#4caf50',
     title: 'Reading your live collection through the Anki bridge add-on.',
   },
   direct: {
-    label: 'Anki (closed)',
+    label: 'Anki connected',
     color: '#4caf50',
     title: 'Reading your Anki collection file directly - Anki is closed.',
   },
@@ -22,7 +27,7 @@ export const ANKI_MODE_PRESENTATION = {
     label: 'Anki locked',
     color: '#e07050',
     title: 'Anki is open and the bridge is not reachable, so your collection cannot be read right now. ' +
-      'Close Anki, or enable the bridge (Tools > amgi: Bridge status...) and paste its token into Settings.',
+      'Close Anki, or start the bridge (Tools > amgi: Bridge status...) and paste its token into Settings.',
   },
   'bridge-no-collection': {
     label: 'Anki: no profile',
@@ -40,9 +45,9 @@ export const ANKI_MODE_PRESENTATION = {
     title: 'This collection uses a schema version amgi does not support yet.',
   },
   unconfigured: {
-    label: 'Anki: not set up',
+    label: 'Anki: not set up yet',
     color: '#808080',
-    title: 'No Anki profile selected yet. Open Settings to pick one.',
+    title: 'amgi has not been installed into Anki on this machine yet.',
   },
 };
 

@@ -16,7 +16,7 @@ const MESSAGES = {
     'Anki is open on this collection and the local bridge is not reachable. ' +
     'Either close Anki, or turn on the bridge in Anki (Tools > amgi: Bridge status...) and paste its token into Settings.',
   'bridge-no-collection':
-    'Anki is open with the bridge enabled, but no profile is loaded yet (the profile picker is showing). Pick a profile in Anki.',
+    'Anki is open with the bridge running, but no profile is loaded yet (the profile picker is showing). Pick a profile in Anki.',
 };
 
 function notReadyResponse(mode, extra = {}) {

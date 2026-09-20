@@ -1,0 +1,144 @@
+/* The setup screen, which is the whole page until amgi is installed. Sized
+   and coloured off the app's own tokens (src/App.css) rather than a second
+   palette - this screen is the first thing anyone sees, so it should look
+   like the app rather than like an installer bolted to it. */
+.first-run {
+  max-width: 34rem;
+  margin: 3rem auto 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  text-align: center;
+}
+
+.first-run-title {
+  font-size: 1.45rem;
+  font-weight: 650;
+  margin: 0;
+}
+
+.first-run-lead,
+.first-run-path,
+.first-run-error {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.first-run-path code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.78rem;
+  background: var(--dark-surface);
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+}
+
+.first-run-error {
+  color: #e07050;
+  max-width: 30rem;
+}
+
+.first-run-cta {
+  font: inherit;
+  font-size: 0.98rem;
+  font-weight: 600;
+  color: #fff;
+  background: var(--flame-orange);
+  border: 1px solid var(--flame-orange);
+  border-radius: 10px;
+  padding: 0.8rem 1.7rem;
+  cursor: pointer;
+}
+
+.first-run-cta:hover:not(:disabled) {
+  background: var(--flame-orange-hover);
+  border-color: var(--flame-orange-hover);
+}
+
+.first-run-cta:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.first-run-choices {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.first-run-choice {
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  background: var(--dark-surface);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 0.55rem 1rem;
+  cursor: pointer;
+  min-width: 14rem;
+}
+
+.first-run-choice:hover {
+  border-color: var(--dark-surface-hover);
+  background: var(--dark-surface-hover);
+}
+
+/* One line per step, no second line of explanation: the steps are the
+   explanation. */
+.first-run-steps {
+  list-style: none;
+  margin: 0.3rem 0 0;
+  padding: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  text-align: left;
+}
+
+.first-run-step {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  background: var(--dark-surface);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 0.65rem 0.85rem;
+}
+
+.first-run-mark {
+  width: 19px;
+  height: 19px;
+  border-radius: 50%;
+  flex: none;
+  display: grid;
+  place-items: center;
+  font-size: 0.66rem;
+  font-weight: 700;
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+}
+
+.first-run-step.done .first-run-mark {
+  background: #3fae85;
+  border-color: #3fae85;
+  color: #fff;
+}
+
+.first-run-step.now .first-run-mark {
+  background: var(--flame-orange);
+  border-color: var(--flame-orange);
+  color: #fff;
+}
+
+.first-run-step-text {
+  font-size: 0.85rem;
+}
+
+.first-run-step.next .first-run-step-text {
+  color: var(--text-secondary);
+}

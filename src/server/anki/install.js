@@ -74,6 +74,27 @@ function copyTree(from, to) {
 }
 
 /**
+ * Is amgi already installed in this Anki?
+ *
+ * The question the setup screen actually needs answered, and it is NOT "has
+ * a profile been picked". A machine with Anki on it resolves a default
+ * profile whether or not amgi has ever run, so keying setup off the profile
+ * meant the setup screen could never appear for the people who need it. What
+ * distinguishes a fresh machine is that amgi's own add-ons are not in the
+ * add-ons folder yet.
+ *
+ * Only the add-ons are checked, not the note type: the note type is created
+ * by the add-on on the next profile open, so "add-ons present" is the thing
+ * a person can act on and the note type follows from it.
+ */
+export function installState({ baseDir } = {}) {
+  const base = baseDir || defaultBaseDir();
+  const addonsDir = path.join(base, 'addons21');
+  const installed = ADDONS.every((name) => fs.existsSync(path.join(addonsDir, name, '__init__.py')));
+  return { installed, baseDir: base, baseDirExists: fs.existsSync(base), addonsDir };
+}
+
+/**
  * Copy both add-ons, and the card type they install, into an Anki base
  * directory.
  *
