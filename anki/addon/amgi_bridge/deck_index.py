@@ -34,6 +34,30 @@
 # even reliably DETECT the problem, since the correct lookup is the one it
 # cannot plan. Anki has the collation, so Anki is where this belongs.
 #
+# WHAT unicase ACTUALLY IS, measured against a real collection rather than
+# inferred, because the next person to consider fixing this properly will
+# want it and it is not written down anywhere else here. It is plain Unicode
+# full case folding - identical to Python's str.casefold(), NOT to lowercasing.
+# Asked Anki directly, by creating decks and seeing which names it treats as
+# the same deck:
+#
+#     'STRASSE'  vs 'straße'    equal      casefold agrees, lower does NOT
+#     'ﬁle'      vs 'file'      equal      casefold agrees, lower does NOT
+#     'Σ'        vs 'ς'         equal      casefold agrees, lower does NOT
+#     'İstanbul' vs 'i̇stanbul'  equal      both agree
+#     'Korean'   vs 'korean'    equal      both agree
+#
+# So a faithful reimplementation is a known, bounded thing rather than "go
+# reproduce ICU". What still blocks using that knowledge on the writing side
+# is only the binding: node:sqlite exposes `function` and `aggregate` and no
+# collation API at all, so the correct comparison cannot be registered from
+# Node however well it is understood. Closing this at the source therefore
+# means either a loadable SQLite extension (node:sqlite does expose
+# loadExtension) or performing the deck write from a runtime that can
+# register a collation. Neither is warranted while this repair exists, since
+# it heals the collection at the one moment the damage matters - but if that
+# changes, the specification above is the part that was expensive to learn.
+#
 # License: GNU AGPL, version 3 or later, to match Anki's own.
 
 from __future__ import annotations
