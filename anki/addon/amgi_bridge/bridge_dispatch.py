@@ -203,6 +203,11 @@ class AqtBridgeDispatcher:
             lambda col: bridge_ops.update_note(col, note_id, fields, language=language, learning_field_index=learning_field_index)
         )
 
+    def read_media(self, filename: str) -> Optional[bytes]:
+        # A read of the media folder, same as has_media: no collection
+        # mutation, so QueryOp rather than CollectionOp.
+        return self._run_read(lambda col: bridge_ops.read_media(col, filename))
+
     def add_media(self, filename: str, data: bytes) -> dict:
         # QueryOp, not CollectionOp: col.media.write_data touches the media
         # folder and collection.media.db2, not the undo-tracked notes/cards/

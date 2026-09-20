@@ -100,6 +100,10 @@ function createBridgeOps(baseUrl, token) {
       const result = await bridgeFetch(baseUrl, token, `/media/${encodeURIComponent(filename)}`);
       return result.exists;
     },
+    async readMedia(filename) {
+      const result = await bridgeFetch(baseUrl, token, `/media/${encodeURIComponent(filename)}/data`);
+      return result.found ? Buffer.from(result.dataBase64, 'base64') : null;
+    },
     async addMedia(filename, data) {
       const result = await bridgeFetch(baseUrl, token, '/media', {
         method: 'POST',

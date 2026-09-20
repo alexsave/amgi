@@ -4,6 +4,7 @@ import { ankiApi } from '../../utils/ankiApi';
 import { ANKI_READY_MODES } from '../../utils/ankiModeText';
 import { loadDeckLanguages, saveDeckLanguages } from '../../utils/deckLanguagePrefs';
 import { LANGUAGES } from '../../constants/languages';
+import AudioChip from './AudioChip';
 import BulkAddForm from './BulkAddForm';
 import './CardForm.css';
 
@@ -122,6 +123,8 @@ const CardForm = ({ deckId }) => {
       setAdded({
         target: card.back_text,
         cue: card.front_text,
+        targetAudio: card.audio?.filename || '',
+        cueAudio: card.cueAudio?.filename || '',
         warning: result?.warning || '',
         mocked: Boolean(card.audio?.mocked),
       });
@@ -178,16 +181,16 @@ const CardForm = ({ deckId }) => {
               {busy ? 'Making…' : 'Make the card'}
             </button>
           </div>
-          <p className="card-form-hint">
-            amgi works out which language you typed, writes the other side, records both, and puts the card in the deck.
-          </p>
-
           {error && <p className="card-form-error">{error}</p>}
 
           {added && (
             <div className="card-made">
               <p className="card-made-target">{added.target}</p>
               <p className="card-made-cue">{added.cue}</p>
+              <div className="card-made-clips">
+                <AudioChip filename={added.cueAudio} label={languageLabel(languages.known)} tone="cue" />
+                <AudioChip filename={added.targetAudio} label={languageLabel(languages.learning)} tone="target" />
+              </div>
               <p className="card-made-foot">
                 <span className="card-made-ok">Added to the deck.</span> It is in Anki already.
                 {added.mocked ? ' Audio is a placeholder - no OpenAI key is set.' : ''}

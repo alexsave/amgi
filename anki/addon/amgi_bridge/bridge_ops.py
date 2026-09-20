@@ -24,6 +24,8 @@
 
 from __future__ import annotations
 
+import os
+
 import dataclasses
 from typing import TYPE_CHECKING, Any, Optional, Sequence
 
@@ -393,6 +395,39 @@ def update_note(
     if warning:
         payload["warning"] = warning
     return OpResult(payload=payload, changes=changes)
+
+
+def read_media(col: "Collection", filename: str) -> Optional[bytes]:
+    """The bytes of one media file, or None when it is not there.
+
+    This exists so the web UI can play a clip back while Anki is open, which
+    is the case the direct transport cannot serve at all: Anki holds
+    collection.anki2 in an exclusive lock, so nothing outside this process
+    can read the note that names the clip. The media FOLDER is not locked -
+    it is ordinary files next to the collection - but the app still has to
+    come through here, because it has no way to learn the folder's path while
+    the collection it would read that from is unreadable.
+
+    `filename` arrives from a note field, which is content anyone could have
+    put in a collection, so it is refused outright if it carries a path
+    separator or a parent segment rather than being normalised into
+    something safe. The only legitimate values are the bare names Anki's own
+    media manager produced.
+    """
+    if not filename or "/" in filename or "\\" in filename or "\x00" in filename:
+        return None
+    if filename in (".", ".."):
+        return None
+    folder = col.media.dir()
+    full = os.path.join(folder, filename)
+    # Belt and braces after the shape check above: resolve and confirm the
+    # result is still inside the media folder.
+    if os.path.dirname(os.path.abspath(full)) != os.path.abspath(folder):
+        return None
+    if not os.path.isfile(full):
+        return None
+    with open(full, "rb") as handle:
+        return handle.read()
 
 
 def add_media(col: "Collection", desired_name: str, data: bytes) -> dict:

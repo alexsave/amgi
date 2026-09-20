@@ -233,3 +233,14 @@
     justify-content: center;
   }
 } 
+.card-item-clips {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  margin-top: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.card-item-noaudio {
+  opacity: 0.6;
+}

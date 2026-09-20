@@ -362,3 +362,10 @@
   color: #3fae85;
   font-weight: 600;
 }
+
+.card-made-clips {
+  display: flex;
+  gap: 0.45rem;
+  margin-top: 0.7rem;
+  flex-wrap: wrap;
+}

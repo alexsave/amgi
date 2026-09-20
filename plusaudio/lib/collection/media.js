@@ -106,4 +106,28 @@ function mediaFileExists(mediaDir, filename) {
   return fs.existsSync(path.join(mediaDir, filename));
 }
 
-module.exports = { addMediaFile, mediaDirFor, mediaFileExists, normalizeFilename };
+/**
+ * The bytes of one media file, or null when it is not there.
+ *
+ * `filename` comes off a note field, which is content anyone could have put
+ * in a collection, so it is treated as hostile: anything with a path
+ * separator or a parent segment in it is refused outright rather than
+ * normalised, because the only legitimate values here are bare filenames
+ * that this module or audio-store.js produced. Resolving and then checking
+ * the prefix would also work, but refusing the shapes outright is easier to
+ * be sure of.
+ */
+function readMediaFile(mediaDir, filename) {
+  if (typeof filename !== 'string' || !filename) return null;
+  if (filename.includes('/') || filename.includes('\\') || filename.includes('\0')) return null;
+  if (filename === '.' || filename === '..') return null;
+  const full = path.join(mediaDir, filename);
+  if (!fs.existsSync(full)) return null;
+  try {
+    return fs.readFileSync(full);
+  } catch {
+    return null;
+  }
+}
+
+module.exports = { addMediaFile, mediaDirFor, mediaFileExists, normalizeFilename, readMediaFile };

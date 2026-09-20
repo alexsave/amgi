@@ -116,6 +116,7 @@ ROUTES: list[Route] = [
     ("POST", re.compile(r"^/notes/bulk$"), "add_notes_bulk"),
     ("PATCH", re.compile(r"^/notes/(?P<note_id>\d+)$"), "update_note"),
     ("POST", re.compile(r"^/media$"), "add_media"),
+    ("GET", re.compile(r"^/media/(?P<filename>[^/]+)/data$"), "read_media"),
     ("GET", re.compile(r"^/media/(?P<filename>[^/]+)$"), "has_media"),
 ]
 
@@ -358,6 +359,17 @@ def make_handler_class(
 
         def _op_has_media(self, params: dict, query: dict, body: Optional[dict]) -> dict:
             return {"exists": dispatcher.has_media(params["filename"])}
+
+        def _op_read_media(self, params: dict, query: dict, body: Optional[dict]) -> dict:
+            # base64 in JSON rather than raw bytes with an audio content
+            # type, to keep every bridge response one shape: the dispatcher
+            # contract, the auth wrapper and the error envelope all assume
+            # JSON, and a clip is small enough that the 1.33x is not worth a
+            # second response path.
+            data = dispatcher.read_media(params["filename"])
+            if data is None:
+                return {"found": False}
+            return {"found": True, "dataBase64": base64.b64encode(data).decode("ascii")}
 
         # -- output -----------------------------------------------------
 

@@ -19,7 +19,7 @@ const {
   noteFieldValuesInDeck,
   updateNoteFields,
 } = require('./notes');
-const { addMediaFile, mediaDirFor, mediaFileExists } = require('./media');
+const { addMediaFile, mediaDirFor, mediaFileExists, readMediaFile } = require('./media');
 const { withCollection } = require('./open');
 
 /**
@@ -114,6 +114,12 @@ class Collection {
    * already made: the caller checks this before spending an API call, not
    * after.
    */
+  /** The bytes of a media file, or null. Reads the media folder, never the
+   *  collection database, so it works whether or not Anki holds the lock. */
+  readMedia(filename) {
+    return readMediaFile(mediaDirFor(this.path), filename);
+  }
+
   hasMedia(filename) {
     return mediaFileExists(mediaDirFor(this.path), filename);
   }
