@@ -18,11 +18,17 @@
 // judge being able to verify a reading and falling back to a transcript
 // check that cannot tell one reading of a homograph from another.
 
-import { spawnSync } from 'node:child_process';
+import { execFile } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
 import { generateAndStoreClip } from './audio';
 import { correctSwappedSides, detectInputLanguage } from './sideOrder';
+
+// Asynchronous for the reason audio.js spells out at its own execFileAsync:
+// spawnSync held the entire Node event loop for the length of an OpenAI
+// call, so two card requests could never overlap however they were made.
+const execFileAsync = promisify(execFile);
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PLUSAUDIO_DIR = path.join(__dirname, '..', '..', '..', 'plusaudio');
@@ -72,12 +78,17 @@ export async function generateCardTextOnly({
   }
   if (regenerateParts.length > 0) args.push('--regenerate', regenerateParts.join(','));
 
-  const result = spawnSync(process.execPath, args, { cwd: PLUSAUDIO_DIR, encoding: 'utf8' });
-  if (result.status !== 0) {
-    const lines = (result.stderr || 'card text generation failed').trim().split('\n');
+  let stdout;
+  try {
+    ({ stdout } = await execFileAsync(process.execPath, args, { cwd: PLUSAUDIO_DIR, encoding: 'utf8' }));
+  } catch (error) {
+    // The generator's own last line of stderr is the message worth showing -
+    // it is what the person reads on the failed row - and it arrives on the
+    // rejection now rather than on a returned result.
+    const lines = (error.stderr || error.message || 'card text generation failed').trim().split('\n');
     throw new Error(lines[lines.length - 1] || 'card text generation failed');
   }
-  return JSON.parse(result.stdout.trim());
+  return JSON.parse(stdout.trim());
 }
 
 /**

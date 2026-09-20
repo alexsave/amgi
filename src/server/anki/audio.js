@@ -12,13 +12,26 @@
 // `serverExternalPackages` comment for what that option does and does not
 // change. A subprocess keeps that boundary real.
 
-import { spawnSync } from 'node:child_process';
-import fs from 'node:fs';
+import { execFile } from 'node:child_process';
+import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
 import { mediaName } from 'plusaudio/lib/audio-store';
 import { renderAudioReference } from 'plusaudio/lib/deck';
+
+// spawnSync, which this used to call, blocks the Node event loop for the
+// whole life of the subprocess - and a clip is several seconds of talking to
+// OpenAI. That made this server incapable of having two clips in flight at
+// once no matter what a caller did: the bulk-add screen asking for five
+// cards at a time (see BulkRun.js's CONCURRENCY) would have had its five
+// requests served strictly one after another, because request two could not
+// even be read off the socket while request one sat inside spawnSync. It
+// also froze every unrelated request - a status poll, a deck page - for the
+// duration. The subprocess boundary itself is still the point (see this
+// module's comment); only the waiting for it is now asynchronous.
+const execFileAsync = promisify(execFile);
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PLUSAUDIO_DIR = path.join(__dirname, '..', '..', '..', 'plusaudio');
@@ -62,15 +75,18 @@ export async function generateClip({ text, language, reading = '' }) {
   const outPath = path.join(os.tmpdir(), `amgi-clip-${Date.now()}-${Math.random().toString(36).slice(2)}.mp3`);
   const args = [path.join(PLUSAUDIO_DIR, 'generate-clip.js'), '--text', text, '--language', language, '--out', outPath];
   if (reading) args.push('--reading', reading);
-  const result = spawnSync(process.execPath, args, { cwd: PLUSAUDIO_DIR, encoding: 'utf8' });
-
-  if (result.status !== 0) {
-    const reason = (result.stderr || 'audio generation failed').trim().split('\n')[0];
+  try {
+    await execFileAsync(process.execPath, args, { cwd: PLUSAUDIO_DIR, encoding: 'utf8' });
+  } catch (error) {
+    // A non-zero exit and a subprocess that never started arrive the same
+    // way here, as a rejection; spawnSync reported the first as status and
+    // the second as a null status with an error, and both meant "no clip".
+    const reason = (error.stderr || error.message || 'audio generation failed').trim().split('\n')[0];
     return { data: stubClip(text, language, reason), mocked: true, reason };
   }
 
-  const data = fs.readFileSync(outPath);
-  fs.unlinkSync(outPath);
+  const data = await fs.readFile(outPath);
+  await fs.unlink(outPath);
   return { data, mocked: false };
 }
 
