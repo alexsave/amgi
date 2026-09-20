@@ -73,9 +73,24 @@ export function buildCardGenerationPrompt({
     userInput,
     knownLanguage,
     learningLanguage,
-}: CardLanguages & { userInput: string }): string {
+    inputLanguage,
+}: CardLanguages & { userInput: string; inputLanguage?: 'known' | 'learning' }): string {
     const known = languageName(knownLanguage);
     const learning = languageName(learningLanguage);
+
+    // When the caller already knows which language the input is in, say so
+    // instead of asking. The model reads the input to decide, and on input
+    // that mixes scripts it decides wrong: a Chinese lyric with an English
+    // phrase in it ("除非讓時間終結 whole world") was read as English, so the
+    // Chinese side came back re-translated into Chinese and the English side
+    // kept the original mixed line. Script answers this question outright
+    // for a language that has its own, and a fact the caller is certain of
+    // should not be re-derived by a model that can only guess at it.
+    const direction = inputLanguage === 'learning'
+        ? `DIRECTION. The input is written in ${learning}. learning_text IS that input, corrected only for obvious typos - do not re-translate it, do not convert it between writing systems, and keep any words it already contains from another language exactly as they are. known_text is its translation into ${known}, and must contain no ${learning} at all.`
+        : inputLanguage === 'known'
+            ? `DIRECTION. The input is written in ${known}. known_text IS that input, corrected only for obvious typos, and learning_text is its translation into ${learning}.`
+            : `DIRECTION. If the input is written in ${known}, known_text is that input, corrected only for obvious typos, and learning_text is its translation. If the input is written in ${learning}, learning_text is that input, corrected only for obvious typos, and known_text is its translation. If the input is in any other language, translate it into both.`;
 
     return `The learner speaks ${known} and is learning ${learning}.
 
@@ -83,7 +98,7 @@ Their input: "${userInput}"
 
 Write one flashcard: known_text in ${known}, learning_text in ${learning}.
 
-DIRECTION. If the input is written in ${known}, known_text is that input, corrected only for obvious typos, and learning_text is its translation. If the input is written in ${learning}, learning_text is that input, corrected only for obvious typos, and known_text is its translation. If the input is in any other language, translate it into both.
+${direction}
 
 ${speakingRules({ knownLanguage, learningLanguage })}`;
 }

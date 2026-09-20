@@ -16,12 +16,15 @@
 // --------
 //
 //   node generate-card-text.js --known <lang> --learning <lang>
-//       [--input <text>]
+//       [--input <text>] [--input-language known|learning]
 //       [--current-front <text> --current-back <text> --current-reading <text>]
 //       [--regenerate <front_text,back_text>]
 //
 //   --known / --learning  amgi language codes (ko, ja, zh_cn, es, ...). Required.
 //                         --known is the front of the card, --learning the back.
+//   --input-language      which of the two --input is written in, when the caller
+//                         knows. Omitted, the model works it out by reading, which
+//                         it gets wrong on input that mixes scripts.
 //   --input               what the learner typed. Required unless a card is being
 //                         regenerated (--current-front or --current-back given).
 //   --current-front       the known side of the card being rewritten.
@@ -61,6 +64,7 @@ const FLAGS_WITH_VALUES = new Set([
   '--current-back',
   '--current-reading',
   '--regenerate',
+  '--input-language',
 ]);
 
 function parseArgs(argv) {
@@ -110,6 +114,13 @@ async function run(options, generate) {
       userInput: options.input || '',
       knownLanguage: options.known,
       learningLanguage: options.learning,
+      // 'known' or 'learning' when the caller is certain which language the
+      // input is in, which it can be whenever the learning language has a
+      // script of its own. Omitted means the model decides by reading, which
+      // is what it has to do for two languages that share an alphabet.
+      inputLanguage: options['input-language'] === 'known' || options['input-language'] === 'learning'
+        ? options['input-language']
+        : undefined,
       currentCard,
       regenerateParts,
     });

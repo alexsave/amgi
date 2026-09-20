@@ -603,6 +603,9 @@ export interface CardText {
 export interface CardTextRequest {
     /** What the learner typed. Required to generate a card, optional when rewriting one. */
     userInput?: string;
+    /** Which language the input is in, when the caller can tell for certain
+     *  (by script). Omitted means "you work it out". */
+    inputLanguage?: 'known' | 'learning';
     /** The language the learner already speaks; the front of every card. */
     knownLanguage: string;
     /** The language being learned; the back of every card. */
@@ -649,7 +652,7 @@ export async function generateCardText(
     ctx: CardGenerationContext,
     request: CardTextRequest,
 ): Promise<CardText> {
-    const { knownLanguage, learningLanguage, userInput = '' } = request;
+    const { knownLanguage, learningLanguage, userInput = '', inputLanguage } = request;
     const current = request.currentCard ?? null;
     const mode = cardTextMode(request.regenerateParts ?? [], Boolean(current));
 
@@ -671,7 +674,8 @@ export async function generateCardText(
             buildCardGenerationPrompt({
                 userInput,
                 knownLanguage,
-                learningLanguage
+                learningLanguage,
+                inputLanguage
             }),
             GENERATED_CARD_FORMAT,
             learningLanguage

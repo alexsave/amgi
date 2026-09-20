@@ -53,7 +53,16 @@ test('run() prints the generated card as one line of JSON and returns exit code 
   }
 
   assert.equal(code, 0);
-  assert.deepEqual(calls, [{ userInput: 'date', knownLanguage: 'en', learningLanguage: 'ko', currentCard: null, regenerateParts: [] }]);
+  assert.deepEqual(calls, [{
+    userInput: 'date',
+    knownLanguage: 'en',
+    learningLanguage: 'ko',
+    // Absent when the caller did not pass --input-language, which is what
+    // tells generateCardText to work the direction out by reading.
+    inputLanguage: undefined,
+    currentCard: null,
+    regenerateParts: [],
+  }]);
   assert.deepEqual(JSON.parse(writes.join('')), { front_text: 'date', back_text: '날짜', spoken_reading: '' });
 });
 
@@ -128,4 +137,27 @@ test('main() prints usage and exits 0 on --help without requiring an API key', a
   } finally {
     if (previous !== undefined) process.env.OPENAI_API_KEY = previous;
   }
+});
+
+test('run() passes --input-language through, and only when it is one of the two valid values', async () => {
+  // The caller can settle which language the input is in - script answers it
+  // outright for a language that has one - and saying so is what stops the
+  // model deciding wrong on input that mixes two languages.
+  const seen = [];
+  const generate = async (request) => {
+    seen.push(request.inputLanguage);
+    return { front_text: 'a', back_text: 'b', spoken_reading: '' };
+  };
+  const originalWrite = process.stdout.write.bind(process.stdout);
+  process.stdout.write = () => true;
+  try {
+    await run({ known: 'en', learning: 'zh_cn', input: '你好', 'input-language': 'learning' }, generate);
+    await run({ known: 'en', learning: 'zh_cn', input: 'hello', 'input-language': 'known' }, generate);
+    // Anything else is ignored rather than forwarded: a junk value must not
+    // turn into an instruction the prompt states as fact.
+    await run({ known: 'en', learning: 'zh_cn', input: 'hello', 'input-language': 'sideways' }, generate);
+  } finally {
+    process.stdout.write = originalWrite;
+  }
+  assert.deepEqual(seen, ['learning', 'known', undefined]);
 });
