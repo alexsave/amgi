@@ -3,6 +3,65 @@
    underscore. It is cosmetic only: nothing here is load-bearing for hiding the
    answer, because the answer is simply not rendered on the question side. */
 
+/* The card itself.
+
+   `body.card`, not `.card`: Anki's own reviewer.css ships
+   `body.nightMode { background-color: var(--canvas); color: var(--fg); }`,
+   and an element-plus-class selector (0,1,1) outranks a lone class (0,1,0).
+   A bare `.card` therefore NEVER won on any dark-themed client - the card
+   rendered Anki's night grey instead of amgi's colour, silently, and the one
+   "confirmed live" check on record had been run in Anki's light theme, where
+   body carries no nightMode class and the conflict cannot occur. Matching
+   Anki's own selector shape is what wins the tie; this stylesheet is
+   @import-ed by the note type's own CSS, which the reviewer injects after
+   reviewer.css, so an equal-specificity tie also resolves our way.
+   Re-confirmed after this rule moved out of the note type and into this file:
+   same cascade, same computed background.
+
+   The font is Anki's own default stack, deliberately. This card was set in an
+   editorial serif for a while, on the reasoning that the chrome read as
+   generic; seeing four type systems side by side overturned it - "lets lock
+   in plain anki font". Anki's own face reads as NATIVE rather than generic,
+   because it is the face every other card in the collection already uses, and
+   a deck that looks like it belongs in Anki beats a deck that looks designed
+   when the learner sees thirty in a row. It also disposes of a real problem
+   the serif stack had: Windows ships no modern serif for Hangul (Batang and
+   Gungsuh are the only two guaranteed, both dated), whereas Arial and
+   Helvetica simply have no CJK coverage, so the browser falls through to the
+   platform's own UI face for Korean and Japanese - exactly what Anki itself
+   does, and guaranteed to be installed.
+
+   No font-size: every visible size here is in rem, which resolves against
+   Anki's own html root (webview.py sets that from the Qt system font when
+   "use system font size" is on). A px size on the card only ever drifted out
+   of step with that setting while looking load-bearing.
+
+   Black, and dark unconditionally - there is no second treatment to choose
+   between any more. Contrast is monotonic in the darker side's luminance, so
+   every ratio recorded in this file was computed against a lighter background
+   (#202429, then #0b0d10) and can only have gone up; none needed rechecking.
+
+   Margin, radius and shadow: the margin keeps the card off the window's own
+   edges, which matters most in Anki's light theme, where a dark box stopping
+   dead at the screen edge reads as a bug; the radius stops the corners
+   looking like a mistake at that margin; the shadow separates the panel from
+   Anki's background without drawing a line to do it. No bottom margin and no
+   bottom radius: the visualizer band stands on the foot of the card and is
+   meant to meet Anki's answer bar, so a gap there is the one place the design
+   does not want one. The hairline border this used to carry is gone - barely
+   visible against #202429, a distinct outline against near-black, and it read
+   as a frame around the card rather than as the card. */
+body.card {
+  font-family: Arial, "Helvetica Neue", Helvetica, sans-serif;
+  text-align: center;
+  color: #e8ecf1;
+  background: #000;
+  --amgi-card-margin: 0.75rem;
+  margin: var(--amgi-card-margin) var(--amgi-card-margin) 0;
+  border-radius: 1rem 1rem 0 0;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+}
+
 .amgi {
   margin: 0 auto;
   max-width: 34rem;
