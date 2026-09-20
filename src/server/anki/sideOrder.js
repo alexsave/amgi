@@ -38,3 +38,26 @@ export function correctSwappedSides(text, learningLanguage) {
     sidesSwapped: true,
   };
 }
+
+/**
+ * Which language the learner's input is written in, when that can be known
+ * for certain rather than guessed.
+ *
+ * "For certain" means script: if the learning language has one of its own,
+ * input carrying it is in that language, and input carrying none of it while
+ * the known language is Latin-script is in the known one. Two languages that
+ * share an alphabet cannot be separated this way, so nothing is claimed
+ * there and the model goes on deciding by reading.
+ *
+ * The mixed case is the one that matters, and it is why "any" is the test
+ * rather than "mostly": a Chinese lyric ending in an English phrase is
+ * Chinese, and a model reading it decided otherwise - re-translating the
+ * Chinese side into Chinese and leaving the original mixed line as the
+ * English one.
+ */
+export function detectInputLanguage(userInput, knownLanguage, learningLanguage) {
+  if (!usesNonLatinScript(learningLanguage)) return undefined;
+  if (hasNativeScript(userInput, learningLanguage)) return 'learning';
+  if (usesNonLatinScript(knownLanguage)) return undefined;
+  return /[a-zA-Z]/.test(userInput || '') ? 'known' : undefined;
+}

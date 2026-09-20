@@ -22,7 +22,7 @@ import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { generateAndStoreClip } from './audio';
-import { correctSwappedSides } from './sideOrder';
+import { correctSwappedSides, detectInputLanguage } from './sideOrder';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PLUSAUDIO_DIR = path.join(__dirname, '..', '..', '..', 'plusaudio');
@@ -58,7 +58,13 @@ export async function generateCardTextOnly({
     '--known', knownLanguage,
     '--learning', learningLanguage,
   ];
-  if (userInput) args.push('--input', userInput);
+  if (userInput) {
+    args.push('--input', userInput);
+    // Settle the direction here when script can settle it, rather than
+    // leaving the model to deduce it from text that may mix two languages.
+    const inputLanguage = detectInputLanguage(userInput, knownLanguage, learningLanguage);
+    if (inputLanguage) args.push('--input-language', inputLanguage);
+  }
   if (currentCard) {
     args.push('--current-front', currentCard.front_text || '');
     args.push('--current-back', currentCard.back_text || '');

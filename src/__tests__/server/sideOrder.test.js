@@ -1,4 +1,4 @@
-import { correctSwappedSides } from '../../server/anki/sideOrder';
+import { correctSwappedSides, detectInputLanguage } from '../../server/anki/sideOrder';
 
 // A card whose two sides came back the wrong way round.
 //
@@ -60,5 +60,38 @@ describe('putting a card’s two sides the right way round', () => {
   it('leaves a card alone when the front is empty', () => {
     const text = ko('', 'anything');
     expect(correctSwappedSides(text, 'ko')).toBe(text);
+  });
+});
+
+describe('deciding which language the input is in', () => {
+  it('calls a Chinese line with an English phrase in it Chinese', () => {
+    // The row that broke: the model read this as English, so it produced a
+    // Chinese "translation" of a Chinese line and kept the mixed original
+    // as the English side.
+    expect(detectInputLanguage('除非讓時間終結 whole world', 'en', 'zh_cn')).toBe('learning');
+  });
+
+  it('calls plain English input English', () => {
+    expect(detectInputLanguage('a dark room with no lights', 'en', 'ko')).toBe('known');
+  });
+
+  it('calls a Korean line Korean', () => {
+    expect(detectInputLanguage('어두운 방, 조명 하나 없이', 'en', 'ko')).toBe('learning');
+  });
+
+  it('claims nothing when both languages share an alphabet', () => {
+    // Spanish and English are indistinguishable by script, so asserting a
+    // direction here would be worse than leaving the model to read it.
+    expect(detectInputLanguage('el fin de semana', 'en', 'es')).toBeUndefined();
+  });
+
+  it('claims nothing for input that is neither script nor letters', () => {
+    expect(detectInputLanguage('12345', 'en', 'ko')).toBeUndefined();
+  });
+
+  it('claims nothing when the known language is also non-Latin', () => {
+    // A Korean speaker learning Japanese: "no Japanese script" does not mean
+    // "Korean", it could be either, so this stays out of it.
+    expect(detectInputLanguage('안녕하세요', 'ko', 'ja')).toBeUndefined();
   });
 });
