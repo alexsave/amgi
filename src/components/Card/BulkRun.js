@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useDecks } from '../../contexts/DeckContext';
 import { ankiApi } from '../../utils/ankiApi';
+import { runPool } from '../../utils/concurrency';
 import { existingKeySet } from '../../utils/lyricsParse';
 import AudioChip from './AudioChip';
 import './BulkRun.css';
@@ -33,6 +34,29 @@ const STATUS_LABEL = {
   error: 'failed',
 };
 
+// How many lines are being made at any one moment.
+//
+// This used to be one - a `for` loop with an await in it - and a line takes
+// about five seconds that is almost entirely waiting on a network: the text
+// call, then two clip pipelines that each synthesise, transcribe and judge
+// the result, with retries. Sixty lines that way is four to six minutes in
+// which this app does nothing but wait, one line at a time.
+//
+// Five rather than "all of them" because a row is not one request: it is
+// closer to seven, spread over four different OpenAI models, each with its
+// own per-minute allowance. Five lanes over a five-second row settles at
+// about one row a second - some sixty text calls, a hundred and twenty
+// clips and a hundred and twenty transcriptions in a minute - which leaves
+// those allowances room for the retries the audio judge makes on its own.
+// Sixty lines fired off at once would instead be four hundred requests in
+// flight, most of them refused and retried, and sixty generator subprocesses
+// on this machine (see src/server/anki/cardText.js) holding them.
+//
+// It is also five and not fifty because each finished row writes to Anki
+// (see below), and the local bridge answers one collection operation at a
+// time - a wide pool would only move the queue from OpenAI's end to Anki's.
+const CONCURRENCY = 5;
+
 const BulkRun = ({ deckId, notetype, idx, languages, lines, onFinished }) => {
   const { addAnkiNote, refreshAnkiDecks, loadDeckCards } = useDecks();
   // The work is captured once, at mount. `lines` is a fresh array on every
@@ -50,6 +74,12 @@ const BulkRun = ({ deckId, notetype, idx, languages, lines, onFinished }) => {
   // earlier one notices it has been replaced and stops.
   const runId = useRef(0);
 
+  // Every row update goes through this one functional setState, which is
+  // what makes rows safe to finish out of order: each patch is applied to
+  // whatever the latest rows are at the moment React runs it, touching only
+  // its own index. Building the next rows from a value read outside the
+  // updater - `setRows(rows.map(...))` - would have been fine while one row
+  // moved at a time and would now drop whichever patches landed in between.
   const patch = useCallback((index, next) => {
     setRows((prev) => prev.map((row, i) => (i === index ? { ...row, ...next } : row)));
   }, []);
@@ -73,17 +103,27 @@ const BulkRun = ({ deckId, notetype, idx, languages, lines, onFinished }) => {
         // A failed dupe check is not a reason to refuse to add cards; the
         // worst case is a duplicate the person can delete from the row.
       }
+      if (superseded()) return;
 
-      for (let i = 0; i < queue.length; i += 1) {
-        if (superseded()) return;
-        const text = queue[i];
-        if (already.has(text.trim().toLowerCase())) {
-          patch(i, { status: 'skipped' });
-          continue;
-        }
+      // Every already-in-the-deck line is settled here, before the first
+      // generation starts, rather than being recognised by whichever lane
+      // happened to reach it. Recognising one costs nothing, so there is no
+      // reason to spend a lane on it, and a re-paste of a block that is
+      // entirely in the deck now resolves in one frame instead of trickling.
+      const pending = [];
+      queue.forEach((text, i) => {
+        if (already.has(text.trim().toLowerCase())) patch(i, { status: 'skipped' });
+        else pending.push(i);
+      });
+
+      // `pending` holds row indexes, not text, so a row is patched by where
+      // it sits in the paste and never by where it sits in the queue of work
+      // - the displayed order stays the paste's order however the lanes
+      // interleave, and a late row landing cannot overwrite an early one.
+      await runPool(pending, CONCURRENCY, async (i) => {
         patch(i, { status: 'making' });
         try {
-          const card = await ankiApi.generateCardText(text, languages.known, languages.learning, {
+          const card = await ankiApi.generateCardText(queue[i], languages.known, languages.learning, {
             includeCueAudio: true,
           });
           const fields = notetype.fieldNames.map(() => '');
@@ -93,6 +133,15 @@ const BulkRun = ({ deckId, notetype, idx, languages, lines, onFinished }) => {
           if (idx.cueAudio >= 0) fields[idx.cueAudio] = card.cueAudio?.reference || '';
           if (idx.language >= 0) fields[idx.language] = languages.learning;
 
+          // Still one write per card, the moment that card is ready, and
+          // deliberately not gathered into a single bulk write at the end:
+          // this is what makes closing the tab cost you only the rest of the
+          // queue. The writes now overlap, which both transports are built
+          // for - the direct one funnels every collection call through one
+          // promise chain per collection path (directClient.js), and the
+          // bridge hands every one to Anki's own operation queue
+          // (bridge_dispatch.py) - so concurrency here queues at the
+          // collection, it does not race it.
           const result = await addAnkiNote(deckId, {
             notetypeId: notetype.id,
             fields,
@@ -116,9 +165,12 @@ const BulkRun = ({ deckId, notetype, idx, languages, lines, onFinished }) => {
             sameBothSides: card.front_text.trim() === card.back_text.trim(),
           });
         } catch (err) {
+          // Caught inside the lane, so one line that fails costs exactly
+          // that line: runPool would otherwise carry the rejection out and
+          // leave the summary below unwritten while the other lanes ran on.
           patch(i, { status: 'error', error: err.message });
         }
-      }
+      }, superseded);
 
       if (superseded()) return;
       setRunning(false);
