@@ -39,13 +39,12 @@
     </button>
   </div>
 
-  <!-- Sits directly above Anki's own grading bar, as the label for it. -->
-  <!-- No status icon on this side. The tick that sat here read as an answer
-       to the question next to it ("How did you do?" followed by a check),
-       when the thing that answers it is Anki's own grading bar below. -->
-  <p class="amgi-status" data-amgi-status role="status" aria-live="polite">
-    <span data-amgi-status-text>How did you do?</span>
-  </p>
+  <!-- No status line on this side, and nothing in its place. It used to ask
+       "How did you do?" directly above Anki's own Again / Hard / Good / Easy
+       bar, which is the thing that answers it - so the question was a label
+       for a control that already labels itself four ways. The loop never
+       writes to the status on the answer side either (see bootBack), so this
+       was markup that only ever held one fixed sentence. -->
 
   <p class="amgi-note" data-amgi-note hidden></p>
 </div>
