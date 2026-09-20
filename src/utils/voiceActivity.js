@@ -54,7 +54,7 @@ export function detectSpeechEnd({ audioContext, stream, onEnd, options = {} }) {
 
   const source = audioContext.createMediaStreamSource(stream);
   const analyser = audioContext.createAnalyser();
-  analyser.fftSize = 1024;
+  analyser.fftSize = 2048;
   analyser.smoothingTimeConstant = 0.2;
   source.connect(analyser);
 

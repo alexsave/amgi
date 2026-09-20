@@ -469,7 +469,8 @@ function reducedMotionPreferred() {
 // the box model here rather than something this file has to keep proving.
 //
 // The shape itself is "ridge fine", chosen from a set of about forty over
-// several rounds: BAND_COUNT bars, drawn touching with no gutter, so the
+// several rounds: a bar per frequency band, drawn touching with no gutter,
+// so the
 // body reads as one silhouette rather than as a count of bars, with a cap
 // per band that jumps to that band's loudest moment and falls back on its
 // own. Two things about it were settled by measurement rather than taste and
@@ -486,9 +487,28 @@ function reducedMotionPreferred() {
 //      real, visible energy between 4 and 6kHz, and cutting at 4000 threw
 //      away the part of the signal that makes the ridge move in time with
 //      the syllables rather than just swell on the vowels.
-var BAND_COUNT = 72;
+//   3. The band COUNT is derived from the card's width, not fixed. The
+//      mockup this was chosen from was 900 CSS px wide with 72 bands, so a
+//      band was 12.5px, and that width is what "fine" meant - it is the
+//      thing being looked at. Shipping the count instead of the width made
+//      the shape a function of the window: on a 2000px card the same 72
+//      bands are 28px each, four times the intended width and half the
+//      intended height, and the ridge flattens into a slab with no visible
+//      striping. Holding the band width fixed and letting the count follow
+//      keeps the card looking the same on a laptop and on a large monitor.
+var BAND_PX = 12.5;
+// Floors and ceilings for absurd widths, not tuning knobs: below about
+// forty bands there is not enough of a spectrum left to read, and above two
+// hundred and forty the bands are narrower than the seams between them.
+var MIN_BANDS = 40;
+var MAX_BANDS = 240;
 var MIN_HZ = 90; // just above a typical adult voice's fundamental
 var MAX_HZ = 6000; // the top of the consonant energy that gives the ridge its timing
+
+/** How many bands fit across a canvas this wide, at the intended band width. */
+function bandsFor(width) {
+  return Math.max(MIN_BANDS, Math.min(MAX_BANDS, Math.round(width / BAND_PX) || MIN_BANDS));
+}
 
 // How much of its full height a cap sheds each frame. The owner chose this
 // speed ("fast") against a synthetic test signal and then confirmed it
@@ -605,9 +625,9 @@ function createVisualizer(root) {
   }
 
   /**
-   * BAND_COUNT magnitudes (0..1), one per log-spaced frequency between
-   * MIN_HZ and MAX_HZ, read off the same analyser levelNow uses. Log spacing
-   * (not linear) is what keeps a voice spread across the whole strip: speech
+   * `count` magnitudes (0..1), one per log-spaced frequency between MIN_HZ
+   * and MAX_HZ, read off the same analyser levelNow uses. Log spacing (not
+   * linear) is what keeps a voice spread across the whole strip: speech
    * energy falls off fast above a couple of kHz, so a linear sweep from 0Hz
    * to the Nyquist frequency spends almost every band above where a voice
    * has anything left to show, and the ridge becomes one lump against the
@@ -618,7 +638,7 @@ function createVisualizer(root) {
    * circle would come out symmetric rather than one-sided, and a strip has
    * no such problem to solve - it just costs half the resolution to do it.
    */
-  function barLevels(analyser) {
+  function barLevels(analyser, count) {
     var bins = analyser.frequencyBinCount;
     if (!freqBuffer || freqBuffer.length !== bins) freqBuffer = new Uint8Array(bins);
     try {
@@ -628,24 +648,55 @@ function createVisualizer(root) {
     }
     var sampleRate = (analyser.context && analyser.context.sampleRate) || 48000;
     var hzPerBin = sampleRate / analyser.fftSize;
-    var levels = new Array(BAND_COUNT);
-    for (var k = 0; k < BAND_COUNT; k++) {
-      // Each band averages every bin between its own lower edge and the next
-      // band's, rather than point-sampling one bin. At BAND_COUNT 72 the low
-      // bands are narrower than a single FFT bin and the high ones span
-      // several, so point-sampling would both repeat the same bin across
-      // neighbouring low bands and throw away most of the energy in the high
-      // ones - the ring could get away with it at 14 unique bars, this
-      // cannot.
-      var lo = MIN_HZ * Math.pow(MAX_HZ / MIN_HZ, k / BAND_COUNT);
-      var hi = MIN_HZ * Math.pow(MAX_HZ / MIN_HZ, (k + 1) / BAND_COUNT);
-      var first = Math.min(bins - 1, Math.max(1, Math.round(lo / hzPerBin)));
-      var last = Math.min(bins - 1, Math.max(first + 1, Math.round(hi / hzPerBin)));
-      var sum = 0;
-      for (var b = first; b < last; b++) sum += freqBuffer[b];
-      levels[k] = sum / (last - first) / 255;
+    var levels = new Array(count);
+    for (var k = 0; k < count; k++) {
+      var lo = MIN_HZ * Math.pow(MAX_HZ / MIN_HZ, k / count);
+      var hi = MIN_HZ * Math.pow(MAX_HZ / MIN_HZ, (k + 1) / count);
+      levels[k] = spectrumBetween(bins, lo / hzPerBin, hi / hzPerBin) / 255;
     }
     return levels;
+  }
+
+  /**
+   * The spectrum's average value between two bin positions, which are
+   * fractional on purpose.
+   *
+   * Rounding each band to whole bins is what produced the stair-steps this
+   * replaced. Log spacing makes the low bands much narrower than the high
+   * ones - at the bottom of the range a band can be a few Hz wide against a
+   * bin tens of Hz wide - so several neighbouring bands rounded to the SAME
+   * single bin and drew the identical height. The result was a run of wide
+   * flat plateaus across the loud left-hand half of the strip, exactly where
+   * a voice has the most to show, and it got worse the more bands there
+   * were: a finer strip is a strictly worse picture if the extra bands are
+   * copies.
+   *
+   * Reading the spectrum as a piecewise-linear curve and integrating it
+   * across the band's real edges removes that entirely. Two bands narrower
+   * than one bin still differ, because they sample that bin's slope at
+   * different places, so the strip ramps where the spectrum ramps instead of
+   * stepping where the arithmetic happened to round.
+   */
+  function spectrumBetween(bins, from, to) {
+    var lo = Math.max(0, Math.min(bins - 1, from));
+    var hi = Math.max(lo, Math.min(bins - 1, to));
+    // A band wider than a bin is sampled once per bin it covers, a narrower
+    // one at both its edges - enough either way, since the curve being
+    // integrated is itself only linear between bins.
+    var steps = Math.max(2, Math.ceil(hi - lo) + 1);
+    var sum = 0;
+    for (var i = 0; i < steps; i++) {
+      sum += binAt(bins, lo + ((hi - lo) * i) / (steps - 1));
+    }
+    return sum / steps;
+  }
+
+  /** The spectrum at a fractional bin position, interpolated between its neighbours. */
+  function binAt(bins, position) {
+    var floor = Math.floor(position);
+    var next = Math.min(bins - 1, floor + 1);
+    var fraction = position - floor;
+    return freqBuffer[floor] * (1 - fraction) + freqBuffer[next] * fraction;
   }
 
   /**
@@ -662,7 +713,11 @@ function createVisualizer(root) {
    * body has collapsed, which is exactly when `level` is near zero.
    */
   function paint(size, color, level, bars, peaks) {
-    var cell = size.width / BAND_COUNT;
+    // The count comes from the data when there is data, and from the width
+    // when there is not (the resting baseline), so paint never has to be
+    // told separately what the rest of the frame already knows.
+    var count = bars ? bars.length : bandsFor(size.width);
+    var cell = size.width / count;
     var room = size.height;
     var floor = size.height;
 
@@ -680,7 +735,7 @@ function createVisualizer(root) {
     // actually loud.
     var heights = [];
     var alphas = [];
-    for (var i = 0; i < BAND_COUNT; i++) {
+    for (var i = 0; i < count; i++) {
       var mag = bars ? bars[i] : 0;
       heights.push(BASELINE_HEIGHT + mag * (room - BASELINE_HEIGHT));
       alphas.push(Math.max(0, Math.min(1, (0.14 + 0.52 * mag) * opacityScale * (0.55 + 0.45 * level))));
@@ -701,7 +756,7 @@ function createVisualizer(root) {
     // taller one instead and every seam beside a tall neighbour sticks up
     // into empty space, and the strip grows a row of comb teeth along its
     // skyline.
-    for (var j = 1; j < BAND_COUNT; j++) {
+    for (var j = 1; j < count; j++) {
       var shared = Math.min(heights[j - 1], heights[j]);
       ctx.globalAlpha = Math.max(0, Math.min(1, Math.max(alphas[j - 1], alphas[j]) * 1.9));
       ctx.fillRect(j * cell - 0.5, floor - shared, 1, shared);
@@ -713,7 +768,7 @@ function createVisualizer(root) {
     // body - a cap has to stay legible exactly when its band has gone quiet,
     // which is when a level-driven alpha would fade it out.
     ctx.globalAlpha = Math.max(0, Math.min(1, 0.9 * opacityScale));
-    for (var k = 0; k < BAND_COUNT; k++) {
+    for (var k = 0; k < count; k++) {
       var peak = peaks ? peaks[k] : 0;
       var capY = floor - CAP_THICKNESS - peak * (room - BASELINE_HEIGHT);
       ctx.fillRect(k * cell - 0.5, capY, cell + 1, CAP_THICKNESS);
@@ -752,8 +807,8 @@ function createVisualizer(root) {
     }
 
     var level = 0;
-    barState = new Array(BAND_COUNT).fill(0);
-    peakState = new Array(BAND_COUNT).fill(0);
+    barState = null;
+    peakState = null;
 
     function frame() {
       var size = sizeFor();
@@ -771,9 +826,21 @@ function createVisualizer(root) {
       // on every dip.
       level += (raw - level) * (raw > level ? 0.6 : 0.15);
 
-      var rawBars = barLevels(analyser);
+      // Recomputed every frame rather than once, because the card is
+      // resizable: Anki's window can be dragged wider mid-review, and a
+      // strip that kept the old count would either stretch its bands or
+      // leave a gap at the edge. A change in count restarts the smoothing
+      // from silence, which is correct - the old values described bands
+      // that no longer exist.
+      var count = bandsFor(size.width);
+      if (!barState || barState.length !== count) {
+        barState = new Array(count).fill(0);
+        peakState = new Array(count).fill(0);
+      }
+
+      var rawBars = barLevels(analyser, count);
       if (rawBars) {
-        for (var i = 0; i < BAND_COUNT; i++) {
+        for (var i = 0; i < count; i++) {
           var b = rawBars[i];
           // The body is smoothed both ways; the cap is not smoothed at all
           // on the way up. A cap exists to record the loudest instant the
@@ -794,6 +861,31 @@ function createVisualizer(root) {
   }
 
   return { draw: draw, stop: stop };
+}
+
+/**
+ * The decibel window getByteFrequencyData maps onto 0..255.
+ *
+ * The defaults are -100 to -30, and -30 is far too low a ceiling for this.
+ * amgi's own clips come back from the synthesiser normalised loud, so a
+ * vowel's low harmonics sit above -30dB and every one of them reports 255 -
+ * the bars pin to the top of the strip and stay there for the whole voiced
+ * part of the syllable. That is what turned the ridge into a slab with a
+ * flat roof across its loud half: not a drawing problem, a measurement that
+ * had run out of headroom before it was ever drawn.
+ *
+ * -90 to -10 puts ordinary speech in the middle of the range with room above
+ * it, so a loud syllable has somewhere to go and the shape of the spectrum
+ * survives all the way up.
+ */
+function tuneRange(analyser) {
+  try {
+    analyser.minDecibels = -90;
+    analyser.maxDecibels = -10;
+  } catch (error) {
+    // A client that refuses the range keeps the defaults; a slightly
+    // clipped visualizer is not worth failing a review over.
+  }
 }
 
 /**
@@ -820,7 +912,17 @@ function attachVisualizerSource(context, element) {
     var analyser = context.createAnalyser();
     // Matches voiceActivity.js's own analyser so the visualizer reads the
     // same way whether it is fed by the microphone or by a clip.
-    analyser.fftSize = 1024;
+    //
+    // 2048 rather than 1024: at 48kHz a 1024-point transform is 47Hz per
+    // bin, and the whole 90Hz-6kHz range the strip draws fits in about 126
+    // of them. Interpolation keeps that from stepping, but it cannot invent
+    // detail that was never measured, and the bottom of the range - where a
+    // voice does most of its work - had the least. Doubling it halves the
+    // hertz per bin without pushing the analysis window (43ms at this size)
+    // past the length of the consonant bursts that give the ridge its
+    // timing; 4096 would, which is why it is not that.
+    analyser.fftSize = 2048;
+    tuneRange(analyser);
     source.connect(analyser);
     analyser.connect(context.destination);
     element.__amgiAnalyser = analyser;
@@ -1016,7 +1118,15 @@ function bootFront(root) {
     // the "You" replay button below.
     detect: function (args) {
       var stop = detectSpeechEnd(args);
-      if (stop.analyser && store.visualizer) store.visualizer.draw(stop.analyser, 'you');
+      if (stop.analyser && store.visualizer) {
+        // The mic's analyser belongs to detectSpeechEnd, which reads it in
+        // the time domain and does not care what window the frequency data
+        // is mapped onto. The visualizer does, and it is the only thing here
+        // that does, so it sets the window on the way past rather than
+        // pushing a display concern down into speech detection.
+        tuneRange(stop.analyser);
+        store.visualizer.draw(stop.analyser, 'you');
+      }
       return function () {
         if (store.visualizer) store.visualizer.stop();
         stop();
