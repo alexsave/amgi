@@ -1621,7 +1621,7 @@ function bootFront(root) {
   loop.start();
 }
 
-function bootBack(root) {
+function bootBack(root, harvested) {
   var ui = makeUi(root);
   store.visualizer = createVisualizer(root);
   var native = resolveAudio(attr(root, 'data-amgi-target-audio'));
@@ -1630,6 +1630,19 @@ function bootBack(root) {
   wireReplay(root, 'replay-cue', cueAudio, 'cue');
   wireReplay(root, 'replay-native', native, 'native');
   wireYou(root);
+
+  // A take still being collected when this side rendered (see boot()) lands
+  // after wireYou has already decided there was nothing to offer, so the
+  // button is wired a second time once it arrives. Re-running wireYou rather
+  // than reaching into the DOM here keeps one place deciding what the button
+  // does and whether it is shown at all.
+  if (harvested && typeof harvested.then === 'function') {
+    harvested.then(function (blob) {
+      if (!blob || !blob.size || !root.isConnected) return;
+      rememberRecording(blob);
+      wireYou(root);
+    });
+  }
 
   // No grading row of its own, and no keydown handler either. Real Anki
   // (26.09.2, Qt 6.11), verified live: space/1 are bound twice at once on
@@ -1716,16 +1729,29 @@ function wireReplay(root, name, element, kind) {
 function wireYou(root) {
   var button = action(root, 'replay-you');
   if (!button) return;
+
+  // Callable more than once for the same render, and it has to be: a take
+  // collected after this side rendered (see boot()) arrives once the button
+  // has already been told there is nothing to play. Any handler from an
+  // earlier call goes first, so a second call replaces the recording this
+  // button reaches rather than stacking another one behind it - two
+  // listeners would play the new take over a revoked URL from the old one.
+  if (button.__amgiPlay) {
+    button.removeEventListener('click', button.__amgiPlay);
+    button.__amgiPlay = null;
+  }
+
   // The recording only exists on clients that keep one document across the
   // reveal. Elsewhere the button simply is not offered.
   if (!store.recordingUrl) return show(button, false);
   show(button, true);
   var element = new Audio(store.recordingUrl);
-  button.addEventListener('click', function () {
+  button.__amgiPlay = function () {
     // The learner's own voice, same colour whether it is live on the mic
     // (bootFront) or replayed here.
     playExclusively(element, 'you');
-  });
+  };
+  button.addEventListener('click', button.__amgiPlay);
 }
 
 function bindKeys(root, handler) {
@@ -1761,7 +1787,22 @@ function boot() {
 
   // The previous side or card may still be listening in this same document.
   if (store.loop) store.loop.cancel();
-  if (store.stream) stopMicrophone();
+  // A microphone still open when this side renders means the turn never
+  // ended through the loop - which on desktop Anki is the ordinary case, not
+  // an edge one. Space is bound twice at once there (this card's own handler
+  // and Anki's native QShortcut on the main window, see bootBack) and which
+  // wins varies from keypress to keypress. When Anki's wins, it reveals the
+  // answer directly: endTurn never runs, closeMic never runs, and this is
+  // where the microphone actually gets shut off.
+  //
+  // So the recording has to be collected HERE too, not only on the path
+  // through the loop. stopMicrophone() already resolves with everything
+  // captured up to the moment it stopped; this used to throw that promise
+  // away, which is exactly how pressing space mid-sentence lost the take and
+  // left the answer side with no "Hear yourself" button at all. What the
+  // learner said is not less worth replaying because Anki's shortcut got to
+  // the keypress first.
+  var harvested = store.stream ? stopMicrophone() : null;
   // Likewise its visualizer: otherwise a stray requestAnimationFrame loop
   // from a render this one replaces keeps drawing into a detached canvas
   // forever, since nothing else would ever call its stop().
@@ -1786,7 +1827,7 @@ function boot() {
   }
 
   try {
-    if (root.getAttribute('data-amgi-side') === 'back') bootBack(root);
+    if (root.getAttribute('data-amgi-side') === 'back') bootBack(root, harvested);
     else bootFront(root);
   } catch (error) {
     // A card that throws is a review session that stops. Say so on the card

@@ -659,6 +659,75 @@ async function withoutCueAudio(browser, port, logs) {
   await page.close();
 }
 
+/**
+ * What happens when Anki's own space shortcut wins the race.
+ *
+ * Desktop Anki binds space as a QShortcut on the main window and this card
+ * binds it too; which one gets a given keypress varies from press to press
+ * (see anki/README.md, "Keys"). When Anki's wins mid-sentence it reveals the
+ * answer directly, so the template's handler never runs, the loop never ends
+ * its turn, and closeMic() - the path that normally collects the recording -
+ * is never reached. The microphone is instead shut off by boot() on the
+ * answer side.
+ *
+ * That used to throw the take away: the learner spoke, pressed space, and the
+ * answer side came up with no "Hear yourself" button at all. Nothing in this
+ * template can stop Anki from winning the race, so the recording has to
+ * survive it.
+ */
+async function whenAnkiRevealsFirst(browser, port, logs) {
+  process.stdout.write('\nwhen Anki reveals the answer mid-recording\n');
+  const page = await browser.newPage();
+  watch(page, logs);
+  // Speech that never stops, so the detector cannot end the turn on its own:
+  // the only thing that ends it here is the reveal, which is the point.
+  await page.evaluateOnNewDocument(fakeVoiceScript({ leadMs: 300, speechMs: 60000 }));
+  await startReview(page, port);
+
+  await waitFor(page, () => window.phaseIs('listening'), { label: 'the listening phase' });
+  check(
+    'the recorder is running before the answer is revealed',
+    await page.evaluate(() => !!window.__amgi.recorder && window.__amgi.recorder.state === 'recording')
+  );
+  await new Promise((resolve) => setTimeout(resolve, 1200));
+
+  // Anki's own shortcut, not the card's: straight to the answer, with no
+  // chance for the template to end its turn first.
+  await page.evaluate(() => window.pycmd('ans'));
+  await waitFor(page, () => window.harness.renders.some((entry) => entry.side === 'back'), {
+    label: 'the back side to render',
+  });
+  await waitFor(page, () => !!(window.__amgi && window.__amgi.recordingUrl), {
+    label: 'the interrupted recording to be collected',
+  });
+
+  const you = await page.evaluate(() => {
+    const button = document.querySelector('[data-amgi-action="replay-you"]');
+    return { present: !!button, offered: button ? !button.hidden : false };
+  });
+  check(
+    'a recording interrupted by Anki\u2019s own reveal is still offered for replay',
+    you.offered,
+    JSON.stringify(you)
+  );
+
+  await page.click('[data-amgi-action="replay-you"]');
+  check(
+    'and it plays back in the learner\u2019s own colour',
+    !!(await waitForColor(page, isAmberDominant, {
+      label: 'the interrupted recording to play back in the "you" colour',
+    }))
+  );
+
+  // Collecting the take must not mean leaving the microphone live behind the
+  // answer.
+  check(
+    'the microphone is released even though the loop never closed it',
+    await page.evaluate(() => !window.__amgi.stream)
+  );
+  await page.close();
+}
+
 async function withoutAudioContext(browser, port, logs) {
   process.stdout.write('\nthe fallback path, with no Web Audio at all (no AudioContext)\n');
   const page = await browser.newPage();
@@ -746,6 +815,7 @@ async function main() {
       withHangingMicrophone,
       withoutCueAudio,
       withoutAudioContext,
+      whenAnkiRevealsFirst,
     ]) {
       await run(browser, port, logs);
     }
