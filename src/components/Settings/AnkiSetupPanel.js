@@ -15,6 +15,7 @@ const AnkiSetupPanel = () => {
   const [settings, setSettings] = useState(loadAnkiSettings());
   const [scan, setScan] = useState({ loading: false, baseDir: '', baseDirExists: null, profiles: [], error: '' });
   const [saved, setSaved] = useState(false);
+  const [install, setInstall] = useState({ running: false, message: '', ok: null });
 
   const scanForProfiles = async (baseDirOverride) => {
     setScan(prev => ({ ...prev, loading: true, error: '' }));
@@ -57,6 +58,20 @@ const AnkiSetupPanel = () => {
     setTimeout(() => setSaved(false), 2000);
   };
 
+  // Copies both add-ons and the card type into Anki's data folder. Everything
+  // that needs Anki's own API - creating the note type, writing its media into
+  // the collection - happens inside the add-on on the next profile open, which
+  // is why the only thing to report here is "restart Anki".
+  const runInstall = async () => {
+    setInstall({ running: true, message: '', ok: null });
+    try {
+      const result = await ankiApi.install(settings.baseDirOverride);
+      setInstall({ running: false, message: `${result.message} (${result.addonsDir})`, ok: true });
+    } catch (error) {
+      setInstall({ running: false, message: error.message, ok: false });
+    }
+  };
+
   const pickProfile = (profile) => {
     setSettings(prev => ({ ...prev, collectionPath: profile.collectionPath, profileName: profile.name }));
   };
@@ -66,6 +81,25 @@ const AnkiSetupPanel = () => {
       <div className="preference-item" style={{ alignItems: 'center' }}>
         <label>Current mode</label>
         <AnkiModeBadge />
+      </div>
+
+      <div className="preference-item install-block">
+        <label>Install amgi into Anki</label>
+        <p className="preference-help">
+          Adds amgi&rsquo;s microphone and bridge add-ons, and the &ldquo;amgi Listening&rdquo; note type, to the
+          Anki on this machine. Safe to run again to update them.
+        </p>
+        <p className="preference-help">
+          Installs into{' '}
+          <code>{settings.baseDirOverride || 'your default Anki data folder'}</code>
+          {settings.baseDirOverride ? '' : ' - set the override below to install somewhere else.'}
+        </p>
+        <button type="button" className="save-button" onClick={runInstall} disabled={install.running}>
+          {install.running ? 'Installing…' : 'Install into Anki'}
+        </button>
+        {install.message && (
+          <div className={install.ok ? 'message success' : 'message error'}>{install.message}</div>
+        )}
       </div>
 
       <div className="preference-item">

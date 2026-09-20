@@ -29,6 +29,15 @@ async function call(path, options = {}) {
 export const ankiApi = {
   status: () => call('/status'),
   profiles: () => call('/profiles'),
+  // One-button setup: copies amgi's add-ons and card type into the Anki data
+  // folder. The note type itself is created by the add-on on the next profile
+  // open - see src/server/anki/install.js for why that split exists.
+  // baseDirOverride is passed explicitly rather than left to the saved
+  // settings header: the Settings panel keeps an unsaved override in React
+  // state, and installing to a folder other than the one on screen is how
+  // you write add-ons into somebody's real Anki by accident.
+  install: (baseDirOverride) =>
+    call('/install', { method: 'POST', body: JSON.stringify({ baseDirOverride: baseDirOverride || '' }) }),
   decks: () => call('/decks'),
   createDeck: (name) => call('/decks', { method: 'POST', body: JSON.stringify({ name }) }),
   notetypes: () => call('/notetypes'),

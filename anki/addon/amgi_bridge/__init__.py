@@ -14,6 +14,13 @@
 #    default; see README.md, "Local HTTP bridge", for the full security
 #    model.
 #
+# 3. Installing amgi's own note type into the collection on profile open
+#    (notetype.py). The amgi website copies this add-on onto disk and drops
+#    the card type into cardtype/ next to it; this is the half that needs
+#    Anki's own API and so cannot happen from the website at all. Silent and
+#    idempotent when there is nothing to do, which is every profile open
+#    after the first.
+#
 # Everything GUI-shaped lives in this file and dialogs.py, and neither can be
 # run outside Anki itself - Qt is not installable in the environment this was
 # written in. core.py, deck_text.py, generator.py, bridge_ops.py,
@@ -25,6 +32,7 @@
 
 from __future__ import annotations
 
+import os
 import secrets
 from typing import Optional
 
@@ -38,6 +46,7 @@ from .bridge_server import BridgeServer
 from .core import AudioFillConfig, FillResult, apply_fill, plan_fill
 from .dialogs import BridgeStatusDialog, FillAudioDialog
 from .generator import GenerationError, NodeCliAudioGenerator
+from .notetype import AssetsMissing, assets_dir_for, ensure_notetype
 
 DEFAULT_BRIDGE_PORT = 8798
 DEFAULT_ALLOWED_ORIGINS = ["http://localhost:3000", "http://127.0.0.1:3000"]
@@ -118,6 +127,34 @@ def _open_dialog() -> None:
 # the profile that opened it closes (a new profile is a different
 # collection; a leftover listener bound to the old one would be a bug, not a
 # feature).
+
+def _install_notetype() -> None:
+    """Make sure the amgi note type and its media are in this collection.
+
+    Runs on every profile open and says nothing when there is nothing to do,
+    which is the normal case. It is deliberately quiet rather than
+    reassuring: a dialog on every startup to report that nothing changed is
+    how an add-on gets uninstalled.
+
+    Every failure here is swallowed into a tooltip. Anki is starting up, the
+    learner asked for their collection and not for this, and no part of
+    reviewing depends on it having succeeded - a collection with no amgi note
+    type is simply a collection they cannot use amgi cards in yet.
+    """
+    assets = assets_dir_for(os.path.dirname(os.path.abspath(__file__)))
+    try:
+        result = ensure_notetype(mw.col, assets)
+    except AssetsMissing:
+        # Installed by hand, from a zip with no cardtype/ folder in it. That
+        # is a supported way to install this add-on, so it is not an error -
+        # it just means the note type has to be built the manual way.
+        return
+    except Exception as error:  # noqa: BLE001 - see docstring
+        tooltip(f"amgi could not set up its note type: {error}")
+        return
+    if result.changed:
+        tooltip(result.summary())
+
 
 _bridge_server: Optional[BridgeServer] = None
 
@@ -203,6 +240,7 @@ def _add_menu_items() -> None:
 
 
 _add_menu_items()
+gui_hooks.profile_did_open.append(_install_notetype)
 gui_hooks.profile_did_open.append(_start_bridge_if_enabled)
 gui_hooks.profile_will_close.append(_stop_bridge)
 mw.addonManager.setConfigUpdatedAction(__name__, lambda _new_config: _start_bridge_if_enabled())
