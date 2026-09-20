@@ -1,7 +1,7 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { installAddons, sourceAvailable } from '../../server/anki/install';
+import { installAddons, installState, sourceAvailable } from '../../server/anki/install';
 
 // What the website's one-button setup actually puts on disk.
 //
@@ -89,6 +89,82 @@ describe('installing amgi into an Anki data folder', () => {
     expect(result.ok).toBe(false);
     expect(result.reason).toBe('no-anki');
     expect(result.message).toMatch(/Install Anki/);
+  });
+
+  // Whether a card design change reaches a deck somebody already has comes
+  // down to this: the add-on rewrites the note type from its cardtype/
+  // folder at every profile open, so the only question the website has to
+  // answer is whether the files in that folder are still the ones this build
+  // ships. Nothing asked it before, and a machine set up once kept reviewing
+  // the old card design with no screen anywhere saying so.
+  describe('noticing that what is installed has fallen behind', () => {
+    it('reports a fresh install as up to date', () => {
+      installAddons({ baseDir: base, root: REPO_ROOT });
+      const state = installState({ baseDir: base, root: REPO_ROOT });
+      expect(state.installed).toBe(true);
+      expect(state.upToDate).toBe(true);
+      expect(state.staleFiles).toEqual([]);
+    });
+
+    it('notices an older card template and names it', () => {
+      installAddons({ baseDir: base, root: REPO_ROOT });
+      const back = path.join(base, 'addons21', 'amgi_bridge', 'cardtype', 'back.html');
+      fs.writeFileSync(back, '<div>last year\u2019s card</div>');
+
+      const state = installState({ baseDir: base, root: REPO_ROOT });
+      expect(state.upToDate).toBe(false);
+      expect(state.staleFiles).toEqual(['amgi_bridge/cardtype/back.html']);
+    });
+
+    it('notices an older add-on, not just an older template', () => {
+      installAddons({ baseDir: base, root: REPO_ROOT });
+      const core = path.join(base, 'addons21', 'amgi_bridge', 'core.py');
+      fs.writeFileSync(core, '# an older amgi\n');
+      expect(installState({ baseDir: base, root: REPO_ROOT }).upToDate).toBe(false);
+    });
+
+    it('counts a file the installed copy has and this build does not', () => {
+      installAddons({ baseDir: base, root: REPO_ROOT });
+      fs.writeFileSync(path.join(base, 'addons21', 'amgi_mic', 'removed_since.py'), '# gone in this version');
+      expect(installState({ baseDir: base, root: REPO_ROOT }).staleFiles)
+        .toEqual(['amgi_mic/removed_since.py']);
+    });
+
+    it('ignores the python caches Anki writes into the folder after install', () => {
+      installAddons({ baseDir: base, root: REPO_ROOT });
+      const cache = path.join(base, 'addons21', 'amgi_bridge', '__pycache__');
+      fs.mkdirSync(cache, { recursive: true });
+      fs.writeFileSync(path.join(cache, 'core.cpython-39.pyc'), 'not ours');
+      expect(installState({ baseDir: base, root: REPO_ROOT }).upToDate).toBe(true);
+    });
+
+    it('running the install again is what makes it current', () => {
+      installAddons({ baseDir: base, root: REPO_ROOT });
+      fs.writeFileSync(path.join(base, 'addons21', 'amgi_bridge', 'cardtype', 'styling.css'), '/* old */');
+      expect(installState({ baseDir: base, root: REPO_ROOT }).upToDate).toBe(false);
+
+      installAddons({ baseDir: base, root: REPO_ROOT });
+      expect(installState({ baseDir: base, root: REPO_ROOT }).upToDate).toBe(true);
+    });
+
+    it('says unknown, not up to date, when it has nothing to compare against', () => {
+      installAddons({ baseDir: base, root: REPO_ROOT });
+      const empty = tempBase();
+      try {
+        // A packaged build with no add-on sources cannot tell. Claiming
+        // "current" there would suppress the only prompt that fixes a stale
+        // card design, so the answer has to be null rather than true.
+        expect(installState({ baseDir: base, root: empty }).upToDate).toBeNull();
+      } finally {
+        fs.rmSync(empty, { recursive: true, force: true });
+      }
+    });
+
+    it('is not up to date when it is not installed at all', () => {
+      const state = installState({ baseDir: base, root: REPO_ROOT });
+      expect(state.installed).toBe(false);
+      expect(state.upToDate).toBeNull();
+    });
   });
 
   it('says plainly when this copy of amgi has no add-ons to install', () => {

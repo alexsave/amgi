@@ -1,0 +1,45 @@
+/* A notice, not a dialog. Nothing here needs a decision from the person -
+   the files are already copied by the time it appears - so it sits in the
+   flow above the page rather than covering it. */
+.template-update {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin: 0 0 1rem;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid var(--dark-border, #2a2a2a);
+  border-radius: 8px;
+  background: var(--dark-surface);
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+
+.template-update strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.template-update.is-failed {
+  border-color: #6b3327;
+  color: #e07050;
+}
+
+.template-update-dismiss {
+  margin-left: auto;
+  flex: none;
+  background: none;
+  border: 1px solid var(--dark-border, #2a2a2a);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 0.78rem;
+  padding: 0.25rem 0.6rem;
+  cursor: pointer;
+}
+
+.template-update-dismiss:hover {
+  color: var(--text-primary);
+  border-color: var(--text-secondary);
+}
