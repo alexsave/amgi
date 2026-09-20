@@ -40,6 +40,13 @@ server/audio
 *.mp3
 *.wav
 *.m4a
+
+# ...except the starter deck's, which are source, not generated content.
+# They are the one set of clips amgi ships rather than makes, because the
+# people they exist for are exactly the people with no key to make them
+# with (see src/server/anki/starterDeck.js). Rebuilt by
+# scripts/build-starter-audio.js.
+!anki/starter/media/*.mp3
 plusaudio/audio/
 plusaudio/*.json
 **/*.apkg

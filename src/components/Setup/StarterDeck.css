@@ -1,0 +1,100 @@
+/* Sized like the setup screen it sits beside (FirstRun.css), not like a
+   promotional panel: this is the app explaining what it can still do, not an
+   advertisement for what it cannot. */
+.starter-deck {
+  max-width: 34rem;
+  margin: 2rem auto 0;
+  padding: 1.25rem 1.4rem 1.1rem;
+  border: 1px solid var(--dark-border, #2a2a2a);
+  border-radius: 10px;
+  background: var(--dark-surface);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.85rem;
+  text-align: center;
+}
+
+.starter-deck-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 650;
+  color: var(--text-primary);
+}
+
+.starter-deck-lead,
+.starter-deck-note,
+.starter-deck-error {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.starter-deck-note {
+  font-size: 0.78rem;
+}
+
+.starter-deck-note code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.74rem;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 0.08rem 0.35rem;
+  border-radius: 4px;
+}
+
+.starter-deck-error {
+  color: #e07050;
+}
+
+.starter-deck-pair {
+  display: flex;
+  gap: 0.9rem;
+  flex-wrap: wrap;
+  justify-content: center;
+  width: 100%;
+}
+
+.starter-deck-field {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.3rem;
+  flex: 1 1 12rem;
+  min-width: 0;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  text-align: left;
+}
+
+.starter-deck-field select {
+  width: 100%;
+  font: inherit;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  background: var(--dark-bg, #141414);
+  border: 1px solid var(--dark-border, #2a2a2a);
+  border-radius: 6px;
+  padding: 0.4rem 0.5rem;
+}
+
+.starter-deck-cta {
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  padding: 0.55rem 1.1rem;
+  border-radius: 8px;
+  border: 1px solid var(--text-secondary);
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.starter-deck-cta:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.starter-deck-cta:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
