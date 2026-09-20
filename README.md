@@ -53,44 +53,38 @@ OPENAI_API_KEY=sk-...
 If you would rather see the whole flow working before paying anyone, skip this step entirely.
 With no key set, amgi hands back an obviously-fake stub clip - its bytes say so in plain text - so every screen, every button and the whole Anki round trip still work; only the audio is not real.
 
-**5. Install the two Anki add-ons.**
-In Anki: **Tools > Add-ons > View Files**, which opens the add-ons folder.
-Copy `anki/addon/amgi_mic` and `anki/addon/amgi_bridge` from this repo into it, then restart Anki.
-
-- `amgi_mic` is what lets a card's JavaScript open your microphone.
-  Anki's desktop client refuses that on its own and always will, so without this add-on the card can play audio at you but never hear you.
-  It is ninety lines in one file and worth reading before you install it, since that is exactly what it is granting.
-- `amgi_bridge` is what lets the amgi app work while Anki is open.
-  It needs Node and this repo on the same machine, because it calls into both.
-
-**6. Install the card template.**
-This is the part that makes an amgi card an amgi card, and it is three copies and one new note type.
-
-1. Find your collection's media folder: **Tools > Check Database** shows the profile path, and the folder is `collection.media` inside it.
-   Copy `anki/media/_amgi-loop.js` and `anki/media/_amgi-loop.css` into it, keeping the leading underscores - that is what stops Anki's own media check treating them as unused files and offering to delete them.
-2. In Anki, **Tools > Manage Note Types > Add**, based on Basic, and name it `amgi Listening`.
-3. With it selected, **Fields**, and set them up as exactly these six, in this order: `Cue`, `CueAudio`, `Target`, `TargetAudio`, `Language`, `Notes`.
-4. Then **Cards**, and paste in the three files from `anki/notetype/`: `front.html` into the front template, `back.html` into the back, and `styling.css` into the styling box.
-
-`anki/README.md` has the same walkthrough with a table of what each field holds and what works on which Anki client.
-
-**7. Point amgi at your collection.**
+**5. Start amgi and install it into Anki.**
 
 ```bash
 pnpm dev
 ```
 
-Open <http://localhost:3000>, go to **Settings**, and pick your Anki profile - amgi can scan for it, or you can paste the path.
+Open <http://localhost:3000>, go to **Settings**, and press **Install into Anki**.
+That copies two add-ons into your Anki data folder, and the card template in alongside them.
+Restart Anki, and it adds the `amgi Listening` note type and its files to your collection on the way up.
+That is the whole install: there is no note type to hand-build and nothing to paste anywhere.
+
+It is worth knowing what you just installed, because one of the two add-ons is doing something a card normally cannot:
+
+- **`amgi_mic`** is what lets a card's JavaScript open your microphone.
+  Anki's desktop client refuses that on its own and always will, so without this the card can play audio at you but never hear you.
+  It is ninety lines in one file, and it is short enough to read before you trust it.
+- **`amgi_bridge`** is what lets amgi edit your collection while Anki is open, and it is also what builds the note type on startup.
+
+Press the button again any time you pull a newer amgi - it updates both add-ons and refreshes the card template, and leaves your own notes, your bridge token and any field you added yourself alone.
+If you would rather do all of it by hand, "Installing the Anki add-on and the card template" below is the manual path.
+
+**6. Point amgi at your collection.**
+Still in **Settings**, pick your Anki profile - amgi can scan for it, or you can paste the path.
 The badge in the navbar tells you which of two transports is live: **direct** when Anki is closed, **bridge** when Anki is open and `amgi_bridge` is running.
 Anki open with the bridge off is reported as **locked**, with the exact fix, because Anki holds the collection file open in a mode nothing outside its own process can read.
-For a first run the simplest thing is to leave Anki closed.
 
-**8. Make a deck and fill it.**
+**7. Make a deck and fill it.**
 In the app, create a deck, then paste in the lines you want cards for - one phrase per line, in the language you already know.
 amgi writes the target-language sentence, generates audio for both sides, and checks each clip by transcribing it back and refusing anything that does not say what the card says.
 Then open Anki: the deck is already there.
 
-**9. Review, in Anki.**
+**8. Review, in Anki.**
 Pick the deck and study it as you would any other.
 The cue audio plays, the microphone opens by itself, and the card waits for you to stop talking rather than for you to press anything - about a second of silence ends your turn.
 Then the answer appears with the native recording, and you grade yourself with Anki's own buttons: space for Good, `1` for Again, exactly as in every other deck you have.
@@ -122,7 +116,9 @@ It reads and writes your real Anki collection, through whichever of two transpor
 Whichever transport answers, the app shows the same screens; a badge in the navbar (`AnkiModeBadge`) says which one is live, or explains why neither is - Anki open with the bridge off is reported as **locked**, with the exact fix (`src/utils/ankiModeText.js` has the full wording for every mode).
 Settings (`/settings`) is where you point amgi at an Anki profile and, optionally, turn the bridge on and paste in its token.
 
-## Installing the Anki add-on and the card template
+## Installing the Anki add-on and the card template, by hand
+
+Settings > **Install into Anki** in the app does all of this for you, including building the note type; this is the manual path, for a machine with no amgi checkout on it or for anyone who would rather see every step.
 
 1. **The add-on.** Copy `anki/addon/amgi_mic` and `anki/addon/amgi_bridge` into Anki's add-ons folder (Tools > Add-ons > View Files shows you where), or zip each one and use Install from file.
    `amgi_mic` is worth reading before you install it - it is 90 lines, all in one file, and it is the thing granting a web page microphone access.

@@ -201,3 +201,18 @@
     display: none;
   }
 } 
+/* The install block leads the Anki panel, so it reads as the first thing to
+   do rather than as one option among several. */
+.install-block {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.install-block .preference-help {
+  margin: 0;
+  font-size: 0.85rem;
+  opacity: 0.75;
+  max-width: 52ch;
+  line-height: 1.5;
+}
