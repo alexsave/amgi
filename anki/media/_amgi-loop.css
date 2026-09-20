@@ -16,7 +16,25 @@
      place that number is used. The var() fallback only matters for a
      trimmed-down styling.css that never sets the property at all. */
   min-height: calc(100vh - (var(--amgi-card-margin, 0.75rem) * 2));
-  padding: 1.5rem 1rem 2rem;
+  /* The bottom padding is the visualizer's band, reserved. .amgi-visual is
+     absolutely positioned into exactly this strip at the foot of the card
+     (see its own rule), so the ridge and the sentence can never occupy the
+     same pixels - that guarantee is the box model's, not the drawing code's,
+     which is why this number and .amgi-visual's height are the same
+     variable rather than two numbers that have to be kept in step by hand. */
+  --amgi-band-height: 4.5rem;
+  padding: 1.5rem 1rem var(--amgi-band-height);
+  /* Confirmed in the harness with the real stylesheet loaded: without this,
+     min-height above is a CONTENT-box height, so the padding is added on top
+     of a full viewport rather than counted inside it. The element then ends
+     up taller than the window by exactly the padding, the page scrolls, and
+     the band - being anchored to the element's bottom, not the window's -
+     sits below the fold where nothing can see it. That was invisible while
+     the visualizer was a square in the normal flow and only appeared once it
+     became a band pinned to the bottom edge, which is why the rule has to be
+     here now even though the min-height above has not changed. */
+  box-sizing: border-box;
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -223,12 +241,28 @@
    anki-loop.js's createVisualizer for the drawing code and the
    degrade-to-nothing rules. */
 .amgi-visual {
-  position: relative;
-  width: 9rem;
-  height: 9rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  /* The band, at the foot of the card, spanning its full width. It is
+     deliberately NOT inset from the bottom: the owner asked for the gap
+     between the ridge and Anki's own answer bar to go, so the strip runs to
+     the card's own bottom edge and the ridge stands on it. Left and right
+     run to the edges for the same reason - a strip that stops short reads as
+     a widget sitting on the card, and this is supposed to read as the floor
+     of the card itself. */
+  position: absolute;
+  bottom: 0;
+  /* .amgi is a centred reading column capped at 34rem, and a band that wide
+     floats in the middle of a wide window reading as a widget dropped onto
+     the card. This one deliberately escapes the column and spans the card
+     itself: 100vw less styling.css's own card margin on each side, centred
+     on the column's own centre (which is the card's centre, since the column
+     is centred in it). Confirmed in the harness at 900px, where the column
+     is 576px and the card is 876. */
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100vw - (var(--amgi-card-margin, 0.75rem) * 2));
+  max-width: none;
+  height: var(--amgi-band-height, 4.5rem);
+  pointer-events: none;
 }
 
 .amgi-visualizer {

@@ -18,17 +18,27 @@
       What it cannot copy: Qt's own keyboard shortcuts, the media server, and
       the client's audio stack. Those are listed as unverified in the README.
     -->
+    <!-- Both stylesheets a real card gets, in the order Anki applies them:
+         the note type's own styling.css first, then the loop's. The body
+         below carries "card nightMode" because that is what Anki's reviewer
+         puts there in its dark theme (qt/aqt/reviewer.py, body_class), and
+         several rules in styling.css exist specifically to win against
+         Anki's own nightMode declarations - a harness on a bare body would
+         never exercise the selector that actually ships. -->
+    <link rel="stylesheet" href="styling.css" />
     <link rel="stylesheet" href="_amgi-loop.css" />
     <style>
+      html,
       body {
-        font-family: -apple-system, sans-serif;
         margin: 0;
-        color: #1c2430;
-        background: #f6f7f9;
+      }
+      /* Anki's own reviewer background, behind the card's own margin. */
+      body {
+        background: #2f2f31;
       }
     </style>
   </head>
-  <body>
+  <body class="card nightMode">
     <div id="qa"></div>
 
     <script>
