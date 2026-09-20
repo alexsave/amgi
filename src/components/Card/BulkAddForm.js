@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useDecks } from '../../contexts/DeckContext';
 import { ankiApi } from '../../utils/ankiApi';
 import LANGUAGES from '../../constants/languages';
@@ -54,6 +54,7 @@ const BulkAddForm = ({ deckId, notetype, textFieldIndex, audioFieldIndex, cueAud
   const [generateOtherSide, setGenerateOtherSide] = useState(false);
   const cancelRef = useRef(false);
   const abortRef = useRef(null);
+  const ownsInput = presetText === undefined;
 
   const canPreview = ready && notetype && textFieldIndex !== null && rawText.trim().length > 0;
 
@@ -83,6 +84,15 @@ const BulkAddForm = ({ deckId, notetype, textFieldIndex, audioFieldIndex, cueAud
       setPreviewLoading(false);
     }
   }, [canPreview, rawText, skipSectionMarkers, deckId, notetype, textFieldIndex]);
+
+  // Handed text means the person already pressed the button upstairs, so the
+  // check against the deck runs straight away rather than behind a second
+  // press of a second button.
+  const previewRef = useRef(runPreview);
+  previewRef.current = runPreview;
+  useEffect(() => {
+    if (!ownsInput && canPreview) previewRef.current();
+  }, [ownsInput, canPreview, rawText]);
 
   const toggleLine = (index) => {
     setPreview((prev) => ({
@@ -228,20 +238,22 @@ const BulkAddForm = ({ deckId, notetype, textFieldIndex, audioFieldIndex, cueAud
 
   return (
     <div className="bulk-add-form">
-      <div className="form-group">
-        <label htmlFor="bulkLyrics">Paste lines (one card per line)</label>
-        <textarea
-          id="bulkLyrics"
-          value={rawText}
-          onChange={(e) => {
-            setRawText(e.target.value);
-            setPreview(null);
-            setAddedLines(null);
-          }}
-          rows={10}
-          placeholder={'Paste a block of text here, one line per card - lyrics, a dialogue script, a list of sentences.\nBlank lines and exact repeats are dropped automatically; you get a chance to review before anything is written.'}
-        />
-      </div>
+      {ownsInput && (
+        <div className="form-group">
+          <label htmlFor="bulkLyrics">Paste lines (one card per line)</label>
+          <textarea
+            id="bulkLyrics"
+            value={rawText}
+            onChange={(e) => {
+              setRawText(e.target.value);
+              setPreview(null);
+              setAddedLines(null);
+            }}
+            rows={10}
+            placeholder={'Paste a block of text here, one line per card.'}
+          />
+        </div>
+      )}
 
       <div className="bulk-add-toggle">
         <label>
@@ -253,11 +265,6 @@ const BulkAddForm = ({ deckId, notetype, textFieldIndex, audioFieldIndex, cueAud
               setPreview(null);
             }}
           />
-          {/* One span, not bare text mixed with <code> - a flex row (see
-              BulkAddForm.css's .bulk-add-toggle label) treats every direct
-              child as its own flex item, including anonymous text-node
-              items, so bare text next to <code> here fragmented into several
-              independently-wrapping items instead of one paragraph. */}
           <span>
             Skip bracketed section markers (<code>[Chorus]</code>, <code>[Verse 2]</code>) - they are not language to learn
           </span>
@@ -266,14 +273,17 @@ const BulkAddForm = ({ deckId, notetype, textFieldIndex, audioFieldIndex, cueAud
 
       {previewError && <div className="error-message">{previewError}</div>}
 
-      <button
-        type="button"
-        className="generate-button"
-        onClick={runPreview}
-        disabled={!canPreview || previewLoading}
-      >
-        {previewLoading ? 'Checking against the deck…' : 'Preview'}
-      </button>
+      {ownsInput && (
+        <button
+          type="button"
+          className="generate-button"
+          onClick={runPreview}
+          disabled={!canPreview || previewLoading}
+        >
+          {previewLoading ? 'Checking against the deck…' : 'Preview'}
+        </button>
+      )}
+      {!ownsInput && previewLoading && <p className="card-form-hint">Checking these against the deck…</p>}
 
       {preview && (
         <div className="bulk-add-preview">

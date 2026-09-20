@@ -221,50 +221,38 @@
 } 
 /* The simplified add-card surface: one row of controls, one level of box.
    See CardForm.js for what this replaced and why none of it is coming back. */
-.card-form-modes {
-  display: flex;
-  gap: 0.25rem;
-  background: var(--dark-surface);
-  border: 1px solid var(--border-color);
-  border-radius: 10px;
-  padding: 0.25rem;
-  width: fit-content;
-  margin-bottom: 0.75rem;
-}
-
-.card-form-modes button {
-  font: inherit;
-  font-size: 0.85rem;
-  color: var(--text-secondary);
-  background: transparent;
-  border: none;
-  border-radius: 7px;
-  padding: 0.45rem 0.9rem;
-  cursor: pointer;
-}
-
-.card-form-modes button.on {
-  background: var(--dark-surface-hover);
-  color: var(--text-primary);
-  font-weight: 600;
-}
-
-/* The input sits in the same place in both tabs, so switching swaps the
-   control without moving it. */
 .card-form-lead {
   display: flex;
   gap: 0.6rem;
 }
 
-.card-form-lead input {
+/* A textarea rather than an input, because one box now serves both a typed
+   phrase and a pasted block: it starts one line tall and grows with the
+   paste, so the many-cards case needs no second control to get to. */
+.card-form-input {
   flex: 1 1 auto;
   font: inherit;
   font-size: 0.98rem;
+  line-height: 1.45;
   background: var(--dark-surface);
   color: var(--text-primary);
   border: 1px solid var(--border-color);
   border-radius: 9px;
   padding: 0.75rem 0.9rem;
+  resize: vertical;
+  min-height: 2.9rem;
+  box-sizing: border-box;
+}
+
+.card-form-lead {
+  align-items: flex-start;
+  /* The tab strip used to provide this gap. With it gone the box sat hard
+     against the deck's own subtitle. */
+  margin-top: 1.1rem;
+}
+
+.card-form-go {
+  flex: none;
 }
 
 .card-form-go {
