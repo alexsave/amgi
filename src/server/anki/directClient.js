@@ -5,6 +5,7 @@
 // comment for where that boundary is actually enforced, and next.config.js's
 // `serverExternalPackages` for why this plain import doesn't get bundled.
 
+import path from 'node:path';
 import { Collection } from 'plusaudio/lib/collection';
 
 export class DirectError extends Error {
@@ -34,18 +35,42 @@ function unwrap(outcome) {
 // trust. Serializing every direct-mode call through one promise chain per
 // collection path means only one call ever has the file open at a time from
 // this app's side, so a 'locked' result can only mean what it claims to.
+//
+// One chain per collection *path*, keyed the same way plusaudio's backup
+// ledger keys its own state (path.resolve), for two reasons that pull in
+// opposite directions. Different paths must not share a chain: switching
+// profiles would otherwise make each profile's calls queue behind the other's
+// for no reason, and a test's temp collection would serialize against the real
+// one. And one path must not end up with two chains because it was spelled two
+// ways ('.../collection.anki2' vs '.../foo/../collection.anki2'), since that
+// is two callers holding the same file open at once - exactly the false
+// 'locked' this map exists to prevent.
 const collectionQueues = new Map();
 
 function withCollectionLock(collectionPath, fn) {
-  const previous = collectionQueues.get(collectionPath) || Promise.resolve();
+  const key = path.resolve(collectionPath);
+  const previous = collectionQueues.get(key) || Promise.resolve();
   const result = previous.then(fn, fn);
   // A tail that always resolves, so one call's rejection never wedges every
   // call after it - each caller still sees its own `result` reject normally.
-  collectionQueues.set(collectionPath, result.then(() => {}, () => {}));
+  collectionQueues.set(key, result.then(() => {}, () => {}));
   return result;
 }
 
-/** A live handle to a readable collection file, matching bridgeClient.js's shape (see transport.js). */
+/**
+ * A live handle to a readable collection file, matching bridgeClient.js's
+ * shape (see transport.js).
+ *
+ * transport.js calls this once per HTTP request, on purpose ("nothing here is
+ * cached across requests"), so the Collection below is built per request too.
+ * That is free: Collection holds no connection and, since the backup policy
+ * moved into plusaudio/lib/collection/backup.js keyed by path, no per-instance
+ * state either. It was not always free - a per-instance "already backed up"
+ * flag meant a per-request instance re-copied the whole collection file on
+ * every mutating request - so if a caching layer ever looks tempting here,
+ * read that module's header first: the reason it is not needed is also the
+ * reason caching it would be wrong.
+ */
 export function createDirectOps(collectionPath) {
   const col = new Collection(collectionPath);
   const locked = (fn) => withCollectionLock(collectionPath, fn);
