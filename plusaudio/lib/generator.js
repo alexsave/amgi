@@ -43,12 +43,15 @@ function createGenerator(openai, options = {}) {
     },
   };
 
-  // No reading is passed: a deck this CLI did not write carries no
-  // romanisation of its own text, so for Japanese and Chinese the clip is
-  // validated by transcript alone and cardGeneration says so in the log. That
-  // is the same gap the app has when it regenerates audio for a saved card.
-  return async function generate({ text, language }) {
-    return Buffer.from(await generateCardAudio(context, { text, language }));
+  // `reading` is optional and empty by default: a deck this CLI did not
+  // write carries no romanisation of its own text, so for Japanese and
+  // Chinese the clip is validated by transcript alone and cardGeneration
+  // says so in the log. A caller that just generated the text itself - see
+  // textGenerator.js and src/server/anki/cardText.js - has a spoken_reading
+  // to pass here, and passing it is the only way it ever steers synthesis;
+  // that reading is not stored anywhere else.
+  return async function generate({ text, language, reading = '' }) {
+    return Buffer.from(await generateCardAudio(context, { text, language, reading }));
   };
 }
 

@@ -48,4 +48,10 @@ export const ankiApi = {
     call(`/decks/${deckId}/notes/field-values?notetypeId=${notetypeId}&fieldIndex=${fieldIndex}`),
   generateAudio: (text, language, { signal } = {}) =>
     call('/audio', { method: 'POST', body: JSON.stringify({ text, language }), signal }),
+  // Both sides of a card plus its audio, in one request - see
+  // src/server/anki/cardText.js for why text and audio are never split
+  // across two calls (the reading that steers Japanese/Chinese pronunciation
+  // only ever exists in this response).
+  generateCardText: (userInput, knownLanguage, learningLanguage, { signal } = {}) =>
+    call('/card-text', { method: 'POST', body: JSON.stringify({ userInput, knownLanguage, learningLanguage }), signal }),
 };

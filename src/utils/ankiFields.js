@@ -16,6 +16,7 @@
 const AUDIO_FIELD_NAMES = /^(audio|sound|pronunciation|tts|speech)$/i;
 const TEXT_FIELD_NAMES =
   /^(korean|japanese|chinese|target|foreign|learning|term|word|expression|sentence|front|text)$/i;
+const KNOWN_FIELD_NAMES = /^(known|native|meaning|translation|definition|gloss|english|back)$/i;
 
 /**
  * @param {{fieldNames: string[], sortFieldIndex: number}} notetype
@@ -35,6 +36,28 @@ export function guessFields(notetype) {
   if (audioIndex === -1) audioIndex = null;
   if (textIndex === -1) textIndex = null;
   return { textIndex, audioIndex };
+}
+
+/**
+ * Guesses which field holds the known-language side, for the text-generation
+ * feature (see CardForm.js). A note type earns a third role here alongside
+ * guessFields' text/audio guess: the field a name pattern claims, or failing
+ * that the first field neither of the other two guesses already claimed -
+ * same "guess, never silently decide" rule guessFields itself follows, so
+ * this is always shown and changeable rather than assumed.
+ *
+ * @param {{fieldNames: string[]}} notetype
+ * @param {number|null} textIndex
+ * @param {number|null} audioIndex
+ * @returns {number|null}
+ */
+export function guessKnownFieldIndex(notetype, textIndex, audioIndex) {
+  const names = notetype?.fieldNames || [];
+  let index = names.findIndex((name, i) => i !== textIndex && i !== audioIndex && KNOWN_FIELD_NAMES.test(name));
+  if (index === -1) {
+    index = names.findIndex((_name, i) => i !== textIndex && i !== audioIndex);
+  }
+  return index === -1 ? null : index;
 }
 
 /** Strip markup for a plain-text preview - good enough for a browsing list, not a rendering engine. */

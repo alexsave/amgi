@@ -1,19 +1,27 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useDecks } from '../../contexts/DeckContext';
 import { ankiApi } from '../../utils/ankiApi';
-import { guessFields, stripHtmlForPreview } from '../../utils/ankiFields';
+import { guessFields, guessKnownFieldIndex, stripHtmlForPreview } from '../../utils/ankiFields';
 import LANGUAGES from '../../constants/languages';
 import { ANKI_READY_MODES } from '../../utils/ankiModeText';
+import { loadDeckLanguages, saveDeckLanguages } from '../../utils/deckLanguagePrefs';
 import BulkAddForm from './BulkAddForm';
 import './CardForm.css';
 
 /**
- * Add a note to an Anki deck, with generated audio for one of its fields.
+ * Add a note to an Anki deck, with generated audio for one of its fields, or
+ * generated TEXT for both sides plus that same audio in one pass (see
+ * src/server/anki/cardText.js for why text and audio are never split across
+ * two calls).
  *
- * The field mapping (which field is read aloud, which field receives the
+ * The field mapping (which field holds the known-language side, which holds
+ * the learning-language side that gets read aloud, which field receives the
  * clip) is guessed per note type (see ankiFields.js) but always shown and
  * changeable - a note type is the user's own, not ours, the same principle
- * anki/addon/amgi_bridge's own fill-audio dialog is built on.
+ * anki/addon/amgi_bridge's own fill-audio dialog is built on. Generation only
+ * ever fills these fields' own textareas; nothing is written to Anki until
+ * "Add Note" is pressed, so a generated side is exactly as editable as one
+ * typed by hand.
  */
 const CardForm = ({ deckId }) => {
   const { ankiNotetypes, ensureAnkiNotetypes, addAnkiNote, ankiStatus } = useDecks();
@@ -21,7 +29,15 @@ const CardForm = ({ deckId }) => {
   const [fields, setFields] = useState([]);
   const [textFieldIndex, setTextFieldIndex] = useState(null);
   const [audioFieldIndex, setAudioFieldIndex] = useState(null);
-  const [language, setLanguage] = useState('ko');
+  const [knownFieldIndex, setKnownFieldIndex] = useState(null);
+  // The language pair has nowhere else to live: Anki decks carry no language
+  // metadata, so this is remembered per deck in this browser only (see
+  // deckLanguagePrefs.js) and re-read whenever the deck changes.
+  const [knownLanguage, setKnownLanguage] = useState('en');
+  const [learningLanguage, setLearningLanguage] = useState('ko');
+  const [wordInput, setWordInput] = useState('');
+  const [textGenerating, setTextGenerating] = useState(false);
+  const [textGenError, setTextGenError] = useState('');
   const [generating, setGenerating] = useState(false);
   const [audioResult, setAudioResult] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -37,10 +53,30 @@ const CardForm = ({ deckId }) => {
   // during render, not in an effect, so picking a note type resets the form
   // in the same commit rather than flashing the old fields for a frame.
   const [resetForNotetypeId, setResetForNotetypeId] = useState(null);
+  // Same "derived state during render" shape for the deck itself: which deck
+  // the language pair above was last loaded for, so switching decks swaps in
+  // that deck's remembered pair in the same commit rather than a later effect.
+  const [languagesLoadedForDeckId, setLanguagesLoadedForDeckId] = useState(undefined);
 
   useEffect(() => {
     ensureAnkiNotetypes();
   }, [ensureAnkiNotetypes]);
+
+  if (deckId !== languagesLoadedForDeckId) {
+    setLanguagesLoadedForDeckId(deckId);
+    const { known, learning } = loadDeckLanguages(deckId);
+    setKnownLanguage(known);
+    setLearningLanguage(learning);
+  }
+
+  const updateKnownLanguage = (value) => {
+    setKnownLanguage(value);
+    saveDeckLanguages(deckId, { known: value, learning: learningLanguage });
+  };
+  const updateLearningLanguage = (value) => {
+    setLearningLanguage(value);
+    saveDeckLanguages(deckId, { known: knownLanguage, learning: value });
+  };
 
   // Defaults to the first note type once the list arrives; derived directly
   // from render inputs rather than mirrored into its own state, so there is
@@ -61,9 +97,11 @@ const CardForm = ({ deckId }) => {
     const guess = guessFields(notetype);
     setTextFieldIndex(guess.textIndex);
     setAudioFieldIndex(guess.audioIndex);
+    setKnownFieldIndex(guessKnownFieldIndex(notetype, guess.textIndex, guess.audioIndex));
     setAudioResult(null);
     setError('');
     setSaveWarning('');
+    setTextGenError('');
   }
 
   const ready = ANKI_READY_MODES.has(ankiStatus?.mode);
@@ -88,13 +126,47 @@ const CardForm = ({ deckId }) => {
     setGenerating(true);
     setAudioResult(null);
     try {
-      const result = await ankiApi.generateAudio(text, language);
+      const result = await ankiApi.generateAudio(text, learningLanguage);
       setAudioResult(result);
       setFields((prev) => prev.map((f, i) => (i === audioFieldIndex ? `${f}[sound:${result.filename}]` : f)));
     } catch (err) {
       setError(err.message);
     } finally {
       setGenerating(false);
+    }
+  };
+
+  const handleGenerateText = async () => {
+    if (knownFieldIndex === null || textFieldIndex === null || audioFieldIndex === null) {
+      setTextGenError('Pick a known-language field, a learning-language ("Read aloud") field and a "Write audio into" field first.');
+      return;
+    }
+    const input = wordInput.trim();
+    if (!input) {
+      setTextGenError('Type a word or phrase to generate a card from.');
+      return;
+    }
+    setTextGenError('');
+    setError('');
+    setTextGenerating(true);
+    setAudioResult(null);
+    try {
+      // One request generates both sides AND the audio, in that order, so
+      // the reading the text call produces is still in hand when the audio
+      // call is made - see src/server/anki/cardText.js for why that has to
+      // happen in one pass rather than two.
+      const card = await ankiApi.generateCardText(input, knownLanguage, learningLanguage);
+      setFields((prev) => prev.map((f, i) => {
+        if (i === knownFieldIndex) return card.front_text;
+        if (i === textFieldIndex) return card.back_text;
+        if (i === audioFieldIndex) return card.audio?.filename ? `[sound:${card.audio.filename}]` : f;
+        return f;
+      }));
+      if (card.audio) setAudioResult(card.audio);
+    } catch (err) {
+      setTextGenError(err.message);
+    } finally {
+      setTextGenerating(false);
     }
   };
 
@@ -105,16 +177,16 @@ const CardForm = ({ deckId }) => {
     setSaveWarning('');
     setSaving(true);
     try {
-      // language/textFieldIndex are the same picks the "Generate Audio"
-      // button already uses - passing them along too lets the server flag a
-      // learning-language field that looks entirely romanised (see
-      // DeckContext.addAnkiNote and cardText.ts's looksRomanized). Omitted
-      // when no "read aloud" field is chosen, so nothing is checked then.
+      // learningLanguage/textFieldIndex are the same picks generation already
+      // uses - passing them along too lets the server flag a learning-language
+      // field that looks entirely romanised (see DeckContext.addAnkiNote and
+      // cardText.ts's looksRomanized). Omitted when no "read aloud" field is
+      // chosen, so nothing is checked then.
       const result = await addAnkiNote(deckId, {
         notetypeId: notetype.id,
         fields,
         tags: [],
-        language,
+        language: learningLanguage,
         learningFieldIndex: textFieldIndex === null ? undefined : textFieldIndex,
       });
       // A romanisation warning is not an error: the note was added, this is
@@ -123,6 +195,7 @@ const CardForm = ({ deckId }) => {
       if (result?.warning) setSaveWarning(result.warning);
       setFields(notetype.fieldNames.map(() => ''));
       setAudioResult(null);
+      setWordInput('');
     } catch (err) {
       setError(err.message);
     } finally {
@@ -173,6 +246,34 @@ const CardForm = ({ deckId }) => {
           </div>
         )}
 
+        {mode === 'single' && notetype && (
+          <div className="form-group">
+            <label htmlFor="ankiWordInput">Generate a card from a word or phrase</label>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <input
+                id="ankiWordInput"
+                type="text"
+                value={wordInput}
+                onChange={(e) => setWordInput(e.target.value)}
+                placeholder="Type a word or phrase, in either language"
+                style={{ flex: '1 1 auto' }}
+              />
+              <button
+                type="button"
+                className="generate-button"
+                onClick={handleGenerateText}
+                disabled={!ready || textGenerating || saving}
+              >
+                {textGenerating ? 'Generating…' : 'Generate text + audio'}
+              </button>
+            </div>
+            <small style={{ display: 'block', marginTop: '0.35rem', opacity: 0.75 }}>
+              Fills in the known-language, learning-language and audio fields below - review and edit before adding the note.
+            </small>
+            {textGenError && <div className="error-message">{textGenError}</div>}
+          </div>
+        )}
+
         {mode === 'single' && notetype?.fieldNames.map((name, index) => (
           <div className="form-group" key={name}>
             <label htmlFor={`ankiField-${index}`}>{name}</label>
@@ -187,6 +288,18 @@ const CardForm = ({ deckId }) => {
 
         {notetype && (
           <div className="form-group" style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+            <label style={{ flex: '1 1 auto' }}>
+              Known-language field
+              <select
+                value={knownFieldIndex ?? ''}
+                onChange={(e) => setKnownFieldIndex(Number(e.target.value))}
+                style={{ display: 'block', width: '100%', marginTop: '0.25rem' }}
+              >
+                {notetype.fieldNames.map((name, index) => (
+                  <option key={name} value={index}>{name}</option>
+                ))}
+              </select>
+            </label>
             <label style={{ flex: '1 1 auto' }}>
               Read aloud
               <select
@@ -211,11 +324,28 @@ const CardForm = ({ deckId }) => {
                 ))}
               </select>
             </label>
+          </div>
+        )}
+
+        {notetype && (
+          <div className="form-group" style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
             <label style={{ flex: '1 1 auto' }}>
-              Language
+              Known language
               <select
-                value={language}
-                onChange={(e) => setLanguage(e.target.value)}
+                value={knownLanguage}
+                onChange={(e) => updateKnownLanguage(e.target.value)}
+                style={{ display: 'block', width: '100%', marginTop: '0.25rem' }}
+              >
+                {Object.entries(LANGUAGES).map(([code, { name, flag }]) => (
+                  <option key={code} value={code}>{flag} {name}</option>
+                ))}
+              </select>
+            </label>
+            <label style={{ flex: '1 1 auto' }}>
+              Learning language
+              <select
+                value={learningLanguage}
+                onChange={(e) => updateLearningLanguage(e.target.value)}
                 style={{ display: 'block', width: '100%', marginTop: '0.25rem' }}
               >
                 {Object.entries(LANGUAGES).map(([code, { name, flag }]) => (
@@ -271,7 +401,9 @@ const CardForm = ({ deckId }) => {
             notetype={notetype}
             textFieldIndex={textFieldIndex}
             audioFieldIndex={audioFieldIndex}
-            language={language}
+            knownFieldIndex={knownFieldIndex}
+            knownLanguage={knownLanguage}
+            learningLanguage={learningLanguage}
             ready={ready}
           />
         )}

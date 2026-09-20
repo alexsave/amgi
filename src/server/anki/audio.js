@@ -43,20 +43,25 @@ function stubClip(text, language, reason) {
  * which has no key, and is exactly the situation a first-run user with no
  * key configured yet will also be in.
  *
+ * `reading` is optional: how `text` must be read aloud, in its own script,
+ * for languages whose spelling does not fix the pronunciation (see
+ * cardText.ts's READING_OPAQUE_LANGUAGES). It only ever comes from the same
+ * text-generation call that produced it (see cardText.js's
+ * generateCardTextAndAudio) - no Anki field stores one, so there is nowhere
+ * else it could come from.
+ *
  * @returns {Promise<{data: Buffer, mocked: boolean, reason?: string}>}
  */
-export async function generateClip({ text, language }) {
+export async function generateClip({ text, language, reading = '' }) {
   if (!process.env.OPENAI_API_KEY) {
     const reason = 'OPENAI_API_KEY is not set; generated a stub clip instead of calling OpenAI.';
     return { data: stubClip(text, language, reason), mocked: true, reason };
   }
 
   const outPath = path.join(os.tmpdir(), `amgi-clip-${Date.now()}-${Math.random().toString(36).slice(2)}.mp3`);
-  const result = spawnSync(
-    process.execPath,
-    [path.join(PLUSAUDIO_DIR, 'generate-clip.js'), '--text', text, '--language', language, '--out', outPath],
-    { cwd: PLUSAUDIO_DIR, encoding: 'utf8' },
-  );
+  const args = [path.join(PLUSAUDIO_DIR, 'generate-clip.js'), '--text', text, '--language', language, '--out', outPath];
+  if (reading) args.push('--reading', reading);
+  const result = spawnSync(process.execPath, args, { cwd: PLUSAUDIO_DIR, encoding: 'utf8' });
 
   if (result.status !== 0) {
     const reason = (result.stderr || 'audio generation failed').trim().split('\n')[0];
@@ -80,13 +85,22 @@ export async function generateClip({ text, language }) {
  * true in practice, not just in principle: generateClip() itself has no way
  * to know a file already exists, so skipping the call here is the only place
  * a re-run actually avoids paying for a clip it would immediately discard.
+ *
+ * `reading` is not part of the cache key. It cannot be - the filename has to
+ * stay stable for the same (language, text) so a note's [sound:...] tag
+ * never needs rewriting - but that means a cache hit on `text` reuses
+ * whichever reading (if any) produced the clip on disk today, even if a
+ * later generation of the same text returned a different one. That is a real
+ * gap, not a new one: audio regenerated with no reading at all already has
+ * this problem (see generateCardAudio's own doc comment), and a same-text
+ * reading disagreement across generations should be rare in practice.
  */
-export async function generateAndStoreClip({ text, language, ops }) {
+export async function generateAndStoreClip({ text, language, reading = '', ops }) {
   const desiredName = mediaName(text, language);
   if (await ops.hasMedia(desiredName)) {
     return { filename: desiredName, mocked: false, reused: true };
   }
-  const { data, mocked, reason } = await generateClip({ text, language });
+  const { data, mocked, reason } = await generateClip({ text, language, reading });
   const filename = await ops.addMedia(desiredName, data);
   return { filename, mocked, reason };
 }

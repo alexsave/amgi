@@ -98,8 +98,9 @@ No puppeteer here - this is a backend test.
 
 - The app has no login and no signed-in state to wait for - `amgi:anki-settings` in localStorage is the entire "session," and it has to be seeded with `page.evaluateOnNewDocument` **before** the first navigation, or the app's first render reads the defaults and you are debugging a race, not your change.
 - Clicking a deck row goes to `/deck/<id>`, which shows the note list **and** the add-note form on the same page - there is no separate "add a card" screen to navigate to.
-- The three unlabeled `<select>`s in the add-note form (which field to read aloud, which to write audio into, language) have no id or class - `scripts/shoot.js`'s `fieldSelects()` finds them by DOM order (`form.card-form select`, in the order CardForm.js renders them) rather than by a selector that does not exist.
+- The `<select>`s in the add-note form (note type, known-language field, read-aloud field, write-audio-into field, known language, learning language) have no id or class except the note-type picker - `scripts/shoot.js`'s `fieldSelects()` finds them by DOM order (`form.card-form select`, in the order CardForm.js renders them) rather than by a selector that does not exist.
   If CardForm.js's JSX order ever changes, that helper breaks loudly (wrong field gets audio written into it), not silently.
+  There is also a "Generate text + audio" flow (a plain `<input type="text">` plus its own button, above the field textareas) that fills the known-language, read-aloud and write-audio-into fields from a single word or phrase - see CardForm.js and src/server/anki/cardText.js.
 - `AnkiModeBadge` has no stable class or test id either - it is the only `<span title="...">` in the app, which `prove-locked.js` relies on.
   The mode's one-line label (`presentation.label`, e.g. "Anki locked") and its full explanation (`presentation.title`) are two different strings - assert on `.title` for the explanation, not `.label`.
 - `next dev` occasionally dies between runs.
