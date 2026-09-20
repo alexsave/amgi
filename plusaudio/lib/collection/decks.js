@@ -190,7 +190,9 @@ function withDecksCollationRelaxed(db, fn) {
 
   db.enableDefensive(false);
   db.exec('PRAGMA writable_schema = ON');
-  db.exec("UPDATE sqlite_master SET sql = replace(sql, ' COLLATE unicase', '') WHERE name = 'decks'");
+  db.exec(
+    "UPDATE sqlite_master SET sql = replace(sql, ' COLLATE unicase', ' COLLATE NOCASE') WHERE name = 'decks'",
+  );
   db.exec('PRAGMA writable_schema = RESET');
   try {
     return fn();
