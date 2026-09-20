@@ -103,7 +103,13 @@ def list_notetypes(col: "Collection") -> list[dict]:
                 "sortFieldIndex": notetype["sortf"],
                 "fieldNames": [f["name"] for f in notetype["flds"]],
                 "templates": [
-                    {"ord": t["ord"], "name": t["name"], "questionFormat": t["qfmt"]} for t in notetype["tmpls"]
+                    # answerFormat matters as much as questionFormat and was
+                    # missing: it is half of what "is this card design current"
+                    # means, and a change that only touches the back template
+                    # was invisible to every caller (see
+                    # src/server/anki/install.js's collectionDrift).
+                    {"ord": t["ord"], "name": t["name"], "questionFormat": t["qfmt"], "answerFormat": t["afmt"]}
+                    for t in notetype["tmpls"]
                 ],
             }
         )

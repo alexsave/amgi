@@ -22,7 +22,7 @@ const { withLiveCollationsRelaxed } = require('./relaxed-read');
  * @property {'normal'|'cloze'} kind
  * @property {number} sortFieldIndex
  * @property {string[]} fieldNames
- * @property {{ord: number, name: string, questionFormat: string}[]} templates
+ * @property {{ord: number, name: string, questionFormat: string, answerFormat: string}[]} templates
  */
 
 function readLegacyNotetypes(db) {
@@ -38,7 +38,7 @@ function readLegacyNotetypes(db) {
       fieldNames: [...model.flds].sort((a, b) => a.ord - b.ord).map((f) => f.name),
       templates: [...model.tmpls]
         .sort((a, b) => a.ord - b.ord)
-        .map((t) => ({ ord: t.ord, name: t.name, questionFormat: t.qfmt })),
+        .map((t) => ({ ord: t.ord, name: t.name, questionFormat: t.qfmt, answerFormat: t.afmt })),
     });
   }
   return notetypes;
@@ -49,6 +49,11 @@ const NOTETYPE_CONFIG_KIND = 1;
 const NOTETYPE_CONFIG_SORT_FIELD_IDX = 2;
 // Notetype.Template.Config field numbers (same file).
 const TEMPLATE_CONFIG_QUESTION_FORMAT = 1;
+// Field 2, confirmed by decoding a real collection written by Anki 26.09.2
+// rather than read off a .proto: the blob held field 1 == the front template
+// file byte for byte and field 2 == the back template file, with only the
+// random `id` varint beside them.
+const TEMPLATE_CONFIG_ANSWER_FORMAT = 2;
 
 // Notetype.Config has other varint fields we don't read (target_deck_id_unused,
 // original_stock_kind) and an optional 64-bit original_id that real imported
@@ -74,18 +79,19 @@ function readNotetypeConfig(configBytes) {
 // template that came from an imported notetype (Anki 23.10+) - verified
 // against the installed Anki library, whose own freshly-created "Basic"
 // templates already carry one. We want no varint field here at all, only the
-// question format string (field 1, length-delimited), so the wanted set is
-// empty and every varint in this message is skipped unread.
+// two format strings (fields 1 and 2, length-delimited), so the wanted set
+// is empty and every varint in this message is skipped unread.
 const TEMPLATE_CONFIG_WANTED_VARINTS = new Set();
 
 function readTemplateConfig(configBytes) {
   let questionFormat = '';
+  let answerFormat = '';
   for (const field of readFieldsLenient(configBytes, TEMPLATE_CONFIG_WANTED_VARINTS)) {
-    if (field.number === TEMPLATE_CONFIG_QUESTION_FORMAT && field.wireType === WIRE_LENGTH) {
-      questionFormat = field.bytes.toString('utf8');
-    }
+    if (field.wireType !== WIRE_LENGTH) continue;
+    if (field.number === TEMPLATE_CONFIG_QUESTION_FORMAT) questionFormat = field.bytes.toString('utf8');
+    else if (field.number === TEMPLATE_CONFIG_ANSWER_FORMAT) answerFormat = field.bytes.toString('utf8');
   }
-  return questionFormat;
+  return { questionFormat, answerFormat };
 }
 
 // `notetypes` is an ordinary ROWID table keyed by id - unlike `fields` and
@@ -133,7 +139,7 @@ function readFieldsAndTemplates(db, notetypes) {
     notetype.templates.push({
       ord: template.ord,
       name: template.name,
-      questionFormat: readTemplateConfig(Buffer.from(template.config)),
+      ...readTemplateConfig(Buffer.from(template.config)),
     });
   }
 }
