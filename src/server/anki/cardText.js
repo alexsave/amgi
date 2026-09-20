@@ -86,7 +86,7 @@ export async function generateCardTextOnly({
  * cardText.ts's READING_OPAQUE_LANGUAGES), and there is no equivalent
  * ambiguity to resolve in the known language. Doubling the audio calls is a
  * real cost, which is why this is opt-in rather than automatic - see
- * CardForm.js and BulkAddForm.js for where the person is told about it.
+ * CardForm.js and BulkRun.js for where the person is told about it.
  *
  * @returns {Promise<{front_text: string, back_text: string, spoken_reading: string, audio: {filename: string, reference: string, mocked?: boolean, reason?: string, reused?: boolean}, cueAudio?: {filename: string, reference: string, mocked?: boolean, reason?: string, reused?: boolean}}>}
  */

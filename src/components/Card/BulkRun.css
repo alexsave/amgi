@@ -1,0 +1,94 @@
+/* The queue, which is the only screen the many-cards case has now. It looks
+   like the deck's own card list on purpose: same row shape, same audio
+   chips, so what you are watching being built is recognisably the thing you
+   will be looking at a moment later. */
+.bulk-run {
+  margin-top: 1rem;
+}
+
+.bulk-run-head {
+  margin: 0 0 0.6rem;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.bulk-run-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--border-color);
+  border-radius: 11px;
+  overflow: hidden;
+}
+
+.bulk-run-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.6rem 0.9rem;
+  background: var(--dark-surface);
+  text-align: left;
+}
+
+.bulk-run-row + .bulk-run-row {
+  border-top: 1px solid var(--border-color);
+}
+
+.bulk-run-state {
+  flex: none;
+  width: 6.2rem;
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+}
+
+.bulk-run-row.is-making .bulk-run-state {
+  color: #6aa9ff;
+}
+
+.bulk-run-row.is-done .bulk-run-state {
+  color: #3fae85;
+}
+
+.bulk-run-row.is-error .bulk-run-state {
+  color: #e07050;
+}
+
+.bulk-run-text,
+.bulk-run-cue {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bulk-run-text {
+  font-size: 0.92rem;
+}
+
+.bulk-run-cue {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.bulk-run-row.is-queued .bulk-run-text {
+  opacity: 0.55;
+}
+
+/* A card whose two sides came back identical: written, but wrong, and said
+   so rather than left to be found in a review months later. */
+.bulk-run-row .bulk-run-cue:first-letter {
+  text-transform: none;
+}
+
+.bulk-run-clips {
+  display: flex;
+  gap: 0.35rem;
+  flex: none;
+}
+
+.bulk-run-foot {
+  margin: 0.6rem 0 0;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
