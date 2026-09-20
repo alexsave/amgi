@@ -3,7 +3,7 @@ const nextConfig = {
   reactStrictMode: true,
   // Don't let the framework write AGENTS.md/CLAUDE.md into the repo.
   agentRules: false,
-  // plusaudio (see pnpm-workspace.yaml's comment on why it is a workspace
+  // plusaudio (an npm workspace; see package.json's `workspaces` and why it is one
   // member at all) touches node:sqlite and the filesystem to read a closed
   // Anki collection directly - real Node built-ins, not something to trace
   // through and bundle. This is what tells Next to require() it natively at

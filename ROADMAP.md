@@ -20,8 +20,8 @@ Nothing here has been replaced with a new set of features to build; see README.m
 - How a card is written and how its audio is validated live in `plusaudio/lib/cardGeneration/cardGeneration.ts`, run from Node by `plusaudio/lib/generator.js`, and reached from the app and from the Anki add-on's bridge by shelling out to `plusaudio/generate-clip.js` rather than requiring the TypeScript module into a browser bundle.
   It imports nothing from Deno, npm or Supabase.
   Keep it that way, or Node can no longer load it and every caller grows a second, worse generator.
-- Run `pnpm lint`, `pnpm test` and `pnpm build` before committing; keep all three green, and keep `node anki/test/harness/drive.js` at 23/23 if you touch the card template or its shared source files.
-  (The package manager is pnpm, pinned in `package.json#packageManager`.)
+- Run `npm run lint`, `npm test` and `npm run build` before committing; keep all three green, and keep `node anki/test/harness/drive.js` at 23/23 if you touch the card template or its shared source files.
+  (The package manager is npm; `plusaudio` is an npm workspace.)
 
 ---
 
@@ -126,8 +126,8 @@ Sharing an amgi-generated deck today means sharing the `.apkg` file itself, the 
 
 ### 4.2 CI
 
-**Status: still open.** This repo has no `.github/workflows/` yet, and the core of the original idea is still exactly right: on every PR, run `pnpm install --frozen-lockfile`, `pnpm lint`, `pnpm build` and `pnpm test`.
-Drop the `deno lint supabase/functions` step (no Deno code is left to lint) and add `node anki/test/harness/drive.js` alongside `pnpm test`, since that check is not part of the `pnpm test` script.
+**Status: still open.** This repo has no `.github/workflows/` yet, and the core of the original idea is still exactly right: on every PR, run `npm ci`, `npm run lint`, `npm run build` and `npm test`.
+Drop the `deno lint supabase/functions` step (no Deno code is left to lint) and add `node anki/test/harness/drive.js` alongside `npm test`, since that check is not part of the `npm test` script.
 
 ### 4.3 Observability
 

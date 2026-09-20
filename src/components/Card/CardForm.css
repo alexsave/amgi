@@ -219,3 +219,146 @@
   margin: 0 0 1rem 0;
   line-height: 1.5;
 } 
+/* The simplified add-card surface: one row of controls, one level of box.
+   See CardForm.js for what this replaced and why none of it is coming back. */
+.card-form-modes {
+  display: flex;
+  gap: 0.25rem;
+  background: var(--dark-surface);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 0.25rem;
+  width: fit-content;
+  margin-bottom: 0.75rem;
+}
+
+.card-form-modes button {
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  border-radius: 7px;
+  padding: 0.45rem 0.9rem;
+  cursor: pointer;
+}
+
+.card-form-modes button.on {
+  background: var(--dark-surface-hover);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+/* The input sits in the same place in both tabs, so switching swaps the
+   control without moving it. */
+.card-form-lead {
+  display: flex;
+  gap: 0.6rem;
+}
+
+.card-form-lead input {
+  flex: 1 1 auto;
+  font: inherit;
+  font-size: 0.98rem;
+  background: var(--dark-surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 9px;
+  padding: 0.75rem 0.9rem;
+}
+
+.card-form-go {
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #fff;
+  background: var(--flame-orange);
+  border: 1px solid var(--flame-orange);
+  border-radius: 9px;
+  padding: 0.75rem 1.2rem;
+  cursor: pointer;
+}
+
+.card-form-go:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.card-form-hint,
+.card-form-langs {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin: 0.6rem 0 0;
+}
+
+.card-form-error {
+  font-size: 0.85rem;
+  color: #e07050;
+  margin: 0.6rem 0 0;
+}
+
+.card-form-warning {
+  font-size: 0.8rem;
+  color: #d0a030;
+  margin: 0.4rem 0 0;
+}
+
+.card-form-langs {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-top: 1.1rem;
+}
+
+.card-form-langs button {
+  font: inherit;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: 7px;
+  padding: 0.25rem 0.6rem;
+  cursor: pointer;
+}
+
+.card-form-langs select {
+  font: inherit;
+  font-size: 0.8rem;
+  background: var(--dark-surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 7px;
+  padding: 0.3rem 0.5rem;
+}
+
+/* The card that was just made. No Add button: it is already in Anki. */
+.card-made {
+  margin-top: 1rem;
+  border: 1px solid var(--dark-surface-hover);
+  border-radius: 11px;
+  background: var(--dark-surface);
+  padding: 0.9rem 1rem;
+}
+
+.card-made-target {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.card-made-cue {
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  margin: 0.35rem 0 0;
+}
+
+.card-made-foot {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin: 0.7rem 0 0;
+}
+
+.card-made-ok {
+  color: #3fae85;
+  font-weight: 600;
+}

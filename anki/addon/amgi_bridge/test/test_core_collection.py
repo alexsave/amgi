@@ -6,8 +6,8 @@
 # real Collection, the real media manager, the real note/field bookkeeping -
 # is, and this suite runs against it.
 #
-# NOT wired into `pnpm test`: the `anki` pip package is a large, Rust-backed
-# wheel this repo does not otherwise depend on, and pnpm test has to pass on
+# NOT wired into `npm test`: the `anki` pip package is a large, Rust-backed
+# wheel this repo does not otherwise depend on, and npm test has to pass on
 # a plain checkout with no Python environment at all. Run this manually with
 # a Python that has `anki` installed:
 #

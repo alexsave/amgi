@@ -6,7 +6,7 @@
 // this test suite (see the task this was built from: "an assertion that only
 // your own reader agrees with your own writer proves nothing").
 //
-// None of this is required to exist for `pnpm test` to pass elsewhere: every
+// None of this is required to exist for `npm test` to pass elsewhere: every
 // test that needs it skips cleanly when no working `python3 -c "import
 // anki"` can be found, via ANKI_PYTHON_BIN or a plain `python3` on PATH.
 

@@ -3,7 +3,7 @@
 # these functions have no aqt import, so the pure `anki` package (no Qt) is
 # enough to exercise every mutation exactly as Anki's own engine performs it.
 #
-# NOT wired into `pnpm test` - see README.md, "Testing", for why and how to
+# NOT wired into `npm test` - see README.md, "Testing", for why and how to
 # run this manually. Short version:
 #
 #   cd anki/addon/amgi_bridge

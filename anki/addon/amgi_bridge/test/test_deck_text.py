@@ -1,6 +1,6 @@
 # Unit tests for deck_text.py, plus a parity check against the Node modules it
 # is a port of. No dependency on the `anki` pip package: these run anywhere
-# Python 3.10+ and Node are installed, including plain `pnpm test`.
+# Python 3.10+ and Node are installed, including plain `npm test`.
 #
 # Deliberately does not `import anki`: this repo's own anki/ directory has no
 # __init__.py, so if these tests ever ran with the repo root on sys.path and a

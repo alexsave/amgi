@@ -223,7 +223,7 @@ See that file's own module docstring for the full reasoning, and "Testing" below
 ### What is actually verified
 
 `test/test_deck_text.py`, `test/test_core_config.py`, `test/test_generator.py`, `test/test_bridge_auth.py` and `test/test_bridge_server.py` need no `anki` pip package and no network.
-`pnpm test` runs them.
+`npm test` runs them.
 
 - `test_deck_text.py` checks `deck_text.py` against `plusaudio/lib/deck.js` and `audio-store.js` themselves, by shelling out to Node on the same inputs and asserting equality - not against a second, hand-written idea of what those functions do.
 - `test_generator.py` checks the subprocess seam - the command built, the environment passed through, exit-code and stderr handling, temp-file cleanup, and the actionable errors for a missing Node, a missing repo checkout, and a missing API key - by mocking `subprocess.run`.
@@ -244,7 +244,7 @@ Its own `SampleDeckTests` (also gated on `AMGI_SAMPLE_APKG`) pages through the s
 
 `test/test_cross_transport.py` is the one described above in "Cross-transport parity": it needs both `anki` and a `node` on `PATH`, and runs the Node layer and `bridge_ops.py` against the same collection file, checking they agree.
 
-None of these three are wired into `pnpm test`: the `anki` pip package is a large, Rust-backed wheel this repo does not otherwise depend on, and `pnpm test` has to pass on a plain checkout with no Python environment at all.
+None of these three are wired into `npm test`: the `anki` pip package is a large, Rust-backed wheel this repo does not otherwise depend on, and `npm test` has to pass on a plain checkout with no Python environment at all.
 Run them with a Python that has `anki` installed:
 
 ```bash

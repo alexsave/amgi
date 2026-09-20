@@ -150,7 +150,7 @@ each runtime brings its own.
 ## Tests
 
 ```bash
-node --test "test/**/*.test.js"   # or: npm test, or pnpm test at the repo root
+node --test "test/**/*.test.js"   # or: npm test, or npm test at the repo root
 ```
 
 ## Verifying against Anki itself
