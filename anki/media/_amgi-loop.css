@@ -247,21 +247,33 @@
      deliberately NOT inset from the bottom: the owner asked for the gap
      between the ridge and Anki's own answer bar to go, so the strip runs to
      the card's own bottom edge and the ridge stands on it. Left and right
-     run to the edges for the same reason - a strip that stops short reads as
-     a widget sitting on the card, and this is supposed to read as the floor
-     of the card itself. */
+     run to the window's edges for the same reason - a strip that stops short
+     reads as a widget sitting on the card, and this is supposed to read as
+     the floor the card stands on. */
   position: absolute;
   bottom: 0;
   /* .amgi is a centred reading column capped at 34rem, and a band that wide
      floats in the middle of a wide window reading as a widget dropped onto
-     the card. This one deliberately escapes the column and spans the card
-     itself: 100vw less styling.css's own card margin on each side, centred
-     on the column's own centre (which is the card's centre, since the column
-     is centred in it). Confirmed in the harness at 900px, where the column
-     is 576px and the card is 876. */
+     the card. This one escapes the column twice over: past the column to the
+     card, and then past the card to the window itself.
+
+     The full viewport width, not the card's - this used to subtract
+     styling.css's card margin from each side, on the reasoning that the band
+     belongs to the card and should stop where the card stops. Seen running,
+     it reads as the opposite: the band already gave up its bottom margin so
+     it could stand on Anki's answer bar rather than float above it, and a
+     strip that runs the whole way down but stops twelve pixels short on each
+     side looks like it failed to reach rather than like it was placed. The
+     floor of a room meets the walls.
+
+     Centred on the column's centre, which is the card's centre, which is the
+     window's centre - the card is centred by equal side margins - so 100vw
+     lands exactly on both window edges and contributes no horizontal
+     overflow. Measured in the harness rather than reasoned about: see
+     anki/test/harness for the width sweep that checks both edges at once. */
   left: 50%;
   transform: translateX(-50%);
-  width: calc(100vw - (var(--amgi-card-margin, 0.75rem) * 2));
+  width: 100vw;
   max-width: none;
   height: var(--amgi-band-height, 4.5rem);
   pointer-events: none;
