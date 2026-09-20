@@ -43,6 +43,33 @@ BIND_HOST = "127.0.0.1"
 ALLOWED_METHODS = "GET, POST, PATCH, OPTIONS"
 ALLOWED_HEADERS = f"Content-Type, {TOKEN_HEADER}"
 
+# A request body bigger than this is refused outright, before a single byte
+# of it is read off the socket. Every real body this bridge ever receives is
+# a JSON-encoded note or two (or a base64 media file, /media's own concern -
+# see add_media's much larger allowance below); 25MB is generous headroom
+# over even a large bulk-paste of a few thousand lines, while still ruling
+# out a caller (malicious, or just a badly configured proxy) claiming a
+# multi-gigabyte Content-Length and either exhausting this process's memory
+# reading it, or - even if the caller never actually sends that much - never
+# having `rfile.read()` return at all until BODY_READ_TIMEOUT_SECONDS below
+# gives up on it.
+MAX_BODY_BYTES = 25 * 1024 * 1024
+# /media's body is a note's clip re-encoded as base64 (~1.33x its raw size);
+# a generous allowance for a single audio clip, well past anything a real
+# TTS clip needs, but still bounded rather than open-ended.
+MAX_MEDIA_BODY_BYTES = 50 * 1024 * 1024
+
+# How long a connection may sit idle mid-request - specifically, how long
+# `_read_json_body`'s `self.rfile.read(length)` will block waiting for bytes
+# that were promised by Content-Length but never arrive (a stalled network,
+# a proxy that miscounts, or a request built by hand with a wrong header) -
+# before this thread gives up rather than blocking forever. BaseHTTPRequestHandler
+# has no timeout by default (`self.timeout = None`), which is exactly the
+# "wait forever" failure mode this exists to close: one such request would
+# otherwise pin one of ThreadingHTTPServer's per-connection threads
+# permanently, with no way to recover short of restarting Anki.
+BODY_READ_TIMEOUT_SECONDS = 30.0
+
 
 class BridgeHTTPError(Exception):
     """A dispatcher-raised error that already knows its own HTTP status -
@@ -64,6 +91,11 @@ class BridgeNotFound(BridgeHTTPError):
 class BridgeBadRequest(BridgeHTTPError):
     def __init__(self, message: str) -> None:
         super().__init__(400, message)
+
+
+class BridgePayloadTooLarge(BridgeHTTPError):
+    def __init__(self, message: str) -> None:
+        super().__init__(413, message)
 
 
 class BridgeBusy(BridgeHTTPError):
@@ -106,15 +138,28 @@ def make_handler_class(
     *,
     token: str,
     allowed_origins: frozenset[str],
+    body_read_timeout: float = BODY_READ_TIMEOUT_SECONDS,
 ) -> type[BaseHTTPRequestHandler]:
     """Build a BaseHTTPRequestHandler subclass bound to this one dispatcher,
     token and origin allowlist. A class, not an instance, because
     http.server instantiates a fresh handler per connection - the standard
     way to hand a stdlib HTTPServer per-server state without a shared global.
+
+    `body_read_timeout` is a constructor parameter (rather than always just
+    the module constant) purely so test_bridge_server.py can exercise the
+    "client stalls mid-body" path with a timeout measured in milliseconds
+    instead of the real 30-second default.
     """
 
     class BridgeRequestHandler(BaseHTTPRequestHandler):
         server_version = "amgi-bridge/1"
+        # socketserver.StreamRequestHandler.setup() applies this to the
+        # connection's socket before every request is handled - see
+        # BODY_READ_TIMEOUT_SECONDS above for what this closes off. Any
+        # blocking socket read that outlives this (most importantly
+        # `self.rfile.read()` in _read_json_body) raises a timeout error
+        # instead of hanging the thread forever.
+        timeout = body_read_timeout
 
         def log_message(self, format: str, *args: Any) -> None:  # noqa: A002 - stdlib signature
             # Anki's own console captures stdout/stderr; a hit log for every
@@ -166,7 +211,7 @@ def make_handler_class(
                 if not match:
                     continue
                 try:
-                    body = self._read_json_body() if method in ("POST", "PATCH") else None
+                    body = self._read_json_body(path) if method in ("POST", "PATCH") else None
                     result = getattr(self, f"_op_{handler_name}")(match.groupdict(), query, body)
                     self._send_json(200, result, origin=auth.origin)
                 except BridgeHTTPError as error:
@@ -176,14 +221,35 @@ def make_handler_class(
                     # note type or note id) - the caller's mistake, not a bug
                     # here, so 400 rather than 500.
                     self._send_json(400, {"error": str(error)}, origin=auth.origin)
+                except OSError as error:
+                    # Most commonly this socket's own read timeout (see
+                    # `timeout` above) firing while still waiting on a body
+                    # that Content-Length promised but the client never
+                    # finished sending. The connection is likely already
+                    # unusable at this point - sending a response is a
+                    # best-effort courtesy, not a guarantee - but the
+                    # important effect is this thread returning at all
+                    # instead of blocking on `rfile.read()` forever.
+                    self._send_json(408, {"error": f"timed out reading the request: {error}"}, origin=auth.origin)
                 except Exception as error:  # noqa: BLE001 - reported to the caller, not crashed on
                     self._send_json(500, {"error": str(error)}, origin=auth.origin)
                 return
 
             self._send_json(404, {"error": f"no route for {method} {path}"}, origin=auth.origin)
 
-        def _read_json_body(self) -> dict:
+        def _read_json_body(self, path: str) -> dict:
             length = int(self.headers.get("Content-Length", "0") or "0")
+            if length < 0:
+                raise BridgeBadRequest("Content-Length must not be negative")
+            # /media carries a base64-encoded audio clip, which is bigger
+            # than every other body this bridge accepts; every other route
+            # gets the tighter cap - see MAX_BODY_BYTES/MAX_MEDIA_BODY_BYTES
+            # above for why either exists at all (rejecting a claimed huge
+            # body up front, before touching the socket for it, rather than
+            # reading an unbounded amount into memory).
+            limit = MAX_MEDIA_BODY_BYTES if path == "/media" else MAX_BODY_BYTES
+            if length > limit:
+                raise BridgePayloadTooLarge(f"request body of {length} bytes exceeds the {limit}-byte limit")
             if length == 0:
                 return {}
             raw = self.rfile.read(length)
@@ -307,6 +373,23 @@ def make_handler_class(
     return BridgeRequestHandler
 
 
+class _BridgeHTTPServer(ThreadingHTTPServer):
+    # socketserver.TCPServer's own default is 5 - fine for occasional,
+    # sequential requests, but a real browser tab can fire off several
+    # /api/anki/* calls back to back (a status poll racing a deck fetch
+    # racing a page of notes), and this app itself only ever talks to this
+    # bridge from its own Next.js server, which can have several requests to
+    # the SAME bridge in flight for the same reason. A short backlog under a
+    # burst like that means the OS refuses the connection outright
+    # (ECONNRESET on the caller's side) before this server even gets a
+    # chance to accept and hand it a thread - verified directly: 20 requests
+    # fired at once against the stock default reproduced exactly this.
+    # ThreadingHTTPServer still accepts and dispatches connections one at a
+    # time either way; a bigger backlog only raises how big a burst has to be
+    # before that queue itself becomes the bottleneck.
+    request_queue_size = 64
+
+
 class BridgeServer:
     """Owns the listening socket. Always 127.0.0.1 - there is no parameter
     that can move this to 0.0.0.0 or any other interface; a caller who wants
@@ -319,9 +402,12 @@ class BridgeServer:
         token: str,
         allowed_origins: frozenset[str],
         port: int = 0,
+        body_read_timeout: float = BODY_READ_TIMEOUT_SECONDS,
     ) -> None:
-        handler_cls = make_handler_class(dispatcher, token=token, allowed_origins=allowed_origins)
-        self._httpd = ThreadingHTTPServer((BIND_HOST, port), handler_cls)
+        handler_cls = make_handler_class(
+            dispatcher, token=token, allowed_origins=allowed_origins, body_read_timeout=body_read_timeout
+        )
+        self._httpd = _BridgeHTTPServer((BIND_HOST, port), handler_cls)
         # Belt-and-braces alongside the hardcoded BIND_HOST above: fail loudly
         # if some future refactor ever lets a different host through, rather
         # than silently listening somewhere broader than intended.

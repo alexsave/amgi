@@ -413,6 +413,118 @@ class RoutingTests(BridgeServerTestCase):
         status, _headers, _body = self._request("GET", "/nope", headers=self._auth_headers())
         self.assertEqual(status, 404)
 
+    def test_a_content_length_beyond_the_body_size_limit_is_rejected_without_reading_it(self):
+        # A caller (malicious, or just a badly configured proxy) claiming a
+        # huge Content-Length must be refused before the server ever tries
+        # to read that many bytes off the socket - see MAX_BODY_BYTES's own
+        # comment in bridge_server.py. This sends real headers and NO body at
+        # all: if the server ever actually called rfile.read() for this, the
+        # connection would hang waiting for bytes that never arrive, and this
+        # test would time out instead of finishing quickly.
+        from bridge_server import MAX_BODY_BYTES
+
+        conn = self._connection()
+        conn.putrequest("POST", "/decks")
+        conn.putheader(TOKEN_HEADER, TOKEN)
+        conn.putheader("Origin", ALLOWED_ORIGIN)
+        conn.putheader("Content-Length", str(MAX_BODY_BYTES + 1))
+        conn.endheaders()
+        response = conn.getresponse()
+        status = response.status
+        body = json.loads(response.read())
+        conn.close()
+        self.assertEqual(status, 413)
+        self.assertIn("bytes", body["error"])
+        self.assertEqual(self.dispatcher.calls, [], "the dispatcher must never be reached for a rejected body")
+
+    def test_media_route_gets_a_larger_body_allowance_than_every_other_route(self):
+        from bridge_server import MAX_BODY_BYTES, MAX_MEDIA_BODY_BYTES
+
+        self.assertGreater(MAX_MEDIA_BODY_BYTES, MAX_BODY_BYTES)
+
+        conn = self._connection()
+        conn.putrequest("POST", "/decks")
+        conn.putheader(TOKEN_HEADER, TOKEN)
+        conn.putheader("Origin", ALLOWED_ORIGIN)
+        # Comfortably over the ordinary limit but under the media one - only
+        # meaningful because /decks is NOT the media route, so it must still
+        # be rejected at the tighter limit.
+        conn.putheader("Content-Length", str(MAX_BODY_BYTES + 1))
+        conn.endheaders()
+        response = conn.getresponse()
+        status = response.status
+        response.read()
+        conn.close()
+        self.assertEqual(status, 413)
+
+
+class SlowClientTests(BridgeServerTestCase):
+    """A client that promises a body (Content-Length) and then never finishes
+    sending it - a stalled connection, or a proxy/hand-built request with a
+    wrong header - must not pin this thread forever. Uses a millisecond-scale
+    `body_read_timeout` (see BridgeServer's own parameter) so this test
+    finishes quickly instead of waiting out the real 30-second default."""
+
+    def setUp(self):
+        self.dispatcher = self.make_dispatcher()
+        self.server = BridgeServer(
+            self.dispatcher, token=TOKEN, allowed_origins=ALLOWED, port=0, body_read_timeout=0.2
+        )
+        self.server.start()
+        self.addCleanup(self.server.stop)
+
+    def make_dispatcher(self):
+        return FakeDispatcher()
+
+    def test_a_body_that_never_finishes_arriving_times_out_instead_of_hanging_forever(self):
+        import socket
+
+        sock = socket.create_connection(("127.0.0.1", self.server.port), timeout=5)
+        request = (
+            f"POST /decks HTTP/1.1\r\n"
+            f"Host: 127.0.0.1\r\n"
+            f"{TOKEN_HEADER}: {TOKEN}\r\n"
+            f"Origin: {ALLOWED_ORIGIN}\r\n"
+            f"Content-Length: 1000\r\n"
+            f"\r\n"
+            f'{{"name": "on'  # a partial body; the other ~985 promised bytes never arrive
+        )
+        sock.sendall(request.encode("ascii"))
+        # The client's own socket timeout (5s) is just a safety net for this
+        # test process; the real assertion is that the SERVER's own
+        # body_read_timeout (0.2s) fires well before that and the connection
+        # is closed/responded to rather than sitting open indefinitely.
+        response = sock.recv(4096)
+        sock.close()
+        self.assertTrue(response, "the server must respond (or at least close the connection), not hang")
+
+
+class ConcurrencyTests(BridgeServerTestCase):
+    """ThreadingHTTPServer hands each connection its own handler instance and
+    thread; this proves that promise holds in practice - many concurrent
+    requests, each carrying request-specific data, get back exactly their own
+    answer with no cross-talk - rather than just asserting it from reading
+    the stdlib's docs."""
+
+    def test_many_concurrent_requests_never_cross_talk(self):
+        import concurrent.futures
+
+        def one_request(i):
+            status, _headers, body = self._request(
+                "GET", f"/decks/{i}/notes?offset={i}&limit=5", headers={TOKEN_HEADER: TOKEN}
+            )
+            return i, status, body
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=20) as pool:
+            outcomes = list(pool.map(one_request, range(40)))
+
+        for i, status, body in outcomes:
+            self.assertEqual(status, 200)
+            # Each response must echo back the offset that specific request
+            # asked for - proof this thread's request never got mixed up
+            # with a different concurrent request's data.
+            self.assertEqual(body["offset"], i)
+
 
 class BridgeBusyDispatcherTests(BridgeServerTestCase):
     def make_dispatcher(self):

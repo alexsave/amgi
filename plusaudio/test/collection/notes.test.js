@@ -318,3 +318,112 @@ test(
     fs.rmSync(dir, { recursive: true, force: true });
   },
 );
+
+// Regression coverage for a real cross-transport bug found while hardening
+// this layer against real collections: countNotesInDeck, listNotesInDeck and
+// noteFieldValuesInDeck used to match only `c.did = ?`, so a deck with
+// subdecks (the norm for anyone organizing a real collection, and the exact
+// shape the bridge side already handled - see
+// anki/addon/amgi_bridge/test/test_bridge_ops.py's own
+// test_subdeck_notes_are_included) would show fewer notes here than the
+// bridge transport reports for the identical collection file. Browsing the
+// same deck must not depend on whether Anki happens to be open.
+for (const schema of [11, 18]) {
+  test(
+    `countNotesInDeck/listNotesInDeck/listFieldValuesInDeck (schema ${schema}): include notes from subdecks, at every depth`,
+    { skip: !anki && 'no python3 with the anki library on PATH (set ANKI_PYTHON_BIN)' },
+    () => {
+      const { dir, col } = setUp(schema);
+      const basic = col.listNotetypes().result.find((n) => n.name === 'Basic');
+      const parent = col.createDeck('Subdeck Test').result.deck;
+      const child = col.createDeck('Subdeck Test::Verbs').result.deck;
+      const grandchild = col.createDeck('Subdeck Test::Verbs::Irregular').result.deck;
+      const unrelated = col.createDeck('Subdeck Test Sibling').result.deck;
+
+      col.addNote({ deckId: parent.id, notetypeId: basic.id, fields: ['p', 'p2'] });
+      col.addNote({ deckId: child.id, notetypeId: basic.id, fields: ['c', 'c2'] });
+      col.addNote({ deckId: grandchild.id, notetypeId: basic.id, fields: ['g', 'g2'] });
+      col.addNote({ deckId: unrelated.id, notetypeId: basic.id, fields: ['u', 'u2'] });
+
+      assert.equal(col.countNotesInDeck(parent.id).result, 3, 'parent + child + grandchild, not the sibling');
+      assert.equal(col.countNotesInDeck(unrelated.id).result, 1, 'a deck that only looks similarly named is untouched');
+
+      const fronts = col.listNotesInDeck(parent.id, { limit: 10 }).result.map((n) => n.fields[0]).sort();
+      assert.deepEqual(fronts, ['c', 'g', 'p']);
+
+      const values = col.listFieldValuesInDeck(parent.id, basic.id, 0).result.sort();
+      assert.deepEqual(values, ['c', 'g', 'p']);
+
+      fs.rmSync(dir, { recursive: true, force: true });
+    },
+  );
+}
+
+// addNotesBulk: the direct-mode equivalent of bridge_ops.add_notes_bulk - one
+// collection open/notetypes-read for the whole batch, per-note validation
+// isolated so one bad note doesn't abort notes already added earlier in the
+// same call. Added while hardening this layer against a real, measured bug:
+// a caller looping over addNote() reopened (and, before an earlier fix in
+// this same hardening pass, fully re-copied) the whole collection file once
+// per note, which made a bulk paste's cost scale with the collection's own
+// size, not just the batch size.
+for (const schema of [11, 18]) {
+  test(
+    `addNotesBulk (schema ${schema}): every note lands, in one call, checked against the real Anki library`,
+    { skip: !anki && 'no python3 with the anki library on PATH (set ANKI_PYTHON_BIN)' },
+    () => {
+      const { dir, collectionPath, col } = setUp(schema);
+      const basic = col.listNotetypes().result.find((n) => n.name === 'Basic');
+      const deck = col.createDeck('Bulk Notes Test').result.deck;
+
+      const notes = Array.from({ length: 12 }, (_, i) => ({
+        deckId: deck.id,
+        notetypeId: basic.id,
+        fields: [`bulk front ${i}`, `bulk back ${i}`],
+      }));
+      const results = col.addNotesBulk(notes).result;
+      assert.equal(results.length, 12);
+      assert.ok(results.every((r) => r.ok), JSON.stringify(results));
+
+      const report = withAnkiLibrary(
+        collectionPath,
+        `
+count = col.db.scalar("select count(*) from notes where id in (${results.map((r) => r.noteId).join(',')})")
+assert count == 12, count
+problems = col.fix_integrity()
+print("INTEGRITY:", problems.problems if hasattr(problems, "problems") else problems)
+`,
+      );
+      assert.match(report, /INTEGRITY:.*rebuilt and optimized/i);
+
+      fs.rmSync(dir, { recursive: true, force: true });
+    },
+  );
+
+  test(
+    `addNotesBulk (schema ${schema}): one bad note in the middle is reported on its own, the rest still land`,
+    { skip: !anki && 'no python3 with the anki library on PATH (set ANKI_PYTHON_BIN)' },
+    () => {
+      const { dir, col } = setUp(schema);
+      const basic = col.listNotetypes().result.find((n) => n.name === 'Basic');
+      const deck = col.createDeck('Bulk Partial Failure Test').result.deck;
+
+      const results = col.addNotesBulk([
+        { deckId: deck.id, notetypeId: basic.id, fields: ['ok one', 'b1'] },
+        { deckId: deck.id, notetypeId: basic.id, fields: ['wrong field count'] }, // Basic wants 2 fields
+        { deckId: deck.id, notetypeId: 999999999, fields: ['unknown notetype', 'b'] },
+        { deckId: deck.id, notetypeId: basic.id, fields: ['ok two', 'b2'] },
+      ]).result;
+
+      assert.deepEqual(
+        results.map((r) => r.ok),
+        [true, false, false, true],
+      );
+      assert.match(results[1].error, /has 2 fields, got 1/);
+      assert.match(results[2].error, /no note type with id/);
+      assert.equal(col.countNotesInDeck(deck.id).result, 2, 'the two good notes still landed');
+
+      fs.rmSync(dir, { recursive: true, force: true });
+    },
+  );
+}
