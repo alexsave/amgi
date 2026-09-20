@@ -74,6 +74,13 @@ function mediaFolder() {
   fs.writeFileSync(OUTPUT, build());
   fs.copyFileSync(OUTPUT, path.join(dir, '_amgi-loop.js'));
   fs.copyFileSync(path.join(ROOT, 'anki', 'media', '_amgi-loop.css'), path.join(dir, '_amgi-loop.css'));
+  // The note type's OWN stylesheet, which Anki applies to every card and this
+  // harness used not to load at all. That gap was not academic: styling.css is
+  // where the card's background, its type and its margin live, so without it
+  // every check here ran against a white page in the browser's default font -
+  // the two things most likely to be wrong after a visual change, and the two
+  // things nothing could catch.
+  fs.copyFileSync(path.join(ROOT, 'anki', 'notetype', 'styling.css'), path.join(dir, 'styling.css'));
   fs.copyFileSync(path.join(__dirname, 'reviewer.html'), path.join(dir, 'reviewer.html'));
   fs.writeFileSync(path.join(dir, 'prompt-1.wav'), wav(0.8, 320));
   fs.writeFileSync(path.join(dir, 'prompt-2.wav'), wav(0.8, 380));

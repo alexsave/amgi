@@ -87,9 +87,25 @@ body.card {
      whatever is left. Contrast is unaffected by any of this: WCAG's ratio is
      a function of the two colours only, and none changed here - see the
      numbers already recorded below and in _amgi-loop.css's own comment. */
-  font-family: ui-serif, Georgia, Cambria, "Times New Roman", "Yu Mincho", "Hiragino Mincho ProN",
-    "Nanum Myeongjo", "Noto Serif KR", "Noto Serif JP", "Noto Serif CJK KR", "Noto Serif CJK JP",
-    AppleMyungjo, Batang, "MS Mincho", serif;
+  /* SUPERSEDED, deliberately: the long comment above records why this card
+     was set in an editorial serif, and that reasoning was sound at the time.
+     The owner overturned it at the end of the treatment review, having seen
+     the same card in four type systems side by side: "lets lock in plain
+     anki font". So this is Anki's own default stack, which is what the
+     reviewer ships when a note type sets nothing at all.
+
+     Worth keeping the trade-off on record rather than just the outcome. The
+     serif was chosen to stop the chrome reading as generic; what the side by
+     side showed is that Anki's own face reads as *native* rather than as
+     generic, because it is the face every other card in the collection is
+     already in. A deck that looks like it belongs in Anki beats a deck that
+     looks designed, when the learner is going to see thirty of them in a
+     row. It also removes the whole Hangul-serif problem the stack above
+     spends a paragraph on: Arial and Helvetica have no CJK coverage, so the
+     browser falls through to whatever the platform's own UI face is for
+     Korean and Japanese - which is exactly what Anki itself does, and is
+     guaranteed to be installed and current, unlike Batang. */
+  font-family: Arial, "Helvetica Neue", Helvetica, sans-serif;
   /* Deliberately no font-size here any more: every visible size in
      _amgi-loop.css is already in rem, which resolves against Anki's own html
      root (webview.py sets that from the Qt system font when "use system font
@@ -133,7 +149,17 @@ body.card {
      a border reads as a frame, and depth was the only one of the two the
      owner wanted. */
   color: #e8ecf1;
-  background: #0b0d10;
+  /* Black, not the near-black #0b0d10 this sat at: the owner's call on
+     seeing the card next to Anki's own dark chrome ("make the background
+     actually black"). Every contrast figure recorded in this file and in
+     _amgi-loop.css was computed against #0b0d10 and can only have gone UP,
+     since contrast is a function of the two luminances and this background's
+     just went to its floor - so none of them needed rechecking to stay
+     valid, and none were rewritten to claim otherwise. The one thing that
+     genuinely changes is the card's edge: against a true black the margin,
+     radius and shadow below do more work, not less, because the card can no
+     longer be told from an unlit region of the window by its fill alone. */
+  background: #000;
   --amgi-card-margin: 0.75rem;
   margin: var(--amgi-card-margin);
   border-radius: 1rem;
