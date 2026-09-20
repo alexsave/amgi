@@ -24,10 +24,28 @@ const BASE = process.env.BASE || 'http://localhost:3111';
 const OUT = process.env.OUT || path.join(process.cwd(), '.e2e', 'shots');
 const COLLECTION = process.env.ANKI_COLLECTION;
 
-/** The three selects after the note type picker, in the JSX order CardForm.js renders them. */
+/** Clicks the first element matching `selector` whose exact text content is `text`. */
+async function clickButtonByText(page, selector, text) {
+  const clicked = await page.evaluate((sel, label) => {
+    const el = [...document.querySelectorAll(sel)].find((e) => e.textContent.trim() === label);
+    if (!el) return false;
+    el.click();
+    return true;
+  }, selector, text);
+  if (!clicked) throw new Error(`no element matching ${selector} with text "${text}"`);
+}
+
+/** The selects after the note type picker, in the JSX order CardForm.js renders them. */
 async function fieldSelects(page) {
   const handles = await page.$$('form.card-form select');
-  return { notetype: handles[0], text: handles[1], audio: handles[2], language: handles[3] };
+  return {
+    notetype: handles[0],
+    known: handles[1],
+    text: handles[2],
+    audio: handles[3],
+    knownLanguage: handles[4],
+    learningLanguage: handles[5],
+  };
 }
 
 (async () => {
@@ -102,7 +120,12 @@ async function fieldSelects(page) {
   await page.type(`#ankiField-${textIdx}`, 'hello from the e2e-ui skill');
   await shot('05-note-form-filled');
 
-  await page.click('.generate-button'); // "Generate Audio" - the first .generate-button in the form
+  // Several buttons now share the .generate-button class ("Generate text +
+  // audio" above the field textareas, "Generate Audio" and "Add Note" below
+  // them) - click by its exact label rather than DOM order, which the
+  // "Generate text + audio" button broke as soon as it was added earlier in
+  // the form.
+  await clickButtonByText(page, '.generate-button', 'Generate Audio');
   await page.waitForFunction(
     () => /Audio generated/.test(document.querySelector('.error-message')?.textContent || ''),
     { timeout: 15000 },

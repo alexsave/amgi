@@ -14,7 +14,7 @@
 // CONTRACT
 // --------
 //
-//   node generate-clip.js --text <string> --language <code> --out <path>
+//   node generate-clip.js --text <string> --language <code> --out <path> [--reading <text>]
 //
 //   --text      the exact text to speak. Required. Spoken as-is, with no HTML stripping
 //               or tag removal here: a caller with its own field markup (the add-on's
@@ -28,12 +28,15 @@
 //               run leaves no file at this path, and removes one left over from an
 //               earlier attempt at the same path, so a caller can tell success from
 //               failure by the file's mere existence afterwards.
-//
-// No `--reading`: like lib/generator.js's existing adapter (see its own comment), this
-// entry point never has one to pass, because a caller reaching for a subprocess has a
-// field's saved text and nothing else - no romanisation of its own. Adding one later is
-// additive (a caller not passing it keeps working); this file does not need to guess at
-// that shape today.
+//   --reading   how --text must be read aloud, in its own script (kana, zhuyin) - only
+//               meaningful for the languages cardText.ts's READING_OPAQUE_LANGUAGES
+//               lists. Optional: a caller reaching for a subprocess with a saved field's
+//               text and nothing else has no romanisation of its own to pass, and
+//               omitting this keeps that path working exactly as before. Passed straight
+//               through to generateCardAudio, which is the only place a reading is
+//               allowed to steer synthesis and validation (see src/server/anki/cardText.js
+//               for the one caller that actually has one, and why it must be passed in
+//               the same call that produced it rather than a later one).
 //
 //   stdout: nothing on success today. Reserved for future machine-readable output; a
 //           caller must not rely on stdout staying empty forever, only on it never
@@ -61,7 +64,7 @@ const { createGenerator } = require('./lib/generator');
 
 const USAGE = 'Usage: node generate-clip.js --text <text> --language <code> --out <path>\n';
 
-const FLAGS_WITH_VALUES = new Set(['--text', '--language', '--out']);
+const FLAGS_WITH_VALUES = new Set(['--text', '--language', '--out', '--reading']);
 
 function parseArgs(argv) {
   const options = {};
@@ -103,7 +106,7 @@ function removeStaleOutput(outPath) {
 async function run(options, generate) {
   let audio;
   try {
-    audio = await generate({ text: options.text, language: options.language });
+    audio = await generate({ text: options.text, language: options.language, reading: options.reading || '' });
   } catch (error) {
     removeStaleOutput(options.out);
     process.stderr.write(`${error.message}\n`);
