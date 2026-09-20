@@ -6,6 +6,8 @@ import AudioChip from './AudioChip';
 import CardPanel from './CardPanel';
 import { AMGI_NOTETYPE_NAME, fieldIndexes } from '../../utils/amgiNotetype';
 import { loadDeckLanguages, saveDeckLanguages } from '../../utils/deckLanguagePrefs';
+import { ankiApi } from '../../utils/ankiApi';
+import { TrashIcon } from '@heroicons/react/24/outline';
 import { LANGUAGES } from '../../constants/languages';
 import './CardList.css';
 
@@ -56,6 +58,27 @@ const CardList = () => {
   // thirty-row list to change one word is a worse trade than the space
   // the panel takes up.
   const [editing, setEditing] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
+
+  // Deleting without opening the card first. The confirmation names the card,
+  // because the row is small and the thing being destroyed is not: this
+  // writes to a collection that syncs, so the review history goes with it on
+  // every device.
+  const deleteRow = async (card) => {
+    const text = card.front_text || '';
+    if (!window.confirm(`Delete this card?\n\n${text}\n\nIts review history goes too, on every device you sync with.`)) return;
+    setDeletingId(card.id);
+    try {
+      await ankiApi.deleteNote(card.id);
+      if (editing === card.id) setEditing(null);
+      await loadDeckCards(id, { offset: library?.offset || 0, limit: library?.limit || PAGE_SIZE });
+      refreshAnkiDecks();
+    } catch (err) {
+      window.alert(err.message);
+    } finally {
+      setDeletingId(null);
+    }
+  };
   const cards = library?.cards || [];
 
   const handleBack = () => {
@@ -118,6 +141,16 @@ const CardList = () => {
                 ) : (
                   <span className="note-row-edit note-row-edit-off" title="amgi only edits its own note type">&mdash;</span>
                 )}
+                <button
+                  type="button"
+                  className="note-row-delete"
+                  onClick={() => deleteRow(cardData)}
+                  disabled={deletingId === cardData.id}
+                  title="Delete this card"
+                  aria-label={`Delete ${cardData.front_text}`}
+                >
+                  {deletingId === cardData.id ? '…' : <TrashIcon aria-hidden="true" />}
+                </button>
               </div>
               {open && (
                 <div className="note-row-editor">

@@ -388,10 +388,53 @@
   cursor: default;
 }
 
-.note-row-editor {
-  padding: 0 0.95rem 0.9rem;
+/* Delete, on the row itself: a trash can, and red.
+   It was an x, which sat next to a Close button on an open row and read as
+   "close this" rather than "destroy this" - the wrong meaning for the only
+   control here that cannot be undone from this screen. Red at rest rather
+   than only on hover, for the same reason: a destructive control should look
+   destructive before you are already pointing at it. */
+.note-row-delete {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #ff8a8c;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  padding: 0.3rem;
+  cursor: pointer;
+  opacity: 0.6;
 }
 
+.note-row-delete svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.note-row:hover .note-row-delete,
+.note-row-delete:focus-visible {
+  opacity: 1;
+}
+
+.note-row-delete:hover {
+  border-color: rgba(255, 77, 79, 0.45);
+  background: rgba(255, 77, 79, 0.08);
+}
+
+.note-row-delete:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+/* The panel is the row, opened up: no inset, and none of its own framing.
+   Nesting a bordered, rounded, differently-shaded box inside an already
+   bordered row drew the same card twice, once inside the other. */
 .note-row-editor .card-panel {
-  margin-top: 0;
+  margin: 0;
+  border: none;
+  border-top: 1px solid var(--border-color);
+  border-radius: 0;
+  background: transparent;
 }
