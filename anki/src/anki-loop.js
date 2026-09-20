@@ -101,12 +101,30 @@ function filenameFromText(text) {
  * mean: finished, failed, skipped by the learner, or never started because the
  * client refused to autoplay.
  */
+function stopCurrentPlayback(except) {
+  if (!store.playing || store.playing === except) return;
+  try {
+    store.playing.pause();
+    store.playing.currentTime = 0;
+  } catch (error) {
+    // A source torn down with its context; nothing left to stop.
+  }
+}
+
 function playClip(element, ui, kind) {
   return new Promise(function (resolve) {
     if (!element) return resolve('missing');
 
     // Fire-and-forget: it manages its own start and its own end (the
     // element's own events), so playClip never needs to hold or await it.
+    //
+    // It registers as the card's current playback for the same reason the
+    // replay buttons do: the answer's own audio starts by itself on reveal,
+    // and pressing a replay while it is still going would otherwise leave
+    // two voices talking over each other with the visualizer following only
+    // one of them. Whichever of the two starts last wins.
+    stopCurrentPlayback(element);
+    store.playing = element;
     beginVisualizing(element, kind);
 
     var settled = false;
@@ -651,40 +669,55 @@ function createVisualizer(root) {
     ctx.clearRect(0, 0, size.width, size.height);
     ctx.fillStyle = color;
 
-    // The body. Every bar goes into ONE path and gets ONE fill(), for the
-    // same reason the ring this replaced had to (see git history): at 72
-    // bands the cells are a few pixels wide, and two neighbouring shapes
-    // whose edges sit on the same mathematical line still leave a sub-pixel
-    // antialiasing seam between them - which at this density reads as a
-    // picket fence rather than the single silhouette the whole treatment is
-    // built on. Bars are drawn half a pixel wider than their cell so they
-    // genuinely overlap rather than merely abut, and confirmed in the
-    // harness against a real clip: doing that with a fillRect() PER BAR
-    // makes it worse, not better, because the body is drawn at partial
-    // alpha and the overlapping strip then gets painted twice, turning
-    // every seam into a bright line instead of a dark one. One path cannot
-    // double-paint: overlapping subpaths still fill each pixel once.
-    var bodyAlpha = Math.max(0, Math.min(1, (0.2 + level * 0.35) * opacityScale));
-    ctx.globalAlpha = bodyAlpha;
-    ctx.beginPath();
+    // The body, one fillRect per band, each at its own band's alpha.
+    //
+    // Per-bar alpha is the point of the whole drawing: a band carrying real
+    // energy is brighter than a band that is nearly silent, so the strip
+    // carries volume twice over, in height and in weight. This was briefly a
+    // single path filled once, to kill the lighter line where two bars
+    // overlapped - which threw away the per-band alpha as collateral and lit
+    // the whole strip uniformly no matter which part of the spectrum was
+    // actually loud.
+    var heights = [];
+    var alphas = [];
     for (var i = 0; i < BAND_COUNT; i++) {
       var mag = bars ? bars[i] : 0;
-      var height = BASELINE_HEIGHT + mag * (room - BASELINE_HEIGHT);
-      ctx.rect(i * cell, floor - height, cell + 0.5, height);
+      heights.push(BASELINE_HEIGHT + mag * (room - BASELINE_HEIGHT));
+      alphas.push(Math.max(0, Math.min(1, (0.14 + 0.52 * mag) * opacityScale * (0.55 + 0.45 * level))));
+      ctx.globalAlpha = alphas[i];
+      ctx.fillRect(i * cell, floor - heights[i], cell, heights[i]);
     }
-    ctx.fill();
 
-    // The caps, likewise one path: they overlap their neighbours too, by
-    // half a pixel on each side, so a cap reads as a lid across its band
-    // rather than as a slightly narrower line floating on it.
+    // The seam between one band and the next, drawn on purpose rather than
+    // left to happen.
+    //
+    // Those lines are what makes the strip read as seventy-two separate
+    // measurements instead of one shape, so they are too important to be an
+    // antialiasing side effect of bars overlapping by half a pixel - that
+    // only shows up at all at certain widths and pixel ratios, and its
+    // strength is whatever the compositor happens to produce.
+    //
+    // A seam stops at the SHORTER of the two bars it divides. Run to the
+    // taller one instead and every seam beside a tall neighbour sticks up
+    // into empty space, and the strip grows a row of comb teeth along its
+    // skyline.
+    for (var j = 1; j < BAND_COUNT; j++) {
+      var shared = Math.min(heights[j - 1], heights[j]);
+      ctx.globalAlpha = Math.max(0, Math.min(1, Math.max(alphas[j - 1], alphas[j]) * 1.9));
+      ctx.fillRect(j * cell - 0.5, floor - shared, 1, shared);
+    }
+
+    // The caps: one per band, drawn half a pixel wider on each side than the
+    // bar they sit on, so a cap reads as a lid across its band rather than
+    // as a slightly narrower line floating on it. Flat alpha, unlike the
+    // body - a cap has to stay legible exactly when its band has gone quiet,
+    // which is when a level-driven alpha would fade it out.
     ctx.globalAlpha = Math.max(0, Math.min(1, 0.9 * opacityScale));
-    ctx.beginPath();
     for (var k = 0; k < BAND_COUNT; k++) {
       var peak = peaks ? peaks[k] : 0;
       var capY = floor - CAP_THICKNESS - peak * (room - BASELINE_HEIGHT);
-      ctx.rect(k * cell - 0.5, capY, cell + 1, CAP_THICKNESS);
+      ctx.fillRect(k * cell - 0.5, capY, cell + 1, CAP_THICKNESS);
     }
-    ctx.fill();
     ctx.globalAlpha = 1;
   }
 
@@ -1108,19 +1141,37 @@ function bootBack(root) {
   loop.resumeAtAnswer({ recording: store.recordingUrl || null });
 }
 
+/**
+ * Play one clip and stop whatever else this card was playing.
+ *
+ * Three replay buttons that all start playback without stopping each other
+ * produce two voices at once, which is both unintelligible and confusing
+ * about which button did what - and the visualizer, which follows one source
+ * at a time, ends up drawing one clip while you hear two.
+ *
+ * Pressing the button of the clip already playing restarts it from the
+ * beginning, which is what "hear it again" means when you have stopped
+ * listening halfway through.
+ */
+function playExclusively(element, kind) {
+  stopCurrentPlayback(element);
+  store.playing = element;
+  try {
+    element.currentTime = 0;
+  } catch (error) {
+    // See playClip: seeking before metadata is allowed to fail.
+  }
+  beginVisualizing(element, kind);
+  var played = element.play();
+  if (played && typeof played.catch === 'function') played.catch(function () {});
+}
+
 function wireReplay(root, name, element, kind) {
   var button = action(root, name);
   if (!button) return;
   if (!element) return show(button, false);
   button.addEventListener('click', function () {
-    try {
-      element.currentTime = 0;
-    } catch (error) {
-      // See playClip: seeking early is allowed to fail.
-    }
-    beginVisualizing(element, kind);
-    var played = element.play();
-    if (played && typeof played.catch === 'function') played.catch(function () {});
+    playExclusively(element, kind);
   });
 }
 
@@ -1135,9 +1186,7 @@ function wireYou(root) {
   button.addEventListener('click', function () {
     // The learner's own voice, same colour whether it is live on the mic
     // (bootFront) or replayed here.
-    beginVisualizing(element, 'you');
-    var played = element.play();
-    if (played && typeof played.catch === 'function') played.catch(function () {});
+    playExclusively(element, 'you');
   });
 }
 

@@ -15,7 +15,9 @@
      --amgi-card-margin once, on .card itself, and this is the only other
      place that number is used. The var() fallback only matters for a
      trimmed-down styling.css that never sets the property at all. */
-  min-height: calc(100vh - (var(--amgi-card-margin, 0.75rem) * 2));
+  /* One margin now, not two: styling.css drops the card's bottom margin so
+     the visualizer band can meet Anki's answer bar. */
+  min-height: calc(100vh - var(--amgi-card-margin, 0.75rem));
   /* The bottom padding is the visualizer's band, reserved. .amgi-visual is
      absolutely positioned into exactly this strip at the foot of the card
      (see its own rule), so the ridge and the sentence can never occupy the
