@@ -18,6 +18,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { mediaName } from 'plusaudio/lib/audio-store';
+import { renderAudioReference } from 'plusaudio/lib/deck';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PLUSAUDIO_DIR = path.join(__dirname, '..', '..', '..', 'plusaudio');
@@ -94,13 +95,20 @@ export async function generateClip({ text, language, reading = '' }) {
  * gap, not a new one: audio regenerated with no reading at all already has
  * this problem (see generateCardAudio's own doc comment), and a same-text
  * reading disagreement across generations should be rare in practice.
+ *
+ * `reference` is the HTML this app ever writes into a field for this clip -
+ * `<audio src="...">`, from plusaudio/lib/deck's own renderAudioReference,
+ * never `[sound:...]`. The anki/ card template strips sound tags before its
+ * JavaScript can see them (rslib/src/text.rs, AV_TAGS), so a `[sound:]`
+ * reference would leave the field looking filled while the template never
+ * sees a clip at all - see anki/README.md, "What goes in the audio fields".
  */
 export async function generateAndStoreClip({ text, language, reading = '', ops }) {
   const desiredName = mediaName(text, language);
   if (await ops.hasMedia(desiredName)) {
-    return { filename: desiredName, mocked: false, reused: true };
+    return { filename: desiredName, reference: renderAudioReference(desiredName, 'html'), mocked: false, reused: true };
   }
   const { data, mocked, reason } = await generateClip({ text, language, reading });
   const filename = await ops.addMedia(desiredName, data);
-  return { filename, mocked, reason };
+  return { filename, reference: renderAudioReference(filename, 'html'), mocked, reason };
 }

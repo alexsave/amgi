@@ -27,8 +27,14 @@ const AUDIO_STATUS_LABEL = {
  * CardForm.js already has the person choose, rather than asking again: those
  * props are this component's only way to know where a line's text goes.
  */
-const BulkAddForm = ({ deckId, notetype, textFieldIndex, audioFieldIndex, knownFieldIndex, knownLanguage, learningLanguage, ready }) => {
+const BulkAddForm = ({ deckId, notetype, textFieldIndex, audioFieldIndex, cueAudioFieldIndex, knownFieldIndex, knownLanguage, learningLanguage, ready }) => {
   const { addAnkiNotesBulk, updateAnkiNote, refreshAnkiDecks, loadDeckCards } = useDecks();
+
+  // A note type with a CueAudio-like field needs the known-language text to
+  // generate that clip from, so generating the other side stops being an
+  // optional extra and becomes a prerequisite the moment this field is set -
+  // see the cost notice below, which spells out exactly what that adds.
+  const cueAudioRequired = cueAudioFieldIndex !== null;
 
   const [rawText, setRawText] = useState('');
   const [skipSectionMarkers, setSkipSectionMarkers] = useState(true);
@@ -124,6 +130,16 @@ const BulkAddForm = ({ deckId, notetype, textFieldIndex, audioFieldIndex, knownF
   const audioRemaining = audioCandidates.filter((c) => !audioDone(audioProgress[c.noteId]?.status));
   const audioStarted = Object.keys(audioProgress).length > 0;
 
+  // Whichever of the two clips a run produced, folded into one status: worse
+  // wins, so "one clip mocked, the other real" still surfaces as mocked
+  // rather than quietly reporting "done".
+  const combinedAudioStatus = (...results) => {
+    const present = results.filter(Boolean);
+    if (present.some((r) => r.mocked)) return 'mocked';
+    if (present.some((r) => r.reused)) return 'reused';
+    return 'done';
+  };
+
   // Text and audio still go out as one call each per card whenever the other
   // side is being generated too - the model's spoken_reading only exists in
   // that text-generation response, and generateCardText already produces the
@@ -132,6 +148,7 @@ const BulkAddForm = ({ deckId, notetype, textFieldIndex, audioFieldIndex, knownF
   // untouched in textFieldIndex either way, so a lyric stays exactly what was
   // pasted even if the model would have "corrected" it slightly.
   const runAudioGeneration = async () => {
+    const effectiveGenerateOtherSide = generateOtherSide || cueAudioRequired;
     setAudioRunning(true);
     cancelRef.current = false;
     for (const candidate of audioRemaining) {
@@ -140,27 +157,31 @@ const BulkAddForm = ({ deckId, notetype, textFieldIndex, audioFieldIndex, knownF
       const controller = new AbortController();
       abortRef.current = controller;
       try {
-        if (generateOtherSide && knownFieldIndex !== null) {
-          const card = await ankiApi.generateCardText(candidate.text, knownLanguage, learningLanguage, { signal: controller.signal });
+        if (effectiveGenerateOtherSide && knownFieldIndex !== null) {
+          const card = await ankiApi.generateCardText(candidate.text, knownLanguage, learningLanguage, {
+            signal: controller.signal,
+            includeCueAudio: cueAudioRequired,
+          });
           const fields = notetype.fieldNames.map((_name, i) => {
-            if (i === audioFieldIndex) return card.audio?.filename ? `[sound:${card.audio.filename}]` : '';
+            if (i === audioFieldIndex) return card.audio?.reference || '';
             if (i === textFieldIndex) return candidate.text;
             if (i === knownFieldIndex) return card.front_text;
+            if (cueAudioRequired && i === cueAudioFieldIndex) return card.cueAudio?.reference || '';
             return '';
           });
           await updateAnkiNote(candidate.noteId, fields, { language: learningLanguage, learningFieldIndex: textFieldIndex });
           setAudioProgress((prev) => ({
             ...prev,
             [candidate.noteId]: {
-              status: card.audio?.mocked ? 'mocked' : card.audio?.reused ? 'reused' : 'done',
+              status: combinedAudioStatus(card.audio, card.cueAudio),
               text: candidate.text,
-              reason: card.audio?.reason,
+              reason: card.audio?.reason || card.cueAudio?.reason,
             },
           }));
         } else {
           const result = await ankiApi.generateAudio(candidate.text, learningLanguage, { signal: controller.signal });
           const fields = notetype.fieldNames.map((_name, i) => {
-            if (i === audioFieldIndex) return `[sound:${result.filename}]`;
+            if (i === audioFieldIndex) return result.reference;
             if (i === textFieldIndex) return candidate.text;
             return '';
           });
@@ -318,7 +339,15 @@ const BulkAddForm = ({ deckId, notetype, textFieldIndex, audioFieldIndex, knownF
           {audioCandidates.length > 0 && (
             <div className="bulk-add-audio">
               <h4>Audio</h4>
-              {!audioStarted && knownFieldIndex !== null && (
+              {!audioStarted && cueAudioRequired && (
+                <p className="bulk-add-cost-notice">
+                  This note type has a known-language audio field (CueAudio on the amgi Listening template) - a card
+                  with no clip there is silent on its prompt side and cannot use that template. Generating it needs
+                  the {LANGUAGES[knownLanguage]?.name || knownLanguage} text too, so this is generated for every card
+                  below, not offered as an optional extra.
+                </p>
+              )}
+              {!audioStarted && !cueAudioRequired && knownFieldIndex !== null && (
                 <label className="bulk-add-toggle">
                   <input
                     type="checkbox"
@@ -333,9 +362,11 @@ const BulkAddForm = ({ deckId, notetype, textFieldIndex, audioFieldIndex, knownF
               )}
               {!audioStarted && (
                 <p className="bulk-add-cost-notice">
-                  {generateOtherSide && knownFieldIndex !== null
-                    ? `Generating the ${LANGUAGES[knownLanguage]?.name || knownLanguage} side and audio together calls this app's local generator twice per card without audio yet - ${audioCandidates.length} text call${audioCandidates.length === 1 ? '' : 's'} plus ${audioCandidates.length} audio call${audioCandidates.length === 1 ? '' : 's'}. Generating them together (rather than audio alone) is what lets the audio use the reading the text call produces - the same reason the single-note form does both in one pass. Text generation needs a real OpenAI API key; without one this step fails per card rather than falling back to a mock. Clip files are content-hashed, so re-running this after a cancel never regenerates a clip it already made.`
-                    : `Generating audio calls this app's local clip generator once per card without audio yet - ${audioCandidates.length} call${audioCandidates.length === 1 ? '' : 's'} in total. Without an OpenAI API key configured, each call produces a clearly-marked mock clip instead of real audio (safe to try, no cost). With a key configured, each call may use paid API quota - review the count above before starting. Clip files are content-hashed, so re-running this after a cancel never regenerates a clip it already made.`}
+                  {cueAudioRequired
+                    ? `Generating text and both audio clips together calls this app's local generator three times per card without audio yet - ${audioCandidates.length} text call${audioCandidates.length === 1 ? '' : 's'} plus ${audioCandidates.length * 2} audio call${audioCandidates.length * 2 === 1 ? '' : 's'} (one ${LANGUAGES[knownLanguage]?.name || knownLanguage} clip and one ${LANGUAGES[learningLanguage]?.name || learningLanguage} clip per card - cost doubles versus a single-clip note type). Text generation needs a real OpenAI API key; without one this step fails per card rather than falling back to a mock. Clip files are content-hashed, so re-running this after a cancel never regenerates a clip it already made.`
+                    : (generateOtherSide && knownFieldIndex !== null
+                      ? `Generating the ${LANGUAGES[knownLanguage]?.name || knownLanguage} side and audio together calls this app's local generator twice per card without audio yet - ${audioCandidates.length} text call${audioCandidates.length === 1 ? '' : 's'} plus ${audioCandidates.length} audio call${audioCandidates.length === 1 ? '' : 's'}. Generating them together (rather than audio alone) is what lets the audio use the reading the text call produces - the same reason the single-note form does both in one pass. Text generation needs a real OpenAI API key; without one this step fails per card rather than falling back to a mock. Clip files are content-hashed, so re-running this after a cancel never regenerates a clip it already made.`
+                      : `Generating audio calls this app's local clip generator once per card without audio yet - ${audioCandidates.length} call${audioCandidates.length === 1 ? '' : 's'} in total. Without an OpenAI API key configured, each call produces a clearly-marked mock clip instead of real audio (safe to try, no cost). With a key configured, each call may use paid API quota - review the count above before starting. Clip files are content-hashed, so re-running this after a cancel never regenerates a clip it already made.`)}
                 </p>
               )}
               <div className="bulk-add-audio-controls">
