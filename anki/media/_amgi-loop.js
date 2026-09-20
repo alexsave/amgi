@@ -760,6 +760,47 @@ function forgetRecording() {
 //      fixed ring is a permanent, unconditional anchor, so the bars
 //      themselves are now allowed to fall to nothing in silence (see
 //      paint()'s `outerR`) without the card ever looking broken or frozen.
+//   4. The owner then asked for the ring itself to carry the source colour,
+//      "same colour as the bars" - it already did, technically (paint()
+//      passes one `color` argument to both ctx.strokeStyle and
+//      ctx.fillStyle, always has), but at a flat 0.6 alpha against #0b0d10
+//      that hue reads as a dim, faded echo next to bars that reach full
+//      alpha on a loud syllable, so a glance at a quiet moment - which is
+//      most of the card's on-screen time, since a bar's own alpha floor is
+//      0.35 and its length collapses to nothing at rest (see `outerR`) -
+//      read as "a different, washed-out colour" even though the underlying
+//      value was identical. Raised to 0.85 (paint()'s `ringAlpha`) so the
+//      ring reads as unmistakably the same saturated hue the bars flare up
+//      to, not a paler relative of it, while staying comfortably short of
+//      the bars' own peak so a loud bar still visibly outranks the anchor
+//      it grows from.
+//
+//      What the ring does with NO source engaged at all - not quiet, but
+//      nothing has drawn here yet, or the last thing that did has fully
+//      ended - is a separate decision from the colour-matching above, and
+//      deliberately not "the existing --amgi-color-neutral" nor a countdown
+//      back to nothing: stop() now repaints the ring in whichever source's
+//      colour last drew it (see `lastColor`), rather than clearing to a
+//      blank patch, once a real source has genuinely engaged this canvas at
+//      least once - so "the cue clip just ended, the mic hasn't opened yet"
+//      or "the native audio finished, the card is just sitting there
+//      answered" keep the same anchor on screen instead of flashing it away
+//      and back for every gap between sources. Neutral grey is not the
+//      right colour for that gap: this file always knows exactly which
+//      source last spoke, so dropping that back to "unidentified" would
+//      throw away information the ring already has, not add honesty to it -
+//      --amgi-color-neutral stays reserved for `colors[kind] || neutral`'s
+//      genuine fallback (an audio kind this file does not recognise) a few
+//      lines below, which is the only place "we don't know whose voice this
+//      is" is actually true. Before any source has ever engaged the canvas,
+//      though, it stays untouched (default backing size, nothing drawn) on
+//      purpose: drive.js's own harness proves the mic is really driving the
+//      visualizer by checking the canvas's pixel size changes away from its
+//      browser default ONLY once a real AnalyserNode feeds it, and a
+//      pre-emptive "idle ring" painted before that would need to size the
+//      canvas to do it, which would quietly defeat that proof rather than
+//      add a cosmetic. The status line already says "nothing is happening
+//      yet" in words for that one gap; the ring does not need to say it too.
 //
 // What that leaves RMS driving is still the bars' shared opacity (see
 // paint()'s `alpha`) - a separate signal from the per-frequency length each
@@ -944,6 +985,11 @@ function createVisualizer(root) {
   var timeBuffer = null;
   var freqBuffer = null;
   var barState = null;
+  // The colour the last real draw() call used, so stop() can leave the ring
+  // in that colour instead of clearing it - see the file header comment for
+  // why this is deliberately not --amgi-color-neutral. Stays null until a
+  // genuine source has engaged the canvas at least once.
+  var lastColor = null;
 
   function sizeFor() {
     var dpr = globalThis.devicePixelRatio || 1;
@@ -964,6 +1010,16 @@ function createVisualizer(root) {
     if (rafId) cancelAnimationFrame(rafId);
     rafId = null;
     var size = sizeFor();
+    // Once a real source has genuinely drawn here, leave the ring on screen
+    // in that source's own colour rather than clearing it - see the file
+    // header comment for why this is a deliberate choice, not a fallback.
+    // Before that has ever happened, size.width/height come back 0 (the
+    // canvas is still at its untouched default), so this falls through to
+    // the plain clear below exactly as it always has.
+    if (lastColor && size.width && size.height) {
+      paint(size, lastColor, 0, null);
+      return;
+    }
     ctx.clearRect(0, 0, size.width || canvas.width, size.height || canvas.height);
   }
 
@@ -1048,7 +1104,15 @@ function createVisualizer(root) {
     // flicker with loudness.
     var circleR = base;
     var circleLineWidth = 2;
-    ctx.globalAlpha = 0.6 * opacityScale;
+    // 0.85, not the bars' own up-to-1.0 peak: close enough that the ring
+    // reads as the same saturated hue the bars flare up to (see the file
+    // header comment - this used to sit at 0.6, which read as a washed-out
+    // relative of the bar colour rather than the same one), while staying
+    // just under the bars' own ceiling so a loud bar still visibly outranks
+    // the anchor it grows from. Still a flat constant, not driven by
+    // `level`: the ring is not supposed to flicker with loudness.
+    var ringAlpha = 0.85;
+    ctx.globalAlpha = ringAlpha * opacityScale;
     ctx.lineWidth = circleLineWidth;
     ctx.beginPath();
     ctx.arc(cx, cy, circleR, 0, Math.PI * 2);
@@ -1150,6 +1214,9 @@ function createVisualizer(root) {
     // An audio source this file doesn't recognise still gets drawn, just in
     // the neutral colour - a cosmetic feature is never a reason to throw.
     var color = colors[kind] || colors.neutral;
+    // Recorded so stop() can leave the ring in this colour instead of
+    // clearing it once this source ends - see the file header comment.
+    lastColor = color;
 
     if (reducedMotionPreferred()) {
       // A static circle instead of nothing: reduced motion should mean no

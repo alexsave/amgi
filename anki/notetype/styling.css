@@ -27,16 +27,69 @@
    stylesheet loads after reviewer.css's in the document, so an
    equal-specificity tie also resolves in our favour. */
 body.card {
-  /* No CJK family here would leave Korean and Japanese to whatever the
-     platform falls back to - fine on macOS (Apple SD Gothic Neo / Hiragino),
-     unpredictable on Linux/Windows, and on some platforms wrong in a way that
-     is not just ugly: without a language-specific font hint, a browser can
-     pick Chinese glyph forms for kanji shared with Japanese. The `lang`
-     attribute on the target line (see back.html) is what actually fixes that
-     for Japanese; this stack is the fallback for wherever `lang` isn't
-     enough to steer the platform's own font substitution. */
-  font-family: -apple-system, "Segoe UI", Roboto, "Apple SD Gothic Neo", "Hiragino Sans",
-    "Noto Sans CJK KR", "Noto Sans CJK JP", "Malgun Gothic", "Yu Gothic", sans-serif;
+  /* An editorial serif, on every line of the card - the owner's call after
+     comparing four candidates live (font 0/A/B/C, see the design pass this
+     followed): "font B is best for the korean text and the other language
+     text." That was scoped to the answer side's content (the target phrase
+     and its gloss), but the follow-up review made the real complaint plain:
+     "the text of the amgi itself" - the status line, the replay buttons, the
+     reveal button, any note - was what read as generic, "too much like an
+     Amazon product", not the content it sits around. Rather than pairing a
+     second, "characterful" chrome typeface against the content serif (the
+     classic pairing, and a real option - see the alternative screenshots
+     this pass also produced), this sets ONE font-family here, on body.card
+     itself, so every element on the card inherits it: the content
+     (.amgi-text-target/-cue/-notes) and the chrome (.amgi-status,
+     button.amgi-btn via its own `font: inherit`, .amgi-note) end up in the
+     same family by construction, not by two rules that could drift apart.
+     The chrome already sits smaller and quieter than the content - see
+     .amgi-status's 1.3rem/600 vs .amgi-text-target's 1.85rem/700, and
+     button/.amgi-note's own smaller sizes plus --amgi-secondary-opacity -
+     so "one coherent editorial object where the chrome is quieter, not a
+     second face" falls out of sizing that already existed, without gambling
+     a second font's availability across platforms on top of it. A
+     characterful sans is a real pairing (Trebuchet MS/Avenir Next, see the
+     alternative shots) but degrades to the same generic system sans this
+     fixed on Windows/Linux where neither ships, which reintroduces the exact
+     complaint on every platform but macOS; one serif stack does not have
+     that failure mode.
+
+     The stack itself: `ui-serif` first (Safari and Chromium both resolve
+     this to the platform's own serif UI font - New York-family on recent
+     macOS), then Latin serif fallbacks for the gloss/chrome text alone
+     (Georgia/Cambria/Times New Roman carry no CJK glyphs, so the browser
+     skips them for Korean or Japanese characters specifically and keeps
+     them only for English), then the CJK-capable serifs in the order most
+     likely to find one actually installed. `Language` (see anki/README.md's
+     field table) is not Korean-only - `ja` is a documented value too - so
+     this covers both scripts, and they get genuinely different treatment
+     because their platforms do: Yu Mincho ships on Windows 8.1+ as a
+     modern, elegant Japanese serif (Microsoft's own reaction to MS Mincho
+     looking dated), so a Japanese card on stock Windows already lands
+     somewhere good. Korean has no equivalent - Microsoft has never shipped a
+     newer serif for Hangul the way it shipped Yu Mincho for Japanese - so
+     Batang (dated, the previous pass's own complaint) or Gungsuh (more
+     brush-influenced, not less dated) are the only two serif Hangul faces
+     Windows guarantees, and that cannot be fixed without shipping a font
+     file, which this stack deliberately does not do (no @font-face, no
+     downloaded weight to flag a licence for). What this ordering can
+     actually improve is everything upstream of that floor: Nanum Myeongjo
+     (ships with many Korean-locale Office installs and Linux CJK font
+     packages, and is a genuinely modern face) and Hiragino Mincho ProN
+     (macOS's own Japanese serif, redundant with `ui-serif` there but a
+     direct-name fallback for engines that don't resolve the generic one)
+     both come before the Noto Serif KR/JP/CJK KR/CJK JP family (ChromeOS and
+     most Linux CJK bundles), which in turn comes before AppleMyungjo
+     (macOS, likewise redundant with `ui-serif`) and Batang/MS Mincho last of
+     the named fonts - so any platform that has something better than the
+     Windows floor installed gets it, and a bare Windows box degrades no
+     worse than it already would have. Generic `serif` closes the stack for
+     whatever is left. Contrast is unaffected by any of this: WCAG's ratio is
+     a function of the two colours only, and none changed here - see the
+     numbers already recorded below and in _amgi-loop.css's own comment. */
+  font-family: ui-serif, Georgia, Cambria, "Times New Roman", "Yu Mincho", "Hiragino Mincho ProN",
+    "Nanum Myeongjo", "Noto Serif KR", "Noto Serif JP", "Noto Serif CJK KR", "Noto Serif CJK JP",
+    AppleMyungjo, Batang, "MS Mincho", serif;
   /* Deliberately no font-size here any more: every visible size in
      _amgi-loop.css is already in rem, which resolves against Anki's own html
      root (webview.py sets that from the Qt system font when "use system font
