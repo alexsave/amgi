@@ -157,13 +157,22 @@ export const DeckProvider = ({ children }) => {
    * deck once at the end, the same "refresh after the write, not during it"
    * shape addAnkiNote uses - refreshing per note would mean 60 re-fetches
    * for one paste.
+   *
+   * `refresh: false` is for the caller that writes several batches in a row
+   * and owns the refresh itself: BulkRun cuts a batch every few seconds so
+   * that closing the tab cannot cost a finished card, and refreshing after
+   * each of those would reintroduce, one refresh per batch, the very
+   * amplification batching exists to remove. That caller refreshes exactly
+   * once, when its last batch has landed.
    */
-  const addAnkiNotesBulk = useCallback(async (deckId, notes) => {
+  const addAnkiNotesBulk = useCallback(async (deckId, notes, { refresh = true } = {}) => {
     const { results } = await ankiApi.addNotesBulk(notes.map((note) => ({ ...note, deckId: Number(deckId) })));
-    await Promise.all([
-      loadDeckCards(deckId, { offset: 0, limit: deckCards[deckId]?.limit || 20 }),
-      refreshAnkiDecks(),
-    ]);
+    if (refresh) {
+      await Promise.all([
+        loadDeckCards(deckId, { offset: 0, limit: deckCards[deckId]?.limit || 20 }),
+        refreshAnkiDecks(),
+      ]);
+    }
     return results;
   }, [loadDeckCards, refreshAnkiDecks, deckCards]);
 

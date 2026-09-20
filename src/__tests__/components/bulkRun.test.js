@@ -25,10 +25,12 @@ const cardFor = (text) => ({
 });
 
 const renderRun = (lines, { strict = false, onFinished } = {}) => {
-  const addAnkiNote = jest.fn(async () => ({ noteId: 5 }));
+  // One result slot per note, the shape both transports' addNotesBulk
+  // returns (see plusaudio/lib/collection/notes.js).
+  const addAnkiNotesBulk = jest.fn(async (deckId, notes) => notes.map((_, n) => ({ ok: true, noteId: 100 + n })));
   const refreshAnkiDecks = jest.fn();
   const loadDeckCards = jest.fn();
-  useDecks.mockReturnValue({ addAnkiNote, refreshAnkiDecks, loadDeckCards });
+  useDecks.mockReturnValue({ addAnkiNotesBulk, refreshAnkiDecks, loadDeckCards });
 
   const run = (
     <BulkRun
@@ -41,8 +43,11 @@ const renderRun = (lines, { strict = false, onFinished } = {}) => {
     />
   );
   render(strict ? <StrictMode>{run}</StrictMode> : run);
-  return { addAnkiNote, refreshAnkiDecks, loadDeckCards };
+  return { addAnkiNotesBulk, refreshAnkiDecks, loadDeckCards };
 };
+
+/** Every note actually written, across however many batches it took. */
+const notesWritten = (addAnkiNotesBulk) => addAnkiNotesBulk.mock.calls.flatMap(([, notes]) => notes);
 
 /** Let every pending microtask and the effect's own awaits settle. */
 const settle = () => act(async () => { await new Promise((resolve) => setTimeout(resolve, 5)); });
@@ -91,21 +96,76 @@ describe('making many cards from a paste', () => {
     expect(screen.getByText('Done: 12 added')).toBeInTheDocument();
   });
 
-  test('writes each card as it is finished rather than batching them', async () => {
-    const gates = new Map();
-    ankiApi.generateCardText.mockImplementation((text) => new Promise((resolve) => {
-      gates.set(text, () => resolve(cardFor(text)));
-    }));
+  test('a finished card is written without waiting for the rest of the queue', async () => {
+    // The durability property this screen is built around, now that writes
+    // are batched: a card that is made while the others are still being made
+    // is in the deck within one flush window, not at the end of the run.
+    // 3000 is BulkRun's own FLUSH_MS.
+    jest.useFakeTimers();
+    try {
+      const gates = new Map();
+      ankiApi.generateCardText.mockImplementation((text) => new Promise((resolve) => {
+        gates.set(text, () => resolve(cardFor(text)));
+      }));
 
-    const { addAnkiNote } = renderRun(['a', 'b', 'c']);
-    await waitFor(() => expect(ankiApi.generateCardText).toHaveBeenCalledTimes(3));
-    expect(addAnkiNote).not.toHaveBeenCalled();
+      const { addAnkiNotesBulk } = renderRun(['a', 'b', 'c']);
+      await waitFor(() => expect(ankiApi.generateCardText).toHaveBeenCalledTimes(3));
+      expect(addAnkiNotesBulk).not.toHaveBeenCalled();
 
-    // One card done means one card in the deck, while the other two are
-    // still being made - closing the tab now costs only the rest.
-    await act(async () => { gates.get('b')(); });
-    await waitFor(() => expect(addAnkiNote).toHaveBeenCalledTimes(1));
-    expect(addAnkiNote.mock.calls[0][1].fields[idx.target]).toBe('b');
+      await act(async () => { gates.get('b')(); });
+      await act(async () => { await jest.advanceTimersByTimeAsync(3000); });
+
+      // One card written, on its own, while the other two are still being
+      // made - closing the tab now costs only the rest of the queue.
+      expect(addAnkiNotesBulk).toHaveBeenCalledTimes(1);
+      const notes = notesWritten(addAnkiNotesBulk);
+      expect(notes).toHaveLength(1);
+      expect(notes[0].fields[idx.target]).toBe('b');
+      expect(rowStates()).toEqual(['making…', 'in the deck', 'making…']);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  test('cards that finish together are written as one call, not one call each', async () => {
+    // The amplification this replaced: one write per card, each of which
+    // re-read the deck list and the open deck's page (DeckContext), so a
+    // sixty line paste was a hundred and eighty collection operations. Ten
+    // is BulkRun's own FLUSH_SIZE, so twelve lines that all finish at once
+    // are a full batch and then the remaining two.
+    const lines = Array.from({ length: 12 }, (_, i) => `line ${i}`);
+    const { addAnkiNotesBulk } = renderRun(lines);
+
+    await waitFor(() => expect(screen.getByText('Done: 12 added')).toBeInTheDocument());
+    expect(addAnkiNotesBulk).toHaveBeenCalledTimes(2);
+    expect(addAnkiNotesBulk.mock.calls.map(([, notes]) => notes.length)).toEqual([10, 2]);
+    expect(notesWritten(addAnkiNotesBulk).map((note) => note.fields[idx.target])).toEqual(lines);
+  });
+
+  test('a batch that fails to write costs exactly the rows in it', async () => {
+    const { addAnkiNotesBulk } = renderRun(['a', 'b']);
+    addAnkiNotesBulk.mockRejectedValueOnce(new Error('Anki went away'));
+
+    await waitFor(() => expect(screen.getByText(/2 failed/)).toBeInTheDocument());
+    expect(rowStates()).toEqual(['failed', 'failed']);
+    // Not left at "making…" forever, which is what a swallowed write error
+    // would look like on screen.
+    expect(screen.getAllByText('Anki went away')).toHaveLength(2);
+  });
+
+  test('one bad note in a batch does not take the rest of the batch with it', async () => {
+    // Both transports' addNotesBulk report a bad note in its own result slot
+    // and add the others anyway - the row has to say the same.
+    const { addAnkiNotesBulk } = renderRun(['a', 'b', 'c']);
+    addAnkiNotesBulk.mockResolvedValueOnce([
+      { ok: true, noteId: 1 },
+      { ok: false, error: 'note type "Basic" has 2 fields, got 5' },
+      { ok: true, noteId: 3 },
+    ]);
+
+    await waitFor(() => expect(screen.getByText(/Done: 2 added/)).toBeInTheDocument());
+    expect(rowStates()).toEqual(['in the deck', 'failed', 'in the deck']);
+    expect(screen.getByText('note type "Basic" has 2 fields, got 5')).toBeInTheDocument();
   });
 
   test('rows keep the order of the paste however the lanes finish', async () => {
@@ -134,12 +194,12 @@ describe('making many cards from a paste', () => {
   test('skips what the deck already has before making anything', async () => {
     ankiApi.fieldValuesInDeck.mockResolvedValue({ values: ['already there'] });
 
-    const { addAnkiNote } = renderRun(['already there', 'new one']);
+    const { addAnkiNotesBulk } = renderRun(['already there', 'new one']);
     await waitFor(() => expect(screen.getByText(/Done: 1 added/)).toBeInTheDocument());
 
     expect(ankiApi.generateCardText).toHaveBeenCalledTimes(1);
     expect(ankiApi.generateCardText.mock.calls[0][0]).toBe('new one');
-    expect(addAnkiNote).toHaveBeenCalledTimes(1);
+    expect(notesWritten(addAnkiNotesBulk)).toHaveLength(1);
     expect(rowStates()).toEqual(['already here', 'in the deck']);
     expect(screen.getByText(/1 already in the deck/)).toBeInTheDocument();
   });
@@ -150,10 +210,10 @@ describe('making many cards from a paste', () => {
       return cardFor(text);
     });
 
-    const { addAnkiNote } = renderRun(['good 1', 'bad', 'good 2']);
+    const { addAnkiNotesBulk } = renderRun(['good 1', 'bad', 'good 2']);
     await waitFor(() => expect(screen.getByText(/Done: 2 added/)).toBeInTheDocument());
 
-    expect(addAnkiNote).toHaveBeenCalledTimes(2);
+    expect(notesWritten(addAnkiNotesBulk).map((note) => note.fields[idx.target])).toEqual(['good 1', 'good 2']);
     expect(rowStates()).toEqual(['in the deck', 'failed', 'in the deck']);
     expect(screen.getByText(/1 failed/)).toBeInTheDocument();
     expect(screen.getByText('the model refused')).toBeInTheDocument();
@@ -185,11 +245,11 @@ describe('making many cards from a paste', () => {
     // token is what stops that leaving every row at "queued" forever, and
     // what stops the superseded run doing the work twice.
     const onFinished = jest.fn();
-    const { addAnkiNote } = renderRun(['a', 'b'], { strict: true, onFinished });
+    const { addAnkiNotesBulk } = renderRun(['a', 'b'], { strict: true, onFinished });
 
     await waitFor(() => expect(screen.getByText('Done: 2 added')).toBeInTheDocument());
     expect(rowStates()).toEqual(['in the deck', 'in the deck']);
-    expect(addAnkiNote).toHaveBeenCalledTimes(2);
+    expect(notesWritten(addAnkiNotesBulk).map((note) => note.fields[idx.target])).toEqual(['a', 'b']);
     expect(ankiApi.generateCardText).toHaveBeenCalledTimes(2);
     expect(onFinished).toHaveBeenCalledTimes(1);
   });
@@ -197,8 +257,30 @@ describe('making many cards from a paste', () => {
   test('a failed dupe check does not stop the run', async () => {
     ankiApi.fieldValuesInDeck.mockRejectedValue(new Error('Anki went away'));
 
-    const { addAnkiNote } = renderRun(['a', 'b']);
+    const { addAnkiNotesBulk } = renderRun(['a', 'b']);
     await waitFor(() => expect(screen.getByText('Done: 2 added')).toBeInTheDocument());
-    expect(addAnkiNote).toHaveBeenCalledTimes(2);
+    expect(notesWritten(addAnkiNotesBulk)).toHaveLength(2);
+  });
+
+  test('skips a line the deck already has whatever its case or trailing punctuation', async () => {
+    // The dupe check reads the deck through normalizeForDedupe (see
+    // lyricsParse.js), which does not fold case and does strip trailing
+    // punctuation. BulkRun looked those keys up with
+    // `text.trim().toLowerCase()`, so a line with a capital letter in it and
+    // a line whose existing note ends in punctuation both missed - and a
+    // missed skip is not a cosmetic one: the line is sent to OpenAI again
+    // and lands in the deck a second time.
+    ankiApi.fieldValuesInDeck.mockResolvedValue({ values: ['Hello there', 'Comment ça va?'] });
+
+    const { addAnkiNotesBulk } = renderRun(['Hello there', 'Comment ça va?', 'hello there', 'new one']);
+    await waitFor(() => expect(screen.getByText(/Done: 2 added/)).toBeInTheDocument());
+
+    // The third line is NOT a duplicate: lyricsParse's policy is that case
+    // is never folded, so "hello there" and "Hello there" are two lines and
+    // this must not become a skip by lowercasing both sides instead.
+    expect(rowStates()).toEqual(['already here', 'already here', 'in the deck', 'in the deck']);
+    expect(ankiApi.generateCardText.mock.calls.map(([text]) => text)).toEqual(['hello there', 'new one']);
+    expect(notesWritten(addAnkiNotesBulk).map((note) => note.fields[idx.target])).toEqual(['hello there', 'new one']);
+    expect(screen.getByText(/2 already in the deck/)).toBeInTheDocument();
   });
 });
