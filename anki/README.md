@@ -220,3 +220,12 @@ What that run confirmed, and changed:
 
 2. **AnkiDroid, AnkiMobile and AnkiWeb, all of it.**
    The table above is read from AnkiDroid's source and from AnkiMobile's and AnkiWeb's documented behaviour, and none of it has been run.
+
+3. **Whether `A` and `V` reach the card before Anki's own menus do.**
+   The answer side binds three replay keys: `R` for "Hear it again", `A` for "Hear the answer", `V` for "Hear yourself".
+   `R` is safe by construction - Anki's own replay key acts on the `[sound:]` tags it strips out of a card ([rslib/src/text.rs](https://github.com/ankitects/anki/blob/main/rslib/src/text.rs), `AV_TAGS`), and this note type holds `<audio src>` elements instead, so nothing native answers `R` here.
+   `A` and `V` are a different matter: they are Anki's own **Add** and **record own voice** accelerators on the main window.
+   The template's handler runs in the capture phase and calls `preventDefault`, `stopPropagation` and `stopImmediatePropagation`, which is as hard as a web page can consume a key, but whether that stops Qt's accelerator as well has not been checked in real Anki.
+   The same file already records that `space` and `1` genuinely do double-fire this way, which is why grading is left to Anki's own bar - so the possibility is real, not theoretical.
+   To check: reveal an answer and press `A`. If the Add window opens, the accelerator won.
+   `AMGI_CONFIG.replayKeys` remaps all three without touching `anki-loop.js`.
