@@ -50,6 +50,27 @@ test('generates a card through the shared policy', async () => {
   assert.equal(openai.calls[0].model, CARD_MODELS.text);
 });
 
+test('every text call is pinned to the measured reasoning effort and verbosity, so gpt-5-mini cannot silently drift back to the (expensive) API default', async () => {
+  // Regression guard for the billing-dashboard finding that gpt-5-mini
+  // OUTPUT tokens were nearly half of total spend: with no reasoning_effort
+  // set, a reasoning model deliberates before writing the JSON and bills
+  // that deliberation as output. See models.ts's TEXT_REASONING_EFFORT
+  // comment for the measurement that picked "minimal"/"low".
+  const openai = scriptedClient({
+    known_text: 'date', learning_text: '날짜', sense_tag: '', register: 'polite', spoken_reading: '',
+  });
+
+  const generate = createTextGenerator(openai);
+  await generate({ userInput: 'date', knownLanguage: 'en', learningLanguage: 'ko' });
+
+  assert.equal(openai.calls[0].reasoning_effort, CARD_MODELS.textReasoningEffort);
+  assert.equal(openai.calls[0].verbosity, CARD_MODELS.textVerbosity);
+  // Pinned literally, not just "equal to whatever the constant says" - so a
+  // change to the constant itself is a visible diff in this test too.
+  assert.equal(openai.calls[0].reasoning_effort, 'minimal');
+  assert.equal(openai.calls[0].verbosity, 'low');
+});
+
 test('a Japanese card carries its kana reading through untouched', async () => {
   const openai = scriptedClient({
     known_text: 'went',
