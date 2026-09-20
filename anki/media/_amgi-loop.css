@@ -32,15 +32,23 @@
 
      amgi's card is dark unconditionally now (the owner's call, not a
      rendering accident - see styling.css's .card comment), so there is only
-     ever one background these are read against: #202429. Contrast of each,
-     computed against it (WCAG relative-luminance ratio, AA text needs
-     >=4.5:1; the previous pass's own bar for these was >=5:1 since a ring
-     drawn thin also needs to be findable, not just legible as text):
-       --amgi-color-cue:     5.27:1
-       --amgi-color-you:     7.50:1
-       --amgi-color-native:  6.76:1
-       --amgi-color-neutral: 5.27:1
-     These used to be the .nightMode/.night_mode override; they are the only
+     ever one background these are read against: #0b0d10 (near-black - see
+     styling.css's own comment for why this got darker than the #202429 it
+     started as). Contrast of each, computed against it (WCAG
+     relative-luminance ratio, AA text needs >=4.5:1; the previous pass's own
+     bar for these was >=5:1 since a ring drawn thin also needs to be
+     findable, not just legible as text - recomputed here, not assumed,
+     because a darker background raises every one of these, but by different
+     amounts depending on the colour's own luminance, so the numbers
+     genuinely moved rather than just improving uniformly):
+       --amgi-color-cue:     6.55:1  (was 5.27:1 against #202429)
+       --amgi-color-you:     9.32:1  (was 7.50:1 against #202429)
+       --amgi-color-native:  8.41:1  (was 6.76:1 against #202429)
+       --amgi-color-neutral: 6.58:1  (was 5.27:1 against #202429)
+     All four cleared the >=5:1 bar even more comfortably than before, so
+     none of the source hues needed lifting to stay legible on the darker
+     field - only the background moved. These used to be the
+     .nightMode/.night_mode override; they are the only
      values now, because there is no other background left to tune a second
      set against. The learner's own voice used to share hue with the "Again"
      grading button's red (both leaned orange-red, hsl(20)); it is amber/gold
@@ -56,17 +64,17 @@
   --amgi-color-you: hsl(38, 75%, 58%); /* your own voice, live or replayed */
   --amgi-color-native: hsl(158, 50%, 50%); /* the native/translation audio */
   --amgi-color-neutral: hsl(215, 12%, 60%); /* an audio source we can't identify */
-  /* A multiplier on every ring's alpha (drawing code stays untouched; retune
-     here). 1 = the ring's own 0.35-1.0 range; turn this down for a subtler
-     card, up is clamped at fully opaque. */
+  /* A multiplier on the visualizer bars' alpha (drawing code stays
+     untouched; retune here). 1 = their own 0.35-1.0 range; turn this down
+     for a subtler card, up is clamped at fully opaque. */
   --amgi-visualizer-opacity: 1;
 
   /* One dimming level for every line of secondary text (the gloss line, the
      notes, the fallback note), so "how much quieter than the hero" is one
      number instead of three that drift apart over time. #e8ecf1 text at this
-     opacity against #202429 measures 8.53:1 - comfortably past WCAG AA
-     (>=4.5:1); the opacity trick itself was never the problem item 7 found,
-     mismeasured levels were. */
+     opacity against #0b0d10 measures 10.08:1 - comfortably past WCAG AA
+     (>=4.5:1, was 8.53:1 against the earlier #202429); the opacity trick
+     itself was never the problem item 7 found, mismeasured levels were. */
   --amgi-secondary-opacity: 0.78;
 }
 
@@ -129,7 +137,7 @@
    moment it is genuinely live gets a callout of its own rather than being
    folded into the instruction below it: a red dot is the one shape everyone
    already reads as "you are being recorded", before anyone reads the words
-   next to it, and it does not lean on the ring's amber "you" colour to carry
+   next to it, and it does not lean on the visualizer's amber "you" colour to carry
    that fact - a colour code is not something every viewer reads the same
    way, or reads at all. Shown for exactly PHASE.LISTENING (see
    anki-loop.js's AMGI_STATUS) - reviewLoop.js's listen() only ever reaches
@@ -137,8 +145,17 @@
    anki-loop.js's microphone()), so there is no gap between this appearing
    and the microphone actually being open, and it is hidden again the instant
    the phase moves on, which is only once stopMicrophone() has actually
-   stopped the tracks. Colour contrast against the card's #202429: 5.6:1
-   (WCAG AA text needs >=4.5:1). */
+   stopped the tracks. Colour contrast against the card's #0b0d10: 7.01:1
+   (WCAG AA text needs >=4.5:1; was 5.6:1 against the earlier #202429).
+
+   Found live in real Anki while verifying an unrelated change: the element's
+   own `display: inline-flex` below has the same specificity as the browser's
+   built-in `[hidden] { display: none }` rule, and an author stylesheet beats
+   a user-agent one at equal specificity - so front.html's `hidden` attribute
+   (and every `el.hidden = true` this drives from makeUi's `show()`) was
+   losing that tie-break and the dot rendered on every phase, not just
+   PHASE.LISTENING. The `[hidden]` rule right below raises this selector's
+   own specificity past the plain class rule so hiding actually wins. */
 .amgi-status-recording {
   display: inline-flex;
   align-items: center;
@@ -146,6 +163,10 @@
   font-size: 1.05rem;
   font-weight: 700;
   color: #ff6b6b;
+}
+
+.amgi-status-recording[hidden] {
+  display: none;
 }
 
 .amgi-status-dot {
@@ -182,17 +203,19 @@
   opacity: var(--amgi-secondary-opacity);
 }
 
-/* A core ring plus spokes radiating around it, drawn by anki-loop.js's
-   createVisualizer: the ring's radius follows the real loudness (time-domain
-   RMS) of whichever source is playing, and each spoke follows one
-   log-frequency band of the same signal, log-spaced and mirrored left/right
-   so the shape reacts symmetrically instead of the old linear 64-bar mapping
-   that crammed all of speech's energy into one fifth of the circle (see
-   anki-loop.js's barLevels for the fix). Everything is coloured by the
-   SOURCE, not the phase, same as before. A quiet moment never leaves a fully
-   blank patch: the ring has a floor size/alpha and a slow independent
-   "breathe" so listening reads as alive, not hung, even in total silence,
-   and reduced-motion clients get a single static ring instead of nothing.
+/* 28 radial bars touching edge to edge, drawn by anki-loop.js's
+   createVisualizer - no ring any more, the owner's call once bars alone
+   proved they could carry the card. Each bar follows one log-frequency band
+   of whichever source is playing, log-spaced and mirrored left/right so the
+   shape reacts symmetrically instead of the old linear 64-bar mapping that
+   crammed all of speech's energy into one fifth of the circle (see
+   anki-loop.js's barLevels for the fix), and overall loudness (time-domain
+   RMS) drives the whole shape's opacity now that there is no ring radius
+   left for it to drive. Everything is coloured by the SOURCE, not the
+   phase, same as before. A quiet moment never leaves a fully blank patch:
+   the bars have a floor length and a slow independent "breathe" on top of
+   it so listening reads as alive, not hung, even in total silence, and
+   reduced-motion clients get a single static starburst instead of nothing.
    6rem read as a dot, not rays, once spokes were added back - a spoke needs
    real radius to be legible as a line rather than a smudge - so this is
    9rem now. .amgi-visual still reserves the space at a fixed size, so the
