@@ -243,38 +243,35 @@
    anki-loop.js's createVisualizer for the drawing code and the
    degrade-to-nothing rules. */
 .amgi-visual {
-  /* The band, at the foot of the card, spanning its full width. It is
-     deliberately NOT inset from the bottom: the owner asked for the gap
-     between the ridge and Anki's own answer bar to go, so the strip runs to
-     the card's own bottom edge and the ridge stands on it. Left and right
-     run to the window's edges for the same reason - a strip that stops short
-     reads as a widget sitting on the card, and this is supposed to read as
-     the floor the card stands on. */
-  position: absolute;
+  /* The band, across the foot of the WINDOW.
+
+     Fixed, not absolute. It used to be absolutely positioned against .amgi,
+     which is the reading column, and .amgi is only as tall as the viewport
+     when its content fits: a card with a long sentence, or a short Anki
+     window, makes the column taller than the window and the band - anchored
+     to the column's bottom edge, not the window's - goes with it, below the
+     fold, where nothing can see it. Measured at 900x360 with one short line:
+     33px under the fold; with a paragraph of wrapped text: a thousand.
+
+     That was not a new bug, it just needed a card tall enough to show it, and
+     no amount of width arithmetic could have fixed it - the band was being
+     asked to sit at the bottom of the wrong box. The viewport is the box the
+     design has always meant: the point of this strip is that it stands on
+     Anki's own answer bar, and Anki's answer bar does not scroll.
+
+     left/right rather than a width plus a centring transform, now that the
+     containing block IS the viewport: two edges pinned needs no arithmetic,
+     and it sidesteps 100vw, which counts a vertical scrollbar's width as
+     part of the viewport and would push the right edge under it.
+
+     .amgi still reserves this exact height as padding-bottom, so the
+     sentence and the ridge can never occupy the same pixels even though the
+     band no longer takes part in the column's layout - that guarantee is the
+     box model's, which is why the two share one variable. */
+  position: fixed;
   bottom: 0;
-  /* .amgi is a centred reading column capped at 34rem, and a band that wide
-     floats in the middle of a wide window reading as a widget dropped onto
-     the card. This one escapes the column twice over: past the column to the
-     card, and then past the card to the window itself.
-
-     The full viewport width, not the card's - this used to subtract
-     styling.css's card margin from each side, on the reasoning that the band
-     belongs to the card and should stop where the card stops. Seen running,
-     it reads as the opposite: the band already gave up its bottom margin so
-     it could stand on Anki's answer bar rather than float above it, and a
-     strip that runs the whole way down but stops twelve pixels short on each
-     side looks like it failed to reach rather than like it was placed. The
-     floor of a room meets the walls.
-
-     Centred on the column's centre, which is the card's centre, which is the
-     window's centre - the card is centred by equal side margins - so 100vw
-     lands exactly on both window edges and contributes no horizontal
-     overflow. Measured in the harness rather than reasoned about: see
-     anki/test/harness for the width sweep that checks both edges at once. */
-  left: 50%;
-  transform: translateX(-50%);
-  width: 100vw;
-  max-width: none;
+  left: 0;
+  right: 0;
   height: var(--amgi-band-height, 4.5rem);
   pointer-events: none;
 }
