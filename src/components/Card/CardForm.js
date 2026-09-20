@@ -3,6 +3,7 @@ import { useDecks } from '../../contexts/DeckContext';
 import { ankiApi } from '../../utils/ankiApi';
 import { ANKI_READY_MODES } from '../../utils/ankiModeText';
 import { LANGUAGES } from '../../constants/languages';
+import { parseLyricsPaste } from '../../utils/lyricsParse';
 import CardPanel from './CardPanel';
 import BulkAddForm from './BulkAddForm';
 import { AMGI_NOTETYPE_NAME, fieldIndexes } from '../../utils/amgiNotetype';
@@ -34,8 +35,10 @@ const languageCodes = Object.keys(LANGUAGES);
 
 const CardForm = ({ deckId, languages, onLanguagesChange }) => {
   const { ankiNotetypes, ensureAnkiNotetypes, addAnkiNote, ankiStatus, refreshAnkiDecks } = useDecks();
-  const [mode, setMode] = useState('single');
   const [input, setInput] = useState('');
+  // Set when what was typed is more than one card's worth, which hands the
+  // rest of the job to the bulk path.
+  const [bulkText, setBulkText] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [added, setAdded] = useState(null);
@@ -49,8 +52,24 @@ const CardForm = ({ deckId, languages, onLanguagesChange }) => {
     [ankiNotetypes],
   );
 
+  // One box, and the line count decides what happens - not a pair of tabs
+  // asking the person to classify their own paste first. Pasting ten lines
+  // and typing one are the same act.
+  const parsed = () => parseLyricsPaste(input, { skipSectionMarkers: true });
+  const lineCount = input.trim() ? parsed().lines.length : 0;
+
+  const submit = async () => {
+    if (!input.trim() || !notetype) return;
+    if (lineCount > 1) {
+      setBulkText(input);
+      return;
+    }
+    return makeCard();
+  };
+
   const makeCard = async () => {
-    const phrase = input.trim();
+    const lines = parsed().lines;
+    const phrase = (lines[0]?.text || input).trim();
     if (!phrase || !notetype) return;
     setError('');
     setBusy(true);
@@ -120,61 +139,37 @@ const CardForm = ({ deckId, languages, onLanguagesChange }) => {
 
   return (
     <div className="card-form-container">
-      <div className="card-form-modes" role="group" aria-label="Add one card or paste a list">
-        <button type="button" className={mode === 'single' ? 'on' : ''} onClick={() => setMode('single')}>
-          One card
-        </button>
-        <button type="button" className={mode === 'bulk' ? 'on' : ''} onClick={() => setMode('bulk')}>
-          Paste a list
+      <div className="card-form-lead">
+        <textarea
+          id="amgiCardInput"
+          className="card-form-input"
+          value={input}
+          onChange={(e) => { setInput(e.target.value); setBulkText(null); }}
+          onKeyDown={(e) => {
+            // Enter submits a single line; Shift+Enter makes a second line,
+            // which is how you get to the many-cards case by typing rather
+            // than only by pasting.
+            if (e.key === 'Enter' && !e.shiftKey && !input.includes('\n')) {
+              e.preventDefault();
+              submit();
+            }
+          }}
+          rows={input.includes('\n') ? Math.min(10, input.split('\n').length + 1) : 1}
+          placeholder={`Type or paste in ${languageLabel(languages.known)} or ${languageLabel(languages.learning)}. One line per card.`}
+          disabled={!ready || busy}
+        />
+        <button type="button" className="card-form-go" onClick={submit} disabled={!ready || busy || !input.trim()}>
+          {busy ? 'Making…' : lineCount > 1 ? `Make ${lineCount} cards` : 'Make the card'}
         </button>
       </div>
 
-      {mode === 'single' ? (
-        <>
-          <div className="card-form-lead">
-            <input
-              id="amgiCardInput"
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') makeCard(); }}
-              placeholder={`Type a phrase in ${languageLabel(languages.known)} or ${languageLabel(languages.learning)}`}
-              disabled={!ready || busy}
-            />
-            <button type="button" className="card-form-go" onClick={makeCard} disabled={!ready || busy || !input.trim()}>
-              {busy ? 'Making…' : 'Make the card'}
-            </button>
-          </div>
-          {error && <p className="card-form-error">{error}</p>}
+      {error && <p className="card-form-error">{error}</p>}
 
-          {added && (
-            <CardPanel
-              key={added.noteId}
-              noteId={added.noteId}
-              notetype={notetype}
-              idx={fieldIndexes(notetype)}
-              initialFields={added.fields}
-              languages={{
-                ...languages,
-                knownName: languageLabel(languages.known),
-                learningName: languageLabel(languages.learning),
-              }}
-              onDeleted={() => { setAdded(null); refreshAnkiDecks(); }}
-              footer={
-                <>
-                  <span className="card-panel-ok">Added to the deck.</span> It is in Anki already; changes here save as you make them.
-                  {added.mocked ? ' Audio is a placeholder - no OpenAI key is set.' : ''}
-                </>
-              }
-            />
-          )}
-          {added?.warning && <p className="card-form-warning">{added.warning}</p>}
-
-        </>
-      ) : (
+      {bulkText ? (
         <BulkAddForm
           deckId={deckId}
           notetype={notetype}
+          presetText={bulkText}
           textFieldIndex={fieldIndexes(notetype).target}
           audioFieldIndex={fieldIndexes(notetype).targetAudio}
           cueAudioFieldIndex={fieldIndexes(notetype).cueAudio}
@@ -183,8 +178,28 @@ const CardForm = ({ deckId, languages, onLanguagesChange }) => {
           learningLanguage={languages.learning}
           ready={ready}
         />
+      ) : added && (
+        <CardPanel
+          key={added.noteId}
+          noteId={added.noteId}
+          notetype={notetype}
+          idx={fieldIndexes(notetype)}
+          initialFields={added.fields}
+          languages={{
+            ...languages,
+            knownName: languageLabel(languages.known),
+            learningName: languageLabel(languages.learning),
+          }}
+          onDeleted={() => { setAdded(null); refreshAnkiDecks(); }}
+          footer={
+            <>
+              <span className="card-panel-ok">Added to the deck.</span> It is in Anki already; changes here save as you make them.
+              {added.mocked ? ' Audio is a placeholder - no OpenAI key is set.' : ''}
+            </>
+          }
+        />
       )}
-
+      {added?.warning && <p className="card-form-warning">{added.warning}</p>}
     </div>
   );
 };
