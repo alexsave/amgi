@@ -193,34 +193,74 @@ export const DeckProvider = ({ children }) => {
   }, [refreshAnkiDecks]);
 
   // Status is polled independently of the deck list itself: a person leaving
-  // Anki open on the setup screen, or toggling the bridge, should see the
-  // banner change within a few seconds with no action of their own -
-  // "re-probe when the situation changes rather than forcing a page reload"
-  // is the whole reason this is an interval instead of a one-shot effect.
+  // Reacting to Anki opening and closing, without a page reload.
+  //
+  // The status itself was already polled here, which is why the badge always
+  // kept up. What did not keep up was everything the status implies: closing
+  // Anki flips the transport from "locked" to "direct", and the deck list was
+  // still whatever it had been when the page loaded - usually empty, with the
+  // locked explanation under it - until somebody reloaded the tab by hand.
+  // The fix is to treat a CHANGE of mode as the event, not the poll: when the
+  // mode moves, re-fetch the decks, and the notes of whichever deck is open.
+  //
+  // Refs rather than effect dependencies for the deck bits, deliberately:
+  // putting currentDeckId or loadDeckCards in the dependency array would tear
+  // down and restart the interval every time you opened a deck, which is the
+  // opposite of what a heartbeat should do.
+  const deckStateRef = useRef({ currentDeckId: null, loadDeckCards: null, refreshAnkiDecks: null });
+  deckStateRef.current = { currentDeckId, loadDeckCards, refreshAnkiDecks };
+
   useEffect(() => {
     let cancelled = false;
+    let lastMode = null;
+
+    const reactToModeChange = () => {
+      const { currentDeckId: deckId, loadDeckCards: loadCards, refreshAnkiDecks: refreshDecks } = deckStateRef.current;
+      if (refreshDecks) refreshDecks();
+      // A deck open on screen has its own list of notes, which is just as
+      // stale as the deck list was.
+      if (deckId && loadCards) loadCards(deckId);
+    };
+
     const pollStatus = async () => {
       try {
         const status = await ankiApi.status();
-        if (!cancelled) setAnkiStatus(status);
+        if (cancelled) return;
+        setAnkiStatus(status);
+        if (status.mode !== lastMode) {
+          const first = lastMode === null;
+          lastMode = status.mode;
+          // The first poll is the page loading, which already fetches below.
+          if (!first) reactToModeChange();
+        }
       } catch {
         // The /api/anki/status route itself always answers 200 with a mode;
         // reaching this catch means the fetch call failed outright (dev
         // server not up yet), which is not a mode worth reporting.
       }
     };
+
     pollStatus();
     refreshAnkiDecks();
     const interval = setInterval(pollStatus, 4000);
+
+    // Coming back to the tab is the single most likely moment for the answer
+    // to have changed, because the usual way it changes is that you were just
+    // in Anki. Poll straight away rather than waiting out the interval.
+    const onVisible = () => { if (!document.hidden) pollStatus(); };
     const onSettingsChanged = () => {
       pollStatus();
       refreshAnkiDecks();
     };
     window.addEventListener(ANKI_SETTINGS_CHANGED_EVENT, onSettingsChanged);
+    window.addEventListener('focus', onVisible);
+    document.addEventListener('visibilitychange', onVisible);
     return () => {
       cancelled = true;
       clearInterval(interval);
       window.removeEventListener(ANKI_SETTINGS_CHANGED_EVENT, onSettingsChanged);
+      window.removeEventListener('focus', onVisible);
+      document.removeEventListener('visibilitychange', onVisible);
     };
   }, [refreshAnkiDecks]);
 

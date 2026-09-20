@@ -101,6 +101,11 @@ export function createDirectOps(collectionPath) {
     async hasMedia(filename) {
       return locked(() => col.hasMedia(filename));
     },
+    async readMedia(filename) {
+      // Like addMedia, this is an ordinary folder read rather than anything
+      // the collection's lock covers.
+      return locked(() => col.readMedia(filename));
+    },
     async addMedia(filename, data) {
       // Unlike every other Collection method, addMedia returns the stored
       // filename directly rather than a {status, result} envelope - media

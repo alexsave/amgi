@@ -2,9 +2,26 @@ import React, { useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useDecks } from '../../contexts/DeckContext';
 import CardForm from './CardForm';
+import AudioChip from './AudioChip';
+import { loadDeckLanguages } from '../../utils/deckLanguagePrefs';
+import { LANGUAGES } from '../../constants/languages';
 import './CardList.css';
 
 const PAGE_SIZE = 20;
+
+// A note field holds the clip as <audio src="name.mp3">, which is the form
+// the card template needs (Anki strips [sound:] tags before a template's
+// JavaScript ever sees them). The filename is what the media route wants.
+const AUDIO_SRC = /<audio[^>]*\ssrc\s*=\s*["']([^"']+)["']/i;
+
+function clipIn(card, fieldName) {
+  const index = (card.fieldNames || []).findIndex((n) => n.toLowerCase() === fieldName.toLowerCase());
+  if (index < 0) return '';
+  const match = AUDIO_SRC.exec(card.fields?.[index] || '');
+  return match ? match[1] : '';
+}
+
+const languageName = (code) => LANGUAGES[code]?.name || code;
 
 const CardList = () => {
   const { id } = useParams();
@@ -18,6 +35,7 @@ const CardList = () => {
   }, [id, loadDeckCards]);
 
   const library = deckCards[id];
+  const langs = loadDeckLanguages(id);
   const cards = library?.cards || [];
 
   const handleBack = () => {
@@ -60,11 +78,10 @@ const CardList = () => {
               <span>{cardData.notetypeName}</span>
             </div>
             <small>{cardData.front_text}</small>
-            <small style={{ display: 'block', opacity: 0.7, marginTop: '0.15rem' }}>
-              {cardData.hasAudio ? '🔊 has audio' : 'no audio yet'}
-            </small>
-            <div className="card-stats">
-              <small>Scheduled in Anki</small>
+            <div className="card-item-clips">
+              <AudioChip filename={clipIn(cardData, 'CueAudio')} label={languageName(langs.known)} tone="cue" />
+              <AudioChip filename={clipIn(cardData, 'TargetAudio')} label={languageName(langs.learning)} tone="target" />
+              {!cardData.hasAudio && <small className="card-item-noaudio">no audio yet</small>}
             </div>
           </div>
         ))}

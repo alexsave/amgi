@@ -37,6 +37,18 @@ export const ankiApi = {
   // state, and installing to a folder other than the one on screen is how
   // you write add-ons into somebody's real Anki by accident.
   installState: () => call('/install'),
+  // A clip's bytes, as a Blob. Not an <audio src> pointing at the route,
+  // because every /api/anki call carries the chosen profile and the bridge
+  // token in a header, and a media element cannot send one - the alternative
+  // would be putting the token in a URL, which is how tokens end up in logs
+  // and history.
+  mediaBlob: async (filename) => {
+    const response = await fetch(`/api/anki/media/${encodeURIComponent(filename)}`, {
+      headers: { 'X-Amgi-Anki-Settings': JSON.stringify(loadAnkiSettings()) },
+    });
+    if (!response.ok) throw new Error(`could not load ${filename}`);
+    return response.blob();
+  },
   install: (baseDirOverride) =>
     call('/install', { method: 'POST', body: JSON.stringify({ baseDirOverride: baseDirOverride || '' }) }),
   decks: () => call('/decks'),

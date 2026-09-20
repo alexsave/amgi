@@ -80,7 +80,16 @@ const DeckList = () => {
       />
 
       <div className="deck-list">
-        {loading ? (
+        {/* Not ready wins over whatever decks are still in state. Anki
+            opening mid-session used to leave the last-known list on screen
+            under an "Anki locked" badge: every row was unclickable, creating
+            a deck would fail, and the only hint was a badge most people are
+            not looking at. Saying plainly that the collection cannot be read
+            right now is both more honest and more useful than a list you
+            cannot act on. */}
+        {!ready ? (
+          emptyState()
+        ) : loading ? (
           <div className="deck-list-loading">Loading your decks…</div>
         ) : Object.entries(decks).length === 0 ? (
           emptyState()

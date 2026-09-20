@@ -13,24 +13,23 @@ Reviewing happens inside Anki, using a card template this repo ships, which stil
 
 ## Zero to your first card
 
-This is the whole path, assuming you have none of the pieces yet: no Anki, no OpenAI account, no Node, and no copy of this repo.
 Budget about half an hour, most of it downloads.
-Everything below happens on one machine, and nothing you make leaves it except the text amgi sends OpenAI to generate audio from.
+Everything happens on one machine, and nothing you make leaves it except the text amgi sends OpenAI to generate audio from.
 
-**1. Install Anki.**
-Get the desktop client from [apps.ankiweb.net](https://apps.ankiweb.net) - it is free, and it is where your cards actually live.
-Start with the desktop client on macOS, Windows or Linux: that is the only one that can run add-ons, and amgi's editing side talks to a desktop profile.
-The deck you end up with reviews anywhere Anki does, and the speaking half is not desktop-only - AnkiDroid 2.25+ runs the full hands-free loop once you turn on Advanced > "Allow templates to record audio", while AnkiMobile plays the prompt and the answer but needs one tap to end your turn, because its maintainer does not grant a card microphone access.
-`anki/README.md` has the per-client table, including which rows have actually been run and which are read from source.
-Open Anki once and let it create a profile, then quit it.
+**Before you start, two things have to be installed.**
 
-**2. Install Node.**
-Get it from [nodejs.org](https://nodejs.org) (the LTS download is fine), or `brew install node` on a Mac.
-Check it with `node --version`: amgi needs **24.12, 25.1, or 26 and later**.
-That floor is not arbitrary - it is where `node:sqlite` gained the API needed to read a modern Anki collection, and where TypeScript runs without a build step.
-25.0.x specifically does not work.
+- **Anki**, the desktop client, from [apps.ankiweb.net](https://apps.ankiweb.net).
+  It is free, and it is where your cards actually live.
+  Start with desktop: it is the only client that can run add-ons, and amgi's editing side talks to a desktop profile.
+  The deck you end up with reviews anywhere Anki does, and the speaking half is not desktop-only - AnkiDroid 2.25+ runs the full hands-free loop once you turn on Advanced > "Allow templates to record audio", while AnkiMobile plays the prompt and the answer but needs one tap to end your turn, because its maintainer does not grant a card microphone access.
+  `anki/README.md` has the per-client table.
+  Open Anki once so it creates a profile, then quit it.
+- **Node**, from [nodejs.org](https://nodejs.org) or `brew install node` on a Mac.
+  Check it with `node --version`: amgi needs **24.12, 25.1, or 26 and later**.
+  That floor is not arbitrary - it is where `node:sqlite` gained the API needed to read a modern Anki collection, and where TypeScript runs without a build step.
+  25.0.x specifically does not work.
 
-**3. Get this repo and install its dependencies.**
+**1. Get this repo and install its dependencies.**
 
 ```bash
 git clone <this repo> amgi && cd amgi
@@ -39,7 +38,7 @@ npm install
 
 No `git`? Download the repo as a ZIP and unpack it; nothing here needs git history to run.
 
-**4. Get an OpenAI key - or skip this and come back to it.**
+**2. Get an OpenAI key, or skip this and come back to it.**
 Sign in at [platform.openai.com](https://platform.openai.com), open **API keys**, and create one.
 You need credits on the account: a key alone will not generate anything.
 For scale, a real 30-card deck with audio on both sides of every card measured **about nine cents**, all in.
@@ -52,7 +51,7 @@ OPENAI_API_KEY=sk-...
 If you would rather see the whole flow working before paying anyone, skip this step entirely.
 With no key set, amgi hands back an obviously-fake stub clip - its bytes say so in plain text - so every screen, every button and the whole Anki round trip still work; only the audio is not real.
 
-**5. Start amgi and install it into Anki.**
+**3. Start amgi and install it into Anki.**
 
 ```bash
 npm run dev
@@ -71,20 +70,14 @@ It is worth knowing what you just installed, because one of the two add-ons is d
 - **`amgi_bridge`** is what lets amgi edit your collection while Anki is open, and it is also what builds the note type on startup.
 
 Press the button again any time you pull a newer amgi - it updates both add-ons and refreshes the card template, and leaves your own notes, your bridge token and any field you added yourself alone.
-If you would rather do all of it by hand, "Installing the Anki add-on and the card template" below is the manual path.
+If you would rather do all of it by hand, "Installing the Anki add-on and the card template, by hand" below is the manual path.
 
-**6. Check the badge.**
-Your profile was already picked in step 5, so there is nothing to configure here; the navbar badge just says **Anki connected** once amgi can see your collection.
-It reaches it two different ways and does not make you care which: straight off the collection file when Anki is closed, and through `amgi_bridge` when Anki is open, because Anki holds that file open in a mode nothing outside its own process can read.
-The one state worth recognising is **Anki locked**, which means Anki is open and the bridge is not answering; the badge's tooltip carries the fix.
-More than one Anki profile is the only case amgi asks you about, and it asks on that same first screen.
-
-**7. Make a deck and fill it.**
+**4. Make a deck and fill it.**
 In the app, create a deck, then paste in the lines you want cards for - one phrase per line, in the language you already know.
 amgi writes the target-language sentence, generates audio for both sides, and checks each clip by transcribing it back and refusing anything that does not say what the card says.
-Then open Anki: the deck is already there.
+Each card goes straight into Anki as it is finished, and you can play either recording from the deck screen before you ever open Anki.
 
-**8. Review, in Anki.**
+**5. Review, in Anki.**
 Pick the deck and study it as you would any other.
 The cue audio plays, the microphone opens by itself, and the card waits for you to stop talking rather than for you to press anything - about a second of silence ends your turn.
 Then the answer appears with the native recording, and you grade yourself with Anki's own buttons: space for Good, `1` for Again, exactly as in every other deck you have.

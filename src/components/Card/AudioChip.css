@@ -1,0 +1,54 @@
+.audio-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font: inherit;
+  font-size: 0.75rem;
+  white-space: nowrap;
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 0.3rem 0.6rem 0.3rem 0.5rem;
+  cursor: pointer;
+}
+
+.audio-chip:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.audio-chip-tri {
+  width: 0;
+  height: 0;
+  border-left: 7px solid currentColor;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  flex: none;
+}
+
+.audio-chip-lang {
+  font-weight: 600;
+}
+
+.audio-chip-bad {
+  color: #e07050;
+}
+
+/* Coloured by which voice it is, the same pairing the card template uses:
+   the language you know, and the language you are learning. */
+.audio-chip-cue {
+  color: #9ec8ff;
+  border-color: rgba(90, 162, 247, 0.32);
+  background: rgba(90, 162, 247, 0.07);
+}
+
+.audio-chip-target {
+  color: #8fe0c0;
+  border-color: rgba(63, 174, 133, 0.32);
+  background: rgba(63, 174, 133, 0.07);
+}
+
+.audio-chip.is-playing {
+  border-color: currentColor;
+}
