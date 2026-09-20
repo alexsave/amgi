@@ -1,0 +1,52 @@
+<!-- amgi Listening (reversed) - Front Template.
+     The second card this note type makes, and the mirror of the first: you
+     hear the phrase in the language you are learning and say what it means
+     in the language you already know.
+
+     It needs no new note and no new fields. Anki builds one card per card
+     template per note, so the pair of directions is two templates over the
+     same four fields - which is also why the two directions can never drift
+     apart in content: there is only one copy of the text and one copy of
+     each recording.
+
+     There is deliberately no answer text here, same as the forward card.
+     Do not add the answer field to this side, whatever CSS you hide it with,
+     and do not name it in a comment either: Anki substitutes fields inside
+     HTML comments too, so naming it here would paste it into the page. -->
+
+<div class="amgi" data-amgi-card data-amgi-side="front" data-amgi-phase="idle">
+  <div class="amgi-visual">
+    <canvas class="amgi-visualizer" data-amgi-visualizer aria-hidden="true"></canvas>
+  </div>
+
+  <p class="amgi-status" data-amgi-status role="status" aria-live="polite">
+    <span class="amgi-status-icon" data-amgi-status-icon aria-hidden="true"></span>
+    <span class="amgi-status-lines">
+      <span class="amgi-status-recording" data-amgi-status-recording hidden>
+        <span class="amgi-status-dot" aria-hidden="true"></span>
+        <span data-amgi-status-recording-text></span>
+      </span>
+      <span data-amgi-status-text>Listen</span>
+    </span>
+  </p>
+
+  <!-- The prompt slot holds the LEARNING language's recording on this card.
+       The loop plays whatever is in this slot first and opens the microphone
+       after it, so the direction of the card is decided entirely by which
+       recording goes in which slot - no JavaScript knows which way round it
+       is, and none needs to. -->
+  <div class="amgi-slot" data-amgi-cue-audio>{{TargetAudio}}</div>
+
+  <div class="amgi-actions">
+    <button type="button" class="amgi-btn tappable" data-amgi-action="play" hidden>
+      Tap to play
+    </button>
+    <button type="button" class="amgi-btn tappable" data-amgi-action="reveal" aria-keyshortcuts="Space Enter">
+      <span data-amgi-reveal-label>Skip</span> <kbd aria-hidden="true">space</kbd>
+    </button>
+  </div>
+
+  <p class="amgi-note" data-amgi-note hidden></p>
+</div>
+
+<script src="_amgi-loop.js"></script>

@@ -38,6 +38,8 @@ const ADDONS = ['amgi_mic', 'amgi_bridge'];
 const CARD_TYPE_FILES = [
   ['anki/notetype/front.html', 'front.html'],
   ['anki/notetype/back.html', 'back.html'],
+  ['anki/notetype/front-reverse.html', 'front-reverse.html'],
+  ['anki/notetype/back-reverse.html', 'back-reverse.html'],
   ['anki/notetype/styling.css', 'styling.css'],
   ['anki/media/_amgi-loop.js', '_amgi-loop.js'],
   ['anki/media/_amgi-loop.css', '_amgi-loop.css'],

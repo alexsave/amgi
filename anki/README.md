@@ -221,11 +221,12 @@ What that run confirmed, and changed:
 2. **AnkiDroid, AnkiMobile and AnkiWeb, all of it.**
    The table above is read from AnkiDroid's source and from AnkiMobile's and AnkiWeb's documented behaviour, and none of it has been run.
 
-3. **Whether `A` and `V` reach the card before Anki's own menus do.**
-   The answer side binds three replay keys: `R` for "Hear it again", `A` for "Hear the answer", `V` for "Hear yourself".
-   `R` is safe by construction - Anki's own replay key acts on the `[sound:]` tags it strips out of a card ([rslib/src/text.rs](https://github.com/ankitects/anki/blob/main/rslib/src/text.rs), `AV_TAGS`), and this note type holds `<audio src>` elements instead, so nothing native answers `R` here.
-   `A` and `V` are a different matter: they are Anki's own **Add** and **record own voice** accelerators on the main window.
-   The template's handler runs in the capture phase and calls `preventDefault`, `stopPropagation` and `stopImmediatePropagation`, which is as hard as a web page can consume a key, but whether that stops Qt's accelerator as well has not been checked in real Anki.
-   The same file already records that `space` and `1` genuinely do double-fire this way, which is why grading is left to Anki's own bar - so the possibility is real, not theoretical.
-   To check: reveal an answer and press `A`. If the Add window opens, the accelerator won.
-   `AMGI_CONFIG.replayKeys` remaps all three without touching `anki-loop.js`.
+3. **Nothing, any more, about replay shortcuts.**
+   `R`, `A` and `V` were bound on the answer side and none of them ever fired.
+   `aqt/reviewer.py` registers `r` (replay audio) and `v` (replay recorded voice) through `mw.setStateShortcuts()`, which makes them Qt shortcuts on the **main window**, and `a` reaches the main window's Add action the same way.
+   Qt resolves those before the key is offered to the webview at all, so no amount of `preventDefault` in the card can win: the page is never asked.
+   They are gone rather than moved to other letters, because every unclaimed letter is one an add-on or a future Anki may claim, and a card that quietly takes a key a power user has relied on for years is a worse bug than a card with no shortcuts.
+
+   There is a supported way to do it properly, and it belongs in the add-on rather than the card: [`gui_hooks.state_shortcuts_will_change`](https://addon-docs.ankiweb.net/hooks-and-filters.html) hands an add-on the reviewer's own shortcut list to edit.
+   `amgi_mic` could wrap `r` and `v` so they keep their existing meanings on every other card and additionally drive this one - Anki's own `r` does nothing on an amgi card anyway, since it acts on the `[sound:]` tags this note type deliberately does not use.
+   That is not built, and it needs checking against real Anki rather than asserting.
