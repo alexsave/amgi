@@ -35,7 +35,12 @@ async function clickButtonByText(page, selector, text) {
   if (!clicked) throw new Error(`no element matching ${selector} with text "${text}"`);
 }
 
-/** The selects after the note type picker, in the JSX order CardForm.js renders them. */
+/**
+ * The selects after the note type picker, in the JSX order CardForm.js
+ * renders them. `cueAudio` ("Write known-language audio into") always
+ * renders, even for a note type with no such field guessed - its default
+ * option is "(none)" - so this index is stable across note types.
+ */
 async function fieldSelects(page) {
   const handles = await page.$$('form.card-form select');
   return {
@@ -43,8 +48,9 @@ async function fieldSelects(page) {
     known: handles[1],
     text: handles[2],
     audio: handles[3],
-    knownLanguage: handles[4],
-    learningLanguage: handles[5],
+    cueAudio: handles[4],
+    knownLanguage: handles[5],
+    learningLanguage: handles[6],
   };
 }
 

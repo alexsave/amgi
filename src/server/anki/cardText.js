@@ -78,7 +78,17 @@ export async function generateCardTextOnly({
  * audio - steered by the reading generateCardTextOnly just produced. See this
  * module's own comment for why the two calls must never be pulled apart.
  *
- * @returns {Promise<{front_text: string, back_text: string, spoken_reading: string, audio: {filename: string, mocked?: boolean, reason?: string, reused?: boolean}}>}
+ * `includeCueAudio` also generates the known-language prompt clip (CueAudio
+ * on the anki/ card template - see its README's field table) from
+ * `front_text`, the side already in the language the learner knows. That
+ * side carries no `spoken_reading`: the reading only ever exists to steer
+ * pronunciation of the learning-language script (see cardGeneration/
+ * cardText.ts's READING_OPAQUE_LANGUAGES), and there is no equivalent
+ * ambiguity to resolve in the known language. Doubling the audio calls is a
+ * real cost, which is why this is opt-in rather than automatic - see
+ * CardForm.js and BulkAddForm.js for where the person is told about it.
+ *
+ * @returns {Promise<{front_text: string, back_text: string, spoken_reading: string, audio: {filename: string, reference: string, mocked?: boolean, reason?: string, reused?: boolean}, cueAudio?: {filename: string, reference: string, mocked?: boolean, reason?: string, reused?: boolean}}>}
  */
 export async function generateCardTextAndAudio({
   userInput,
@@ -86,6 +96,7 @@ export async function generateCardTextAndAudio({
   learningLanguage,
   currentCard,
   regenerateParts,
+  includeCueAudio = false,
   ops,
 }) {
   const text = await generateCardTextOnly({ userInput, knownLanguage, learningLanguage, currentCard, regenerateParts });
@@ -95,5 +106,7 @@ export async function generateCardTextAndAudio({
     reading: text.spoken_reading,
     ops,
   });
-  return { ...text, audio };
+  if (!includeCueAudio) return { ...text, audio };
+  const cueAudio = await generateAndStoreClip({ text: text.front_text, language: knownLanguage, ops });
+  return { ...text, audio, cueAudio };
 }

@@ -16,6 +16,7 @@ export async function POST(request) {
   const userInput = (body?.userInput || '').trim();
   const knownLanguage = body?.knownLanguage;
   const learningLanguage = body?.learningLanguage;
+  const includeCueAudio = body?.includeCueAudio === true;
   if (!userInput || !knownLanguage || !learningLanguage) {
     return NextResponse.json(
       { error: 'userInput, knownLanguage and learningLanguage are required' },
@@ -28,6 +29,7 @@ export async function POST(request) {
       userInput,
       knownLanguage,
       learningLanguage,
+      includeCueAudio,
       ops: result.ops,
     });
     return NextResponse.json({ mode: result.mode, ...card });

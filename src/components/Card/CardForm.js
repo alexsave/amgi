@@ -9,19 +9,28 @@ import BulkAddForm from './BulkAddForm';
 import './CardForm.css';
 
 /**
- * Add a note to an Anki deck, with generated audio for one of its fields, or
+ * Add a note to an Anki deck, with generated audio for its audio field(s), or
  * generated TEXT for both sides plus that same audio in one pass (see
  * src/server/anki/cardText.js for why text and audio are never split across
  * two calls).
  *
  * The field mapping (which field holds the known-language side, which holds
- * the learning-language side that gets read aloud, which field receives the
+ * the learning-language side that gets read aloud, which field(s) receive a
  * clip) is guessed per note type (see ankiFields.js) but always shown and
  * changeable - a note type is the user's own, not ours, the same principle
  * anki/addon/amgi_bridge's own fill-audio dialog is built on. Generation only
  * ever fills these fields' own textareas; nothing is written to Anki until
  * "Add Note" is pressed, so a generated side is exactly as editable as one
  * typed by hand.
+ *
+ * A note type with two audio-looking fields (the amgi Listening note type's
+ * own CueAudio/TargetAudio, see anki/README.md) gets audio in both: the
+ * known-language prompt clip into cueAudioFieldIndex, the learning-language
+ * answer clip into audioFieldIndex. Every clip is written as an HTML
+ * `<audio src="...">` reference (plusaudio/lib/deck's renderAudioReference),
+ * never `[sound:...]` - Anki strips sound tags before a template's own
+ * JavaScript can see them, which is exactly what the amgi Listening
+ * template's loop needs to see them for.
  */
 const CardForm = ({ deckId }) => {
   const { ankiNotetypes, ensureAnkiNotetypes, addAnkiNote, ankiStatus } = useDecks();
@@ -29,6 +38,12 @@ const CardForm = ({ deckId }) => {
   const [fields, setFields] = useState([]);
   const [textFieldIndex, setTextFieldIndex] = useState(null);
   const [audioFieldIndex, setAudioFieldIndex] = useState(null);
+  // The known-language prompt clip (CueAudio on the anki/ card template -
+  // played before the mic opens). null means "this note type has no such
+  // field" or "skip it" - see the "Write known-language audio into" select's
+  // "(none)" option below. Unlike audioFieldIndex, a card can genuinely work
+  // without this for a note type that isn't the amgi template.
+  const [cueAudioFieldIndex, setCueAudioFieldIndex] = useState(null);
   const [knownFieldIndex, setKnownFieldIndex] = useState(null);
   // The language pair has nowhere else to live: Anki decks carry no language
   // metadata, so this is remembered per deck in this browser only (see
@@ -97,7 +112,8 @@ const CardForm = ({ deckId }) => {
     const guess = guessFields(notetype);
     setTextFieldIndex(guess.textIndex);
     setAudioFieldIndex(guess.audioIndex);
-    setKnownFieldIndex(guessKnownFieldIndex(notetype, guess.textIndex, guess.audioIndex));
+    setCueAudioFieldIndex(guess.cueAudioIndex);
+    setKnownFieldIndex(guessKnownFieldIndex(notetype, guess.textIndex, guess.audioIndex, guess.cueAudioIndex));
     setAudioResult(null);
     setError('');
     setSaveWarning('');
@@ -122,13 +138,27 @@ const CardForm = ({ deckId }) => {
       setError('The field to read aloud is empty.');
       return;
     }
+    const wantsCue = cueAudioFieldIndex !== null;
+    const cueText = wantsCue && knownFieldIndex !== null ? stripHtmlForPreview(fields[knownFieldIndex]) : '';
+    if (wantsCue && !cueText) {
+      setError('The known-language field is empty, so there is nothing to generate its cue audio from.');
+      return;
+    }
     setError('');
     setGenerating(true);
     setAudioResult(null);
     try {
-      const result = await ankiApi.generateAudio(text, learningLanguage);
-      setAudioResult(result);
-      setFields((prev) => prev.map((f, i) => (i === audioFieldIndex ? `${f}[sound:${result.filename}]` : f)));
+      // Two separate clips, learning-language then known-language, never one
+      // call reused for both - CueAudio and TargetAudio are different
+      // languages, see this component's own module comment.
+      const target = await ankiApi.generateAudio(text, learningLanguage);
+      const cue = wantsCue ? await ankiApi.generateAudio(cueText, knownLanguage) : null;
+      setAudioResult({ target, cue });
+      setFields((prev) => prev.map((f, i) => {
+        if (i === audioFieldIndex) return `${f}${target.reference}`;
+        if (cue && i === cueAudioFieldIndex) return `${f}${cue.reference}`;
+        return f;
+      }));
     } catch (err) {
       setError(err.message);
     } finally {
@@ -151,18 +181,22 @@ const CardForm = ({ deckId }) => {
     setTextGenerating(true);
     setAudioResult(null);
     try {
-      // One request generates both sides AND the audio, in that order, so
-      // the reading the text call produces is still in hand when the audio
-      // call is made - see src/server/anki/cardText.js for why that has to
-      // happen in one pass rather than two.
-      const card = await ankiApi.generateCardText(input, knownLanguage, learningLanguage);
+      // One request generates both sides AND the audio (or both audios, with
+      // includeCueAudio), in that order, so the reading the text call
+      // produces is still in hand when the audio call is made - see
+      // src/server/anki/cardText.js for why that has to happen in one pass
+      // rather than two.
+      const card = await ankiApi.generateCardText(input, knownLanguage, learningLanguage, {
+        includeCueAudio: cueAudioFieldIndex !== null,
+      });
       setFields((prev) => prev.map((f, i) => {
         if (i === knownFieldIndex) return card.front_text;
         if (i === textFieldIndex) return card.back_text;
-        if (i === audioFieldIndex) return card.audio?.filename ? `[sound:${card.audio.filename}]` : f;
+        if (i === audioFieldIndex) return card.audio?.reference || f;
+        if (cueAudioFieldIndex !== null && i === cueAudioFieldIndex) return card.cueAudio?.reference || f;
         return f;
       }));
-      if (card.audio) setAudioResult(card.audio);
+      if (card.audio) setAudioResult({ target: card.audio, cue: card.cueAudio || null });
     } catch (err) {
       setTextGenError(err.message);
     } finally {
@@ -313,7 +347,7 @@ const CardForm = ({ deckId }) => {
               </select>
             </label>
             <label style={{ flex: '1 1 auto' }}>
-              Write audio into
+              Write learning-language audio into
               <select
                 value={audioFieldIndex ?? ''}
                 onChange={(e) => setAudioFieldIndex(Number(e.target.value))}
@@ -324,7 +358,28 @@ const CardForm = ({ deckId }) => {
                 ))}
               </select>
             </label>
+            <label style={{ flex: '1 1 auto' }}>
+              Write known-language audio into
+              <select
+                value={cueAudioFieldIndex ?? ''}
+                onChange={(e) => setCueAudioFieldIndex(e.target.value === '' ? null : Number(e.target.value))}
+                style={{ display: 'block', width: '100%', marginTop: '0.25rem' }}
+              >
+                <option value="">(none - skip the known-language clip)</option>
+                {notetype.fieldNames.map((name, index) => (
+                  <option key={name} value={index}>{name}</option>
+                ))}
+              </select>
+            </label>
           </div>
+        )}
+
+        {notetype && (
+          <p style={{ opacity: 0.75, marginTop: '-0.5rem', fontSize: '0.85rem' }}>
+            {cueAudioFieldIndex !== null
+              ? 'Generating audio makes 2 clips per card: the known-language prompt and the learning-language answer. A card with no known-language clip cannot use the amgi Listening template - its prompt side would be silent.'
+              : 'Generating audio makes 1 clip per card, in the learning language.'}
+          </p>
         )}
 
         {notetype && (
@@ -364,15 +419,22 @@ const CardForm = ({ deckId }) => {
           </div>
         )}
 
-        {mode === 'single' && audioResult && (
-          <div className="error-message" style={{ background: 'none', color: audioResult.mocked ? '#d0a030' : '#4caf50', border: `1px solid ${audioResult.mocked ? '#d0a030' : '#4caf50'}` }}>
-            {audioResult.mocked
-              ? `Audio generated (mocked - ${audioResult.reason})`
-              : audioResult.reused
-                ? `Audio reused (already generated): ${audioResult.filename}`
-                : `Audio generated: ${audioResult.filename}`}
+        {mode === 'single' && audioResult && [
+          { label: 'Learning-language audio', result: audioResult.target },
+          { label: 'Known-language audio', result: audioResult.cue },
+        ].filter(({ result }) => result).map(({ label, result }) => (
+          <div
+            key={label}
+            className="error-message"
+            style={{ background: 'none', color: result.mocked ? '#d0a030' : '#4caf50', border: `1px solid ${result.mocked ? '#d0a030' : '#4caf50'}` }}
+          >
+            {label}: {result.mocked
+              ? `generated (mocked - ${result.reason})`
+              : result.reused
+                ? `reused (already generated): ${result.filename}`
+                : `generated: ${result.filename}`}
           </div>
-        )}
+        ))}
 
         {mode === 'single' && (
           <div style={{ display: 'flex', gap: '0.75rem' }}>
@@ -401,6 +463,7 @@ const CardForm = ({ deckId }) => {
             notetype={notetype}
             textFieldIndex={textFieldIndex}
             audioFieldIndex={audioFieldIndex}
+            cueAudioFieldIndex={cueAudioFieldIndex}
             knownFieldIndex={knownFieldIndex}
             knownLanguage={knownLanguage}
             learningLanguage={learningLanguage}
