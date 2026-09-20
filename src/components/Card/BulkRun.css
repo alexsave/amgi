@@ -21,6 +21,12 @@
   overflow: hidden;
 }
 
+/* A row is the same height empty as it is finished. The audio chips arrive
+   only when a card is done, and letting them push the row taller meant the
+   whole table grew line by line while you watched it - every row below the
+   one being worked on shifting down each time one finished. The height is
+   reserved from the start instead, so the only thing that changes is the
+   content of a row that was already that size. */
 .bulk-run-row {
   display: flex;
   align-items: center;
@@ -28,6 +34,8 @@
   padding: 0.6rem 0.9rem;
   background: var(--dark-surface);
   text-align: left;
+  min-height: 2.85rem;
+  box-sizing: border-box;
 }
 
 .bulk-run-row + .bulk-run-row {
@@ -85,6 +93,9 @@
   display: flex;
   gap: 0.35rem;
   flex: none;
+  /* Tall enough for a chip whether or not one is there yet. */
+  min-height: 1.65rem;
+  align-items: center;
 }
 
 .bulk-run-foot {

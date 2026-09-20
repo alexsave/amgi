@@ -273,12 +273,31 @@ export function usesNonLatinScript(language: string): boolean {
  * own script is entirely absent from the field.
  */
 export function looksRomanized(text: string, language: string): boolean {
-    const pattern = NATIVE_SCRIPT_PATTERNS[normalizeLanguageCode(language)];
-    if (!pattern) return false;
+    if (!usesNonLatinScript(language)) return false;
     const trimmed = (text || '').trim();
     if (!trimmed) return false;
-    if (pattern.test(trimmed)) return false;
+    if (hasNativeScript(trimmed, language)) return false;
     return /[a-zA-Z]/.test(trimmed);
+}
+
+/**
+ * Whether `text` contains any of `language`'s own script at all.
+ *
+ * Deliberately "any", not "mostly": a Korean line with an English phrase
+ * inside it - a song lyric ending "still with you", a borrowed brand name -
+ * is still Korean, and treating it as English is exactly the mistake this
+ * exists to catch. Callers that need to decide which of two strings is the
+ * learning-language one should compare both with this rather than trust a
+ * model's own idea of which side it was writing.
+ *
+ * False for a Latin-script language, because the question is unanswerable
+ * there: Spanish and English share an alphabet, so nothing about the
+ * characters can separate them.
+ */
+export function hasNativeScript(text: string, language: string): boolean {
+    const pattern = NATIVE_SCRIPT_PATTERNS[normalizeLanguageCode(language)];
+    if (!pattern) return false;
+    return pattern.test((text || '').trim());
 }
 
 /**
