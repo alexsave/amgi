@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import { defaultBaseDir } from '../../../plusaudio/lib/collection/paths.js';
@@ -76,24 +77,116 @@ function copyTree(from, to) {
 }
 
 /**
- * Is amgi already installed in this Anki?
+ * Every file in a tree, as paths relative to it, skipping the same entries
+ * the copy skips. A `__pycache__` Anki wrote after the install is not part
+ * of what amgi put there, and counting it would make a current install look
+ * stale forever.
+ */
+function fileList(dir, prefix = '') {
+  if (!fs.existsSync(dir)) return [];
+  const found = [];
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (SKIP_ENTRIES.has(entry.name)) continue;
+    const rel = prefix ? `${prefix}/${entry.name}` : entry.name;
+    if (entry.isDirectory()) found.push(...fileList(path.join(dir, entry.name), rel));
+    else if (entry.isFile()) found.push(rel);
+  }
+  return found;
+}
+
+function digest(file) {
+  return crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+}
+
+/**
+ * What THIS build of amgi would put in the add-ons folder: a map from the
+ * path it installs to, to the hash of the bytes it would write.
  *
- * The question the setup screen actually needs answered, and it is NOT "has
+ * Content hashes rather than a version number anyone has to remember to
+ * bump. A version constant is a promise to update a second thing every time
+ * you change a template, and the failure mode when someone forgets is
+ * silent - the learner keeps reviewing on the old card design and nothing
+ * anywhere says so.
+ */
+export function shippedManifest(root = repoRoot()) {
+  const manifest = {};
+  for (const name of ADDONS) {
+    const dir = path.join(root, 'anki', 'addon', name);
+    for (const rel of fileList(dir)) manifest[`${name}/${rel}`] = digest(path.join(dir, rel));
+  }
+  for (const [from, to] of CARD_TYPE_FILES) {
+    manifest[`amgi_bridge/cardtype/${to}`] = digest(path.join(root, from));
+  }
+  return manifest;
+}
+
+/** The same map, read back off whatever is installed in `addonsDir`. */
+export function installedManifest(addonsDir) {
+  const manifest = {};
+  for (const name of ADDONS) {
+    const dir = path.join(addonsDir, name);
+    for (const rel of fileList(dir)) manifest[`${name}/${rel}`] = digest(path.join(dir, rel));
+  }
+  return manifest;
+}
+
+/**
+ * Is amgi already installed in this Anki, and is what is installed current?
+ *
+ * "Installed" is the question the setup screen keys off, and it is NOT "has
  * a profile been picked". A machine with Anki on it resolves a default
  * profile whether or not amgi has ever run, so keying setup off the profile
  * meant the setup screen could never appear for the people who need it. What
  * distinguishes a fresh machine is that amgi's own add-ons are not in the
  * add-ons folder yet.
  *
- * Only the add-ons are checked, not the note type: the note type is created
- * by the add-on on the next profile open, so "add-ons present" is the thing
- * a person can act on and the note type follows from it.
+ * "Current" is the second question, and it is the one that makes a card
+ * design change actually reach a deck somebody already has. The chain is:
+ * the website copies the templates into the add-on's cardtype/ folder, and
+ * the add-on compares them against the collection at profile open and
+ * rewrites the note type in place where they differ (see
+ * anki/addon/amgi_bridge/notetype.py). That second half has always worked.
+ * The first half was the gap - nothing ever re-copied, so someone who
+ * installed once kept reviewing last year's card forever and no screen
+ * anywhere said so. Hashing what is on disk against what this build ships
+ * closes it.
+ *
+ * `staleFiles` names what differs rather than just counting, because the
+ * answer is worth seeing when this goes wrong: a template that keeps coming
+ * back stale after a refresh means the copy is failing, not that an update
+ * is pending.
+ *
+ * Note that the note type itself is still never inspected here. It is
+ * created and refreshed by the add-on on the next profile open, so
+ * "the files on disk are current" is the thing this side can both check and
+ * act on, and the note type follows from it.
  */
-export function installState({ baseDir } = {}) {
+export function installState({ baseDir, root = repoRoot() } = {}) {
   const base = baseDir || defaultBaseDir();
   const addonsDir = path.join(base, 'addons21');
   const installed = ADDONS.every((name) => fs.existsSync(path.join(addonsDir, name, '__init__.py')));
-  return { installed, baseDir: base, baseDirExists: fs.existsSync(base), addonsDir };
+
+  let staleFiles = [];
+  let comparable = false;
+  if (installed && sourceAvailable(root)) {
+    comparable = true;
+    const want = shippedManifest(root);
+    const have = installedManifest(addonsDir);
+    const paths = new Set([...Object.keys(want), ...Object.keys(have)]);
+    staleFiles = [...paths].filter((rel) => want[rel] !== have[rel]).sort();
+  }
+
+  return {
+    installed,
+    // Unknown is not the same as current. A build with no add-on sources in
+    // it cannot tell, and must not claim the install is up to date - saying
+    // so would suppress the one prompt that fixes a stale card design.
+    upToDate: comparable ? staleFiles.length === 0 : null,
+    staleFiles,
+    baseDir: base,
+    baseDirExists: fs.existsSync(base),
+    addonsDir,
+  };
 }
 
 /**

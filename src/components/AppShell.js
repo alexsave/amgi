@@ -2,6 +2,7 @@
 
 import Navbar from './Navigation/Navbar';
 import { DeckProvider } from '../contexts/DeckContext';
+import TemplateUpdate from './Setup/TemplateUpdate';
 
 // A local tool, not a signed-in web app any more: no ProtectedRoute (there is
 // no account to be protected from), no CardGenerationProvider/AudioProvider
@@ -15,7 +16,10 @@ export default function AppShell({ children }) {
       <div className="App">
         <div className="app-container">
           <Navbar />
-          <div className="app-content">{children}</div>
+          <div className="app-content">
+            <TemplateUpdate />
+            {children}
+          </div>
         </div>
       </div>
     </DeckProvider>
