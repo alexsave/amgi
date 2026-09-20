@@ -28,17 +28,17 @@ const { build, OUTPUT } = require(path.join(ROOT, 'anki', 'tools', 'build-loop.j
 
 const CARDS = [
   {
-    Prompt: 'the shop closes at six',
-    PromptAudio: '<audio src="prompt-1.wav"></audio>',
-    Answer: '가게는 여섯 시에 문을 닫아요',
-    AnswerAudio: '<audio src="native-1.wav"></audio>',
+    Cue: 'the shop closes at six',
+    CueAudio: '<audio src="prompt-1.wav"></audio>',
+    Target: '가게는 여섯 시에 문을 닫아요',
+    TargetAudio: '<audio src="native-1.wav"></audio>',
     Notes: '',
   },
   {
-    Prompt: 'see you tomorrow',
-    PromptAudio: '<audio src="prompt-2.wav"></audio>',
-    Answer: '내일 봐요',
-    AnswerAudio: '<audio src="native-2.wav"></audio>',
+    Cue: 'see you tomorrow',
+    CueAudio: '<audio src="prompt-2.wav"></audio>',
+    Target: '내일 봐요',
+    TargetAudio: '<audio src="native-2.wav"></audio>',
     Notes: '',
   },
 ];
@@ -164,7 +164,7 @@ async function waitForColor(page, matches, { timeout = 4000, label = 'a colour' 
   }
 }
 
-const isOrangeDominant = (c) => c.r > c.g + 15 && c.r > c.b + 15;
+const isAmberDominant = (c) => c.r > c.g + 15 && c.r > c.b + 15;
 const isGreenDominant = (c) => c.g > c.r + 10 && c.g >= c.b;
 const isBlueDominant = (c) => c.b > c.r + 10 && c.b > c.g + 10;
 
@@ -213,7 +213,7 @@ async function withMicrophone(browser, port, logs) {
   // The mic is always the learner's own voice - drawn in the "you" colour
   // whether it is live (here) or a later "You" replay - and the fake stream's
   // 180Hz tone during its "speech" window is real enough signal to prove it.
-  const micColor = await waitForColor(page, isOrangeDominant, {
+  const micColor = await waitForColor(page, isAmberDominant, {
     label: 'the visualizer to draw the microphone in the orange "you" colour',
   });
   check('the microphone draws in the "you" colour, not the prompt or native colour', true, JSON.stringify(micColor));
@@ -224,7 +224,7 @@ async function withMicrophone(browser, port, logs) {
   }));
   check(
     'the answer text is nowhere in the DOM while the learner speaks',
-    !duringListening.text.includes(CARDS[0].Answer),
+    !duringListening.text.includes(CARDS[0].Target),
     `listening-phase DOM has ${duringListening.text.trim().length} characters of text`
   );
   check(
@@ -248,12 +248,12 @@ async function withMicrophone(browser, port, logs) {
   }));
   check('the reveal went through pycmd("ans")', revealed.commands[0] === 'ans', JSON.stringify(revealed.commands));
   check('the back side rendered', revealed.renders.join(',') === 'front,back', revealed.renders.join(','));
-  check('the answer text is on the page now', revealed.text.includes(CARDS[0].Answer));
+  check('the answer text is on the page now', revealed.text.includes(CARDS[0].Target));
 
   await waitFor(
     page,
     () => {
-      const el = document.querySelector('[data-amgi-answer-audio] audio');
+      const el = document.querySelector('[data-amgi-target-audio] audio');
       return !!el && el.played && el.played.length > 0;
     },
     { label: 'the native audio to play' }
@@ -287,7 +287,7 @@ async function withMicrophone(browser, port, logs) {
   // Replaying the prompt from the answer side has to be its own colour too -
   // the source, not the phase, is what the colour is keyed to (see
   // _amgi-loop.css), so "answer phase, prompt clip" must still draw blue.
-  await page.click('[data-amgi-action="replay-prompt"]');
+  await page.click('[data-amgi-action="replay-cue"]');
   const promptColor = await waitForColor(page, isBlueDominant, {
     label: 'replaying the prompt on the answer side to draw in the blue "prompt" colour',
   });
@@ -297,24 +297,34 @@ async function withMicrophone(browser, port, logs) {
     JSON.stringify(promptColor)
   );
 
-  // Space and 1 are deliberately NOT handled by the template on the answer
-  // side any more (see anki/README.md, "Keys"): real Anki's own native
-  // shortcuts and the webview's own keydown handler used to both fire on
-  // these keys, racing unpredictably, and a double pycmd("easeN") corrupts
-  // the *next* card's schedule silently. Grading here goes through the
-  // on-screen buttons instead, exactly as a learner clicking them would, and
-  // this check proves the template no longer reacts to the key at all.
+  // The template draws no grading row of its own any more (see item 11 in
+  // the design critique this fixed, and anki-loop.js's bootBack): grading is
+  // entirely Anki's own Again/Hard/Good/Easy bar's job, on every client. This
+  // harness has no such bar (reviewer.html is a stand-in for the reviewer,
+  // not for Anki's own chrome around it - see anki/README.md), so a real
+  // grading keypress is simulated the way Anki's own native QShortcut would
+  // actually reach the card: a direct pycmd("easeN") that never goes through
+  // the template at all. Space and 1 are also confirmed to do nothing to the
+  // template itself, since it no longer has a keydown handler on this side.
+  check(
+    'the card draws no grading buttons of its own any more',
+    await page.evaluate(
+      () => !document.querySelector('[data-amgi-action="good"]') && !document.querySelector('[data-amgi-action="again"]')
+    )
+  );
+  const commandsBeforeKeys = await page.evaluate(() => window.harness.commands.length);
   await page.keyboard.press('Space');
+  await page.keyboard.press('Digit1');
   await sleep(200);
   check(
-    'space no longer grades the card itself - that is Anki\'s own shortcut\'s job now',
-    await page.evaluate(() => !window.harness.commands.some((entry) => entry.command.startsWith('ease')))
+    'space and 1 do nothing on the answer side - there is nothing left for the template to react to',
+    await page.evaluate((from) => window.harness.commands.length === from, commandsBeforeKeys)
   );
 
-  await page.click('[data-amgi-action="good"]');
+  await page.evaluate(() => window.pycmd('ease3'));
   await waitFor(page, () => window.harness.cardIndex === 1, { label: 'the next card' });
   check(
-    'the Good button grades the card, as pycmd("ease3")',
+    'grading through pycmd("ease3"), as Anki\'s own native shortcut would, advances the card',
     await page.evaluate(() => window.harness.commands.some((entry) => entry.command === 'ease3')),
     await page.evaluate(() => JSON.stringify(window.harness.commands.map((c) => c.command)))
   );
@@ -327,16 +337,10 @@ async function withMicrophone(browser, port, logs) {
     label: 'the second card to reveal',
   });
   await waitFor(page, () => window.phaseIs('answer'), { timeout: 20000, label: 'the second answer' });
-  await page.keyboard.press('Digit1');
-  await sleep(200);
-  check(
-    '1 no longer grades the card itself either',
-    await page.evaluate(() => !window.harness.commands.some((entry) => entry.command === 'ease1'))
-  );
-  await page.click('[data-amgi-action="again"]');
+  await page.evaluate(() => window.pycmd('ease1'));
   await waitFor(page, () => !!document.getElementById('congrats'), { label: 'the session to finish' });
   check(
-    'the Again button grades the card, as pycmd("ease1")',
+    'grading through pycmd("ease1") also advances the card',
     await page.evaluate(() => window.harness.commands.some((entry) => entry.command === 'ease1'))
   );
 
@@ -367,7 +371,7 @@ async function withoutMicrophone(browser, port, logs) {
     commands: window.harness.commands.length,
   }));
   check('the card does not reveal itself without a microphone', waiting.commands === 0);
-  check('the answer text is still nowhere in the DOM', !waiting.text.includes(CARDS[0].Answer));
+  check('the answer text is still nowhere in the DOM', !waiting.text.includes(CARDS[0].Target));
   check('the learner is told what to do', waiting.noteShown && /space/i.test(waiting.note), waiting.note);
 
   await sleep(1200);
@@ -385,13 +389,13 @@ async function withoutMicrophone(browser, port, logs) {
   );
   check(
     'the answer text is on the page now',
-    await page.evaluate((answer) => document.body.textContent.includes(answer), CARDS[0].Answer)
+    await page.evaluate((answer) => document.body.textContent.includes(answer), CARDS[0].Target)
   );
 
   await waitFor(
     page,
     () => {
-      const el = document.querySelector('[data-amgi-answer-audio] audio');
+      const el = document.querySelector('[data-amgi-target-audio] audio');
       return !!el && el.played && el.played.length > 0;
     },
     { label: 'the native audio to play' }
@@ -401,9 +405,10 @@ async function withoutMicrophone(browser, port, logs) {
   const you = await page.evaluate(() => document.querySelector('[data-amgi-action="replay-you"]').hidden);
   check('no recording is offered, because there was none', you === true);
 
-  // As above: grading is Anki's own native shortcut's job now, not the
-  // template's keydown handler, so the button is what actually grades here.
-  await page.click('[data-amgi-action="good"]');
+  // The card draws no grading buttons of its own (see withMicrophone above
+  // for why); a direct pycmd stands in for Anki's own grading bar, which
+  // this harness does not model.
+  await page.evaluate(() => window.pycmd('ease3'));
   await waitFor(page, () => window.harness.cardIndex === 1, { label: 'the next card' });
   check(
     'grading still works',
@@ -440,6 +445,10 @@ async function withHangingMicrophone(browser, port, logs) {
     elapsedMs < 5000,
     `reached "waiting" after ${elapsedMs}ms`
   );
+  check(
+    'the wait for the microphone is its own visible phase, not left looking like "Listen" hung',
+    await page.evaluate(() => window.harness.phases.some((entry) => entry.phase === 'requesting-mic'))
+  );
 
   const waiting = await page.evaluate(() => ({
     text: document.body.textContent,
@@ -448,7 +457,7 @@ async function withHangingMicrophone(browser, port, logs) {
     commands: window.harness.commands.length,
   }));
   check('the card does not reveal itself once it falls back', waiting.commands === 0);
-  check('the answer text is still nowhere in the DOM', !waiting.text.includes(CARDS[0].Answer));
+  check('the answer text is still nowhere in the DOM', !waiting.text.includes(CARDS[0].Target));
   check('the learner is told what to do', waiting.noteShown && /space/i.test(waiting.note), waiting.note);
 
   await page.keyboard.press('Space');
@@ -459,12 +468,80 @@ async function withHangingMicrophone(browser, port, logs) {
     await page.evaluate(() => window.harness.commands[0].command === 'ans')
   );
 
-  // Grading is Anki's own native shortcut's job now (see the two scenarios
-  // above), so the button is what actually grades here, not the key.
-  await page.click('[data-amgi-action="good"]');
+  // Grading is Anki's own native bar's job (see the scenarios above); a
+  // direct pycmd stands in for it, since this harness draws no such bar.
+  await page.evaluate(() => window.pycmd('ease3'));
   await waitFor(page, () => window.harness.cardIndex === 1, { label: 'the next card' });
   check(
     'grading still works after a microphone request that never settled',
+    await page.evaluate(() => window.harness.commands.some((entry) => entry.command === 'ease3'))
+  );
+
+  // A refusal is remembered on `store`, which survives across cards on the
+  // desktop client (see anki-loop.js's onMicUnavailable/disableMic): the
+  // second card must skip straight to "waiting" and never re-race the
+  // timeout, and must not repeat the "no microphone" note either.
+  const phasesBeforeSecondCard = await page.evaluate(() => window.harness.phases.length);
+  await waitFor(page, () => window.phaseIs('waiting'), {
+    label: 'the second card to skip straight to the fallback with no mic request',
+  });
+  const secondCardPhases = await page.evaluate(
+    (from) => window.harness.phases.slice(from).map((entry) => entry.phase),
+    phasesBeforeSecondCard
+  );
+  check(
+    'a remembered mic refusal skips the "asking for the microphone" phase on the next card',
+    !secondCardPhases.includes('requesting-mic'),
+    JSON.stringify(secondCardPhases)
+  );
+  const secondNote = await page.evaluate(() => document.querySelector('[data-amgi-note]').textContent.trim());
+  check('the "no microphone" note is said once, not on every card', secondNote === '', secondNote);
+
+  const leaks = await page.evaluate(() => window.harness.leaks);
+  check('the answer never appeared early', leaks.length === 0, JSON.stringify(leaks));
+  await page.close();
+}
+
+async function withoutCueAudio(browser, port, logs) {
+  process.stdout.write('\na card with no cue audio at all\n');
+  const page = await browser.newPage();
+  watch(page, logs);
+  // A microphone that would otherwise work fine - the point is that a note
+  // missing its own prompt must never open it, because there is nothing to
+  // answer (see anki-loop.js's bootFront, hasCueAudio).
+  await page.evaluateOnNewDocument(fakeVoiceScript({ leadMs: 200, speechMs: 1000 }));
+  await page.evaluateOnNewDocument(`
+    window.__micRequests = 0;
+    const realGetUserMedia = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+    navigator.mediaDevices.getUserMedia = (constraints) => {
+      window.__micRequests += 1;
+      return realGetUserMedia(constraints);
+    };
+  `);
+  const front = fs.readFileSync(path.join(ROOT, 'anki', 'notetype', 'front.html'), 'utf8');
+  const back = fs.readFileSync(path.join(ROOT, 'anki', 'notetype', 'back.html'), 'utf8');
+  await page.goto(`http://127.0.0.1:${port}/reviewer.html`, { waitUntil: 'load' });
+  const cards = [{ ...CARDS[0], CueAudio: '' }, CARDS[1]];
+  await page.evaluate((config) => window.harness.start(config), { front, back, cards });
+
+  await waitFor(page, () => window.phaseIs('waiting'), {
+    label: 'a card with no cue audio to skip straight to the fallback',
+  });
+  check(
+    'a card with no cue audio never asks for the microphone at all',
+    await page.evaluate(() => window.__micRequests === 0)
+  );
+  const note = await page.evaluate(() => document.querySelector('[data-amgi-note]').textContent);
+  check('the learner is told the card has no audio yet, not a generic mic error', /no audio yet/i.test(note), note);
+
+  await page.keyboard.press('Space');
+  await waitFor(page, () => window.phaseIs('answer'), { label: 'space to reveal a card with no cue audio' });
+  check('space still reveals the card', true);
+
+  await page.evaluate(() => window.pycmd('ease3'));
+  await waitFor(page, () => window.harness.cardIndex === 1, { label: 'the next card' });
+  check(
+    'grading still works',
     await page.evaluate(() => window.harness.commands.some((entry) => entry.command === 'ease3'))
   );
 
@@ -507,7 +584,7 @@ async function withoutAudioContext(browser, port, logs) {
   await waitFor(
     page,
     () => {
-      const el = document.querySelector('[data-amgi-answer-audio] audio');
+      const el = document.querySelector('[data-amgi-target-audio] audio');
       return !!el && el.played && el.played.length > 0;
     },
     { label: 'the native audio to still play with no Web Audio' }
@@ -531,7 +608,7 @@ async function withoutAudioContext(browser, port, logs) {
   });
   check('replaying a clip by hand does not draw either, with no Web Audio available', stillUntouched);
 
-  await page.click('[data-amgi-action="good"]');
+  await page.evaluate(() => window.pycmd('ease3'));
   await waitFor(page, () => window.harness.cardIndex === 1, { label: 'the next card' });
   check(
     'grading still works with no Web Audio in the client',
@@ -554,7 +631,13 @@ async function main() {
   });
 
   try {
-    for (const run of [withMicrophone, withoutMicrophone, withHangingMicrophone, withoutAudioContext]) {
+    for (const run of [
+      withMicrophone,
+      withoutMicrophone,
+      withHangingMicrophone,
+      withoutCueAudio,
+      withoutAudioContext,
+    ]) {
       await run(browser, port, logs);
     }
   } finally {

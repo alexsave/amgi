@@ -3,7 +3,7 @@
 
      There is deliberately no answer text here. The learner answers from
      listening, so the only way to be sure the text cannot be read early is for
-     it not to be on the page at all. Do not add the Prompt or Answer fields to
+     it not to be on the page at all. Do not add the Cue or Target fields to
      this side, whatever CSS you hide them with. Anki substitutes fields inside
      HTML comments too, so do not name them in a comment either. -->
 
@@ -12,20 +12,23 @@
     <canvas class="amgi-visualizer" data-amgi-visualizer aria-hidden="true"></canvas>
   </div>
 
-  <p class="amgi-status" data-amgi-status>Listen</p>
+  <p class="amgi-status" data-amgi-status role="status" aria-live="polite">
+    <span class="amgi-status-icon" data-amgi-status-icon aria-hidden="true"></span>
+    <span data-amgi-status-text>Listen</span>
+  </p>
 
   <!-- Anki plays a sound tag through its own player, which gives a template
        no way to know when playback ended. The field holds an ordinary HTML
        media reference instead, and the loop drives it as an <audio> element.
        See the README for the field format. -->
-  <div class="amgi-slot" data-amgi-prompt-audio>{{PromptAudio}}</div>
+  <div class="amgi-slot" data-amgi-cue-audio>{{CueAudio}}</div>
 
   <div class="amgi-actions">
     <button type="button" class="amgi-btn tappable" data-amgi-action="play" hidden>
-      Play the prompt
+      Tap to play
     </button>
-    <button type="button" class="amgi-btn tappable" data-amgi-action="reveal">
-      Done speaking <kbd>space</kbd>
+    <button type="button" class="amgi-btn tappable" data-amgi-action="reveal" aria-keyshortcuts="Space Enter">
+      <span data-amgi-reveal-label>Skip</span> <kbd aria-hidden="true">space</kbd>
     </button>
   </div>
 

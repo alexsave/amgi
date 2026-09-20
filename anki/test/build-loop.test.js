@@ -94,7 +94,7 @@ test('Anki will see the stylesheet as a used media file', () => {
 
 test('the question side cannot show the answer, because it never renders it', () => {
   const fields = [...front.matchAll(/\{\{([^}#/^]+)\}\}/g)].map((match) => match[1].trim());
-  assert.deepEqual(fields, ['PromptAudio'], 'the front template may only render the prompt audio');
+  assert.deepEqual(fields, ['CueAudio'], 'the front template may only render the cue audio');
   assert.match(front, /data-amgi-side="front"/);
 });
 
@@ -112,8 +112,19 @@ test('nothing in a template can be mistaken for a sound tag', () => {
 
 test('the answer side renders the text and both clips', () => {
   const fields = [...back.matchAll(/\{\{([^}#/^]+)\}\}/g)].map((match) => match[1].trim());
-  for (const field of ['Prompt', 'Answer', 'PromptAudio', 'AnswerAudio']) {
+  for (const field of ['Cue', 'Target', 'CueAudio', 'TargetAudio']) {
     assert.ok(fields.includes(field), `the back template is missing {{${field}}}`);
+  }
+});
+
+test('the back template never writes a literal field marker inside a comment', () => {
+  // Anki substitutes fields inside HTML comments too (see front.html's own
+  // warning about this), so a stray {{FieldName}} left in prose - rather
+  // than escaped or reworded - would get replaced with real field content
+  // the moment the note type is used, not just when this file is read.
+  const comments = [...back.matchAll(/<!--([\s\S]*?)-->/g)].map((match) => match[1]);
+  for (const comment of comments) {
+    assert.doesNotMatch(comment, /\{\{\w/, `a template comment contains a literal field marker: ${comment}`);
   }
 });
 

@@ -305,16 +305,22 @@ function forgetRecording() {
 
 // ---- the visualizer -------------------------------------------------------
 //
-// A canvas sitting directly on the card, drawing the same radial rays amgi's
-// web app used to draw before the Supabase teardown (see git history:
-// src/components/Review/RadialAudioVisualizer.js, AudioVisualizer.css) - one
-// line per frequency bin, radiating from the centre. There is no disc or orb
-// underneath it any more: the rays are the whole visual. What is new here is
-// that the colour is keyed to the audio SOURCE (prompt / the learner's own
-// voice / native), not to the card's phase, so the same three colours mean
-// the same three things whether a clip is autoplaying or the learner tapped a
-// replay button. The colours - and the overall opacity - live in
-// _amgi-loop.css as custom properties; this file only knows their names.
+// A canvas sitting directly on the card, drawing a single ring whose radius,
+// stroke width and opacity follow the source's real loudness (time-domain
+// RMS), coloured by whichever audio SOURCE is currently playing - not by the
+// card's phase - so the same three colours mean the same three things
+// whether a clip is autoplaying or the learner tapped a replay button.
+//
+// This replaces an earlier "one line per frequency bin" ray design that
+// looked right in the drawing code but never could at this size: fftSize=256
+// gives 128 bins, spread linearly around a circle at ~190Hz per bin at
+// 48kHz, so all speech energy landed in the first fifth of the circle -
+// always the same wedge, in the same place, regardless of what the learner
+// did. A bigger canvas would only have drawn a bigger wedge. Reading real
+// loudness off the time domain instead of a frequency bin's position sidesteps
+// that entirely: there is only one number, and it drives one honest shape.
+// The colours - and the overall opacity - live in _amgi-loop.css as custom
+// properties; this file only knows their names.
 //
 // Every failure mode below - no canvas, no 2D context, no AudioContext, a
 // context stuck suspended, a client that refuses createMediaElementSource -
@@ -323,9 +329,9 @@ function forgetRecording() {
 // is.
 
 var VISUALIZER_FALLBACK_COLORS = {
-  prompt: 'hsl(212, 88%, 62%)',
-  you: 'hsl(20, 82%, 50%)',
-  native: 'hsl(158, 55%, 36%)',
+  cue: 'hsl(212, 88%, 62%)',
+  you: 'hsl(38, 75%, 58%)',
+  native: 'hsl(158, 50%, 50%)',
   neutral: 'hsl(215, 12%, 60%)',
 };
 
@@ -349,7 +355,7 @@ function readNumber(root, name, fallback) {
 
 function sourceColors(root) {
   return {
-    prompt: readColor(root, '--amgi-color-prompt', VISUALIZER_FALLBACK_COLORS.prompt),
+    cue: readColor(root, '--amgi-color-cue', VISUALIZER_FALLBACK_COLORS.cue),
     you: readColor(root, '--amgi-color-you', VISUALIZER_FALLBACK_COLORS.you),
     native: readColor(root, '--amgi-color-native', VISUALIZER_FALLBACK_COLORS.native),
     neutral: readColor(root, '--amgi-color-neutral', VISUALIZER_FALLBACK_COLORS.neutral),
@@ -390,7 +396,7 @@ function createVisualizer(root) {
   // whole card be retuned lighter or heavier from CSS alone.
   var opacityScale = readNumber(root, '--amgi-visualizer-opacity', 1);
   var rafId = null;
-  var dataArray = null;
+  var timeBuffer = null;
 
   function sizeFor() {
     var dpr = globalThis.devicePixelRatio || 1;
@@ -414,62 +420,93 @@ function createVisualizer(root) {
     ctx.clearRect(0, 0, size.width || canvas.width, size.height || canvas.height);
   }
 
-  /** @param {AnalyserNode|null} analyser @param {'prompt'|'you'|'native'} kind */
+  /**
+   * One frame's worth of time-domain RMS, 0..1. Works the same whether
+   * `analyser` is the mic's own (voiceActivity.js, fftSize 1024) or a clip's
+   * (attachVisualizerSource below, fftSize 1024 to match) - the ring never
+   * needs to know which.
+   */
+  function levelNow(analyser) {
+    if (!timeBuffer || timeBuffer.length !== analyser.fftSize) {
+      timeBuffer = new Float32Array(analyser.fftSize);
+    }
+    try {
+      analyser.getFloatTimeDomainData(timeBuffer);
+    } catch (error) {
+      return null;
+    }
+    var sumSquares = 0;
+    for (var i = 0; i < timeBuffer.length; i++) sumSquares += timeBuffer[i] * timeBuffer[i];
+    var rms = Math.sqrt(sumSquares / timeBuffer.length);
+    // Ordinary speech sits well under 0.3 RMS; this gain is tuned so a normal
+    // answer swings the ring noticeably without pinning it to full size on
+    // every syllable.
+    return Math.min(1, rms * 5);
+  }
+
+  function paint(size, color, level, breathe) {
+    var cx = size.width / 2;
+    var cy = size.height / 2;
+    var base = Math.min(size.width, size.height) * 0.28;
+    var radius = base + level * base * 0.55 + breathe;
+    ctx.clearRect(0, 0, size.width, size.height);
+    // The floor (0.35, not near-zero) is deliberate, same reasoning as the
+    // old rays' alpha floor: even silence should read as "a ring is here and
+    // listening", not ghosted or gone, so quiet is never mistaken for dead.
+    ctx.globalAlpha = Math.max(0, Math.min(1, (0.35 + level * 0.65) * opacityScale));
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2 + level * 4;
+    ctx.beginPath();
+    ctx.arc(cx, cy, Math.max(0, radius), 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+
+  /** @param {AnalyserNode|null} analyser @param {'cue'|'you'|'native'} kind */
   function draw(analyser, kind) {
     if (rafId) {
       cancelAnimationFrame(rafId);
       rafId = null;
     }
-    if (!analyser || typeof analyser.getByteFrequencyData !== 'function' || reducedMotionPreferred()) {
+    if (!analyser || typeof analyser.getFloatTimeDomainData !== 'function') {
       stop();
       return;
     }
     // An audio source this file doesn't recognise still gets drawn, just in
     // the neutral colour - a cosmetic feature is never a reason to throw.
     var color = colors[kind] || colors.neutral;
-    if (!dataArray || dataArray.length !== analyser.frequencyBinCount) {
-      dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+    if (reducedMotionPreferred()) {
+      // A static ring instead of nothing: reduced motion should mean no
+      // animation, not no indicator that a microphone is open or a clip is
+      // playing.
+      var still = sizeFor();
+      if (still.width && still.height) paint(still, color, 0.12, 0);
+      return;
     }
 
-    function frame() {
+    var level = 0;
+
+    function frame(now) {
       var size = sizeFor();
       if (!size.width || !size.height) {
         rafId = requestAnimationFrame(frame);
         return;
       }
-      try {
-        analyser.getByteFrequencyData(dataArray);
-      } catch (error) {
+      var raw = levelNow(analyser);
+      if (raw === null) {
         stop();
         return;
       }
-      var cx = size.width / 2;
-      var cy = size.height / 2;
-      var maxLength = Math.min(size.width, size.height) * 0.44;
-      var bars = Math.max(8, Math.floor(dataArray.length * 0.5));
-      var step = (2 * Math.PI) / bars;
-
-      ctx.clearRect(0, 0, size.width, size.height);
-      ctx.strokeStyle = color;
-      for (var i = 0; i < bars; i++) {
-        var index = Math.floor(i * (dataArray.length / bars));
-        var norm = Math.min(dataArray[index] / 255, 1);
-        var length = norm * maxLength;
-        if (length < maxLength * 0.03) continue;
-        var angle = i * step;
-        // The colour stays fixed per source; only how loud a ray is and how
-        // opaque it is move with the signal, so the identity of the source
-        // never drifts with volume. The floor (0.55, not near-zero) is
-        // deliberate: even a quiet ray should read as clearly present, not
-        // ghosted, so the card looks alive while audio is playing.
-        ctx.globalAlpha = Math.max(0, Math.min(1, (0.55 + norm * 0.45) * opacityScale));
-        ctx.lineWidth = 2.5 + norm * 3.5;
-        ctx.beginPath();
-        ctx.moveTo(cx, cy);
-        ctx.lineTo(cx + Math.cos(angle) * length, cy + Math.sin(angle) * length);
-        ctx.stroke();
-      }
-      ctx.globalAlpha = 1;
+      // Fast attack, slow release: the ring should jump to a loud syllable
+      // at once but ease back down between words, not flicker on every dip.
+      level += (raw - level) * (raw > level ? 0.6 : 0.15);
+      // A slow, signal-independent breathing motion so a perfectly silent
+      // room still reads as "alive" rather than "frozen" while the ring is
+      // otherwise at its floor - this is the front's idle listening
+      // indicator, not a separate element.
+      var breathe = Math.sin((now || 0) / 900) * (Math.min(size.width, size.height) * 0.015);
+      paint(size, color, level, breathe);
       rafId = requestAnimationFrame(frame);
     }
 
@@ -484,7 +521,7 @@ function createVisualizer(root) {
  * visualizer can read its frequency data, and returns the analyser (or null
  * if this client won't allow it). `createMediaElementSource` can only be
  * called once per element - the result is cached on the element itself so a
- * clip replayed several times (the "Prompt"/"Native" buttons) reuses the same
+ * clip replayed several times (the "Hear it again"/"Hear the answer" buttons) reuses the same
  * routing instead of throwing on the second attempt.
  */
 function attachVisualizerSource(context, element) {
@@ -501,7 +538,9 @@ function attachVisualizerSource(context, element) {
   }
   try {
     var analyser = context.createAnalyser();
-    analyser.fftSize = 256;
+    // Matches voiceActivity.js's own analyser so the ring reads the same way
+    // whether it is fed by the microphone or by a clip.
+    analyser.fftSize = 1024;
     source.connect(analyser);
     analyser.connect(context.destination);
     element.__amgiAnalyser = analyser;
@@ -573,13 +612,50 @@ function beginVisualizing(element, kind) {
   return stop;
 }
 
+// Three small glyphs, one per family of phase, so the status line carries an
+// icon as well as text - the biggest visual event on the card is now the
+// phase changing, not a flicker in the corner. currentColor means each just
+// follows the status text's own colour; aria-hidden because the text next to
+// them already says the same thing to a screen reader.
+var AMGI_STATUS_ICON = {
+  speaker:
+    '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/></svg>',
+  mic:
+    '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/></svg>',
+  tick:
+    '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 13l4 4 10-10"/></svg>',
+};
+
+var AMGI_STATUS = {
+  prompt: { text: 'Listen', icon: 'speaker' },
+  'requesting-mic': { text: 'Asking for the microphone...', icon: 'mic' },
+  listening: { text: "Listening, stop talking when you're done.", icon: 'mic' },
+  waiting: { text: "Press space when you're done.", icon: 'tick' },
+  answer: { text: 'How did you do?', icon: 'tick' },
+  idle: { text: '', icon: null },
+};
+
+// What the "Done speaking" / "Skip" button says and does changes with the
+// phase (see bootFront's revealButton wiring below); this is its label half.
+var AMGI_REVEAL_LABEL = {
+  prompt: 'Skip',
+  'requesting-mic': 'One moment...',
+  listening: 'Done speaking',
+  waiting: 'Show answer',
+  idle: 'Skip',
+};
+
 /** The bits of the card the loop talks to, all optional so a trimmed-down
  * template degrades into a plainer card rather than an exception. */
 function makeUi(root) {
   var status = attr(root, 'data-amgi-status');
+  var statusIcon = attr(root, 'data-amgi-status-icon');
+  var statusText = attr(root, 'data-amgi-status-text');
   var note = attr(root, 'data-amgi-note');
   var playButton = action(root, 'play');
   var playHandler = null;
+  var revealLabel = attr(root, 'data-amgi-reveal-label');
+  var revealButton = action(root, 'reveal');
 
   if (playButton) {
     playButton.addEventListener('click', function () {
@@ -591,7 +667,13 @@ function makeUi(root) {
     root: root,
     phase: function (phase) {
       root.setAttribute('data-amgi-phase', phase);
-      setText(status, AMGI_STATUS[phase] || '');
+      var info = AMGI_STATUS[phase] || AMGI_STATUS.idle;
+      // status/statusText fall back to the same element when a trimmed-down
+      // template has no separate icon/text spans (see front.html/back.html).
+      setText(statusText || status, info.text);
+      if (statusIcon) statusIcon.innerHTML = (info.icon && AMGI_STATUS_ICON[info.icon]) || '';
+      if (revealLabel) setText(revealLabel, AMGI_REVEAL_LABEL[phase] || AMGI_REVEAL_LABEL.idle);
+      if (revealButton) revealButton.disabled = phase === 'requesting-mic';
     },
     note: function (text) {
       setText(note, text || '');
@@ -604,14 +686,6 @@ function makeUi(root) {
   };
 }
 
-var AMGI_STATUS = {
-  prompt: 'Listen',
-  listening: 'Speak your answer',
-  waiting: 'Ready when you are',
-  answer: 'How did you do?',
-  idle: '',
-};
-
 function bootFront(root) {
   var ui = makeUi(root);
   store.visualizer = createVisualizer(root);
@@ -619,16 +693,24 @@ function bootFront(root) {
   // interesting, and holding the blob URL open would leak it.
   forgetRecording();
 
-  var prompt = resolveAudio(attr(root, 'data-amgi-prompt-audio'));
-  if (!prompt) ui.note('This note has no prompt audio.');
+  var cueAudio = resolveAudio(attr(root, 'data-amgi-cue-audio'));
+  var hasCueAudio = !!cueAudio;
+  if (!hasCueAudio) {
+    // Opening the microphone to answer a card with nothing to answer is
+    // worse than not opening it: skip straight to the same "press space"
+    // fallback a client with no microphone at all reaches, rather than
+    // listening for an answer to a question that was never asked.
+    ui.note('This card has no audio yet - press space to see it, or use amgi bridge’s "Fill missing audio..." to add it.');
+  }
 
   var loop = createReviewLoop({
     vadOptions: AMGI_CONFIG.vad,
     micTimeoutMs: AMGI_CONFIG.micTimeoutMs,
     playPrompt: function () {
-      return playClip(prompt, ui, 'prompt');
+      return playClip(cueAudio, ui, 'cue');
     },
-    openMic: microphone,
+    // No point opening a microphone to answer a card that asked nothing.
+    openMic: hasCueAudio ? microphone : null,
     closeMic: stopMicrophone,
     // detectSpeechEnd (voiceActivity.js) already builds the one AnalyserNode
     // this mic gets; wrapping it here - rather than reviewLoop.js opening a
@@ -644,9 +726,19 @@ function bootFront(root) {
       };
     },
     onMicUnavailable: function () {
-      // Said once, plainly, and then the card carries on without it. The
-      // desktop client denies this unless the companion add-on is installed.
-      ui.note('No microphone here - press space when you have answered out loud.');
+      // Persisted on `store`, which survives a fresh createReviewLoop() on
+      // every card (see the loop.disableMic() call below): without this, a
+      // stock desktop client without the companion add-on re-races the same
+      // micTimeoutMs wait on every single card, thirty times in a row,
+      // instead of once per session.
+      store.micUnavailable = true;
+      // Said once, plainly, and then the card carries on without it - not
+      // repeated on every subsequent card, which used to make a single
+      // known fact look like a fresh error each time.
+      if (!store.micNoteShown) {
+        store.micNoteShown = true;
+        ui.note('No microphone here - press space when you have answered out loud.');
+      }
     },
     reveal: function (result) {
       rememberRecording(result.recording);
@@ -660,13 +752,20 @@ function bootFront(root) {
   });
 
   store.loop = loop;
+  // A refusal from an earlier card this session: skip the request outright
+  // rather than racing micTimeoutMs again for no reason (see onMicUnavailable
+  // above).
+  if (store.micUnavailable) loop.disableMic();
+
   bindKeys(root, function (event) {
     if (event.key === ' ' || event.key === 'Enter' || event.key === 'Spacebar') {
       // One key does the only thing that ever makes sense here: move on.
       // While the prompt plays that means skip it, while the microphone is
       // open it means "I have finished speaking", and with no microphone it
       // means "show me". Once the answer is on its way there is nothing left
-      // to do, and the key is left for the client to handle.
+      // to do, and the key is left for the client to handle. While the
+      // microphone request itself is still pending there is nothing to do
+      // either - the button is disabled for the same reason (see makeUi).
       if (loop.phase === PHASE.PROMPT && store.clip) {
         store.clip();
         return true;
@@ -690,46 +789,27 @@ function bootFront(root) {
 function bootBack(root) {
   var ui = makeUi(root);
   store.visualizer = createVisualizer(root);
-  var native = resolveAudio(attr(root, 'data-amgi-answer-audio'));
-  var prompt = resolveAudio(attr(root, 'data-amgi-prompt-audio'));
+  var native = resolveAudio(attr(root, 'data-amgi-target-audio'));
+  var cueAudio = resolveAudio(attr(root, 'data-amgi-cue-audio'));
 
-  wireReplay(root, 'replay-prompt', prompt, 'prompt');
+  wireReplay(root, 'replay-cue', cueAudio, 'cue');
   wireReplay(root, 'replay-native', native, 'native');
   wireYou(root);
 
-  function grade(ease) {
-    // One grade per rendered answer. Anki ignores an ease sent while the
-    // question is still up (reviewer.py, _answerCard returns unless
-    // state == "answer"), but a double send would grade the *next* card.
-    if (root.getAttribute('data-amgi-graded')) return;
-    root.setAttribute('data-amgi-graded', '1');
-    forgetRecording();
-    if (!bridge('ease' + ease)) {
-      root.removeAttribute('data-amgi-graded');
-      ui.note('Grade this card with your client’s own buttons.');
-    }
-  }
-
-  var again = action(root, 'again');
-  var good = action(root, 'good');
-  if (again) again.addEventListener('click', function () {
-    grade(1);
-  });
-  if (good) good.addEventListener('click', function () {
-    grade(3);
-  });
-
-  // Deliberately no bindKeys() here. Verified in real Anki (26.09.2, Qt 6.11):
-  // space/1 are bound twice at once on desktop - once as this template's own
-  // keydown handler, once as Anki's native QShortcut on the main window - and
-  // which one wins the race varies from keypress to keypress. Grading is the
-  // one place on this card where a double-fire is not idempotent: a second
-  // pycmd("easeN") would grade the *next* card, corrupting its schedule
-  // silently. Anki's own Again/Hard/Good/Easy bar is visible right below
-  // these buttons and already grades correctly on every desktop, mobile and
-  // web client, so the template does not compete for these keys at all - it
-  // only drives the reveal (see bootFront) and leaves grading to Anki's own
-  // shortcuts and to the on-screen buttons above.
+  // No grading row of its own, and no keydown handler either. Real Anki
+  // (26.09.2, Qt 6.11), verified live: space/1 are bound twice at once on
+  // desktop - once by this template's own keydown handler, once as Anki's
+  // native QShortcut on the main window - and which one wins the race varies
+  // from keypress to keypress. Grading is the one place on this card where a
+  // double-fire is not idempotent: a second pycmd("easeN") would grade the
+  // *next* card, corrupting its schedule silently. A second, card-drawn
+  // Again/Good row right above Anki's own Again/Hard/Good/Easy bar was also
+  // its own problem independent of the key race: two controls with the same
+  // words in different colours 100px apart, offering two grades where Anki's
+  // own bar offers four, reads as a duplicate or a bug rather than a design.
+  // Anki's bar already grades correctly on every client this README lists,
+  // so the card leaves grading to it entirely and limits itself to "How did
+  // you do?" as a label sitting directly above it (see back.html).
   var loop = createReviewLoop({
     playNative: function () {
       return playClip(native, ui, 'native');

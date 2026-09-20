@@ -19,6 +19,12 @@ export const PHASE = {
   IDLE: 'idle',
   // The prompt audio is playing.
   PROMPT: 'prompt',
+  // openMic() has been called and hasn't settled yet. Worth a phase of its
+  // own, not folded into PROMPT: a real permission prompt on a stock desktop
+  // client can sit here for seconds (see micTimeoutMs), and a host that
+  // leaves the previous phase's status on screen through that wait makes a
+  // slow-but-normal permission dialog look like a hung card.
+  REQUESTING_MIC: 'requesting-mic',
   // The microphone is open and voice activity decides when the turn ends.
   LISTENING: 'listening',
   // No microphone: the learner ends the turn themselves. The host decides how
@@ -203,6 +209,7 @@ export function createReviewLoop(host = {}) {
 
     let mic = null;
     if (openMic && !micUnavailable) {
+      setPhase(PHASE.REQUESTING_MIC);
       try {
         mic = await withTimeout(openMic(), micTimeoutMs);
       } catch (error) {
