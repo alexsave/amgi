@@ -161,7 +161,14 @@ body.card {
      longer be told from an unlit region of the window by its fill alone. */
   background: #000;
   --amgi-card-margin: 0.75rem;
-  margin: var(--amgi-card-margin);
-  border-radius: 1rem;
+  /* No margin along the bottom, and square corners there.
+     The visualizer is a band standing on the foot of the card, and the point
+     of it is that it stands on Anki's answer bar rather than floating above
+     it - so a margin between the two is a gap in the one place the design
+     does not want one. Top and sides keep theirs: those edges are what make
+     the card read as a card against Anki's own chrome, and nothing is
+     touching them. */
+  margin: var(--amgi-card-margin) var(--amgi-card-margin) 0;
+  border-radius: 1rem 1rem 0 0;
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
 }
