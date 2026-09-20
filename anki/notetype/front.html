@@ -14,7 +14,16 @@
 
   <p class="amgi-status" data-amgi-status role="status" aria-live="polite">
     <span class="amgi-status-icon" data-amgi-status-icon aria-hidden="true"></span>
-    <span data-amgi-status-text>Listen</span>
+    <span class="amgi-status-lines">
+      <!-- Only ever shown while the mic is genuinely open (see anki-loop.js's
+           AMGI_STATUS and _amgi-loop.css's .amgi-status-recording) - starts
+           hidden so there is no flash of it before the loop's first render. -->
+      <span class="amgi-status-recording" data-amgi-status-recording hidden>
+        <span class="amgi-status-dot" aria-hidden="true"></span>
+        <span data-amgi-status-recording-text></span>
+      </span>
+      <span data-amgi-status-text>Listen</span>
+    </span>
   </p>
 
   <!-- Anki plays a sound tag through its own player, which gives a template

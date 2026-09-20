@@ -26,20 +26,30 @@
      size" is on), not against .card. A fixed px size on .card did nothing
      but drift out of step with that setting while looking load-bearing. */
   text-align: center;
-  color: #1c2430;
-  background: #f6f7f9;
-}
+  /* amgi's card is dark unconditionally now - the owner's call after seeing
+     it run, not a rendering accident. It used to switch on Anki's own
+     .nightMode/.night_mode class (Anki puts that on this same element, not
+     an ancestor - qt/aqt/reviewer.py, body_class); that class check, and the
+     light-theme colours it used to fall back to, are gone, because there is
+     no longer a second treatment for it to pick between. Contrast of this
+     text against this background: 13.15:1 (WCAG AA needs >=4.5:1) - see
+     _amgi-loop.css for the rest of the palette, which is recomputed against
+     this one background too.
 
-/* Compound, not descendant, selectors: Anki puts the nightMode/night_mode
-   class on the SAME element as `card` (qt/aqt/reviewer.py, body_class), not
-   on an ancestor of it. `.nightMode .card` looks reasonable and never
-   matches a real Anki page - confirmed live, where it silently let Anki's
-   own generic dark-mode default (a near-black/near-white pair, not these
-   colours) win instead. Found while verifying item 7's dark-theme contrast
-   fixes in real Anki; fixed alongside them since it lives in the same file
-   and the same "does dark mode actually look right" question. */
-.card.nightMode,
-.card.night_mode {
+     Anki's own chrome around the card - the toolbar above, the answer bar
+     below - is not part of this template and stays in whatever theme Anki
+     itself is running. In Anki's LIGHT theme that puts a dark box inside a
+     light frame, so --amgi-card-margin below is not decorative: without it
+     the card's own edges are exactly the window's edges, and a colour that
+     stops dead at the edge of the screen reads as a bug, not a choice. The
+     margin, radius and border together are what make it read as a panel
+     placed deliberately on top of Anki's chrome instead - confirmed live in
+     Anki 26.09.2, light theme (see anki/README.md). */
   color: #e8ecf1;
   background: #202429;
+  --amgi-card-margin: 0.75rem;
+  margin: var(--amgi-card-margin);
+  border-radius: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
 }

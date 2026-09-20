@@ -798,6 +798,22 @@ function reducedMotionPreferred() {
   }
 }
 
+// The rays this replaced (see git history) drew `dataArray.length * 0.5` = 64
+// bars, indexed LINEARLY into a 128-bin FFT (fftSize 256). At a 48kHz sample
+// rate that is ~190Hz per bin, so ordinary speech - which lives mostly under
+// 1-2kHz - lit up only the first fifth or so of the bars, always the same
+// wedge of the circle, and at a 96px canvas the bars were closer together
+// than their own line width and merged into a fill. Both are fixed here, not
+// worked around: BAR_COUNT is few enough and thick enough to read as
+// individual spokes (see .amgi-visual's 9rem in _amgi-loop.css), and
+// barLevels below samples log-spaced frequencies, mirrored across the
+// vertical axis, so the same voice spreads around the whole circle instead
+// of crowding one side of it.
+var BAR_COUNT = 28;
+var UNIQUE_BARS = Math.ceil(BAR_COUNT / 2);
+var MIN_HZ = 90; // just above a typical adult voice's fundamental
+var MAX_HZ = 4000; // the top of speech's useful, intelligibility-carrying energy
+
 /**
  * Builds the controller anki-loop.js drives during playback and while the mic
  * is open. Every method is a no-op when the card can't support this - no
@@ -825,6 +841,8 @@ function createVisualizer(root) {
   var opacityScale = readNumber(root, '--amgi-visualizer-opacity', 1);
   var rafId = null;
   var timeBuffer = null;
+  var freqBuffer = null;
+  var barState = null;
 
   function sizeFor() {
     var dpr = globalThis.devicePixelRatio || 1;
@@ -872,21 +890,75 @@ function createVisualizer(root) {
     return Math.min(1, rms * 5);
   }
 
-  function paint(size, color, level, breathe) {
+  /**
+   * UNIQUE_BARS magnitudes (0..1), one per log-spaced frequency between
+   * MIN_HZ and MAX_HZ, read off the same analyser levelNow uses. Log spacing
+   * (not linear) is what actually spreads a voice around the circle: speech
+   * energy falls off fast above a couple kHz, so a linear sweep from 0Hz to
+   * the Nyquist frequency still spends almost every bar above where a voice
+   * has anything left to show. draw() below mirrors these across the
+   * vertical axis into BAR_COUNT positions, so the figure comes out
+   * symmetric rather than a one-sided sweep from low to high.
+   */
+  function barLevels(analyser) {
+    var bins = analyser.frequencyBinCount;
+    if (!freqBuffer || freqBuffer.length !== bins) freqBuffer = new Uint8Array(bins);
+    try {
+      analyser.getByteFrequencyData(freqBuffer);
+    } catch (error) {
+      return null;
+    }
+    var sampleRate = (analyser.context && analyser.context.sampleRate) || 48000;
+    var hzPerBin = sampleRate / analyser.fftSize;
+    var levels = new Array(UNIQUE_BARS);
+    for (var k = 0; k < UNIQUE_BARS; k++) {
+      var frac = UNIQUE_BARS === 1 ? 0 : k / (UNIQUE_BARS - 1);
+      var hz = MIN_HZ * Math.pow(MAX_HZ / MIN_HZ, frac);
+      var bin = Math.min(bins - 1, Math.max(1, Math.round(hz / hzPerBin)));
+      levels[k] = freqBuffer[bin] / 255;
+    }
+    return levels;
+  }
+
+  function paint(size, color, level, breathe, bars) {
     var cx = size.width / 2;
     var cy = size.height / 2;
-    var base = Math.min(size.width, size.height) * 0.28;
-    var radius = base + level * base * 0.55 + breathe;
+    // Kept well under half the canvas even at every maximum at once (loudest
+    // ring plus every spoke fully extended) so nothing clips against
+    // .amgi-visual's own bounds - see _amgi-loop.css.
+    var base = Math.min(size.width, size.height) * 0.2;
+    var ringRadius = base + level * base * 0.25 + breathe;
+    var alpha = Math.max(0, Math.min(1, (0.35 + level * 0.65) * opacityScale));
+
     ctx.clearRect(0, 0, size.width, size.height);
-    // The floor (0.35, not near-zero) is deliberate, same reasoning as the
-    // old rays' alpha floor: even silence should read as "a ring is here and
-    // listening", not ghosted or gone, so quiet is never mistaken for dead.
-    ctx.globalAlpha = Math.max(0, Math.min(1, (0.35 + level * 0.65) * opacityScale));
+    ctx.globalAlpha = alpha;
     ctx.strokeStyle = color;
-    ctx.lineWidth = 2 + level * 4;
+    ctx.lineCap = 'round';
+
+    // The core ring: same honest "something is listening" floor as before -
+    // even silence still reads as a ring, not ghosted or gone.
+    ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.arc(cx, cy, Math.max(0, radius), 0, Math.PI * 2);
+    ctx.arc(cx, cy, Math.max(0, ringRadius), 0, Math.PI * 2);
     ctx.stroke();
+
+    // The spokes. Fewer and thicker than the rays this replaces (28, not 64)
+    // is what keeps them reading as individual lines instead of merging into
+    // a fill at this size - see the BAR_COUNT comment above.
+    var barWidth = Math.max(2, ((2 * Math.PI * ringRadius) / BAR_COUNT) * 0.55);
+    ctx.lineWidth = barWidth;
+    var innerR = ringRadius + 2;
+    for (var i = 0; i < BAR_COUNT; i++) {
+      var mag = bars ? bars[i < UNIQUE_BARS ? i : BAR_COUNT - 1 - i] : 0;
+      var angle = (i / BAR_COUNT) * Math.PI * 2 - Math.PI / 2;
+      var outerR = innerR + 3 + mag * base * 0.85;
+      var cos = Math.cos(angle);
+      var sin = Math.sin(angle);
+      ctx.beginPath();
+      ctx.moveTo(cx + cos * innerR, cy + sin * innerR);
+      ctx.lineTo(cx + cos * outerR, cy + sin * outerR);
+      ctx.stroke();
+    }
     ctx.globalAlpha = 1;
   }
 
@@ -907,13 +979,16 @@ function createVisualizer(root) {
     if (reducedMotionPreferred()) {
       // A static ring instead of nothing: reduced motion should mean no
       // animation, not no indicator that a microphone is open or a clip is
-      // playing.
+      // playing. Bars stay at their resting length (mag 0 - see paint's
+      // `bars ? ... : 0`), not driven by real audio, so this is a single
+      // still frame, not motion with the animation loop removed.
       var still = sizeFor();
-      if (still.width && still.height) paint(still, color, 0.12, 0);
+      if (still.width && still.height) paint(still, color, 0.12, 0, null);
       return;
     }
 
     var level = 0;
+    barState = new Array(UNIQUE_BARS).fill(0);
 
     function frame(now) {
       var size = sizeFor();
@@ -929,12 +1004,21 @@ function createVisualizer(root) {
       // Fast attack, slow release: the ring should jump to a loud syllable
       // at once but ease back down between words, not flicker on every dip.
       level += (raw - level) * (raw > level ? 0.6 : 0.15);
+
+      var rawBars = barLevels(analyser);
+      if (rawBars) {
+        for (var i = 0; i < UNIQUE_BARS; i++) {
+          var b = rawBars[i];
+          barState[i] += (b - barState[i]) * (b > barState[i] ? 0.6 : 0.2);
+        }
+      }
+
       // A slow, signal-independent breathing motion so a perfectly silent
       // room still reads as "alive" rather than "frozen" while the ring is
       // otherwise at its floor - this is the front's idle listening
       // indicator, not a separate element.
       var breathe = Math.sin((now || 0) / 900) * (Math.min(size.width, size.height) * 0.015);
-      paint(size, color, level, breathe);
+      paint(size, color, level, breathe, barState);
       rafId = requestAnimationFrame(frame);
     }
 
@@ -1054,10 +1138,19 @@ var AMGI_STATUS_ICON = {
     '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 13l4 4 10-10"/></svg>',
 };
 
+// The prompt-phase line is the fix for a first-time learner's real question
+// ("wait, is my mic about to turn on?"): it says so before the mic opens,
+// while the audio actually playing at that moment is CueAudio - the
+// gloss/translation clip (see anki/README.md's field table) - not the target
+// phrase, so "the translation" in the owner's own wording is accurate here.
+// `recording`, where set, is both the flag and the text .amgi-status-recording
+// shows (see makeUi below) - it is only ever true for PHASE.LISTENING, which
+// reviewLoop.js only reaches once openMic() has resolved with a live stream,
+// so the callout it drives is never lying about the mic being open.
 var AMGI_STATUS = {
-  prompt: { text: 'Listen', icon: 'speaker' },
+  prompt: { text: "Listen to the translation, then we'll record your voice.", icon: 'speaker' },
   'requesting-mic': { text: 'Asking for the microphone...', icon: 'mic' },
-  listening: { text: "Listening, stop talking when you're done.", icon: 'mic' },
+  listening: { text: "Stop talking when you're done.", icon: 'mic', recording: 'Now recording your voice.' },
   waiting: { text: "Press space when you're done.", icon: 'tick' },
   answer: { text: 'How did you do?', icon: 'tick' },
   idle: { text: '', icon: null },
@@ -1079,6 +1172,8 @@ function makeUi(root) {
   var status = attr(root, 'data-amgi-status');
   var statusIcon = attr(root, 'data-amgi-status-icon');
   var statusText = attr(root, 'data-amgi-status-text');
+  var statusRecording = attr(root, 'data-amgi-status-recording');
+  var statusRecordingText = attr(root, 'data-amgi-status-recording-text');
   var note = attr(root, 'data-amgi-note');
   var playButton = action(root, 'play');
   var playHandler = null;
@@ -1100,6 +1195,12 @@ function makeUi(root) {
       // template has no separate icon/text spans (see front.html/back.html).
       setText(statusText || status, info.text);
       if (statusIcon) statusIcon.innerHTML = (info.icon && AMGI_STATUS_ICON[info.icon]) || '';
+      // The dot is aria-hidden (decorative); this text is what actually
+      // reaches a screen reader, and both live inside .amgi-status's own
+      // role="status"/aria-live region, so hiding/showing this element is
+      // enough to be announced - no separate live region needed for it.
+      if (statusRecordingText) setText(statusRecordingText, info.recording || '');
+      if (statusRecording) show(statusRecording, !!info.recording);
       if (revealLabel) setText(revealLabel, AMGI_REVEAL_LABEL[phase] || AMGI_REVEAL_LABEL.idle);
       if (revealButton) revealButton.disabled = phase === 'requesting-mic';
     },
