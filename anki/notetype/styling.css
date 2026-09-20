@@ -1,174 +1,24 @@
 /* amgi Listening - Styling.
    Paste this into Cards... > Styling for the "amgi Listening" note type.
 
-   Everything else lives in _amgi-loop.css in the media folder, so the look can
-   be updated by replacing one file instead of re-pasting the note type. Anki
-   tracks the quoted underscore filename as a used media file
-   (rslib/src/text.rs, UNDERSCORED_CSS_IMPORTS), and never reports an
-   underscore-prefixed file as unused (rslib/src/media/check.rs). */
+   One line, on purpose. Everything the card looks like lives in
+   _amgi-loop.css in the collection's media folder, including the `body.card`
+   rule that used to sit here - and the reason is no longer the one this file
+   used to give ("so the look can be updated by replacing one file instead of
+   re-pasting the note type", which stopped being a thing anyone does once the
+   add-on started writing the note type itself).
+
+   The reason now is that media can be VERIFIED and note-type CSS cannot.
+   src/server/anki/install.js's collectionDrift asks the live collection
+   whether its templates and its media still match what this build ships, so
+   amgi can say out loud that Anki has not picked up a new design yet.
+   listNotetypes carries no css, so anything left in this field is invisible
+   to that check. A single @import cannot meaningfully drift; two hundred
+   lines of layout can, and did.
+
+   Anki tracks the quoted underscore filename as a used media file
+   (rslib/src/text.rs, UNDERSCORED_CSS_IMPORTS) and never reports an
+   underscore-prefixed file as unused (rslib/src/media/check.rs), so this
+   import is also what keeps the stylesheet from looking like an orphan. */
 
 @import url("_amgi-loop.css");
-
-/* `body.card`, not `.card`: confirmed live in real Anki (26.09.2, dark Qt
-   theme) that Anki's own reviewer.css ships `body.nightMode { background-color:
-   var(--canvas); color: var(--fg); }`, and an element-plus-class selector
-   (specificity 0,1,1) outranks a single class selector (0,1,0) regardless of
-   which stylesheet loads second - so on a body carrying Anki's own
-   "nightMode" class (every dark-themed Anki client; qt/aqt/reviewer.py,
-   body_class), `.card`'s own background and color NEVER WON, silently,
-   since the very first "dark unconditionally" pass: the card rendered
-   Anki's own night-canvas grey (#2c2c2c) instead of amgi's colour, and
-   nobody caught it because the only "confirmed live" check on record for
-   this rule was run in Anki's LIGHT theme, where body has no "nightMode"
-   class and the conflict cannot occur. Matching Anki's own selector shape
-   (element + class) is what actually wins the tie - the same kind of fix
-   _amgi-loop.css already applies to `button.amgi-btn` for an unrelated
-   collision with Anki's `.fancy button` rule - not `!important`, and this
-   stylesheet loads after reviewer.css's in the document, so an
-   equal-specificity tie also resolves in our favour. */
-body.card {
-  /* An editorial serif, on every line of the card - the owner's call after
-     comparing four candidates live (font 0/A/B/C, see the design pass this
-     followed): "font B is best for the korean text and the other language
-     text." That was scoped to the answer side's content (the target phrase
-     and its gloss), but the follow-up review made the real complaint plain:
-     "the text of the amgi itself" - the status line, the replay buttons, the
-     reveal button, any note - was what read as generic, "too much like an
-     Amazon product", not the content it sits around. Rather than pairing a
-     second, "characterful" chrome typeface against the content serif (the
-     classic pairing, and a real option - see the alternative screenshots
-     this pass also produced), this sets ONE font-family here, on body.card
-     itself, so every element on the card inherits it: the content
-     (.amgi-text-target/-cue/-notes) and the chrome (.amgi-status,
-     button.amgi-btn via its own `font: inherit`, .amgi-note) end up in the
-     same family by construction, not by two rules that could drift apart.
-     The chrome already sits smaller and quieter than the content - see
-     .amgi-status's 1.3rem/600 vs .amgi-text-target's 1.85rem/700, and
-     button/.amgi-note's own smaller sizes plus --amgi-secondary-opacity -
-     so "one coherent editorial object where the chrome is quieter, not a
-     second face" falls out of sizing that already existed, without gambling
-     a second font's availability across platforms on top of it. A
-     characterful sans is a real pairing (Trebuchet MS/Avenir Next, see the
-     alternative shots) but degrades to the same generic system sans this
-     fixed on Windows/Linux where neither ships, which reintroduces the exact
-     complaint on every platform but macOS; one serif stack does not have
-     that failure mode.
-
-     The stack itself: `ui-serif` first (Safari and Chromium both resolve
-     this to the platform's own serif UI font - New York-family on recent
-     macOS), then Latin serif fallbacks for the gloss/chrome text alone
-     (Georgia/Cambria/Times New Roman carry no CJK glyphs, so the browser
-     skips them for Korean or Japanese characters specifically and keeps
-     them only for English), then the CJK-capable serifs in the order most
-     likely to find one actually installed. `Language` (see anki/README.md's
-     field table) is not Korean-only - `ja` is a documented value too - so
-     this covers both scripts, and they get genuinely different treatment
-     because their platforms do: Yu Mincho ships on Windows 8.1+ as a
-     modern, elegant Japanese serif (Microsoft's own reaction to MS Mincho
-     looking dated), so a Japanese card on stock Windows already lands
-     somewhere good. Korean has no equivalent - Microsoft has never shipped a
-     newer serif for Hangul the way it shipped Yu Mincho for Japanese - so
-     Batang (dated, the previous pass's own complaint) or Gungsuh (more
-     brush-influenced, not less dated) are the only two serif Hangul faces
-     Windows guarantees, and that cannot be fixed without shipping a font
-     file, which this stack deliberately does not do (no @font-face, no
-     downloaded weight to flag a licence for). What this ordering can
-     actually improve is everything upstream of that floor: Nanum Myeongjo
-     (ships with many Korean-locale Office installs and Linux CJK font
-     packages, and is a genuinely modern face) and Hiragino Mincho ProN
-     (macOS's own Japanese serif, redundant with `ui-serif` there but a
-     direct-name fallback for engines that don't resolve the generic one)
-     both come before the Noto Serif KR/JP/CJK KR/CJK JP family (ChromeOS and
-     most Linux CJK bundles), which in turn comes before AppleMyungjo
-     (macOS, likewise redundant with `ui-serif`) and Batang/MS Mincho last of
-     the named fonts - so any platform that has something better than the
-     Windows floor installed gets it, and a bare Windows box degrades no
-     worse than it already would have. Generic `serif` closes the stack for
-     whatever is left. Contrast is unaffected by any of this: WCAG's ratio is
-     a function of the two colours only, and none changed here - see the
-     numbers already recorded below and in _amgi-loop.css's own comment. */
-  /* SUPERSEDED, deliberately: the long comment above records why this card
-     was set in an editorial serif, and that reasoning was sound at the time.
-     The owner overturned it at the end of the treatment review, having seen
-     the same card in four type systems side by side: "lets lock in plain
-     anki font". So this is Anki's own default stack, which is what the
-     reviewer ships when a note type sets nothing at all.
-
-     Worth keeping the trade-off on record rather than just the outcome. The
-     serif was chosen to stop the chrome reading as generic; what the side by
-     side showed is that Anki's own face reads as *native* rather than as
-     generic, because it is the face every other card in the collection is
-     already in. A deck that looks like it belongs in Anki beats a deck that
-     looks designed, when the learner is going to see thirty of them in a
-     row. It also removes the whole Hangul-serif problem the stack above
-     spends a paragraph on: Arial and Helvetica have no CJK coverage, so the
-     browser falls through to whatever the platform's own UI face is for
-     Korean and Japanese - which is exactly what Anki itself does, and is
-     guaranteed to be installed and current, unlike Batang. */
-  font-family: Arial, "Helvetica Neue", Helvetica, sans-serif;
-  /* Deliberately no font-size here any more: every visible size in
-     _amgi-loop.css is already in rem, which resolves against Anki's own html
-     root (webview.py sets that from the Qt system font when "use system font
-     size" is on), not against .card. A fixed px size on .card did nothing
-     but drift out of step with that setting while looking load-bearing. */
-  text-align: center;
-  /* amgi's card is dark unconditionally now - the owner's call after seeing
-     it run, not a rendering accident. It used to switch on Anki's own
-     .nightMode/.night_mode class (Anki puts that on this same element, not
-     an ancestor - qt/aqt/reviewer.py, body_class); that class check, and the
-     light-theme colours it used to fall back to, are gone, because there is
-     no longer a second treatment for it to pick between.
-
-     #0b0d10, not the earlier #202429: the owner asked for meaningfully
-     darker, near-black rather than one shade down, once he saw the lighter
-     charcoal live. Contrast only goes up as a background gets darker (WCAG's
-     ratio is monotonic in the darker side's luminance), so every colour
-     tuned against #202429 already clears its bar by more room now, not
-     less - recomputed rather than assumed: this text against this
-     background is 16.40:1 (WCAG AA needs >=4.5:1, was 13.15:1 against
-     #202429) - see _amgi-loop.css for the rest of the palette, recomputed
-     against this same background.
-
-     Anki's own chrome around the card - the toolbar above, the answer bar
-     below - is not part of this template and stays in whatever theme Anki
-     itself is running. In Anki's LIGHT theme that puts a dark box inside a
-     light frame, so --amgi-card-margin below is not decorative: without it
-     the card's own edges are exactly the window's edges, and a colour that
-     stops dead at the edge of the screen reads as a bug, not a choice.
-
-     The hairline border this rule used to add is gone - the owner's call,
-     on sight, once the card was actually near-black rather than a lighter
-     charcoal: a 1px rgba(255,255,255,0.08) edge that was barely there
-     against #202429 became a visible outline against #0b0d10, and it read
-     as a frame around the card rather than the card itself. Margin, radius
-     and shadow stay: the margin is what keeps the card off the window's own
-     edges (needed regardless of theme, see above), the radius is what
-     keeps the corners from reading as a mistake at that margin, and the
-     shadow is what still separates the panel from Anki's own light-theme
-     background without drawing a line to do it - a shadow reads as depth,
-     a border reads as a frame, and depth was the only one of the two the
-     owner wanted. */
-  color: #e8ecf1;
-  /* Black, not the near-black #0b0d10 this sat at: the owner's call on
-     seeing the card next to Anki's own dark chrome ("make the background
-     actually black"). Every contrast figure recorded in this file and in
-     _amgi-loop.css was computed against #0b0d10 and can only have gone UP,
-     since contrast is a function of the two luminances and this background's
-     just went to its floor - so none of them needed rechecking to stay
-     valid, and none were rewritten to claim otherwise. The one thing that
-     genuinely changes is the card's edge: against a true black the margin,
-     radius and shadow below do more work, not less, because the card can no
-     longer be told from an unlit region of the window by its fill alone. */
-  background: #000;
-  --amgi-card-margin: 0.75rem;
-  /* No margin along the bottom, and square corners there.
-     The visualizer is a band standing on the foot of the card, and the point
-     of it is that it stands on Anki's answer bar rather than floating above
-     it - so a margin between the two is a gap in the one place the design
-     does not want one. Top and sides keep theirs: those edges are what make
-     the card read as a card against Anki's own chrome, and nothing is
-     touching them. */
-  margin: var(--amgi-card-margin) var(--amgi-card-margin) 0;
-  border-radius: 1rem 1rem 0 0;
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
-}
