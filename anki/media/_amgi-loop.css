@@ -6,7 +6,16 @@
 .amgi {
   margin: 0 auto;
   max-width: 34rem;
-  min-height: 100vh;
+  /* The card used to sit flush with Anki's own background in whichever
+     theme Anki was in; now it is always dark (see styling.css's .card
+     comment), so styling.css gives .card its own margin to sit inside
+     instead of bleeding into Anki's chrome. This is the matching
+     subtraction, so the card's own content never demands more height than
+     one viewport plus that margin can hold - styling.css sets
+     --amgi-card-margin once, on .card itself, and this is the only other
+     place that number is used. The var() fallback only matters for a
+     trimmed-down styling.css that never sets the property at all. */
+  min-height: calc(100vh - (var(--amgi-card-margin, 0.75rem) * 2));
   padding: 1.5rem 1rem 2rem;
   display: flex;
   flex-direction: column;
@@ -21,24 +30,31 @@
      the mic or replayed as "Hear yourself" - is always this amber,
      regardless of which phase the card is in.
 
-     These are the LIGHT-theme values (Anki's default, no extra class); the
-     .nightMode/.night_mode override below lightens each one for a dark
-     background instead of reusing the same triple, because a colour tuned
-     to read at ~5:1 against #f6f7f9 is duller than it needs to be against
-     #202429 - see anki/README.md's contrast notes. The learner's own voice
-     used to share hue with the "Again" grading button's red (both leaned
-     orange-red, hsl(20)); it is amber/gold now (hsl(32-38)) specifically
-     because that sits further from the red-green confusion axis, so it does
-     not collapse toward "native" green under deuteranopia the way the old
-     orange did, and it no longer reads as "this is a bad answer" next to any
-     red control on the page.
+     amgi's card is dark unconditionally now (the owner's call, not a
+     rendering accident - see styling.css's .card comment), so there is only
+     ever one background these are read against: #202429. Contrast of each,
+     computed against it (WCAG relative-luminance ratio, AA text needs
+     >=4.5:1; the previous pass's own bar for these was >=5:1 since a ring
+     drawn thin also needs to be findable, not just legible as text):
+       --amgi-color-cue:     5.27:1
+       --amgi-color-you:     7.50:1
+       --amgi-color-native:  6.76:1
+       --amgi-color-neutral: 5.27:1
+     These used to be the .nightMode/.night_mode override; they are the only
+     values now, because there is no other background left to tune a second
+     set against. The learner's own voice used to share hue with the "Again"
+     grading button's red (both leaned orange-red, hsl(20)); it is amber/gold
+     now (hsl(32-38)) specifically because that sits further from the
+     red-green confusion axis, so it does not collapse toward "native" green
+     under deuteranopia the way the old orange did, and it no longer reads as
+     "this is a bad answer" next to any red control on the page.
 
      Exposed as custom properties (read by anki-loop.js's visualizer, not
      hard-coded in it) so the palette can be retuned here without touching
      the drawing code. */
-  --amgi-color-cue: hsl(212, 88%, 40%); /* the phrase being played to you */
-  --amgi-color-you: hsl(32, 85%, 32%); /* your own voice, live or replayed */
-  --amgi-color-native: hsl(158, 65%, 28%); /* the native/translation audio */
+  --amgi-color-cue: hsl(212, 88%, 62%); /* the phrase being played to you */
+  --amgi-color-you: hsl(38, 75%, 58%); /* your own voice, live or replayed */
+  --amgi-color-native: hsl(158, 50%, 50%); /* the native/translation audio */
   --amgi-color-neutral: hsl(215, 12%, 60%); /* an audio source we can't identify */
   /* A multiplier on every ring's alpha (drawing code stays untouched; retune
      here). 1 = the ring's own 0.35-1.0 range; turn this down for a subtler
@@ -47,18 +63,11 @@
 
   /* One dimming level for every line of secondary text (the gloss line, the
      notes, the fallback note), so "how much quieter than the hero" is one
-     number instead of three that drift apart over time. 0.78 against either
-     theme's background clears WCAG AA (>=4.5:1) with real margin - the
-     opacity trick itself was never the problem item 7 found, mismeasured
-     levels were. */
+     number instead of three that drift apart over time. #e8ecf1 text at this
+     opacity against #202429 measures 8.53:1 - comfortably past WCAG AA
+     (>=4.5:1); the opacity trick itself was never the problem item 7 found,
+     mismeasured levels were. */
   --amgi-secondary-opacity: 0.78;
-}
-
-.nightMode .amgi,
-.night_mode .amgi {
-  --amgi-color-cue: hsl(212, 88%, 62%);
-  --amgi-color-you: hsl(38, 75%, 58%);
-  --amgi-color-native: hsl(158, 50%, 50%);
 }
 
 /* The audio elements are driven by the loop, not by the learner. */
@@ -80,6 +89,11 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  /* The prompt-phase line ("Listen to the translation, then we'll record
+     your voice.") is the longest sentence this element ever holds; flex
+     items don't wrap their text by default (min-width:auto fights it), so
+     without this the line would rather overflow the card than break. */
+  flex-wrap: wrap;
   gap: 0.5rem;
   font-size: 1.3rem;
   font-weight: 600;
@@ -100,21 +114,95 @@
   height: 100%;
 }
 
-/* There is no static orb any more, and no per-frequency-bin rays either: a
-   single ring, drawn by anki-loop.js's createVisualizer, whose radius and
-   stroke width follow the real loudness of whichever source is playing -
-   coloured by that source, on the card background rather than on top of a
-   grey disc. A quiet moment never leaves a fully blank patch: the ring has a
-   floor size/alpha and a slow independent "breathe" so listening reads as
-   alive, not hung, even in total silence, and reduced-motion clients get a
-   single static ring instead of nothing. .amgi-visual still reserves the
-   space at a fixed size, so the layout does not jump when the visualizer
-   starts and stops. See anki-loop.js's createVisualizer for the drawing code
-   and the degrade-to-nothing rules. */
+/* Holds the recording callout above the phase's own instruction line, so a
+   phase that has both (listening does) reads as two ranked facts rather than
+   one run-on sentence. */
+.amgi-status-lines {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+/* The mic opens itself, with no tap from the learner to explain it, so the
+   moment it is genuinely live gets a callout of its own rather than being
+   folded into the instruction below it: a red dot is the one shape everyone
+   already reads as "you are being recorded", before anyone reads the words
+   next to it, and it does not lean on the ring's amber "you" colour to carry
+   that fact - a colour code is not something every viewer reads the same
+   way, or reads at all. Shown for exactly PHASE.LISTENING (see
+   anki-loop.js's AMGI_STATUS) - reviewLoop.js's listen() only ever reaches
+   that phase once openMic() has already resolved with a live stream (see
+   anki-loop.js's microphone()), so there is no gap between this appearing
+   and the microphone actually being open, and it is hidden again the instant
+   the phase moves on, which is only once stopMicrophone() has actually
+   stopped the tracks. Colour contrast against the card's #202429: 5.6:1
+   (WCAG AA text needs >=4.5:1). */
+.amgi-status-recording {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #ff6b6b;
+}
+
+.amgi-status-dot {
+  width: 0.6em;
+  height: 0.6em;
+  border-radius: 50%;
+  background: currentColor;
+  flex: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .amgi-status-dot {
+    animation: amgi-recording-pulse 1.6s ease-in-out infinite;
+  }
+}
+
+@keyframes amgi-recording-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+/* Once the callout above is showing, the plain instruction line steps back
+   to secondary weight: "Now recording your voice" is the fact, "stop talking
+   when you're done" is the follow-up, and they should not compete for the
+   same emphasis. */
+.amgi[data-amgi-phase='listening'] [data-amgi-status-text] {
+  font-size: 1rem;
+  font-weight: 500;
+  opacity: var(--amgi-secondary-opacity);
+}
+
+/* A core ring plus spokes radiating around it, drawn by anki-loop.js's
+   createVisualizer: the ring's radius follows the real loudness (time-domain
+   RMS) of whichever source is playing, and each spoke follows one
+   log-frequency band of the same signal, log-spaced and mirrored left/right
+   so the shape reacts symmetrically instead of the old linear 64-bar mapping
+   that crammed all of speech's energy into one fifth of the circle (see
+   anki-loop.js's barLevels for the fix). Everything is coloured by the
+   SOURCE, not the phase, same as before. A quiet moment never leaves a fully
+   blank patch: the ring has a floor size/alpha and a slow independent
+   "breathe" so listening reads as alive, not hung, even in total silence,
+   and reduced-motion clients get a single static ring instead of nothing.
+   6rem read as a dot, not rays, once spokes were added back - a spoke needs
+   real radius to be legible as a line rather than a smudge - so this is
+   9rem now. .amgi-visual still reserves the space at a fixed size, so the
+   layout does not jump when the visualizer starts and stops. See
+   anki-loop.js's createVisualizer for the drawing code and the
+   degrade-to-nothing rules. */
 .amgi-visual {
   position: relative;
-  width: 6rem;
-  height: 6rem;
+  width: 9rem;
+  height: 9rem;
   display: flex;
   align-items: center;
   justify-content: center;

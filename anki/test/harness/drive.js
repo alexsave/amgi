@@ -175,6 +175,45 @@ async function startReview(page, port) {
   await page.evaluate((config) => window.harness.start(config), { front, back, cards: CARDS });
 }
 
+/**
+ * What .amgi-status is for role="status"/aria-live="polite"): its own
+ * subtree mutating is what makes assistive tech (re)announce it, and the
+ * recording callout leaning on that - rather than a second live region of
+ * its own - only actually reaches a screen reader if toggling it really is
+ * such a mutation. Rather than trust that, this attaches a MutationObserver
+ * scoped to .amgi-status and records every mutation whose target sits inside
+ * the recording callout, the same signal a screen reader's own accessibility
+ * tree listener reacts to.
+ */
+async function watchRecordingAnnouncements(page) {
+  await page.evaluate(() => {
+    window.__amgiRecordingMutations = [];
+    const region = document.querySelector('[data-amgi-status]');
+    const observer = new MutationObserver((records) => {
+      for (const record of records) {
+        const node = record.target.nodeType === 1 ? record.target : record.target.parentElement;
+        if (node && node.closest('[data-amgi-status-recording]')) {
+          window.__amgiRecordingMutations.push({ type: record.type, attributeName: record.attributeName || null });
+        }
+      }
+    });
+    observer.observe(region, { subtree: true, childList: true, attributes: true, characterData: true });
+  });
+}
+
+async function recordingIndicator(page) {
+  return page.evaluate(() => {
+    const el = document.querySelector('[data-amgi-status-recording]');
+    const dot = document.querySelector('.amgi-status-dot');
+    return {
+      present: !!el,
+      visible: !!el && !el.hidden,
+      text: el ? el.textContent.trim() : '',
+      hasDot: !!dot,
+    };
+  });
+}
+
 // --- the two paths ---------------------------------------------------------
 
 async function withMicrophone(browser, port, logs) {
@@ -191,9 +230,51 @@ async function withMicrophone(browser, port, logs) {
     await page.evaluate(() => !!document.querySelector('[data-amgi-visualizer]'))
   );
 
+  // Told before the mic opens, not after: the owner's fix for a first-time
+  // learner's real question ("is my mic about to turn on?"). The clip
+  // actually playing at this phase is CueAudio, the gloss/translation clip
+  // (see anki/README.md's field table), so "the translation" is accurate
+  // here - and the recording callout must not exist yet, since the mic isn't
+  // open yet either.
+  await waitFor(page, () => window.phaseIs('prompt'), { label: 'the prompt phase' });
+  const duringPrompt = await recordingIndicator(page);
+  check(
+    'the prompt-phase status tells the learner the mic is coming, before it opens',
+    await page.evaluate(() => document.querySelector('[data-amgi-status-text]').textContent.includes('translation')),
+    await page.evaluate(() => document.querySelector('[data-amgi-status-text]').textContent)
+  );
+  check('no recording is claimed before the microphone actually opens', !duringPrompt.visible, JSON.stringify(duringPrompt));
+
+  await watchRecordingAnnouncements(page);
+
   await waitFor(page, () => window.phaseIs('listening'), { label: 'the microphone to open' });
   const openedAt = Date.now();
   check('the microphone opens by itself after the prompt', true);
+
+  // The callout is honest by construction (reviewLoop.js's listen() only
+  // ever runs after openMic() has resolved with a live stream), not just by
+  // convention - see anki-loop.js's AMGI_STATUS. This is what proves it
+  // actually renders that way, and that a screen reader would actually hear
+  // about it (see watchRecordingAnnouncements above), not just that the DOM
+  // node exists.
+  const whileListening = await recordingIndicator(page);
+  check('a red-dot recording indicator appears the instant the mic is live', whileListening.visible, JSON.stringify(whileListening));
+  check('it has an actual dot element, not just coloured text', whileListening.hasDot);
+  check(
+    'it says so in words too, in the owner\'s own wording',
+    whileListening.text === 'Now recording your voice.',
+    whileListening.text
+  );
+  check(
+    'the existing "stop talking" guidance is still there alongside it',
+    await page.evaluate(() => /stop talking/i.test(document.querySelector('[data-amgi-status-text]').textContent))
+  );
+  const announcedWhileOpening = await page.evaluate(() => window.__amgiRecordingMutations.length);
+  check(
+    'the callout appearing is a real mutation inside the aria-live status region, not a silent one',
+    announcedWhileOpening > 0,
+    `${announcedWhileOpening} mutations touched the recording callout`
+  );
 
   // The canvas keeps its browser-default backing size (300x150) until
   // anki-loop.js's visualizer actually sizes and draws on it, which only
@@ -239,6 +320,20 @@ async function withMicrophone(browser, port, logs) {
     'voice activity ends the turn on silence, not on a timeout',
     turnMs > 2500 && turnMs < 5000,
     `turn lasted ${turnMs}ms (speech ends at ~2000ms, silence window is 1200ms, the no-speech timeout is 8000ms)`
+  );
+
+  // Gone the instant the mic is not live any more, not lingering into the
+  // answer: reviewLoop.js sets PHASE.ANSWER only after closeMic() has
+  // actually stopped the tracks (see anki-loop.js's stopMicrophone), and
+  // ui.phase('answer') hides the callout in that same synchronous step,
+  // before the back side even renders.
+  const afterListening = await recordingIndicator(page);
+  check('the recording indicator is gone once the turn ends', !afterListening.visible, JSON.stringify(afterListening));
+  const announcedByAnswer = await page.evaluate(() => window.__amgiRecordingMutations.length);
+  check(
+    'the callout disappearing is also a real mutation inside the live region, not left stale',
+    announcedByAnswer > announcedWhileOpening,
+    `${announcedWhileOpening} -> ${announcedByAnswer}`
   );
 
   const revealed = await page.evaluate(() => ({
@@ -373,6 +468,13 @@ async function withoutMicrophone(browser, port, logs) {
   check('the card does not reveal itself without a microphone', waiting.commands === 0);
   check('the answer text is still nowhere in the DOM', !waiting.text.includes(CARDS[0].Target));
   check('the learner is told what to do', waiting.noteShown && /space/i.test(waiting.note), waiting.note);
+  // Honesty in the other direction: no microphone, no claim of one.
+  const noMicIndicator = await recordingIndicator(page);
+  check(
+    'the recording indicator never claims a microphone that was never opened',
+    !noMicIndicator.visible,
+    JSON.stringify(noMicIndicator)
+  );
 
   await sleep(1200);
   check(
