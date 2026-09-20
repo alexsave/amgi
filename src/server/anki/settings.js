@@ -17,7 +17,7 @@ const DEFAULT_SETTINGS = Object.freeze({
   baseDirOverride: '',
   collectionPath: '',
   profileName: '',
-  bridge: Object.freeze({ enabled: false, baseUrl: '', token: '' }),
+  bridge: Object.freeze({ baseUrl: '', token: '' }),
 });
 
 /** Read and validate the settings header off a Next.js Request, falling back to defaults on anything malformed. */
@@ -30,8 +30,11 @@ function readSettings(request) {
       baseDirOverride: typeof parsed.baseDirOverride === 'string' ? parsed.baseDirOverride : '',
       collectionPath: typeof parsed.collectionPath === 'string' ? parsed.collectionPath : '',
       profileName: typeof parsed.profileName === 'string' ? parsed.profileName : '',
+      // No `enabled`: a configured address and token IS the enabled state.
+      // Older saved settings may still carry the flag; it is ignored rather
+      // than honoured, so somebody who had switched the bridge off does not
+      // stay locked out after upgrading.
       bridge: {
-        enabled: Boolean(parsed.bridge?.enabled),
         baseUrl: typeof parsed.bridge?.baseUrl === 'string' ? parsed.bridge.baseUrl : '',
         token: typeof parsed.bridge?.token === 'string' ? parsed.bridge.token : '',
       },

@@ -55,7 +55,7 @@ function withNormalizedPaging(ops) {
  *   { mode: 'direct', ops }                                   read the closed file straight off disk
  */
 export async function resolveTransport(settings) {
-  if (settings.bridge?.enabled && settings.bridge.baseUrl && settings.bridge.token) {
+  if (settings.bridge?.baseUrl && settings.bridge.token) {
     const probed = await probeBridge(settings.bridge.baseUrl, settings.bridge.token);
     if (probed) {
       if (!probed.status.collectionOpen) {

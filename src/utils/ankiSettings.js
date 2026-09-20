@@ -7,11 +7,18 @@
 
 const STORAGE_KEY = 'amgi:anki-settings';
 
+// There is no `bridge.enabled` any more, deliberately. It was a switch whose
+// only off-state behaviour was the "locked" error: with Anki open, the bridge
+// is the sole way to reach the collection, so turning it off bought nothing
+// and cost a support question. The address and the token stay, because those
+// are real facts about a running server that can genuinely differ. A token
+// that is blank simply means the bridge has not been set up yet, which the
+// transport already handles as "no bridge answered".
 export const DEFAULT_ANKI_SETTINGS = Object.freeze({
   baseDirOverride: '',
   collectionPath: '',
   profileName: '',
-  bridge: Object.freeze({ enabled: false, baseUrl: 'http://127.0.0.1:8798', token: '' }),
+  bridge: Object.freeze({ baseUrl: 'http://127.0.0.1:8798', token: '' }),
 });
 
 export function loadAnkiSettings() {

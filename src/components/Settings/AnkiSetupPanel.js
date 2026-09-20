@@ -150,39 +150,29 @@ const AnkiSetupPanel = () => {
         </div>
       )}
 
-      <div className="preference-item checkbox">
-        <label htmlFor="bridgeEnabled">Use the Anki bridge (when Anki is open)</label>
+      {/* No on/off switch: see ankiSettings.js. A token is what turns the
+          bridge on, and these two are the only facts about it that can
+          genuinely differ between machines. */}
+      <div className="preference-item">
+        <label htmlFor="bridgeUrl">Bridge address</label>
         <input
-          id="bridgeEnabled"
-          type="checkbox"
-          checked={settings.bridge.enabled}
-          onChange={(e) => setSettings(prev => ({ ...prev, bridge: { ...prev.bridge, enabled: e.target.checked } }))}
+          id="bridgeUrl"
+          type="text"
+          value={settings.bridge.baseUrl}
+          onChange={(e) => setSettings(prev => ({ ...prev, bridge: { ...prev.bridge, baseUrl: e.target.value } }))}
+          placeholder="http://127.0.0.1:8798"
         />
       </div>
-      {settings.bridge.enabled && (
-        <>
-          <div className="preference-item">
-            <label htmlFor="bridgeUrl">Bridge address</label>
-            <input
-              id="bridgeUrl"
-              type="text"
-              value={settings.bridge.baseUrl}
-              onChange={(e) => setSettings(prev => ({ ...prev, bridge: { ...prev.bridge, baseUrl: e.target.value } }))}
-              placeholder="http://127.0.0.1:8798"
-            />
-          </div>
-          <div className="preference-item">
-            <label htmlFor="bridgeToken">Bridge token</label>
-            <input
-              id="bridgeToken"
-              type="text"
-              value={settings.bridge.token}
-              onChange={(e) => setSettings(prev => ({ ...prev, bridge: { ...prev.bridge, token: e.target.value } }))}
-              placeholder="From Anki's Tools > amgi: Bridge status…"
-            />
-          </div>
-        </>
-      )}
+      <div className="preference-item">
+        <label htmlFor="bridgeToken">Bridge token</label>
+        <input
+          id="bridgeToken"
+          type="text"
+          value={settings.bridge.token}
+          onChange={(e) => setSettings(prev => ({ ...prev, bridge: { ...prev.bridge, token: e.target.value } }))}
+          placeholder="From Anki's Tools > amgi: Bridge status…"
+        />
+      </div>
 
       {saved && <div className="message success">Anki settings saved.</div>}
 

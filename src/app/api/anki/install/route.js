@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { readSettings } from '../../../../server/anki/settings';
-import { installAddons } from '../../../../server/anki/install';
+import { installAddons, installState } from '../../../../server/anki/install';
 import { discoverProfiles } from '../../../../server/anki/transport';
 
 // One-button setup: copy amgi's two add-ons and its card type into the Anki
@@ -20,4 +20,11 @@ export async function POST(request) {
   const { baseDir } = discoverProfiles(override);
   const result = installAddons({ baseDir });
   return NextResponse.json(result, { status: result.ok ? 200 : 409 });
+}
+
+// Whether amgi is already in this Anki - what the setup screen keys off.
+export async function GET(request) {
+  const settings = readSettings(request);
+  const { baseDir } = discoverProfiles(settings.baseDirOverride);
+  return NextResponse.json(installState({ baseDir }));
 }
