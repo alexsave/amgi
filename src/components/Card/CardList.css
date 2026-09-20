@@ -8,15 +8,15 @@
 
 .deck-cards-header {
   display: flex;
-  align-items: center;
-  position: relative;
-  flex-direction: column;
-  text-align: center;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  text-align: left;
 }
 
 .deck-cards-header h1 {
-  margin: 0.5rem 0;
-  font-size: 1.75rem;
+  margin: 0;
+  font-size: 1.6rem;
   color: var(--text-primary);
 }
 
@@ -26,10 +26,11 @@
   margin: 0.5rem 0;
 }
 
+/* Not absolutely positioned any more: the header is a row, so the button is
+   just the last thing in it. Absolute placement put it on top of the title
+   the moment the title stopped being centred. */
 .deck-cards-header .back-btn {
-  position: absolute;
-  left: 0;
-  top: 1rem;
+  flex: none;
   background: transparent;
   border: 1px solid var(--border-color);
   color: var(--text-primary);
@@ -242,5 +243,125 @@
 }
 
 .card-item-noaudio {
+  opacity: 0.6;
+}
+
+/* The deck screen, laid out the way the mockup settled: left-aligned header
+   carrying what the deck IS, one composer, then the cards as a list rather
+   than a grid of tiles. The tiles repeated the note type name on every card
+   and gave each one a box of its own, which made thirty cards read as thirty
+   objects instead of one deck. */
+
+.deck-cards-sub {
+  margin: 0.25rem 0 0;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.deck-langs {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.deck-langs button {
+  font: inherit;
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 0.15rem 0.45rem;
+  cursor: pointer;
+}
+
+.deck-langs select {
+  font: inherit;
+  font-size: 0.78rem;
+  background: var(--dark-surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 0.2rem 0.4rem;
+}
+
+.deck-cards-listhead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin: 1.8rem 0 0.7rem;
+}
+
+.deck-cards-listhead h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.deck-cards-listhead span {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.note-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--border-color);
+  border-radius: 11px;
+  overflow: hidden;
+}
+
+.note-row {
+  text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 0.95rem;
+  background: var(--dark-surface);
+}
+
+.note-row + .note-row {
+  border-top: 1px solid var(--border-color);
+}
+
+.note-row-target,
+.note-row-cue {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.note-row-target {
+  font-size: 0.95rem;
+}
+
+.note-row-cue {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+
+.note-row-type {
+  font-size: 0.7rem;
+  border: 1px solid var(--border-color);
+  border-radius: 5px;
+  padding: 0.1rem 0.35rem;
+  margin-right: 0.35rem;
+}
+
+.note-row-clips {
+  display: flex;
+  gap: 0.35rem;
+  align-items: center;
+  flex: none;
+}
+
+.note-row-noaudio {
+  font-size: 0.72rem;
   opacity: 0.6;
 }
