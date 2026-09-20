@@ -9,7 +9,7 @@
 const { defaultBaseDir, listProfiles } = require('./paths');
 const { openCollection } = require('./open');
 const { backupCollectionFile } = require('./backup');
-const { listDecks, resolveOrCreateDeck } = require('./decks');
+const { listDecks, renameDeck, resolveOrCreateDeck } = require('./decks');
 const { readNotetypes } = require('./notetypes');
 const {
   addNote,
@@ -88,6 +88,11 @@ class Collection {
    */
   addNotesBulk(notes) {
     return this._withBackup(() => addNotesBulk(this.path, notes));
+  }
+
+  /** Rename a deck and everything under it. */
+  renameDeck(deckId, humanName) {
+    return this._withBackup(() => renameDeck(this.path, deckId, humanName));
   }
 
   /** Delete a note and its cards, leaving graves so a sync propagates it. */

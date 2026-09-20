@@ -95,6 +95,9 @@ export function createDirectOps(collectionPath) {
     async addNotesBulk(notes) {
       return locked(() => unwrap(col.addNotesBulk(notes)));
     },
+    async renameDeck(deckId, name) {
+      return locked(() => unwrap(col.renameDeck(deckId, name)));
+    },
     async removeNote(noteId) {
       return locked(() => unwrap(col.removeNote(noteId)));
     },

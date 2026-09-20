@@ -61,6 +61,8 @@ export const ankiApi = {
   // request for the whole batch so the bridge transport can run it as one
   // CollectionOp instead of one per line (see notes/bulk/route.js).
   addNotesBulk: (notes) => call('/notes/bulk', { method: 'POST', body: JSON.stringify({ notes }) }),
+  renameDeck: (deckId, name) =>
+    call(`/decks/${deckId}`, { method: 'PATCH', body: JSON.stringify({ name }) }),
   deleteNote: (noteId) => call(`/notes/${noteId}`, { method: 'DELETE' }),
   updateNote: (noteId, fields, { language, learningFieldIndex } = {}) =>
     call(`/notes/${noteId}`, { method: 'PATCH', body: JSON.stringify({ fields, language, learningFieldIndex }) }),

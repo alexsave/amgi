@@ -397,6 +397,24 @@ def update_note(
     return OpResult(payload=payload, changes=changes)
 
 
+def rename_deck(col: "Collection", deck_id: int, human_name: str) -> dict:
+    """Rename a deck, through Anki's own API.
+
+    `col.decks.rename` is what handles the two things that make this more
+    than a string update: a subdeck is a deck whose NAME carries its parent's
+    as a prefix, so every descendant has to be rewritten too, and renaming
+    INTO a subdeck needs the parent deck to exist. Doing it here means the
+    Node side's hand-rolled version (plusaudio/lib/collection/decks.js) and
+    this one cannot disagree about either, because this one is the reference.
+    """
+    deck = col.decks.get(int(deck_id))
+    if deck is None:
+        raise ValueError(f"no deck with id {deck_id} in this collection")
+    col.decks.rename(deck, human_name)
+    renamed = col.decks.get(int(deck_id))
+    return {"id": int(deck_id), "name": (renamed or {}).get("name", human_name).replace("\x1f", "::")}
+
+
 def remove_note(col: "Collection", note_id: int) -> OpResult:
     """Delete one note and its cards.
 
