@@ -27,7 +27,7 @@ const AUDIO_STATUS_LABEL = {
  * CardForm.js already has the person choose, rather than asking again: those
  * props are this component's only way to know where a line's text goes.
  */
-const BulkAddForm = ({ deckId, notetype, textFieldIndex, audioFieldIndex, cueAudioFieldIndex, knownFieldIndex, knownLanguage, learningLanguage, ready }) => {
+const BulkAddForm = ({ deckId, notetype, textFieldIndex, audioFieldIndex, cueAudioFieldIndex, knownFieldIndex, knownLanguage, learningLanguage, ready, presetText }) => {
   const { addAnkiNotesBulk, updateAnkiNote, refreshAnkiDecks, loadDeckCards } = useDecks();
 
   // A note type with a CueAudio-like field needs the known-language text to
@@ -36,7 +36,10 @@ const BulkAddForm = ({ deckId, notetype, textFieldIndex, audioFieldIndex, cueAud
   // see the cost notice below, which spells out exactly what that adds.
   const cueAudioRequired = cueAudioFieldIndex !== null;
 
-  const [rawText, setRawText] = useState('');
+  // `presetText` is the deck screen handing over what was typed into its one
+  // box. Undefined means this component owns its own input, which is what the
+  // ownsInput checks below key off.
+  const [rawText, setRawText] = useState(presetText || '');
   const [skipSectionMarkers, setSkipSectionMarkers] = useState(true);
   const [preview, setPreview] = useState(null); // { lines: [...], counts... }
   const [previewLoading, setPreviewLoading] = useState(false);
