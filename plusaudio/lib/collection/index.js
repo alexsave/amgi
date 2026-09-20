@@ -11,7 +11,14 @@ const { openCollection } = require('./open');
 const { backupCollectionFile } = require('./backup');
 const { listDecks, resolveOrCreateDeck } = require('./decks');
 const { readNotetypes } = require('./notetypes');
-const { addNote, countNotesInDeck, listNotesInDeck, noteFieldValuesInDeck, updateNoteFields } = require('./notes');
+const {
+  addNote,
+  addNotesBulk,
+  countNotesInDeck,
+  listNotesInDeck,
+  noteFieldValuesInDeck,
+  updateNoteFields,
+} = require('./notes');
 const { addMediaFile, mediaDirFor, mediaFileExists } = require('./media');
 const { withCollection } = require('./open');
 
@@ -41,8 +48,8 @@ class Collection {
   }
 
   listNotetypes() {
-    return withCollection(this.path, ({ db, schemaVersion, path: p }) => {
-      const notetypes = readNotetypes(db, schemaVersion, p);
+    return withCollection(this.path, ({ db, schemaVersion }) => {
+      const notetypes = readNotetypes(db, schemaVersion);
       return [...notetypes.values()];
     });
   }
@@ -67,6 +74,19 @@ class Collection {
 
   addNote(note) {
     return this._withBackup(() => addNote(this.path, note));
+  }
+
+  /**
+   * Add several notes as one unit of work - one collection open, one
+   * notetypes read, one backup, for the whole batch. See notes.js's
+   * addNotesBulk for why this exists as its own primitive rather than a
+   * caller looping over addNote(): a loop reopens (and, before that fix,
+   * fully re-copies) the collection file once per note, which turns a bulk
+   * paste's cost into a function of both the batch size and the collection's
+   * own size.
+   */
+  addNotesBulk(notes) {
+    return this._withBackup(() => addNotesBulk(this.path, notes));
   }
 
   updateNote(noteId, fields, language, learningFieldIndex) {

@@ -13,7 +13,7 @@
 // pattern package.js established.
 
 const { WIRE_LENGTH, WIRE_VARINT, readFieldsLenient } = require('../protobuf');
-const { withRelaxedCollations } = require('./relaxed-read');
+const { withLiveCollationsRelaxed } = require('./relaxed-read');
 
 /**
  * @typedef {object} Notetype
@@ -88,9 +88,14 @@ function readTemplateConfig(configBytes) {
   return questionFormat;
 }
 
-function readSchema18Notetypes(metadataDb) {
+// `notetypes` is an ordinary ROWID table keyed by id - unlike `fields` and
+// `templates` below, its `name COLLATE unicase` column never stops a plain
+// SELECT from planning (verified against the installed Anki 26.09.2
+// library), so this reads it straight off the live handle with no collation
+// relaxation needed at all.
+function readSchema18NotetypesTable(db) {
   const notetypes = new Map();
-  for (const row of metadataDb.prepare('SELECT id, name, config FROM notetypes').all()) {
+  for (const row of db.prepare('SELECT id, name, config FROM notetypes').all()) {
     const { kind, sortFieldIndex } = readNotetypeConfig(Buffer.from(row.config));
     notetypes.set(Number(row.id), {
       id: Number(row.id),
@@ -101,17 +106,26 @@ function readSchema18Notetypes(metadataDb) {
       templates: [],
     });
   }
+  return notetypes;
+}
 
-  // Read whole and sort in JS, same reasoning as deck.js: the copy these
-  // tables are read from has had Anki's collation stripped out of its schema,
-  // so SQL's own ORDER BY on these tables is not trustworthy.
-  const fields = metadataDb.prepare('SELECT ntid, ord, name FROM fields').all();
+// `fields` and `templates`, by contrast, are WITHOUT ROWID tables (see
+// relaxed-read.js's module comment) that node:sqlite cannot even plan a
+// SELECT against until COLLATE unicase is relaxed - hence
+// withLiveCollationsRelaxed around this one.
+function readFieldsAndTemplates(db, notetypes) {
+  // Read whole and sort by `ord` (a plain integer column, no collation
+  // involved) in JS rather than SQL: this only matters while the schema's
+  // collation is relaxed, so an ORDER BY name would not be trustworthy here,
+  // but ord never needed the collation to sort correctly in the first place -
+  // this is just being consistent with decks.js's own caution on this point.
+  const fields = db.prepare('SELECT ntid, ord, name FROM fields').all();
   fields.sort((a, b) => a.ord - b.ord);
   for (const field of fields) {
     notetypes.get(Number(field.ntid))?.fieldNames.push(field.name);
   }
 
-  const templates = metadataDb.prepare('SELECT ntid, ord, name, config FROM templates').all();
+  const templates = db.prepare('SELECT ntid, ord, name, config FROM templates').all();
   templates.sort((a, b) => a.ord - b.ord);
   for (const template of templates) {
     const notetype = notetypes.get(Number(template.ntid));
@@ -122,8 +136,6 @@ function readSchema18Notetypes(metadataDb) {
       questionFormat: readTemplateConfig(Buffer.from(template.config)),
     });
   }
-
-  return notetypes;
 }
 
 /**
@@ -131,13 +143,13 @@ function readSchema18Notetypes(metadataDb) {
  *
  * @param {import('node:sqlite').DatabaseSync} db  the live collection handle
  * @param {number} schemaVersion
- * @param {string} collectionPath  needed only for schema 18, to build the
- *   relaxed-collation copy fields/templates require (see relaxed-read.js)
  * @returns {Map<number, Notetype>}
  */
-function readNotetypes(db, schemaVersion, collectionPath) {
+function readNotetypes(db, schemaVersion) {
   if (schemaVersion === 11) return readLegacyNotetypes(db);
-  return withRelaxedCollations(collectionPath, readSchema18Notetypes);
+  const notetypes = readSchema18NotetypesTable(db);
+  withLiveCollationsRelaxed(db, ['fields', 'templates'], () => readFieldsAndTemplates(db, notetypes));
+  return notetypes;
 }
 
 module.exports = { readNotetypes };

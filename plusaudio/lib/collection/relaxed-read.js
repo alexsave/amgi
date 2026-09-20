@@ -1,7 +1,7 @@
 'use strict';
 
-// Reading schema 18's notetypes/fields/templates/decks tables, which
-// node:sqlite cannot open at all without help.
+// Reading schema 18's `fields`/`templates` tables, which node:sqlite cannot
+// even plan a SELECT against without help.
 //
 // Schema 18 declares `COLLATE unicase` on the name columns of notetypes,
 // fields, templates, decks and tags (rslib/src/storage/sqlite.rs registers a
@@ -14,58 +14,62 @@
 // key is (ntid, ord), not the collated column - this is not merely "sorting is
 // wrong", it is "the table cannot be opened at all": a plain `SELECT * FROM
 // fields` fails with "no query solution" (verified against the installed
-// Anki 26.09.2 library's own collections).
+// Anki 26.09.2 library's own collections, and against node:sqlite directly -
+// see notetypes.js's test coverage). `notetypes` and `decks` are ordinary
+// ROWID tables and never hit this at all; only the two WITHOUT ROWID tables
+// need this module.
 //
-// The fix, already used for the same reason in plusaudio/lib/package.js
-// (openWithRelaxedCollations), is to read from a throwaway copy with the
-// collation keyword stripped out of the copy's own sqlite_master text via
-// `PRAGMA writable_schema`. That trades "correct collation" for "binary
-// comparison", which is only safe because every read this module does
-// against the copy is either a full table scan or a WHERE/JOIN on a
-// non-collated column (ntid, ord, id) - never an ORDER BY or WHERE on the
-// collated name column itself, so the substitution is never observed.
+// The fix is to relax the collation, do the read, and restore it - all on the
+// *live, already-open* collection handle, via `PRAGMA writable_schema`. This
+// is exactly decks.js's `withDecksCollationRelaxed` technique (see that
+// module's comment for the full "why is this safe" reasoning, since it
+// already does this on the live file for a write), generalized here to any
+// list of tables and to a plain read.
 //
-// This module does not reuse package.js's function directly: that one names
-// the copy `${collectionPath}-metadata`, which is fine for a package.js caller
-// that unpacked the .apkg into its own throwaway directory, but wrong here -
-// this collectionPath is the user's real, live collection file, and dropping
-// a sibling file next to it (with no guaranteed cleanup on every exit path,
-// and a name that could collide across concurrent runs) is exactly the kind of
-// mess this module exists to avoid. So the copy goes into a proper temp
-// directory instead, cleaned up in a finally block.
-
-const fs = require('node:fs');
-const os = require('node:os');
-const path = require('node:path');
-const { DatabaseSync } = require('node:sqlite');
+// An earlier version of this module instead copied the whole collection file
+// into a throwaway temp directory and relaxed the copy's schema, which was
+// simpler to reason about but meant every single call - including
+// readNotetypes on the hot addNote/updateNoteFields path - paid for a full
+// `fs.copyFileSync` of the user's entire collection. Measured against a
+// collection of a few megabytes, that was over 10ms of pure copy overhead per
+// note added, scaling with the collection's own size rather than the size of
+// whatever batch was being written - so a bulk paste of a few thousand lines
+// into a real (not toy) collection cost tens of seconds just in file copies,
+// before a single byte of the actual notes was written. Relaxing the live
+// handle's schema in place removes that copy entirely: relaxing and restoring
+// `fields`/`templates`' name-column collation touches nothing SQLite uses to
+// look rows up (their primary key is the uncollated `(ntid, ord)`), only what
+// it would need to ORDER BY or compare that column - neither of which any
+// caller here does; every ordering is done in JS afterwards, on the plain
+// integer `ord` column.
 
 /**
- * Copy `collectionPath` into a temp directory, strip `COLLATE unicase` from
- * its schema, hand the copy to `fn`, then delete the whole temp directory.
- *
- * The copy is read-only in spirit (never written back), so no data written
- * through it can leak into the real collection; only the schema text of the
- * copy is mutated, and only to make it openable at all.
+ * Run `fn(db)` with `COLLATE unicase` temporarily stripped from `tableNames`'
+ * own schema text, restoring it before returning (even if `fn` throws).
  */
-function withRelaxedCollations(collectionPath, fn) {
-  const workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'anki-collection-relaxed-'));
-  const copyPath = path.join(workDir, 'collection.anki2');
-  let db;
+function withLiveCollationsRelaxed(db, tableNames, fn) {
+  const placeholders = tableNames.map(() => '?').join(',');
+  const originals = db
+    .prepare(`SELECT name, sql FROM sqlite_master WHERE name IN (${placeholders})`)
+    .all(...tableNames);
+
+  // node:sqlite turns on SQLite's "defensive" mode by default, which exists
+  // specifically to forbid writing to sqlite_master; this is the one place in
+  // this package (alongside decks.js's own copy of this dance) where that has
+  // to be turned off, and only for the duration of this call.
+  db.enableDefensive(false);
+  db.exec('PRAGMA writable_schema = ON');
+  const relax = db.prepare("UPDATE sqlite_master SET sql = replace(sql, ' COLLATE unicase', '') WHERE name = ?");
+  for (const { name } of originals) relax.run(name);
+  db.exec('PRAGMA writable_schema = RESET');
   try {
-    fs.copyFileSync(collectionPath, copyPath);
-    db = new DatabaseSync(copyPath);
-    // node:sqlite turns on SQLite's "defensive" mode by default, which exists
-    // specifically to forbid writing to sqlite_master; this is the one place
-    // in this package where that has to be turned off.
-    db.enableDefensive(false);
-    db.exec('PRAGMA writable_schema = ON');
-    db.exec("UPDATE sqlite_master SET sql = replace(sql, ' COLLATE unicase', '')");
-    db.exec('PRAGMA writable_schema = RESET');
     return fn(db);
   } finally {
-    if (db) db.close();
-    fs.rmSync(workDir, { recursive: true, force: true });
+    db.exec('PRAGMA writable_schema = ON');
+    const restore = db.prepare('UPDATE sqlite_master SET sql = ? WHERE name = ?');
+    for (const { name, sql } of originals) restore.run(sql, name);
+    db.exec('PRAGMA writable_schema = RESET');
   }
 }
 
-module.exports = { withRelaxedCollations };
+module.exports = { withLiveCollationsRelaxed };

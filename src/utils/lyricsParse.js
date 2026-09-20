@@ -39,12 +39,22 @@
 
 const TRAILING_PUNCTUATION_RE = /[\s,.!?;:、。！？，；：…"'“”‘’]+$/u;
 
-/** The key two lines are compared by - see the module docstring for the policy. */
+/**
+ * The key two lines are compared by - see the module docstring for the
+ * policy. Falls back to the trimmed line itself when stripping trailing
+ * punctuation consumes the *entire* line (a line that is only punctuation,
+ * e.g. "..." or "!!!", or a genuinely blank field on an existing note):
+ * without that fallback, every such line normalizes to the same empty
+ * string, which would make two lines a learner would clearly consider
+ * different - "..." and "!!!" - collide as "the same line", the exact thing
+ * this policy exists to prevent. Falling back to the untouched text keeps
+ * the real, common case (trailing comma/period variants of real text) fully
+ * intact, since that case never reduces to an empty string in the first
+ * place.
+ */
 export function normalizeForDedupe(line) {
-  return (line || '')
-    .trim()
-    .replace(/\s+/g, ' ')
-    .replace(TRAILING_PUNCTUATION_RE, '');
+  const trimmed = (line || '').trim().replace(/\s+/g, ' ');
+  return trimmed.replace(TRAILING_PUNCTUATION_RE, '') || trimmed;
 }
 
 // A line that is ENTIRELY one bracketed token, e.g. "[Chorus]" or

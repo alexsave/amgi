@@ -83,21 +83,17 @@ export function createDirectOps(collectionPath) {
       return locked(() => unwrap(col.addNote(note)));
     },
     /**
-     * Add several notes as one unit of work. Direct mode has no "Anki's UI"
-     * to spam the way the bridge does (there is no running Anki to refresh),
-     * so this is a plain loop rather than a new collection-layer primitive -
-     * the one thing worth keeping is that it runs inside a single lock
-     * acquisition, so 60 notes pasted at once don't interleave with some
-     * other request's own direct-mode call mid-batch.
+     * Add several notes as one unit of work, via plusaudio/lib/collection's
+     * own addNotesBulk - one collection open and one notetypes read for the
+     * whole batch, not one per note (see notes.js's addNotesBulk for why a
+     * per-note loop was a real, measured scaling problem: it used to reopen,
+     * and before that even re-copy, the whole collection file once per line).
+     * Also still runs inside a single lock acquisition, so a paste of
+     * thousands of lines doesn't interleave with some other request's own
+     * direct-mode call mid-batch.
      */
     async addNotesBulk(notes) {
-      return locked(() => notes.map((note) => {
-        try {
-          return { ok: true, ...unwrap(col.addNote(note)) };
-        } catch (error) {
-          return { ok: false, error: error.message };
-        }
-      }));
+      return locked(() => unwrap(col.addNotesBulk(notes)));
     },
     async updateNote(noteId, fields, language, learningFieldIndex) {
       return locked(() => unwrap(col.updateNote(noteId, fields, language, learningFieldIndex)));

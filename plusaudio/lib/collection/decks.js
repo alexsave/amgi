@@ -240,14 +240,55 @@ function resolveOrCreateDeckSchema18(db, humanName, now) {
   return { deck: { id: last.id, name: last.nativeName.replace(/\x1f/g, '::') }, created: true };
 }
 
+/** Every deck in the collection, given an already-open handle - the shared read both listDecks and deckAndChildIds build on. */
+function listDecksForSchema(db, schemaVersion) {
+  return schemaVersion === 11 ? listDecksLegacy(db) : listDecksSchema18(db);
+}
+
 /**
  * Every deck in the collection.
  * @returns {{status: string, result?: {id:number, name:string}[]}}
  */
 function listDecks(collectionPath) {
-  return withCollection(collectionPath, ({ db, schemaVersion }) =>
-    schemaVersion === 11 ? listDecksLegacy(db) : listDecksSchema18(db),
-  );
+  return withCollection(collectionPath, ({ db, schemaVersion }) => listDecksForSchema(db, schemaVersion));
+}
+
+/**
+ * `deckId` plus every deck nested under it ("Korean" also covers
+ * "Korean::Verbs", "Korean::Verbs::Irregular", ...) - what browsing, counting
+ * or dedupe-checking "a deck" actually means in Anki: cards.did only ever
+ * names the exact deck a card lives in, but a user (and Anki's own browser,
+ * and col.decks.deck_and_child_ids, which bridge_ops.py's list_notes_in_deck
+ * and list_field_values call directly) expects "this deck" to include its
+ * subdecks.
+ *
+ * This used to be `did = ?` with no expansion at all in every caller in
+ * notes.js, which was a genuine cross-transport bug rather than a narrower
+ * approximation like foldKey's: a deck with subdecks would show a different
+ * note count/list, and the bulk-add dedupe would miss different notes,
+ * depending on whether Anki was open (bridge, which already expanded) or
+ * closed (direct, which didn't) for the exact same collection file. Matched
+ * here with the same ASCII-fold approximation decks.js already uses for
+ * dedup elsewhere (see foldKey's own limits above) - a name that only
+ * collides with unicase's fuller Unicode folding is missed the same narrow
+ * way a duplicate deck create would miss it, never a data-loss risk, and it
+ * still fixes the common case (including every non-Latin deck name a real
+ * user has) that "no expansion at all" got wrong outright.
+ *
+ * Returns `[deckId]` unchanged if `deckId` doesn't match any deck in the
+ * collection at all (a caller-supplied id no deck actually has) - the same
+ * "just query for it, get nothing back" behaviour every caller already had.
+ */
+function deckAndChildIds(db, schemaVersion, deckId) {
+  const all = listDecksForSchema(db, schemaVersion);
+  const target = all.find((deck) => deck.id === deckId);
+  if (!target) return [deckId];
+  const prefix = `${foldKey(target.name)}::`;
+  const ids = [deckId];
+  for (const deck of all) {
+    if (deck.id !== deckId && foldKey(deck.name).startsWith(prefix)) ids.push(deck.id);
+  }
+  return ids;
 }
 
 /**
@@ -272,6 +313,7 @@ function resolveOrCreateDeck(collectionPath, humanName) {
 
 module.exports = {
   DEFAULT_DECK_CONFIG_ID,
+  deckAndChildIds,
   foldKey,
   humanNameToComponents,
   listDecks,
