@@ -34,8 +34,7 @@ That floor is not arbitrary - it is where `node:sqlite` gained the API needed to
 
 ```bash
 git clone <this repo> amgi && cd amgi
-corepack enable      # ships with Node; this picks up the right pnpm version
-pnpm install
+npm install
 ```
 
 No `git`? Download the repo as a ZIP and unpack it; nothing here needs git history to run.
@@ -56,7 +55,7 @@ With no key set, amgi hands back an obviously-fake stub clip - its bytes say so 
 **5. Start amgi and install it into Anki.**
 
 ```bash
-pnpm dev
+npm run dev
 ```
 
 Open <http://localhost:3000>, go to **Settings**, and press **Install into Anki**.
@@ -148,25 +147,25 @@ Every generated clip - from the app, from `plusaudio/`, or from the `amgi_bridge
 
 It needs `OPENAI_API_KEY`, and nothing else - no account, no quota beyond your own OpenAI usage:
 
-- For the app, set it in your shell before `pnpm dev`/`pnpm start`, or put it in `.env.local` at the repo root, which Next.js loads automatically.
+- For the app, set it in your shell before `npm run dev` / `npm start`, or put it in `.env.local` at the repo root, which Next.js loads automatically.
 - For `plusaudio/` run directly, the same environment variable works, or a `.env` file inside `plusaudio/` itself.
 
 With no key set, the app's own generation route hands back a clearly-fake stub clip (its bytes say so in plain text) instead of failing outright - useful for exercising the rest of the flow with no OpenAI account at all.
 
 ## Running the app
 
-The package manager is pnpm, pinned in `package.json#packageManager`; `corepack enable` picks up the right version.
+The package manager is npm. `plusaudio` is declared as an npm workspace, which is what lets the app `require()` it at runtime as a package rather than bundling it (see `next.config.js`'s note on `serverExternalPackages`).
 
 ```bash
-pnpm install
-pnpm dev           # dev server on http://localhost:3000, no environment variables required
-pnpm lint          # eslint (next/core-web-vitals)
-pnpm test          # jest, plusaudio's and anki's node:test suites, and the add-on's Python tests
-pnpm build         # production build
-pnpm start         # serve the production build
+npm install
+npm run dev     # dev server on http://localhost:3000, no environment variables required
+npm run lint    # eslint (next/core-web-vitals)
+npm test        # jest, plusaudio's and anki's node:test suites, and the add-on's Python tests
+npm run build   # production build
+npm start       # serve the production build
 ```
 
-`pnpm dev` and `pnpm build` both pass `--webpack` (see `package.json`'s scripts and `next.config.js`'s own comment on `serverExternalPackages`): Turbopack, Next 16's default bundler, cannot yet resolve `plusaudio`'s use of `node:sqlite` through an externalized workspace package, so webpack is a workaround for a real bug, not a style choice.
+`npm run dev` and `npm run build` both pass `--webpack` (see `package.json`'s scripts and `next.config.js`'s own comment on `serverExternalPackages`): Turbopack, Next 16's default bundler, cannot yet resolve `plusaudio`'s use of `node:sqlite` through an externalized workspace package, so webpack is a workaround for a real bug, not a style choice.
 On first run, open `/settings` and point amgi at an Anki profile (or let it scan for one); everything else follows from whichever transport that profile makes reachable.
 
 ## Verifying changes

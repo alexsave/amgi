@@ -45,3 +45,4 @@ plusaudio/*.json
 **/*.apkg
 **/*.swp
 !plusaudio/package.json
+.env*

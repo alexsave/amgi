@@ -7,7 +7,7 @@
 //
 // This test guards against that by diffing the vendored copy against the real
 // upstream clone, when one happens to be on disk. It is not wired to fetch the
-// clone itself - that would make `pnpm test` depend on network access - so when no
+// clone itself - that would make `npm test` depend on network access - so when no
 // clone is found the check is skipped rather than failed. Set ANKI_SRC_DIR to point
 // at a checkout of github.com/ankitects/anki to run it for real.
 

@@ -9,7 +9,7 @@
 # against the real thing, and asserts on what the COLLECTION says afterwards
 # rather than on what was called.
 #
-# NOT wired into `pnpm test`, same as test_core_collection.py: the `anki` pip
+# NOT wired into `npm test`, same as test_core_collection.py: the `anki` pip
 # package is a large Rust-backed wheel this repo does not otherwise depend on.
 # Run it manually with a Python that has `anki` installed:
 #
@@ -31,7 +31,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import notetype  # noqa: E402
 
-# `pnpm test` runs this directory with a plain python3 that has no `anki` in
+# `npm test` runs this directory with a plain python3 that has no `anki` in
 # it, so the import cannot be unconditional - an ImportError at module scope
 # is a hard failure for the whole discovery run, not a skip. Same pattern as
 # test_core_collection.py, for the same reason.

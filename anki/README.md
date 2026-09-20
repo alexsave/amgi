@@ -170,7 +170,7 @@ The same suite asserts that whole blocks of the shared sources appear in the bun
 
 ```bash
 node anki/tools/build-loop.js     # after changing either shared file
-pnpm test                         # includes anki/test
+npm test                          # includes anki/test
 ```
 
 The alternative was a documented copy with a diffing test, which is the same amount of machinery for a weaker guarantee: a copy can be edited and the test then tells you the two files differ, rather than making the deck's copy impossible to edit at all.

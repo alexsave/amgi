@@ -3,7 +3,7 @@
 // Guards the one thing that makes the Anki template worth shipping: it runs
 // amgi's review loop, not a copy of it that drifts.
 //
-//   node --test anki/test/    (or pnpm test at the repo root)
+//   node --test anki/test/    (or npm test at the repo root)
 
 const assert = require('node:assert/strict');
 const fs = require('node:fs');

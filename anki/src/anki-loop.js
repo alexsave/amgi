@@ -1074,6 +1074,34 @@ function bootBack(root) {
   // Anki's bar already grades correctly on every client this README lists,
   // so the card leaves grading to it entirely and limits itself to "How did
   // you do?" as a label sitting directly above it (see back.html).
+  // Replay keys, which are a different proposition from the grading keys
+  // above. A double-fire on "hear it again" plays a clip twice; a
+  // double-fire on a grade silently schedules the wrong card. So these are
+  // bound and grading still is not.
+  //
+  // R is genuinely free: Anki's own replay key acts on the AV tags it
+  // strips out of a card (rslib/src/text.rs, AV_TAGS), and this note type
+  // holds <audio src> elements instead, so nothing native answers R here.
+  //
+  // A and V are NOT free - they are Anki's own Add and record-own-voice
+  // accelerators on the main window - so the handler below consumes the
+  // event as hard as a web page can: preventDefault, stopPropagation and
+  // stopImmediatePropagation, in the capture phase. Whether that is enough
+  // to stop Qt's own accelerator is NOT verified in real Anki yet, and it
+  // is listed as unverified in anki/README.md. If the Add window opens when
+  // you press A, that is what has happened, and AMGI_CONFIG.replayKeys is
+  // there to move them without editing this file.
+  bindKeys(root, function (event) {
+    var name = REPLAY_KEYS[(event.key || '').toLowerCase()];
+    if (!name) return false;
+    var button = action(root, name);
+    if (!button || button.hidden) return false;
+    event.stopPropagation();
+    if (typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation();
+    button.click();
+    return true;
+  });
+
   var loop = createReviewLoop({
     playNative: function () {
       return playClip(native, ui, 'native');
@@ -1119,6 +1147,14 @@ function wireYou(root) {
     if (played && typeof played.catch === 'function') played.catch(function () {});
   });
 }
+
+// Which key replays which clip. Overridable from the card's own config so a
+// collision with a future Anki shortcut can be fixed without a code change.
+var REPLAY_KEYS = (AMGI_CONFIG && AMGI_CONFIG.replayKeys) || {
+  r: 'replay-cue',
+  a: 'replay-native',
+  v: 'replay-you',
+};
 
 function bindKeys(root, handler) {
   if (AMGI_CONFIG.keys === false) return;
