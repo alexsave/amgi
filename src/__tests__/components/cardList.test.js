@@ -56,7 +56,14 @@ describe('the deck card list', () => {
     });
 
     expect(screen.getByText('안녕하세요')).toBeInTheDocument();
-    expect(screen.getByText('amgi Listening')).toBeInTheDocument();
+    // The cue side is the OTHER language, read out of the Cue field. It used
+    // to render back_text, which is the audio field with its HTML stripped -
+    // ie. nothing at all for an <audio src> reference, so the column was
+    // simply blank.
+    expect(screen.getByText('hello')).toBeInTheDocument();
+    // And the note type is not repeated on every row: on an amgi deck every
+    // row is the same type, so printing it thirty times says nothing.
+    expect(screen.queryByText('amgi Listening')).not.toBeInTheDocument();
     const chips = document.querySelectorAll('.audio-chip');
     expect(chips).toHaveLength(2);
     expect(chips[0].textContent).toContain('English');
@@ -83,14 +90,44 @@ describe('the deck card list', () => {
     expect(document.querySelectorAll('.audio-chip')).toHaveLength(1);
   });
 
-  test('says a note has no audio yet rather than hiding that', () => {
+  test('says an amgi note has no audio yet rather than hiding that', () => {
     renderList({
-      cards: [{ id: 1, notetypeName: 'Basic', front_text: 'hello', hasAudio: false }],
+      cards: [{
+        id: 1,
+        notetypeName: 'amgi Listening',
+        front_text: '안녕하세요',
+        hasAudio: false,
+        fieldNames: ['Cue', 'CueAudio', 'Target', 'TargetAudio'],
+        fields: ['hello', '', '안녕하세요', ''],
+      }],
       loading: false,
       error: null,
     });
 
     expect(screen.getByText('no audio yet')).toBeInTheDocument();
+    expect(document.querySelectorAll('.audio-chip')).toHaveLength(0);
+  });
+
+  test('marks a note amgi did not make, and names its note type', () => {
+    // A deck can hold anything. Listing these keeps the count honest against
+    // Anki rather than making the deck look emptier here than it is, but
+    // they are marked, because amgi cannot edit or record them.
+    renderList({
+      cards: [{
+        id: 1,
+        notetypeName: 'Basic',
+        front_text: 'Meeting notes from work',
+        hasAudio: false,
+        fieldNames: ['Front', 'Back'],
+        fields: ['Meeting notes from work', 'something'],
+      }],
+      loading: false,
+      error: null,
+    });
+
+    expect(screen.getByText('Basic')).toBeInTheDocument();
+    expect(screen.getByText(/not an amgi card/)).toBeInTheDocument();
+    expect(document.querySelectorAll('.audio-chip')).toHaveLength(0);
   });
 
   test('does not claim the deck is empty before the read comes back', () => {
