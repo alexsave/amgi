@@ -161,7 +161,6 @@ const BulkRun = ({ deckId, notetype, idx, languages, lines, onFinished }) => {
         ))}
       </ol>
 
-      {running && <p className="bulk-run-foot">Each card is written to Anki as it finishes, so closing this costs you the rest of the queue and nothing already made.</p>}
     </div>
   );
 };

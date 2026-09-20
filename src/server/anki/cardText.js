@@ -22,6 +22,7 @@ import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { generateAndStoreClip } from './audio';
+import { correctSwappedSides } from './sideOrder';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PLUSAUDIO_DIR = path.join(__dirname, '..', '..', '..', 'plusaudio');
@@ -99,7 +100,11 @@ export async function generateCardTextAndAudio({
   includeCueAudio = false,
   ops,
 }) {
-  const text = await generateCardTextOnly({ userInput, knownLanguage, learningLanguage, currentCard, regenerateParts });
+  const generated = await generateCardTextOnly({ userInput, knownLanguage, learningLanguage, currentCard, regenerateParts });
+  // Before any audio is made, because the clips are recorded FROM these two
+  // strings: a swap caught afterwards would leave two correct sentences with
+  // each other's voice.
+  const text = correctSwappedSides(generated, learningLanguage);
   const audio = await generateAndStoreClip({
     text: text.back_text,
     language: learningLanguage,
