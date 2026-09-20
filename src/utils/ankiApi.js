@@ -57,7 +57,7 @@ export const ankiApi = {
   notesInDeck: (deckId, { offset = 0, limit = 50 } = {}) =>
     call(`/decks/${deckId}/notes?offset=${offset}&limit=${limit}`),
   addNote: (note) => call('/notes', { method: 'POST', body: JSON.stringify(note) }),
-  // The bulk-add-from-paste screen's write path (see BulkAddForm.js) - one
+  // The bulk-add-from-paste screen's write path (see BulkRun.js) - one
   // request for the whole batch so the bridge transport can run it as one
   // CollectionOp instead of one per line (see notes/bulk/route.js).
   addNotesBulk: (notes) => call('/notes/bulk', { method: 'POST', body: JSON.stringify({ notes }) }),

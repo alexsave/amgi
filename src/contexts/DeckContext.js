@@ -151,7 +151,7 @@ export const DeckProvider = ({ children }) => {
 
   /**
    * Add several notes to an Anki deck in one call - the bulk-add-from-paste
-   * screen's write path (see BulkAddForm.js). `notes` is already shaped as
+   * screen's write path (see BulkRun.js). `notes` is already shaped as
    * the transport wants it (one {notetypeId, fields, tags, language,
    * learningFieldIndex} per line); this only adds `deckId` and refreshes the
    * deck once at the end, the same "refresh after the write, not during it"

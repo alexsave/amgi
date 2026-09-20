@@ -5,7 +5,7 @@ import { ANKI_READY_MODES } from '../../utils/ankiModeText';
 import { LANGUAGES } from '../../constants/languages';
 import { parseLyricsPaste } from '../../utils/lyricsParse';
 import CardPanel from './CardPanel';
-import BulkAddForm from './BulkAddForm';
+import BulkRun from './BulkRun';
 import { AMGI_NOTETYPE_NAME, fieldIndexes } from '../../utils/amgiNotetype';
 import './CardForm.css';
 
@@ -38,7 +38,7 @@ const CardForm = ({ deckId, languages, onLanguagesChange }) => {
   const [input, setInput] = useState('');
   // Set when what was typed is more than one card's worth, which hands the
   // rest of the job to the bulk path.
-  const [bulkText, setBulkText] = useState(null);
+  const [bulkLines, setBulkLines] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [added, setAdded] = useState(null);
@@ -61,7 +61,10 @@ const CardForm = ({ deckId, languages, onLanguagesChange }) => {
   const submit = async () => {
     if (!input.trim() || !notetype) return;
     if (lineCount > 1) {
-      setBulkText(input);
+      // One press does the whole thing: no preview to confirm, no separate
+      // "add", no separate "generate audio".
+      setBulkLines(parsed().lines.map((line) => line.text));
+      setAdded(null);
       return;
     }
     return makeCard();
@@ -144,7 +147,7 @@ const CardForm = ({ deckId, languages, onLanguagesChange }) => {
           id="amgiCardInput"
           className="card-form-input"
           value={input}
-          onChange={(e) => { setInput(e.target.value); setBulkText(null); }}
+          onChange={(e) => { setInput(e.target.value); setBulkLines(null); }}
           onKeyDown={(e) => {
             // Enter submits a single line; Shift+Enter makes a second line,
             // which is how you get to the many-cards case by typing rather
@@ -165,18 +168,18 @@ const CardForm = ({ deckId, languages, onLanguagesChange }) => {
 
       {error && <p className="card-form-error">{error}</p>}
 
-      {bulkText ? (
-        <BulkAddForm
+      {bulkLines ? (
+        <BulkRun
           deckId={deckId}
           notetype={notetype}
-          presetText={bulkText}
-          textFieldIndex={fieldIndexes(notetype).target}
-          audioFieldIndex={fieldIndexes(notetype).targetAudio}
-          cueAudioFieldIndex={fieldIndexes(notetype).cueAudio}
-          knownFieldIndex={fieldIndexes(notetype).cue}
-          knownLanguage={languages.known}
-          learningLanguage={languages.learning}
-          ready={ready}
+          idx={fieldIndexes(notetype)}
+          lines={bulkLines}
+          languages={{
+            ...languages,
+            knownName: languageLabel(languages.known),
+            learningName: languageLabel(languages.learning),
+          }}
+          onFinished={() => setInput('')}
         />
       ) : added && (
         <CardPanel

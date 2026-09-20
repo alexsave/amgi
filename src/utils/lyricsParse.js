@@ -1,6 +1,6 @@
 // Turning a pasted block of text (typically song lyrics) into the set of
 // unique lines that should each become one card - the parsing half of the
-// bulk-add-from-paste screen (see BulkAddForm.js). Pure and framework-free
+// bulk-add-from-paste screen (see BulkRun.js). Pure and framework-free
 // on purpose: the same normalization has to run identically on the client
 // (deciding what the preview shows) and be trusted as the source of truth
 // for what "the same line" means when checking against a deck's existing
