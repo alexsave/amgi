@@ -305,20 +305,47 @@ function forgetRecording() {
 
 // ---- the visualizer -------------------------------------------------------
 //
-// A canvas sitting directly on the card, drawing a single ring whose radius,
-// stroke width and opacity follow the source's real loudness (time-domain
-// RMS), coloured by whichever audio SOURCE is currently playing - not by the
-// card's phase - so the same three colours mean the same three things
-// whether a clip is autoplaying or the learner tapped a replay button.
+// A canvas sitting directly on the card: a fixed, hollow ring with 28 radial
+// bars growing outward from its edge, coloured by whichever audio SOURCE is
+// currently playing, not by the card's phase, so the same three colours mean
+// the same three things whether a clip is autoplaying or the learner tapped
+// a replay button.
 //
-// This replaces an earlier "one line per frequency bin" ray design that
-// looked right in the drawing code but never could at this size: fftSize=256
-// gives 128 bins, spread linearly around a circle at ~190Hz per bin at
-// 48kHz, so all speech energy landed in the first fifth of the circle -
-// always the same wedge, in the same place, regardless of what the learner
-// did. A bigger canvas would only have drawn a bigger wedge. Reading real
-// loudness off the time domain instead of a frequency bin's position sidesteps
-// that entirely: there is only one number, and it drives one honest shape.
+// This went through three shapes before landing here, each one the owner's
+// own call after seeing the previous one live:
+//   1. A filled ring whose radius followed real loudness (time-domain RMS),
+//      with per-frequency rays hanging off its edge.
+//   2. The owner asked for the ring gone - bars only, radiating from a
+//      shared hub. That hub then had to solve a problem the ring never had:
+//      28 shapes converging on (or near) one point without fusing into a
+//      blob, and with zero gap between them once "no space between bars"
+//      followed. RMS moved from the (now-gone) ring's radius to the bars'
+//      shared opacity instead, so a loud syllable still reads as "more".
+//   3. The owner then asked for a circle back, but the opposite of the
+//      first one: hollow (stroked, not filled), fixed (no reaction to audio
+//      at all, not even loudness), with the bars living entirely outside it
+//      rather than hanging off or converging on it. That removes the hub
+//      problem at its root rather than solving it: with nothing converging
+//      on a centre, there is no blob to protect against and no reason to
+//      taper a bar to a point. It also removes the "quiet room reads as
+//      dead" problem from a different direction than breathing did - the
+//      fixed ring is a permanent, unconditional anchor, so the bars
+//      themselves are now allowed to fall to nothing in silence (see
+//      paint()'s `outerR`) without the card ever looking broken or frozen.
+//
+// What that leaves RMS driving is still the bars' shared opacity (see
+// paint()'s `alpha`) - a separate signal from the per-frequency length each
+// bar gets from barLevels, and the one thing that never became unused across
+// all three shapes.
+//
+// The whole radial-bar idea replaces an earlier "one line per frequency bin"
+// ray design that looked right in the drawing code but never could at this
+// size: fftSize=256 gives 128 bins, spread linearly around a circle at
+// ~190Hz per bin at 48kHz, so all speech energy landed in the first fifth of
+// the circle - always the same wedge, in the same place, regardless of what
+// the learner did. A bigger canvas would only have drawn a bigger wedge.
+// barLevels below samples log-spaced frequencies instead, which is what
+// actually spreads a voice around the whole shape.
 // The colours - and the overall opacity - live in _amgi-loop.css as custom
 // properties; this file only knows their names.
 //
@@ -385,11 +412,80 @@ var BAR_COUNT = 28;
 var UNIQUE_BARS = Math.ceil(BAR_COUNT / 2);
 var MIN_HZ = 90; // just above a typical adult voice's fundamental
 var MAX_HZ = 4000; // the top of speech's useful, intelligibility-carrying energy
-// Half the angular width of one ray, as a fraction of its own slice of the
-// circle (2*PI/BAR_COUNT). Kept well under half that slice so neighbouring
-// rays never touch - see paint()'s wedge shape for why this is what keeps
-// 28 rays converging on the centre from merging into a disc at the hub.
-var RAY_HALF_ANGLE = (Math.PI / BAR_COUNT) * 0.42;
+// Half the angular width of one bar, as a fraction of its own slice of the
+// circle (2*PI/BAR_COUNT). The owner asked twice for zero space between
+// bars, and two different things were producing visible seams, fixed in
+// order:
+//   1. The first attempt widened this to a full slice but kept the old
+//      apex-at-centre wedge shape, which still showed dark notches live: a
+//      wedge that narrows to a point at innerR has a *flat* outer cap, so
+//      two neighbours whose magnitudes differ leave an uncovered triangular
+//      gap between their outer corners even when their angular math is
+//      exact (confirmed by hand: with bar i at magnitude 1 and bar i+1 near
+//      0, the point directly on their shared boundary angle, halfway out,
+//      falls outside both triangles). Fixed by paint() below: every bar is
+//      now a trapezoid whose LEFT and RIGHT edges are full radial segments
+//      from innerR to that bar's own outerR, so neighbour i+1's left edge
+//      sits on the exact same line as neighbour i's right edge for the
+//      entire length the shorter of the two reaches, and the taller one
+//      simply continues past it - a step in height, never a gap, regardless
+//      of how different their magnitudes are.
+//   2. Even with that shape and this exactly equal to half the pitch (so
+//      neighbours share an edge line precisely), a hairline of background
+//      was still visible live - because paint() drew each bar with its own
+//      beginPath()/fill(), and two independently-rasterized shapes whose
+//      edges sit on the same mathematical line can still leave a
+//      sub-pixel-wide antialiasing seam between them; widening this angle
+//      as a fudge factor only hid it at some sizes. Fixed at the root
+//      instead: paint() now traces all 28 bars as ONE path and calls
+//      fill() once, so there is no boundary between separately-drawn
+//      shapes for antialiasing to leak through - the browser only
+//      antialiases the single path's true outer silhouette (the "gear
+//      tooth" steps between differing bar lengths, which are supposed to
+//      be visible). That is also why this is exactly half the pitch again,
+//      not a fudged multiple of it: a single path has no seam left to pad
+//      against.
+// A later pass moved the bars off a shared hub entirely - they now start on
+// the edge of a fixed circle instead of converging near the centre (see
+// paint()) - which raised the question of whether they still need to be
+// angular wedges at all, since the hub-crowding problem this shape was
+// built to solve no longer exists once nothing converges on a point. They
+// stayed wedges anyway, for a reason that has nothing to do with the hub: a
+// bar with a *constant pixel width* traces a rectangle, and a rectangle's
+// width does not grow with radius the way the gap between neighbouring
+// spokes does - two such bars could touch where they start, on the circle,
+// and still visibly gap apart by the time a loud one reaches its full
+// length. A wedge's width is a constant fraction of the circle at every
+// radius, so it keeps touching its neighbour the whole way out regardless of
+// how long it grows - which is exactly what "no gap" now has to mean at
+// every bar length, not just at rest.
+var RAY_HALF_ANGLE = Math.PI / BAR_COUNT;
+
+/**
+ * Maps a bar's position (0..BAR_COUNT-1, bar 0 at the top - see paint()'s
+ * `angle`) to an index into the UNIQUE_BARS-length array barLevels()
+ * returns, so the low-to-high frequency sweep mirrors left/right around a
+ * true vertical axis instead of a rotated one.
+ *
+ * Confirmed live in real Anki: the previous version of this,
+ * `i < UNIQUE_BARS ? i : BAR_COUNT - 1 - i`, looks like a mirror but pairs
+ * index i with BAR_COUNT-1-i, which is symmetric about the midpoint
+ * (BAR_COUNT-1)/2 = 13.5 - half a bar's width short of the real axis
+ * through bar 0 (top) and bar BAR_COUNT/2 (bottom). The whole figure still
+ * came out as a mirror, just of itself rotated by half of RAY_HALF_ANGLE's
+ * own pitch, which reads as "slightly rotated" rather than as broken
+ * symmetry, and is easy to miss on a short, quiet frame where it is only a
+ * few degrees. Pairing i with BAR_COUNT-i (not BAR_COUNT-1-i) instead is
+ * symmetric about exactly 0 and BAR_COUNT/2, which is where the top and
+ * bottom bars actually sit; clamping to UNIQUE_BARS-1 is what lets the
+ * bottom bar (index BAR_COUNT/2, which has no distinct sample of its own -
+ * there are only UNIQUE_BARS unique values for BAR_COUNT/2+1 axis
+ * positions) fall back to sharing the highest-frequency sample with its two
+ * neighbours rather than reading undefined past the end of the array.
+ */
+function mirroredBarIndex(i) {
+  return Math.min(i, BAR_COUNT - i, UNIQUE_BARS - 1);
+}
 
 /**
  * Builds the controller anki-loop.js drives during playback and while the mic
@@ -446,8 +542,10 @@ function createVisualizer(root) {
   /**
    * One frame's worth of time-domain RMS, 0..1. Works the same whether
    * `analyser` is the mic's own (voiceActivity.js, fftSize 1024) or a clip's
-   * (attachVisualizerSource below, fftSize 1024 to match) - the ring never
-   * needs to know which.
+   * (attachVisualizerSource below, fftSize 1024 to match) - the caller never
+   * needs to know which. Drives the bars' shared opacity (paint()'s
+   * `alpha`) - the fixed circle never reads this at all, on purpose, see
+   * paint()'s own comment.
    */
   function levelNow(analyser) {
     if (!timeBuffer || timeBuffer.length !== analyser.fftSize) {
@@ -462,8 +560,8 @@ function createVisualizer(root) {
     for (var i = 0; i < timeBuffer.length; i++) sumSquares += timeBuffer[i] * timeBuffer[i];
     var rms = Math.sqrt(sumSquares / timeBuffer.length);
     // Ordinary speech sits well under 0.3 RMS; this gain is tuned so a normal
-    // answer swings the ring noticeably without pinning it to full size on
-    // every syllable.
+    // answer swings the visualizer's opacity noticeably without pinning it to
+    // full strength on every syllable.
     return Math.min(1, rms * 5);
   }
 
@@ -497,59 +595,117 @@ function createVisualizer(root) {
     return levels;
   }
 
-  function paint(size, color, level, breathe, bars) {
+  function paint(size, color, level, bars) {
     var cx = size.width / 2;
     var cy = size.height / 2;
-    // Kept well under half the canvas even at every maximum at once (loudest
-    // ring plus every ray fully extended) so nothing clips against
-    // .amgi-visual's own bounds - see _amgi-loop.css.
+    // Kept well under half the canvas even with every bar fully extended so
+    // nothing clips against .amgi-visual's own bounds - see _amgi-loop.css.
     var base = Math.min(size.width, size.height) * 0.2;
-    var ringRadius = base + level * base * 0.25 + breathe;
-    var alpha = Math.max(0, Math.min(1, (0.35 + level * 0.65) * opacityScale));
 
     ctx.clearRect(0, 0, size.width, size.height);
-    ctx.globalAlpha = alpha;
     ctx.strokeStyle = color;
     ctx.fillStyle = color;
     ctx.lineCap = 'round';
 
-    // The core ring: same honest "something is listening" floor as before -
-    // even silence still reads as a ring, not ghosted or gone. It tracks
-    // overall loudness (levelNow's RMS), a different signal from the
-    // per-frequency rays below, so it still earns its place as a halo now
-    // that the rays start at the centre instead of hanging off its edge.
-    ctx.lineWidth = 2;
+    // The anchor: a hollow, fixed circle - stroked, never filled, and never
+    // touched by `level` or `bars`. Every earlier shape this visualizer had
+    // (see the file header) reacted to audio in some way, right down to a
+    // breathing idle wobble meant to keep a silent card from looking dead;
+    // this one doesn't react at all, on purpose - it is what keeps the card
+    // from looking dead now, simply by always being there, so the bars
+    // outside it are free to fall to nothing in real silence (see `outerR`
+    // below) without the whole visualizer vanishing. Its own opacity still
+    // respects --amgi-visualizer-opacity (the one thing every shape here has
+    // always respected), just not `level` - a fixed anchor should not
+    // flicker with loudness.
+    var circleR = base;
+    var circleLineWidth = 2;
+    ctx.globalAlpha = 0.6 * opacityScale;
+    ctx.lineWidth = circleLineWidth;
     ctx.beginPath();
-    ctx.arc(cx, cy, Math.max(0, ringRadius), 0, Math.PI * 2);
+    ctx.arc(cx, cy, circleR, 0, Math.PI * 2);
     ctx.stroke();
 
-    // The rays: a starburst from the centre, not a ring with fringe. 28
-    // lines converging on one point would merge into a solid disc right at
-    // the hub - round caps and real line widths all stacking on the same
-    // pixels - which is the exact failure the last two visualizer passes
-    // fixed at the *outside* edge (see the BAR_COUNT comment above). Fixed
-    // here, not papered over, by construction rather than by tuning a
-    // width to fit: each ray is a filled wedge whose half-angle
-    // (RAY_HALF_ANGLE) is a fixed fraction of its own slice of the circle,
-    // so its width is exactly zero at the inner point and only opens up
-    // with radius - neighbouring wedges cannot touch at any radius, all the
-    // way to the centre. innerR then sits a few percent of the base radius
-    // off dead centre, so the 28 apexes spread around a small circle
-    // instead of stacking on one pixel.
-    var innerR = base * 0.08;
+    // Confirmed live in real Anki: bars whose inner edge sat exactly on
+    // circleR - the stroke's own centreline - visually ate the outer half
+    // of the ring's stroke width, so a loud bar looked like it grew out of
+    // partway through the ring rather than starting cleanly at its edge.
+    // Anchoring bars here instead, at the ring's own OUTER edge, means the
+    // full stroke stays visible underneath every bar and the join reads as
+    // "the bar continues where the ring ends", not "the bar overlaps the
+    // ring".
+    var barBaseR = circleR + circleLineWidth / 2;
+
+    // The bars: still driven by `level` for their shared opacity (the one
+    // signal that has survived every shape change here - see levelNow's
+    // comment) - but now that nothing converges on a centre, a quiet room
+    // can just show the plain circle above with no bars at all, rather than
+    // needing a resting length or a breathing wobble to avoid looking dead.
+    // That is a deliberate simplification, not an oversight: the fixed
+    // circle is now the "still alive" signal, so the bars are free to mean
+    // only one thing - real magnitude - with nothing cosmetic layered on top
+    // of them to fake activity that is not there.
+    var alpha = Math.max(0, Math.min(1, (0.35 + level * 0.65) * opacityScale));
+    ctx.globalAlpha = alpha;
+    ctx.beginPath();
     for (var i = 0; i < BAR_COUNT; i++) {
-      var mag = bars ? bars[i < UNIQUE_BARS ? i : BAR_COUNT - 1 - i] : 0;
+      var mag = bars ? bars[mirroredBarIndex(i)] : 0;
       var angle = (i / BAR_COUNT) * Math.PI * 2 - Math.PI / 2;
-      var outerR = innerR + 3 + mag * base * 1.6;
+      // Bars are wedges (RAY_HALF_ANGLE is a constant fraction of the
+      // circle, not a constant pixel width) so two neighbours keep touching
+      // the whole way out even when one is at rest (outerR === barBaseR,
+      // zero-length) and the other is at full volume - see RAY_HALF_ANGLE's
+      // own comment for why a constant-width bar could not promise that.
+      var outerR = barBaseR + mag * base * 1.3;
       var leftA = angle - RAY_HALF_ANGLE;
       var rightA = angle + RAY_HALF_ANGLE;
-      ctx.beginPath();
-      ctx.moveTo(cx + Math.cos(angle) * innerR, cy + Math.sin(angle) * innerR);
+      var lx = cx + Math.cos(leftA) * barBaseR;
+      var ly = cy + Math.sin(leftA) * barBaseR;
+      // One path for all 28 bars, not 28 separate beginPath()/fill() calls -
+      // see RAY_HALF_ANGLE's comment for why: two independently-rasterized
+      // shapes can leave a hairline antialiasing seam even where their edges
+      // sit on the exact same mathematical line, and no amount of angular
+      // overlap fixed that live. i===0's moveTo starts the path; every later
+      // bar's own left-inner corner coincides with the previous bar's
+      // right-inner corner (both sit at (rightA of i-1) === (leftA of i), on
+      // barBaseR itself), so lineTo-ing there instead of moveTo-ing keeps
+      // the whole ring of bars as one unbroken outline. No vertex in this
+      // whole loop is ever at a radius smaller than barBaseR - every corner
+      // is either exactly barBaseR or further out - so nothing this path
+      // touches can reach inside the circle, by construction, not by
+      // clipping after the fact.
+      if (i === 0) {
+        ctx.moveTo(lx, ly);
+      } else {
+        ctx.lineTo(lx, ly);
+      }
       ctx.lineTo(cx + Math.cos(leftA) * outerR, cy + Math.sin(leftA) * outerR);
       ctx.lineTo(cx + Math.cos(rightA) * outerR, cy + Math.sin(rightA) * outerR);
-      ctx.closePath();
-      ctx.fill();
+      ctx.lineTo(cx + Math.cos(rightA) * barBaseR, cy + Math.sin(rightA) * barBaseR);
     }
+    ctx.closePath();
+    // Confirmed live in real Anki: without this second subpath, the loop
+    // above still fills the circle's *interior* solid, even though no
+    // vertex in it is ever closer than barBaseR to the centre. The reason is
+    // winding, not geometry: at rest, every bar's outerR collapses to
+    // barBaseR, so the whole path degenerates to one simple loop running
+    // once around that radius - and canvas's fill rule treats any simple
+    // closed loop as enclosing everything inside it, all the way to the
+    // centre, the same way a plain circle() path fills as a disc rather
+    // than a ring. The petals don't change that when magnitude is nonzero
+    // either, since the path is still one simple (non-self-crossing) loop,
+    // just a lumpier one. A single path can only have a hole where two
+    // loops overlap with opposite winding and cancel out, so this traces
+    // barBaseR a second time, deliberately the opposite direction
+    // (anticlockwise=true here, against the outer loop's increasing-angle
+    // direction), purely to cut that hole - it draws nothing on its own,
+    // it only removes. That is what makes the circle's interior provably
+    // empty at every magnitude, including silence, rather than empty by
+    // coincidence of the petal shapes never quite reaching the centre.
+    ctx.moveTo(cx + barBaseR, cy);
+    ctx.arc(cx, cy, barBaseR, 0, Math.PI * 2, true);
+    ctx.closePath();
+    ctx.fill();
     ctx.globalAlpha = 1;
   }
 
@@ -568,20 +724,23 @@ function createVisualizer(root) {
     var color = colors[kind] || colors.neutral;
 
     if (reducedMotionPreferred()) {
-      // A static ring instead of nothing: reduced motion should mean no
+      // A static circle instead of nothing: reduced motion should mean no
       // animation, not no indicator that a microphone is open or a clip is
-      // playing. Bars stay at their resting length (mag 0 - see paint's
+      // playing. Bars stay at zero length (mag 0 - see paint's
       // `bars ? ... : 0`), not driven by real audio, so this is a single
-      // still frame, not motion with the animation loop removed.
+      // still frame, not motion with the animation loop removed - and since
+      // the circle itself never animates even outside reduced motion, this
+      // still frame is not a degraded version of the normal one, it is
+      // almost the whole normal one.
       var still = sizeFor();
-      if (still.width && still.height) paint(still, color, 0.12, 0, null);
+      if (still.width && still.height) paint(still, color, 0.12, null);
       return;
     }
 
     var level = 0;
     barState = new Array(UNIQUE_BARS).fill(0);
 
-    function frame(now) {
+    function frame() {
       var size = sizeFor();
       if (!size.width || !size.height) {
         rafId = requestAnimationFrame(frame);
@@ -592,8 +751,9 @@ function createVisualizer(root) {
         stop();
         return;
       }
-      // Fast attack, slow release: the ring should jump to a loud syllable
-      // at once but ease back down between words, not flicker on every dip.
+      // Fast attack, slow release: the visualizer's opacity should jump to a
+      // loud syllable at once but ease back down between words, not flicker
+      // on every dip.
       level += (raw - level) * (raw > level ? 0.6 : 0.15);
 
       var rawBars = barLevels(analyser);
@@ -604,12 +764,7 @@ function createVisualizer(root) {
         }
       }
 
-      // A slow, signal-independent breathing motion so a perfectly silent
-      // room still reads as "alive" rather than "frozen" while the ring is
-      // otherwise at its floor - this is the front's idle listening
-      // indicator, not a separate element.
-      var breathe = Math.sin((now || 0) / 900) * (Math.min(size.width, size.height) * 0.015);
-      paint(size, color, level, breathe, barState);
+      paint(size, color, level, barState);
       rafId = requestAnimationFrame(frame);
     }
 
@@ -641,8 +796,8 @@ function attachVisualizerSource(context, element) {
   }
   try {
     var analyser = context.createAnalyser();
-    // Matches voiceActivity.js's own analyser so the ring reads the same way
-    // whether it is fed by the microphone or by a clip.
+    // Matches voiceActivity.js's own analyser so the visualizer reads the
+    // same way whether it is fed by the microphone or by a clip.
     analyser.fftSize = 1024;
     source.connect(analyser);
     analyser.connect(context.destination);

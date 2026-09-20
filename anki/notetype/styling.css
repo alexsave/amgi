@@ -9,7 +9,24 @@
 
 @import url("_amgi-loop.css");
 
-.card {
+/* `body.card`, not `.card`: confirmed live in real Anki (26.09.2, dark Qt
+   theme) that Anki's own reviewer.css ships `body.nightMode { background-color:
+   var(--canvas); color: var(--fg); }`, and an element-plus-class selector
+   (specificity 0,1,1) outranks a single class selector (0,1,0) regardless of
+   which stylesheet loads second - so on a body carrying Anki's own
+   "nightMode" class (every dark-themed Anki client; qt/aqt/reviewer.py,
+   body_class), `.card`'s own background and color NEVER WON, silently,
+   since the very first "dark unconditionally" pass: the card rendered
+   Anki's own night-canvas grey (#2c2c2c) instead of amgi's colour, and
+   nobody caught it because the only "confirmed live" check on record for
+   this rule was run in Anki's LIGHT theme, where body has no "nightMode"
+   class and the conflict cannot occur. Matching Anki's own selector shape
+   (element + class) is what actually wins the tie - the same kind of fix
+   _amgi-loop.css already applies to `button.amgi-btn` for an unrelated
+   collision with Anki's `.fancy button` rule - not `!important`, and this
+   stylesheet loads after reviewer.css's in the document, so an
+   equal-specificity tie also resolves in our favour. */
+body.card {
   /* No CJK family here would leave Korean and Japanese to whatever the
      platform falls back to - fine on macOS (Apple SD Gothic Neo / Hiragino),
      unpredictable on Linux/Windows, and on some platforms wrong in a way that
@@ -31,25 +48,41 @@
      .nightMode/.night_mode class (Anki puts that on this same element, not
      an ancestor - qt/aqt/reviewer.py, body_class); that class check, and the
      light-theme colours it used to fall back to, are gone, because there is
-     no longer a second treatment for it to pick between. Contrast of this
-     text against this background: 13.15:1 (WCAG AA needs >=4.5:1) - see
-     _amgi-loop.css for the rest of the palette, which is recomputed against
-     this one background too.
+     no longer a second treatment for it to pick between.
+
+     #0b0d10, not the earlier #202429: the owner asked for meaningfully
+     darker, near-black rather than one shade down, once he saw the lighter
+     charcoal live. Contrast only goes up as a background gets darker (WCAG's
+     ratio is monotonic in the darker side's luminance), so every colour
+     tuned against #202429 already clears its bar by more room now, not
+     less - recomputed rather than assumed: this text against this
+     background is 16.40:1 (WCAG AA needs >=4.5:1, was 13.15:1 against
+     #202429) - see _amgi-loop.css for the rest of the palette, recomputed
+     against this same background.
 
      Anki's own chrome around the card - the toolbar above, the answer bar
      below - is not part of this template and stays in whatever theme Anki
      itself is running. In Anki's LIGHT theme that puts a dark box inside a
      light frame, so --amgi-card-margin below is not decorative: without it
      the card's own edges are exactly the window's edges, and a colour that
-     stops dead at the edge of the screen reads as a bug, not a choice. The
-     margin, radius and border together are what make it read as a panel
-     placed deliberately on top of Anki's chrome instead - confirmed live in
-     Anki 26.09.2, light theme (see anki/README.md). */
+     stops dead at the edge of the screen reads as a bug, not a choice.
+
+     The hairline border this rule used to add is gone - the owner's call,
+     on sight, once the card was actually near-black rather than a lighter
+     charcoal: a 1px rgba(255,255,255,0.08) edge that was barely there
+     against #202429 became a visible outline against #0b0d10, and it read
+     as a frame around the card rather than the card itself. Margin, radius
+     and shadow stay: the margin is what keeps the card off the window's own
+     edges (needed regardless of theme, see above), the radius is what
+     keeps the corners from reading as a mistake at that margin, and the
+     shadow is what still separates the panel from Anki's own light-theme
+     background without drawing a line to do it - a shadow reads as depth,
+     a border reads as a frame, and depth was the only one of the two the
+     owner wanted. */
   color: #e8ecf1;
-  background: #202429;
+  background: #0b0d10;
   --amgi-card-margin: 0.75rem;
   margin: var(--amgi-card-margin);
   border-radius: 1rem;
-  border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
 }
