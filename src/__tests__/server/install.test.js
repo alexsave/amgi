@@ -1,7 +1,7 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { installAddons, installState, sourceAvailable } from '../../server/anki/install';
+import { collectionDrift, installAddons, installState, sourceAvailable } from '../../server/anki/install';
 
 // What the website's one-button setup actually puts on disk.
 //
@@ -164,6 +164,79 @@ describe('installing amgi into an Anki data folder', () => {
       const state = installState({ baseDir: base, root: REPO_ROOT });
       expect(state.installed).toBe(false);
       expect(state.upToDate).toBeNull();
+    });
+  });
+
+  // The half that matters most, because its absence looked exactly like
+  // success: files perfectly current on disk while the collection still held
+  // the old card, and every screen saying the install was done.
+  describe('noticing that ANKI has not caught up with what is on disk', () => {
+    const read = (rel) => fs.readFileSync(path.join(REPO_ROOT, rel), 'utf8');
+    const currentNotetype = () => ({
+      id: 1,
+      name: 'amgi Listening',
+      fieldNames: ['Cue', 'CueAudio', 'Target', 'TargetAudio', 'Language', 'Notes'],
+      templates: [
+        { ord: 0, name: 'Listening', questionFormat: read('anki/notetype/front.html'), answerFormat: read('anki/notetype/back.html') },
+        { ord: 1, name: 'Listening reversed', questionFormat: read('anki/notetype/front-reverse.html'), answerFormat: read('anki/notetype/back-reverse.html') },
+      ],
+    });
+    const opsFor = (notetype, media = {}) => ({
+      listNotetypes: async () => [notetype],
+      readMedia: async (name) => (name in media
+        ? media[name]
+        : fs.readFileSync(path.join(REPO_ROOT, 'anki', 'media', name))),
+    });
+
+    it('is clean when the collection holds exactly what this build ships', async () => {
+      const drift = await collectionDrift({ ops: opsFor(currentNotetype()), root: REPO_ROOT });
+      expect(drift).toEqual({ checked: true, stale: [] });
+    });
+
+    it('catches a stale FRONT template', async () => {
+      const notetype = currentNotetype();
+      notetype.templates[0].questionFormat = '<div>last year</div>';
+      const drift = await collectionDrift({ ops: opsFor(notetype), root: REPO_ROOT });
+      expect(drift.stale).toEqual(['Listening card']);
+    });
+
+    it('catches a stale BACK template, which nothing could see before', async () => {
+      // listNotetypes never carried answerFormat, so a change that only
+      // touched a back template was invisible to every caller.
+      const notetype = currentNotetype();
+      notetype.templates[1].answerFormat = '<div>last year</div>';
+      const drift = await collectionDrift({ ops: opsFor(notetype), root: REPO_ROOT });
+      expect(drift.stale).toEqual(['Listening reversed card']);
+    });
+
+    it('catches stale media, which is where the review loop actually lives', async () => {
+      const ops = opsFor(currentNotetype(), { '_amgi-loop.js': Buffer.from('var old = 1;') });
+      const drift = await collectionDrift({ ops, root: REPO_ROOT });
+      expect(drift.stale).toEqual(['_amgi-loop.js']);
+    });
+
+    it('catches media the collection does not have at all', async () => {
+      const ops = opsFor(currentNotetype(), { '_amgi-loop.css': null });
+      const drift = await collectionDrift({ ops, root: REPO_ROOT });
+      expect(drift.stale).toEqual(['_amgi-loop.css']);
+    });
+
+    it('says the note type is missing rather than listing every part of it', async () => {
+      const ops = opsFor({ id: 2, name: 'Basic', fieldNames: [], templates: [] });
+      const drift = await collectionDrift({ ops, root: REPO_ROOT });
+      expect(drift.stale).toEqual(['the note type itself']);
+    });
+
+    it('reports nothing checked rather than drift when the collection cannot be read', async () => {
+      // A locked collection is not an out-of-date card design, and saying so
+      // would be a second, wrong explanation on top of the badge that
+      // already says what is happening.
+      const ops = { listNotetypes: async () => { throw new Error('collection is locked'); }, readMedia: async () => null };
+      expect(await collectionDrift({ ops, root: REPO_ROOT })).toEqual({ checked: false, stale: [] });
+    });
+
+    it('reports nothing checked when there is no transport at all', async () => {
+      expect(await collectionDrift({ ops: null, root: REPO_ROOT })).toEqual({ checked: false, stale: [] });
     });
   });
 

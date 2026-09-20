@@ -21,6 +21,10 @@
   font-weight: 600;
 }
 
+.template-update.is-behind strong {
+  color: var(--text-primary);
+}
+
 .template-update.is-failed {
   border-color: #6b3327;
   color: #e07050;

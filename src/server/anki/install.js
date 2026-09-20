@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import { defaultBaseDir } from '../../../plusaudio/lib/collection/paths.js';
+import { AMGI_NOTETYPE_NAME } from '../../utils/amgiNotetype';
 
 // Installing amgi into Anki, from the website, with one button.
 //
@@ -44,6 +45,16 @@ const CARD_TYPE_FILES = [
   ['anki/notetype/styling.css', 'styling.css'],
   ['anki/media/_amgi-loop.js', '_amgi-loop.js'],
   ['anki/media/_amgi-loop.css', '_amgi-loop.css'],
+];
+
+// What the add-on puts INSIDE the collection, as opposed to what this
+// installer puts on disk next to it. Named separately because they are
+// checked separately: the two halves fail independently, and for a while
+// only the first half was ever checked (see collectionDrift).
+const COLLECTION_MEDIA = ['_amgi-loop.js', '_amgi-loop.css'];
+const COLLECTION_TEMPLATES = [
+  { name: 'Listening', front: 'anki/notetype/front.html', back: 'anki/notetype/back.html' },
+  { name: 'Listening reversed', front: 'anki/notetype/front-reverse.html', back: 'anki/notetype/back-reverse.html' },
 ];
 
 export function repoRoot() {
@@ -187,6 +198,64 @@ export function installState({ baseDir, root = repoRoot() } = {}) {
     baseDirExists: fs.existsSync(base),
     addonsDir,
   };
+}
+
+/**
+ * Has the collection itself actually picked up what is on disk?
+ *
+ * This is the half that was missing, and its absence is exactly the shape of
+ * bug it was supposed to prevent. The website copies files into the add-on
+ * folder and then reported success; the add-on, which is the only thing that
+ * can write a note type, does its half at the NEXT profile open. Anybody who
+ * restarted Anki before the copy landed - or simply had not restarted since -
+ * was left reviewing the old card while every screen said the install was
+ * current. Checking files on disk answers "did we do our part", which is not
+ * the question anyone is asking.
+ *
+ * Reads only. Nothing here writes to the collection, because writing a note
+ * type from Node is precisely what this repo refuses to do (see this file's
+ * own header, and notetype.py's) - the fix for drift is still, and only,
+ * opening Anki.
+ *
+ * The stylesheet is not checked: listNotetypes does not carry a note type's
+ * css, so there is no honest way to compare it from here. Templates and media
+ * are, and media is the half that actually broke - it is written last and is
+ * where the whole review loop lives.
+ */
+export async function collectionDrift({ ops, root = repoRoot() }) {
+  if (!ops || !sourceAvailable(root)) return { checked: false, stale: [] };
+
+  const stale = [];
+  try {
+    const notetypes = await ops.listNotetypes();
+    const notetype = notetypes.find((nt) => nt.name === AMGI_NOTETYPE_NAME);
+    if (!notetype) return { checked: true, stale: ['the note type itself'], installed: false };
+
+    const byName = new Map((notetype.templates || []).map((t) => [t.name, t]));
+    for (const spec of COLLECTION_TEMPLATES) {
+      const template = byName.get(spec.name);
+      if (!template) {
+        stale.push(`${spec.name} card`);
+        continue;
+      }
+      const front = fs.readFileSync(path.join(root, spec.front), 'utf8');
+      const back = fs.readFileSync(path.join(root, spec.back), 'utf8');
+      if (template.questionFormat !== front || template.answerFormat !== back) stale.push(`${spec.name} card`);
+    }
+
+    for (const name of COLLECTION_MEDIA) {
+      const shipped = fs.readFileSync(path.join(root, 'anki', 'media', name));
+      const inCollection = await ops.readMedia(name);
+      if (!inCollection || Buffer.compare(Buffer.from(inCollection), shipped) !== 0) stale.push(name);
+    }
+  } catch (error) {
+    // An unreadable collection is not drift, it is a collection that cannot
+    // be read - the badge already says so, and claiming the card design is
+    // out of date on top of that would be a second, wrong explanation.
+    return { checked: false, stale: [] };
+  }
+
+  return { checked: true, stale };
 }
 
 /**
