@@ -48,8 +48,12 @@ Put the key in a file called `.env.local` at the top of the repo:
 OPENAI_API_KEY=sk-...
 ```
 
-If you would rather see the whole flow working before paying anyone, skip this step entirely.
-With no key set, amgi hands back an obviously-fake stub clip - its bytes say so in plain text - so every screen, every button and the whole Anki round trip still work; only the audio is not real.
+If you would rather see the whole thing working before paying anyone, skip this step entirely.
+With no key set amgi offers you a starter deck instead: ten everyday phrases that ship with amgi, already recorded, in any pair of the eighteen languages it supports.
+It is a real deck - you review it in Anki, edit it and delete it like any other - so you can hear what a finished card sounds like before deciding whether it is worth a key.
+The offer disappears once a key is set, since at that point you can make cards about whatever you actually want to learn.
+
+Anything you try to generate yourself without a key still comes back as an obviously-fake stub clip - its bytes say so in plain text - so every screen, every button and the whole Anki round trip work either way.
 
 **3. Start amgi and install it into Anki.**
 

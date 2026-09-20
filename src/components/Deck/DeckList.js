@@ -6,6 +6,7 @@ import './DeckList.css';
 import CreateDeckModal from './CreateDeckModal';
 import { ANKI_READY_MODES, ankiModePresentation } from '../../utils/ankiModeText';
 import FirstRun from '../Setup/FirstRun';
+import StarterDeck from '../Setup/StarterDeck';
 import { ankiApi } from '../../utils/ankiApi';
 
 const DeckList = () => {
@@ -103,6 +104,18 @@ const DeckList = () => {
           ))
         )}
       </div>
+
+      {/* Below the list rather than inside the empty state, because the
+          empty state is not reliably reached: Anki ships every collection
+          with a Default deck, so a brand new install usually has one deck
+          already and never sees "create your first deck" at all.
+
+          It renders nothing whenever an OpenAI key is configured, which is
+          what keeps it from being clutter. Without a key there is nothing
+          else in this app a person can do, so a second starter deck - a
+          different pair of languages - is a real offer rather than a repeat
+          of one they have already taken. */}
+      {ready && <StarterDeck />}
     </div>
   );
 };

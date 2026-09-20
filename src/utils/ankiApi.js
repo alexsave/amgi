@@ -49,6 +49,11 @@ export const ankiApi = {
     if (!response.ok) throw new Error(`could not load ${filename}`);
     return response.blob();
   },
+  // The free sample deck, for a machine with no OpenAI key. The GET needs no
+  // Anki at all - it only reports what this build ships.
+  starterState: () => call('/starter'),
+  buildStarter: (known, learning, name) =>
+    call('/starter', { method: 'POST', body: JSON.stringify({ known, learning, name }) }),
   install: (baseDirOverride) =>
     call('/install', { method: 'POST', body: JSON.stringify({ baseDirOverride: baseDirOverride || '' }) }),
   decks: () => call('/decks'),
