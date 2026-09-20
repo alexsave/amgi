@@ -59,7 +59,9 @@ function withLiveCollationsRelaxed(db, tableNames, fn) {
   // to be turned off, and only for the duration of this call.
   db.enableDefensive(false);
   db.exec('PRAGMA writable_schema = ON');
-  const relax = db.prepare("UPDATE sqlite_master SET sql = replace(sql, ' COLLATE unicase', '') WHERE name = ?");
+  const relax = db.prepare(
+    "UPDATE sqlite_master SET sql = replace(sql, ' COLLATE unicase', ' COLLATE NOCASE') WHERE name = ?",
+  );
   for (const { name } of originals) relax.run(name);
   db.exec('PRAGMA writable_schema = RESET');
   try {
