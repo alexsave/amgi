@@ -1,28 +1,23 @@
-<!-- amgi Listening - Back Template.
-     Paste this into Cards... > Back Template for the "amgi Listening" note type.
+<!-- amgi Listening (reversed) - Back Template.
+     The answer to "what does this mean": the phrase in the language you
+     already know, with the original underneath it.
 
-     This side does not pull in the front side's markup: it renders its own
-     copy of the cue audio so the replay row works, and keeping one amgi card
-     element on the page keeps the loop's bookkeeping simple. (Do not write
-     the front-side field marker literally in a comment here - Anki
-     substitutes fields inside HTML comments too, and that one would paste
-     the whole front template, script tag included, into this comment.)
-
-     No grading row of its own: Anki's own Again/Hard/Good/Easy bar, right
-     below this template on every client, already grades correctly - see
-     anki-loop.js's bootBack for why this card does not draw a second one. -->
+     The two audio slots are swapped relative to the forward card, and that
+     swap is the entire difference between the two directions. The loop plays
+     the target-audio slot on reveal, so on this card that is the known
+     language - which is the thing you were asked to produce. -->
 
 <div class="amgi" data-amgi-card data-amgi-side="back" data-amgi-phase="answer">
   <div class="amgi-visual">
     <canvas class="amgi-visualizer" data-amgi-visualizer aria-hidden="true"></canvas>
   </div>
 
-  <div class="amgi-text amgi-text-target" lang="{{Language}}">{{Target}}</div>
-  <div class="amgi-text amgi-text-cue">{{Cue}}</div>
+  <div class="amgi-text amgi-text-target">{{Cue}}</div>
+  <div class="amgi-text amgi-text-cue" lang="{{Language}}">{{Target}}</div>
   {{#Notes}}<div class="amgi-text amgi-text-notes">{{Notes}}</div>{{/Notes}}
 
-  <div class="amgi-slot" data-amgi-cue-audio>{{CueAudio}}</div>
-  <div class="amgi-slot" data-amgi-target-audio>{{TargetAudio}}</div>
+  <div class="amgi-slot" data-amgi-cue-audio>{{TargetAudio}}</div>
+  <div class="amgi-slot" data-amgi-target-audio>{{CueAudio}}</div>
 
   <div class="amgi-actions">
     <button type="button" class="amgi-btn tappable" data-amgi-action="play" hidden>
@@ -39,7 +34,6 @@
     </button>
   </div>
 
-  <!-- Sits directly above Anki's own grading bar, as the label for it. -->
   <p class="amgi-status" data-amgi-status role="status" aria-live="polite">
     <span class="amgi-status-icon" data-amgi-status-icon aria-hidden="true"></span>
     <span data-amgi-status-text>How did you do?</span>

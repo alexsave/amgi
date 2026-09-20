@@ -81,8 +81,8 @@ Each card goes straight into Anki as it is finished, and you can play either rec
 Pick the deck and study it as you would any other.
 The cue audio plays, the microphone opens by itself, and the card waits for you to stop talking rather than for you to press anything - about a second of silence ends your turn.
 Then the answer appears with the native recording, and you grade yourself with Anki's own buttons: space for Good, `1` for Again, exactly as in every other deck you have.
-Three keys replay without reaching for the mouse: `R` hears the phrase again, `A` hears the answer, `V` hears your own attempt back.
-(`A` and `V` overlap Anki's own Add and record-voice shortcuts; whether the card wins that race is one of the open items in `anki/README.md`.)
+Every note makes **two** cards, in opposite directions, off the same text and the same two recordings: one plays the language you know and asks you to say the language you are learning, the other plays the language you are learning and asks you what it means.
+They are two card templates on one note type, so the pair can never drift apart in content, and the reverse card only appears once a note has a recording in the learning language.
 
 From here on it is an ordinary Anki deck.
 It syncs to AnkiWeb, it reviews on your phone (without the microphone half), and its scheduling is Anki's, not amgi's.

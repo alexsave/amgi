@@ -42,7 +42,21 @@ NOTETYPE_NAME = "amgi Listening"
 # anki/README.md for the rename and how to migrate a deck off the old names.
 FIELD_NAMES = ("Cue", "CueAudio", "Target", "TargetAudio", "Language", "Notes")
 
-TEMPLATE_NAME = "Listening"
+# Two cards per note, and the pair is the whole point: one asks you to
+# produce the language you are learning, the other asks you to understand it.
+# They share every field, so the two directions cannot drift apart in
+# content - there is one copy of the text and one copy of each recording, and
+# which direction a card is comes down to which recording its front template
+# puts in the prompt slot.
+#
+# Anki builds a card per template per note, but only where the template's
+# front renders something (rslib/src/notetype/cardgen.rs), so a note with no
+# recording in the learning language simply has no reverse card until it gets
+# one.
+TEMPLATES = (
+    {"name": "Listening", "front": "front", "back": "back"},
+    {"name": "Listening reversed", "front": "front_reverse", "back": "back_reverse"},
+)
 
 # Both are underscore-prefixed so Anki's own media check treats them as
 # deliberately-unreferenced files rather than offering to delete them, and so
@@ -52,6 +66,8 @@ MEDIA_FILES = ("_amgi-loop.js", "_amgi-loop.css")
 ASSET_FILES = {
     "front": "front.html",
     "back": "back.html",
+    "front_reverse": "front-reverse.html",
+    "back_reverse": "back-reverse.html",
     "css": "styling.css",
 }
 
@@ -66,6 +82,7 @@ class InstallResult:
     created: bool = False
     fields_added: list = field(default_factory=list)
     templates_updated: bool = False
+    templates_added: list = field(default_factory=list)
     css_updated: bool = False
     media_written: list = field(default_factory=list)
 
@@ -75,6 +92,7 @@ class InstallResult:
             self.created
             or self.fields_added
             or self.templates_updated
+            or self.templates_added
             or self.css_updated
             or self.media_written
         )
@@ -87,6 +105,8 @@ class InstallResult:
             parts.append("created the note type")
         if self.fields_added:
             parts.append("added fields " + ", ".join(self.fields_added))
+        if self.templates_added:
+            parts.append("added the " + ", ".join(self.templates_added) + " card")
         if self.templates_updated:
             parts.append("updated the card templates")
         if self.css_updated:
@@ -158,6 +178,7 @@ def ensure_notetype(col: "Collection", assets_dir: str) -> InstallResult:
         result.notetype_id = notetype["id"]
         result.created = True
         result.fields_added = list(FIELD_NAMES)
+        result.templates_added = [spec["name"] for spec in TEMPLATES]
         result.media_written = _write_media(col, assets["media"])
         return result
 
@@ -169,24 +190,40 @@ def ensure_notetype(col: "Collection", assets_dir: str) -> InstallResult:
         col.models.add_field(notetype, col.models.new_field(name))
         result.fields_added.append(name)
 
-    if not notetype["tmpls"]:
-        template = col.models.new_template(TEMPLATE_NAME)
-        template["qfmt"] = assets["front"]
-        template["afmt"] = assets["back"]
-        col.models.add_template(notetype, template)
-        result.templates_updated = True
-    else:
-        template = notetype["tmpls"][0]
-        if template.get("qfmt") != assets["front"] or template.get("afmt") != assets["back"]:
-            template["qfmt"] = assets["front"]
-            template["afmt"] = assets["back"]
+    # Templates are matched by name and only ever added, never removed: an
+    # ordinal that disappears takes its cards - and their review history -
+    # with it, which is not something a startup task should ever do on its
+    # own. A template whose content has drifted from what this version ships
+    # is refreshed in place, which is how a card design update reaches decks
+    # that already exist.
+    by_name = {t["name"]: t for t in notetype["tmpls"]}
+    for index, spec in enumerate(TEMPLATES):
+        wanted_front = assets[spec["front"]]
+        wanted_back = assets[spec["back"]]
+        existing = by_name.get(spec["name"])
+        if existing is None and index < len(notetype["tmpls"]) and index == 0 and len(notetype["tmpls"]) == 1:
+            # An install from before the reverse card existed: its single
+            # template is the forward one under whatever name it was given.
+            existing = notetype["tmpls"][0]
+            existing["name"] = spec["name"]
+            result.templates_updated = True
+        if existing is None:
+            template = col.models.new_template(spec["name"])
+            template["qfmt"] = wanted_front
+            template["afmt"] = wanted_back
+            col.models.add_template(notetype, template)
+            result.templates_added.append(spec["name"])
+            continue
+        if existing.get("qfmt") != wanted_front or existing.get("afmt") != wanted_back:
+            existing["qfmt"] = wanted_front
+            existing["afmt"] = wanted_back
             result.templates_updated = True
 
     if notetype.get("css") != assets["css"]:
         notetype["css"] = assets["css"]
         result.css_updated = True
 
-    if result.fields_added or result.templates_updated or result.css_updated:
+    if result.fields_added or result.templates_added or result.templates_updated or result.css_updated:
         col.models.update_dict(notetype)
 
     result.media_written = _write_media(col, assets["media"])
@@ -197,10 +234,11 @@ def _build_new(col: "Collection", assets: dict) -> dict:
     notetype = col.models.new(NOTETYPE_NAME)
     for name in FIELD_NAMES:
         col.models.add_field(notetype, col.models.new_field(name))
-    template = col.models.new_template(TEMPLATE_NAME)
-    template["qfmt"] = assets["front"]
-    template["afmt"] = assets["back"]
-    col.models.add_template(notetype, template)
+    for spec in TEMPLATES:
+        template = col.models.new_template(spec["name"])
+        template["qfmt"] = assets[spec["front"]]
+        template["afmt"] = assets[spec["back"]]
+        col.models.add_template(notetype, template)
     notetype["css"] = assets["css"]
     return notetype
 

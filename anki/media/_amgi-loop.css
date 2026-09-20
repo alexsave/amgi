@@ -305,9 +305,30 @@
 
 .amgi-actions {
   display: flex;
-  flex-wrap: wrap;
+  /* One row, confirmed in real Anki: three replay buttons at their natural
+     width wrapped the third onto a line of its own in an ordinary desktop
+     window, which read as two groups rather than one set of equals. They
+     shrink instead of wrapping now - the labels are short, and a set of
+     controls that are the same kind of thing should look like one row at
+     every width the card can be. Below a phone-ish width there is genuinely
+     not room, and wrapping is better than clipping, hence the media query. */
+  flex-wrap: nowrap;
   justify-content: center;
+  align-items: stretch;
   gap: 0.5rem;
+}
+
+.amgi-actions > .amgi-btn {
+  /* Allowed to shrink past their content, which flex items refuse to do by
+     default (min-width: auto), and that refusal is what forced the wrap. */
+  min-width: 0;
+  flex: 0 1 auto;
+}
+
+@media (max-width: 26rem) {
+  .amgi-actions {
+    flex-wrap: wrap;
+  }
 }
 
 /* `button.amgi-btn`, not `.amgi-btn`: confirmed live in real Anki (26.09.2)
@@ -326,6 +347,7 @@ button.amgi-btn {
   font: inherit;
   font-size: 0.95rem;
   padding: 0.55rem 1.1rem;
+  white-space: nowrap;
   min-height: 2.75rem;
   border: 1px solid currentColor;
   border-radius: 999px;

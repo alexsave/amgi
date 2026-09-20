@@ -48,7 +48,7 @@ REPO_ROOT = os.path.abspath(
 def build_assets(target: str) -> str:
     """A cardtype/ folder, populated from the repo the way the installer does."""
     os.makedirs(target, exist_ok=True)
-    for name in ("front.html", "back.html", "styling.css"):
+    for name in ("front.html", "back.html", "front-reverse.html", "back-reverse.html", "styling.css"):
         shutil.copyfile(os.path.join(REPO_ROOT, "anki", "notetype", name), os.path.join(target, name))
     for name in notetype.MEDIA_FILES:
         shutil.copyfile(os.path.join(REPO_ROOT, "anki", "media", name), os.path.join(target, name))
@@ -77,7 +77,7 @@ class EnsureNotetypeTests(unittest.TestCase):
         found = self.col.models.by_name(notetype.NOTETYPE_NAME)
         self.assertIsNotNone(found, "the note type is not in the collection afterwards")
         self.assertEqual([f["name"] for f in found["flds"]], list(notetype.FIELD_NAMES))
-        self.assertEqual(len(found["tmpls"]), 1)
+        self.assertEqual([t["name"] for t in found["tmpls"]], [s["name"] for s in notetype.TEMPLATES])
 
         # The real proof: a note on this type produces a card, and Anki's own
         # renderer turns it into a question containing the cue audio and an
@@ -90,11 +90,20 @@ class EnsureNotetypeTests(unittest.TestCase):
         note["Language"] = "ko"
         self.col.add_note(note, self.col.decks.id("amgi test"))
 
+        # Two cards, one per direction, off the same note.
         cards = note.cards()
-        self.assertEqual(len(cards), 1, "the note type did not generate exactly one card")
-        rendered = cards[0].render_output()
-        self.assertIn("cue.mp3", rendered.question_text)
-        self.assertIn("이번 주말에", rendered.answer_text)
+        self.assertEqual(len(cards), 2, "the note type did not generate both directions")
+
+        forward = cards[0].render_output()
+        self.assertIn("cue.mp3", forward.question_text)
+        self.assertIn("이번 주말에", forward.answer_text)
+
+        reverse = cards[1].render_output()
+        # The reverse card asks the other way round: it plays the learning
+        # language and wants the known one back.
+        self.assertIn("target.mp3", reverse.question_text)
+        self.assertNotIn("cue.mp3", reverse.question_text)
+        self.assertIn("I'm meeting a friend this weekend.", reverse.answer_text)
 
     def test_the_front_never_contains_the_answer(self):
         # The one property of this note type that actually matters for
@@ -110,9 +119,14 @@ class EnsureNotetypeTests(unittest.TestCase):
         note["TargetAudio"] = '<audio src="target.mp3"></audio>'
         self.col.add_note(note, self.col.decks.id("amgi test"))
 
-        question = note.cards()[0].render_output().question_text
-        self.assertNotIn("타깃문장", question)
-        self.assertNotIn("a gloss that must not appear", question)
+        # Neither direction may show its own answer on the front.
+        forward = note.cards()[0].render_output().question_text
+        self.assertNotIn("타깃문장", forward)
+        self.assertNotIn("a gloss that must not appear", forward)
+
+        reverse = note.cards()[1].render_output().question_text
+        self.assertNotIn("a gloss that must not appear", reverse)
+        self.assertNotIn("타깃문장", reverse)
 
     def test_media_lands_in_the_collection_media_folder(self):
         result = notetype.ensure_notetype(self.col, self.assets)
@@ -195,3 +209,87 @@ class EnsureNotetypeTests(unittest.TestCase):
 
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()
+
+
+class ReverseCardTests(unittest.TestCase):
+    """The second direction, which is a template rather than a second note."""
+
+    def setUp(self) -> None:
+        if Collection is None:
+            raise unittest.SkipTest("the `anki` pip package is not installed")
+        self.tmp = tempfile.mkdtemp(prefix="amgi-reverse-")
+        self.col = Collection(os.path.join(self.tmp, "collection.anki2"))
+        self.assets = build_assets(os.path.join(self.tmp, "cardtype"))
+        notetype.ensure_notetype(self.col, self.assets)
+        self.nt = self.col.models.by_name(notetype.NOTETYPE_NAME)
+
+    def tearDown(self) -> None:
+        if getattr(self, "col", None) is not None:
+            self.col.close()
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _note(self, **fields):
+        note = self.col.new_note(self.nt)
+        for key, value in fields.items():
+            note[key] = value
+        self.col.add_note(note, self.col.decks.id("amgi test"))
+        return note
+
+    def test_a_note_with_no_learning_audio_gets_no_reverse_card(self):
+        # Anki only makes a card where the front renders something, so the
+        # reverse direction appears by itself once the recording exists
+        # rather than sitting there as an unanswerable card in the meantime.
+        note = self._note(
+            Cue="hello",
+            CueAudio='<audio src="cue.mp3"></audio>',
+            Target="안녕하세요",
+            TargetAudio="",
+        )
+        self.assertEqual(len(note.cards()), 1)
+
+    def test_adding_the_recording_later_creates_the_reverse_card(self):
+        note = self._note(
+            Cue="hello",
+            CueAudio='<audio src="cue.mp3"></audio>',
+            Target="안녕하세요",
+            TargetAudio="",
+        )
+        self.assertEqual(len(note.cards()), 1)
+        note["TargetAudio"] = '<audio src="target.mp3"></audio>'
+        self.col.update_note(note)
+        self.assertEqual(len(self.col.get_note(note.id).cards()), 2)
+
+    def test_the_two_directions_share_one_copy_of_the_text(self):
+        note = self._note(
+            Cue="hello",
+            CueAudio='<audio src="cue.mp3"></audio>',
+            Target="안녕하세요",
+            TargetAudio='<audio src="target.mp3"></audio>',
+        )
+        note["Target"] = "안녕"
+        self.col.update_note(note)
+        cards = self.col.get_note(note.id).cards()
+        self.assertIn("안녕", cards[0].render_output().answer_text)
+        self.assertIn("안녕", cards[1].render_output().question_text + cards[1].render_output().answer_text)
+
+    def test_an_install_from_before_the_reverse_card_gains_it(self):
+        # The upgrade path that matters: a collection built by an earlier
+        # amgi has one template, and must end up with two without losing the
+        # cards (or the review history) attached to the first.
+        single = self.col.models.by_name(notetype.NOTETYPE_NAME)
+        while len(single["tmpls"]) > 1:
+            self.col.models.remove_template(single, single["tmpls"][-1])
+        self.col.models.update_dict(single)
+        note = self._note(
+            Cue="hello",
+            CueAudio='<audio src="cue.mp3"></audio>',
+            Target="안녕하세요",
+            TargetAudio='<audio src="target.mp3"></audio>',
+        )
+        first_card_id = note.cards()[0].id
+
+        result = notetype.ensure_notetype(self.col, self.assets)
+        self.assertIn("Listening reversed", result.templates_added)
+        cards = self.col.get_note(note.id).cards()
+        self.assertEqual(len(cards), 2)
+        self.assertIn(first_card_id, [c.id for c in cards], "the original card was replaced rather than kept")

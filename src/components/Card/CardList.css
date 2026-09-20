@@ -115,12 +115,6 @@
   transform: translateY(-2px);
 }
 
-.card-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 1rem;
-}
-
 .card-item {
   /* .App sets text-align: center globally (a Create React App leftover); the
      card body reads as a list entry, so it opts out the way the deck list
@@ -226,9 +220,6 @@
     margin-bottom: 0.5rem;
   }
 
-  .card-list {
-    grid-template-columns: 1fr;
-  }
   
   .deck-actions {
     justify-content: center;
