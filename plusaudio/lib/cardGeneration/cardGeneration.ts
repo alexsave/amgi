@@ -317,6 +317,15 @@ async function parseCompletion<T>(
             { role: "user", content: userPrompt }
         ],
         response_format: format,
+        // Filling a short structured template is not a task that benefits
+        // from deliberation, and on a reasoning model like gpt-5-mini every
+        // reasoning token is billed as output - see models.ts's
+        // TEXT_REASONING_EFFORT for the measurement behind these defaults.
+        // Both are omitted (rather than sent as undefined) when the injected
+        // config leaves them unset, so a test double or a non-reasoning model
+        // never has to know this parameter exists.
+        ...(ctx.models.textReasoningEffort ? { reasoning_effort: ctx.models.textReasoningEffort } : {}),
+        ...(ctx.models.textVerbosity ? { verbosity: ctx.models.textVerbosity } : {}),
     });
 
     const content = completion.choices[0]?.message?.content;
