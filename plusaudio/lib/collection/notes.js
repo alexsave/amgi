@@ -340,8 +340,41 @@ function noteFieldValuesInDeck(collectionPath, deckId, notetypeId, fieldIndex) {
   });
 }
 
+/**
+ * Delete a note and its cards, the way Anki deletes them.
+ *
+ * The rows themselves are the easy half. The half that matters for a
+ * collection that syncs is the `graves` table: Anki records every deletion
+ * there so the next sync can tell "this note was deleted" apart from "this
+ * client has never seen this note", and a client that deletes rows without
+ * leaving a grave gets the note pushed straight back to it from AnkiWeb
+ * (vendor/anki-src/rslib/src/storage/note/mod.rs, `remove_note`, and
+ * sync/mod.rs's handling of pending graves). The type codes are Anki's own:
+ * 0 for a card, 1 for a note, 2 for a deck.
+ *
+ * usn = -1 on the graves for the same reason it is -1 on every other row
+ * this module writes: it marks the change as not yet sent to the server.
+ */
+function removeNote(collectionPath, noteId) {
+  return withCollection(collectionPath, ({ db }) => {
+    const existing = db.prepare('SELECT id FROM notes WHERE id = ?').get(noteId);
+    if (!existing) throw new Error(`no note with id ${noteId} in this collection`);
+
+    const cardIds = db.prepare('SELECT id FROM cards WHERE nid = ?').all(noteId).map((row) => Number(row.id));
+    const grave = db.prepare('INSERT INTO graves (usn, oid, type) VALUES (-1, ?, ?)');
+    for (const cardId of cardIds) grave.run(cardId, 0);
+    grave.run(Number(noteId), 1);
+
+    db.prepare('DELETE FROM cards WHERE nid = ?').run(noteId);
+    db.prepare('DELETE FROM notes WHERE id = ?').run(noteId);
+    touchCollectionMod(db);
+    return { noteId: Number(noteId), cardsRemoved: cardIds.length };
+  });
+}
+
 module.exports = {
   addNote,
+  removeNote,
   addNotesBulk,
   countNotesInDeck,
   listNotesInDeck,

@@ -397,6 +397,18 @@ def update_note(
     return OpResult(payload=payload, changes=changes)
 
 
+def remove_note(col: "Collection", note_id: int) -> OpResult:
+    """Delete one note and its cards.
+
+    `col.remove_notes` rather than any SQL of our own: it is what writes the
+    graves a sync needs so the deletion propagates instead of the note being
+    pushed back from AnkiWeb, and it is undoable from Anki's own Edit menu
+    afterwards, which deleting rows by hand would not be.
+    """
+    changes = col.remove_notes([note_id])
+    return OpResult(changes=changes.changes if hasattr(changes, "changes") else changes, count=1)
+
+
 def read_media(col: "Collection", filename: str) -> Optional[bytes]:
     """The bytes of one media file, or None when it is not there.
 

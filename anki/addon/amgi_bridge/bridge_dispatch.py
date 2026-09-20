@@ -203,6 +203,11 @@ class AqtBridgeDispatcher:
             lambda col: bridge_ops.update_note(col, note_id, fields, language=language, learning_field_index=learning_field_index)
         )
 
+    def remove_note(self, note_id: int) -> dict:
+        # A real collection mutation, so CollectionOp: it lands as one undo
+        # step and Anki's own change hooks fire, the same as add_note.
+        return self._run_write(lambda col: bridge_ops.remove_note(col, note_id))
+
     def read_media(self, filename: str) -> Optional[bytes]:
         # A read of the media folder, same as has_media: no collection
         # mutation, so QueryOp rather than CollectionOp.

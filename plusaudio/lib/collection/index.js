@@ -18,6 +18,7 @@ const {
   listNotesInDeck,
   noteFieldValuesInDeck,
   updateNoteFields,
+  removeNote,
 } = require('./notes');
 const { addMediaFile, mediaDirFor, mediaFileExists, readMediaFile } = require('./media');
 const { withCollection } = require('./open');
@@ -87,6 +88,11 @@ class Collection {
    */
   addNotesBulk(notes) {
     return this._withBackup(() => addNotesBulk(this.path, notes));
+  }
+
+  /** Delete a note and its cards, leaving graves so a sync propagates it. */
+  removeNote(noteId) {
+    return this._withBackup(() => removeNote(this.path, noteId));
   }
 
   updateNote(noteId, fields, language, learningFieldIndex) {
