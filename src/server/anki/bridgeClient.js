@@ -10,7 +10,32 @@
 // origin failure by design (a same-machine CLI caller, which this is). The
 // shared-secret token is therefore the only credential these requests need.
 
+// The short timeout is for "is a bridge there, and is it answering": the
+// probe below, and the fixed-size reads whose cost does not depend on the
+// collection. Failing those fast is the point - the caller falls back to the
+// direct transport rather than making the page wait.
 const DEFAULT_TIMEOUT_MS = 1500;
+
+// Anything that puts real work on Anki's main thread gets the add-on's own
+// budget instead.
+//
+// bridge_dispatch.DEFAULT_TIMEOUT_SECONDS is 30: that is how long the add-on
+// itself waits for an operation to come back from Anki's operation queue,
+// and a write waits there behind whatever Anki was already doing before its
+// own inserts even start. 1500ms on this side made the two ends disagree
+// about how long an operation is allowed to take, and the disagreement is
+// worse than a slow call, because aborting the `fetch` does not cancel the
+// CollectionOp: the add-on carries on and commits the notes while this
+// client reports the write as failed. The row says "failed", the note is in
+// the deck, and adding it again is the obvious next thing for the person to
+// do - a duplicate produced by the timeout itself.
+//
+// A single-note write rarely came near 1500ms, which is why this held up
+// until now. A batched write from the bulk-add screen (see BulkRun.js) is
+// one operation doing up to ten inserts, behind an Anki that may be mid-sync
+// or showing a dialog, and has every reason to. The same applies to the one
+// read whose cost scales with the deck rather than with the request.
+const OPERATION_TIMEOUT_MS = 30000;
 
 class BridgeError extends Error {
   constructor(message, status) {
@@ -71,14 +96,20 @@ function createBridgeOps(baseUrl, token) {
         baseUrl,
         token,
         `/decks/${deckId}/notes/field-values?notetypeId=${notetypeId}&fieldIndex=${fieldIndex}`,
+        // Reads every note in the deck, so its cost is the deck's size, not
+        // this request's. It is also the bulk-add screen's dupe check, whose
+        // failure is swallowed by design (BulkRun.js) - timing this one out
+        // does not show an error, it silently pays OpenAI to regenerate
+        // cards the deck already has.
+        { timeoutMs: OPERATION_TIMEOUT_MS },
       );
       return result.values;
     },
     async createDeck(name) {
-      return bridgeFetch(baseUrl, token, '/decks', { method: 'POST', body: { name } });
+      return bridgeFetch(baseUrl, token, '/decks', { method: 'POST', body: { name }, timeoutMs: OPERATION_TIMEOUT_MS });
     },
     async addNote(note) {
-      return bridgeFetch(baseUrl, token, '/notes', { method: 'POST', body: note });
+      return bridgeFetch(baseUrl, token, '/notes', { method: 'POST', body: note, timeoutMs: OPERATION_TIMEOUT_MS });
     },
     /**
      * Add several notes through one `POST /notes/bulk` call, which the
@@ -87,13 +118,18 @@ function createBridgeOps(baseUrl, token) {
      * change-hook firing for the whole paste, instead of 60 of each.
      */
     async addNotesBulk(notes) {
-      const result = await bridgeFetch(baseUrl, token, '/notes/bulk', { method: 'POST', body: { notes } });
+      const result = await bridgeFetch(baseUrl, token, '/notes/bulk', {
+        method: 'POST',
+        body: { notes },
+        timeoutMs: OPERATION_TIMEOUT_MS,
+      });
       return result.results;
     },
     async updateNote(noteId, fields, language, learningFieldIndex) {
       return bridgeFetch(baseUrl, token, `/notes/${noteId}`, {
         method: 'PATCH',
         body: { fields, language, learningFieldIndex },
+        timeoutMs: OPERATION_TIMEOUT_MS,
       });
     },
     async hasMedia(filename) {
@@ -101,10 +137,10 @@ function createBridgeOps(baseUrl, token) {
       return result.exists;
     },
     async renameDeck(deckId, name) {
-      return bridgeFetch(baseUrl, token, `/decks/${deckId}`, { method: 'PATCH', body: { name } });
+      return bridgeFetch(baseUrl, token, `/decks/${deckId}`, { method: 'PATCH', body: { name }, timeoutMs: OPERATION_TIMEOUT_MS });
     },
     async removeNote(noteId) {
-      return bridgeFetch(baseUrl, token, `/notes/${noteId}`, { method: 'DELETE' });
+      return bridgeFetch(baseUrl, token, `/notes/${noteId}`, { method: 'DELETE', timeoutMs: OPERATION_TIMEOUT_MS });
     },
     async readMedia(filename) {
       const result = await bridgeFetch(baseUrl, token, `/media/${encodeURIComponent(filename)}/data`);
@@ -114,6 +150,7 @@ function createBridgeOps(baseUrl, token) {
       const result = await bridgeFetch(baseUrl, token, '/media', {
         method: 'POST',
         body: { filename, dataBase64: data.toString('base64') },
+        timeoutMs: OPERATION_TIMEOUT_MS,
       });
       return result.filename;
     },
