@@ -324,10 +324,6 @@
   background: var(--dark-surface);
 }
 
-.note-row + .note-row {
-  border-top: 1px solid var(--border-color);
-}
-
 .note-row-target,
 .note-row-cue {
   flex: 1 1 0;
@@ -364,4 +360,47 @@
 .note-row-noaudio {
   font-size: 0.72rem;
   opacity: 0.6;
+}
+
+.note-row-wrap {
+  background: var(--dark-surface);
+}
+
+.note-row-wrap + .note-row-wrap {
+  border-top: 1px solid var(--border-color);
+}
+
+.note-row-wrap.is-open {
+  background: var(--dark-surface-hover);
+}
+
+.note-row-edit {
+  flex: none;
+  font: inherit;
+  font-size: 0.76rem;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: 7px;
+  padding: 0.3rem 0.65rem;
+  cursor: pointer;
+  min-width: 3.4rem;
+  text-align: center;
+}
+
+.note-row-edit:hover {
+  color: var(--text-primary);
+}
+
+.note-row-edit-off {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.note-row-editor {
+  padding: 0 0.95rem 0.9rem;
+}
+
+.note-row-editor .card-panel {
+  margin-top: 0;
 }

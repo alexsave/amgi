@@ -100,6 +100,9 @@ function createBridgeOps(baseUrl, token) {
       const result = await bridgeFetch(baseUrl, token, `/media/${encodeURIComponent(filename)}`);
       return result.exists;
     },
+    async removeNote(noteId) {
+      return bridgeFetch(baseUrl, token, `/notes/${noteId}`, { method: 'DELETE' });
+    },
     async readMedia(filename) {
       const result = await bridgeFetch(baseUrl, token, `/media/${encodeURIComponent(filename)}/data`);
       return result.found ? Buffer.from(result.dataBase64, 'base64') : null;

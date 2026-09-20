@@ -1,0 +1,134 @@
+/* One card on its own. Left aligned regardless of the page around it: the
+   deck screen used to centre everything, which put a label and its value on
+   different axes and made a form look like a poster. */
+.card-panel {
+  margin-top: 0.9rem;
+  border: 1px solid var(--dark-surface-hover);
+  border-radius: 11px;
+  background: var(--dark-surface);
+  overflow: hidden;
+  text-align: left;
+}
+
+.card-panel-fields {
+  padding: 0.85rem 1rem 0.3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.card-panel-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.card-panel-label {
+  font-size: 0.64rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  font-weight: 700;
+}
+
+.card-panel-label em {
+  font-style: normal;
+  letter-spacing: 0;
+  text-transform: none;
+  font-weight: 400;
+  opacity: 0.7;
+}
+
+/* Editable, but not boxed: a bordered input inside the panel's own padding
+   put the text two steps in from everything else. An underline says "you can
+   type here" without spending a second indent to say it. */
+.card-panel-value {
+  font: inherit;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border-color);
+  border-radius: 0;
+  padding: 0.25rem 0 0.4rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.card-panel-value:hover {
+  border-bottom-color: var(--text-secondary);
+}
+
+.card-panel-value:focus {
+  outline: none;
+  border-bottom-color: var(--flame-orange);
+}
+
+.card-panel-value-big {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.card-panel-clips {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 0.7rem 1rem 0.85rem;
+}
+
+.card-panel-redo {
+  font: inherit;
+  font-size: 0.74rem;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px dashed var(--border-color);
+  border-radius: 8px;
+  padding: 0.3rem 0.6rem;
+  cursor: pointer;
+}
+
+.card-panel-redo:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.card-panel-error {
+  margin: 0;
+  padding: 0 1rem 0.6rem;
+  font-size: 0.8rem;
+  color: #e07050;
+}
+
+.card-panel-foot {
+  border-top: 1px solid var(--border-color);
+  padding: 0.6rem 1rem;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.card-panel-delete {
+  font: inherit;
+  font-size: 0.76rem;
+  color: #ff8a8c;
+  background: transparent;
+  border: 1px solid rgba(255, 77, 79, 0.35);
+  border-radius: 8px;
+  padding: 0.3rem 0.7rem;
+  cursor: pointer;
+  flex: none;
+}
+
+.card-panel-delete:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.card-panel-ok {
+  color: #3fae85;
+  font-weight: 600;
+}

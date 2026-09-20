@@ -95,6 +95,9 @@ export function createDirectOps(collectionPath) {
     async addNotesBulk(notes) {
       return locked(() => unwrap(col.addNotesBulk(notes)));
     },
+    async removeNote(noteId) {
+      return locked(() => unwrap(col.removeNote(noteId)));
+    },
     async updateNote(noteId, fields, language, learningFieldIndex) {
       return locked(() => unwrap(col.updateNote(noteId, fields, language, learningFieldIndex)));
     },

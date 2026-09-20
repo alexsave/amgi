@@ -3,6 +3,8 @@ import { useParams, useRouter } from 'next/navigation';
 import { useDecks } from '../../contexts/DeckContext';
 import CardForm from './CardForm';
 import AudioChip from './AudioChip';
+import CardPanel from './CardPanel';
+import { AMGI_NOTETYPE_NAME, fieldIndexes } from '../../utils/amgiNotetype';
 import { loadDeckLanguages, saveDeckLanguages } from '../../utils/deckLanguagePrefs';
 import { LANGUAGES } from '../../constants/languages';
 import './CardList.css';
@@ -36,7 +38,7 @@ const languageName = (code) => LANGUAGES[code]?.name || code;
 const CardList = () => {
   const { id } = useParams();
   const router = useRouter();
-  const { decks, deckCards, loadDeckCards, setCurrentDeckId } = useDecks();
+  const { decks, deckCards, loadDeckCards, setCurrentDeckId, refreshAnkiDecks } = useDecks();
 
   const deck = decks[id];
 
@@ -49,6 +51,11 @@ const CardList = () => {
   const [langDeck, setLangDeck] = useState(id);
   const langs = langDeck === id && langOverride ? langOverride : loadDeckLanguages(id);
   const setLangs = (next) => { saveDeckLanguages(id, next); setLangDeck(id); setLangOverride(next); };
+  // Which row is open for editing. Inline rather than its own screen:
+  // editing a card is usually one word, and losing your place in a
+  // thirty-row list to change one word is a worse trade than the space
+  // the panel takes up.
+  const [editing, setEditing] = useState(null);
   const cards = library?.cards || [];
 
   const handleBack = () => {
@@ -86,22 +93,53 @@ const CardList = () => {
     return (
       <ol className="note-rows">
         {cards.map((cardData) => {
-          const amgi = cardData.notetypeName === 'amgi Listening';
+          const amgi = cardData.notetypeName === AMGI_NOTETYPE_NAME;
+          const open = editing === cardData.id;
           return (
-            <li key={cardData.id} className="note-row">
-              <span className="note-row-target">{cardData.front_text}</span>
-              <span className="note-row-cue">
-                {amgi ? textIn(cardData, 'Cue') : (
-                  <>
-                    <span className="note-row-type">{cardData.notetypeName}</span> not an amgi card
-                  </>
+            <li key={cardData.id} className={open ? 'note-row-wrap is-open' : 'note-row-wrap'}>
+              <div className="note-row">
+                <span className="note-row-target">{cardData.front_text}</span>
+                <span className="note-row-cue">
+                  {amgi ? textIn(cardData, 'Cue') : (
+                    <>
+                      <span className="note-row-type">{cardData.notetypeName}</span> not an amgi card
+                    </>
+                  )}
+                </span>
+                <span className="note-row-clips">
+                  <AudioChip filename={clipIn(cardData, 'CueAudio')} label={languageName(langs.known)} tone="cue" />
+                  <AudioChip filename={clipIn(cardData, 'TargetAudio')} label={languageName(langs.learning)} tone="target" />
+                  {amgi && !cardData.hasAudio && <small className="note-row-noaudio">no audio yet</small>}
+                </span>
+                {amgi ? (
+                  <button type="button" className="note-row-edit" onClick={() => setEditing(open ? null : cardData.id)}>
+                    {open ? 'Close' : 'Edit'}
+                  </button>
+                ) : (
+                  <span className="note-row-edit note-row-edit-off" title="amgi only edits its own note type">&mdash;</span>
                 )}
-              </span>
-              <span className="note-row-clips">
-                <AudioChip filename={clipIn(cardData, 'CueAudio')} label={languageName(langs.known)} tone="cue" />
-                <AudioChip filename={clipIn(cardData, 'TargetAudio')} label={languageName(langs.learning)} tone="target" />
-                {amgi && !cardData.hasAudio && <small className="note-row-noaudio">no audio yet</small>}
-              </span>
+              </div>
+              {open && (
+                <div className="note-row-editor">
+                  <CardPanel
+                    key={cardData.id}
+                    noteId={cardData.id}
+                    idx={fieldIndexes({ fieldNames: cardData.fieldNames || [] })}
+                    initialFields={cardData.fields || []}
+                    languages={{
+                      ...langs,
+                      knownName: languageName(langs.known),
+                      learningName: languageName(langs.learning),
+                    }}
+                    onDeleted={() => {
+                      setEditing(null);
+                      loadDeckCards(id, { offset: library?.offset || 0, limit: library?.limit || PAGE_SIZE });
+                      refreshAnkiDecks();
+                    }}
+                    footer="Changes save as you make them, straight into Anki."
+                  />
+                </div>
+              )}
             </li>
           );
         })}

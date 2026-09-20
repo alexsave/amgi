@@ -40,7 +40,7 @@ except ImportError:
 
 BIND_HOST = "127.0.0.1"
 
-ALLOWED_METHODS = "GET, POST, PATCH, OPTIONS"
+ALLOWED_METHODS = "GET, POST, PATCH, DELETE, OPTIONS"
 ALLOWED_HEADERS = f"Content-Type, {TOKEN_HEADER}"
 
 # A request body bigger than this is refused outright, before a single byte
@@ -115,6 +115,7 @@ ROUTES: list[Route] = [
     ("POST", re.compile(r"^/notes$"), "add_note"),
     ("POST", re.compile(r"^/notes/bulk$"), "add_notes_bulk"),
     ("PATCH", re.compile(r"^/notes/(?P<note_id>\d+)$"), "update_note"),
+    ("DELETE", re.compile(r"^/notes/(?P<note_id>\d+)$"), "remove_note"),
     ("POST", re.compile(r"^/media$"), "add_media"),
     ("GET", re.compile(r"^/media/(?P<filename>[^/]+)/data$"), "read_media"),
     ("GET", re.compile(r"^/media/(?P<filename>[^/]+)$"), "has_media"),
@@ -197,6 +198,9 @@ def make_handler_class(
 
         def do_PATCH(self) -> None:  # noqa: N802
             self._handle("PATCH")
+
+        def do_DELETE(self) -> None:  # noqa: N802
+            self._handle("DELETE")
 
         def _handle(self, method: str) -> None:
             auth = check_request(self.headers, token=token, allowed_origins=allowed_origins)
@@ -359,6 +363,9 @@ def make_handler_class(
 
         def _op_has_media(self, params: dict, query: dict, body: Optional[dict]) -> dict:
             return {"exists": dispatcher.has_media(params["filename"])}
+
+        def _op_remove_note(self, params: dict, query: dict, body: Optional[dict]) -> dict:
+            return dispatcher.remove_note(int(params["note_id"]))
 
         def _op_read_media(self, params: dict, query: dict, body: Optional[dict]) -> dict:
             # base64 in JSON rather than raw bytes with an audio content

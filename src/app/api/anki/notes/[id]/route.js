@@ -28,3 +28,21 @@ export async function PATCH(request, { params }) {
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 }
+
+// Deleting a note and its cards. This writes to a collection that syncs, so
+// it is not a row delete: both transports leave graves behind (the direct one
+// by hand, the bridge by calling Anki's own col.remove_notes), or AnkiWeb
+// pushes the note straight back on the next sync.
+export async function DELETE(request, { params }) {
+  const { id } = await params;
+  const settings = readSettings(request);
+  const result = await resolveTransport(settings);
+  if (!result.ops) return notReadyResponse(result.mode);
+
+  try {
+    const removed = await result.ops.removeNote(Number(id));
+    return NextResponse.json({ mode: result.mode, noteId: Number(id), ...removed });
+  } catch (error) {
+    return NextResponse.json({ error: error.message }, { status: 400 });
+  }
+}

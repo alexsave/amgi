@@ -3,8 +3,9 @@ import { useDecks } from '../../contexts/DeckContext';
 import { ankiApi } from '../../utils/ankiApi';
 import { ANKI_READY_MODES } from '../../utils/ankiModeText';
 import { LANGUAGES } from '../../constants/languages';
-import AudioChip from './AudioChip';
+import CardPanel from './CardPanel';
 import BulkAddForm from './BulkAddForm';
+import { AMGI_NOTETYPE_NAME, fieldIndexes } from '../../utils/amgiNotetype';
 import './CardForm.css';
 
 // Adding a card, once amgi stopped pretending to be a general Anki editor.
@@ -27,33 +28,6 @@ import './CardForm.css';
 // deck, not of each card you add to it, so they are shown and changed on the
 // deck header (see DeckHeaderLanguages) and remembered per deck.
 
-export const AMGI_NOTETYPE_NAME = 'amgi Listening';
-
-// The note type amgi installs. Addressed by name, never by index: a learner
-// is free to add fields of their own, and notetype.py deliberately never
-// removes or reorders what it finds.
-const FIELD = {
-  cue: 'Cue',
-  cueAudio: 'CueAudio',
-  target: 'Target',
-  targetAudio: 'TargetAudio',
-  language: 'Language',
-  notes: 'Notes',
-};
-
-function fieldIndexes(notetype) {
-  const names = notetype.fieldNames;
-  const at = (name) => names.findIndex((n) => n.toLowerCase() === name.toLowerCase());
-  return {
-    cue: at(FIELD.cue),
-    cueAudio: at(FIELD.cueAudio),
-    target: at(FIELD.target),
-    targetAudio: at(FIELD.targetAudio),
-    language: at(FIELD.language),
-    notes: at(FIELD.notes),
-  };
-}
-
 // LANGUAGES is keyed by code, not a list.
 const languageLabel = (code) => LANGUAGES[code]?.name || code;
 const languageCodes = Object.keys(LANGUAGES);
@@ -65,7 +39,6 @@ const CardForm = ({ deckId, languages, onLanguagesChange }) => {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [added, setAdded] = useState(null);
-  const [redoing, setRedoing] = useState('');
 
   const ready = ANKI_READY_MODES.has(ankiStatus?.mode);
 
@@ -128,35 +101,6 @@ const CardForm = ({ deckId, languages, onLanguagesChange }) => {
     }
   };
 
-  // Re-record one side of the card that was just made. The text is already
-  // right by definition - it is the text you just accepted - so this only
-  // replaces the clip and writes the new reference back into that one field.
-  const redo = async (side) => {
-    if (!added?.noteId) return;
-    setRedoing(side);
-    try {
-      const text = side === 'target' ? added.target : added.cue;
-      const language = side === 'target' ? languages.learning : languages.known;
-      const clip = await ankiApi.generateAudio(text, language);
-      const idx = fieldIndexes(notetype);
-      const fieldIndex = side === 'target' ? idx.targetAudio : idx.cueAudio;
-      if (fieldIndex < 0) return;
-      const fields = added.fields.slice();
-      fields[fieldIndex] = clip.reference;
-      await ankiApi.updateNote(added.noteId, fields, { language: languages.learning, learningFieldIndex: idx.target });
-      setAdded((prev) => ({
-        ...prev,
-        fields,
-        targetAudio: side === 'target' ? clip.filename : prev.targetAudio,
-        cueAudio: side === 'cue' ? clip.filename : prev.cueAudio,
-      }));
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setRedoing('');
-    }
-  };
-
   if (ankiNotetypes.length === 0) {
     return <div className="card-form-container"><p className="card-form-hint">Loading…</p></div>;
   }
@@ -204,30 +148,28 @@ const CardForm = ({ deckId, languages, onLanguagesChange }) => {
           {error && <p className="card-form-error">{error}</p>}
 
           {added && (
-            <div className="made-card">
-              <div className="made-card-fields">
-                <MadeField label={languageLabel(languages.learning)} value={added.target} big />
-                <MadeField label={languageLabel(languages.known)} value={added.cue} />
-              </div>
-              <div className="made-card-clips">
-                <AudioChip filename={added.cueAudio} label={languageLabel(languages.known)} tone="cue" />
-                <AudioChip filename={added.targetAudio} label={languageLabel(languages.learning)} tone="target" />
-                <button type="button" className="made-card-redo" onClick={() => redo('target')} disabled={redoing !== ''}>
-                  {redoing === 'target' ? 'Redoing…' : `Redo ${languageLabel(languages.learning)}`}
-                </button>
-                <button type="button" className="made-card-redo" onClick={() => redo('cue')} disabled={redoing !== ''}>
-                  {redoing === 'cue' ? 'Redoing…' : `Redo ${languageLabel(languages.known)}`}
-                </button>
-              </div>
-              <div className="made-card-foot">
-                <span>
-                  <span className="made-card-ok">Added to the deck.</span> It is in Anki already.
+            <CardPanel
+              key={added.noteId}
+              noteId={added.noteId}
+              notetype={notetype}
+              idx={fieldIndexes(notetype)}
+              initialFields={added.fields}
+              languages={{
+                ...languages,
+                knownName: languageLabel(languages.known),
+                learningName: languageLabel(languages.learning),
+              }}
+              onDeleted={() => { setAdded(null); refreshAnkiDecks(); }}
+              footer={
+                <>
+                  <span className="card-panel-ok">Added to the deck.</span> It is in Anki already; changes here save as you make them.
                   {added.mocked ? ' Audio is a placeholder - no OpenAI key is set.' : ''}
-                </span>
-              </div>
-              {added.warning && <p className="card-form-warning">{added.warning}</p>}
-            </div>
+                </>
+              }
+            />
           )}
+          {added?.warning && <p className="card-form-warning">{added.warning}</p>}
+
         </>
       ) : (
         <BulkAddForm
@@ -246,16 +188,5 @@ const CardForm = ({ deckId, languages, onLanguagesChange }) => {
     </div>
   );
 };
-
-// One field of the card that was just made: its language as the label, the
-// value under it on the same left edge. A bordered input inside the card's
-// own padding put the text two steps in from everything else on the page,
-// which is what the mockup pass called "double indentation".
-const MadeField = ({ label, value, big }) => (
-  <div className="made-field">
-    <span className="made-field-label">{label}</span>
-    <span className={big ? 'made-field-value made-field-value-big' : 'made-field-value'}>{value}</span>
-  </div>
-);
 
 export default CardForm;
