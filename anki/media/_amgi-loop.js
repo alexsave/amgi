@@ -813,6 +813,11 @@ var BAR_COUNT = 28;
 var UNIQUE_BARS = Math.ceil(BAR_COUNT / 2);
 var MIN_HZ = 90; // just above a typical adult voice's fundamental
 var MAX_HZ = 4000; // the top of speech's useful, intelligibility-carrying energy
+// Half the angular width of one ray, as a fraction of its own slice of the
+// circle (2*PI/BAR_COUNT). Kept well under half that slice so neighbouring
+// rays never touch - see paint()'s wedge shape for why this is what keeps
+// 28 rays converging on the centre from merging into a disc at the hub.
+var RAY_HALF_ANGLE = (Math.PI / BAR_COUNT) * 0.42;
 
 /**
  * Builds the controller anki-loop.js drives during playback and while the mic
@@ -924,7 +929,7 @@ function createVisualizer(root) {
     var cx = size.width / 2;
     var cy = size.height / 2;
     // Kept well under half the canvas even at every maximum at once (loudest
-    // ring plus every spoke fully extended) so nothing clips against
+    // ring plus every ray fully extended) so nothing clips against
     // .amgi-visual's own bounds - see _amgi-loop.css.
     var base = Math.min(size.width, size.height) * 0.2;
     var ringRadius = base + level * base * 0.25 + breathe;
@@ -933,31 +938,45 @@ function createVisualizer(root) {
     ctx.clearRect(0, 0, size.width, size.height);
     ctx.globalAlpha = alpha;
     ctx.strokeStyle = color;
+    ctx.fillStyle = color;
     ctx.lineCap = 'round';
 
     // The core ring: same honest "something is listening" floor as before -
-    // even silence still reads as a ring, not ghosted or gone.
+    // even silence still reads as a ring, not ghosted or gone. It tracks
+    // overall loudness (levelNow's RMS), a different signal from the
+    // per-frequency rays below, so it still earns its place as a halo now
+    // that the rays start at the centre instead of hanging off its edge.
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.arc(cx, cy, Math.max(0, ringRadius), 0, Math.PI * 2);
     ctx.stroke();
 
-    // The spokes. Fewer and thicker than the rays this replaces (28, not 64)
-    // is what keeps them reading as individual lines instead of merging into
-    // a fill at this size - see the BAR_COUNT comment above.
-    var barWidth = Math.max(2, ((2 * Math.PI * ringRadius) / BAR_COUNT) * 0.55);
-    ctx.lineWidth = barWidth;
-    var innerR = ringRadius + 2;
+    // The rays: a starburst from the centre, not a ring with fringe. 28
+    // lines converging on one point would merge into a solid disc right at
+    // the hub - round caps and real line widths all stacking on the same
+    // pixels - which is the exact failure the last two visualizer passes
+    // fixed at the *outside* edge (see the BAR_COUNT comment above). Fixed
+    // here, not papered over, by construction rather than by tuning a
+    // width to fit: each ray is a filled wedge whose half-angle
+    // (RAY_HALF_ANGLE) is a fixed fraction of its own slice of the circle,
+    // so its width is exactly zero at the inner point and only opens up
+    // with radius - neighbouring wedges cannot touch at any radius, all the
+    // way to the centre. innerR then sits a few percent of the base radius
+    // off dead centre, so the 28 apexes spread around a small circle
+    // instead of stacking on one pixel.
+    var innerR = base * 0.08;
     for (var i = 0; i < BAR_COUNT; i++) {
       var mag = bars ? bars[i < UNIQUE_BARS ? i : BAR_COUNT - 1 - i] : 0;
       var angle = (i / BAR_COUNT) * Math.PI * 2 - Math.PI / 2;
-      var outerR = innerR + 3 + mag * base * 0.85;
-      var cos = Math.cos(angle);
-      var sin = Math.sin(angle);
+      var outerR = innerR + 3 + mag * base * 1.6;
+      var leftA = angle - RAY_HALF_ANGLE;
+      var rightA = angle + RAY_HALF_ANGLE;
       ctx.beginPath();
-      ctx.moveTo(cx + cos * innerR, cy + sin * innerR);
-      ctx.lineTo(cx + cos * outerR, cy + sin * outerR);
-      ctx.stroke();
+      ctx.moveTo(cx + Math.cos(angle) * innerR, cy + Math.sin(angle) * innerR);
+      ctx.lineTo(cx + Math.cos(leftA) * outerR, cy + Math.sin(leftA) * outerR);
+      ctx.lineTo(cx + Math.cos(rightA) * outerR, cy + Math.sin(rightA) * outerR);
+      ctx.closePath();
+      ctx.fill();
     }
     ctx.globalAlpha = 1;
   }
