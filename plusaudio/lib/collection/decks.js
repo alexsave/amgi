@@ -302,6 +302,109 @@ function deckAndChildIds(db, schemaVersion, deckId) {
  * function only performs the write, so it can be used for both mutating and
  * no-op ("already exists") calls without backing up on the read-only path.
  */
+/**
+ * Rename a deck, and every deck under it.
+ *
+ * A subdeck is not a child record in Anki, it is a deck whose NAME carries
+ * its parent's name as a prefix ("Korean\x1fVerbs" is the Verbs subdeck of
+ * Korean). So renaming a deck means rewriting the prefix on every descendant
+ * too - miss that and the subdecks do not move with their parent, they are
+ * orphaned into new top-level decks with the old name still on them.
+ *
+ * Refuses a name that is already taken, the same way Anki's own rename does,
+ * rather than producing two decks a person cannot tell apart. The comparison
+ * is case- and width-folded (foldKey), because that is what Anki considers
+ * "the same deck name".
+ */
+function renameDeckSchema18(db, deckId, humanName, now) {
+  const rows = db.prepare('SELECT id, name FROM decks').all();
+  const current = rows.find((row) => Number(row.id) === Number(deckId));
+  if (!current) throw new Error(`no deck with id ${deckId} in this collection`);
+
+  const components = humanNameToComponents(humanName);
+  const nativeName = components.join('\x1f');
+  const taken = rows.some((row) => Number(row.id) !== Number(deckId) && foldKey(row.name) === foldKey(nativeName));
+  if (taken) throw new Error(`a deck called "${components.join('::')}" already exists`);
+
+  const oldPrefix = `${current.name}\x1f`;
+  const children = rows.filter((row) => row.name.startsWith(oldPrefix));
+
+  // Renaming INTO a subdeck ("Korean::Lyrics") needs the parent to exist.
+  // Anki's own rename creates missing ancestors, and a deck whose parent is
+  // absent is a deck the deck list cannot place.
+  const existingFolds = new Set(rows.map((row) => foldKey(row.name)));
+  const existingIds = new Set(rows.map((row) => Number(row.id)));
+  const missingAncestors = ancestorPaths(components)
+    .map((prefix) => prefix.join('\x1f'))
+    .filter((ancestor) => !existingFolds.has(foldKey(ancestor)));
+
+  withDecksCollationRelaxed(db, () => {
+    const insert = db.prepare(
+      'INSERT INTO decks (id, name, mtime_secs, usn, common, kind) VALUES (?, ?, ?, -1, ?, ?)',
+    );
+    for (const ancestor of missingAncestors) {
+      const id = allocId(existingIds, Date.now());
+      existingIds.add(id);
+      insert.run(id, ancestor, now, DEFAULT_COMMON_BLOB, DEFAULT_KIND_BLOB);
+    }
+    const update = db.prepare('UPDATE decks SET name = ?, mtime_secs = ?, usn = -1 WHERE id = ?');
+    update.run(nativeName, now, current.id);
+    for (const child of children) {
+      update.run(nativeName + child.name.slice(current.name.length), now, child.id);
+    }
+  });
+  db.prepare('UPDATE col SET mod = ? WHERE id = 1').run(Date.now());
+  return { id: Number(deckId), name: components.join('::'), childrenRenamed: children.length };
+}
+
+function renameDeckLegacy(db, deckId, humanName, now) {
+  const decks = JSON.parse(db.prepare('SELECT decks FROM col').get().decks);
+  const current = decks[String(deckId)];
+  if (!current) throw new Error(`no deck with id ${deckId} in this collection`);
+
+  const name = humanNameToComponents(humanName).join('::');
+  const taken = Object.values(decks).some((deck) => deck.id !== current.id && foldKey(deck.name) === foldKey(name));
+  if (taken) throw new Error(`a deck called "${name}" already exists`);
+
+  const oldPrefix = `${current.name}::`;
+  let childrenRenamed = 0;
+  for (const deck of Object.values(decks)) {
+    if (deck.id === current.id) continue;
+    if (!deck.name.startsWith(oldPrefix)) continue;
+    deck.name = name + deck.name.slice(current.name.length);
+    deck.mod = now;
+    deck.usn = -1;
+    childrenRenamed += 1;
+  }
+  current.name = name;
+  current.mod = now;
+  current.usn = -1;
+
+  // Same reason as the schema-18 path: a subdeck needs its parent to exist.
+  const folds = new Set(Object.values(decks).map((deck) => foldKey(deck.name)));
+  const ids = new Set(Object.values(decks).map((deck) => deck.id));
+  for (const prefix of ancestorPaths(humanNameToComponents(humanName))) {
+    const ancestor = prefix.join('::');
+    if (folds.has(foldKey(ancestor))) continue;
+    const id = allocId(ids, Date.now());
+    ids.add(id);
+    decks[String(id)] = newDeckJson(id, ancestor, now);
+    folds.add(foldKey(ancestor));
+  }
+
+  db.prepare('UPDATE col SET decks = ?, mod = ? WHERE id = 1').run(JSON.stringify(decks), Date.now());
+  return { id: Number(deckId), name, childrenRenamed };
+}
+
+function renameDeck(collectionPath, deckId, humanName) {
+  return withCollection(collectionPath, ({ db, schemaVersion }) => {
+    const now = Math.floor(Date.now() / 1000);
+    return schemaVersion === 11
+      ? renameDeckLegacy(db, deckId, humanName, now)
+      : renameDeckSchema18(db, deckId, humanName, now);
+  });
+}
+
 function resolveOrCreateDeck(collectionPath, humanName) {
   return withCollection(collectionPath, ({ db, schemaVersion }) => {
     const now = Math.floor(Date.now() / 1000);
@@ -318,5 +421,6 @@ module.exports = {
   humanNameToComponents,
   listDecks,
   normalizeComponent,
+  renameDeck,
   resolveOrCreateDeck,
 };

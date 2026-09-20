@@ -203,6 +203,9 @@ class AqtBridgeDispatcher:
             lambda col: bridge_ops.update_note(col, note_id, fields, language=language, learning_field_index=learning_field_index)
         )
 
+    def rename_deck(self, deck_id: int, human_name: str) -> dict:
+        return self._run_write(lambda col: bridge_ops.rename_deck(col, deck_id, human_name))
+
     def remove_note(self, note_id: int) -> dict:
         # A real collection mutation, so CollectionOp: it lands as one undo
         # step and Anki's own change hooks fire, the same as add_note.

@@ -184,7 +184,7 @@ const CardList = () => {
     <div className="deck-cards">
       <div className="deck-cards-header">
         <div className="deck-cards-title">
-          <h1>{deck.name}</h1>
+          <DeckName deck={deck} onRenamed={refreshAnkiDecks} />
           <p className="deck-cards-sub">
             {deck.noteCount} card{deck.noteCount === 1 ? '' : 's'}
             {' · '}
@@ -246,6 +246,66 @@ const DeckLanguages = ({ value, onChange }) => {
       </select>
       <button type="button" onClick={() => setOpen(false)}>Done</button>
     </span>
+  );
+};
+
+// The deck's name, editable in place. It is the title of the page it names,
+// so it is edited where it is read rather than behind a menu somewhere else.
+const DeckName = ({ deck, onRenamed }) => {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(deck.name);
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const commit = async () => {
+    const next = value.trim();
+    setEditing(false);
+    if (!next || next === deck.name) { setValue(deck.name); return; }
+    setSaving(true);
+    setError('');
+    try {
+      await ankiApi.renameDeck(deck.id, next);
+      onRenamed();
+    } catch (err) {
+      // Anki refuses a name another deck already has, and so do we; say
+      // which and put the old name back rather than leaving a title on
+      // screen that is not the deck's.
+      setError(err.message);
+      setValue(deck.name);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!editing) {
+    return (
+      <>
+        <h1>
+          <button type="button" className="deck-name-button" onClick={() => setEditing(true)} title="Rename this deck">
+            {saving ? 'Renaming…' : deck.name}
+          </button>
+        </h1>
+        {error && <p className="deck-name-error">{error}</p>}
+      </>
+    );
+  }
+  return (
+    <h1>
+      <input
+        className="deck-name-input"
+        value={value}
+        autoFocus
+        onChange={(e) => setValue(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') e.target.blur();
+          // Escape abandons the edit rather than saving it, which is what
+          // every other rename-in-place on a computer does.
+          if (e.key === 'Escape') { setValue(deck.name); setEditing(false); }
+        }}
+        aria-label="Deck name"
+      />
+    </h1>
   );
 };
 

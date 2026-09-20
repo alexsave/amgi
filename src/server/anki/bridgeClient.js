@@ -100,6 +100,9 @@ function createBridgeOps(baseUrl, token) {
       const result = await bridgeFetch(baseUrl, token, `/media/${encodeURIComponent(filename)}`);
       return result.exists;
     },
+    async renameDeck(deckId, name) {
+      return bridgeFetch(baseUrl, token, `/decks/${deckId}`, { method: 'PATCH', body: { name } });
+    },
     async removeNote(noteId) {
       return bridgeFetch(baseUrl, token, `/notes/${noteId}`, { method: 'DELETE' });
     },

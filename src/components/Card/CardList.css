@@ -438,3 +438,40 @@
   border-radius: 0;
   background: transparent;
 }
+
+/* The deck name, edited where it is read. */
+.deck-name-button {
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border: none;
+  border-bottom: 1px dashed transparent;
+  padding: 0;
+  cursor: text;
+  text-align: left;
+}
+
+.deck-name-button:hover {
+  border-bottom-color: var(--text-secondary);
+}
+
+.deck-name-input {
+  font: inherit;
+  color: var(--text-primary);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--flame-orange);
+  padding: 0;
+  width: 100%;
+  max-width: 24ch;
+}
+
+.deck-name-input:focus {
+  outline: none;
+}
+
+.deck-name-error {
+  margin: 0.25rem 0 0;
+  font-size: 0.78rem;
+  color: #e07050;
+}

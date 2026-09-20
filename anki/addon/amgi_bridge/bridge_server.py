@@ -116,6 +116,7 @@ ROUTES: list[Route] = [
     ("POST", re.compile(r"^/notes/bulk$"), "add_notes_bulk"),
     ("PATCH", re.compile(r"^/notes/(?P<note_id>\d+)$"), "update_note"),
     ("DELETE", re.compile(r"^/notes/(?P<note_id>\d+)$"), "remove_note"),
+    ("PATCH", re.compile(r"^/decks/(?P<deck_id>\d+)$"), "rename_deck"),
     ("POST", re.compile(r"^/media$"), "add_media"),
     ("GET", re.compile(r"^/media/(?P<filename>[^/]+)/data$"), "read_media"),
     ("GET", re.compile(r"^/media/(?P<filename>[^/]+)$"), "has_media"),
@@ -363,6 +364,12 @@ def make_handler_class(
 
         def _op_has_media(self, params: dict, query: dict, body: Optional[dict]) -> dict:
             return {"exists": dispatcher.has_media(params["filename"])}
+
+        def _op_rename_deck(self, params: dict, query: dict, body: Optional[dict]) -> dict:
+            name = (body or {}).get("name")
+            if not isinstance(name, str) or not name.strip():
+                raise BridgeBadRequest("name is required")
+            return dispatcher.rename_deck(int(params["deck_id"]), name.strip())
 
         def _op_remove_note(self, params: dict, query: dict, body: Optional[dict]) -> dict:
             return dispatcher.remove_note(int(params["note_id"]))
