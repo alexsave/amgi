@@ -52,7 +52,7 @@ describe('createReviewLoop', () => {
     const run = loop.start();
     await settle();
 
-    expect(host.phases).toEqual([PHASE.PROMPT, PHASE.LISTENING]);
+    expect(host.phases).toEqual([PHASE.PROMPT, PHASE.REQUESTING_MIC, PHASE.LISTENING]);
     expect(loop.phase).toBe(PHASE.LISTENING);
 
     host.endDetection('speech');
@@ -124,14 +124,18 @@ describe('createReviewLoop', () => {
     await loop.start();
 
     expect(host.onMicUnavailable).toHaveBeenCalledWith(failure);
-    expect(host.phases).toEqual([PHASE.PROMPT, PHASE.WAITING, PHASE.ANSWER]);
+    expect(host.phases).toEqual([PHASE.PROMPT, PHASE.REQUESTING_MIC, PHASE.WAITING, PHASE.ANSWER]);
     // No stream was opened, so there is nothing to close and nothing to replay.
     expect(host.calls).toEqual(['playPrompt', 'reveal', 'playNative', 'onAnswerReady']);
 
-    // A refusal is remembered: the second card does not ask again.
+    // A refusal is remembered: the second card does not ask again, and never
+    // shows the "asking for the microphone" phase at all - there is nothing
+    // to ask for.
+    const phasesBeforeSecondCard = host.phases.length;
     await loop.start();
     expect(host.onMicUnavailable).toHaveBeenCalledTimes(1);
     expect(loop.micUnavailable).toBe(true);
+    expect(host.phases.slice(phasesBeforeSecondCard)).not.toContain(PHASE.REQUESTING_MIC);
   });
 
   test('a microphone request that never settles falls back once micTimeoutMs elapses', async () => {
@@ -152,7 +156,7 @@ describe('createReviewLoop', () => {
     await loop.start();
 
     expect(host.onMicUnavailable).toHaveBeenCalledTimes(1);
-    expect(host.phases).toEqual([PHASE.PROMPT, PHASE.WAITING, PHASE.ANSWER]);
+    expect(host.phases).toEqual([PHASE.PROMPT, PHASE.REQUESTING_MIC, PHASE.WAITING, PHASE.ANSWER]);
     // No stream was ever opened, so there is nothing to close and nothing to replay.
     expect(host.calls).toEqual(['playPrompt', 'reveal', 'playNative', 'onAnswerReady']);
   });

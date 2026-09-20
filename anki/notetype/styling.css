@@ -10,15 +10,36 @@
 @import url("_amgi-loop.css");
 
 .card {
-  font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
-  font-size: 20px;
+  /* No CJK family here would leave Korean and Japanese to whatever the
+     platform falls back to - fine on macOS (Apple SD Gothic Neo / Hiragino),
+     unpredictable on Linux/Windows, and on some platforms wrong in a way that
+     is not just ugly: without a language-specific font hint, a browser can
+     pick Chinese glyph forms for kanji shared with Japanese. The `lang`
+     attribute on the target line (see back.html) is what actually fixes that
+     for Japanese; this stack is the fallback for wherever `lang` isn't
+     enough to steer the platform's own font substitution. */
+  font-family: -apple-system, "Segoe UI", Roboto, "Apple SD Gothic Neo", "Hiragino Sans",
+    "Noto Sans CJK KR", "Noto Sans CJK JP", "Malgun Gothic", "Yu Gothic", sans-serif;
+  /* Deliberately no font-size here any more: every visible size in
+     _amgi-loop.css is already in rem, which resolves against Anki's own html
+     root (webview.py sets that from the Qt system font when "use system font
+     size" is on), not against .card. A fixed px size on .card did nothing
+     but drift out of step with that setting while looking load-bearing. */
   text-align: center;
   color: #1c2430;
   background: #f6f7f9;
 }
 
-.nightMode .card,
-.night_mode .card {
+/* Compound, not descendant, selectors: Anki puts the nightMode/night_mode
+   class on the SAME element as `card` (qt/aqt/reviewer.py, body_class), not
+   on an ancestor of it. `.nightMode .card` looks reasonable and never
+   matches a real Anki page - confirmed live, where it silently let Anki's
+   own generic dark-mode default (a near-black/near-white pair, not these
+   colours) win instead. Found while verifying item 7's dark-theme contrast
+   fixes in real Anki; fixed alongside them since it lives in the same file
+   and the same "does dark mode actually look right" question. */
+.card.nightMode,
+.card.night_mode {
   color: #e8ecf1;
   background: #202429;
 }

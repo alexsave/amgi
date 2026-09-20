@@ -2,7 +2,7 @@
 
 This is amgi's listening-and-speaking loop packaged as an Anki note type.
 
-The card plays a prompt, opens the microphone by itself, ends the turn when you stop speaking, reveals the answer with the native audio, and grades on the same keys Anki already uses.
+The card plays a phrase in the language you're learning, opens the microphone by itself, ends the turn when you stop speaking, reveals the answer with the native audio, and grades on Anki's own Again/Hard/Good/Easy bar.
 The answer text is never on the page until the turn is over, because the whole point is to answer from listening rather than from reading.
 
 Where the microphone is not available, and on the desktop client that means everywhere without the companion add-on, the same card degrades into a listening card: the prompt plays, the text stays hidden, you press space when you have answered out loud, the native audio plays, and you grade yourself.
@@ -28,11 +28,16 @@ anki/
 
    | Field | Holds | Required |
    | --- | --- | --- |
-   | `Prompt` | the prompt in text, shown only after the reveal | no |
-   | `PromptAudio` | the prompt audio, as an HTML media reference | yes |
-   | `Answer` | the target phrase in text, shown only after the reveal | no |
-   | `AnswerAudio` | the native audio of the target phrase | yes |
+   | `Cue` | a gloss or translation, shown small on the answer side, never on the front | no |
+   | `CueAudio` | the audio played first, before the microphone opens, as an HTML media reference | yes |
+   | `Target` | the target-language phrase, shown as the hero on the answer side | no |
+   | `TargetAudio` | the native audio of the target phrase, played on reveal | yes |
+   | `Language` | a BCP-47 language tag (`ko`, `ja`, ...) for the target phrase's `lang` attribute | no |
    | `Notes` | anything extra to show on the answer | no |
+
+   Earlier versions of this note type used `Prompt`/`PromptAudio`/`Answer`/`AnswerAudio`.
+   Those names told you nothing about which direction the phrase went, and a deck built with the target-language phrase in the wrong field looked no different from one built correctly - only the visual hierarchy on the answer side gave it away, and only if you already knew which field was supposed to be the hero.
+   If you have an existing deck on the old names, Anki lets you rename a note type's fields without losing any data (Tools > Manage Note Types > Fields > Rename); rename `Prompt` to `Cue`, `PromptAudio` to `CueAudio`, `Answer` to `Target`, `AnswerAudio` to `TargetAudio`, and re-paste the templates below.
 
 3. Open Cards... on that note type and paste in `notetype/front.html`, `notetype/back.html` and `notetype/styling.css`.
 
@@ -105,9 +110,11 @@ And nothing in the loop ever blocks: every clip has a timeout, every microphone 
 
 - The loop plays its audio itself, so the deck option "Don't play audio automatically" does not apply to it, and Anki's Replay Audio (`R`) has nothing to replay.
 - The card has no `[sound:]` tags, so Anki's own replay buttons do not appear.
-  The answer side offers Prompt, Native and You instead.
-- "You" only appears on clients that keep one page across the reveal, which is the desktop client.
+  The answer side offers "Hear it again", "Hear the answer" and "Hear yourself" instead.
+- "Hear yourself" only appears on clients that keep one page across the reveal, which is the desktop client.
   Elsewhere the recording is gone by the time the answer renders, and the button is hidden rather than dead.
+- The card draws no grading buttons of its own.
+  Grading is entirely Anki's own Again/Hard/Good/Easy bar's job - see "Keys" below for why.
 
 ## Keys
 
@@ -121,8 +128,9 @@ Confirmed in real Anki (26.09.2, Qt 6.11): desktop Anki binds space/1/2/3/4 itse
 Which of the two wins is nondeterministic - it varies from keypress to keypress, not just from machine to machine.
 Revealing the answer twice is harmless (Anki's own `_answerCard` ignores an ease while the question is still up, and this template's own `data-amgi-graded` guard makes a second reveal a no-op), but grading twice is not: a second `pycmd("easeN")` after the answer is already up grades the *next* card, corrupting its schedule with no error and no visible sign anything went wrong.
 
-Because of that, the back template does not bind space/1/3 to grading at all - it never has a keydown handler for the answer side.
-Anki's own Again/Hard/Good/Easy bar, visible right below this template's own buttons, already grades correctly on every client without any help from the template, so there is nothing to gain and a silent scheduling bug to lose by competing for the same keys.
+Because of that, the back template has no keydown handler at all, and draws no grading buttons of its own either - see anki-loop.js's `bootBack`.
+Anki's own Again/Hard/Good/Easy bar, visible right below this template's replay buttons, already grades correctly on every client without any help from the template, so there is nothing to gain and a silent scheduling bug to lose by competing for the same keys.
+An earlier version of this card drew its own Again/Good row above Anki's bar, in different colours, offering two grades where Anki's own bar offers four; that read as a second, half-working control rather than a deliberate design, independent of the key race, and it is gone now for that reason too.
 The front template still binds space/enter itself (to skip the prompt or end the turn early), because there is no equivalent double-*grading* risk there: ending a turn twice is a no-op once the first call has resolved it, and Anki has no native shortcut for "the microphone is done listening".
 If you want the template to stop touching the keyboard entirely - including that front-side space - put this line in both templates, above the `<script src="_amgi-loop.js">` line:
 
@@ -160,15 +168,17 @@ node anki/test/harness/drive.js          # add HEADLESS=false to watch it
 `test/harness/reviewer.html` is a stand-in for Anki's reviewer: one long-lived document with a `#qa` element whose `innerHTML` is replaced per side, scripts re-executed the way `ts/reviewer/index.ts` re-executes them, a `pycmd` that accepts the commands `_linkHandler` whitelists, and a media folder served over HTTP so filenames resolve the way Anki resolves them.
 `drive.js` runs the real template files out of `notetype/` against it, with the synthetic microphone from `.claude/skills/e2e-ui/scripts/fakevoice.js`.
 
-It checks, across three sessions (with a microphone, with one that refuses outright, and with one that never answers at all):
+It checks, across five sessions (with a microphone, with one that refuses outright, with one that never answers at all, with a card that has no cue audio, and with no Web Audio in the client at all):
 
-- the microphone opens by itself once the prompt has finished,
+- the microphone opens by itself once the prompt has finished, through its own visible "Asking for the microphone..." phase,
 - the answer text is nowhere in the DOM while the learner is speaking, and a watcher polling every 25ms and on every mutation never sees it appear before the reveal,
 - voice activity ends the turn about 3.3s after the microphone opens, which is the speech plus the detector's 1200ms of silence, and not the 8s no-speech timeout,
 - the reveal goes through `pycmd("ans")` and nothing is sent before it,
 - the native audio plays on the answer side and the learner's own recording is offered for replay,
-- space and `1` are no longer handled by the template on the answer side at all (see "Keys" above), and the on-screen Again/Good buttons grade instead, as `pycmd("ease1")`/`pycmd("ease3")`,
-- with `getUserMedia` rejecting, the card holds at "press space", reveals on space, plays the native audio, hides the "You" button and still grades,
+- the card draws no grading buttons of its own, and space/1 do nothing at all on the answer side (see "Keys" above) - grading is simulated the way Anki's own native shortcut actually reaches the card, a direct `pycmd("ease1")`/`pycmd("ease3")` that never touches the template,
+- a card with no cue audio never asks for the microphone at all, and tells the learner it has no audio yet rather than opening a mic onto nothing,
+- a remembered mic refusal is not re-asked on the next card - no second "Asking for the microphone..." phase, and the "no microphone" note is said once per session, not on every card,
+- with `getUserMedia` rejecting, the card holds at "press space", reveals on space, plays the native audio, hides "Hear yourself" and still grades,
 - and with `getUserMedia` never settling at all (neither resolving nor rejecting - real Qt 6.11 desktop behaviour, see below), the same fallback is reached once `micTimeoutMs` elapses instead of hanging the card forever.
 
 ### Verified against real Anki

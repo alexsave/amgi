@@ -1,47 +1,49 @@
 <!-- amgi Listening - Back Template.
      Paste this into Cards... > Back Template for the "amgi Listening" note type.
 
-     This side does not use {{FrontSide}}: it renders its own copy of the
-     prompt audio so the replay row works, and keeping one amgi card element on
-     the page keeps the loop's bookkeeping simple. -->
+     This side does not pull in the front side's markup: it renders its own
+     copy of the cue audio so the replay row works, and keeping one amgi card
+     element on the page keeps the loop's bookkeeping simple. (Do not write
+     the front-side field marker literally in a comment here - Anki
+     substitutes fields inside HTML comments too, and that one would paste
+     the whole front template, script tag included, into this comment.)
+
+     No grading row of its own: Anki's own Again/Hard/Good/Easy bar, right
+     below this template on every client, already grades correctly - see
+     anki-loop.js's bootBack for why this card does not draw a second one. -->
 
 <div class="amgi" data-amgi-card data-amgi-side="back" data-amgi-phase="answer">
   <div class="amgi-visual">
     <canvas class="amgi-visualizer" data-amgi-visualizer aria-hidden="true"></canvas>
   </div>
 
-  <p class="amgi-status" data-amgi-status>How did you do?</p>
-
-  <div class="amgi-text amgi-text-prompt">{{Prompt}}</div>
-  <div class="amgi-text amgi-text-answer">{{Answer}}</div>
+  <div class="amgi-text amgi-text-target" lang="{{Language}}">{{Target}}</div>
+  <div class="amgi-text amgi-text-cue">{{Cue}}</div>
   {{#Notes}}<div class="amgi-text amgi-text-notes">{{Notes}}</div>{{/Notes}}
 
-  <div class="amgi-slot" data-amgi-prompt-audio>{{PromptAudio}}</div>
-  <div class="amgi-slot" data-amgi-answer-audio>{{AnswerAudio}}</div>
+  <div class="amgi-slot" data-amgi-cue-audio>{{CueAudio}}</div>
+  <div class="amgi-slot" data-amgi-target-audio>{{TargetAudio}}</div>
 
   <div class="amgi-actions">
     <button type="button" class="amgi-btn tappable" data-amgi-action="play" hidden>
-      Play the answer
+      Tap to play
     </button>
-    <button type="button" class="amgi-btn amgi-btn-quiet tappable" data-amgi-action="replay-prompt">
-      Prompt
+    <button type="button" class="amgi-btn amgi-btn-quiet tappable" data-amgi-action="replay-cue">
+      Hear it again
     </button>
     <button type="button" class="amgi-btn amgi-btn-quiet tappable" data-amgi-action="replay-native">
-      Native
+      Hear the answer
     </button>
     <button type="button" class="amgi-btn amgi-btn-quiet tappable" data-amgi-action="replay-you" hidden>
-      You
+      Hear yourself
     </button>
   </div>
 
-  <div class="amgi-actions amgi-grade">
-    <button type="button" class="amgi-btn amgi-btn-again tappable" data-amgi-action="again">
-      Again <kbd>1</kbd>
-    </button>
-    <button type="button" class="amgi-btn amgi-btn-good tappable" data-amgi-action="good">
-      Good <kbd>space</kbd>
-    </button>
-  </div>
+  <!-- Sits directly above Anki's own grading bar, as the label for it. -->
+  <p class="amgi-status" data-amgi-status role="status" aria-live="polite">
+    <span class="amgi-status-icon" data-amgi-status-icon aria-hidden="true"></span>
+    <span data-amgi-status-text>How did you do?</span>
+  </p>
 
   <p class="amgi-note" data-amgi-note hidden></p>
 </div>

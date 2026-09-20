@@ -6,35 +6,59 @@
 .amgi {
   margin: 0 auto;
   max-width: 34rem;
+  min-height: 100vh;
   padding: 1.5rem 1rem 2rem;
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 1rem;
 
   /* One fixed colour per audio SOURCE, not per phase, so a glance tells you
      whose voice you are hearing whether it is playing automatically or being
-     replayed by hand: pressing "Prompt" is always this blue, "Native" is
-     always this green, and the learner's own voice - live on the mic or
-     replayed as "You" - is always this orange, regardless of which phase the
-     card is in. Exposed as custom properties (read by anki-loop.js's
-     visualizer, not hard-coded in it) so the palette can be retuned here
-     without touching the drawing code. Chosen as much by lightness as by hue -
-     62%/50%/36% - so the three stay distinguishable under red-green colour
-     blindness too, not only by hue. The retired web app's
-     RadialAudioVisualizer.js/AudioVisualizer.css (see git history) put the
-     learner's own voice on the same brand orange and the AI/native side on
-     green; this keeps that split and adds a dedicated blue for the prompt,
-     which the old three-way 'front'/'hint'/'user' split didn't need to tell
-     apart from the native clip. */
-  --amgi-color-prompt: hsl(212, 88%, 62%); /* the phrase being played to you */
-  --amgi-color-you: hsl(20, 82%, 50%); /* your own voice, live or replayed */
-  --amgi-color-native: hsl(158, 55%, 36%); /* the native/translation audio */
+     replayed by hand: pressing "Hear it again" is always this blue, "Hear
+     the answer" is always this green, and the learner's own voice - live on
+     the mic or replayed as "Hear yourself" - is always this amber,
+     regardless of which phase the card is in.
+
+     These are the LIGHT-theme values (Anki's default, no extra class); the
+     .nightMode/.night_mode override below lightens each one for a dark
+     background instead of reusing the same triple, because a colour tuned
+     to read at ~5:1 against #f6f7f9 is duller than it needs to be against
+     #202429 - see anki/README.md's contrast notes. The learner's own voice
+     used to share hue with the "Again" grading button's red (both leaned
+     orange-red, hsl(20)); it is amber/gold now (hsl(32-38)) specifically
+     because that sits further from the red-green confusion axis, so it does
+     not collapse toward "native" green under deuteranopia the way the old
+     orange did, and it no longer reads as "this is a bad answer" next to any
+     red control on the page.
+
+     Exposed as custom properties (read by anki-loop.js's visualizer, not
+     hard-coded in it) so the palette can be retuned here without touching
+     the drawing code. */
+  --amgi-color-cue: hsl(212, 88%, 40%); /* the phrase being played to you */
+  --amgi-color-you: hsl(32, 85%, 32%); /* your own voice, live or replayed */
+  --amgi-color-native: hsl(158, 65%, 28%); /* the native/translation audio */
   --amgi-color-neutral: hsl(215, 12%, 60%); /* an audio source we can't identify */
-  /* A multiplier on every ray's alpha (drawing code stays untouched; retune
-     here). 1 = the rays' own 0.55-1.0 range; turn this down for a subtler
+  /* A multiplier on every ring's alpha (drawing code stays untouched; retune
+     here). 1 = the ring's own 0.35-1.0 range; turn this down for a subtler
      card, up is clamped at fully opaque. */
   --amgi-visualizer-opacity: 1;
+
+  /* One dimming level for every line of secondary text (the gloss line, the
+     notes, the fallback note), so "how much quieter than the hero" is one
+     number instead of three that drift apart over time. 0.78 against either
+     theme's background clears WCAG AA (>=4.5:1) with real margin - the
+     opacity trick itself was never the problem item 7 found, mismeasured
+     levels were. */
+  --amgi-secondary-opacity: 0.78;
+}
+
+.nightMode .amgi,
+.night_mode .amgi {
+  --amgi-color-cue: hsl(212, 88%, 62%);
+  --amgi-color-you: hsl(38, 75%, 58%);
+  --amgi-color-native: hsl(158, 50%, 50%);
 }
 
 /* The audio elements are driven by the loop, not by the learner. */
@@ -44,23 +68,49 @@
   display: none;
 }
 
+/* The status line is the hero of the front, not an afterthought: the phase
+   changing (prompt playing -> listening -> revealed) is the single biggest
+   visual event on the card, not a 0.95rem caption at 65% opacity that used
+   to look identical to "the loop has hung". Full opacity, no dimming, plus a
+   leading glyph so the same information reaches a glance and a screen reader
+   (role="status"/aria-live on the element itself, in front.html/back.html)
+   at once. */
 .amgi-status {
   margin: 0;
-  font-size: 0.95rem;
-  letter-spacing: 0.02em;
-  opacity: 0.65;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-size: 1.3rem;
+  font-weight: 600;
+  letter-spacing: normal;
+  opacity: 1;
 }
 
-/* There is no static orb any more: the rays anki-loop.js draws onto the
-   canvas, one per frequency bin and coloured by whichever audio source is
-   currently playing, are the only thing here, sitting directly on the card
-   background rather than on top of a grey disc. When there is nothing to
-   draw - no AnalyserNode, a suspended AudioContext, a client that doesn't
-   support any of this, or simply a quiet moment between clips - the canvas is
-   just empty, which is deliberate: a blank patch of card, not a placeholder
-   puck. .amgi-visual still reserves the space at a fixed size, so the layout
-   does not jump when the visualizer starts and stops. See anki-loop.js's
-   createVisualizer for the drawing code and the degrade-to-nothing rules. */
+.amgi-status-icon {
+  display: inline-flex;
+  width: 1.15em;
+  height: 1.15em;
+  flex: none;
+}
+
+.amgi-status-icon svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* There is no static orb any more, and no per-frequency-bin rays either: a
+   single ring, drawn by anki-loop.js's createVisualizer, whose radius and
+   stroke width follow the real loudness of whichever source is playing -
+   coloured by that source, on the card background rather than on top of a
+   grey disc. A quiet moment never leaves a fully blank patch: the ring has a
+   floor size/alpha and a slow independent "breathe" so listening reads as
+   alive, not hung, even in total silence, and reduced-motion clients get a
+   single static ring instead of nothing. .amgi-visual still reserves the
+   space at a fixed size, so the layout does not jump when the visualizer
+   starts and stops. See anki-loop.js's createVisualizer for the drawing code
+   and the degrade-to-nothing rules. */
 .amgi-visual {
   position: relative;
   width: 6rem;
@@ -83,19 +133,29 @@
   line-height: 1.4;
 }
 
-.amgi-text-prompt {
-  font-size: 1.05rem;
-  opacity: 0.7;
+/* The target-language phrase is the hero on the answer side, unconditionally
+   - the product's whole thesis is listening and speaking the target
+   language before reading it, and the one place this card lets you read
+   should show that language biggest. `lang` (set from the note's own
+   Language field, see back.html) is what actually protects CJK glyph shapes
+   from the platform's own script-guessing; the font stack in styling.css is
+   the fallback for wherever that isn't enough on its own. */
+.amgi-text-target {
+  font-size: 1.85rem;
+  font-weight: 700;
+  opacity: 1;
 }
 
-.amgi-text-answer {
-  font-size: 1.6rem;
-  font-weight: 600;
+/* The gloss/translation line - secondary to the target phrase above it, not
+   a second thing to read first. */
+.amgi-text-cue {
+  font-size: 1.05rem;
+  opacity: var(--amgi-secondary-opacity);
 }
 
 .amgi-text-notes {
   font-size: 0.9rem;
-  opacity: 0.6;
+  opacity: var(--amgi-secondary-opacity);
 }
 
 .amgi-actions {
@@ -105,7 +165,19 @@
   gap: 0.5rem;
 }
 
-.amgi-btn {
+/* `button.amgi-btn`, not `.amgi-btn`: confirmed live in real Anki (26.09.2)
+   that Anki's own webview.css ships a `.fancy button` rule setting
+   border-radius to a 15px custom property and adding a drop shadow, and a
+   class selector plus a type selector (specificity 0,1,1) outranks a single
+   class selector (0,1,0) regardless of which stylesheet loads second - so
+   `.amgi-btn`'s own border-radius of 999px never won, and every button
+   rendered as Anki's stock 15px-radius "fancy" rectangle with its drop
+   shadow, not a pill. This is what the design critique's screenshots showed
+   and could not explain from source alone; a live CDP check of
+   getComputedStyle and document.styleSheets found the exact rule. Matching
+   Anki's own selector shape (class + type) is what actually wins here, not
+   `!important`. */
+button.amgi-btn {
   font: inherit;
   font-size: 0.95rem;
   padding: 0.55rem 1.1rem;
@@ -115,63 +187,71 @@
   background: transparent;
   color: inherit;
   cursor: pointer;
-  opacity: 0.85;
-  transition: opacity 120ms ease, background-color 120ms ease, transform 80ms ease;
+  box-shadow: none;
+  /* No opacity dimming at rest any more: a button's own text and border are
+     what WCAG contrast is measured against, and a resting-state opacity
+     trick was exactly what made the grading buttons and their kbd hints fail
+     AA in both themes (item 7). Hover/active feedback comes from a
+     background tint and the existing press-scale instead. */
+  transition: background-color 120ms ease, transform 80ms ease;
 }
 
-.amgi-btn:hover {
-  opacity: 1;
+button.amgi-btn:hover {
+  background: rgba(128, 128, 128, 0.1);
+  box-shadow: none;
 }
 
-.amgi-btn:active {
+button.amgi-btn:active {
   transform: scale(0.96);
 }
 
-/* The replay controls (Prompt/Native/You). They need to read as real,
-   tappable buttons - not captions - while still sitting a clear step below
-   Again/Good, which stay the loudest thing on this side of the card: a
-   visible neutral-grey pill with its own hover/active feedback, rather than
-   the colour-matched, near-full-opacity treatment the grading buttons get. */
-.amgi-btn-quiet {
+button.amgi-btn:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+button.amgi-btn:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+/* The replay controls (Hear it again / Hear the answer / Hear yourself).
+   They need to read as real, tappable buttons - not captions - with their
+   own hover/active feedback, while still sitting a clear step below the
+   status line above them. */
+button.amgi-btn-quiet {
   border-color: currentColor;
-  opacity: 0.72;
+  opacity: 0.85;
   background: rgba(128, 128, 128, 0.12);
 }
 
-.amgi-btn-quiet:hover {
-  opacity: 0.95;
+button.amgi-btn-quiet:hover {
+  opacity: 1;
   background: rgba(128, 128, 128, 0.2);
 }
 
-.amgi-btn-quiet:active {
+button.amgi-btn-quiet:active {
   opacity: 1;
   background: rgba(128, 128, 128, 0.28);
 }
 
-.amgi-btn-again {
-  border-color: #c2553f;
-  color: #c2553f;
-}
-
-.amgi-btn-good {
-  border-color: #2f7d5d;
-  color: #2f7d5d;
-}
-
 .amgi-btn kbd {
   font: inherit;
-  font-size: 0.75em;
-  opacity: 0.6;
+  font-size: 0.82em;
+  opacity: 0.75;
   margin-left: 0.4em;
 }
 
-.amgi-grade {
-  margin-top: 0.5rem;
+/* A keyboard hint is noise on a client with no keyboard at all. */
+@media (hover: none) {
+  .amgi-btn kbd {
+    display: none;
+  }
 }
 
 .amgi-note {
   margin: 0;
   font-size: 0.85rem;
-  opacity: 0.7;
+  opacity: var(--amgi-secondary-opacity);
   max-width: 28rem;
 }
