@@ -11,6 +11,94 @@ There is no login, no hosted backend, and no environment variable required to st
 Card generation calls OpenAI with your own key, from your own machine.
 Reviewing happens inside Anki, using a card template this repo ships, which still runs the same hands-free listen-then-speak loop amgi always had - prompt plays, the microphone opens by itself, voice-activity detection ends your turn, and the native recording plays back against yours.
 
+## Zero to your first card
+
+This is the whole path, assuming you have none of the pieces yet: no Anki, no OpenAI account, no Node, and no copy of this repo.
+Budget about half an hour, most of it downloads.
+Everything below happens on one machine, and nothing you make leaves it except the text amgi sends OpenAI to generate audio from.
+
+**1. Install Anki.**
+Get the desktop client from [apps.ankiweb.net](https://apps.ankiweb.net) - it is free, and it is where your cards actually live.
+Start with the desktop client on macOS, Windows or Linux: that is the only one that can run add-ons, and amgi's editing side talks to a desktop profile.
+The deck you end up with reviews anywhere Anki does, and the speaking half is not desktop-only - AnkiDroid 2.25+ runs the full hands-free loop once you turn on Advanced > "Allow templates to record audio", while AnkiMobile plays the prompt and the answer but needs one tap to end your turn, because its maintainer does not grant a card microphone access.
+`anki/README.md` has the per-client table, including which rows have actually been run and which are read from source.
+Open Anki once and let it create a profile, then quit it.
+
+**2. Install Node.**
+Get it from [nodejs.org](https://nodejs.org) (the LTS download is fine), or `brew install node` on a Mac.
+Check it with `node --version`: amgi needs **24.12, 25.1, or 26 and later**.
+That floor is not arbitrary - it is where `node:sqlite` gained the API needed to read a modern Anki collection, and where TypeScript runs without a build step.
+25.0.x specifically does not work.
+
+**3. Get this repo and install its dependencies.**
+
+```bash
+git clone <this repo> amgi && cd amgi
+corepack enable      # ships with Node; this picks up the right pnpm version
+pnpm install
+```
+
+No `git`? Download the repo as a ZIP and unpack it; nothing here needs git history to run.
+
+**4. Get an OpenAI key - or skip this and come back to it.**
+Sign in at [platform.openai.com](https://platform.openai.com), open **API keys**, and create one.
+You need credits on the account: a key alone will not generate anything.
+For scale, a real 30-card deck with audio on both sides of every card measured **about nine cents**, all in.
+Put the key in a file called `.env.local` at the top of the repo:
+
+```
+OPENAI_API_KEY=sk-...
+```
+
+If you would rather see the whole flow working before paying anyone, skip this step entirely.
+With no key set, amgi hands back an obviously-fake stub clip - its bytes say so in plain text - so every screen, every button and the whole Anki round trip still work; only the audio is not real.
+
+**5. Install the two Anki add-ons.**
+In Anki: **Tools > Add-ons > View Files**, which opens the add-ons folder.
+Copy `anki/addon/amgi_mic` and `anki/addon/amgi_bridge` from this repo into it, then restart Anki.
+
+- `amgi_mic` is what lets a card's JavaScript open your microphone.
+  Anki's desktop client refuses that on its own and always will, so without this add-on the card can play audio at you but never hear you.
+  It is ninety lines in one file and worth reading before you install it, since that is exactly what it is granting.
+- `amgi_bridge` is what lets the amgi app work while Anki is open.
+  It needs Node and this repo on the same machine, because it calls into both.
+
+**6. Install the card template.**
+This is the part that makes an amgi card an amgi card, and it is three copies and one new note type.
+
+1. Find your collection's media folder: **Tools > Check Database** shows the profile path, and the folder is `collection.media` inside it.
+   Copy `anki/media/_amgi-loop.js` and `anki/media/_amgi-loop.css` into it, keeping the leading underscores - that is what stops Anki's own media check treating them as unused files and offering to delete them.
+2. In Anki, **Tools > Manage Note Types > Add**, based on Basic, and name it `amgi Listening`.
+3. With it selected, **Fields**, and set them up as exactly these six, in this order: `Cue`, `CueAudio`, `Target`, `TargetAudio`, `Language`, `Notes`.
+4. Then **Cards**, and paste in the three files from `anki/notetype/`: `front.html` into the front template, `back.html` into the back, and `styling.css` into the styling box.
+
+`anki/README.md` has the same walkthrough with a table of what each field holds and what works on which Anki client.
+
+**7. Point amgi at your collection.**
+
+```bash
+pnpm dev
+```
+
+Open <http://localhost:3000>, go to **Settings**, and pick your Anki profile - amgi can scan for it, or you can paste the path.
+The badge in the navbar tells you which of two transports is live: **direct** when Anki is closed, **bridge** when Anki is open and `amgi_bridge` is running.
+Anki open with the bridge off is reported as **locked**, with the exact fix, because Anki holds the collection file open in a mode nothing outside its own process can read.
+For a first run the simplest thing is to leave Anki closed.
+
+**8. Make a deck and fill it.**
+In the app, create a deck, then paste in the lines you want cards for - one phrase per line, in the language you already know.
+amgi writes the target-language sentence, generates audio for both sides, and checks each clip by transcribing it back and refusing anything that does not say what the card says.
+Then open Anki: the deck is already there.
+
+**9. Review, in Anki.**
+Pick the deck and study it as you would any other.
+The cue audio plays, the microphone opens by itself, and the card waits for you to stop talking rather than for you to press anything - about a second of silence ends your turn.
+Then the answer appears with the native recording, and you grade yourself with Anki's own buttons: space for Good, `1` for Again, exactly as in every other deck you have.
+
+From here on it is an ordinary Anki deck.
+It syncs to AnkiWeb, it reviews on your phone (without the microphone half), and its scheduling is Anki's, not amgi's.
+That is the point: amgi is a deck editor with a very good audio pipeline, and Anki is everything else.
+
 ## What's here
 
 - **A Next.js app** (`src/`) - a visual deck browser and card builder for your real Anki collection.
@@ -40,7 +128,8 @@ Settings (`/settings`) is where you point amgi at an Anki profile and, optionall
    `amgi_mic` is worth reading before you install it - it is 90 lines, all in one file, and it is the thing granting a web page microphone access.
    `amgi_bridge` needs Node and a checkout of this repo on the machine running Anki, because it shells out to `plusaudio/generate-clip.js` for generation and to `plusaudio/lib/collection/` code paths it shares with the app; see `anki/addon/amgi_bridge/README.md`'s "Install" section for the exact requirement.
 2. **The card template.** Copy `anki/media/_amgi-loop.js` and `anki/media/_amgi-loop.css` into your collection's media folder (Tools > Check Database shows the profile path; the folder is `collection.media` inside it), keeping the leading underscores so Anki's own media check leaves them alone.
-   Then create a note type with the fields `Prompt`, `PromptAudio`, `Answer`, `AnswerAudio`, `Notes`, and paste `anki/notetype/front.html`, `back.html` and `styling.css` into its card templates.
+   Then create a note type with the fields `Cue`, `CueAudio`, `Target`, `TargetAudio`, `Language`, `Notes`, and paste `anki/notetype/front.html`, `back.html` and `styling.css` into its card templates.
+   (These are the names the templates actually use; `anki/README.md` covers renaming an existing deck off the older `Prompt`/`Answer` names without losing data.)
 
 `anki/README.md` has the full walkthrough, including exactly what goes in the audio fields (`<audio src="...">`, not a sound tag) and a table of what works on each Anki client.
 
