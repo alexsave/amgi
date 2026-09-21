@@ -207,6 +207,63 @@ class EnsureNotetypeTests(unittest.TestCase):
         self.assertIsNone(self.col.models.by_name(notetype.NOTETYPE_NAME))
 
 
+    def test_media_lands_under_the_name_the_card_references(self) -> None:
+        """The bug this guards is silent and cost an evening to find.
+
+        col.media.write_data() does not overwrite: given a name that already
+        exists with different bytes it writes a SECOND file with the content
+        hash in the name. The card hard-codes these two names - styling.css
+        imports "_amgi-loop.css", the templates load "_amgi-loop.js" - so the
+        current code landed somewhere nothing references and the collection
+        went on rendering the first version it ever got, while a pile of
+        _amgi-loop-<sha1>.js accumulated beside it. ensure_notetype even
+        reported success, because it had asked for the write and believed the
+        answer.
+
+        So this asserts on the FILE the card names, after a change, which is
+        the only thing that was ever actually in question.
+        """
+        notetype.ensure_notetype(self.col, self.assets)
+        media_dir = self.col.media.dir()
+
+        # A second install with genuinely different bytes: the case that
+        # triggers Anki's rename, and the case a real card update always is.
+        changed = b"// a newer build of the loop\n" + b"x" * 64
+        with open(os.path.join(self.assets, "_amgi-loop.js"), "wb") as handle:
+            handle.write(changed)
+        notetype.ensure_notetype(self.col, self.assets)
+
+        with open(os.path.join(media_dir, "_amgi-loop.js"), "rb") as handle:
+            self.assertEqual(
+                handle.read(),
+                changed,
+                "the file the card loads must hold the new code, not the old",
+            )
+        strays = [n for n in os.listdir(media_dir) if n.startswith("_amgi-loop-")]
+        self.assertEqual(strays, [], "no hash-named copies should be left behind")
+
+    def test_stray_hash_named_copies_are_cleaned_up(self) -> None:
+        notetype.ensure_notetype(self.col, self.assets)
+        media_dir = self.col.media.dir()
+        # What the old code left in real collections.
+        stray = os.path.join(media_dir, "_amgi-loop-" + "a" * 40 + ".js")
+        with open(stray, "wb") as handle:
+            handle.write(b"orphan")
+        mine = os.path.join(media_dir, "_amgi-loop-notahash.js")
+        theirs = os.path.join(media_dir, "cat.jpg")
+        for path in (mine, theirs):
+            with open(path, "wb") as handle:
+                handle.write(b"keep me")
+
+        notetype.ensure_notetype(self.col, self.assets)
+
+        self.assertFalse(os.path.exists(stray), "the hash-named orphan should go")
+        # Narrow on purpose: anything that is not exactly what this add-on
+        # produced belongs to the learner and is not ours to delete.
+        self.assertTrue(os.path.exists(mine), "a near-miss name must be left alone")
+        self.assertTrue(os.path.exists(theirs), "the learner's own media must be left alone")
+
+
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()
 
