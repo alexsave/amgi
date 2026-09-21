@@ -295,10 +295,32 @@ export function installAddons({ baseDir, root = repoRoot() } = {}) {
   const installed = [];
   for (const name of ADDONS) {
     const target = path.join(addonsDir, name);
-    // Remove first rather than copying over the top: a file this version no
-    // longer ships would otherwise linger and keep being imported.
-    fs.rmSync(target, { recursive: true, force: true });
-    copyTree(path.join(root, 'anki', 'addon', name), target);
+    const source = path.join(root, 'anki', 'addon', name);
+
+    // Written over the top, then anything this version no longer ships is
+    // removed afterwards - NOT deleted first and recopied.
+    //
+    // The delete-first version had a window, however short, in which the
+    // add-on folder did not exist. Anki may well be running while this
+    // happens: it imports these modules at startup and keeps the bridge
+    // server going out of them, so a module resolved lazily during that
+    // window fails, in the middle of somebody's review, for reasons nothing
+    // on screen explains. Overlaying leaves every path that existed before
+    // this call still existing throughout it, including when the copy itself
+    // fails partway. The prune afterwards keeps the property the delete was
+    // there for: a file this version dropped does not linger and get
+    // imported.
+    copyTree(source, target);
+    const shipped = new Set(fileList(source));
+    for (const rel of fileList(target)) {
+      if (shipped.has(rel)) continue;
+      try {
+        fs.rmSync(path.join(target, rel));
+      } catch {
+        // Left for next time. A stale file is a smaller problem than a
+        // half-installed add-on, and everything that matters is written.
+      }
+    }
     installed.push(name);
   }
 
