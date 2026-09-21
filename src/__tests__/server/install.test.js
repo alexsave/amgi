@@ -74,6 +74,29 @@ describe('installing amgi into an Anki data folder', () => {
     expect(fs.existsSync(path.join(base, 'addons21', 'amgi_bridge', '__init__.py'))).toBe(true);
   });
 
+  it('never leaves the add-on missing, even when the copy fails partway', () => {
+    // Anki may well be running while this happens - it imported these modules
+    // at startup and keeps the bridge server going out of them - so an
+    // install that deletes the folder first has a window where a lazily
+    // resolved import fails, in the middle of somebody's review, for reasons
+    // nothing on screen explains. Writing over the top has no such window.
+    // Proven by making the copy fail: a directory where a file has to go
+    // makes copyFileSync throw EISDIR partway through.
+    installAddons({ baseDir: base, root: REPO_ROOT });
+    const bridge = path.join(base, 'addons21', 'amgi_bridge');
+    const blocker = path.join(bridge, 'core.py');
+    fs.rmSync(blocker);
+    fs.mkdirSync(blocker);
+
+    expect(() => installAddons({ baseDir: base, root: REPO_ROOT })).toThrow();
+
+    // The add-on is still there. Under the delete-first version this folder
+    // would have been emptied before the failure and left that way.
+    expect(fs.existsSync(path.join(bridge, '__init__.py'))).toBe(true);
+    expect(fs.existsSync(path.join(bridge, 'bridge_server.py'))).toBe(true);
+    expect(fs.existsSync(path.join(base, 'addons21', 'amgi_mic', '__init__.py'))).toBe(true);
+  });
+
   it('leaves the add-on config Anki keeps outside the folder alone', () => {
     installAddons({ baseDir: base, root: REPO_ROOT });
     // Anki stores an add-on's saved config in meta.json beside the folder,

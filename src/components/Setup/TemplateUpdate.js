@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useDecks } from '../../contexts/DeckContext';
 import { ankiApi } from '../../utils/ankiApi';
 import { loadAnkiSettings } from '../../utils/ankiSettings';
 import './TemplateUpdate.css';
@@ -35,13 +36,23 @@ import './TemplateUpdate.css';
 
 const RESTART = 'restart Anki';
 
+// Which modes mean "Anki is open right now". Writing into the add-ons folder
+// while it is means writing underneath a running program that has already
+// imported those files.
+const ANKI_IS_OPEN = new Set(['bridge', 'bridge-no-collection', 'locked']);
+
 const TemplateUpdate = () => {
+  const { ankiStatus } = useDecks();
+  // Read out here rather than inside check(): the compiler tracks the whole
+  // ankiStatus object as the dependency otherwise, and re-makes the callback
+  // on every poll that returns an equal-but-new object.
+  const ankiMode = ankiStatus?.mode;
   const [state, setState] = useState({ phase: 'checking', message: '' });
   // Only to stop two passes copying the same files over each other at once -
   // not fatal, but a real filesystem race for no reason.
   const running = useRef(false);
 
-  const check = useCallback(async () => {
+  const check = useCallback(async (force = false) => {
     if (running.current) return;
     running.current = true;
     try {
@@ -54,6 +65,20 @@ const TemplateUpdate = () => {
       // `upToDate` is null when this build cannot tell - a packaged copy
       // with no add-on sources in it. Unknown is not stale.
       if (status.upToDate === false) {
+        // Never while Anki is open, unless the person says so.
+        //
+        // This used to copy the moment it noticed, on page load, whatever
+        // Anki happened to be doing - and it was seen doing it in the middle
+        // of a review. Nothing here touches the collection, so no cards were
+        // ever at risk, but rewriting the add-ons folder under a running
+        // Anki is still writing under a program that imported those files at
+        // startup and is still running the bridge server out of them. The
+        // right moment is one the person picks, and the honest default while
+        // they are mid-session is to say so and wait.
+        if (ANKI_IS_OPEN.has(ankiMode) && !force) {
+          setState({ phase: 'offered', message: '' });
+          return;
+        }
         setState({ phase: 'updating', message: '' });
         await ankiApi.install(loadAnkiSettings().baseDirOverride);
         status = await ankiApi.installState();
@@ -66,7 +91,7 @@ const TemplateUpdate = () => {
     } finally {
       running.current = false;
     }
-  }, []);
+  }, [ankiMode]);
 
   // Wrapped in an async function rather than called straight from the effect
   // body: every setState lands after an await, which keeps this a
@@ -84,6 +109,17 @@ const TemplateUpdate = () => {
   return (
     <div className={`template-update is-${state.phase}`} role="status">
       {state.phase === 'updating' && <span>Updating amgi&rsquo;s files in Anki…</span>}
+      {state.phase === 'offered' && (
+        <>
+          <span>
+            amgi has a newer card design, and Anki is open. Installing it rewrites amgi&rsquo;s
+            add-on while Anki is running, so it is waiting for you.
+          </span>
+          <button type="button" className="template-update-dismiss" onClick={() => check(true)}>
+            Install now
+          </button>
+        </>
+      )}
       {state.phase === 'behind' && (
         <>
           <span>
