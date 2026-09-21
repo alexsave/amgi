@@ -27,6 +27,7 @@
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Optional
 
@@ -85,6 +86,7 @@ class InstallResult:
     templates_added: list = field(default_factory=list)
     css_updated: bool = False
     media_written: list = field(default_factory=list)
+    media_removed: list = field(default_factory=list)
 
     @property
     def changed(self) -> bool:
@@ -95,6 +97,7 @@ class InstallResult:
             or self.templates_added
             or self.css_updated
             or self.media_written
+            or self.media_removed
         )
 
     def summary(self) -> str:
@@ -113,6 +116,8 @@ class InstallResult:
             parts.append("updated the styling")
         if self.media_written:
             parts.append("wrote " + ", ".join(self.media_written))
+        if self.media_removed:
+            parts.append(f"cleaned up {len(self.media_removed)} stray media file(s)")
         return f"{NOTETYPE_NAME}: " + "; ".join(parts)
 
 
@@ -180,6 +185,7 @@ def ensure_notetype(col: "Collection", assets_dir: str) -> InstallResult:
         result.fields_added = list(FIELD_NAMES)
         result.templates_added = [spec["name"] for spec in TEMPLATES]
         result.media_written = _write_media(col, assets["media"])
+        result.media_removed = _remove_orphaned_media(col)
         return result
 
     result.notetype_id = notetype["id"]
@@ -227,6 +233,7 @@ def ensure_notetype(col: "Collection", assets_dir: str) -> InstallResult:
         col.models.update_dict(notetype)
 
     result.media_written = _write_media(col, assets["media"])
+    result.media_removed = _remove_orphaned_media(col)
     return result
 
 
@@ -246,9 +253,33 @@ def _build_new(col: "Collection", assets: dict) -> dict:
 def _write_media(col: "Collection", media: dict) -> list:
     """Write the loop's js/css into the collection's media folder.
 
-    Only writes a file whose bytes differ from what is already there, so a
-    profile that is already current does no media work at all - which matters
-    because every media write is something AnkiWeb has to sync.
+    Written straight to the path, NOT through col.media.write_data().
+
+    That call looks like the right one and is the wrong one here, in a way
+    that fails silently and cost an evening to find. Anki's media layer treats
+    an add as "make sure this content exists under some name": handed a name
+    that already exists with DIFFERENT bytes, it does not overwrite, it writes
+    a second file with the content hash folded into the name and returns that
+    new name. Exactly right for a note's attachments, where the caller stores
+    whatever name it is given.
+
+    Exactly wrong for these two, whose names are hard-coded in the card:
+    styling.css does `@import url("_amgi-loop.css")` and the templates load
+    `<script src="_amgi-loop.js">`. So every profile open dutifully wrote the
+    current code into a file the card does not reference, never touched the
+    one it does, and reported success - ensure_notetype said "wrote
+    _amgi-loop.js" because that is what it asked for. The collection went on
+    rendering whichever version happened to land first while a pile of
+    _amgi-loop-<sha1>.js built up beside it.
+
+    These files are ours and fixed-name by design - the leading underscore is
+    what stops Anki's media check calling them unused - so the plain write is
+    the one that belongs here. Anki picks up changed media by scanning the
+    folder, so this syncs like any other change.
+
+    Only a file whose bytes differ is written, so a profile already current
+    does no media work at all, which matters because every media write is
+    something AnkiWeb has to send.
     """
     written = []
     folder = col.media.dir()
@@ -258,6 +289,41 @@ def _write_media(col: "Collection", media: dict) -> list:
             with open(path, "rb") as handle:
                 if handle.read() == data:
                     continue
-        col.media.write_data(name, data)
+        with open(path, "wb") as handle:
+            handle.write(data)
         written.append(name)
     return written
+
+
+# The wreckage of the bug above: one file per distinct version of the loop
+# ever installed, each named for its own content hash and referenced by
+# nothing. Anki will not offer to clean them up either, because the leading
+# underscore marks a file as deliberately unreferenced, so they would sit
+# there being synced forever.
+_ORPHAN = re.compile(r"^_amgi-loop-[0-9a-f]{40}\.(js|css)$")
+
+
+def _remove_orphaned_media(col: "Collection") -> list:
+    """Delete the hash-named copies write_data() left behind.
+
+    Deliberately narrow: only a name this add-on can have produced, matched
+    whole, with a 40-character hex digest in the one position Anki puts one.
+    Anything else in that folder is the learner's or Anki's and is not ours to
+    remove. A failed delete is ignored rather than raised - a leftover file is
+    untidy, a profile that will not open because of one is not.
+    """
+    removed = []
+    folder = col.media.dir()
+    try:
+        names = os.listdir(folder)
+    except OSError:
+        return removed
+    for name in names:
+        if not _ORPHAN.match(name):
+            continue
+        try:
+            os.remove(os.path.join(folder, name))
+            removed.append(name)
+        except OSError:
+            pass
+    return removed

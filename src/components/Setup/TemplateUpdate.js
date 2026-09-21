@@ -51,6 +51,15 @@ const TemplateUpdate = () => {
   // Only to stop two passes copying the same files over each other at once -
   // not fatal, but a real filesystem race for no reason.
   const running = useRef(false);
+  // Every state this notice can sit in is one it can sit in FOREVER: the
+  // collection stays behind until Anki opens, so re-checking re-derives the
+  // same answer and the notice comes straight back. That is correct and it
+  // is also a trap without a way out - the only button said "I have
+  // restarted Anki", and saying so when the collection disagreed just
+  // redrew the same banner. Dismissing is per-render and deliberately not
+  // remembered: a reload brings it back, because the thing it is reporting
+  // is still true.
+  const [dismissed, setDismissed] = useState(false);
 
   const check = useCallback(async (force = false) => {
     if (running.current) return;
@@ -104,7 +113,18 @@ const TemplateUpdate = () => {
     return () => { live = false; };
   }, [check]);
 
-  if (state.phase === 'checking' || state.phase === 'idle') return null;
+  if (dismissed || state.phase === 'checking' || state.phase === 'idle') return null;
+
+  const dismiss = (
+    <button
+      type="button"
+      className="template-update-dismiss"
+      onClick={() => setDismissed(true)}
+      aria-label="Dismiss this notice"
+    >
+      Dismiss
+    </button>
+  );
 
   return (
     <div className={`template-update is-${state.phase}`} role="status">
@@ -118,6 +138,7 @@ const TemplateUpdate = () => {
           <button type="button" className="template-update-dismiss" onClick={() => check(true)}>
             Install now
           </button>
+          {dismiss}
         </>
       )}
       {state.phase === 'behind' && (
@@ -126,15 +147,17 @@ const TemplateUpdate = () => {
             amgi has a newer card design. Anki picks it up when it next opens your
             collection, so <strong>{RESTART}</strong> to see it.
           </span>
-          <button type="button" className="template-update-dismiss" onClick={check}>
-            I have restarted Anki
+          <button type="button" className="template-update-dismiss" onClick={() => check()}>
+            Check again
           </button>
+          {dismiss}
         </>
       )}
       {state.phase === 'failed' && (
         <>
           <span>Could not update amgi&rsquo;s files in Anki: {state.message}</span>
-          <button type="button" className="template-update-dismiss" onClick={check}>Try again</button>
+          <button type="button" className="template-update-dismiss" onClick={() => check()}>Try again</button>
+          {dismiss}
         </>
       )}
     </div>
