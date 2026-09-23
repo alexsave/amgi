@@ -76,8 +76,10 @@ export const ankiApi = {
   // existingKeySet for how the response is turned into a comparable set).
   fieldValuesInDeck: (deckId, notetypeId, fieldIndex) =>
     call(`/decks/${deckId}/notes/field-values?notetypeId=${notetypeId}&fieldIndex=${fieldIndex}`),
-  generateAudio: (text, language, { signal } = {}) =>
-    call('/audio', { method: 'POST', body: JSON.stringify({ text, language }), signal }),
+  // `fresh` records a new take even when a clip for this text already
+  // exists - see audio.js's generateAndStoreClip.
+  generateAudio: (text, language, { signal, fresh = false } = {}) =>
+    call('/audio', { method: 'POST', body: JSON.stringify({ text, language, fresh }), signal }),
   // Both sides of a card plus its audio, in one request - see
   // src/server/anki/cardText.js for why text and audio are never split
   // across two calls (the reading that steers Japanese/Chinese pronunciation

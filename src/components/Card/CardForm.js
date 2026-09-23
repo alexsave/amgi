@@ -112,7 +112,6 @@ const CardForm = ({ deckId, languages, onLanguagesChange }) => {
         targetAudio: card.audio?.filename || '',
         cueAudio: card.cueAudio?.filename || '',
         warning: result?.warning || '',
-        mocked: Boolean(card.audio?.mocked),
       });
       setInput('');
       refreshAnkiDecks();
@@ -197,7 +196,6 @@ const CardForm = ({ deckId, languages, onLanguagesChange }) => {
           footer={
             <>
               <span className="card-panel-ok">Added to the deck.</span> It is in Anki already; changes here save as you make them.
-              {added.mocked ? ' Audio is a placeholder - no OpenAI key is set.' : ''}
             </>
           }
         />
