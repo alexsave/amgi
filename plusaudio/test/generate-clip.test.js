@@ -11,6 +11,7 @@
 // ever requiring the `openai` package or touching the network.
 
 const assert = require('node:assert/strict');
+const { spawnSync } = require('node:child_process');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -130,4 +131,17 @@ test('main() prints usage and exits 0 on --help without requiring an API key', a
   } finally {
     if (previous !== undefined) process.env.OPENAI_API_KEY = previous;
   }
+});
+
+// The one line of stderr a caller shows a person is the last one, and a run that fails
+// has only its failure message to put there. Anything Node prints on its own - once a
+// module-type warning for cardGeneration/*.ts, printed on every single run, which is what
+// a failed clip was once recorded as having failed with - is noise ahead of it. So a run
+// that loads the whole generator and does nothing wrong has to leave stderr empty.
+test('loading the generator leaves stderr empty', () => {
+  const result = spawnSync(process.execPath, [path.join(__dirname, '..', 'generate-clip.js'), '--help'], {
+    encoding: 'utf8',
+  });
+  assert.equal(result.status, 0);
+  assert.equal(result.stderr, '');
 });
