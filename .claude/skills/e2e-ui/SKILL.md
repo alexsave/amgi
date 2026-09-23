@@ -65,8 +65,10 @@ There is no click-through of the Settings page's profile scanner in any of this;
 ANKI_COLLECTION=.e2e/fixture/collection.anki2 node .claude/skills/e2e-ui/scripts/shoot.js
 ```
 
-Screenshots, in order: the deck list, a deck's notes, the create-deck modal filled in, the new (empty) deck it lands on, the add-note form filled in, the generated-audio confirmation, and the deck's notes again with the new note in it.
-With no `OPENAI_API_KEY` set, the audio-generation step exercises the mocked-stub-clip path every first-run user without a key also hits (see `src/server/anki/audio.js`) - that is expected, not a failure.
+Screenshots, in order: the deck list, a deck's notes, the create-deck modal filled in, the new (empty) deck it lands on, the card form filled in, and the result of "Make the card".
+`next dev` reads `.env.local`, so start it with `OPENAI_API_KEY=` (set but empty) to stay offline.
+With no key, "Make the card" must end in the form's "OPENAI_API_KEY is not set" error with no new note - the app never makes a card from placeholder text or audio (see `src/server/anki/audio.js`), and the script fails if a row appears anyway.
+With a key it makes one real card, which is a real, paid OpenAI call.
 
 Prints every console error, failed request and 4xx/5xx it saw at the end.
 That output is usually where the real bugs are, so read it even when the screenshots look fine.

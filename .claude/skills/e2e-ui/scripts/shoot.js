@@ -3,9 +3,11 @@
 // Screenshots amgi's own screens against a fixture Anki collection - there
 // is no login and no seeded Supabase project any more, so this walks: the
 // deck list, a deck's notes, creating a new deck, and adding a note to it
-// (audio generation included). With no OPENAI_API_KEY set, that last step
-// exercises the mocked-stub-clip path every first-run user without a key
-// also hits - see src/server/anki/audio.js.
+// (card text and audio generation included). With no OPENAI_API_KEY, that
+// last step has to end in the form's own "OPENAI_API_KEY is not set" error
+// and no new note - a card is never made from placeholder text or audio
+// (see src/server/anki/cardText.js and audio.js). With a key it makes one
+// real card, which is a real, paid OpenAI call.
 //
 //   node .claude/skills/e2e-ui/scripts/fixture.js .e2e/fixture
 //   npx next dev --webpack -p 3111 &
@@ -23,36 +25,6 @@ const { directSettings } = ankiSettingsScript;
 const BASE = process.env.BASE || 'http://localhost:3111';
 const OUT = process.env.OUT || path.join(process.cwd(), '.e2e', 'shots');
 const COLLECTION = process.env.ANKI_COLLECTION;
-
-/** Clicks the first element matching `selector` whose exact text content is `text`. */
-async function clickButtonByText(page, selector, text) {
-  const clicked = await page.evaluate((sel, label) => {
-    const el = [...document.querySelectorAll(sel)].find((e) => e.textContent.trim() === label);
-    if (!el) return false;
-    el.click();
-    return true;
-  }, selector, text);
-  if (!clicked) throw new Error(`no element matching ${selector} with text "${text}"`);
-}
-
-/**
- * The selects after the note type picker, in the JSX order CardForm.js
- * renders them. `cueAudio` ("Write known-language audio into") always
- * renders, even for a note type with no such field guessed - its default
- * option is "(none)" - so this index is stable across note types.
- */
-async function fieldSelects(page) {
-  const handles = await page.$$('form.card-form select');
-  return {
-    notetype: handles[0],
-    known: handles[1],
-    text: handles[2],
-    audio: handles[3],
-    cueAudio: handles[4],
-    knownLanguage: handles[5],
-    learningLanguage: handles[6],
-  };
-}
 
 (async () => {
   if (!COLLECTION) {
@@ -86,19 +58,18 @@ async function fieldSelects(page) {
   );
   await deckItems[noteCounts.indexOf(Math.max(...noteCounts))].click();
   await page.waitForSelector('.deck-cards', { timeout: 20000 });
-  await page.waitForFunction(
-    () => !document.querySelector('.deck-cards-list p')?.textContent?.includes('Loading notes'),
-    { timeout: 20000 },
-  );
+  // Rows, or the empty-deck message - whichever CardList.js settles on - rather
+  // than the absence of a loading string whose wording has changed before.
+  await page.waitForSelector('.note-row-wrap, .empty-deck', { timeout: 20000 });
   // The app's own layout is a fixed-height shell with an inner scrolling
   // region (see App.css: `height: 100vh; overflow: hidden` on the shell,
   // `overflow-y: auto` inside it), so Puppeteer's `fullPage` screenshot
   // option does nothing useful here - it measures the outer document, which
   // never grows. Scroll the heading into view instead.
-  await page.evaluate(() => document.querySelector('.deck-cards-list h3')?.scrollIntoView({ block: 'start' }));
+  await page.evaluate(() => document.querySelector('.deck-cards-listhead')?.scrollIntoView({ block: 'start' }));
   await sleep(150);
   await shot('02-deck-notes');
-  const noteCount = await page.$$eval('.card-item', (els) => els.length);
+  const noteCount = await page.$$eval('.note-row-wrap', (els) => els.length);
   console.log(`deck page shows ${noteCount} note(s) on the first page`);
 
   // 3. Creating a deck. CreateDeckModal navigates to the new deck on success,
@@ -115,42 +86,28 @@ async function fieldSelects(page) {
   await page.waitForFunction((name) => document.querySelector('h1')?.textContent === name, { timeout: 10000 }, deckName);
   await shot('04-new-deck-empty');
 
-  // 4. Adding a note, with generated audio.
-  await page.waitForSelector('form.card-form', { timeout: 20000 });
-  const selects = await fieldSelects(page);
-  const fieldCount = await page.evaluate((el) => el.options.length, selects.text);
-  const textIdx = 0;
-  const audioIdx = fieldCount > 1 ? 1 : 0;
-  await selects.text.select(String(textIdx));
-  await selects.audio.select(String(audioIdx));
-  await page.type(`#ankiField-${textIdx}`, 'hello from the e2e-ui skill');
-  await shot('05-note-form-filled');
-
-  // Several buttons now share the .generate-button class ("Generate text +
-  // audio" above the field textareas, "Generate Audio" and "Add Note" below
-  // them) - click by its exact label rather than DOM order, which the
-  // "Generate text + audio" button broke as soon as it was added earlier in
-  // the form.
-  await clickButtonByText(page, '.generate-button', 'Generate Audio');
+  // 4. Making a card: one line of text, "Make the card", and the card goes
+  // straight into the deck (see CardForm.js). Without a key the form has to
+  // say so and add nothing.
+  await page.waitForSelector('.card-form-input', { timeout: 20000 });
+  await page.type('.card-form-input', 'hello from the e2e-ui skill');
+  await shot('05-card-form-filled');
+  const rowsBefore = await page.$$eval('.note-row-wrap', (els) => els.length);
+  await page.click('.card-form-go');
   await page.waitForFunction(
-    () => /Audio generated/.test(document.querySelector('.error-message')?.textContent || ''),
-    { timeout: 15000 },
+    () => document.querySelector('.card-form-error') || /Added to the deck/.test(document.body.textContent),
+    { timeout: 180000 },
   );
-  const audioResultText = await page.$eval('.error-message', (el) => el.textContent);
-  console.log(`audio result: ${audioResultText}`);
-  await shot('06-audio-generated');
-
-  const notesBefore = await page.$$eval('.card-item', (els) => els.length);
-  await page.click('form.card-form button[type="submit"]'); // "Add Note"
-  await page.waitForFunction(
-    (before) => document.querySelectorAll('.card-item').length > before,
-    { timeout: 15000 },
-    notesBefore,
-  );
-  await page.evaluate(() => document.querySelector('.deck-cards-list h3')?.scrollIntoView({ block: 'start' }));
-  await sleep(150);
-  await shot('07-note-added');
-  console.log('note added; deck now shows', await page.$$eval('.card-item', (els) => els.length), 'note(s)');
+  const formError = await page.$eval('.card-form-error', (el) => el.textContent).catch(() => '');
+  await sleep(500);
+  const rowsAfter = await page.$$eval('.note-row-wrap', (els) => els.length);
+  await shot('06-card-made');
+  if (formError) {
+    console.log(`card not made: ${formError}`);
+    if (rowsAfter !== rowsBefore) throw new Error(`a failed card still added ${rowsAfter - rowsBefore} row(s)`);
+  } else {
+    console.log(`card made; deck now shows ${rowsAfter} note(s), was ${rowsBefore}`);
+  }
 
   const problems = logs.filter((l) => /pageerror|requestfailed|console\.error|\[http [45]/.test(l));
   console.log(problems.length ? `\nproblems:\n${problems.join('\n')}` : '\nno console errors or failed requests');
