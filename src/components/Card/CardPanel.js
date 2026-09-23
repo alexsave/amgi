@@ -57,7 +57,7 @@ const CardPanel = ({ noteId, notetype, idx, initialFields, languages, onDeleted,
     setError('');
     try {
       const language = side === 'target' ? languages.learning : languages.known;
-      const clip = await ankiApi.generateAudio(text, language);
+      const clip = await ankiApi.generateAudio(text, language, { fresh: true });
       const updated = fields.slice();
       updated[idx[audioKey]] = clip.reference;
       setFields(updated);

@@ -18,31 +18,19 @@
 // judge being able to verify a reading and falling back to a transcript
 // check that cannot tell one reading of a homograph from another.
 
-import { execFile } from 'node:child_process';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { promisify } from 'node:util';
 import { generateAndStoreClip } from './audio';
+import { runPlusaudio } from './plusaudioCli';
 import { correctSwappedSides, detectInputLanguage } from './sideOrder';
-
-// Asynchronous for the reason audio.js spells out at its own execFileAsync:
-// spawnSync held the entire Node event loop for the length of an OpenAI
-// call, so two card requests could never overlap however they were made.
-const execFileAsync = promisify(execFile);
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const PLUSAUDIO_DIR = path.join(__dirname, '..', '..', '..', 'plusaudio');
 
 /**
  * Generate one card's text - both sides, no audio. Exported on its own so a
  * caller that only wants to look at the text (no audio field mapped yet)
  * never pays for a clip it would not use.
  *
- * Unlike audio, there is no safe mocked stand-in when OPENAI_API_KEY is
- * unset: a placeholder clip is honestly labelled and harmless to save, but a
- * placeholder translation would look like real content in a note field. This
- * throws instead, and the caller surfaces the message as an error rather
- * than a quietly-wrong card.
+ * There is no placeholder when OPENAI_API_KEY is unset: a placeholder
+ * translation would look like real content in a note field. This throws
+ * instead, and the caller surfaces the message as an error rather than a
+ * quietly-wrong card. Audio follows the same rule (see audio.js).
  *
  * @returns {Promise<{front_text: string, back_text: string, spoken_reading: string}>}
  */
@@ -55,12 +43,11 @@ export async function generateCardTextOnly({
 }) {
   if (!process.env.OPENAI_API_KEY) {
     throw new Error(
-      'OPENAI_API_KEY is not set; card text was not generated (there is no safe placeholder for generated text, unlike audio).',
+      'OPENAI_API_KEY is not set; card text was not generated.',
     );
   }
 
   const args = [
-    path.join(PLUSAUDIO_DIR, 'generate-card-text.js'),
     '--known', knownLanguage,
     '--learning', learningLanguage,
   ];
@@ -78,16 +65,7 @@ export async function generateCardTextOnly({
   }
   if (regenerateParts.length > 0) args.push('--regenerate', regenerateParts.join(','));
 
-  let stdout;
-  try {
-    ({ stdout } = await execFileAsync(process.execPath, args, { cwd: PLUSAUDIO_DIR, encoding: 'utf8' }));
-  } catch (error) {
-    // The generator's own last line of stderr is the message worth showing -
-    // it is what the person reads on the failed row - and it arrives on the
-    // rejection now rather than on a returned result.
-    const lines = (error.stderr || error.message || 'card text generation failed').trim().split('\n');
-    throw new Error(lines[lines.length - 1] || 'card text generation failed');
-  }
+  const stdout = await runPlusaudio('generate-card-text.js', args, 'card text generation failed');
   return JSON.parse(stdout.trim());
 }
 
@@ -106,7 +84,7 @@ export async function generateCardTextOnly({
  * real cost, which is why this is opt-in rather than automatic - see
  * CardForm.js and BulkRun.js for where the person is told about it.
  *
- * @returns {Promise<{front_text: string, back_text: string, spoken_reading: string, audio: {filename: string, reference: string, mocked?: boolean, reason?: string, reused?: boolean}, cueAudio?: {filename: string, reference: string, mocked?: boolean, reason?: string, reused?: boolean}}>}
+ * @returns {Promise<{front_text: string, back_text: string, spoken_reading: string, audio: {filename: string, reference: string, reused?: boolean}, cueAudio?: {filename: string, reference: string, reused?: boolean}}>}
  */
 export async function generateCardTextAndAudio({
   userInput,
