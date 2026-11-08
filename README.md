@@ -149,3 +149,11 @@ amgi's own JSON lives in one folder, `plusaudio/lib/json/`, behind one named fun
 - `plusaudio/lib/collection/decks.js`, `plusaudio/lib/collection/deck-remove.js`, `plusaudio/lib/collection/notes.js`, `plusaudio/lib/collection/notetypes.js`, `plusaudio/lib/deck.js`, `plusaudio/lib/package.js`: Anki's own formats (a schema 11 collection's `col` columns, the config table's values, an older `.apkg`'s media map), read and written as Anki defines them.
 
 See [ROADMAP.md](ROADMAP.md) for what is still open.
+
+## License
+
+amgi is licensed under the GNU Affero General Public License, version 3 or later: see [LICENSE](LICENSE).
+Copyright 2026 Alex Saveliev.
+The agent skills in `skills/` and `.claude/skills/` are under the MIT License instead, so they can be copied freely: see [skills/LICENSE](skills/LICENSE).
+cdom, the C DOM library at `cdom/`, is a git submodule under the MIT License.
+The notices for code and assets that came from elsewhere are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
