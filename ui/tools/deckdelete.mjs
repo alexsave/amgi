@@ -95,16 +95,28 @@ async function api(method, route, kind, body) {
   return r;
 }
 
+// A deck page is drawn before it is whole: the card form says "Loading…" until the note types
+// come, and the list says "Loading notes…" until its notes do. Each answer grows the page above
+// the delete section and moves it down, so a click measured before both are in is pressed where
+// the button used to be (on a note row, or on nothing). Settled is both in.
+const settled = `(() => {
+  const form = document.querySelector('.card-form-container');
+  return !!document.querySelector('.deck-danger-btn') && !!form?.firstElementChild && form.textContent !== 'Loading…'
+    && (!!document.querySelector('.note-rows') || document.querySelector('.empty-deck')?.textContent === 'No notes in this deck yet.');
+})()`;
+
 async function openDeck(b, deck) {
   await goto(b, `${base}/decks`);
   await until(b, `${deckNames}.includes(${JSON.stringify(deck)})`, 150);
   const i = await b.evaluate(`${deckNames}.indexOf(${JSON.stringify(deck)})`);
   await click(b, `.deck-item:nth-child(${i + 1})`);
-  return until(b, `!!document.querySelector('.deck-danger-btn') && document.querySelector('.deck-name-button')?.textContent === ${JSON.stringify(deck)}`, 150);
+  return until(b, `${settled} && document.querySelector('.deck-name-button')?.textContent === ${JSON.stringify(deck)}`, 150);
 }
 async function ask(b) {
   await click(b, '.deck-danger-btn');
-  return until(b, `${dialogOpen} && document.activeElement?.classList.contains('submit-btn')`, 100);
+  const open = await until(b, `${dialogOpen} && document.activeElement?.classList.contains('submit-btn')`, 100);
+  if (!open) throw new Error('Delete deck did not open the confirmation');
+  return open;
 }
 
 const b = await launch(['--hide-scrollbars']);
@@ -183,6 +195,11 @@ try {
   const holder = holdCollectionOpen(collection);
   await holder.held;
   try {
+    // The page's status poll sees Anki take the file while the confirmation is open: the mode
+    // changes and the page refetches under the dialog, which must stay as it was, focus and all.
+    check(await until(b, `document.querySelector('nav.navbar span[title]')?.textContent === 'Anki locked'`, 150), 'locked: the badge changes while the confirmation is open');
+    await sleep(300);
+    check(await b.evaluate(`${dialogOpen} && document.activeElement?.classList.contains('submit-btn')`), 'and the confirmation stays open, its action focused');
     await click(b, 'dialog.confirm-dialog .submit-btn');
     const err = await until(b, `document.querySelector('.deck-danger-error')?.textContent`, 150);
     check(/Anki is open on this collection/.test(err || ''), `locked: the page says why, under the button (${err})`);
