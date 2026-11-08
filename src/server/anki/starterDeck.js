@@ -5,6 +5,7 @@ import { starterClipName } from 'plusaudio/lib/audio-store';
 import { renderAudioReference } from 'plusaudio/lib/deck';
 import { AMGI_NOTETYPE_NAME, fieldIndexes } from '../../utils/amgiNotetype';
 import { existingKeySet, normalizeForDedupe } from '../../utils/lyricsParse';
+import { readStarterPhrases } from './starterPhrases';
 
 // A deck you can have without paying for one.
 //
@@ -19,7 +20,7 @@ import { existingKeySet, normalizeForDedupe } from '../../utils/lyricsParse';
 //
 // Two decisions make it small enough to be worth shipping.
 //
-// The phrases are PARALLEL. src/data/starterPhrases.json holds the same ten
+// The phrases are PARALLEL. src/data/starterPhrases.tsv holds the same ten
 // concepts in all eighteen languages, index for index, so a deck for any
 // (known, learning) pair is assembled by taking index i from each of the two
 // lists. Eighteen lists of ten cover all three hundred and six ordered
@@ -40,22 +41,14 @@ import { existingKeySet, normalizeForDedupe } from '../../utils/lyricsParse';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(HERE, '..', '..', '..');
-const PHRASE_FILE = path.join(ROOT, 'src', 'data', 'starterPhrases.json');
 const MEDIA_DIR = path.join(ROOT, 'anki', 'starter', 'media');
 
 let cached = null;
 
+/** The phrases by language code ({en: [...], ko: [...]}), read once; null when none ship. */
 function phraseData() {
-  if (cached) return cached;
-  if (!fs.existsSync(PHRASE_FILE)) return null;
-  try {
-    const parsed = JSON.parse(fs.readFileSync(PHRASE_FILE, 'utf8'));
-    if (!parsed || typeof parsed.phrases !== 'object') return null;
-    cached = parsed;
-    return cached;
-  } catch {
-    return null;
-  }
+  if (!cached) cached = readStarterPhrases();
+  return cached;
 }
 
 /**
@@ -88,9 +81,9 @@ function shippedClipName(text, language) {
 export function starterLanguages() {
   const data = phraseData();
   if (!data) return [];
-  return Object.keys(data.phrases)
+  return Object.keys(data)
     .filter((code) => {
-      const list = data.phrases[code];
+      const list = data[code];
       return Array.isArray(list)
         && list.length > 0
         && list.every((text) => shippedClipName(text, code) !== null);
@@ -108,7 +101,7 @@ export function starterState() {
     offered: !generationAvailable() && languages.length > 1,
     generationAvailable: generationAvailable(),
     languages,
-    phraseCount: phraseData()?.concepts?.length || 0,
+    phraseCount: Object.values(phraseData() ?? {})[0]?.length ?? 0,
   };
 }
 
@@ -124,8 +117,8 @@ export async function buildStarterDeck({ ops, known, learning, deckName }) {
   if (!data) throw new Error('This copy of amgi has no starter phrases in it.');
   if (known === learning) throw new Error('Pick two different languages.');
 
-  const cues = data.phrases[known];
-  const targets = data.phrases[learning];
+  const cues = data[known];
+  const targets = data[learning];
   if (!Array.isArray(cues) || !Array.isArray(targets)) {
     throw new Error('amgi has no starter phrases for that pair of languages.');
   }
