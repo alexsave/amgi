@@ -16,6 +16,7 @@ import { POST } from '../../app/api/anki/card-text/route';
 import { generateCardTextAndAudio } from '../../server/anki/cardText';
 import { DailyCapError, RateLimitedError } from '../../server/anki/plusaudioCli';
 import { sharedGate } from 'plusaudio/lib/rateGate';
+import { MAX_WAIT_MS } from 'plusaudio/lib/rateLimits';
 
 const post = () => POST(new Request('http://localhost/api/anki/card-text', {
   method: 'POST',
@@ -36,6 +37,7 @@ test('a started card that hit a per-minute limit answers 429 with the wait in th
   expect(await response.json()).toEqual({
     error: 'Gemini is limiting how many requests gemini-3.8-flash-tts takes per minute and asked to wait 52s.',
     retryAfterMs: 51200,
+    maxWaitMs: MAX_WAIT_MS,
   });
 });
 
