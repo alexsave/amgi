@@ -4,7 +4,6 @@
  * back. Its close event (Escape, Cancel, or the action) is what ends it here. One at a time. */
 #include "app.h"
 
-enum { A_CANCEL = 1, A_YES, A_CLOSED };
 static cd_region box = {0};
 static void (*on_yes)(void *);
 static void *yes_ctx;
@@ -15,6 +14,19 @@ static void forget(void) {
   cd_region_hide(&box);
   on_yes = 0;
   yes_ctx = 0;
+}
+
+ON_EVENT(yes_pressed) {
+  answered = 1;
+  cd_call(dialog, CD_LIT("close"));
+}
+ON_EVENT(cancel_pressed) { cd_call(dialog, CD_LIT("close")); }
+/* every way out ends here: the action, Cancel, Escape */
+ON_EVENT(closed) {
+  void (*then)(void *) = answered ? on_yes : 0;
+  void *then_ctx = yes_ctx;
+  forget();
+  if (then) then(then_ctx);
 }
 
 /* then 0: a notice, with OK alone. Otherwise Cancel and yes; then(ctx) runs on yes. */
@@ -29,8 +41,7 @@ void confirm_ask(const char *title, const char *body, uint32_t blen, const char 
   el(CD_LIT("dialog"), CD_LIT("modal-content confirm-dialog"));
   cd_name_open(box.root);
   dialog = box.root;
-  cd_listen(dialog, CD_EV_CLOSE);
-  cd_tag_set(dialog, TAG(M_MODAL, A_CLOSED, 0));
+  cd_on(dialog, CD_EV_CLOSE, closed, 0);
   el(CD_LIT("div"), CD_LIT("modal-header"));
   el(CD_LIT("h3"), 0);
   tmp_text(title, zlen(title));
@@ -48,15 +59,15 @@ void confirm_ask(const char *title, const char *body, uint32_t blen, const char 
   }
   el(CD_LIT("div"), CD_LIT("modal-actions"));
   if (then) {
-    el(CD_LIT("button"), CD_LIT("cancel-btn"));
+    cd_id cancel = el_id(CD_LIT("button"), CD_LIT("cancel-btn"));
     cd_attr(CD_LIT("type"), CD_LIT("button"));
-    listen_click(TAG(M_MODAL, A_CANCEL, 0));
+    cd_on(cancel, CD_EV_CLICK, cancel_pressed, 0);
     cd_text(CD_LIT("Cancel"));
     cd_close();
   }
-  el(CD_LIT("button"), CD_LIT("submit-btn"));
+  yes_button = el_id(CD_LIT("button"), CD_LIT("submit-btn"));
   cd_attr(CD_LIT("type"), CD_LIT("button"));
-  yes_button = listen_as(CD_EV_CLICK, TAG(M_MODAL, A_YES, 0));
+  cd_on(yes_button, CD_EV_CLICK, yes_pressed, 0);
   tmp_text(yes, zlen(yes));
   cd_close();
   cd_close();
@@ -64,25 +75,6 @@ void confirm_ask(const char *title, const char *body, uint32_t blen, const char 
   cd_region_end(&box);
   cd_call(dialog, CD_LIT("showModal"));
   cd_call(yes_button, CD_LIT("focus")); /* the action is the default: Enter takes it */
-}
-
-void modal_event(const cd_event_rec *e, uint32_t tag) {
-  (void)e;
-  switch (TAG_ACTION(tag)) {
-  case A_YES:
-    answered = 1;
-    cd_call(dialog, CD_LIT("close"));
-    break;
-  case A_CANCEL: cd_call(dialog, CD_LIT("close")); break;
-  case A_CLOSED: {
-    /* every way out ends here: the action, Cancel, Escape */
-    void (*then)(void *) = answered ? on_yes : 0;
-    void *ctx = yes_ctx;
-    forget();
-    if (then) then(ctx);
-    break;
-  }
-  }
 }
 
 void confirm_close(void) {

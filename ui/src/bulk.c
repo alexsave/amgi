@@ -9,7 +9,6 @@
 enum { QUEUED, MAKING, WAITING, DONE, SKIPPED, BROKEN };
 enum { T_KEYS = 1, T_LINE, T_WRITE };
 enum { TM_WAIT = 1, TM_TICK, TM_FLUSH };
-enum { A_RETRY = 1 };
 #define CONCURRENCY 5
 #define FLUSH_SIZE 10
 #define FLUSH_MS 3000
@@ -107,6 +106,8 @@ static void head_draw(void) {
   cd_region_end(&head_view);
 }
 
+ON_EVENT(retry_pressed);
+
 static void row_draw(uint32_t i) {
   if (!shown) return;
   row *r = &rows[i];
@@ -149,10 +150,10 @@ static void row_draw(uint32_t i) {
   cd_free(note);
   el(CD_LIT("span"), CD_LIT("bulk-run-clips"));
   if (r->status == BROKEN) {
-    el(CD_LIT("button"), 0);
+    cd_id retry = el_id(CD_LIT("button"), 0);
     cd_attr(CD_LIT("type"), CD_LIT("button"));
     cd_class(CD_LIT("bulk-run-retry"));
-    listen_click(TAG(M_BULK, A_RETRY, i));
+    cd_on(retry, CD_EV_CLICK, retry_pressed, CTX_OF(i));
     cd_text(CD_LIT("Retry"));
     cd_close();
   } else {
@@ -556,9 +557,9 @@ void bulk_timer(uint32_t t) {
   }
 }
 
-void bulk_event(const cd_event_rec *e, uint32_t tag) {
-  if (e->type != CD_EV_CLICK || TAG_ACTION(tag) != A_RETRY) return;
-  uint32_t i = TAG_INDEX(tag);
+/* ctx: the row */
+ON_EVENT(retry_pressed) {
+  uint32_t i = CTX_INDEX(ctx);
   if (i >= nrows || rows[i].status != BROKEN) return;
   text_free(&daily_cap);
   rows[i].retrying = 1;

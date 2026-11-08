@@ -65,6 +65,8 @@ static void set_state(chip *c, uint32_t state) {
   }
 }
 
+ON_EVENT(pressed);
+
 int32_t chip_build(const char *filename, uint32_t flen, const char *label, uint32_t tone) {
   if (!flen) return -1;
   int32_t slot = -1;
@@ -92,8 +94,7 @@ int32_t chip_build(const char *filename, uint32_t flen, const char *label, uint3
   __builtin_memcpy(t + n, B, sizeof B - 1);
   cd_str title = CD_LIT("title");
   attr_tmp(title, t, n + sizeof B - 1);
-  cd_listen(c->node, CD_EV_CLICK);
-  cd_tag_set(c->node, TAG(M_CHIP, 1, (uint32_t)slot));
+  cd_on(c->node, CD_EV_CLICK, pressed, CTX_OF(slot));
   cd_open(CD_LIT("span"));
   cd_class(CD_LIT("audio-chip-tri"));
   cd_attr(CD_LIT("aria-hidden"), CD_LIT("true"));
@@ -132,8 +133,8 @@ static void play(chip *c, uint32_t clip) {
   set_state(c, PLAYING);
 }
 
-void chip_event(uint32_t tag) {
-  uint32_t slot = TAG_INDEX(tag);
+ON_EVENT(pressed) {
+  uint32_t slot = CTX_INDEX(ctx);
   if (slot >= CHIPS || !chips[slot].used) return;
   chip *c = &chips[slot];
   if (c->state == LOADING) return;
