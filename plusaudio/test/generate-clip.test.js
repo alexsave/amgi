@@ -19,6 +19,7 @@ const { test } = require('node:test');
 
 const { main, parseArgs, run } = require('../generate-clip');
 const { withEnvHidden } = require('./helpers/hide-env');
+const { DAILY_CAP_EXIT, RATE_LIMITED_EXIT, parseRetryAfter } = require('../lib/cliExit');
 
 function tempOutputPath() {
   return path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'plusaudio-generate-clip-')), 'clip.wav');
@@ -78,6 +79,47 @@ test('run() writes nothing and returns exit code 1 when generation fails', async
 
   assert.equal(code, 1);
   assert.equal(fs.existsSync(out), false);
+});
+
+/** run() with stdout and stderr captured. */
+async function runCaptured(options, generate) {
+  const out = [];
+  const err = [];
+  const realOut = process.stdout.write;
+  const realErr = process.stderr.write;
+  process.stdout.write = (chunk) => { out.push(String(chunk)); return true; };
+  process.stderr.write = (chunk) => { err.push(String(chunk)); return true; };
+  try {
+    return { code: await run(options, generate), stdout: out.join(''), stderr: err.join('') };
+  } finally {
+    process.stdout.write = realOut;
+    process.stderr.write = realErr;
+  }
+}
+
+test('run() exits 3 on a rate limit and says on stdout how long the gate says to wait', async () => {
+  const out = tempOutputPath();
+  const limited = Object.assign(new Error('Gemini is limiting how many requests gemini-3.8-flash-tts takes per minute and asked to wait 52s.'), { rateLimited: true, retryAfterMs: 51234.6 });
+
+  const { code, stdout, stderr } = await runCaptured({ text: 'hello', language: 'ko', out }, async () => { throw limited; });
+
+  assert.equal(code, RATE_LIMITED_EXIT);
+  assert.equal(code, 3);
+  assert.equal(stdout, 'retry-after-ms=51235\n');
+  assert.equal(parseRetryAfter(stdout), 51235);
+  assert.equal(stderr.trim(), limited.message);
+  assert.equal(fs.existsSync(out), false);
+});
+
+test('run() exits 4 on a spent daily cap, with nothing on stdout', async () => {
+  const out = tempOutputPath();
+  const daily = Object.assign(new Error("Your Gemini project's daily limit of 100 requests for gemini-3.8-flash-tts is used up."), { fatal: true, dailyCap: true });
+
+  const { code, stdout } = await runCaptured({ text: 'hello', language: 'ko', out }, async () => { throw daily; });
+
+  assert.equal(code, DAILY_CAP_EXIT);
+  assert.equal(code, 4);
+  assert.equal(stdout, '');
 });
 
 test('run() removes a stale clip left at --out by an earlier successful run', async () => {

@@ -20,18 +20,15 @@ import fs from 'node:fs';
 const runs = [];
 let nextRun;
 
-jest.mock('node:child_process', () => {
-  const execFile = () => {
-    throw new Error('audio.js must call execFile through promisify');
-  };
-  execFile[require('node:util').promisify.custom] = (file, args) => {
+jest.mock('node:child_process', () => ({
+  fork: (file, args) => {
     runs.push(args);
-    return nextRun(args);
-  };
-  return { execFile };
-});
+    return require('../../test-helpers/fakeFork').fakeFork(args, nextRun);
+  },
+}));
 
 import { generateAndStoreClip } from '../../server/anki/audio';
+import { DailyCapError, RateLimitedError } from '../../server/anki/plusaudioCli';
 
 const NODE_WARNING = [
   '(node:21698) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///plusaudio/lib/cardGeneration/cardText.ts is not specified and it doesn\'t parse as CommonJS.',
@@ -113,6 +110,28 @@ test('the daily quota message from the CLI is what the caller gets, word for wor
 
   await expect(generateAndStoreClip({ ...CLIP, ops })).rejects.toThrow(quota);
   expect(ops.media.size).toBe(0);
+});
+
+test('a rate-limited run (exit 3) comes back typed, with the wait the gate gave it, and stores nothing', async () => {
+  nextRun = () => ({ code: 3, stdout: 'retry-after-ms=51234\n', stderr: `${NODE_WARNING}\nGemini is limiting how many requests gemini-3.8-flash-tts takes per minute and asked to wait 52s.\n` });
+  const ops = fakeOps();
+
+  const error = await generateAndStoreClip({ ...CLIP, ops }).then(() => null, (e) => e);
+
+  expect(error).toBeInstanceOf(RateLimitedError);
+  expect(error.rateLimited).toBe(true);
+  expect(error.retryAfterMs).toBe(51234);
+  expect(error.message).toBe('Gemini is limiting how many requests gemini-3.8-flash-tts takes per minute and asked to wait 52s.');
+  expect(ops.media.size).toBe(0);
+});
+
+test('a spent daily cap (exit 4) comes back typed as one', async () => {
+  nextRun = () => ({ code: 4, stderr: "Your Gemini project's daily limit of 100 requests for gemini-3.8-flash-tts is used up.\n" });
+
+  const error = await generateAndStoreClip({ ...CLIP, ops: fakeOps() }).then(() => null, (e) => e);
+
+  expect(error).toBeInstanceOf(DailyCapError);
+  expect(error.dailyCap).toBe(true);
 });
 
 test('a successful generation stores the clip under its content-hashed .wav name', async () => {

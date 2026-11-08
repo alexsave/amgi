@@ -254,6 +254,7 @@ test('the daily cap is still fatal and immediate, never a rate limit to wait out
   assert.ok(error instanceof GeminiUnavailableError);
   assert.equal(error.fatal, true);
   assert.equal(isRateLimited(error), false);
+  assert.equal(error.dailyCap, true, 'marked so a bulk run can stop its whole queue');
   assert.match(error.message, /daily limit/);
   assert.deepEqual(sleeps, []);
 });
