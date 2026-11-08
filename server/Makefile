@@ -50,6 +50,14 @@ $(BUILD)/difftest: $(COL_SRC) test/difftest.c $(COL_HDR) | $(BUILD)
 	$(CC) $(WARN) -O1 -g -fsanitize=address,undefined -fno-sanitize-recover=all $(DEP_CFLAGS) -pthread \
 	  -o $@ $(COL_SRC) test/difftest.c $(LIBS)
 
+# Tests of the C itself (server/test/unit.c), under the sanitizers: `make check`.
+$(BUILD)/unit: $(COL_SRC) test/unit.c $(COL_HDR) | $(BUILD)
+	$(CC) $(WARN) -O1 -g -fsanitize=address,undefined -fno-sanitize-recover=all $(DEP_CFLAGS) -pthread \
+	  -o $@ $(COL_SRC) test/unit.c $(LIBS)
+
+check: $(BUILD)/unit
+	$(BUILD)/unit $(CURDIR)/..
+
 # The same CLI under AddressSanitizer and UndefinedBehaviorSanitizer, for the parity runner.
 $(BUILD)/collection_cli_san: $(COL_SRC) collection/cli.c $(COL_HDR) | $(BUILD)
 	$(CC) $(WARN) -O1 -g -fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer $(DEP_CFLAGS) -pthread \
@@ -64,4 +72,4 @@ $(BUILD):
 clean:
 	rm -rf $(BUILD)
 
-.PHONY: all clean
+.PHONY: all check clean
