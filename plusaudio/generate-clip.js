@@ -50,13 +50,13 @@
 //           unreachable). A caller that only checks the exit code is still correct:
 //           stderr here is for a human reading a log, not for a parser.
 //   exit 0: success. --out was written.
-//   exit 1: could not produce audio - GEMINI_API_KEY (speech) or OPENAI_API_KEY
-//           (transcription and the audio judge) is not set, a network/API error, the day's
+//   exit 1: could not produce audio - GEMINI_API_KEY is not set, a network/API error, the day's
 //           Gemini quota is spent, or cardGeneration.ts's own validation gave up after its
 //           retries. The last stderr line is a one-line message meant to be shown to the
 //           person as-is. --out was not written.
 //
-// ENVIRONMENT: GEMINI_API_KEY and OPENAI_API_KEY, from the environment or plusaudio/.env.
+// ENVIRONMENT: GEMINI_API_KEY, from the environment or plusaudio/.env - the one key every
+// call (speech, transcription, the audio judge) uses.
 // GEMINI_API_BASE overrides Gemini's endpoint; it exists for tests and the e2e fake server.
 //   exit 2: usage error - a missing, unknown or valueless argument. Nothing was
 //           attempted; --out, if it already existed, is untouched.
@@ -106,7 +106,7 @@ function removeStaleOutput(outPath) {
 /**
  * Runs the already-parsed, already-validated request: generate one clip and write it to
  * `options.out`. Split out from `main` so tests can drive it with a stubbed `generate`
- * function and never construct a real OpenAI client or touch the network.
+ * function and never construct a real client or touch the network.
  *
  * @returns {Promise<number>} the process exit code.
  */
@@ -149,23 +149,14 @@ async function main(argv) {
   } catch {
     // No .env next to this script; the environment is expected to carry the key.
   }
-  const geminiApiKey = process.env.GEMINI_API_KEY;
-  if (!geminiApiKey) {
-    process.stderr.write('GEMINI_API_KEY is not set, so no audio can be made: get a key at https://aistudio.google.com/apikey and add GEMINI_API_KEY to the environment or plusaudio/.env.\n');
-    return 1;
-  }
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    process.stderr.write('OPENAI_API_KEY is not set (checked the environment and plusaudio/.env); it is needed to check each clip says what the card says.\n');
+  const { MISSING_KEY_MESSAGE, geminiOptionsFromEnv } = require('./lib/geminiContext');
+  const gemini = geminiOptionsFromEnv();
+  if (!gemini.apiKey) {
+    process.stderr.write(`${MISSING_KEY_MESSAGE}\n`);
     return 1;
   }
 
-  const OpenAI = require('openai');
-  const generate = createGenerator(new OpenAI({ apiKey }), {
-    geminiApiKey,
-    geminiApiBase: process.env.GEMINI_API_BASE,
-    log: (line) => process.stderr.write(`${line}\n`),
-  });
+  const generate = createGenerator({ ...gemini, log: (line) => process.stderr.write(`${line}\n`) });
 
   return run(options, generate);
 }

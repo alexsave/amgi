@@ -1,20 +1,22 @@
 'use strict';
 
-// The Gemini TTS client, against a fake fetch. No test here reaches Google:
-// the free tier allows 10 requests per day per model, and a test suite that
-// spent them would also be a test suite that fails tomorrow for no reason.
+// Gemini speech, and the shared client under it (cardGeneration/gemini.ts:
+// the request, quotas, rate limits and error messages every model call
+// shares), against a fake fetch. No test here reaches Google: the free tier
+// allows 10 requests per day per model, and a test suite that spent them
+// would also be a test suite that fails tomorrow for no reason.
 
 const assert = require('node:assert/strict');
 const { test } = require('node:test');
 
 const {
-  SpeechUnavailableError,
   WAV_HEADER_BYTES,
   createGeminiSpeech,
-  dailyQuotaMessage,
   isWav,
   pcmToWav,
+  spokenInput,
 } = require('../lib/cardGeneration/geminiSpeech.ts');
+const { GeminiUnavailableError, createGeminiClient, dailyQuotaMessage } = require('../lib/cardGeneration/gemini.ts');
 const { createRandom } = require('../lib/random');
 
 const MODEL = 'gemini-3.8-flash-tts';
@@ -56,16 +58,19 @@ function scriptedFetch(responses) {
 function speechWith(responses, overrides = {}) {
   const scripted = scriptedFetch(responses);
   const sleeps = [];
-  const speech = createGeminiSpeech({
+  const client = createGeminiClient({
     apiKey: 'test-key',
-    model: MODEL,
-    voices: VOICES,
-    random: createRandom(7),
     fetch: scripted.fetch,
     baseUrl: 'http://fake.invalid',
     sleep: async (ms) => {
       sleeps.push(ms);
     },
+  });
+  const speech = createGeminiSpeech({
+    client,
+    model: MODEL,
+    voices: VOICES,
+    random: createRandom(7),
     ...overrides,
   });
   return { speech, calls: scripted.calls, sleeps };
@@ -136,10 +141,10 @@ test('a spent daily quota fails at once, once, with the message the add-card row
 
   const error = await speech.synthesize(REQUEST).then(() => null, (e) => e);
 
-  assert.ok(error instanceof SpeechUnavailableError);
+  assert.ok(error instanceof GeminiUnavailableError);
   assert.equal(error.fatal, true);
   assert.equal(error.message, dailyQuotaMessage(MODEL));
-  assert.match(error.message, /10 speech requests per day per model/);
+  assert.match(error.message, /10 requests per day per model/);
   assert.match(error.message, /Enable billing/);
   assert.match(error.message, /https:\/\/aistudio\.google\.com\/apikey/);
   assert.ok(!error.message.includes('\n'), 'one line, because the CLI boundary keeps only the last line');
@@ -171,7 +176,7 @@ test('a per-minute limit that would wait past the cap fails with a message inste
 
   const error = await speech.synthesize(REQUEST).then(() => null, (e) => e);
 
-  assert.ok(error instanceof SpeechUnavailableError);
+  assert.ok(error instanceof GeminiUnavailableError);
   assert.match(error.message, /per minute.*wait 20s/);
   assert.deepEqual(sleeps, [20000], 'the first wait fits in 30 s, the second would not');
   assert.equal(calls.length, 2);
@@ -193,15 +198,15 @@ test('an answer with no inlineData is an ordinary, retryable failure', async () 
 test('a blocked prompt is fatal: the same text would be blocked again', async () => {
   const { speech } = speechWith([{ status: 200, body: { promptFeedback: { blockReason: 'SAFETY' } } }]);
   const error = await speech.synthesize(REQUEST).then(() => null, (e) => e);
-  assert.ok(error instanceof SpeechUnavailableError);
-  assert.match(error.message, /refused to read this text aloud \(SAFETY\)/);
+  assert.ok(error instanceof GeminiUnavailableError);
+  assert.equal(error.message, 'Gemini refused this request (SAFETY).');
 });
 
 test('a refused key is fatal and says what Gemini said; a server error is retryable', async () => {
   const refused = speechWith([{ status: 400, body: { error: { code: 400, message: 'API key not valid. Please pass a valid API key.' } } }]);
   const keyError = await refused.speech.synthesize(REQUEST).then(() => null, (e) => e);
-  assert.ok(keyError instanceof SpeechUnavailableError);
-  assert.equal(keyError.message, 'Gemini speech request failed (HTTP 400): API key not valid. Please pass a valid API key.');
+  assert.ok(keyError instanceof GeminiUnavailableError);
+  assert.equal(keyError.message, `Gemini request to ${MODEL} failed (HTTP 400): API key not valid. Please pass a valid API key.`);
 
   const down = speechWith([{ status: 503, body: { error: { code: 503, message: 'The model is overloaded.' } } }]);
   const serverError = await down.speech.synthesize(REQUEST).then(() => null, (e) => e);
@@ -209,22 +214,33 @@ test('a refused key is fatal and says what Gemini said; a server error is retrya
   assert.match(serverError.message, /HTTP 503/);
 });
 
-test('no key means no synthesiser, with a message that says which key', () => {
+test('no key means no client, with a message that says which key and where to get one', () => {
   assert.throws(
-    () => createGeminiSpeech({ apiKey: '', model: MODEL, voices: VOICES, random: createRandom(1) }),
-    (error) => error instanceof SpeechUnavailableError && /GEMINI_API_KEY is not set/.test(error.message),
+    () => createGeminiClient({ apiKey: '' }),
+    (error) => error instanceof GeminiUnavailableError && /^GEMINI_API_KEY is not set/.test(error.message) && /aistudio\.google\.com\/apikey/.test(error.message),
   );
 });
 
-test('the steering hook is off by default, and when given goes to systemInstruction, never into the text', async () => {
-  const off = speechWith([audioResponse('audio/wav', wavBytes())]);
-  await off.speech.synthesize(REQUEST);
-  assert.equal('systemInstruction' in off.calls[0].body, false);
+test('by default the request carries the verbatim text only: no tag, no systemInstruction', async () => {
+  const plain = speechWith([audioResponse('audio/wav', wavBytes())]);
+  await plain.speech.synthesize(REQUEST);
+  assert.deepEqual(plain.calls[0].body.contents, [{ parts: [{ text: '역이 어디예요?' }] }]);
+  assert.equal('systemInstruction' in plain.calls[0].body, false);
 
-  const on = speechWith([audioResponse('audio/wav', wavBytes())], { steering: (language) => `steer ${language}` });
+  // An empty tag from a wired hook is the same as no hook.
+  const empty = speechWith([audioResponse('audio/wav', wavBytes())], { steering: () => '  ' });
+  await empty.speech.synthesize(REQUEST);
+  assert.deepEqual(empty.calls[0].body.contents, [{ parts: [{ text: '역이 어디예요?' }] }]);
+});
+
+test('the steering hook, when given a tag, sends it as a bracketed prefix and never as systemInstruction', async () => {
+  // systemInstruction is refused by gemini-3.8-flash-tts (HTTP 400), and a
+  // bracketed tag is the form that was verified not to be read aloud.
+  const on = speechWith([audioResponse('audio/wav', wavBytes())], { steering: (language) => `native ${language} speaker` });
   await on.speech.synthesize(REQUEST);
-  assert.deepEqual(on.calls[0].body.systemInstruction, { parts: [{ text: 'steer ko' }] });
-  assert.deepEqual(on.calls[0].body.contents, [{ parts: [{ text: '역이 어디예요?' }] }]);
+  assert.deepEqual(on.calls[0].body.contents, [{ parts: [{ text: '[native ko speaker] 역이 어디예요?' }] }]);
+  assert.equal('systemInstruction' in on.calls[0].body, false);
+  assert.equal(spokenInput('駅はどこですか。', '[native Tokyo speaker]'), '[native Tokyo speaker] 駅はどこですか。', 'a tag cannot nest brackets');
 });
 
 test('a voice is drawn from the pool, never twice in a row, and the same seed draws the same voices', () => {

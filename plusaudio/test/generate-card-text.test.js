@@ -5,8 +5,8 @@
 // card sides and the reading out; a clean exit code. Mirrors
 // generate-clip.test.js's shape for the audio side of the same boundary.
 //
-// `run()` is exercised here with a stubbed generator, never a real OpenAI
-// client - there is no live call in this file.
+// `run()` is exercised here with a stubbed generator, never a real client -
+// there is no live call in this file.
 
 const assert = require('node:assert/strict');
 const { test } = require('node:test');
@@ -112,30 +112,41 @@ test('main() returns exit code 2 when neither --input nor a current card is give
   assert.equal(code, 2);
 });
 
-test('main() returns exit code 1 with an actionable message when OPENAI_API_KEY is unset', async () => {
-  const previous = process.env.OPENAI_API_KEY;
-  delete process.env.OPENAI_API_KEY;
+test('main() returns exit code 1 with an actionable message when GEMINI_API_KEY is unset', async () => {
+  const previous = process.env.GEMINI_API_KEY;
+  delete process.env.GEMINI_API_KEY;
+  const writes = [];
+  const realWrite = process.stderr.write;
   // Same reasoning as generate-clip.test.js's own version of this test: hide
   // any real plusaudio/.env for the duration, since main() falls back to it -
   // see helpers/hide-env.js for why this has to be lock-guarded.
   try {
     await withEnvHidden(async () => {
-      const code = await main(['--known', 'en', '--learning', 'ko', '--input', 'date']);
-      assert.equal(code, 1);
+      process.stderr.write = (chunk) => {
+        writes.push(String(chunk));
+        return true;
+      };
+      try {
+        const code = await main(['--known', 'en', '--learning', 'ko', '--input', 'date']);
+        assert.equal(code, 1);
+      } finally {
+        process.stderr.write = realWrite;
+      }
     });
   } finally {
-    if (previous !== undefined) process.env.OPENAI_API_KEY = previous;
+    if (previous !== undefined) process.env.GEMINI_API_KEY = previous;
   }
+  assert.match(writes.join(''), /^GEMINI_API_KEY is not set, so nothing was generated: get a key at https:\/\/aistudio\.google\.com\/apikey/);
 });
 
 test('main() prints usage and exits 0 on --help without requiring an API key', async () => {
-  const previous = process.env.OPENAI_API_KEY;
-  delete process.env.OPENAI_API_KEY;
+  const previous = process.env.GEMINI_API_KEY;
+  delete process.env.GEMINI_API_KEY;
   try {
     const code = await main(['--help']);
     assert.equal(code, 0);
   } finally {
-    if (previous !== undefined) process.env.OPENAI_API_KEY = previous;
+    if (previous !== undefined) process.env.GEMINI_API_KEY = previous;
   }
 });
 

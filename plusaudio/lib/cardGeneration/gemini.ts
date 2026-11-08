@@ -1,0 +1,206 @@
+// The one HTTP client amgi uses for every model call: card text, speech,
+// transcription and the audio judge all go to Google's Gemini API through
+// generateContent, with one API key (GEMINI_API_KEY). It owns the request,
+// the rate-limit and quota handling, and the error messages a person sees;
+// the callers (cardGeneration.ts, geminiSpeech.ts) own only what they ask.
+//
+// Like the rest of cardGeneration/, this module reads no environment variable
+// and owns no global state: the key, the base URL, fetch and the clock's sleep
+// are injected, so a test drives it with a fake fetch and never reaches the
+// network.
+//
+// What the API does, as verified live on 2026-11-07/08:
+//   POST {base}/v1beta/models/{model}:generateContent, header x-goog-api-key.
+//   Structured output: generationConfig.responseMimeType "application/json"
+//   plus generationConfig.responseJsonSchema, which takes our draft-07 JSON
+//   Schema as written ($schema, enum, additionalProperties). Thinking:
+//   generationConfig.thinkingConfig.thinkingLevel; gemini-3.8-flash accepts
+//   "low" | "medium" | "high" (default medium) and answers HTTP 400 to
+//   "minimal". Thought parts come back flagged `thought: true`.
+//   A spent free-tier quota is HTTP 429 with a google.rpc.QuotaFailure whose
+//   quotaId names the window (…PerDay… or …PerMinute…) and a RetryInfo.
+
+import { GEMINI_KEY_PAGE, MISSING_KEY_MESSAGE } from "../geminiKey.js";
+
+type FetchLike = (url: string, init: {
+    method: string;
+    headers: Record<string, string>;
+    body: string;
+    signal?: AbortSignal;
+}) => Promise<{
+    ok: boolean;
+    status: number;
+    text(): Promise<string>;
+}>;
+
+export interface GeminiPart {
+    text?: string;
+    thought?: boolean;
+    inlineData?: { mimeType?: string; data?: string };
+}
+
+export interface GenerateContentResponse {
+    promptFeedback?: { blockReason?: string };
+    candidates?: Array<{ finishReason?: string; content?: { parts?: GeminiPart[] } }>;
+    usageMetadata?: Record<string, unknown>;
+}
+
+/** The request body; built by each caller, sent as is. */
+// deno-lint-ignore no-explicit-any
+export type GenerateContentRequest = Record<string, any>;
+
+export interface GeminiClient {
+    generateContent(model: string, request: GenerateContentRequest): Promise<GenerateContentResponse>;
+}
+
+export interface GeminiClientOptions {
+    apiKey: string;
+    fetch?: FetchLike;
+    /** Defaults to Google's endpoint. Overridden only by tests and the e2e fake server. */
+    baseUrl?: string;
+    sleep?: (ms: number) => Promise<void>;
+    /** The most a per-minute rate limit may make one request wait, in total. */
+    maxRateLimitWaitMs?: number;
+    requestTimeoutMs?: number;
+}
+
+/**
+ * A failure no retry can fix: the day's quota is spent, the key is refused,
+ * the request is malformed, the text is blocked. generateCardAudio rethrows
+ * these at once instead of spending its remaining attempts (and the
+ * remaining quota) on them, and the message is shown to the person verbatim,
+ * so it is one line and says what to do.
+ */
+export class GeminiUnavailableError extends Error {
+    readonly fatal = true;
+    constructor(message: string) {
+        super(message);
+        this.name = 'GeminiUnavailableError';
+    }
+}
+
+export const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com';
+export { GEMINI_KEY_PAGE, MISSING_KEY_MESSAGE };
+
+/** The message a spent daily quota surfaces as, word for word, in the add-card row. */
+export function dailyQuotaMessage(model: string): string {
+    return `Gemini's free tier allows 10 requests per day per model, and today's are used up for ${model}. ` +
+        `Enable billing for your Gemini API key's project in Google AI Studio (${GEMINI_KEY_PAGE}) to lift the limit, or try again tomorrow.`;
+}
+
+interface GoogleErrorDetail {
+    '@type'?: string;
+    violations?: Array<{ quotaId?: string; quotaMetric?: string }>;
+    retryDelay?: string;
+}
+
+interface GoogleErrorBody {
+    error?: { code?: number; message?: string; status?: string; details?: GoogleErrorDetail[] };
+}
+
+function parseErrorBody(text: string): GoogleErrorBody {
+    try {
+        return JSON.parse(text) as GoogleErrorBody;
+    } catch {
+        return {};
+    }
+}
+
+/** "23s" / "1.5s" -> milliseconds, or null. */
+function parseRetryDelay(value: string | undefined): number | null {
+    const match = /^(\d+(?:\.\d+)?)s$/.exec((value || '').trim());
+    return match ? Math.ceil(Number(match[1]) * 1000) : null;
+}
+
+/** A per-day limit cannot be waited out; anything else (per minute, unlabelled) can, briefly. */
+function isDailyQuota(details: GoogleErrorDetail[]): boolean {
+    return details.some((detail) => (detail.violations || []).some((violation) =>
+        /PerDay/i.test(violation.quotaId || '') || /per_day|PerDay/i.test(violation.quotaMetric || '')));
+}
+
+/** Used when a 429 carries no RetryInfo of its own. */
+const DEFAULT_RATE_LIMIT_DELAY_MS = 5000;
+
+export function createGeminiClient(options: GeminiClientOptions): GeminiClient {
+    const {
+        apiKey,
+        fetch: fetchImpl = globalThis.fetch as unknown as FetchLike,
+        baseUrl = GEMINI_API_BASE,
+        sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)),
+        maxRateLimitWaitMs = 30_000,
+        requestTimeoutMs = 60_000,
+    } = options;
+
+    if (!apiKey) throw new GeminiUnavailableError(MISSING_KEY_MESSAGE);
+    const base = baseUrl.replace(/\/+$/, '');
+
+    async function generateContent(model: string, request: GenerateContentRequest): Promise<GenerateContentResponse> {
+        const url = `${base}/v1beta/models/${encodeURIComponent(model)}:generateContent`;
+        const body = JSON.stringify(request);
+        let waitedMs = 0;
+
+        for (;;) {
+            const response = await fetchImpl(url, {
+                method: 'POST',
+                headers: { 'content-type': 'application/json', 'x-goog-api-key': apiKey },
+                body,
+                signal: AbortSignal.timeout(requestTimeoutMs),
+            });
+            const text = await response.text();
+
+            if (response.status === 429) {
+                const error = parseErrorBody(text).error ?? {};
+                const details = error.details ?? [];
+                if (isDailyQuota(details)) throw new GeminiUnavailableError(dailyQuotaMessage(model));
+                const retryInfo = details.find((detail) => detail.retryDelay !== undefined);
+                const delayMs = parseRetryDelay(retryInfo?.retryDelay) ?? DEFAULT_RATE_LIMIT_DELAY_MS;
+                if (waitedMs + delayMs > maxRateLimitWaitMs) {
+                    throw new GeminiUnavailableError(
+                        `Gemini is limiting how many requests ${model} takes per minute and asked to wait ${Math.ceil(delayMs / 1000)}s; try again in a minute.`,
+                    );
+                }
+                await sleep(delayMs);
+                waitedMs += delayMs;
+                continue;
+            }
+
+            if (!response.ok) {
+                const message = (parseErrorBody(text).error?.message || text || '').replace(/\s+/g, ' ').trim().slice(0, 300);
+                const summary = `Gemini request to ${model} failed (HTTP ${response.status})${message ? `: ${message}` : ''}`;
+                // A refused key, a bad request or an unknown model fails the
+                // same way on every retry; a server error might not.
+                if (response.status >= 400 && response.status < 500) throw new GeminiUnavailableError(summary);
+                throw new Error(summary);
+            }
+
+            let data: GenerateContentResponse;
+            try {
+                data = JSON.parse(text) as GenerateContentResponse;
+            } catch {
+                throw new Error(`Gemini (${model}) returned a response that is not JSON`);
+            }
+            const blockReason = data.promptFeedback?.blockReason;
+            if (blockReason) throw new GeminiUnavailableError(`Gemini refused this request (${blockReason}).`);
+            return data;
+        }
+    }
+
+    return { generateContent };
+}
+
+/** The answer's text, without the model's thought parts. Empty when there is none. */
+export function responseText(response: GenerateContentResponse): string {
+    const parts = response.candidates?.[0]?.content?.parts ?? [];
+    return parts.filter((part) => !part.thought && typeof part.text === 'string').map((part) => part.text).join('').trim();
+}
+
+/** Base64 for an inlineData part. */
+export function bytesToBase64(bytes: ArrayBuffer | Uint8Array): string {
+    const view = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+    let binary = '';
+    const chunkSize = 0x8000;
+    for (let i = 0; i < view.length; i += chunkSize) {
+        binary += String.fromCharCode(...view.subarray(i, i + chunkSize));
+    }
+    return btoa(binary);
+}
