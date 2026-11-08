@@ -1,6 +1,7 @@
 import { readSettings } from '../../../../../server/anki/settings';
 import { resolveTransport } from '../../../../../server/anki/transport';
 import { notReadyResponse } from '../../../../../server/anki/respond';
+import { contentTypeFor } from '../../../../../server/anki/mediaType';
 
 // Serving one clip out of the collection's media folder, so the app can play
 // a card back before you ever open Anki.
@@ -30,11 +31,3 @@ export async function GET(request, { params }) {
   });
 }
 
-function contentTypeFor(name) {
-  const lower = name.toLowerCase();
-  if (lower.endsWith('.mp3')) return 'audio/mpeg';
-  if (lower.endsWith('.ogg')) return 'audio/ogg';
-  if (lower.endsWith('.wav')) return 'audio/wav';
-  if (lower.endsWith('.m4a')) return 'audio/mp4';
-  return 'application/octet-stream';
-}

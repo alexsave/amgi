@@ -21,7 +21,7 @@ const { main, parseArgs, run } = require('../generate-clip');
 const { withEnvHidden } = require('./helpers/hide-env');
 
 function tempOutputPath() {
-  return path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'plusaudio-generate-clip-')), 'clip.mp3');
+  return path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'plusaudio-generate-clip-')), 'clip.wav');
 }
 
 test('parseArgs collects the three flags and rejects an unknown one', () => {
@@ -100,26 +100,58 @@ test('main() returns exit code 2 and touches nothing when a required flag is mis
   assert.equal(fs.existsSync(out), false);
 });
 
-test('main() returns exit code 1 with an actionable message when OPENAI_API_KEY is unset', async () => {
-  const out = tempOutputPath();
-  const previous = process.env.OPENAI_API_KEY;
-  delete process.env.OPENAI_API_KEY;
-  // main() falls back to a real plusaudio/.env (gitignored) when the
-  // environment variable itself is unset - that is the whole point of that
-  // fallback for a plain checkout - so this test has to hide that file for
-  // its duration too, or "unset" is not actually unset whenever a real key
-  // has been configured there (as one is for this task's live testing). See
-  // helpers/hide-env.js for why this has to be lock-guarded rather than a
-  // plain rename.
+/**
+ * Runs main() with exactly `env` set for the two keys (undefined = unset), and
+ * plusaudio/.env hidden: main() falls back to that real, gitignored file when a
+ * variable is unset - the whole point of the fallback for a plain checkout - so
+ * "unset" is only unset with it out of the way. See helpers/hide-env.js for why
+ * that has to be lock-guarded rather than a plain rename.
+ */
+async function mainWithKeys(env, argv) {
+  const names = ['OPENAI_API_KEY', 'GEMINI_API_KEY'];
+  const previous = Object.fromEntries(names.map((name) => [name, process.env[name]]));
+  const writes = [];
+  const realWrite = process.stderr.write;
+  for (const name of names) {
+    if (env[name] === undefined) delete process.env[name];
+    else process.env[name] = env[name];
+  }
   try {
-    await withEnvHidden(async () => {
-      const code = await main(['--text', 'hello', '--language', 'ko', '--out', out]);
-      assert.equal(code, 1);
-      assert.equal(fs.existsSync(out), false);
+    return await withEnvHidden(async () => {
+      process.stderr.write = (chunk) => {
+        writes.push(String(chunk));
+        return true;
+      };
+      try {
+        return { code: await main(argv), stderr: writes.join('') };
+      } finally {
+        process.stderr.write = realWrite;
+      }
     });
   } finally {
-    if (previous !== undefined) process.env.OPENAI_API_KEY = previous;
+    for (const name of names) {
+      if (previous[name] === undefined) delete process.env[name];
+      else process.env[name] = previous[name];
+    }
   }
+}
+
+test('main() returns exit code 1 with an actionable message when GEMINI_API_KEY is unset', async () => {
+  const out = tempOutputPath();
+  const { code, stderr } = await mainWithKeys({ OPENAI_API_KEY: 'sk-test' }, ['--text', 'hello', '--language', 'ko', '--out', out]);
+  assert.equal(code, 1);
+  assert.equal(fs.existsSync(out), false);
+  assert.match(stderr, /GEMINI_API_KEY is not set/);
+  assert.match(stderr, /https:\/\/aistudio\.google\.com\/apikey/);
+  assert.equal(stderr.trim().split('\n').length, 1, 'one line: the app shows the last line verbatim');
+});
+
+test('main() returns exit code 1 with an actionable message when OPENAI_API_KEY is unset', async () => {
+  const out = tempOutputPath();
+  const { code, stderr } = await mainWithKeys({ GEMINI_API_KEY: 'g-test' }, ['--text', 'hello', '--language', 'ko', '--out', out]);
+  assert.equal(code, 1);
+  assert.equal(fs.existsSync(out), false);
+  assert.match(stderr, /OPENAI_API_KEY is not set/);
 });
 
 test('main() prints usage and exits 0 on --help without requiring an API key', async () => {

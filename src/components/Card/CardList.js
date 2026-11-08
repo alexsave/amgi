@@ -13,7 +13,8 @@ import './CardList.css';
 
 const PAGE_SIZE = 20;
 
-// A note field holds the clip as <audio src="name.mp3">, which is the form
+// A note field holds the clip as <audio src="name.wav"> (or .mp3, for a clip
+// made before speech moved to Gemini), which is the form
 // the card template needs (Anki strips [sound:] tags before a template's
 // JavaScript ever sees them). The filename is what the media route wants.
 const AUDIO_SRC = /<audio[^>]*\ssrc\s*=\s*["']([^"']+)["']/i;

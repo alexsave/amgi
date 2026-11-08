@@ -47,14 +47,17 @@ node add-audio.js <deck.apkg> [options]
   --dry-run             report what would be generated; write nothing
 ```
 
-`--dry-run` needs no API key. Generating audio needs `OPENAI_API_KEY`.
+`--dry-run` needs no API key.
+Generating audio needs `GEMINI_API_KEY` (Gemini TTS speaks every clip; get one at https://aistudio.google.com/apikey) and `OPENAI_API_KEY` (transcription and the audio judge check it).
+Gemini's free tier allows 10 speech requests per day per model, so a whole deck needs billing enabled on the key's project.
+Clips are WAV, 24 kHz mono, about 48 KB per second.
 
 This tool works on a `.apkg` file: export, run it, import the result back.
 For a deck you already have open in Anki, [`../anki/addon/amgi_bridge/`](../anki/addon/amgi_bridge/README.md) does the same job directly against your live collection, with no export or import step.
 Use this one for a deck meant to be shared, or one you cannot open directly right now.
 
 `--language` is an amgi language code (`ko`, `ja`, `zh_cn`, `zh_hk`, `es`, ...).
-It picks the speaking instructions the voice is given and the language the validator transcribes in,
+It picks the language the validator transcribes and judges in,
 so a wrong one makes clips that are rejected rather than clips that are quietly wrong.
 
 Fields are resolved per note type. If a note type has no field whose name looks like an audio field,
@@ -87,7 +90,7 @@ References the tool did not write, such as the deck author's own recordings, are
 ## How a re-run stays cheap
 
 A clip's filename is derived from the text it was generated from
-(`plusaudio-<hash of profile, language and text>.mp3`).
+(`plusaudio-<hash of profile, language and text>.wav`; clips made before speech moved to Gemini end in `.mp3`, still count as the tool's own, and are replaced by a `.wav` the next time their note is filled).
 If the text has not changed, the note already points at exactly the file the tool would produce, so
 there is nothing to generate and nothing to write.
 If the text has changed, the name changes with it and the stale clip is replaced.
@@ -196,7 +199,7 @@ at a time, for whichever note in a live collection needs one - and it is Python,
 `generate-clip.js` is the small Node entry point that closes that gap:
 
 ```bash
-node generate-clip.js --text "안녕하세요" --language ko --out clip.mp3
+node generate-clip.js --text "안녕하세요" --language ko --out clip.wav
 ```
 
 Text and a language in, one clip written to `--out`, nothing else.
@@ -214,7 +217,7 @@ It adds audio to notes that already exist, using amgi's own generator:
 `lib/generator.js` is a thin adapter over `lib/cardGeneration/cardGeneration.ts`, the same module
 the app's own local generation path (`src/server/anki/audio.js`, by way of `generate-clip.js`) and the
 Anki add-on's bridge run.
-So the clips are made with the same models, the same per-language speaking instructions and the same
+So the clips are made with the same models, the same voice pool and the same
 refusal to keep audio that does not say what the note says.
 Writing new notes into a deck is the next step and is not built yet: it needs a source of terms and a
 place to put the generated sides, not a different generator.

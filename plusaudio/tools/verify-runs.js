@@ -22,16 +22,15 @@ const { audioReferences } = require('../lib/deck');
 const { openPackage } = require('../lib/package');
 const { readZip } = require('../lib/zip');
 
-// The ten-byte header a real ID3v2.3 mp3 starts with, written as bytes rather
-// than as a string of control characters so that this file stays plain text
-// and its diffs stay readable.
-const ID3_HEADER = Buffer.from([0x49, 0x44, 0x33, 0x03, 0, 0, 0, 0, 0, 0]);
+// The twelve bytes a WAV file starts with (RIFF, a size, WAVE) - every clip
+// amgi generates now is WAV (see lib/cardGeneration/geminiSpeech.ts).
+const WAV_HEADER = Buffer.concat([Buffer.from('RIFF'), Buffer.from([36, 0, 0, 0]), Buffer.from('WAVE')]);
 
 // A deterministic, valid-enough stand-in for a generated clip: no API key, no
 // network, and identical text always produces identical bytes.
 async function stubGenerate({ text }) {
   const noise = crypto.createHash('sha256').update(text).digest();
-  return Buffer.concat([ID3_HEADER, noise]);
+  return Buffer.concat([WAV_HEADER, noise]);
 }
 
 function digest(rows) {

@@ -106,13 +106,15 @@ class DeckTextUnitTests(unittest.TestCase):
 
     def test_media_name_is_a_sha1_of_profile_language_and_text(self):
         name = deck_text.media_name("안녕하세요", "ko")
-        self.assertRegex(name, r"^plusaudio-[0-9a-f]{20}\.mp3$")
+        self.assertRegex(name, r"^plusaudio-[0-9a-f]{20}\.wav$")
         # Same inputs, same name - the whole idempotency scheme depends on this.
         self.assertEqual(name, deck_text.media_name("안녕하세요", "ko"))
         self.assertNotEqual(name, deck_text.media_name("안녕하세요", "ja"))
 
     def test_is_owned_media_name_recognises_current_and_legacy_names(self):
         self.assertTrue(deck_text.is_owned_media_name("plusaudio-" + "a" * 20 + ".mp3"))
+        self.assertTrue(deck_text.is_owned_media_name("plusaudio-" + "a" * 20 + ".wav"))
+        self.assertFalse(deck_text.is_owned_media_name("plusaudio-" + "a" * 20 + ".ogg"))
         self.assertTrue(deck_text.is_owned_media_name("1-1-13-1_gpt4o.mp3"))
         self.assertFalse(deck_text.is_owned_media_name("1-1-13-1.mp3"))
         self.assertFalse(deck_text.is_owned_media_name("plusaudio-" + "a" * 19 + ".mp3"))

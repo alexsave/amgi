@@ -62,6 +62,7 @@ def _build_generator(config: dict) -> NodeCliAudioGenerator:
         node_path=(config.get("node_path") or "node"),
         plusaudio_dir=(config.get("plusaudio_dir") or ""),
         openai_api_key=(config.get("openai_api_key") or None),
+        gemini_api_key=(config.get("gemini_api_key") or None),
     )
 
 
@@ -180,6 +181,9 @@ def _ensure_bridge_token(config: dict) -> str:
     token = config.get("bridge_token") or ""
     if token:
         return token
+    # Deliberately the OS's cryptographic source, not plusaudio/lib/random.js:
+    # a secret must stay unguessable even with that file's seed fixed (see
+    # the ALLOWED list in plusaudio/test/random.test.js).
     token = secrets.token_urlsafe(32)
     config["bridge_token"] = token
     mw.addonManager.writeConfig(__name__, config)

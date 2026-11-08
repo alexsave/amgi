@@ -13,6 +13,7 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -88,30 +89,54 @@ class EnsureReadyTests(unittest.TestCase):
              mock.patch.dict(os.environ, {}, clear=False), \
              mock.patch("generator._env_file_has_key", return_value=False):
             os.environ.pop("OPENAI_API_KEY", None)
+            os.environ.pop("GEMINI_API_KEY", None)
+            with self.assertRaises(generator.GenerationError) as ctx:
+                gen.ensure_ready()
+        self.assertIn("Gemini API key", str(ctx.exception))
+
+    def test_raises_when_only_the_gemini_key_is_there(self):
+        gen = generator.NodeCliAudioGenerator("node", self.real_plusaudio_dir, gemini_api_key="g-test")
+        with mock.patch("generator.shutil.which", return_value="/usr/bin/node"), \
+             mock.patch.dict(os.environ, {}, clear=False), \
+             mock.patch("generator._env_file_has_key", return_value=False):
+            os.environ.pop("OPENAI_API_KEY", None)
             with self.assertRaises(generator.GenerationError) as ctx:
                 gen.ensure_ready()
         self.assertIn("OpenAI API key", str(ctx.exception))
 
-    def test_passes_when_the_key_comes_from_config(self):
-        gen = generator.NodeCliAudioGenerator("node", self.real_plusaudio_dir, openai_api_key="sk-test")
+    def test_passes_when_the_keys_come_from_config(self):
+        gen = generator.NodeCliAudioGenerator(
+            "node", self.real_plusaudio_dir, openai_api_key="sk-test", gemini_api_key="g-test"
+        )
         with mock.patch("generator.shutil.which", return_value="/usr/bin/node"), \
-             mock.patch.dict(os.environ, {}, clear=False):
+             mock.patch.dict(os.environ, {}, clear=False), \
+             mock.patch("generator._env_file_has_key", return_value=False):
             os.environ.pop("OPENAI_API_KEY", None)
+            os.environ.pop("GEMINI_API_KEY", None)
             gen.ensure_ready()  # does not raise
 
-    def test_passes_when_the_key_comes_from_the_environment(self):
+    def test_passes_when_the_keys_come_from_the_environment(self):
         gen = generator.NodeCliAudioGenerator("node", self.real_plusaudio_dir)
         with mock.patch("generator.shutil.which", return_value="/usr/bin/node"), \
-             mock.patch.dict(os.environ, {"OPENAI_API_KEY": "sk-test"}):
+             mock.patch("generator._env_file_has_key", return_value=False), \
+             mock.patch.dict(os.environ, {"OPENAI_API_KEY": "sk-test", "GEMINI_API_KEY": "g-test"}):
             gen.ensure_ready()  # does not raise
 
-    def test_passes_when_the_key_comes_from_a_dotenv_file(self):
+    def test_passes_when_the_keys_come_from_a_dotenv_file(self):
         gen = generator.NodeCliAudioGenerator("node", self.real_plusaudio_dir)
         with mock.patch("generator.shutil.which", return_value="/usr/bin/node"), \
              mock.patch.dict(os.environ, {}, clear=False), \
              mock.patch("generator._env_file_has_key", return_value=True):
             os.environ.pop("OPENAI_API_KEY", None)
+            os.environ.pop("GEMINI_API_KEY", None)
             gen.ensure_ready()  # does not raise
+
+    def test_a_dotenv_file_is_read_per_key(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with open(os.path.join(directory, ".env"), "w", encoding="utf-8") as handle:
+                handle.write("OPENAI_API_KEY=sk-test\nGEMINI_API_KEY=\n")
+            self.assertTrue(generator._env_file_has_key(directory, "OPENAI_API_KEY"))
+            self.assertFalse(generator._env_file_has_key(directory, "GEMINI_API_KEY"))
 
 
 class FetchAudioTests(unittest.TestCase):
@@ -122,7 +147,9 @@ class FetchAudioTests(unittest.TestCase):
         self.addCleanup(self.which_patch.stop)
 
     def test_success_writes_the_clip_generate_clip_js_left_behind_and_cleans_up(self):
-        gen = generator.NodeCliAudioGenerator("node", self.real_plusaudio_dir, openai_api_key="sk-test")
+        gen = generator.NodeCliAudioGenerator(
+            "node", self.real_plusaudio_dir, openai_api_key="sk-test", gemini_api_key="g-test"
+        )
 
         def fake_run(args, **kwargs):
             out_path = args[args.index("--out") + 1]
@@ -140,6 +167,7 @@ class FetchAudioTests(unittest.TestCase):
         self.assertTrue(command[1].endswith("generate-clip.js"))
         self.assertEqual(command[2:], ["--text", "안녕하세요", "--language", "ko", "--out", command[-1]])
         self.assertEqual(kwargs["env"]["OPENAI_API_KEY"], "sk-test")
+        self.assertEqual(kwargs["env"]["GEMINI_API_KEY"], "g-test")
         # The temp file generate-clip.js "wrote" is cleaned up afterwards.
         self.assertFalse(os.path.exists(command[-1]))
 

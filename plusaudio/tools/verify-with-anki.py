@@ -79,8 +79,8 @@ def import_package(col, path):
 
 # The two forms add-audio.js can write. The names are content hashes, so the
 # same clip keeps the same filename whichever form points at it.
-SOUND_REFERENCE = re.compile(r"\[sound:(plusaudio-[0-9a-f]{20}\.mp3)\]")
-HTML_REFERENCE = re.compile(r"""<audio[^>]*\bsrc=["'](plusaudio-[0-9a-f]{20}\.mp3)["']""")
+SOUND_REFERENCE = re.compile(r"\[sound:(plusaudio-[0-9a-f]{20}\.(?:mp3|wav))\]")
+HTML_REFERENCE = re.compile(r"""<audio[^>]*\bsrc=["'](plusaudio-[0-9a-f]{20}\.(?:mp3|wav))["']""")
 
 
 def references(col):
