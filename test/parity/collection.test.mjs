@@ -21,7 +21,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
-import { dec, enc, hex, items, list, noteTokens, num, strs, unhex } from './protocol.mjs';
+import { dec, enc, hex, items, list, noteTokens, strs, unhex } from './protocol.mjs';
 import { collectionDrift, installNotetypeDirect } from '../../src/server/anki/install.js';
 import { buildStarterDeck } from '../../src/server/anki/starterDeck.js';
 
