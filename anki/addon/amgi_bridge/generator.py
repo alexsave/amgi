@@ -16,10 +16,11 @@
 # of fetch_audio is a subprocess.
 #
 # This add-on runs entirely on the machine it is installed on: no amgi
-# account, no hosted quota, no network dependency but OpenAI's own API. What
-# it needs from that machine - Node, a checkout of this repo (for
-# plusaudio/generate-clip.js and the shared policy it requires), and an
-# OpenAI API key - is what NodeCliAudioGenerator.ensure_ready checks up
+# account, no hosted quota, no network dependency but Google's Gemini API
+# (which speaks the clip) and OpenAI's (which checks it). What it needs from
+# that machine - Node, a checkout of this repo (for plusaudio/generate-clip.js
+# and the shared policy it requires), a Gemini API key and an OpenAI API
+# key - is what NodeCliAudioGenerator.ensure_ready checks up
 # front, in __init__.py, before a run touches a single note, so a missing
 # piece is one clear message instead of one identical failure per note.
 #
@@ -100,7 +101,7 @@ def _find_script(plusaudio_dir: str) -> str:
     return script_path
 
 
-def _env_file_has_key(plusaudio_dir: str) -> bool:
+def _env_file_has_key(plusaudio_dir: str, name: str) -> bool:
     """Same fallback generate-clip.js itself checks (a plusaudio/.env file),
     read here only to decide whether ensure_ready can call the key
     "resolvable" without actually spawning Node. Deliberately tolerant of a
@@ -111,7 +112,7 @@ def _env_file_has_key(plusaudio_dir: str) -> bool:
         with open(env_path, "r", encoding="utf-8") as handle:
             for line in handle:
                 line = line.strip()
-                if line.startswith("OPENAI_API_KEY=") and line[len("OPENAI_API_KEY="):].strip():
+                if line.startswith(f"{name}=") and line[len(name) + 1:].strip():
                     return True
     except OSError:
         return False
@@ -121,13 +122,15 @@ def _env_file_has_key(plusaudio_dir: str) -> bool:
 class NodeCliAudioGenerator:
     """Generates a clip by shelling out to `node generate-clip.js`.
 
-    Config precedence for the OpenAI key, most specific first: `openai_api_key`
-    in this add-on's own config (if set, passed to the subprocess as
-    OPENAI_API_KEY, overriding whatever it would otherwise inherit);
-    otherwise OPENAI_API_KEY already in this process's environment, inherited
-    by the subprocess as normal; otherwise generate-clip.js's own fallback,
-    plusaudio/.env next to it. The same three places, in the same order, are
-    what ensure_ready checks before a run starts.
+    Two keys are needed: GEMINI_API_KEY (speech) and OPENAI_API_KEY (the
+    check that a clip says what the note says). Config precedence for each,
+    most specific first: `gemini_api_key` / `openai_api_key` in this add-on's
+    own config (if set, passed to the subprocess, overriding whatever it would
+    otherwise inherit); otherwise the variable already in this process's
+    environment, inherited by the subprocess as normal; otherwise
+    generate-clip.js's own fallback, plusaudio/.env next to it. The same three
+    places, in the same order, are what ensure_ready checks before a run
+    starts.
     """
 
     def __init__(
@@ -136,11 +139,12 @@ class NodeCliAudioGenerator:
         plusaudio_dir: str,
         *,
         openai_api_key: Optional[str] = None,
+        gemini_api_key: Optional[str] = None,
         timeout: float = 120.0,
     ) -> None:
         self._node_path = node_path
         self._plusaudio_dir = plusaudio_dir
-        self._openai_api_key = openai_api_key or None
+        self._keys = {"GEMINI_API_KEY": gemini_api_key or None, "OPENAI_API_KEY": openai_api_key or None}
         self._timeout = timeout
 
     def ensure_ready(self) -> None:
@@ -150,23 +154,28 @@ class NodeCliAudioGenerator:
         Raises GenerationError with a message meant to be shown as-is."""
         _find_node(self._node_path)
         _find_script(self._plusaudio_dir)
-        if self._openai_api_key or os.environ.get("OPENAI_API_KEY") or _env_file_has_key(self._plusaudio_dir):
-            return
-        raise GenerationError(
-            "amgi audio fill needs an OpenAI API key and found none. Set openai_api_key in "
-            "Tools > Add-ons > amgi_bridge > Config, or set OPENAI_API_KEY in the environment "
-            f"Anki runs in, or put OPENAI_API_KEY=... in {os.path.join(self._plusaudio_dir, '.env')}."
-        )
+        for name, purpose, config_key in (
+            ("GEMINI_API_KEY", "a Gemini API key (it speaks each clip; https://aistudio.google.com/apikey)", "gemini_api_key"),
+            ("OPENAI_API_KEY", "an OpenAI API key (it checks each clip)", "openai_api_key"),
+        ):
+            if self._keys[name] or os.environ.get(name) or _env_file_has_key(self._plusaudio_dir, name):
+                continue
+            raise GenerationError(
+                f"amgi audio fill needs {purpose} and found none. Set {config_key} in "
+                f"Tools > Add-ons > amgi_bridge > Config, or set {name} in the environment "
+                f"Anki runs in, or put {name}=... in {os.path.join(self._plusaudio_dir, '.env')}."
+            )
 
     def fetch_audio(self, text: str, language: str) -> bytes:
         node_path = _find_node(self._node_path)
         script_path = _find_script(self._plusaudio_dir)
 
         env = os.environ.copy()
-        if self._openai_api_key:
-            env["OPENAI_API_KEY"] = self._openai_api_key
+        for name, value in self._keys.items():
+            if value:
+                env[name] = value
 
-        handle, out_path = tempfile.mkstemp(prefix="amgi-audio-", suffix=".clip")
+        handle, out_path = tempfile.mkstemp(prefix="amgi-audio-", suffix=".wav")
         os.close(handle)
         try:
             os.remove(out_path)  # generate-clip.js must be the one to create it, not us.

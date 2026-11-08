@@ -1,7 +1,7 @@
 ## amgi audio fill settings
 
 This add-on generates entirely on your own machine: no amgi account, no hosted service, and no
-quota but your own OpenAI account's.
+quota but your own Gemini and OpenAI accounts'.
 It needs three things to do that, and checks all three before a run starts so a bad setting is one
 clear message, not a stall or a traceback partway through.
 
@@ -22,6 +22,12 @@ in Terminal" and "`node` works inside Anki" can genuinely differ.
 If Tools > amgi: Fill missing audio... says it cannot find Node, run `which node` in a terminal
 where you know it works and paste that full path in here.
 
+`gemini_api_key`
+Optional, in the same way as `openai_api_key` below, for `GEMINI_API_KEY`.
+Gemini speaks every clip; get a key at https://aistudio.google.com/apikey.
+Its free tier allows 10 speech requests per day per model, so a real deck needs billing enabled
+on the key's Google project.
+
 `openai_api_key`
 Optional.
 If you already export `OPENAI_API_KEY` in the environment Anki itself runs in, or keep it in a
@@ -34,7 +40,7 @@ tradeoff `plusaudio/.env` already makes for the same key.
 None of this add-on's earlier Supabase/amgi-account settings (`supabase_url`, `supabase_anon_key`,
 `email`, `password`) exist any more.
 Generation used to go through a deployed edge function and your amgi account's quota; now it runs
-locally against your own OpenAI key, and there is no amgi account or password stored here at all.
+locally against your own Gemini and OpenAI keys, and there is no amgi account or password stored here at all.
 
 ## Local HTTP bridge settings
 

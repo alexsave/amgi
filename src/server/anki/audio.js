@@ -13,14 +13,14 @@
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { mediaName } from 'plusaudio/lib/audio-store';
+import { CLIP_EXTENSION, mediaName } from 'plusaudio/lib/audio-store';
 import { renderAudioReference } from 'plusaudio/lib/deck';
 import { runPlusaudio } from './plusaudioCli';
 
 /**
  * Generate one clip for `text` in `language`, or throw.
  *
- * There is no placeholder clip, with or without OPENAI_API_KEY. There used
+ * There is no placeholder clip, with or without the API keys. There used
  * to be one: a few lines of text saying "not playable audio", returned
  * whenever there was no key or the real generator failed, with a `mocked`
  * flag beside it. It went into the collection under the clip's real name,
@@ -38,23 +38,38 @@ import { runPlusaudio } from './plusaudioCli';
  * generateCardTextAndAudio) - no Anki field stores one, so there is nowhere
  * else it could come from.
  *
- * @returns {Promise<Buffer>} the clip's bytes
+ * Speech is Gemini's (GEMINI_API_KEY) and the check that the clip says the
+ * right thing is OpenAI's (OPENAI_API_KEY), so both are needed. Whatever
+ * stops a clip - a missing key, the Gemini free tier's daily limit, a clip
+ * that never passed validation - arrives as one line meant to be shown as-is
+ * (see plusaudioCli.js), and the add-card row shows exactly that.
+ *
+ * @returns {Promise<Buffer>} the clip's bytes: a WAV file
  */
 export async function generateClip({ text, language, reading = '' }) {
   // Checked here as well as in generate-clip.js so a missing key costs
   // nothing, not even a subprocess.
+  if (!process.env.GEMINI_API_KEY) {
+    throw new Error(
+      'GEMINI_API_KEY is not set, so no audio was made: get a key at https://aistudio.google.com/apikey, add it to .env.local and restart amgi.',
+    );
+  }
   if (!process.env.OPENAI_API_KEY) {
     throw new Error('OPENAI_API_KEY is not set; audio was not generated.');
   }
 
-  const outPath = path.join(os.tmpdir(), `amgi-clip-${Date.now()}-${Math.random().toString(36).slice(2)}.mp3`);
-  const args = ['--text', text, '--language', language, '--out', outPath];
-  if (reading) args.push('--reading', reading);
-  await runPlusaudio('generate-clip.js', args, 'audio generation failed');
-
-  const data = await fs.readFile(outPath);
-  await fs.unlink(outPath);
-  return data;
+  // A directory of its own, so no random name has to be invented for the
+  // file (mkdtemp picks the unique suffix).
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'amgi-clip-'));
+  const outPath = path.join(dir, `clip.${CLIP_EXTENSION}`);
+  try {
+    const args = ['--text', text, '--language', language, '--out', outPath];
+    if (reading) args.push('--reading', reading);
+    await runPlusaudio('generate-clip.js', args, 'audio generation failed');
+    return await fs.readFile(outPath);
+  } finally {
+    await fs.rm(dir, { recursive: true, force: true });
+  }
 }
 
 /**
@@ -62,13 +77,17 @@ export async function generateClip({ text, language, reading = '' }) {
  * stored filename.
  *
  * The filename is content-hashed on (language, text) (see audio-store.js's
- * mediaName), so if a clip for this exact text already exists - a previous
+ * mediaName) and ends in .wav, so if a clip for this exact text already exists - a previous
  * run that got this far before being cancelled, or a second pass over a deck
  * that already has some audio - there is nothing to generate. Checking
  * `ops.hasMedia` before calling out to the real generator is what makes that
  * true in practice, not just in principle: generateClip() itself has no way
  * to know a file already exists, so skipping the call here is the only place
  * a re-run actually avoids paying for a clip it would immediately discard.
+ *
+ * Only a .wav clip is reused. An mp3 of the same text from before speech
+ * moved to Gemini is left alone - the notes that point at it still play it -
+ * but a new card gets a new Gemini take, which is the reason for the move.
  *
  * `reading` is not part of the cache key. It cannot be - the filename has to
  * stay stable for the same (language, text) so a note's [sound:...] tag

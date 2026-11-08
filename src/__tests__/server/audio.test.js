@@ -56,7 +56,7 @@ function fakeOps(existing = []) {
     media,
     hasMedia: async (name) => media.has(name),
     addMedia: async (name, data) => {
-      const stored = media.has(name) ? name.replace(/\.mp3$/, '-2.mp3') : name;
+      const stored = media.has(name) ? name.replace(/\.(mp3|wav)$/, '-2.$1') : name;
       media.set(stored, data);
       return stored;
     },
@@ -64,18 +64,24 @@ function fakeOps(existing = []) {
 }
 
 const CLIP = { text: '화이팅', language: 'ko' };
-const originalKey = process.env.OPENAI_API_KEY;
+// The first bytes of a WAV file, which is all a Gemini clip ever is.
+const WAV = (tail) => Buffer.concat([Buffer.from('RIFF\x24\x00\x00\x00WAVE'), Buffer.from(tail)]);
+const KEYS = ['OPENAI_API_KEY', 'GEMINI_API_KEY'];
+const originalKeys = Object.fromEntries(KEYS.map((name) => [name, process.env[name]]));
 
 beforeEach(() => {
   runs.length = 0;
   process.env.OPENAI_API_KEY = 'test-key';
+  process.env.GEMINI_API_KEY = 'test-gemini-key';
   jest.spyOn(console, 'error').mockImplementation(() => {});
 });
 
 afterEach(() => {
   console.error.mockRestore();
-  if (originalKey === undefined) delete process.env.OPENAI_API_KEY;
-  else process.env.OPENAI_API_KEY = originalKey;
+  for (const name of KEYS) {
+    if (originalKeys[name] === undefined) delete process.env[name];
+    else process.env[name] = originalKeys[name];
+  }
 });
 
 test('a failed generation stores nothing and says why, not what Node warned about', async () => {
@@ -89,7 +95,7 @@ test('a failed generation stores nothing and says why, not what Node warned abou
   expect(console.error).toHaveBeenCalledWith(expect.stringContaining('MODULE_TYPELESS_PACKAGE_JSON'));
 });
 
-test('with no key, nothing is generated and nothing is stored', async () => {
+test('with no OpenAI key, nothing is generated and nothing is stored', async () => {
   delete process.env.OPENAI_API_KEY;
   nextRun = succeedWith(Buffer.from('should never be asked for'));
   const ops = fakeOps();
@@ -99,20 +105,56 @@ test('with no key, nothing is generated and nothing is stored', async () => {
   expect(ops.media.size).toBe(0);
 });
 
-test('a successful generation stores the clip under its content-hashed name', async () => {
-  const bytes = Buffer.from('ID3 real audio');
+test('with no Gemini key, nothing is generated, and the error says where to get one', async () => {
+  delete process.env.GEMINI_API_KEY;
+  nextRun = succeedWith(WAV('should never be asked for'));
+  const ops = fakeOps();
+
+  await expect(generateAndStoreClip({ ...CLIP, ops })).rejects.toThrow(
+    /^GEMINI_API_KEY is not set, so no audio was made: get a key at https:\/\/aistudio\.google\.com\/apikey/,
+  );
+  expect(runs).toHaveLength(0);
+  expect(ops.media.size).toBe(0);
+});
+
+test('the daily quota message from the CLI is what the caller gets, word for word', async () => {
+  const quota = "Gemini's free tier allows 10 speech requests per day per model, and today's are used up for gemini-3.8-flash-tts. Enable billing for your Gemini API key's project in Google AI Studio (https://aistudio.google.com/apikey) to lift the limit, or try again tomorrow.";
+  nextRun = failWith(`${NODE_WARNING}\n${quota}\n`);
+  const ops = fakeOps();
+
+  await expect(generateAndStoreClip({ ...CLIP, ops })).rejects.toThrow(quota);
+  expect(ops.media.size).toBe(0);
+});
+
+test('a successful generation stores the clip under its content-hashed .wav name', async () => {
+  const bytes = WAV('real audio');
   nextRun = succeedWith(bytes);
   const ops = fakeOps();
 
   const clip = await generateAndStoreClip({ ...CLIP, ops });
 
-  expect(clip.filename).toMatch(/^plusaudio-[0-9a-f]+\.mp3$/);
+  expect(clip.filename).toMatch(/^plusaudio-[0-9a-f]{20}\.wav$/);
+  expect(runs[0][runs[0].indexOf('--out') + 1]).toMatch(/\.wav$/);
   expect(clip.reference).toBe(`<audio src="${clip.filename}"></audio>`);
   expect(ops.media.get(clip.filename)).toEqual(bytes);
 });
 
+test('an mp3 of the same text from before Gemini is left alone, and the new card gets a wav take', async () => {
+  nextRun = succeedWith(WAV('a Gemini take'));
+  const first = await generateAndStoreClip({ ...CLIP, ops: fakeOps() });
+  const legacyMp3 = first.filename.replace(/\.wav$/, '.mp3');
+  const ops = fakeOps([legacyMp3]);
+
+  const clip = await generateAndStoreClip({ ...CLIP, ops });
+
+  expect(clip.reused).toBeUndefined();
+  expect(clip.filename).toBe(first.filename);
+  expect(ops.media.get(legacyMp3)).toEqual(Buffer.from('an earlier take'));
+  expect(ops.media.get(clip.filename)).toEqual(WAV('a Gemini take'));
+});
+
 test('an existing clip is reused, but a re-record makes a new take', async () => {
-  nextRun = succeedWith(Buffer.from('ID3 a new take'));
+  nextRun = succeedWith(WAV('a new take'));
   const first = await generateAndStoreClip({ ...CLIP, ops: fakeOps() });
   const ops = fakeOps([first.filename]);
 
@@ -123,5 +165,5 @@ test('an existing clip is reused, but a re-record makes a new take', async () =>
   const retake = await generateAndStoreClip({ ...CLIP, fresh: true, ops });
   expect(runs).toHaveLength(2);
   expect(retake.filename).not.toBe(first.filename);
-  expect(ops.media.get(retake.filename)).toEqual(Buffer.from('ID3 a new take'));
+  expect(ops.media.get(retake.filename)).toEqual(WAV('a new take'));
 });

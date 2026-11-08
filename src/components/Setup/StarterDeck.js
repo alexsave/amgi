@@ -116,8 +116,8 @@ const StarterDeck = () => {
 
       {error && <p className="starter-deck-error">{error}</p>}
       <p className="starter-deck-note">
-        To make your own cards, put <code>OPENAI_API_KEY=…</code> in <code>.env.local</code> and
-        restart amgi.
+        To make your own cards, put <code>GEMINI_API_KEY=…</code> (speech) and{' '}
+        <code>OPENAI_API_KEY=…</code> (card text) in <code>.env.local</code> and restart amgi.
       </p>
     </div>
   );

@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { mediaName } from 'plusaudio/lib/audio-store';
+import { CLIP_EXTENSION, mediaName } from 'plusaudio/lib/audio-store';
 import { renderAudioReference } from 'plusaudio/lib/deck';
 import { AMGI_NOTETYPE_NAME, fieldIndexes } from '../../utils/amgiNotetype';
 import { existingKeySet, normalizeForDedupe } from '../../utils/lyricsParse';
@@ -62,14 +62,29 @@ function phraseData() {
 }
 
 /**
- * Can a real OpenAI call be made at all?
+ * Can a real card be made at all? That takes both keys: OpenAI writes the
+ * card text and checks each clip, and Gemini speaks it.
  *
- * The only thing the browser is ever told about the key: whether one is
+ * The only thing the browser is ever told about the keys: whether both are
  * configured. Never its value, never its length, never a masked form of it -
  * a boolean cannot leak anything, and nothing on the client needs more.
  */
 export function generationAvailable() {
-  return Boolean(process.env.OPENAI_API_KEY);
+  return Boolean(process.env.OPENAI_API_KEY && process.env.GEMINI_API_KEY);
+}
+
+/**
+ * The shipped clip for `text`, or null. The clips committed so far were
+ * recorded as mp3 by OpenAI's TTS, before speech moved to Gemini; any
+ * recorded since (scripts/build-starter-audio.js) are wav. Both are named
+ * by mediaName's hash, so the same sentence finds its clip either way.
+ */
+function shippedClipName(text, language) {
+  for (const extension of [CLIP_EXTENSION, 'mp3']) {
+    const name = mediaName(text, language, extension);
+    if (fs.existsSync(path.join(MEDIA_DIR, name))) return name;
+  }
+  return null;
 }
 
 /**
@@ -89,7 +104,7 @@ export function starterLanguages() {
       const list = data.phrases[code];
       return Array.isArray(list)
         && list.length > 0
-        && list.every((text) => fs.existsSync(path.join(MEDIA_DIR, mediaName(text, code))));
+        && list.every((text) => shippedClipName(text, code) !== null);
     })
     .sort();
 }
@@ -208,10 +223,10 @@ export async function buildStarterDeck({ ops, known, learning, deckName }) {
  * no change at all.
  */
 async function attachClip(ops, text, language) {
-  const name = mediaName(text, language);
+  const name = shippedClipName(text, language);
+  if (!name) return '';
   if (await ops.hasMedia(name)) return renderAudioReference(name, 'html');
   const source = path.join(MEDIA_DIR, name);
-  if (!fs.existsSync(source)) return '';
   const stored = await ops.addMedia(name, fs.readFileSync(source));
   return renderAudioReference(stored, 'html');
 }

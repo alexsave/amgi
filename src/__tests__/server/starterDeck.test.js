@@ -74,20 +74,34 @@ describe('the starter phrase data', () => {
 
 describe('what the app is told about the key', () => {
   const saved = process.env.OPENAI_API_KEY;
+  const savedGemini = process.env.GEMINI_API_KEY;
   afterEach(() => {
     if (saved === undefined) delete process.env.OPENAI_API_KEY;
     else process.env.OPENAI_API_KEY = saved;
+    if (savedGemini === undefined) delete process.env.GEMINI_API_KEY;
+    else process.env.GEMINI_API_KEY = savedGemini;
   });
 
-  it('reports only whether a key exists, never anything derived from it', () => {
+  it('reports only whether the keys exist, never anything derived from them', () => {
     process.env.OPENAI_API_KEY = 'sk-something-secret';
+    process.env.GEMINI_API_KEY = 'gemini-something-secret';
     expect(generationAvailable()).toBe(true);
     expect(JSON.stringify(starterState())).not.toContain('secret');
   });
 
-  it('does not offer the starter deck when a key is configured', () => {
+  it('does not offer the starter deck when both keys are configured', () => {
     process.env.OPENAI_API_KEY = 'sk-something';
+    process.env.GEMINI_API_KEY = 'gemini-something';
     expect(starterState().offered).toBe(false);
+  });
+
+  it('cannot make a card with only one of the two keys', () => {
+    process.env.OPENAI_API_KEY = 'sk-something';
+    delete process.env.GEMINI_API_KEY;
+    expect(generationAvailable()).toBe(false);
+    delete process.env.OPENAI_API_KEY;
+    process.env.GEMINI_API_KEY = 'gemini-something';
+    expect(generationAvailable()).toBe(false);
   });
 
   it('offers it when there is no key', () => {

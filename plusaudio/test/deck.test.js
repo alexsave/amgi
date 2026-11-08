@@ -143,7 +143,7 @@ describe('media names', () => {
     assert.equal(mediaName('안녕', 'ko'), mediaName('안녕', 'ko'));
     assert.notEqual(mediaName('안녕', 'ko'), mediaName('안녕하세요', 'ko'));
     assert.notEqual(mediaName('안녕', 'ko'), mediaName('안녕', 'ja'));
-    assert.match(mediaName('안녕', 'ko'), /^plusaudio-[0-9a-f]{20}\.mp3$/);
+    assert.match(mediaName('안녕', 'ko'), /^plusaudio-[0-9a-f]{20}\.wav$/);
   });
 
   it('recognises its own clips and the ones the 2025 scripts wrote', () => {
