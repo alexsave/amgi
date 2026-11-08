@@ -90,13 +90,16 @@ const watchdog = setTimeout(async () => {
   process.exit(1);
 }, 540000);
 const pageErrors = [];
+let writes = 0; // POST /api/anki/notes/bulk calls the page made
 b.onEvent = (d) => {
+  if (d.method === 'Network.requestWillBeSent' && d.params.request.url.endsWith('/api/anki/notes/bulk')) writes++;
   if (d.method === 'Runtime.exceptionThrown') pageErrors.push(d.params.exceptionDetails.exception?.description || d.params.exceptionDetails.text);
   if (d.method === 'Runtime.consoleAPICalled' && d.params.type === 'error') pageErrors.push(d.params.args.map((a) => a.value ?? a.description).join(' '));
 };
 try {
   await control('perMinute=1000&daily=0');
   await b.send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 900, deviceScaleFactor: 2, mobile: false });
+  await b.send('Network.enable');
   await seed(b);
   await goto(b, `${base}/decks`);
   await until(b, `document.querySelectorAll('.deck-item').length === 7`, 150);
@@ -114,13 +117,20 @@ try {
   await sleep(300);
   await shot(b, '30-one-card');
 
-  // 2. A paste: the marker dropped, "apple" already a card, two made.
-  await typeInto(b, '[Chorus]\napple\nbanana 1\ncherry 2');
-  check(await until(b, `!document.querySelector('.bulk-run') && document.querySelector('.card-form-go').textContent === 'Make 3 cards' && document.querySelector('#amgiCardInput').rows === 5`),
+  // 2. A paste: the marker dropped, a repeated line made once, the deck's own lines skipped on
+  // either side whatever their trailing punctuation ("apple!" is the cue "apple"; "5번 문장이에요" is
+  // apple's target), a line whose two sides come back the same flagged, the rows in the paste's
+  // order, and the finished cards written in one call.
+  await typeInto(b, '[Chorus]\napple!\nbanana 1\n5번 문장이에요\ncherry 2\nbanana 1\n9번 문장이에요.');
+  check(await until(b, `!document.querySelector('.bulk-run') && document.querySelector('.card-form-go').textContent === 'Make 5 cards' && document.querySelector('#amgiCardInput').rows === 8`),
     `a paste says how many cards, and the box grows (${await b.evaluate(`document.querySelector('.card-form-go').textContent + ' ' + document.querySelector('#amgiCardInput').rows`)})`);
+  writes = 0;
   await click(b, '.card-form-go');
-  check(await until(b, `${head} === 'Done: 2 added, 1 already in the deck'`, 300), `the run: ${await b.evaluate(head)}`);
-  check((await b.evaluate(states)).startsWith('skipped:apple'), `the deck's own line is skipped: ${await b.evaluate(states)}`);
+  check(await until(b, `${head} === 'Done: 3 added, 2 already in the deck'`, 300), `the run: ${await b.evaluate(head)}`);
+  const order = await b.evaluate(states);
+  check(order === 'skipped:apple! | done:1번 문장이에요. | skipped:5번 문장이에요 | done:2번 문장이에요. | done:9번 문장이에요.', `skips on both sides, in the paste's order: ${order}`);
+  check(await b.evaluate(`[...document.querySelectorAll('.bulk-run-cue')].at(-1).textContent`) === 'both sides came back the same - open it and fix the wording', 'a card the same on both sides is flagged');
+  check(writes === 1, `cards that finish together are written in one call (${writes})`);
   await sleep(300);
   await shot(b, '31-paste');
 

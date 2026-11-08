@@ -183,8 +183,10 @@ try {
   await sleep(500);
   await shot(b, '06-long-direct');
   await click(b, '.card-list-pager button:last-child');
-  check(await until(b, `document.querySelectorAll('.note-rows > li').length === 5 && document.querySelector('.card-list-pager small')?.textContent === '21–25'`),
-    `Next shows 21-25 (rows ${await b.evaluate("document.querySelectorAll('.note-rows > li').length")}, ${await b.evaluate("document.querySelector('.card-list-pager small')?.textContent")})`);
+  check(await until(b, `document.querySelectorAll('.note-rows > li').length === 6 && document.querySelector('.card-list-pager small')?.textContent === '21–26'`),
+    `Next shows 21-26 (rows ${await b.evaluate("document.querySelectorAll('.note-rows > li').length")}, ${await b.evaluate("document.querySelector('.card-list-pager small')?.textContent")})`);
+  check(await b.evaluate(`document.querySelector('.note-rows > li:last-child .note-row-noaudio')?.textContent`) === 'no audio yet',
+    'an amgi note without clips says so');
   await sleep(300);
   await shot(b, '07-long-page2');
   await goto(b, `${base}/decks`);
