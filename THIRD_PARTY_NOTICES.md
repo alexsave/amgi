@@ -12,7 +12,7 @@ Licensed under the MIT License; the full text is the LICENSE file in its reposit
 
 ## cbase
 
-The C backend platform the server is built on, included as a git submodule at `cbase/` (https://github.com/alexsave/cbase), pinned to its tag v0.1.2.
+The C backend platform the server is built on, included as a git submodule at `cbase/` (https://github.com/alexsave/cbase).
 Copyright (c) 2026 Alex Saveliev.
 Licensed under the MIT License; the full text is the LICENSE file at the root of its repository (https://github.com/alexsave/cbase/blob/main/LICENSE).
 
@@ -21,7 +21,7 @@ Licensed under the MIT License; the full text is the LICENSE file at the root of
 `server/build/amgi` links these system libraries, installed by Homebrew on macOS (they are not in this repository):
 
 - **SQLite** (https://sqlite.org), in the public domain (https://sqlite.org/copyright.html).
-- **ICU** 78 (https://icu.unicode.org), under the Unicode License v3 (https://www.unicode.org/license.txt).
+- **ICU** 78 (https://icu.unicode.org), under the Unicode License v3; the full text is ICU's LICENSE (https://github.com/unicode-org/icu/blob/main/LICENSE).
 - **OpenSSL** 3 (https://www.openssl.org), under the Apache License 2.0 (https://www.openssl.org/source/license.html).
 
 ## Heroicons
@@ -55,9 +55,7 @@ SOFTWARE.
 
 ## Anki
 
-`plusaudio/vendor/anki-src/` holds files copied unchanged from Anki (https://github.com/ankitects/anki) at tag 26.09.2, commit bb0dd6d1310afe290dea5e5a440400f851789936, each with a header naming its upstream path.
-Their own headers, where they carry one, are kept: "Copyright: Ankitects Pty Ltd and contributors" and "License: GNU AGPL, version 3 or later".
-A few short fragments of Anki's source are reproduced in `server/collection/notes.c` with a comment naming where they come from (the id allocation expression of `add.sql`, the base-91 alphabet of `rslib/src/notes/mod.rs`), under the same licence.
+A few short fragments of Anki's source are reproduced in `server/collection/notes.c` with a comment naming where they come from (the id allocation expression of `rslib/src/storage/note/add.sql` and `rslib/src/storage/card/add_card.sql`, the base-91 alphabet of `rslib/src/notes/mod.rs`), under Anki's licence, the GNU AGPL 3.0 or later (Copyright: Ankitects Pty Ltd and contributors).
 Anki's licence statement, from https://github.com/ankitects/anki/blob/bb0dd6d1310afe290dea5e5a440400f851789936/LICENSE:
 
 ```

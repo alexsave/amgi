@@ -4,6 +4,7 @@
 // saying so. A file gone, a licence text edited, or a package licence changed fails here.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -60,9 +61,24 @@ test('every submodule has its notice', () => {
   }
 });
 
-test('the libraries the server links are noticed, and the Anki fragments are where the notice says', () => {
+test('every library the server links is noticed, read off its link line', () => {
   const notices = read('THIRD_PARTY_NOTICES.md');
-  for (const lib of ['SQLite', 'ICU', 'OpenSSL']) assert.ok(notices.includes(`**${lib}**`), lib);
-  assert.match(notices, /fragments of Anki's source are reproduced in `server\/collection\/notes\.c`/);
-  assert.match(read('server/collection/notes.c'), /rslib\/src\/storage\/note\/add\.sql/);
+  // What build/amgi links (server/Makefile and cbase.mk's LDLIBS), as make spells it.
+  const line = execFileSync('make', ['-s', '-C', path.join(ROOT, 'server'), 'print-ldlibs'], { encoding: 'utf8' });
+  const libs = [...new Set([...line.matchAll(/(?:^|\s)-l(\S+)/g)].map((m) => m[1]))];
+  assert.ok(libs.length >= 3, `the libraries: ${libs.join(' ')}`);
+  // The C runtime's own (the system's libc carries them) need none; every other has its notice.
+  const OWN = new Set(['pthread', 'm']);
+  const NOTICE = { sqlite3: 'SQLite', ssl: 'OpenSSL', crypto: 'OpenSSL', icui18n: 'ICU', icuuc: 'ICU' };
+  for (const lib of libs) {
+    if (OWN.has(lib)) continue;
+    assert.ok(NOTICE[lib], `-l${lib} is linked and THIRD_PARTY_NOTICES.md has no notice for it`);
+    assert.ok(notices.includes(`**${NOTICE[lib]}**`), `${NOTICE[lib]} (-l${lib})`);
+  }
+});
+
+test('the Anki fragments are where the notice says', () => {
+  assert.match(read('THIRD_PARTY_NOTICES.md'), /fragments of Anki's source are reproduced in `server\/collection\/notes\.c`/);
+  const notes = read('server/collection/notes.c');
+  for (const src of ['rslib/src/storage/note/add.sql', 'rslib/src/storage/card/add_card.sql', 'rslib/src/notes/mod.rs']) assert.ok(notes.includes(src), src);
 });

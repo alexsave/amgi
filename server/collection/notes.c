@@ -10,8 +10,8 @@
 
 /* ---- ids.js ---- */
 /* Two fragments of Anki's own source (GNU AGPL 3.0 or later, Ankitects Pty Ltd and contributors;
- * THIRD_PARTY_NOTICES.md): the id allocation expression of rslib/src/storage/note/add.sql, and the
- * base-91 alphabet of rslib/src/notes/mod.rs. */
+ * THIRD_PARTY_NOTICES.md): the id allocation expression of rslib/src/storage/note/add.sql and
+ * rslib/src/storage/card/add_card.sql, and the base-91 alphabet of rslib/src/notes/mod.rs. */
 #define ID_EXPR(table) "(CASE WHEN ?1 IN (SELECT id FROM " table ") THEN (SELECT max(id) + 1 FROM " table ") ELSE ?1 END)"
 
 static const char BASE91[] =
