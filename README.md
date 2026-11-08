@@ -142,7 +142,6 @@ amgi's own JSON lives in one folder, `plusaudio/lib/json/`, behind one named fun
 
 - `plusaudio/lib/json/modelAnswer.js`: Gemini's structured answers are JSON text, and nothing else is offered ([plusaudio/ANSWER_FORMAT.md](plusaudio/ANSWER_FORMAT.md) says what was measured against the alternatives).
 - `plusaudio/lib/json/bridgeBody.js` and the add-on's `anki/addon/amgi_bridge/bridge_server.py` (leaving): the bridge protocol, which moves to a binary layout with a version check.
-- `src/server/anki/plusaudioCli.js` (leaving): the generator scripts' IPC channel, which Node serializes as JSON; it carries the rate gate's messages.
 - `plusaudio/lib/collection/decks.js`, `plusaudio/lib/collection/deck-remove.js`, `plusaudio/lib/collection/notes.js`, `plusaudio/lib/collection/notetypes.js`, `plusaudio/lib/deck.js`, `plusaudio/lib/package.js`: Anki's own formats (a schema 11 collection's `col` columns, the config table's values, an older `.apkg`'s media map), read and written as Anki defines them.
 
 See [ROADMAP.md](ROADMAP.md) for what is still open.

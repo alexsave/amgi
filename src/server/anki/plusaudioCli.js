@@ -28,7 +28,7 @@ import { fork } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { DAILY_CAP_EXIT, RATE_LIMITED_EXIT, parseRetryAfter } from 'plusaudio/lib/cliExit';
-import { serveGate } from 'plusaudio/lib/ipcGate';
+import { FORK_IPC_OPTIONS, serveGate } from 'plusaudio/lib/ipcGate';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const PLUSAUDIO_DIR = path.join(HERE, '..', '..', '..', 'plusaudio');
@@ -68,6 +68,7 @@ function forkScript(script, args) {
       cwd: PLUSAUDIO_DIR,
       execPath: process.execPath,
       stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
+      ...FORK_IPC_OPTIONS,
     });
     serveGate(child);
     const stdout = [];
