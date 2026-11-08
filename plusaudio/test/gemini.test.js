@@ -260,6 +260,25 @@ test('requests share one connection', async () => {
   await gemini.close();
 });
 
+test('many requests in flight at once on one connection raise no listener warning', async () => {
+  // Each call used to add its own session 'error' listener, and Node warns at the eleventh.
+  const gemini = await fakeGemini({ transcribe: 'ok' });
+  const client = clientFor(gemini.baseUrl);
+  const audio = { contents: [{ parts: [{ inlineData: { mimeType: 'audio/wav', data: WAV } }] }] };
+  const warnings = [];
+  const onWarning = (warning) => warnings.push(warning.name);
+  process.on('warning', onWarning);
+  try {
+    await Promise.all(Array.from({ length: 16 }, () => client.generateContent('m', audio)));
+    await new Promise((resolve) => setImmediate(resolve));
+  } finally {
+    process.off('warning', onWarning);
+    await gemini.close();
+  }
+  assert.equal(gemini.requests.length, 16);
+  assert.deepEqual(warnings, []);
+});
+
 test('a process that made a request exits as soon as its work is done, without waiting out the idle connection', async () => {
   const gemini = await fakeGemini({ speech: wavAnswer(), text: textAnswer('{}') });
   const child = `
