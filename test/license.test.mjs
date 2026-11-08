@@ -49,3 +49,20 @@ test('the starter clips carry their notice: how they were made, and what reuse i
   assert.ok(fs.existsSync(path.join(ROOT, 'anki', 'starter', 'voices.tsv')), 'the voices file it names');
   assert.match(read('THIRD_PARTY_NOTICES.md'), /`anki\/starter\/NOTICE\.md`/);
 });
+
+test('every submodule has its notice', () => {
+  const notices = read('THIRD_PARTY_NOTICES.md');
+  const paths = [...read('.gitmodules').matchAll(/^\s*path = (.+)$/gm)].map((m) => m[1].trim());
+  assert.ok(paths.length >= 2, `the submodules: ${paths.join(', ')}`);
+  for (const p of paths) {
+    assert.match(notices, new RegExp(`\\n## ${p}\\n`), `${p}: a section of its own`);
+    assert.ok(notices.includes(`\`${p}/\``), `${p}: where it is included`);
+  }
+});
+
+test('the libraries the server links are noticed, and the Anki fragments are where the notice says', () => {
+  const notices = read('THIRD_PARTY_NOTICES.md');
+  for (const lib of ['SQLite', 'ICU', 'OpenSSL']) assert.ok(notices.includes(`**${lib}**`), lib);
+  assert.match(notices, /fragments of Anki's source are reproduced in `server\/collection\/notes\.c`/);
+  assert.match(read('server/collection/notes.c'), /rslib\/src\/storage\/note\/add\.sql/);
+});
