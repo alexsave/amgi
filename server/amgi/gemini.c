@@ -15,6 +15,7 @@
 #include "messages.h"
 #include "net/grpc.h"
 #include "util/err.h"
+#include "util/log.h"
 
 #define GEMINI_API_BASE "https://generativelanguage.googleapis.com"
 #define GENERATE_CONTENT_PATH "/google.ai.generativelanguage.v1beta.GenerativeService/GenerateContent"
@@ -305,6 +306,7 @@ str gem_response_text(arena *a, const gem_response *r) {
 
 /* ---- google.rpc.Status details (geminiWire.ts statusDetails) ---- */
 typedef struct {
+  char quota_id[128]; /* the first violation's, for the log */
   int has_daily;
   int free_tier, has_limit;
   double limit;
@@ -348,9 +350,11 @@ static void read_details(const unsigned char *p, size_t n, details *d) {
           if (w.field == 4 && w.wire == 2) metric = (str){(const char *)w.p, w.n};
           if (w.field == 7 && w.wire == 0) has_value = 1, qv = w.v;
         }
+        if (!d->quota_id[0]) snprintf(d->quota_id, sizeof d->quota_id, "%.*s", (int)quota_id.n, quota_id.p);
         /* the first violation of a per-day quota */
         if (icontains(quota_id, "PerDay") || icontains(metric, "per_day") || icontains(metric, "PerDay")) {
           found_daily = 1;
+          snprintf(d->quota_id, sizeof d->quota_id, "%.*s", (int)quota_id.n, quota_id.p);
           d->has_daily = 1;
           d->free_tier = icontains(quota_id, "FreeTier");
           d->has_limit = has_value && qv > 0;
@@ -401,6 +405,21 @@ str gem_daily_quota_message(arena *a, const char *model, int free_tier, int has_
   str out = buf_str(a, &b);
   buf_free(&b);
   return out;
+}
+
+/* The log line for a 429 from Gemini (info level, under the default warn): which model, which quota
+ * (daily or per-minute, and the quota id Google named), Google's retryDelay, and the per-minute cap
+ * the gate learned after it. Never the key and never a header: none is passed in. */
+size_t gem_quota_line(char *out, size_t cap, const char *model, const char *quota_id, int daily, int has_delay,
+                      int64_t delay_ms, int64_t learned_cap) {
+  char delay[32], learned[32];
+  if (has_delay) snprintf(delay, sizeof delay, "%lld ms", (long long)delay_ms);
+  else snprintf(delay, sizeof delay, "none");
+  if (learned_cap == GATE_NO_CAP) snprintf(learned, sizeof learned, "none yet");
+  else snprintf(learned, sizeof learned, "%lld a minute", (long long)learned_cap);
+  int n = snprintf(out, cap, "429 from %s: %s quota (%s), retryDelay %s, learned cap %s", model, daily ? "daily" : "per-minute",
+                   quota_id && *quota_id ? quota_id : "no quota id", delay, learned);
+  return n < 0 ? 0 : (size_t)n;
 }
 
 /* ---- the channel and the call ---- */
@@ -518,12 +537,15 @@ int gem_generate(arena *a, const char *model, const gem_request *req, gem_respon
     if (r.code == RESOURCE_EXHAUSTED || (r.code == -1 && r.http_status == 429)) {
       details d;
       read_details(r.details.p, r.details.len, &d);
+      if (!d.has_daily) gate_record(g_gate, model, 1, d.has_delay ? d.delay_ms : -1);
+      char line[400];
+      gem_quota_line(line, sizeof line, model, d.quota_id, d.has_daily, d.has_delay, d.delay_ms, gate_inspect(g_gate, model).cap);
+      CB_INFO("gemini", "%s", line);
       if (d.has_daily) {
         str m = gem_daily_quota_message(a, model, d.free_tier, d.has_limit, d.limit, d.has_delay, d.delay_ms);
         gem_fail(a, e, GE_DAILY, "%.*s", (int)m.n, m.p);
         break;
       }
-      gate_record(g_gate, model, 1, d.has_delay ? d.delay_ms : -1);
       continue;
     }
     if (r.code == -1) {

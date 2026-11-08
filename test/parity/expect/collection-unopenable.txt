@@ -21,10 +21,10 @@ err unsupported-schema collection%20is%20unsupported-schema
 > open junk.anki2
 ok
 > status
-err error file%20is%20not%20a%20database
+ok damaged !
 > listDecks
-err error file%20is%20not%20a%20database
+err damaged the%20collection%20file%20is%20damaged%3B%20amgi%20did%20not%20open%20it
 > createDeck x
-err error file%20is%20not%20a%20database
+err damaged the%20collection%20file%20is%20damaged%3B%20amgi%20did%20not%20open%20it
 > addNote 1 1 [x,y] [] ! !
-err error file%20is%20not%20a%20database
+err damaged the%20collection%20file%20is%20damaged%3B%20amgi%20did%20not%20open%20it
