@@ -16,7 +16,7 @@ const {
   pcmToWav,
   spokenInput,
 } = require('../lib/cardGeneration/geminiSpeech.ts');
-const { GeminiUnavailableError, createGeminiClient, dailyQuotaMessage } = require('../lib/cardGeneration/gemini.ts');
+const { GeminiRateLimitError, GeminiUnavailableError, createGeminiClient, dailyQuotaMessage, isRateLimited } = require('../lib/cardGeneration/gemini.ts');
 const { createRandom } = require('../lib/random');
 
 const MODEL = 'gemini-3.8-flash-tts';
@@ -207,7 +207,7 @@ test('a per-minute limit is waited out for as long as Gemini asks, then retried 
   assert.deepEqual(calls[2].body, calls[0].body);
 });
 
-test('a per-minute limit that would wait past the cap fails with a message instead of sleeping', async () => {
+test('a per-minute limit that would wait past the cap is handed back typed, with how long to wait', async () => {
   const { speech, sleeps, calls } = speechWith([
     quota429('GenerateRequestsPerMinutePerProjectPerModel-FreeTier', '20s'),
     quota429('GenerateRequestsPerMinutePerProjectPerModel-FreeTier', '20s'),
@@ -215,10 +215,38 @@ test('a per-minute limit that would wait past the cap fails with a message inste
 
   const error = await speech.synthesize(REQUEST).then(() => null, (e) => e);
 
-  assert.ok(error instanceof GeminiUnavailableError);
-  assert.match(error.message, /per minute.*wait 20s/);
+  assert.ok(error instanceof GeminiRateLimitError);
+  assert.ok(!(error instanceof GeminiUnavailableError), 'not fatal: it passes');
+  assert.notEqual(error.fatal, true);
+  assert.equal(error.rateLimited, true);
+  assert.equal(error.retryAfterMs, 20000);
+  assert.ok(isRateLimited(error));
+  assert.equal(error.message, `Gemini is limiting how many requests ${MODEL} takes per minute and asked to wait 20s.`);
   assert.deepEqual(sleeps, [20000], 'the first wait fits in 30 s, the second would not');
   assert.equal(calls.length, 2);
+});
+
+test('a single long per-minute wait (49 s, as the TTS model asked live) is handed back at once, not slept through', async () => {
+  const { speech, sleeps, calls } = speechWith([quota429('GenerateRequestsPerMinutePerProjectPerModel', '49.2s')]);
+
+  const error = await speech.synthesize(REQUEST).then(() => null, (e) => e);
+
+  assert.ok(error instanceof GeminiRateLimitError);
+  assert.equal(error.retryAfterMs, 49200);
+  assert.deepEqual(sleeps, []);
+  assert.equal(calls.length, 1);
+});
+
+test('the daily cap is still fatal and immediate, never a rate limit to wait out', async () => {
+  const { speech, sleeps } = speechWith([quota429('GenerateRequestsPerDayPerProjectPerModel', '20000s')]);
+
+  const error = await speech.synthesize(REQUEST).then(() => null, (e) => e);
+
+  assert.ok(error instanceof GeminiUnavailableError);
+  assert.equal(error.fatal, true);
+  assert.equal(isRateLimited(error), false);
+  assert.match(error.message, /daily limit/);
+  assert.deepEqual(sleeps, []);
 });
 
 test('a 429 with no details is treated as a short rate limit', async () => {
