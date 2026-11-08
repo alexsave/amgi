@@ -10,9 +10,9 @@
 // therefore built to the standard the app already holds itself to, and there is
 // only one place to improve when that standard moves.
 //
-// This module used to live in supabase/functions/_shared/, back when a hosted
-// edge function was the other runtime that needed it. That backend is retired
-// (see archives/supabase-2026/); the policy moved here, into plusaudio's own
+// This module used to live beside a hosted edge function, the other runtime
+// that needed it. That backend is retired (it is in git history); the policy
+// moved here, into plusaudio's own
 // package, because plusaudio/lib/generator.js and plusaudio/test/generator.test.js
 // are now its only importers.
 //
