@@ -35,6 +35,7 @@ const RECORD = process.env.PARITY_RECORD === '1';
 const IMPL = process.env.AMGI_COLLECTION_IMPL;
 
 import { Impl } from './impl-process.mjs';
+import { C_EXPECT, checkDiffs } from './c-diffs.mjs';
 
 /** A thrown answer, shaped as directClient's errors are (kind, or an HTTP status). */
 function errorOf(answer) {
@@ -444,14 +445,28 @@ function expectFile(name) {
   return path.join(HERE, 'expect', `${name}.txt`);
 }
 
-/** Compare against the recording (or write it), line by line, so a failure shows where. */
+/**
+ * Compare against the recording (or write it), line by line, so a failure shows where. Under C, a
+ * recording's C twin (test/parity/c-diffs.mjs) is the one compared, where there is one;
+ * PARITY_RECORD_C=1 writes the twin, and only when C's answer differs from Node's.
+ */
 function check(name, text) {
-  const file = expectFile(name);
+  const node = expectFile(name);
+  const twin = path.join(C_EXPECT, `${name}.txt`);
   if (RECORD) {
-    fs.mkdirSync(path.dirname(file), { recursive: true });
-    fs.writeFileSync(file, text);
+    fs.mkdirSync(path.dirname(node), { recursive: true });
+    fs.writeFileSync(node, text);
     return;
   }
+  if (IMPL && process.env.PARITY_RECORD_C === '1') {
+    if (fs.existsSync(node) && fs.readFileSync(node, 'utf8') === text) fs.rmSync(twin, { force: true });
+    else {
+      fs.mkdirSync(C_EXPECT, { recursive: true });
+      fs.writeFileSync(twin, text);
+    }
+    return;
+  }
+  const file = IMPL && fs.existsSync(twin) ? twin : node;
   assert.ok(fs.existsSync(file), `${file} is recorded (PARITY_RECORD=1 from the Node implementation)`);
   const want = fs.readFileSync(file, 'utf8').split('\n');
   const got = text.split('\n');
@@ -568,6 +583,11 @@ col.close(downgrade=${schema === '11' ? 'True' : 'False'})
     });
   });
 }
+
+test('the C recordings differ from Node\'s only where test/parity/C_DIFFS.txt names, each case by name', () => {
+  const problems = checkDiffs();
+  assert.deepEqual(problems, [], `\n${problems.join('\n\n')}\n`);
+});
 
 describe(`collection parity: collections that cannot be opened${IMPL ? ` (${path.basename(IMPL)})` : ' (Node)'}`, () => {
   test('missing, not a collection, and an unsupported schema', async () => {

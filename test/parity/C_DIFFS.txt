@@ -1,0 +1,11 @@
+# Where the C collection core answers differently from the Node recording, on purpose: each a fix
+# of a PR #30 review finding, made in C alone because Node is frozen (the owner's call,
+# 2026-11-08). test/parity/c-diffs.mjs says the format; collection.test.mjs fails on any
+# difference between a C recording (expect/c/) and Node's that is not named here, and on any
+# entry here that is not found. At L4 the C recordings become the contract and this file goes.
+
+== hasMedia refuses a name readMedia refuses: empty, ".", "..", a separator or a NUL (finding 8). Node's existsSync(join(dir, "")) is the folder itself, so it said yes.
+@ collection-18-transcript collection-11-transcript
+  > hasMedia ~
+- ok 1
++ ok 0

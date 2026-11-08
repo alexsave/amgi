@@ -64,9 +64,9 @@ build/difftest: $(COL_SRC) test/difftest.c $(COL_HDR)
 	$(CC) $(NATIVE_CFLAGS) $(NATIVE_SAN) -o $@ $(COL_SRC) test/difftest.c $(NATIVE_LIBS)
 
 # Tests of the C itself (server/test/unit.c).
-build/unit: $(COL_SRC) test/unit.c $(COL_HDR)
+build/unit: $(COL_SRC) collection/wire_host.c test/unit.c $(COL_HDR)
 	@mkdir -p $(@D)
-	$(CC) $(NATIVE_CFLAGS) $(NATIVE_SAN) -o $@ $(COL_SRC) test/unit.c $(NATIVE_LIBS)
+	$(CC) $(NATIVE_CFLAGS) $(NATIVE_SAN) -I../ui/wire -o $@ $(COL_SRC) collection/wire_host.c test/unit.c $(NATIVE_LIBS)
 
 check-collection: build/unit
 	build/unit $(CURDIR)/..

@@ -262,7 +262,9 @@ static int word(parser *p, const char *w) {
 static aj *parse_value(parser *p) {
   ws(p);
   if (p->at >= p->t.n) return fail(p, "Unexpected end of JSON input");
-  if (++p->depth > 2000) return fail(p, "JSON nested too deeply");
+  /* Anki's own JSON nests a few levels; 256 keeps the recursion well inside a server thread's
+   * stack (512 KiB by default on macOS), which unit.c checks on a 256 KiB one. */
+  if (++p->depth > 256) return fail(p, "JSON nested too deeply");
   char c = p->t.p[p->at];
   aj *v = NULL;
   if (c == '{') {
