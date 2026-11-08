@@ -10,13 +10,13 @@ One base folder per machine ([docs](https://docs.ankiweb.net/files.html#file-loc
 | Windows | `%APPDATA%\Anki2` |
 | Linux | `~/.local/share/Anki2` (or `$XDG_DATA_HOME/Anki2`) |
 
-Each profile is a subfolder (`User 1`, ...) holding `collection.anki2` (SQLite), the `collection.media/` folder, `collection.media.db2` (the media sync tracker) and `backups/`. Set `ANKI_BASE` to point the tool at a different base folder.
+Each profile is a subfolder (`User 1`, ...) holding `collection.anki2` (SQLite), the `collection.media/` folder, `collection.media.db2` (the media sync tracker) and `backups/`. amgi's `baseDirOverride` setting points it at a different base folder.
 
 ## Locking
 
 Anki opens `collection.anki2` with `locking_mode=exclusive`, WAL and a zero busy timeout ([rslib/src/storage/sqlite.rs](https://github.com/ankitects/anki/blob/main/rslib/src/storage/sqlite.rs)). While a profile is open, a second process **cannot even read** the file: every attempt fails at once with `database is locked`, and waiting does not help.
 The reverse is also true: a process that leaves the file open stops Anki from opening the profile ("Anki already open, or media currently syncing").
-So open, do one unit of work, and close. This tool does that on every call, closing on error paths too.
+So open, do one unit of work, and close. amgi's direct transport does that on every request, closing on error paths too.
 A profile that is `locked` while Anki looks closed usually means Anki is still running in the background, or a crashed Python process still has the file open.
 
 ## Schemas
@@ -53,13 +53,4 @@ AnkiWeb sync is incremental, using `usn`. Some changes force a **full sync**, wh
 
 ## Backups
 
-Anki makes rolling backups only while it is open, plus one when a profile closes ([rslib/src/collection/backup.rs](https://github.com/ankitects/anki/blob/main/rslib/src/collection/backup.rs)). Direct-mode edits happen while it is closed, so nothing else covers them. The tool calls Anki's own `create_backup`, which writes a `.colpkg` into the profile's `backups/` folder. Restore it with File > Switch Profile > Open Backup.
-
-## AnkiConnect quirks
-
-- Default endpoint `http://127.0.0.1:8765`. Every request is `{"action", "version": 6, "params"}`, and every reply is `{"result", "error"}`. If the user set an API key, export `ANKICONNECT_KEY`.
-- `updateNoteFields` and `updateNote` can fail to save a note that is open in the Browse window's editor. Ask the user to select a different note in Browse, then retry.
-- `addNote` refuses duplicates unless `allowDuplicate` is set, and `addNotes` fails or returns `null` for the whole batch in ways that vary between versions. The tool sends one `addNote` per note inside a single `multi` request, so each note gets its own error. `canAddNotesWithErrorDetail` is missing from some builds.
-- `addNote` and `updateNoteFields` **silently ignore a field name the note type lacks**, and match names case-insensitively. The tool checks names exactly before sending.
-- There is no deck-rename action. Moving cards with `changeDeck` is not a rename, because it leaves the old deck and its options behind.
-- The archived GitHub copy of AnkiConnect (`FooSoft/anki-connect`, superseded by the AnkiWeb release) picks a new note's deck by setting the note type's legacy `did`. Modern Anki ignores that, so `addNote` reports success while the cards land in the last-used deck. Seen on Anki 26.09. The tool checks each added note's cards with `cardsInfo` and moves strays with `changeDeck`. That copy's `cardsInfo` also omits the template name.
+Anki makes rolling backups only while it is open, plus one when a profile closes ([rslib/src/collection/backup.rs](https://github.com/ankitects/anki/blob/main/rslib/src/collection/backup.rs)). Edits with Anki closed happen outside that, so amgi's direct transport copies `collection.anki2` into `amgi-collection-backups/` next to it before writing (`plusaudio/lib/collection/backup.js`).
