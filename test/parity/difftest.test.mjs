@@ -16,7 +16,7 @@ import { looksRomanized } from '../../plusaudio/lib/cardGeneration/cardText.ts';
 
 const require = createRequire(import.meta.url);
 const { ankiFields, fieldChecksum, renderAudioReference, stripHtmlPreservingMedia } = require('../../plusaudio/lib/deck.js');
-const { foldKey, normalizeComponent } = require('../../plusaudio/lib/collection/decks.js');
+const { normalizeComponent } = require('../../plusaudio/lib/collection/decks.js');
 const { ordinalsForNewNote, templateRendersNonEmpty } = require('../../plusaudio/lib/collection/template.js');
 const { createRandom } = require('../../plusaudio/lib/random.js');
 
@@ -55,7 +55,8 @@ const RULES = {
   lower: () => { const s = text(); return [[s], () => s.toLowerCase()]; },
   nfc: () => { const s = text(); return [[s], () => s.normalize('NFC')]; },
   trim: () => { const s = text(4); return [[s], () => s.trim()]; },
-  fold: () => { const s = text(); return [[s], () => foldKey(s)]; },
+  // (No "fold": C folds deck names as unicase does, full case folding, where foldKey lower-cases;
+  // a fix, not parity. server/test/unit.c holds it to Anki's answers.)
   strip: () => { const s = text(12); return [[s], () => stripHtmlPreservingMedia(s)]; },
   csum: () => { const s = text(10); return [[s], () => String(fieldChecksum(s))]; },
   ankifield: () => { const s = text(); return [[s], () => ankiFields([s])[0]]; },

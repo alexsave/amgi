@@ -126,20 +126,13 @@ void conn_close(conn *k) {
 int unicase_cmp(void *ctx, int na, const void *a, int nb, const void *b) {
   (void)ctx;
   arena ar = {0};
-  int32_t la, lb;
-  UErrorCode e = U_ZERO_ERROR;
-  u_strFromUTF8WithSub(NULL, 0, &la, a, na, 0xfffd, NULL, &e);
-  e = U_ZERO_ERROR;
-  u_strFromUTF8WithSub(NULL, 0, &lb, b, nb, 0xfffd, NULL, &e);
-  UChar *ua = ar_alloc(&ar, sizeof(UChar) * ((size_t)la + 1)), *ub = ar_alloc(&ar, sizeof(UChar) * ((size_t)lb + 1));
-  e = U_ZERO_ERROR;
-  u_strFromUTF8WithSub(ua, la + 1, &la, a, na, 0xfffd, NULL, &e);
-  e = U_ZERO_ERROR;
-  u_strFromUTF8WithSub(ub, lb + 1, &lb, b, nb, 0xfffd, NULL, &e);
-  e = U_ZERO_ERROR;
-  int r = u_strCaseCompare(ua, la, ub, lb, U_FOLD_CASE_DEFAULT | U_COMPARE_CODE_POINT_ORDER, &e);
+  uint32_t *fa, *fb;
+  size_t la = unicase_fold32(&ar, (str){a, (size_t)na}, &fa), lb = unicase_fold32(&ar, (str){b, (size_t)nb}, &fb);
+  int r = 0;
+  for (size_t i = 0; i < la && i < lb && !r; i++) r = fa[i] < fb[i] ? -1 : fa[i] > fb[i];
+  if (!r) r = la < lb ? -1 : la > lb;
   ar_free(&ar);
-  return r < 0 ? -1 : r > 0;
+  return r;
 }
 
 /* ---- openCollection ---- */
@@ -197,55 +190,4 @@ int conn_open(cx *c, str path, conn *out, int *schema) {
   }
   if (o.result != OPEN_OK) conn_close(out);
   return o.result;
-}
-
-/* ---- relaxing COLLATE unicase for the length of fn (relaxed-read.js, decks.js) ---- */
-typedef struct { str name, sql; } original;
-typedef struct { conn *k; void (*fn)(cx *, conn *, void *); void *arg; } relaxed_args;
-static void relaxed_body(cx *c, void *arg) {
-  relaxed_args *r = arg;
-  r->fn(c, r->k, r->arg);
-}
-
-void with_relaxed(cx *c, conn *k, const char *const *tables, size_t n, void (*fn)(cx *, conn *, void *), void *arg) {
-  /* Captured first and restored verbatim, as the JavaScript does. */
-  buf sql = {0};
-  buf_c(&sql, "SELECT name, sql FROM sqlite_master WHERE name IN (");
-  for (size_t i = 0; i < n; i++) buf_c(&sql, i ? ",?" : "?");
-  buf_c(&sql, ")");
-  sqlite3_stmt *st = q_prep(c, k, str_z(c->a, (str){sql.p, sql.n}));
-  buf_free(&sql);
-  for (size_t i = 0; i < n; i++) q_text(st, (int)i + 1, str_c(tables[i]));
-  original *orig = ar_alloc(c->a, sizeof(original) * (n + 1));
-  size_t no = 0;
-  while (q_step(c, k, st)) {
-    orig[no].name = q_col_text(c, st, 0);
-    orig[no].sql = q_col_text(c, st, 1);
-    no++;
-  }
-  q_done(st);
-  sqlite3_db_config(k->db, SQLITE_DBCONFIG_DEFENSIVE, 0, NULL);
-  conn_exec(c, k, "PRAGMA writable_schema = ON");
-  sqlite3_stmt *relax =
-    q_prep(c, k, "UPDATE sqlite_master SET sql = replace(sql, ' COLLATE unicase', ' COLLATE NOCASE') WHERE name = ?");
-  for (size_t i = 0; i < no; i++) {
-    q_text(relax, 1, orig[i].name);
-    q_run(c, k, relax);
-  }
-  conn_exec(c, k, "PRAGMA writable_schema = RESET");
-  relaxed_args r = {k, fn, arg};
-  int failed = cx_try(c, relaxed_body, &r);
-  col_err saved = c->err;
-  conn_exec(c, k, "PRAGMA writable_schema = ON");
-  sqlite3_stmt *restore = q_prep(c, k, "UPDATE sqlite_master SET sql = ? WHERE name = ?");
-  for (size_t i = 0; i < no; i++) {
-    q_text(restore, 1, orig[i].sql);
-    q_text(restore, 2, orig[i].name);
-    q_run(c, k, restore);
-  }
-  conn_exec(c, k, "PRAGMA writable_schema = RESET");
-  if (failed) {
-    c->err = saved;
-    cx_rethrow(c);
-  }
 }
