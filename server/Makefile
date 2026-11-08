@@ -68,8 +68,14 @@ build/unit: $(COL_SRC) collection/wire_host.c test/unit.c $(COL_HDR)
 	@mkdir -p $(@D)
 	$(CC) $(NATIVE_CFLAGS) $(NATIVE_SAN) -I../ui/wire -o $@ $(COL_SRC) collection/wire_host.c test/unit.c $(NATIVE_LIBS)
 
-check-collection: build/unit
+# Tests of the backup (server/test/backup_unit.c), which includes collection/backup.c to reach its fault points.
+build/backup_unit: $(COL_SRC) test/backup_unit.c $(COL_HDR)
+	@mkdir -p $(@D)
+	$(CC) $(NATIVE_CFLAGS) $(NATIVE_SAN) -o $@ $(filter-out collection/backup.c,$(COL_SRC)) test/backup_unit.c $(NATIVE_LIBS)
+
+check-collection: build/unit build/backup_unit
 	build/unit $(CURDIR)/..
+	build/backup_unit $(CURDIR)/..
 
 # The collection CLI under ASan and UBSan, linked with cbase's sanitized build.
 $(call prog,build/asan,build/obj/asan,build/obj/asan-extra,collection_cli,collection/cli.c,ASAN_CB_CFLAGS)
