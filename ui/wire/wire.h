@@ -8,10 +8,8 @@
  *     request body into a JS object for the handler, finding fields by the schema's key names.
  * So a field's order, width and name are written down once, in wire.c's table.
  *
- * A client asks for it with "Accept: application/x-amgi-wire" and sends bodies as
- * "Content-Type: application/x-amgi-wire". Without those the server speaks the JSON API that
- * skills/amgi documents for LLMs and scripts: a recorded exception for that outside surface only
- * (README, "JSON that remains and why"). The app never uses it.
+ * The server answers every /api/anki request in it, as "application/x-amgi-wire", and takes a
+ * request body only as that type (415 otherwise). There is no other format on this path.
  *
  * Bytes: little-endian. A string is a u32 byte count and that many bytes of UTF-8. A list is a u32
  * count and its items. A message is the u32 WIRE_MAGIC, a u8 kind, then the kind's fields. */
