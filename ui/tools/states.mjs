@@ -11,6 +11,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
+import http from 'node:http';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { seed } from './seed.mjs';
@@ -61,7 +62,7 @@ async function goto(b, url) {
 async function open(settings) {
   const b = await launch(['--hide-scrollbars']);
   await b.send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 900, deviceScaleFactor: 2, mobile: false });
-  await seed(b, base, { baseDir: settings.base, collection: settings.collection || '' });
+  await seed(b, base, { baseDir: settings.base, collection: settings.collection || '', ...settings.bridge });
   return b;
 }
 const shot = async (b, file) => {
@@ -154,6 +155,30 @@ try {
   await shot(b, '44-no-folder');
   await b.close();
   b = null;
+
+  // 6. Anki open with an amgi add-on from an older amgi: one that still speaks JSON, as every
+  // add-on before the binary bridge did (a stand-in on a free port, answering as it would).
+  const old = http.createServer((req, res) => {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end('{"profileOpen":true,"collectionOpen":true}');
+  });
+  await new Promise((resolve) => old.listen(0, '127.0.0.1', resolve));
+  try {
+    const held = folder('state-outdated', 'all');
+    const heldCollection = path.join(held, 'User 1', 'collection.anki2');
+    b = await open({ base: held, collection: heldCollection,
+      bridge: { bridgeUrl: `http://127.0.0.1:${old.address().port}`, bridgeToken: 'old-token' } });
+    await goto(b, `${base}/decks`);
+    check(await until(b, `${badge} === 'Anki: update amgi'`, 150), 'outdated add-on: the badge says to update');
+    const how = await until(b, `document.querySelector('.empty-deck-state p')?.textContent`, 100);
+    check(/Press Install into Anki again \(Settings\), then restart Anki/.test(how || ''), `outdated add-on: the list's place says how (${how})`);
+    await sleep(300);
+    await shot(b, '45-addon-outdated');
+    await b.close();
+    b = null;
+  } finally {
+    await new Promise((resolve) => old.close(resolve));
+  }
 } catch (error) {
   failures.push(`the drive stopped: ${error.stack || error}`);
   console.log(`FAIL the drive stopped: ${error.stack || error}`);

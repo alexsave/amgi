@@ -133,7 +133,12 @@ That is what this bridge is: a small local HTTP server, run by this add-on, that
 
 ### What it exposes
 
-One endpoint per capability the Node layer exposes, deliberately matching its vocabulary so the two are interchangeable (see "Cross-transport parity" below):
+One endpoint per capability the Node layer exposes, deliberately matching its vocabulary so the two are interchangeable (see "Cross-transport parity" below).
+The bodies are not JSON: every request body and every answer is a message in amgi's wire format (`ui/wire/wire.h`), `Content-Type: application/x-amgi-wire`.
+The shapes below are its fields, by name; the layouts themselves are written down once, in `ui/wire/wire.c`'s schema table (the `b_*` kinds and the request kinds `q_deck_name`, `q_note`, `q_notes`, `q_note_update`).
+`ui/build.sh` writes that table into this add-on as `wire_schema.py`, and `bridge_wire.py` reads and writes messages with it, so the add-on holds no layout of its own.
+
+| Method & path | Node equivalent (`plusaudio/lib/collection/index.js`) | Notes |
 
 | Method & path | Node equivalent (`plusaudio/lib/collection/index.js`) | Notes |
 | --- | --- | --- |
@@ -150,11 +155,19 @@ One endpoint per capability the Node layer exposes, deliberately matching its vo
 | `PATCH /decks/:id` `{name}` | `Collection.renameDeck(id, name)` | Through `col.decks.rename`, subdecks included. Response is `{id, name}`; an unknown deck is a 404. |
 | `GET /decks/:id` | `Collection.deckRemovalSummary(id)` | What deleting the deck would take, changing nothing: `{id, name, subdecks, cards, notes}`. The cards are those in its normal decks or borrowed from them by a filtered deck; the notes are those left with no card. A deck that is not there is a 404. |
 | `DELETE /decks/:id` | `Collection.removeDeck(id)` | Through `col.decks.remove`: the deck, its subdecks, their cards, the notes left with no card, a filtered subdeck's borrowed cards sent home, and graves for every deletion, as one undo step. Response is `{id, name, decks, cards, notes}`. The Default deck (id 1) is a 400, since Anki would only empty it; a deck that is not there is a 404. |
-| `POST /media` `{filename, dataBase64}` | `Collection.addMedia(filename, data)` | Body carries the file as base64 since JSON has no binary type; response is `{filename}`, the name Anki (or Node) actually stored it under. |
+| `POST /media` `{filename, data}` | `Collection.addMedia(filename, data)` | The file's own bytes; response is `{filename}`, the name Anki (or Node) actually stored it under. |
+| `GET /media/:filename/data` | `Collection.readMedia(filename)` | Response is `{found, data}`, the file's own bytes. |
 | `GET /media/:filename` | `Collection.hasMedia(filename)` | Response is `{exists: boolean}`. The resumability check a clip generator makes before calling out to a real TTS API, so re-running audio generation over a deck never regenerates a clip it already made. |
 
-Every response body is the bare JSON payload above (or `{"error": "..."}` with a 4xx/5xx status on failure).
+Every answer is the payload above as its kind's message (or a `b_error` message, `{error}`, with a 4xx/5xx status on failure).
 There is no `{status: 'ok', result}` envelope the way the Node layer's functions return internally, since HTTP's own status code already carries that.
+
+### The protocol version
+
+Every request carries `X-Amgi-Bridge-Protocol: <n>` and every answer names this add-on's own (`WIRE_BRIDGE_PROTOCOL` in `ui/wire/wire.h`).
+A request in another protocol, or naming none, is refused with a 409 before it is routed, saying to press **Install into Anki** again and restart Anki: the add-on running in Anki is from another amgi, so its layouts may not be the server's.
+The server treats an answer in another protocol the same way, and an add-on old enough to speak JSON (which names none) too: the page shows "Anki: update amgi" with the same instruction.
+A refused token or origin from such an old add-on says nothing about its version and is not called outdated.
 
 The one deliberate behavioural difference worth calling out beyond the table: **every mutation here goes through Anki's own API** (`col.decks.id_for_name`/`add_deck_legacy`, `col.add_note`, `col.update_note`, `col.media.write_data`) rather than hand-rolled SQL.
 `plusaudio/lib/collection/` computes `usn`, `mod`, `sfld` and `csum` itself because it is talking to a *closed* file with nothing else to do that bookkeeping.
@@ -235,7 +248,7 @@ See that file's own module docstring for the full reasoning, and "Testing" below
   `../../plusaudio/test/generate-clip.test.js` checks the other side of the same contract from Node, with a stubbed generator - also never a real client.
 - `test_core_config.py` checks `AudioFillConfig`'s own validation.
 - `test_bridge_auth.py` checks the token and Origin logic (`bridge_auth.py`) as plain functions: valid token and allowed origin succeeds; a missing or wrong token fails; a foreign origin fails, even with the right token; a "simple" request shaped so a browser would never preflight it still fails, because it cannot carry the token header without losing its "simple" status.
-- `test_bridge_server.py` proves the same claims again, against a real listening socket and a real `http.client` connection, plus routing (every endpoint in the table above), request/response JSON shapes, and error-status mapping (`ValueError` to 400, `BridgeBusy` to 503, anything else to 500) - all against a fake dispatcher, so none of it needs Anki or Qt.
+- `test_bridge_server.py` proves the same claims again, against a real listening socket and a real `http.client` connection, plus routing (every endpoint in the table above), the request and answer messages, the protocol check, and error-status mapping (`ValueError` to 400, `BridgeBusy` to 503, anything else to 500) - all against a fake dispatcher, so none of it needs Anki or Qt.
 
 `test/test_core_collection.py` runs `core.plan_fill`/`core.apply_fill` against a REAL `anki.collection.Collection`: real notes, real `Note.__setitem__`, real `col.media.add_file`/`write_data`/`check()`.
 It proves: a note gets its clip and reference written and nothing else in the field disturbed; `col.media.check()` reports the clip used and nothing missing; a second run changes nothing; editing the text regenerates and leaves exactly one owned reference; switching `--audio-tag` converts without regenerating; a note missing the mapped field is skipped, not crashed on; a failed generation is retried on the next run rather than losing the note; and a cancelled run commits the notes finished so far and leaves the rest for next time.
@@ -301,9 +314,9 @@ To check it:
    `bridge_server.py` and `bridge_ops.py` are proven directly (see "Testing" above); what is not proven without Qt is the wiring around them in `__init__.py` and `bridge_dispatch.py`.
    To check: enable the bridge in `Tools > amgi: Bridge status...`, confirm the dialog reports a port and the checkbox stays checked, then from a browser console on a page served from an allowed origin (for example `http://localhost:3000`), run
    ```js
-   fetch("http://127.0.0.1:8798/status", { headers: { "X-Amgi-Bridge-Token": "<paste the token>" } }).then(r => r.json()).then(console.log)
+   fetch("http://127.0.0.1:8798/status", { headers: { "X-Amgi-Bridge-Token": "<paste the token>", "X-Amgi-Bridge-Protocol": "1" } }).then(r => console.log(r.status, r.headers.get("X-Amgi-Bridge-Protocol")))
    ```
-   and confirm it returns `{"collectionOpen": true, ...}`. From a page on a *different* origin, confirm the same call fails.
+   and confirm it logs `200 1` (the body is a `b_status` message, not text). From a page on a *different* origin, confirm the same call fails.
 
 7. **The bridge tears down and reopens cleanly across a profile switch.**
    Enable the bridge, switch to a different Anki profile (`File > Switch Profile`), and confirm `Tools > amgi: Bridge status...` shows "Not running" until it is enabled again for that profile - `gui_hooks.profile_will_close` is what is supposed to make this happen (`_stop_bridge` in `__init__.py`), and has not run inside real Anki.
