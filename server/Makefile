@@ -34,7 +34,7 @@ ICU_LDFLAGS := $(if $(ICU_PREFIX),-L$(ICU_PREFIX)/lib -Wl$(comma)-rpath$(comma)$
 WARN := -Wall -Wextra -Werror -Wshadow -Wvla -std=gnu11 -D_GNU_SOURCE -D_DARWIN_C_SOURCE
 
 COL_SRC := collection/util.c collection/rng.c collection/db.c collection/backup.c collection/text.c collection/pb.c \
-  collection/decks.c collection/notes.c collection/media.c collection/direct.c json/anki_json.c
+  collection/decks.c collection/notes.c collection/media.c collection/direct.c json/anki_json.c json/model_answer.c
 # The bridge client and resolveTransport: the half that speaks HTTP, through cbase's client.
 BRIDGE_SRC := collection/bridge.c collection/transport.c collection/wire_host.c ../ui/wire/wire.c
 COL_HDR := $(wildcard collection/*.h json/*.h) ../ui/wire/wire.h
