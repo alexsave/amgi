@@ -3,13 +3,15 @@
 // dropped: it is shut down on 2027-01-06, and its Japanese and Korean sounded
 // like an English speaker reading them.)
 //
-// The HTTP request, the quota handling and the error messages are gemini.ts's;
+// The gRPC request, the quota handling and the error messages are gemini.ts's;
 // what is here is only what speech needs: the voice draw, the request shape,
 // and turning the answer into a WAV file.
 //
 // What the API does, as verified live on 2026-11-07:
 //   The audio comes back as candidates[0].content.parts[].inlineData
-//   {mimeType, data(base64)}. gemini-3.8-* answer "audio/wav" with a RIFF
+//   {mimeType, data}, the data as raw bytes (protobuf `bytes`, not base64:
+//   one 83 KB clip is 83 KB on the wire, against 116 KB of JSON over REST,
+//   measured 2026-11-08). gemini-3.8-* answer "audio/wav" with a RIFF
 //   header (24 kHz mono 16-bit); gemini-3.1-flash-tts-preview answers raw PCM,
 //   "audio/l16; rate=24000; channels=1", with no header at all. Never mp3.
 //   Whatever arrives, what leaves this module is a complete WAV file.
@@ -41,7 +43,8 @@ export interface GeminiSpeechOptions {
      *
      * Why a bracket tag and nothing else, both tested live by the owner on
      * gemini-3.8-flash-tts (2026-11-08):
-     *   - `systemInstruction` is refused outright: HTTP 400 "Developer
+     *   - `systemInstruction` is refused outright: HTTP 400 (seen over
+     *     REST, before the move to gRPC) "Developer
      *     instruction is not enabled for this model". Do not use it.
      *   - free-form text before the input is read aloud.
      *   - a bracketed tag is NOT read aloud: the clip was 1.84 s against
@@ -106,7 +109,7 @@ export function pcmToWav(pcm: Uint8Array, sampleRate: number, channels: number):
 }
 
 /**
- * Turns one inlineData part into a WAV file, or throws.
+ * Turns one inlineData part's bytes into a WAV file, or throws.
  *
  * Raw PCM ("audio/l16", "audio/pcm") is wrapped, with the sample rate and
  * channel count read from the mime type's parameters (24000 Hz mono when they
@@ -128,13 +131,6 @@ export function audioPartToWav(mimeType: string, bytes: Uint8Array): Uint8Array 
         return pcmToWav(bytes, rate, channels);
     }
     throw new Error(`Gemini returned audio in an unexpected format: ${mimeType || 'no mime type'}`);
-}
-
-function base64ToBytes(data: string): Uint8Array {
-    const binary = atob(data);
-    const out = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) out[i] = binary.charCodeAt(i);
-    return out;
 }
 
 // ========================
@@ -181,7 +177,7 @@ export function createGeminiSpeech(options: GeminiSpeechOptions): SpeechSynthesi
 
         const wavs = audioParts.map((part) => {
             const inline = part.inlineData!;
-            return { mime: inline.mimeType ?? '', bytes: base64ToBytes(inline.data!) };
+            return { mime: inline.mimeType ?? '', bytes: inline.data! };
         });
         // A long answer can in principle arrive as several raw PCM parts;
         // those are one stream and are joined before wrapping. Several WAV

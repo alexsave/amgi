@@ -50,7 +50,7 @@ import {
 } from "./cardPrompts.ts";
 import type { CardModels } from "./models.ts";
 import type { SpeechSynthesizer } from "./geminiSpeech.ts";
-import { bytesToBase64, isRateLimited, responseText, type GeminiClient, type GenerateContentRequest } from "./gemini.ts";
+import { isRateLimited, responseText, type GeminiClient, type GenerateContentRequest } from "./gemini.ts";
 
 /** Where the module's warnings go; console in both runtimes unless overridden. */
 export interface GenerationLog {
@@ -271,9 +271,9 @@ const AUDIO_VERDICT_FORMAT = responseFormat("audio_verdict", {
     reason: { type: "string", description: "Brief justification for the verdict" },
 });
 
-/** Every clip is WAV (geminiSpeech.ts guarantees it). */
+/** Every clip is WAV (geminiSpeech.ts guarantees it); its bytes go on the wire as they are. */
 function audioPart(audioBuffer: ArrayBuffer): GenerateContentRequest {
-    return { inlineData: { mimeType: "audio/wav", data: bytesToBase64(audioBuffer) } };
+    return { inlineData: { mimeType: "audio/wav", data: new Uint8Array(audioBuffer) } };
 }
 
 interface AudioVerdict {

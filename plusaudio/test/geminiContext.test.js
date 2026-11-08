@@ -15,8 +15,8 @@ const { createRandom } = require('../lib/random');
 const { fakeGemini } = require('./helpers/fake-gemini');
 
 const synthesizeWith = async (options) => {
-  const gemini = fakeGemini();
-  const context = createGeminiContext({ apiKey: 'k', baseUrl: 'http://fake.invalid', fetch: gemini.fetch, random: createRandom(1), ...options });
+  const gemini = await fakeGemini();
+  const context = createGeminiContext({ apiKey: 'k', baseUrl: gemini.baseUrl, random: createRandom(1), ...options });
   await context.speech.synthesize({ text: '안녕하세요', language: 'ko', voice: 'Kore' });
   return { context, request: gemini.of('speech')[0] };
 };

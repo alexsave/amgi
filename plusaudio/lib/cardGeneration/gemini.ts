@@ -1,43 +1,54 @@
-// The one HTTP client amgi uses for every model call: card text, speech,
+// The one client amgi uses for every model call: card text, speech,
 // transcription and the audio judge all go to Google's Gemini API through
-// generateContent, with one API key (GEMINI_API_KEY). It owns the request,
+// GenerateContent, with one API key (GEMINI_API_KEY). It owns the request,
 // the rate-limit and quota handling, and the error messages a person sees;
 // the callers (cardGeneration.ts, geminiSpeech.ts) own only what they ask.
 //
-// Like the rest of cardGeneration/, this module reads no environment variable
-// and owns no global state: the key, the base URL, fetch and the clock's sleep
-// are injected, so a test drives it with a fake fetch and never reaches the
-// network.
+// The transport is gRPC over Node's own node:http2, with the protobuf
+// messages in geminiWire.ts: no JSON on the wire in either direction, and
+// audio travels as raw bytes rather than base64. No package is needed for it.
 //
-// What the API does, as verified live on 2026-11-07/08:
-//   POST {base}/v1beta/models/{model}:generateContent, header x-goog-api-key.
-//   Structured output: generationConfig.responseMimeType "application/json"
-//   plus generationConfig.responseJsonSchema, which takes our draft-07 JSON
-//   Schema as written ($schema, enum, additionalProperties). Thinking:
+// Like the rest of cardGeneration/, this module reads no environment variable
+// and owns no global state: the key, the endpoint and the clock's sleep are
+// injected, so a test points it at an in-process fake gRPC server
+// (plusaudio/test/helpers/fake-gemini.js) and never reaches the network.
+//
+// What the API does, as verified live on 2026-11-07/08 (the wire details are
+// in geminiWire.ts):
+//   GenerativeService/GenerateContent at generativelanguage.googleapis.com:443,
+//   metadata x-goog-api-key. Structured output: generationConfig
+//   .responseMimeType "application/json" plus generationConfig
+//   .responseJsonSchema, which takes our draft-07 JSON Schema as written
+//   ($schema, enum, additionalProperties). Thinking:
 //   generationConfig.thinkingConfig.thinkingLevel; gemini-3.8-flash accepts
-//   "low" | "medium" | "high" (default medium) and answers HTTP 400 to
-//   "minimal". Thought parts come back flagged `thought: true`.
-//   A spent free-tier quota is HTTP 429 with a google.rpc.QuotaFailure whose
+//   LOW | MEDIUM | HIGH (default MEDIUM) and refuses MINIMAL
+//   (INVALID_ARGUMENT). Thought parts come back flagged `thought: true`.
+//   A spent quota is RESOURCE_EXHAUSTED with a google.rpc.QuotaFailure whose
 //   quotaId names the window (…PerDay… or …PerMinute…) and a RetryInfo.
 
+import http2 from "node:http2";
 import { GEMINI_KEY_PAGE, MISSING_KEY_MESSAGE } from "../geminiKey.js";
 import { createRateGate } from "../rateGate.js";
-
-type FetchLike = (url: string, init: {
-    method: string;
-    headers: Record<string, string>;
-    body: string;
-    signal?: AbortSignal;
-}) => Promise<{
-    ok: boolean;
-    status: number;
-    text(): Promise<string>;
-}>;
+import {
+    FATAL_CODES,
+    GENERATE_CONTENT_PATH,
+    GRPC_CODES,
+    GenerateContentRequest as RequestMessage,
+    GenerateContentResponse as ResponseMessage,
+    RESOURCE_EXHAUSTED,
+    decode,
+    encode,
+    frame,
+    statusDetails,
+    unframe,
+} from "./geminiWire.ts";
+import type { StatusDetails } from "./geminiWire.ts";
 
 export interface GeminiPart {
     text?: string;
     thought?: boolean;
-    inlineData?: { mimeType?: string; data?: string };
+    /** Raw bytes both ways: an audio clip sent to be judged, a clip that came back. */
+    inlineData?: { mimeType?: string; data?: Uint8Array };
 }
 
 export interface GenerateContentResponse {
@@ -46,7 +57,11 @@ export interface GenerateContentResponse {
     usageMetadata?: Record<string, unknown>;
 }
 
-/** The request body; built by each caller, sent as is. */
+/**
+ * The request, built by each caller in the camelCase shape of Google's docs
+ * and encoded field by field (geminiWire.ts's GenerateContentRequest); a
+ * field that schema does not declare is refused, never silently dropped.
+ */
 // deno-lint-ignore no-explicit-any
 export type GenerateContentRequest = Record<string, any>;
 
@@ -56,8 +71,10 @@ export interface GeminiClient {
 
 export interface GeminiClientOptions {
     apiKey: string;
-    fetch?: FetchLike;
-    /** Defaults to Google's endpoint. Overridden only by tests and the e2e fake server. */
+    /**
+     * Defaults to Google's endpoint. Overridden only by tests and the e2e
+     * fake server; an http:// address is spoken to as cleartext HTTP/2.
+     */
     baseUrl?: string;
     sleep?: (ms: number) => Promise<void>;
     /** The most a per-minute rate limit may make one request wait, in total. */
@@ -128,7 +145,7 @@ export class GeminiDailyCapError extends GeminiUnavailableError {
 export const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com';
 export { GEMINI_KEY_PAGE, MISSING_KEY_MESSAGE };
 
-/** What a per-day 429 says about the limit it hit. */
+/** What a per-day quota refusal says about the limit it hit. */
 export interface DailyQuota {
     /** quotaId ends in "-FreeTier" (an unbilled project) rather than naming a paid tier. */
     freeTier: boolean;
@@ -140,10 +157,10 @@ export interface DailyQuota {
 
 /**
  * The message a spent daily quota surfaces as, word for word, in the
- * add-card row. Built from what the 429 itself says, because the two cases
- * need different advice: an unbilled project's free tier (10 requests per
- * day per model) is lifted by enabling billing, while a billed project has a
- * daily cap of its own (100 per day per model on Tier 1 for
+ * add-card row. Built from what the refusal itself says, because the two
+ * cases need different advice: an unbilled project's free tier (10 requests
+ * per day per model) is lifted by enabling billing, while a billed project
+ * has a daily cap of its own (100 per day per model on Tier 1 for
  * gemini-3.8-flash-tts, seen live 2026-11-08) that only time or a higher
  * usage tier lifts - telling that person to "enable billing" would be wrong.
  */
@@ -158,52 +175,153 @@ export function dailyQuotaMessage(model: string, quota: DailyQuota = { freeTier:
         `A higher usage tier raises it (Google AI Studio, ${GEMINI_KEY_PAGE}).`;
 }
 
-interface GoogleErrorDetail {
-    '@type'?: string;
-    violations?: Array<{ quotaId?: string; quotaMetric?: string; quotaValue?: string }>;
-    retryDelay?: string;
-}
-
-interface GoogleErrorBody {
-    error?: { code?: number; message?: string; status?: string; details?: GoogleErrorDetail[] };
-}
-
-function parseErrorBody(text: string): GoogleErrorBody {
-    try {
-        return JSON.parse(text) as GoogleErrorBody;
-    } catch {
-        return {};
-    }
-}
-
-/** "23s" / "1.5s" -> milliseconds, or null. */
-function parseRetryDelay(value: string | undefined): number | null {
-    const match = /^(\d+(?:\.\d+)?)s$/.exec((value || '').trim());
-    return match ? Math.ceil(Number(match[1]) * 1000) : null;
-}
-
 /**
- * The per-day limit a 429 reports, or null when it is some other limit (per
- * minute, unlabelled) that can be waited out briefly.
+ * The per-day limit a quota refusal reports, or null when it is some other
+ * limit (per minute, unlabelled) that can be waited out briefly.
  */
-function dailyQuotaOf(details: GoogleErrorDetail[]): DailyQuota | null {
-    const violation = details.flatMap((detail) => detail.violations || []).find((v) =>
+function dailyQuotaOf(details: StatusDetails): DailyQuota | null {
+    const violation = details.violations.find((v) =>
         /PerDay/i.test(v.quotaId || '') || /per_day|PerDay/i.test(v.quotaMetric || ''));
     if (!violation) return null;
     const limit = Number(violation.quotaValue);
-    const retryInfo = details.find((detail) => detail.retryDelay !== undefined);
-    const resetsInMs = parseRetryDelay(retryInfo?.retryDelay);
     return {
         freeTier: /FreeTier/i.test(violation.quotaId || ''),
         ...(Number.isFinite(limit) && limit > 0 ? { limit } : {}),
-        ...(resetsInMs !== null ? { resetsInMs } : {}),
+        ...(details.retryDelayMs !== null ? { resetsInMs: details.retryDelayMs } : {}),
     };
+}
+
+// ========================
+// TRANSPORT
+// ========================
+
+/** One unary call's outcome: the HTTP status, the gRPC status and whatever messages came back. */
+interface UnaryReply {
+    httpStatus: number;
+    /** grpc-status; null when the server sent none (not a gRPC answer). */
+    code: number | null;
+    message: string;
+    detailsBin?: string;
+    messages: Uint8Array[];
+}
+
+/** How long an unused connection stays open for the next request before it is closed. */
+const IDLE_CLOSE_MS = 30_000;
+
+/**
+ * One HTTP/2 connection per client, opened on first use and reused by every
+ * request after it. It holds the process open only while a request is in
+ * flight (ref/unref), so a CLI exits as soon as its work is done, and it is
+ * dropped and replaced after an error, a GOAWAY or a long idle.
+ */
+function createChannel(origin: string) {
+    let session: http2.ClientHttp2Session | null = null;
+    let inFlight = 0;
+
+    function current(): http2.ClientHttp2Session {
+        if (session && !session.closed && !session.destroyed) return session;
+        const opened = http2.connect(origin);
+        const forget = () => {
+            if (session === opened) session = null;
+        };
+        // Per-request failures are reported on the request's own stream; the
+        // session listener only keeps an unhandled 'error' from crashing.
+        opened.on('error', forget);
+        opened.on('goaway', forget);
+        opened.on('close', forget);
+        opened.setTimeout(IDLE_CLOSE_MS, () => {
+            if (inFlight === 0) opened.close();
+        });
+        session = opened;
+        return opened;
+    }
+
+    function call(path: string, body: Uint8Array, metadata: Record<string, string>, timeoutMs: number): Promise<UnaryReply> {
+        return new Promise((resolve, reject) => {
+            const active = current();
+            inFlight += 1;
+            active.ref();
+            let settled = false;
+            let timer: ReturnType<typeof setTimeout> | undefined;
+            const finish = (fn: () => void) => {
+                if (settled) return;
+                settled = true;
+                clearTimeout(timer);
+                active.off('error', onSessionError);
+                inFlight -= 1;
+                if (inFlight === 0 && !active.destroyed) active.unref();
+                fn();
+            };
+            const onSessionError = (error: Error) => finish(() => reject(error));
+            active.once('error', onSessionError);
+
+            let stream: http2.ClientHttp2Stream;
+            try {
+                stream = active.request({
+                    ':method': 'POST',
+                    ':path': path,
+                    'content-type': 'application/grpc',
+                    te: 'trailers',
+                    'grpc-timeout': `${Math.max(1, Math.ceil(timeoutMs))}m`,
+                    ...metadata,
+                });
+            } catch (error) {
+                finish(() => reject(error));
+                return;
+            }
+            timer = setTimeout(() => {
+                stream.close(http2.constants.NGHTTP2_CANCEL);
+                finish(() => reject(new Error(`no answer within ${Math.round(timeoutMs / 1000)}s`)));
+            }, timeoutMs);
+
+            const chunks: Buffer[] = [];
+            let headers: http2.IncomingHttpHeaders = {};
+            let trailers: http2.IncomingHttpHeaders = {};
+            stream.on('response', (h) => { headers = h; });
+            stream.on('trailers', (t) => { trailers = t; });
+            stream.on('data', (chunk: Buffer) => chunks.push(chunk));
+            stream.on('error', (error) => finish(() => reject(error)));
+            stream.on('close', () => finish(() => {
+                // A trailers-only answer (every error) carries its status in
+                // the headers; a normal one in the trailers after the body.
+                const all = { ...headers, ...trailers };
+                const status = all['grpc-status'];
+                const rawMessage = String(all['grpc-message'] ?? '');
+                let message = rawMessage;
+                try {
+                    message = decodeURIComponent(rawMessage);
+                } catch { /* not percent-encoded after all */ }
+                const httpStatus = Number(headers[':status'] ?? 0);
+                if (status === undefined && httpStatus === 0) {
+                    reject(new Error(`the stream closed without an answer (HTTP/2 code ${stream.rstCode})`));
+                    return;
+                }
+                let messages: Uint8Array[] = [];
+                try {
+                    messages = unframe(Buffer.concat(chunks));
+                } catch (error) {
+                    reject(error);
+                    return;
+                }
+                const detailsBin = all['grpc-status-details-bin'];
+                resolve({
+                    httpStatus,
+                    code: status === undefined ? null : Number(status),
+                    message,
+                    ...(typeof detailsBin === 'string' ? { detailsBin } : {}),
+                    messages,
+                });
+            }));
+            stream.end(frame(body));
+        });
+    }
+
+    return { call };
 }
 
 export function createGeminiClient(options: GeminiClientOptions): GeminiClient {
     const {
         apiKey,
-        fetch: fetchImpl = globalThis.fetch as unknown as FetchLike,
         baseUrl = GEMINI_API_BASE,
         sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)),
         maxRateLimitWaitMs = 30_000,
@@ -212,20 +330,21 @@ export function createGeminiClient(options: GeminiClientOptions): GeminiClient {
     } = options;
 
     if (!apiKey) throw new GeminiUnavailableError(MISSING_KEY_MESSAGE);
-    const base = baseUrl.replace(/\/+$/, '');
+    const channel = createChannel(new URL(baseUrl).origin);
 
     async function generateContent(model: string, request: GenerateContentRequest): Promise<GenerateContentResponse> {
-        const url = `${base}/v1beta/models/${encodeURIComponent(model)}:generateContent`;
-        const body = JSON.stringify(request);
+        // Encoded once, before any wait: a request amgi cannot express on the
+        // wire is a bug, and fails here without costing a request.
+        const body = encode(RequestMessage, { model: `models/${model}`, ...request });
         let waitedMs = 0;
 
         for (;;) {
             // The gate decides when this request may go: at once, after a
-            // block from an earlier 429 (this card's or any other's), or once
-            // the learned per-minute window has room. A short wait is cheaper
-            // to sit through here than to hand back; a long one is handed
-            // back, typed and carrying the gate's own jittered wait, so
-            // nothing holds a request (and, in the app, a generator
+            // block from an earlier refusal (this card's or any other's), or
+            // once the learned per-minute window has room. A short wait is
+            // cheaper to sit through here than to hand back; a long one is
+            // handed back, typed and carrying the gate's own jittered wait,
+            // so nothing holds a request (and, in the app, a generator
             // subprocess) open for a minute.
             const waitMs = await gate.acquire(model);
             if (waitMs > 0) {
@@ -235,41 +354,49 @@ export function createGeminiClient(options: GeminiClientOptions): GeminiClient {
                 continue;
             }
 
-            const response = await fetchImpl(url, {
-                method: 'POST',
-                headers: { 'content-type': 'application/json', 'x-goog-api-key': apiKey },
-                body,
-                signal: AbortSignal.timeout(requestTimeoutMs),
-            });
-            const text = await response.text();
+            let reply: UnaryReply;
+            try {
+                reply = await channel.call(GENERATE_CONTENT_PATH, body, { 'x-goog-api-key': apiKey }, requestTimeoutMs);
+            } catch (error) {
+                // Connection refused, reset, timed out: retryable, like a
+                // network error was under fetch.
+                throw new Error(`Gemini request to ${model} failed: ${(error as Error).message}`);
+            }
 
-            if (response.status === 429) {
-                const error = parseErrorBody(text).error ?? {};
-                const details = error.details ?? [];
+            if (reply.code === RESOURCE_EXHAUSTED || (reply.code === null && reply.httpStatus === 429)) {
+                const details = statusDetails(reply.detailsBin);
                 const daily = dailyQuotaOf(details);
                 if (daily) throw new GeminiDailyCapError(dailyQuotaMessage(model, daily));
                 // A per-minute refusal is news for every request sharing
                 // this key: the gate learns from it (block, doubling, a
                 // lower cap) and the next acquire above says how long.
-                const retryInfo = details.find((detail) => detail.retryDelay !== undefined);
-                gate.record(model, 'rateLimited', parseRetryDelay(retryInfo?.retryDelay));
+                gate.record(model, 'rateLimited', details.retryDelayMs);
                 continue;
             }
 
-            if (!response.ok) {
-                const message = (parseErrorBody(text).error?.message || text || '').replace(/\s+/g, ' ').trim().slice(0, 300);
-                const summary = `Gemini request to ${model} failed (HTTP ${response.status})${message ? `: ${message}` : ''}`;
-                // A refused key, a bad request or an unknown model fails the
-                // same way on every retry; a server error might not.
-                if (response.status >= 400 && response.status < 500) throw new GeminiUnavailableError(summary);
+            if (reply.code === null) {
+                // Not a gRPC answer at all (a proxy, a wrong endpoint): judged
+                // by its HTTP status the way the REST client judged it.
+                const summary = `Gemini request to ${model} failed (HTTP ${reply.httpStatus})`;
+                if (reply.httpStatus >= 400 && reply.httpStatus < 500) throw new GeminiUnavailableError(summary);
                 throw new Error(summary);
             }
 
+            if (reply.code !== 0) {
+                const message = reply.message.replace(/\s+/g, ' ').trim().slice(0, 300);
+                const summary = `Gemini request to ${model} failed (${GRPC_CODES[reply.code] ?? `gRPC ${reply.code}`})${message ? `: ${message}` : ''}`;
+                // A refused key, a bad request or an unknown model fails the
+                // same way on every retry; a server error might not.
+                if (FATAL_CODES.has(reply.code)) throw new GeminiUnavailableError(summary);
+                throw new Error(summary);
+            }
+
+            if (reply.messages.length !== 1) throw new Error(`Gemini (${model}) answered with ${reply.messages.length} messages instead of one`);
             let data: GenerateContentResponse;
             try {
-                data = JSON.parse(text) as GenerateContentResponse;
-            } catch {
-                throw new Error(`Gemini (${model}) returned a response that is not JSON`);
+                data = decode(ResponseMessage, reply.messages[0]) as GenerateContentResponse;
+            } catch (error) {
+                throw new Error(`Gemini (${model}) returned a response that does not decode: ${(error as Error).message}`);
             }
             gate.record(model, 'ok');
             const blockReason = data.promptFeedback?.blockReason;
@@ -285,15 +412,4 @@ export function createGeminiClient(options: GeminiClientOptions): GeminiClient {
 export function responseText(response: GenerateContentResponse): string {
     const parts = response.candidates?.[0]?.content?.parts ?? [];
     return parts.filter((part) => !part.thought && typeof part.text === 'string').map((part) => part.text).join('').trim();
-}
-
-/** Base64 for an inlineData part. */
-export function bytesToBase64(bytes: ArrayBuffer | Uint8Array): string {
-    const view = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
-    let binary = '';
-    const chunkSize = 0x8000;
-    for (let i = 0; i < view.length; i += chunkSize) {
-        binary += String.fromCharCode(...view.subarray(i, i + chunkSize));
-    }
-    return btoa(binary);
 }

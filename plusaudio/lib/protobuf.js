@@ -1,6 +1,7 @@
 'use strict';
 
-// Just enough protobuf to read and write the metadata Anki puts in an .apkg.
+// Just enough protobuf to read and write the metadata Anki puts in an .apkg,
+// and the wire primitives under cardGeneration/geminiWire.ts's Gemini messages.
 //
 // Two of a package's members are protobuf messages rather than text: `meta` is
 // a PackageMetadata, and a modern package's `media` is a MediaEntries
@@ -162,12 +163,24 @@ function writeBytesField(number, bytes) {
   return Buffer.concat([writeTag(number, WIRE_LENGTH), writeVarint(bytes.length), bytes]);
 }
 
+/** A `double` field: wire type 1, eight little-endian bytes. */
+function writeDoubleField(number, value) {
+  const bytes = Buffer.alloc(8);
+  bytes.writeDoubleLE(value);
+  return Buffer.concat([writeTag(number, WIRE_FIXED64), bytes]);
+}
+
 module.exports = {
+  WIRE_FIXED32,
+  WIRE_FIXED64,
   WIRE_LENGTH,
   WIRE_VARINT,
   readFields,
   readFieldsLenient,
+  readVarint,
   writeBytesField,
+  writeDoubleField,
+  writeTag,
   writeVarint,
   writeVarintField,
 };
