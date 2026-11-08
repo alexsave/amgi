@@ -46,6 +46,12 @@ test('int(n) stays in [0, n)', () => {
   assert.throws(() => source.int(0), /positive integer/);
 });
 
+test('the C source is the same generator, its seed one named value', () => {
+  const source = fs.readFileSync(path.join(REPO, 'server', 'collection', 'rng.c'), 'utf8');
+  assert.equal((source.match(/^#define AMGI_SEED /gm) || []).length, 1, 'exactly one line sets the C seed');
+  // test/parity/difftest.test.mjs compares rng.c's draws with this generator's, seed for seed.
+});
+
 test('the shipped seed is the one named value, and the shared generator is a Random', () => {
   assert.ok(SEED === null || Number.isInteger(SEED));
   assert.ok(random instanceof Random);
@@ -73,12 +79,21 @@ const BANNED = [
   ['os\\.u', 'random'].join(''),
   ['uuid', '\\.uuid4'].join(''),
   ['seed.*Date', '\\.now|Date\\.now.*seed'].join(''),
+  // C: libc's and the OS's generators and entropy, OpenSSL's, Apple's, and a clock-seeded srand.
+  ['\\bs?random', '\\s*\\('].join(''),
+  ['\\bsrand', '\\s*\\('].join(''),
+  ['\\b[delmnj]?rand', '48\\s*\\('].join(''),
+  ['\\bget', '(?:entropy|random)\\s*\\('].join(''),
+  ['/dev/u?', 'random'].join(''),
+  ['\\bRAND_', '(?:priv_)?bytes\\s*\\('].join(''),
+  ['\\b(?:SecRandom', 'CopyBytes|CCRandom', 'GenerateBytes)'].join(''),
 ].map((pattern) => new RegExp(pattern, 'im'));
 
-const SCANNED = /\.(?:js|mjs|cjs|ts|tsx|jsx|py|html)$/;
+const SCANNED = /\.(?:js|mjs|cjs|ts|tsx|jsx|py|html|c|h)$/;
 // The source itself; vendored upstream code (Anki's own, not ours); retired
 // code kept for reference only.
-const EXEMPT = [/^plusaudio\/lib\/random\.js$/, /^plusaudio\/vendor\//, /^archives\//, /(^|\/)node_modules\//];
+// server/collection/rng.c is the C side's one source: the same generator, seeded once from the OS.
+const EXEMPT = [/^plusaudio\/lib\/random\.js$/, /^server\/collection\/rng\.c$/, /^plusaudio\/vendor\//, /^archives\//, /(^|\/)node_modules\//];
 
 // Lines that must NOT go through lib/random.js, each for a stated reason.
 // A security secret has to be unpredictable even when someone has fixed the
@@ -127,8 +142,16 @@ test('the scan does catch each kind of stray random', () => {
       'window.crypto.getRandom' + 'Values(a);',
       'import ' + 'random',
       'const seed = Date' + '.now();',
+      'int x = ran' + 'd();',
+      'sran' + 'd(time(NULL));',
+      'long r = ran' + 'dom();',
+      'double d = dran' + 'd48();',
+      'getentr' + 'opy(&s, 4);',
+      'arc4' + 'random_buf(b, 8);',
+      'RAND_' + 'bytes(b, 8);',
     ];
-    samples.forEach((line, i) => fs.writeFileSync(path.join(dir, `s${i}.${line.startsWith('import') ? 'py' : 'js'}`), `${line}\n`));
+    const ext = (line) => (line.startsWith('import') ? 'py' : /;$/.test(line) && !/^const /.test(line) ? 'c' : 'js');
+    samples.forEach((line, i) => fs.writeFileSync(path.join(dir, `s${i}.${ext(line)}`), `${line}\n`));
     const files = fs.readdirSync(dir).map((name) => path.relative(REPO, path.join(dir, name)));
     assert.equal(strayRandoms(files).length, samples.length);
   } finally {
