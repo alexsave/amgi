@@ -431,6 +431,73 @@ static void core_state(void) {
   ar_free(&a);
 }
 
+/* ---- atomic writes: a write that fails part way leaves nothing of itself ---- */
+static int64_t scalar(const char *path, const char *sql) {
+  sqlite3 *db;
+  sqlite3_open(path, &db);
+  sqlite3_create_collation(db, "unicase", SQLITE_UTF8, NULL, unicase_cmp);
+  sqlite3_stmt *q;
+  int64_t v = -1;
+  if (sqlite3_prepare_v2(db, sql, -1, &q, NULL) == SQLITE_OK && sqlite3_step(q) == SQLITE_ROW) v = sqlite3_column_int64(q, 0);
+  sqlite3_finalize(q);
+  sqlite3_close(db);
+  return v;
+}
+static void exec_sql(const char *path, const char *sql) {
+  sqlite3 *db;
+  sqlite3_open(path, &db);
+  sqlite3_create_collation(db, "unicase", SQLITE_UTF8, NULL, unicase_cmp);
+  char *err = NULL;
+  if (sqlite3_exec(db, sql, NULL, NULL, &err) != SQLITE_OK) fprintf(stderr, "exec_sql: %s\n", err);
+  sqlite3_free(err);
+  sqlite3_close(db);
+}
+
+static void atomic_writes(void) {
+  arena a = {0};
+  col_err e;
+  for (int schema = 18; schema >= 11; schema -= 7) {
+    str path = fixture(&a, schema == 18 ? "18" : "11", schema == 18 ? "atomic18" : "atomic11");
+    /* A card of ordinal 1 is refused: a reversed note's second card fails after its note and
+     * first card went in. */
+    exec_sql(path.p, "CREATE TRIGGER refuse_second_card BEFORE INSERT ON cards WHEN NEW.ord = 1 BEGIN SELECT RAISE(ABORT, 'refused by the test'); END");
+    col_notetype *nts;
+    size_t nnt;
+    col_list_notetypes(&a, path, &nts, &nnt, &e);
+    double basic = 0, reversed = 0;
+    for (size_t i = 0; i < nnt; i++) {
+      if (str_eq_c(nts[i].name, "Basic")) basic = (double)nts[i].id;
+      if (str_eq_c(nts[i].name, "Basic (and reversed card)")) reversed = (double)nts[i].id;
+    }
+    int64_t notes0 = scalar(path.p, "SELECT count(*) FROM notes"), cards0 = scalar(path.p, "SELECT count(*) FROM cards");
+    int64_t mod0 = scalar(path.p, "SELECT mod FROM col");
+    str two[] = {S("front"), S("back")};
+    col_new_note rev = {1, reversed, two, 2, NULL, 0, 0, {0}, 0, 0};
+    col_added r;
+    CHECK(col_add_note(&a, path, &rev, &r, &e) < 0, "schema %d: the second card is refused", schema);
+    CHECK(scalar(path.p, "SELECT count(*) FROM notes") == notes0 && scalar(path.p, "SELECT count(*) FROM cards") == cards0 &&
+            scalar(path.p, "SELECT mod FROM col") == mod0,
+          "schema %d: a note whose cards fail leaves no note, no card and no col.mod change", schema);
+    /* In a bulk add the failing note goes and the others stay. */
+    col_new_note batch[3] = {{1, basic, two, 2, NULL, 0, 0, {0}, 0, 0}, rev, {1, basic, two, 2, NULL, 0, 0, {0}, 0, 0}};
+    col_added out[3];
+    CHECK(col_add_notes(&a, path, batch, 3, out, &e) == 0 && out[0].ok && !out[1].ok && out[2].ok, "schema %d: bulk: the bad note alone fails", schema);
+    CHECK(scalar(path.p, "SELECT count(*) FROM notes") == notes0 + 2 && scalar(path.p, "SELECT count(*) FROM cards") == cards0 + 2,
+          "schema %d: bulk: two notes and two cards, nothing of the third", schema);
+    /* A rename whose second row fails renames nothing. */
+    col_deck_made parent, child;
+    col_create_deck(&a, path, S("Atomic"), &parent, &e);
+    col_create_deck(&a, path, S("Atomic::Child"), &child, &e);
+    if (schema == 18) {
+      exec_sql(path.p, "CREATE TRIGGER refuse_child BEFORE UPDATE ON decks WHEN NEW.name LIKE '%Child' BEGIN SELECT RAISE(ABORT, 'refused by the test'); END");
+      col_renamed rn;
+      CHECK(col_rename_deck(&a, path, (double)parent.id, S("Moved"), &rn, &e) < 0, "schema 18: the child's rename is refused");
+      CHECK(scalar(path.p, "SELECT count(*) FROM decks WHERE name = 'Atomic'") == 1, "schema 18: so the parent is not renamed either");
+    }
+  }
+  ar_free(&a);
+}
+
 int main(int argc, char **argv) {
   root = argc > 1 ? argv[1] : "..";
   const char *tmp = getenv("TMPDIR");
@@ -444,6 +511,7 @@ int main(int argc, char **argv) {
   text_rules();
   core_state();
   json_depth();
+  atomic_writes();
   media_files();
   char cmd[4200];
   snprintf(cmd, sizeof cmd, "rm -rf '%s'", scratch);
