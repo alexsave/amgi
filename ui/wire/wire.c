@@ -93,6 +93,14 @@ SCHEMA(s_starter_built, wire_starter_built,
 SCHEMA(s_installed, wire_installed,
   F(wire_installed, "ok", WT_BOOL, ok), F(wire_installed, "needsRestart", WT_BOOL, needs_restart),
   F(wire_installed, "message", WT_STR, message), F(wire_installed, "addonsDir", WT_STR, addons_dir));
+SCHEMA(s_deck_summary, wire_deck_summary,
+  F(wire_deck_summary, "mode", WT_MODE, mode), F(wire_deck_summary, "id", WT_I64, id),
+  F(wire_deck_summary, "name", WT_STR, name), F(wire_deck_summary, "subdecks", WT_U32, subdecks),
+  F(wire_deck_summary, "cards", WT_U32, cards), F(wire_deck_summary, "notes", WT_U32, notes));
+SCHEMA(s_deck_removed, wire_deck_removed,
+  F(wire_deck_removed, "mode", WT_MODE, mode), F(wire_deck_removed, "id", WT_I64, id),
+  F(wire_deck_removed, "name", WT_STR, name), F(wire_deck_removed, "decks", WT_U32, decks),
+  F(wire_deck_removed, "cards", WT_U32, cards), F(wire_deck_removed, "notes", WT_U32, notes));
 
 SCHEMA(s_q_deck_name, wire_q_deck_name, F(wire_q_deck_name, "name", WT_STR, name));
 SCHEMA(s_q_install, wire_q_install, F(wire_q_install, "baseDirOverride", WT_STR, base_dir_override));
@@ -124,7 +132,8 @@ static const struct { const char *name; const wire_schema *schema; } KINDS[WK_KI
   [WK_NOTES_ADDED] = {"notes_added", &s_notes_added}, [WK_NOTE_CHANGED] = {"note_changed", &s_note_changed},
   [WK_CARD_TEXT] = {"card_text", &s_card_text}, [WK_CLIP] = {"clip", &s_clip},
   [WK_STARTER_STATE] = {"starter_state", &s_starter_state}, [WK_STARTER_BUILT] = {"starter_built", &s_starter_built},
-  [WK_INSTALLED] = {"installed", &s_installed},
+  [WK_INSTALLED] = {"installed", &s_installed}, [WK_DECK_SUMMARY] = {"deck_summary", &s_deck_summary},
+  [WK_DECK_REMOVED] = {"deck_removed", &s_deck_removed},
   [WK_Q_DECK_NAME] = {"q_deck_name", &s_q_deck_name}, [WK_Q_INSTALL] = {"q_install", &s_q_install},
   [WK_Q_STARTER] = {"q_starter", &s_q_starter}, [WK_Q_NOTE] = {"q_note", &s_q_note},
   [WK_Q_NOTES] = {"q_notes", &s_q_notes}, [WK_Q_NOTE_UPDATE] = {"q_note_update", &s_q_note_update},

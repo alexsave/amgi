@@ -53,7 +53,7 @@ enum {
   /* answers */
   WK_ERROR, WK_STATUS, WK_DECKS, WK_INSTALL_STATE, WK_PROFILES, WK_NOTETYPES, WK_NOTES, WK_FIELD_VALUES,
   WK_DECK_CREATED, WK_DECK_RENAMED, WK_NOTE_ADDED, WK_NOTES_ADDED, WK_NOTE_CHANGED, WK_CARD_TEXT, WK_CLIP,
-  WK_STARTER_STATE, WK_STARTER_BUILT, WK_INSTALLED,
+  WK_STARTER_STATE, WK_STARTER_BUILT, WK_INSTALLED, WK_DECK_SUMMARY, WK_DECK_REMOVED,
   /* requests */
   WK_Q_DECK_NAME, WK_Q_INSTALL, WK_Q_STARTER, WK_Q_NOTE, WK_Q_NOTES, WK_Q_NOTE_UPDATE, WK_Q_CARD_TEXT, WK_Q_AUDIO,
   WK_KINDS
@@ -86,6 +86,10 @@ typedef struct { uint32_t mode; wire_str filename, reference; uint8_t reused; } 
 typedef struct { uint8_t offered, generation_available; wire_strs languages; uint32_t phrase_count; } wire_starter_state;
 typedef struct { uint32_t mode; int64_t deck_id; wire_str deck_name; uint32_t added, already_there; } wire_starter_built;
 typedef struct { uint8_t ok, needs_restart; wire_str message, addons_dir; } wire_installed;
+/* What deleting a deck takes (GET /decks/:id): its subdecks, the cards that go, the notes left with
+ * no card. What it took (DELETE /decks/:id): the decks removed, the cards, the notes. */
+typedef struct { uint32_t mode; int64_t id; wire_str name; uint32_t subdecks, cards, notes; } wire_deck_summary;
+typedef struct { uint32_t mode; int64_t id; wire_str name; uint32_t decks, cards, notes; } wire_deck_removed;
 
 typedef struct { wire_str name; } wire_q_deck_name;
 typedef struct { wire_str base_dir_override; } wire_q_install;

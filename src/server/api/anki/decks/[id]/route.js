@@ -27,3 +27,38 @@ export async function PATCH(request, { params }) {
     return answer({ error: error.message }, { status: 400 });
   }
 }
+
+// A failed deck read or delete as an answer: a deck that is not there (any more) is a 404, which
+// the page tells apart from a refusal (the Default deck); the rest are 400, as for every route.
+function failed(error) {
+  const status = error.status === 404 ? 404 : 400;
+  return answer({ error: status === 404 ? 'This deck no longer exists.' : error.message }, { status });
+}
+
+// What deleting the deck would take, read only: its subdecks, the cards that go and the notes left
+// with no card, for the page's confirmation to name before anything is changed.
+export async function GET(request, { params }) {
+  const { id } = await params;
+  const result = await resolveTransport(readSettings(request));
+  if (!result.ops) return notReadyResponse(result.mode);
+  try {
+    return answer({ mode: result.mode, ...(await result.ops.deckRemovalSummary(Number(id))) });
+  } catch (error) {
+    return failed(error);
+  }
+}
+
+// Deleting a deck, its subdecks, their cards and the notes left with no card, as Anki's own
+// "Delete" in its deck list does: the bridge calls col.decks.remove, the direct transport does
+// the same work (plusaudio/lib/collection/deck-remove.js), and both leave graves so a sync deletes
+// the same things on every other device. Both refuse the Default deck, which Anki only empties.
+export async function DELETE(request, { params }) {
+  const { id } = await params;
+  const result = await resolveTransport(readSettings(request));
+  if (!result.ops) return notReadyResponse(result.mode);
+  try {
+    return answer({ mode: result.mode, ...(await result.ops.removeDeck(Number(id))) });
+  } catch (error) {
+    return failed(error);
+  }
+}

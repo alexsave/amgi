@@ -139,6 +139,14 @@ function createBridgeOps(baseUrl, token) {
     async renameDeck(deckId, name) {
       return bridgeFetch(baseUrl, token, `/decks/${deckId}`, { method: 'PATCH', body: { name }, timeoutMs: OPERATION_TIMEOUT_MS });
     },
+    /** GET /decks/:id: what deleting it would take. A deck that is not there is a BridgeError with status 404. */
+    async deckRemovalSummary(deckId) {
+      return bridgeFetch(baseUrl, token, `/decks/${deckId}`, { timeoutMs: OPERATION_TIMEOUT_MS });
+    },
+    /** DELETE /decks/:id, through Anki's own col.decks.remove (bridge_ops.remove_deck). */
+    async removeDeck(deckId) {
+      return bridgeFetch(baseUrl, token, `/decks/${deckId}`, { method: 'DELETE', timeoutMs: OPERATION_TIMEOUT_MS });
+    },
     async removeNote(noteId) {
       return bridgeFetch(baseUrl, token, `/notes/${noteId}`, { method: 'DELETE', timeoutMs: OPERATION_TIMEOUT_MS });
     },
