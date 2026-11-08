@@ -17,13 +17,12 @@ Never edit `collection.anki2` with sqlite3 or any other tool: see `references/co
 
 ## Run it
 
-Needs Node 24.12, 25.1 or 26+ (not 25.0.x) for the build and the tests, LLVM's clang (`brew install llvm`) to build the page, Homebrew's sqlite, ICU 78 and OpenSSL (`brew install sqlite icu4c@78 openssl@3`) and Xcode's command line tools to build the server, desktop Anki opened once so it has a profile, and a Gemini key.
+Needs make and LLVM's clang (`brew install llvm`) to build the page, Homebrew's sqlite, ICU 78 and OpenSSL (`brew install sqlite icu4c@78 openssl@3`) and Xcode's command line tools to build the server, desktop Anki opened once so it has a profile, and a Gemini key. Node (24.12, 25.1 or 26+) is only for the tests and the linter.
 
 ```bash
 git submodule update --init --recursive     # cdom (the page's DOM library) and cbase (the server's platform)
-npm install
 echo 'GEMINI_API_KEY=...' > .env.local     # read by the app's server: KEY=VALUE, no blank around the =
-npm start                                   # builds ui/out and server/build/amgi, serves http://127.0.0.1:3000
+make start                                  # builds ui/out and server/build/amgi, serves http://127.0.0.1:3000
 ```
 
 Keep port 3000 if the user will use the UI with Anki open: the `amgi_bridge` add-on only accepts browser origins listed in its `bridge_allowed_origins` config, which defaults to port 3000.
