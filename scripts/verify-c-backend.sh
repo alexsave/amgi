@@ -46,6 +46,14 @@ for v in ANKI_PYTHON_BIN ANKI_FIXTURE_APKG; do
 done
 unset GEMINI_API_KEY GEMINI_API_BASE CBASE_ENV_FILE CBASE_LISTEN PORT
 export ANKI_PYTHON_BIN ANKI_FIXTURE_APKG
+# HOME is a throwaway folder for EVERY step. amgi's C server falls back to $HOME/Library/Application
+# Support/Anki2 when a request carries no settings header, so a step with the real HOME could open the
+# owner's real collection (the 2026-11-08 18:42 corruption made that exposure visible). The real folder
+# is only stat'ed by the last step, through REAL_HOME.
+REAL_HOME="$HOME"
+export npm_config_cache="${npm_config_cache:-$REAL_HOME/.npm}"
+mkdir -p "$work/home"
+export HOME="$work/home"
 
 server_pid=""
 cleanup() {
@@ -101,7 +109,7 @@ summary() {
 }
 
 # The real collection, looked at (stat only, never opened) before and after.
-real_anki="$HOME/Library/Application Support/Anki2"
+real_anki="$REAL_HOME/Library/Application Support/Anki2"
 anki_fingerprint() {
   find "$real_anki" -maxdepth 2 -name 'collection.anki2*' -exec stat -f '%N %z %m' {} \; 2> /dev/null | sort
 }
