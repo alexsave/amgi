@@ -18,6 +18,11 @@ str media_dir_for(cx *c, str collection) {
   return str_cat(c->a, base, S(".media"));
 }
 
+str col_media_dir(arena *a, str collection_path) {
+  cx c = {a, NULL, {0}};
+  return media_dir_for(&c, collection_path);
+}
+
 static int exists(cx *c, str path) {
   struct stat sb;
   return stat(str_z(c->a, path), &sb) == 0;

@@ -112,6 +112,9 @@ int col_has_media(arena *a, str path, str name, int *out, col_err *err);
 int col_read_media(arena *a, str path, str name, int *found, str *bytes, col_err *err);
 int col_add_media(arena *a, str path, str name, const void *data, size_t len, str *stored, col_err *err);
 
+/* The collection's media folder: collection.media beside collection.anki2 (media.js). */
+str col_media_dir(arena *a, str collection_path);
+
 /* paths.js: the default Anki folder for this platform, and the profiles in a folder (sorted as
  * localeCompare sorts). */
 str col_default_base_dir(arena *a);
