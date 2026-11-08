@@ -79,6 +79,29 @@ export class GeminiUnavailableError extends Error {
     }
 }
 
+/**
+ * A per-minute rate limit that asked for a longer wait than this client will
+ * sit through on its own (maxRateLimitWaitMs). Not fatal - it passes - and
+ * not a verdict on the request either, so it is never retried in place: it
+ * is carried out to whoever can wait without holding a request open (the
+ * bulk add screen waits, shows a countdown and tries the line again). Its
+ * message is one line, for whoever shows it as is.
+ */
+export class GeminiRateLimitError extends Error {
+    readonly rateLimited = true;
+    readonly retryAfterMs: number;
+    constructor(model: string, retryAfterMs: number) {
+        super(`Gemini is limiting how many requests ${model} takes per minute and asked to wait ${Math.ceil(retryAfterMs / 1000)}s.`);
+        this.name = 'GeminiRateLimitError';
+        this.retryAfterMs = retryAfterMs;
+    }
+}
+
+/** Whether `error` is a per-minute limit to wait out (GeminiRateLimitError, or one rebuilt across a process boundary). */
+export function isRateLimited(error: unknown): error is { rateLimited: true; retryAfterMs: number; message: string } {
+    return (error as { rateLimited?: boolean })?.rateLimited === true;
+}
+
 export const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com';
 export { GEMINI_KEY_PAGE, MISSING_KEY_MESSAGE };
 
@@ -191,11 +214,11 @@ export function createGeminiClient(options: GeminiClientOptions): GeminiClient {
                 if (daily) throw new GeminiUnavailableError(dailyQuotaMessage(model, daily));
                 const retryInfo = details.find((detail) => detail.retryDelay !== undefined);
                 const delayMs = parseRetryDelay(retryInfo?.retryDelay) ?? DEFAULT_RATE_LIMIT_DELAY_MS;
-                if (waitedMs + delayMs > maxRateLimitWaitMs) {
-                    throw new GeminiUnavailableError(
-                        `Gemini is limiting how many requests ${model} takes per minute and asked to wait ${Math.ceil(delayMs / 1000)}s; try again in a minute.`,
-                    );
-                }
+                // A short wait is cheaper to sit through here than to hand
+                // back; a long one is handed back, typed, so nothing holds a
+                // request (and, in the app, a generator subprocess) open for
+                // a minute.
+                if (waitedMs + delayMs > maxRateLimitWaitMs) throw new GeminiRateLimitError(model, delayMs);
                 await sleep(delayMs);
                 waitedMs += delayMs;
                 continue;

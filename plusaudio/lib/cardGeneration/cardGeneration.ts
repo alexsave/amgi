@@ -50,7 +50,7 @@ import {
 } from "./cardPrompts.ts";
 import type { CardModels } from "./models.ts";
 import type { SpeechSynthesizer } from "./geminiSpeech.ts";
-import { bytesToBase64, responseText, type GeminiClient, type GenerateContentRequest } from "./gemini.ts";
+import { bytesToBase64, isRateLimited, responseText, type GeminiClient, type GenerateContentRequest } from "./gemini.ts";
 
 /** Where the module's warnings go; console in both runtimes unless overridden. */
 export interface GenerationLog {
@@ -389,7 +389,10 @@ export interface CardAudioRequest {
  * Fails closed: if no attempt produces audio that passes validation, throws.
  * A failure no retry can fix (GeminiUnavailableError: the day's Gemini quota
  * is spent, the key is refused) is thrown at once, with its own message, so
- * the person sees what to do instead of "failed after 3 attempts".
+ * the person sees what to do instead of "failed after 3 attempts". So is a
+ * long per-minute rate limit (GeminiRateLimitError): it is thrown at once,
+ * carrying how long to wait, for a caller that can wait without spending
+ * this clip's attempts on refusals.
  *
  * Returns a complete WAV file.
  */
@@ -433,7 +436,7 @@ export async function generateCardAudio(
             } catch (judgeError) {
                 // A spent quota or a refused key fails the transcript
                 // fallback too; say so now instead of trying it.
-                if ((judgeError as { fatal?: boolean })?.fatal === true) throw judgeError;
+                if ((judgeError as { fatal?: boolean })?.fatal === true || isRateLimited(judgeError)) throw judgeError;
                 if (transcriptMatches) {
                     // The words are right and only the reading was in
                     // question. Losing the card over a judge outage would be
@@ -462,7 +465,9 @@ export async function generateCardAudio(
             lastFailure = `judge heard: "${verdict.heard}"; transcript: "${transcript}"; reason: ${verdict.reason}`;
             log.warn(`Audio validation attempt ${attempt}/${maxAttempts} (voice ${voice}) failed for "${spoken}" (${language}); ${lastFailure}`);
         } catch (audioError) {
-            if ((audioError as { fatal?: boolean })?.fatal === true) throw audioError;
+            // Neither is the clip's fault: a fatal error would fail every
+            // attempt, and a rate limit would only be refused again at once.
+            if ((audioError as { fatal?: boolean })?.fatal === true || isRateLimited(audioError)) throw audioError;
             lastFailure = messageOf(audioError);
             log.error(`Audio generation attempt ${attempt}/${maxAttempts} failed: ${lastFailure}`);
         }
