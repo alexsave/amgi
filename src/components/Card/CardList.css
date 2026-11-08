@@ -16,6 +16,9 @@
 
 .deck-cards-header h1 {
   margin: 0;
+  /* App.css's global h1 pads 10px each side, which pushed the deck name
+     right of the card count and language line under it. */
+  padding: 0;
   font-size: 1.6rem;
   color: var(--text-primary);
 }

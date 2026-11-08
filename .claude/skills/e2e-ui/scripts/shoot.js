@@ -74,9 +74,15 @@ const COLLECTION = process.env.ANKI_COLLECTION;
   );
   await deckItems[noteCounts.indexOf(Math.max(...noteCounts))].click();
   await page.waitForSelector('.deck-cards', { timeout: 20000 });
-  // Rows, or the empty-deck message - whichever CardList.js settles on - rather
-  // than the absence of a loading string whose wording has changed before.
-  await page.waitForSelector('.note-row-wrap, .empty-deck', { timeout: 20000 });
+  // Rows, or the empty-deck message - whichever CardList.js settles on. The
+  // loading line shares the .empty-deck box, so a box that still says
+  // "Loading" does not count (under next dev the first load can be slow).
+  await page.waitForFunction(
+    () =>
+      document.querySelector('.note-row-wrap') ||
+      [...document.querySelectorAll('.empty-deck')].some((el) => !/Loading/i.test(el.textContent)),
+    { timeout: 60000 },
+  );
   // The app's own layout is a fixed-height shell with an inner scrolling
   // region (see App.css: `height: 100vh; overflow: hidden` on the shell,
   // `overflow-y: auto` inside it), so Puppeteer's `fullPage` screenshot
@@ -120,7 +126,7 @@ const COLLECTION = process.env.ANKI_COLLECTION;
     { timeout: 180000 },
   );
   const formError = await page
-    .$$eval('.bulk-run-row.is-error', (rows) => rows.map((row) => row.textContent).join('\n'))
+    .$$eval('.bulk-run-row.is-error', (rows) => rows.map((row) => row.innerText.replace(/\s+/g, ' ')).join('\n'))
     .catch(() => '');
   await sleep(500);
   const rowsAfter = await page.$$eval('.note-row-wrap', (els) => els.length);
