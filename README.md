@@ -39,6 +39,7 @@ GEMINI_API_KEY=...
 ```
 
 The server reads it strictly (`KEY=VALUE`, no blank around the `=`, a value in quotes loses them), and says which line it could not read.
+Updating an existing clone: `git pull` and then `npm start` as before; `npm start` checks out any submodule a pull added (the server's `cbase/`), and `git submodule update --init --recursive` does the same by hand.
 Then build it and start it:
 
 ```bash
