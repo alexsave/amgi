@@ -1,6 +1,6 @@
 # amgi's native code, on cbase (the submodule at ../cbase) through cbase.mk:
-#   - server/app: the amgi app on cbase serve (build/amgi). L2 fills it; today it is storeless and
-#     has no routes.
+#   - server/app: the amgi app on cbase serve (build/amgi): the cb_app over server/amgi, its routes,
+#     install, the starter deck, the rate gate and Gemini (server/amgi/amgi.h).
 #   - server/collection and server/json: the collection core (the C port of plusaudio/lib/collection,
 #     the direct transport and the bridge client) and its Anki JSON quarantine, as one library with
 #     its own flags and its own gates (test/no-json.test.mjs, the random scan, server/test/unit.c).
@@ -38,7 +38,10 @@ COL_SRC := collection/util.c collection/rng.c collection/db.c collection/backup.
 # The bridge client and resolveTransport: the half that speaks HTTP, through cbase's client.
 BRIDGE_SRC := collection/bridge.c collection/transport.c collection/wire_host.c ../ui/wire/wire.c
 COL_HDR := $(wildcard collection/*.h json/*.h) ../ui/wire/wire.h
-APP_EXTRA_SRC := $(COL_SRC) $(BRIDGE_SRC)
+# The amgi app's own code (server/amgi/amgi.h): its routes, install, the starter deck, the rate gate and
+# Gemini. A product library like the core, for the same reason: it reads numbers as JavaScript does.
+AMGI_SRC := $(sort $(wildcard amgi/*.c))
+APP_EXTRA_SRC := $(COL_SRC) $(BRIDGE_SRC) $(AMGI_SRC)
 APP_EXTRA_CFLAGS = $(WARN) -O2 -g -pthread -I$(CBASE)/core/include -I$(CBASE)/core/src -I$(CBASE)/lib -I../ui/wire \
   $(ICU_CFLAGS) $(SQLITE_CFLAGS) $(OPENSSL_CFLAGS)
 APP_LDLIBS := $(ICU_LDFLAGS) -licui18n -licuuc
