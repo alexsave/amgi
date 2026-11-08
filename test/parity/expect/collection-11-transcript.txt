@@ -132,18 +132,38 @@ err error note%20type%20%22Basic%22%20has%202%20fields%2C%20got%201
 err error no%20note%20type%20with%20id%204242%20in%20this%20collection
 > addNote <D1> 1794170430302 [~,~] [] ! !
 ok <N18> <guid> [<C20>] !
-> addNote <D1> 1794170430302 [emoji%20%F0%9F%99%82%20and%20%E6%BC%A2%E5%AD%97,x] [] zh_cn 0
+> addNote <D1> 1794170430302 [sep%1Fin%20field,x] [] ! !
 ok <N19> <guid> [<C21>] !
+> addNote <D1> 1794170430302 [%00nul%20%01%08%20%0B%0C%0D%0A%09%20%1B%20esc%20%7F%20del,cr%0D%0Alf] [] ! !
+ok <N20> <guid> [<C22>] !
+> addNote <D1> 1794170430302 [cafe%CC%81%20decomposed,%E1%84%80%E1%85%A1%20jamo] [] ! !
+ok <N21> <guid> [<C23>] !
+> addNote <D1> 1794170430302 [%C2%85%20next%20line%20and%20%C2%A0nbsp%20stay,%3Cb%3Ehtml%3C%2Fb%3E%1F] [] ! !
+ok <N22> <guid> [<C24>] !
+> addNote <D1> 1794170430302 [%1F,only%20a%20separator] [] ! !
+ok <N23> <guid> [<C25>] !
+> addNote <D1> 1794170430303 [%01,%02] [] ! !
+ok <N24> <guid> [<C26>] !
+> addNote <D1> 1794170430302 [annye%01ong,x] [] ko 0
+ok <N25> <guid> [<C27>] %22Front%22%20looks%20fully%20romanised%20for%20a%20ko%20note%20-%20check%20it%20is%20not%20meant%20to%20be%20written%20in%20ko%27s%20own%20script.
+> addNote <D1> 1794170430302 [emoji%20%F0%9F%99%82%20and%20%E6%BC%A2%E5%AD%97,x] [] zh_cn 0
+ok <N26> <guid> [<C28>] !
 > addNotesBulk 4
 > <D1> 1794170430302 [bulk%201,x] [] ! !
 > <D1> 1794170430302 [bulk%20bad] [] ! !
 > <D1> 1794170430302 [bulk%203,x] [] ko 0
 > <D1> 1794170430306 [%7B%7Bc2%3A%3Abulk%7D%7D,~] [] ! !
 ok 4
-ok <N20> <guid> [<C22>] !
+ok <N27> <guid> [<C29>] !
 err note%20type%20%22Basic%22%20has%202%20fields%2C%20got%201
-ok <N21> <guid> [<C23>] %22Front%22%20looks%20fully%20romanised%20for%20a%20ko%20note%20-%20check%20it%20is%20not%20meant%20to%20be%20written%20in%20ko%27s%20own%20script.
-ok <N22> <guid> [<C24>] !
+ok <N28> <guid> [<C30>] %22Front%22%20looks%20fully%20romanised%20for%20a%20ko%20note%20-%20check%20it%20is%20not%20meant%20to%20be%20written%20in%20ko%27s%20own%20script.
+ok <N29> <guid> [<C31>] !
+> addNotesBulk 2
+> <D1> 1794170430302 [bulk%1Fsep,e%CC%81] [] ! !
+> <D1> 1794170430302 [bulk%00nul,%0D] [] ! !
+ok 2
+ok <N30> <guid> [<C32>] !
+ok <N31> <guid> [<C33>] !
 > addNotesBulk 1
 > <D1> 4242 [x,y] [] ! !
 ok 1
@@ -154,14 +174,21 @@ ok !
 ok %22Front%22%20looks%20fully%20romanised%20for%20a%20ja%20note%20-%20check%20it%20is%20not%20meant%20to%20be%20written%20in%20ja%27s%20own%20script.
 > updateNote <N1> [too,many,fields] ! !
 err error note%20type%20%22Basic%22%20has%202%20fields%2C%20got%203
+> updateNote <N1> [edited%1Fsep%07,cafe%CC%81%0D%0A] ! !
+ok !
+> listNotesInDeck <D1> 0 3
+ok 0 3 1 3
+<N1> 1794170430302 [editedsep,caf%C3%A9%0A] []
+<N2> 1794170430302 [tagged,b] [t1,amgi]
+<N3> 1794170430302 [annyeong,hello] []
 > updateNote 999 [x,y] ! !
 err error no%20note%20with%20id%20999%20in%20this%20collection
 > addNote <D1> 1794170430303 [to%20delete,both] [] ! !
-ok <N23> <guid> [<C25>,<C26>] !
-> removeNote <N23>
-ok <N23> 2
-> removeNote <N23>
-err error no%20note%20with%20id%20<N23>%20in%20this%20collection
+ok <N32> <guid> [<C34>,<C35>] !
+> removeNote <N32>
+ok <N32> 2
+> removeNote <N32>
+err error no%20note%20with%20id%20<N32>%20in%20this%20collection
 > removeNote 999
 err error no%20note%20with%20id%20999%20in%20this%20collection
 > renameDeck <D1> Renamed
@@ -297,15 +324,9 @@ ok 1794170430308 Empty 1 0 0
 > createDeck Doomed%3A%3ASub
 ok <D19> Doomed%3A%3ASub 1
 > addNote <D19> 1794170430302 [doomed,x] [] ! !
-ok <N24> <guid> [<C27>] !
-> addNote <D19> 1794170430302 [sep%1Fin%20field,x] [] ! !
-ok <N25> <guid> [<C28>] !
-> listNotesInDeck <D19> 0 50
-ok 0 50 0 2
-<N24> 1794170430302 [doomed,x] []
-<N25> 1794170430302 [sep,in%20field,x] []
+ok <N33> <guid> [<C36>] !
 > removeDeck <D20>
-ok <D20> Doomed 2 2 2
+ok <D20> Doomed 2 1 1
 > listDecks
 ok 22
 1 Default
