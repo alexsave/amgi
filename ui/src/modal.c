@@ -67,7 +67,7 @@ void confirm_ask(const char *title, const char *body, uint32_t blen, const char 
 }
 
 void modal_event(const cd_event_rec *e, uint32_t tag) {
-  if (e->type != (TAG_ACTION(tag) == A_CLOSED ? CD_EV_CLOSE : CD_EV_CLICK)) return; /* see deck_event */
+  (void)e;
   switch (TAG_ACTION(tag)) {
   case A_YES:
     answered = 1;

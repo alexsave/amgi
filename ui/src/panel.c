@@ -223,10 +223,9 @@ void panel_event(const cd_event_rec *e, uint32_t tag) {
       commit(TAG_INDEX(tag));
     }
     break;
-  case A_REDO_TARGET: if (e->type == CD_EV_CLICK) redo(0); break;
-  case A_REDO_CUE: if (e->type == CD_EV_CLICK) redo(1); break;
+  case A_REDO_TARGET: redo(0); break;
+  case A_REDO_CUE: redo(1); break;
   case A_DELETE: {
-    if (e->type != CD_EV_CLICK) break;
     if (deleting) break;
     int32_t ti = idx.target;
     char *t = cd_alloc(ti >= 0 && (uint32_t)ti < nfields ? fields[ti].len + 1 : 1);

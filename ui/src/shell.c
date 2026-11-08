@@ -78,14 +78,14 @@ void cd_on_event(const cd_event_rec *e) {
   }
   uint32_t tag = cd_tag((cd_id)e->id);
   switch (TAG_MODULE(tag)) {
-  case M_SHELL: if (e->type == CD_EV_CLICK) go("/settings", 9); break;
+  case M_SHELL: go("/settings", 9); break;
   case M_DECKS: decks_event(e, tag); break;
   case M_SETTINGS: settings_event(e, tag); break;
   case M_DECK: case M_FORM: case M_PANEL: case M_BULK: deck_event(e, tag); break;
   case M_MODAL: modal_event(e, tag); break;
-  case M_FIRSTRUN: if (e->type == CD_EV_CLICK) firstrun_event(tag); break;
-  case M_STARTER: if (e->type == CD_EV_CLICK || e->type == CD_EV_CHANGE) starter_event(tag); break;
-  case M_TEMPLATE: if (e->type == CD_EV_CLICK) template_event(tag); break;
+  case M_FIRSTRUN: firstrun_event(tag); break;
+  case M_STARTER: starter_event(tag); break;
+  case M_TEMPLATE: template_event(tag); break;
   case M_CHIP: if (e->type == CD_EV_CLICK) chip_event(tag); break;
   }
 }
