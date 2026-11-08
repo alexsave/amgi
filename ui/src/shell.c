@@ -87,18 +87,10 @@ ON_EVENT(shown_again) {
 ON_EVENT(open_settings) { go("/settings", 9); }
 
 /* ---- every hook cdom calls ---- */
-void cd_on_timer(uint32_t token) {
-  switch (token >> 24) {
-  case M_SHELL: state_timer(token & 0xffffff); break;
-  case M_SETTINGS: settings_timer(token & 0xffffff); break;
-  case M_BULK: bulk_timer(token & 0xffffff); break;
-  }
-}
-
 void cd_on_store(uint32_t token, const uint8_t *p, int32_t len) {
   switch (token >> 24) {
-  case M_SETTINGS: settings_got(p, len); break;
-  case M_DECK: deck_langs_got(token & 0xffffff, p, len); break;
+  case STORE_SETTINGS: settings_got(p, len); break;
+  case STORE_DECK_LANGS: deck_langs_got(token & 0xffffff, p, len); break;
   }
 }
 

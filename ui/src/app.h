@@ -60,18 +60,9 @@ void icon(const char *d1, const char *d2, cd_str style);
 void icon_with(const char *d1, const char *d2, cd_str style, cd_str cls); /* with a class (className="icon") */
 extern const char ICON_COG[], ICON_COG_HUB[], ICON_PLUS[], ICON_TRASH[], ICON_X[];
 
-/* ---- modules: the ones whose timers and store calls are routed by a token's top byte ---- */
-enum { M_SHELL = 1, M_SETTINGS, M_DECK, M_BULK, M_COUNT /* not a module: one past the last */ };
-/* A module id is a token's top byte (timers, store calls), and cdom keeps every token from
- * CD_TOKEN_CDOM (0x80000000) up for itself: so no module id may reach 0x80. */
-_Static_assert(M_COUNT <= 0x80, "a module id past 0x7f makes tokens in cdom's own range");
-/* A timer: cd_on_timer(module << 24 | token) after ms, which shell.c hands to that module. The only
- * way to start one, so no timer can go out without the module that is waiting for it: cdom's own
- * call is poisoned below, and a direct use of it does not compile. */
-static inline void timer_start(uint32_t module, uint32_t ms, uint32_t token) {
-  cd_timer_start(ms, module << 24 | (token & 0xffffff));
-}
-#pragma GCC poison cd_timer_start
+/* A timer is cd_timer_cb's callback, stopped with cd_timer_stop: the raw token form and its hook
+ * are poisoned, so a direct use of either does not compile. */
+#pragma GCC poison cd_timer_start cd_on_timer
 
 /* ---- requests (net.c) ---- */
 /* The answer a request brings: the HTTP status and the message, read into the kind's struct the
@@ -124,7 +115,6 @@ void refresh_decks(void);
 void decks_drop_tree(int64_t id);  /* a deck that was deleted, and its subdecks, out of the list now */
 void poll_status(void);
 void state_start(void);   /* the settings are loaded: poll, fetch, and keep polling */
-void state_timer(uint32_t token);
 /* The note types, asked once (ensure) and kept: id, name, field names. */
 typedef struct { int64_t id; text name; text *fields; uint32_t nfields, sort_field; } notetype;
 extern notetype *notetypes;
@@ -183,7 +173,6 @@ void decks_forget(void);
 void settings_build(void);
 void settings_after(void);                /* after the page region closed */
 void settings_forget(void);
-void settings_timer(uint32_t token);
 
 void deck_build(void);                    /* CardList, for route_deck */
 void deck_after(void);
@@ -212,7 +201,6 @@ void form_langs_changed(const lang_pair *langs);
 void bulk_start(cd_id form_box, int64_t deck, const notetype *type, const lang_pair *langs, const wire_str *lines,
                 uint32_t n, void (*on_finished)(void));
 void bulk_forget(void);
-void bulk_timer(uint32_t token);
 
 /* FirstRun (firstrun.c), shown as all of parent's children. */
 void firstrun_show(cd_id parent);
@@ -237,6 +225,9 @@ void confirm_close(void);
 /* After the next decks answer, open deck id (a deck just made: the list must know it first). */
 void open_after_refresh(int64_t id);
 
-/* Store tokens: each module's top byte, as event tags. */
-#define STORE_TOKEN(module, n) ((uint32_t)(module) << 24 | (uint32_t)(n))
+/* Store tokens: the caller's id in the top byte, which cd_on_store (shell.c) routes by, and cdom keeps
+ * every token from CD_TOKEN_CDOM (0x80000000) up for itself: so no caller id may reach 0x80. */
+enum { STORE_SETTINGS = 1, STORE_DECK_LANGS, STORE_CALLERS /* one past the last */ };
+_Static_assert(STORE_CALLERS <= 0x80, "a store caller id past 0x7f makes tokens in cdom's own range");
+#define STORE_TOKEN(caller, n) ((uint32_t)(caller) << 24 | (uint32_t)(n))
 #endif

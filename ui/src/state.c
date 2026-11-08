@@ -2,7 +2,6 @@
  * decks, whether amgi is installed, the note types; and the mode badge that shows the first two. */
 #include "app.h"
 
-enum { TIMER_POLL = 1 };
 #define POLL_MS 4000
 
 deck *decks;
@@ -65,16 +64,16 @@ void ensure_notetypes(void) {
   ask(notetypes_answered, 0, "GET", "/notetypes", WIRE_NONE, 0);
 }
 
+static void poll_again(void *ctx) {
+  (void)ctx;
+  poll_status();
+  cd_timer_cb(POLL_MS, poll_again, 0);
+}
 void state_start(void) {
   template_mode_changed();
   poll_status();
   refresh_decks();
-  timer_start(M_SHELL, POLL_MS, TIMER_POLL);
-}
-void state_timer(uint32_t token) {
-  if (token != TIMER_POLL) return;
-  poll_status();
-  timer_start(M_SHELL, POLL_MS, TIMER_POLL);
+  cd_timer_cb(POLL_MS, poll_again, 0);
 }
 
 /* The decks screen follows the state: setup while amgi is not set up, the list once it is. */
