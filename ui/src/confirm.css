@@ -1,0 +1,23 @@
+/* The page's own confirmation (ui/src/modal.c), a <dialog> opened with showModal: the deck list's
+   .modal-content box and .modal-actions buttons, the browser's backdrop dimmed as .modal-overlay
+   dims. The only CSS the C UI adds: the React app asked with window.confirm, which draws nothing. */
+dialog.confirm-dialog {
+  color: var(--text-primary);
+  text-align: left;
+  margin: auto;
+}
+
+dialog.confirm-dialog::backdrop {
+  background-color: rgba(0, 0, 0, 0.6);
+}
+
+.confirm-dialog p {
+  margin: 0 0 1rem 0;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.confirm-dialog .confirm-note {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
