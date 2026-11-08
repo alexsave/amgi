@@ -464,7 +464,8 @@ async function operations(t, impl, schema) {
 
   // Concurrent writes, as five bulk lanes and a status poll reach one server at once.
   const lines = [];
-  for (let i = 0; i < 6; i += 1) lines.push(`addNote ${note(decks['Korean::문장'], basic, [`parallel ${i}`, 'x'])}`);
+  // The same note six times: which lands first is the scheduler's, so nothing recorded may depend on it.
+  for (let i = 0; i < 6; i += 1) lines.push(`addNote ${note(decks['Korean::문장'], basic, ['parallel', 'x'])}`);
   lines.push('status', `countNotesInDeck ${decks.Korean}`);
   const answers = await impl.parallel(lines);
   // Their order of landing is the scheduler's; what is recorded is that each one worked.
