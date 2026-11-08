@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { answer } from '../../../anki/answer';
 import { readSettings } from '../../../../server/anki/settings';
 import { resolveTransport } from '../../../../server/anki/transport';
 import { notReadyResponse } from '../../../../server/anki/respond';
@@ -11,7 +11,7 @@ export async function POST(request) {
   const body = await request.json();
   const { deckId, notetypeId, fields, tags = [], language, learningFieldIndex } = body || {};
   if (!deckId || !notetypeId || !Array.isArray(fields)) {
-    return NextResponse.json({ error: 'deckId, notetypeId and fields are required' }, { status: 400 });
+    return answer({ error: 'deckId, notetypeId and fields are required' }, { status: 400 });
   }
 
   try {
@@ -20,8 +20,8 @@ export async function POST(request) {
     // looksRomanized) and are omitted entirely when the caller does not send
     // them, same as before that guard existed.
     const added = await result.ops.addNote({ deckId, notetypeId, fields, tags, language, learningFieldIndex });
-    return NextResponse.json({ mode: result.mode, ...added });
+    return answer({ mode: result.mode, ...added });
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+    return answer({ error: error.message }, { status: 400 });
   }
 }

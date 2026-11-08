@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { answer } from '../../../../anki/answer';
 import { readSettings } from '../../../../../server/anki/settings';
 import { resolveTransport } from '../../../../../server/anki/transport';
 import { notReadyResponse } from '../../../../../server/anki/respond';
@@ -18,14 +18,14 @@ export async function PATCH(request, { params }) {
   const body = await request.json();
   const { fields, language, learningFieldIndex } = body || {};
   if (!Array.isArray(fields)) {
-    return NextResponse.json({ error: 'fields is required' }, { status: 400 });
+    return answer({ error: 'fields is required' }, { status: 400 });
   }
 
   try {
     const updated = await result.ops.updateNote(Number(id), fields, language, learningFieldIndex);
-    return NextResponse.json({ mode: result.mode, noteId: Number(id), ...updated });
+    return answer({ mode: result.mode, noteId: Number(id), ...updated });
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+    return answer({ error: error.message }, { status: 400 });
   }
 }
 
@@ -41,8 +41,8 @@ export async function DELETE(request, { params }) {
 
   try {
     const removed = await result.ops.removeNote(Number(id));
-    return NextResponse.json({ mode: result.mode, noteId: Number(id), ...removed });
+    return answer({ mode: result.mode, noteId: Number(id), ...removed });
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+    return answer({ error: error.message }, { status: 400 });
   }
 }

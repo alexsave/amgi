@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { answer } from '../../../anki/answer';
 import { readSettings } from '../../../../server/anki/settings';
 import { resolveTransport } from '../../../../server/anki/transport';
 import { notReadyResponse } from '../../../../server/anki/respond';
@@ -15,7 +15,7 @@ export async function POST(request) {
   const language = body?.language;
   const fresh = body?.fresh === true;
   if (!text || !language) {
-    return NextResponse.json({ error: 'text and language are required' }, { status: 400 });
+    return answer({ error: 'text and language are required' }, { status: 400 });
   }
 
   // Not begun at all while the rate gate says Gemini is blocked: the card
@@ -25,8 +25,8 @@ export async function POST(request) {
 
   try {
     const { filename, reference, reused } = await generateAndStoreClip({ text, language, fresh, ops: result.ops });
-    return NextResponse.json({ mode: result.mode, filename, reference, reused });
+    return answer({ mode: result.mode, filename, reference, reused });
   } catch (error) {
-    return limitResponse(error) || NextResponse.json({ error: error.message }, { status: 500 });
+    return limitResponse(error) || answer({ error: error.message }, { status: 500 });
   }
 }

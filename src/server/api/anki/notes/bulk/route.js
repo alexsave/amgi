@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { answer } from '../../../../anki/answer';
 import { readSettings } from '../../../../../server/anki/settings';
 import { resolveTransport } from '../../../../../server/anki/transport';
 import { notReadyResponse } from '../../../../../server/anki/respond';
@@ -18,18 +18,18 @@ export async function POST(request) {
   const body = await request.json();
   const { notes } = body || {};
   if (!Array.isArray(notes) || notes.length === 0) {
-    return NextResponse.json({ error: 'notes must be a non-empty array' }, { status: 400 });
+    return answer({ error: 'notes must be a non-empty array' }, { status: 400 });
   }
   for (const note of notes) {
     if (!note?.deckId || !note?.notetypeId || !Array.isArray(note?.fields)) {
-      return NextResponse.json({ error: 'each note requires deckId, notetypeId and fields' }, { status: 400 });
+      return answer({ error: 'each note requires deckId, notetypeId and fields' }, { status: 400 });
     }
   }
 
   try {
     const results = await result.ops.addNotesBulk(notes);
-    return NextResponse.json({ mode: result.mode, results });
+    return answer({ mode: result.mode, results });
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+    return answer({ error: error.message }, { status: 400 });
   }
 }

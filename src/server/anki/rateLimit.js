@@ -16,12 +16,12 @@
 // retryAfterMs is always the gate's own jittered wait; the browser displays
 // it and waits exactly that long (BulkRun.js), and has no timing of its own.
 
-import { NextResponse } from 'next/server';
+import { answer } from './answer';
 import { sharedGate } from 'plusaudio/lib/rateGate';
 import { MAX_WAIT_MS } from 'plusaudio/lib/rateLimits';
 
 function retryAfterResponse(error, retryAfterMs, extra = {}) {
-  return NextResponse.json(
+  return answer(
     // maxWaitMs: the most a card waits in all before giving up (BulkRun), sent rather than copied
     // into the client, so plusaudio/lib/rateLimits.js stays its one owner.
     { error, retryAfterMs, maxWaitMs: MAX_WAIT_MS, ...extra },
@@ -46,7 +46,7 @@ export function limitResponse(error) {
     return retryAfterResponse(error.message, error.retryAfterMs);
   }
   if (error?.dailyCap === true) {
-    return NextResponse.json({ error: error.message, dailyCap: true }, { status: 429 });
+    return answer({ error: error.message, dailyCap: true }, { status: 429 });
   }
   return null;
 }

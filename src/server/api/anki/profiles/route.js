@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { answer } from '../../../anki/answer';
 import { readSettings } from '../../../../server/anki/settings';
 import { discoverProfiles } from '../../../../server/anki/transport';
 
@@ -8,5 +8,5 @@ import { discoverProfiles } from '../../../../server/anki/transport';
 export async function GET(request) {
   const settings = readSettings(request);
   const { baseDir, baseDirExists, profiles } = discoverProfiles(settings.baseDirOverride);
-  return NextResponse.json({ baseDir, baseDirExists, profiles });
+  return answer({ baseDir, baseDirExists, profiles });
 }

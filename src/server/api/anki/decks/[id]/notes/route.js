@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { answer } from '../../../../../anki/answer';
 import { readSettings } from '../../../../../../server/anki/settings';
 import { resolveTransport } from '../../../../../../server/anki/transport';
 import { notReadyResponse } from '../../../../../../server/anki/respond';
@@ -17,5 +17,5 @@ export async function GET(request, { params }) {
   const limit = Math.min(MAX_LIMIT, Math.max(1, Number(url.searchParams.get('limit')) || DEFAULT_LIMIT));
 
   const page = await result.ops.listNotesInDeck(Number(id), { offset, limit });
-  return NextResponse.json({ mode: result.mode, ...page });
+  return answer({ mode: result.mode, ...page });
 }

@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { answer } from '../../../anki/answer';
 import { readSettings } from '../../../../server/anki/settings';
 import { resolveTransport } from '../../../../server/anki/transport';
 
@@ -12,7 +12,7 @@ export async function GET(request) {
   // Never a non-200: unlike every other /api/anki/* route, a "bad" mode here
   // (locked, not-found, unconfigured) is the actual, correct answer to the
   // question this endpoint exists to answer, not a failure of the request.
-  return NextResponse.json({
+  return answer({
     mode: result.mode,
     schemaVersion: result.schemaVersion,
     detail: result.detail,

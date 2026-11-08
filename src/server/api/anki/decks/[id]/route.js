@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { answer } from '../../../../anki/answer';
 import { readSettings } from '../../../../../server/anki/settings';
 import { resolveTransport } from '../../../../../server/anki/transport';
 import { notReadyResponse } from '../../../../../server/anki/respond';
@@ -18,12 +18,12 @@ export async function PATCH(request, { params }) {
 
   const body = await request.json().catch(() => ({}));
   const name = typeof body.name === 'string' ? body.name.trim() : '';
-  if (!name) return NextResponse.json({ error: 'name is required' }, { status: 400 });
+  if (!name) return answer({ error: 'name is required' }, { status: 400 });
 
   try {
     const renamed = await result.ops.renameDeck(Number(id), name);
-    return NextResponse.json({ mode: result.mode, ...renamed });
+    return answer({ mode: result.mode, ...renamed });
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+    return answer({ error: error.message }, { status: 400 });
   }
 }
