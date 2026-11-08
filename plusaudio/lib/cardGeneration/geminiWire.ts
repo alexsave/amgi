@@ -233,7 +233,7 @@ function enumNumber(type: EnumType, value: unknown, where: string): number {
     // The enum's own names, exactly ("LOW", "AUDIO"): one spelling, so a
     // request and what a test decodes from it read the same.
     const number = typeof value === 'string' && Object.hasOwn(type.enum, value) ? type.enum[value] : undefined;
-    if (number === undefined) throw new Error(`${where}: ${JSON.stringify(value)} is not one of ${Object.keys(type.enum).join(', ')}`);
+    if (number === undefined) throw new Error(`${where}: ${typeof value === 'string' ? `"${value}"` : String(value)} is not one of ${Object.keys(type.enum).join(', ')}`);
     return number;
 }
 
