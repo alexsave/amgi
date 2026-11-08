@@ -9,12 +9,12 @@ Usable on its own:  python3 tts.py "안녕하세요" ko out.mp3
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import sys
 import urllib.error
 import urllib.request
-import uuid
 
 from media_refs import normalize_for_comparison
 
@@ -70,7 +70,9 @@ def speak(text: str, language: str, voice: str, instructions: str | None = None)
 
 
 def transcribe(audio: bytes) -> str:
-    boundary = uuid.uuid4().hex
+    # Derived from the audio itself, so the request is reproducible and no
+    # random source is needed; a hash of the clip cannot occur inside it.
+    boundary = "amgi" + hashlib.sha256(audio).hexdigest()[:32]
     parts = [
         f'--{boundary}\r\nContent-Disposition: form-data; name="model"\r\n\r\n{TRANSCRIBE_MODEL}\r\n'.encode(),
         f'--{boundary}\r\nContent-Disposition: form-data; name="file"; filename="clip.mp3"\r\n'
