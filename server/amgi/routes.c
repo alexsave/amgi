@@ -364,13 +364,15 @@ static void h_media(rq *q) {
   const char *type = media_type(name);
   const char *cache = "private, max-age=31536000, immutable";
   if (ops_is_direct(&q->o)) {
-    /* A clip is one name in the collection's media folder: cbase's safe join refuses any other shape
-     * (a '/', '..', a control byte) and a link out of the folder, and those, like a clip that is not
-     * there, are "no such clip". */
-    char path[4096];
-    int rc = cb_path_join(str_z(q->a, col_media_dir(q->a, q->o.path)), str_z(q->a, name), path, sizeof path);
-    if (rc != CB_OK || memchr(name.p, 0, name.n)) return amgi_send_text(q->res, 404, S("no such clip"));
-    cb_send_file(q->ctx, q->req, q->res, path, type, cache);
+    /* The collection core says what is a clip (col_media_path: one name in the media folder, no
+     * link followed, a regular file of at most 256 MiB, the rule hasMedia and readMedia share), and
+     * cbase sends it. */
+    int found = 0;
+    str file = {0};
+    col_err e = {0};
+    if (col_media_path(q->a, q->o.path, name, &found, &file, &e)) return fail500(q, &e);
+    if (!found) return amgi_send_text(q->res, 404, S("no such clip"));
+    cb_send_file(q->ctx, q->req, q->res, file.p, type, cache);
     return;
   }
   /* Through the bridge the add-on reads the clip, as Node asked it to. */
