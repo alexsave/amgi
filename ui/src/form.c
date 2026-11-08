@@ -38,8 +38,7 @@ void form_build(int64_t deck_id, const lang_pair *l) {
   shown = 1;
   form_deck = deck_id;
   langs = *l;
-  el(CD_LIT("div"), CD_LIT("card-form-container"));
-  cd_name_open(box = cd_id_new());
+  box = el_id(CD_LIT("div"), CD_LIT("card-form-container"));
   inner.parent = 0;
   cd_close();
 }

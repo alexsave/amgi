@@ -29,9 +29,7 @@ void decks_build(void) {
   cd_close();
   cd_close();
   cd_close();
-  el(CD_LIT("div"), CD_LIT("deck-list"));
-  rows.parent = cd_id_new();
-  cd_name_open(rows.parent);
+  rows.parent = el_id(CD_LIT("div"), CD_LIT("deck-list"));
   cd_close();
 }
 
@@ -139,12 +137,11 @@ static void modal_open(void) {
   cd_attr(CD_LIT("for"), CD_LIT("deckName"));
   cd_text(CD_LIT("Deck Name"));
   cd_close();
-  cd_open(CD_LIT("input"));
+  modal_input = cd_open_id(CD_LIT("input"));
   cd_attr(CD_LIT("id"), CD_LIT("deckName"));
   cd_attr(CD_LIT("type"), CD_LIT("text"));
   cd_attr(CD_LIT("placeholder"), CD_LIT("e.g. Korean::Verbs"));
   cd_attr(CD_LIT("value"), CD_LIT(""));
-  cd_name(modal_input = cd_id_new());
   cd_close();
   cd_open(CD_LIT("small"));
   cd_attr(CD_LIT("style"), CD_LIT("display: block; margin-top: 0.35rem; opacity: 0.75;"));
@@ -153,8 +150,7 @@ static void modal_open(void) {
   cd_text(CD_LIT(" to nest under a parent deck (created automatically if it does not exist yet)."));
   cd_close();
   cd_close();
-  el(CD_LIT("div"), CD_LIT("button-row"));
-  cd_name_open(modal_buttons = cd_id_new());
+  modal_buttons = el_id(CD_LIT("div"), CD_LIT("button-row"));
   el(CD_LIT("button"), CD_LIT("primary-btn"));
   cd_attr(CD_LIT("type"), CD_LIT("submit"));
   cd_text(CD_LIT("Create Deck"));

@@ -203,15 +203,12 @@ void deck_build(void) {
     return;
   }
   el(CD_LIT("div"), CD_LIT("deck-cards-header"));
-  el(CD_LIT("div"), CD_LIT("deck-cards-title"));
-  cd_name_open(title_box = cd_id_new());
-  cd_open(CD_LIT("h1"));
-  cd_name_open(name_h1 = cd_id_new());
+  title_box = el_id(CD_LIT("div"), CD_LIT("deck-cards-title"));
+  name_h1 = cd_open_id(CD_LIT("h1"));
   name_box.parent = name_h1;
   cd_close();
   (void)d;
-  el(CD_LIT("p"), CD_LIT("deck-cards-sub"));
-  cd_name_open(sub_line = cd_id_new());
+  sub_line = el_id(CD_LIT("p"), CD_LIT("deck-cards-sub"));
   sub.parent = sub_line;
   cd_close();
   cd_close();
@@ -223,8 +220,7 @@ void deck_build(void) {
 
   el(CD_LIT("div"), CD_LIT("deck-content"));
   form_build(deck_id, &langs);
-  el(CD_LIT("div"), CD_LIT("deck-cards-list"));
-  cd_name_open(list_box = cd_id_new());
+  list_box = el_id(CD_LIT("div"), CD_LIT("deck-cards-list"));
   el(CD_LIT("div"), CD_LIT("deck-cards-listhead"));
   el_text(CD_LIT("h3"), 0, CD_LIT("Cards in this deck"));
   cd_open(CD_LIT("span"));
@@ -237,9 +233,8 @@ void deck_build(void) {
    * resets its name instead (rslib/src/decks/remove.rs), so "delete" would only empty it, and the
    * server refuses it on both transports. */
   if (deck_id != 1) {
-    el(CD_LIT("section"), CD_LIT("deck-danger"));
+    danger.parent = el_id(CD_LIT("section"), CD_LIT("deck-danger"));
     cd_attr(CD_LIT("aria-label"), CD_LIT("Delete this deck"));
-    cd_name_open(danger.parent = cd_id_new());
     cd_close();
   }
   cd_close();
@@ -338,8 +333,7 @@ static void row_build(uint32_t i) {
   uint32_t flen = strip_html(front, prompt);
 
   int open = 0; /* the editor opens after the rows are built: editor_open */
-  el(CD_LIT("li"), CD_LIT("note-row-wrap"));
-  cd_name_open(row_li[i] = cd_id_new());
+  row_li[i] = el_id(CD_LIT("li"), CD_LIT("note-row-wrap"));
   row_edit[i] = 0;
   el(CD_LIT("div"), CD_LIT("note-row"));
   el(CD_LIT("span"), CD_LIT("note-row-target"));

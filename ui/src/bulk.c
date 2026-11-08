@@ -476,12 +476,10 @@ void bulk_start(cd_id form_box, int64_t deck, const notetype *type, const lang_p
   cd_at(form_box, 0);
   el(CD_LIT("div"), CD_LIT("bulk-run"));
   cd_name_open(view.root);
-  el(CD_LIT("p"), CD_LIT("bulk-run-head"));
-  cd_name_open(head = cd_id_new());
+  head = el_id(CD_LIT("p"), CD_LIT("bulk-run-head"));
   head_view.parent = head;
   cd_close();
-  el(CD_LIT("ol"), CD_LIT("bulk-run-rows"));
-  cd_name_open(list = cd_id_new());
+  list = el_id(CD_LIT("ol"), CD_LIT("bulk-run-rows"));
   cd_close();
   cd_close();
   cd_region_end(&view);

@@ -5,6 +5,11 @@ void el(cd_str tag, cd_str cls) {
   cd_open(tag);
   if (cls) cd_class(cls);
 }
+cd_id el_id(cd_str tag, cd_str cls) {
+  cd_id id = cd_open_id(tag);
+  if (cls) cd_class(cls);
+  return id;
+}
 void el_text(cd_str tag, cd_str cls, cd_str s) {
   el(tag, cls);
   cd_text(s);

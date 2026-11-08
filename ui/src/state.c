@@ -226,23 +226,18 @@ static uint32_t dot_style(const char *color) {
 
 void badge_build(badge *b) {
   const presentation *p = badge_now();
-  b->span = cd_id_new();
-  b->dot = cd_id_new();
-  b->label = cd_id_new();
-  cd_open(CD_LIT("span"));
-  cd_name(b->span);
+  b->span = cd_open_id(CD_LIT("span"));
   cd_attr(CD_LIT("title"), cd_internz(p->title));
   cd_attr(CD_LIT("style"), CD_LIT("display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.7rem; "
                                   "font-weight: 600; letter-spacing: 0.02em; border: 1px solid var(--border-color); "
                                   "border-radius: 999px; padding: 0.2rem 0.6rem; color: var(--text-secondary); "
                                   "white-space: nowrap;"));
-  cd_open(CD_LIT("span"));
-  cd_name(b->dot);
+  b->dot = cd_open_id(CD_LIT("span"));
   cd_str style = CD_LIT("style");
   attr_tmp(style, style_buf, dot_style(p->color));
   cd_close();
   cd_text(cd_internz(p->label));
-  cd_name(b->label);
+  cd_name(b->label = cd_id_new());
   cd_close();
 }
 
