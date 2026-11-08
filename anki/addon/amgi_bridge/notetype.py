@@ -7,17 +7,25 @@
 # files into it. Building the note type is strictly the easier half of what
 # this tool already does unattended.
 #
-# The reason it lives HERE, in the add-on, rather than in the Node collection
-# layer next to the deck and note writers, is worth recording. A schema-18
-# collection stores note types across three tables whose `config` columns are
-# each a protobuf message (notetypes, fields, templates), and writing those by
-# hand from Node would mean hard-coding field numbers for messages this repo
-# has no vendored copy of and cannot validate against. Anki's own Python API
-# is right here, inside the process, and is correct by construction across
-# every schema version Anki itself supports. So the website's job is reduced
-# to the one thing it genuinely can do safely - copying an add-on folder onto
-# disk, which is plain filesystem work - and the collection surgery happens
-# where the real API is.
+# There are two writers of this note type, and what each covers is recorded
+# here and in src/server/anki/install.js so the two are not collapsed:
+#
+#   - THIS module is the one that runs inside Anki, through Anki's own Python
+#     API, which is correct by construction across every schema version Anki
+#     supports. It covers a collection that is open (the Node side cannot
+#     write a file Anki has locked), and it is the only thing that REFRESHES an
+#     existing note type: drifted templates and css, missing fields, media.
+#   - plusaudio/lib/collection/notetype-write.js covers a CLOSED collection,
+#     writing the same rows from Node so a first install needs no restart. It
+#     only ever creates a missing note type and never updates one.
+#
+# That second writer used to be refused, because hand-encoding the protobuf
+# config columns meant guessing field numbers nothing validated. The proto is
+# vendored now and plusaudio/test/collection/notetype-write.test.js checks the
+# Node-written note type against the real library, including that running
+# ensure_notetype over it changes nothing. So a note type the Node side made
+# is "current" here and is left completely untouched, which is what the
+# idempotence below guarantees.
 #
 # No aqt import, on purpose, the same as core.py: this is exercised by
 # test/test_notetype_collection.py against a real anki.collection.Collection.
