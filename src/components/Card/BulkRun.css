@@ -126,8 +126,13 @@
   display: flex;
   gap: 0.35rem;
   flex: none;
-  /* Tall enough for a chip whether or not one is there yet. */
+  /* Tall enough for a chip whether or not one is there yet - and wide
+     enough for two, so a row with no chips (queued, waiting, or showing
+     Retry) keeps its text and note columns where every other row has them,
+     instead of the two flexible columns re-dividing the room row by row. */
   min-height: 1.65rem;
+  min-width: 9.5rem;
+  justify-content: flex-end;
   align-items: center;
 }
 
