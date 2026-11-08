@@ -26,6 +26,11 @@ static void amgi_close(cb_ctx *ctx) {
 
 static const cb_route_list *const AMGI_ROUTES[] = { &AMGI_ROUTE_LIST };
 
+// DNS rebinding: a page on a name its owner points at 127.0.0.1 is same-origin with this server,
+// and CORS cannot stop it, but its Host still names it. Only this machine's own names, at the port
+// serve bound, are answered; any other Host is 403 before any route runs (test/parity/host.test.mjs).
+static const char *const AMGI_HOSTS[] = { "127.0.0.1", "localhost", "[::1]" };
+
 static const cb_app AMGI_APP = {
     .name = "amgi",
     .routes = AMGI_ROUTES,
@@ -38,6 +43,8 @@ static const cb_app AMGI_APP = {
     .req_workers = 12,
     // A desktop app's terminal: warnings and errors only.
     .log_level = "warn",
+    .host_allow = AMGI_HOSTS,
+    .n_host_allow = 3,
 };
 
 const cb_app *const cb_main_app = &AMGI_APP;

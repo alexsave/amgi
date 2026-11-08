@@ -15,7 +15,7 @@
  * header, where Node answered 501. That is the one difference, and the parity suite names it.
  *
  * Files are read from disk on every request (a rebuild is picked up without a restart), through
- * serve_file below: the seam until cbase's cb_send_file (amgi-serve) lands. */
+ * cbase's cb_send_file. */
 #include <errno.h>
 #include <fcntl.h>
 #include <math.h>
@@ -28,40 +28,26 @@
 #include "amgi.h"
 #include "messages.h"
 #include "cbase/app.h"
+#include "net/files.h"
+#include "util/err.h"
 
-/* ---- the file seam ---- */
-static int read_whole(const char *path, buf *out) {
-  int fd = open(path, O_RDONLY);
-  if (fd < 0) return -1;
-  struct stat sb;
-  if (fstat(fd, &sb) != 0 || !S_ISREG(sb.st_mode)) {
-    close(fd);
-    return -1;
-  }
-  char chunk[1 << 16];
-  ssize_t r;
-  while ((r = read(fd, chunk, sizeof chunk)) > 0) buf_put(out, chunk, (size_t)r);
-  close(fd);
-  return r < 0 ? -1 : 0;
-}
-
-/* serveFile: the file with its type and no-store, or 404 "not found". */
-static void serve_file(arena *a, cb_http_res *res, str rel, const char *type) {
-  buf b = {0};
+/* serveFile: the file with its type and no-store, read when it is asked for (cbase's cb_send_file
+ * opens it per request, so a rebuild is what the next request gets). A file that is not there is
+ * 404 "not found", as serve.mjs answered it. */
+static void serve_file(arena *a, cb_ctx *ctx, const cb_http_req *req, cb_http_res *res, str rel, const char *type) {
   const char *path = str_z(a, path_join(a, amgi_root(a), rel));
-  if (read_whole(path, &b) != 0) {
-    buf_free(&b);
+  struct stat sb;
+  if (stat(path, &sb) != 0 || !S_ISREG(sb.st_mode)) {
     amgi_send_text(res, 404, S("not found"));
     return;
   }
-  cb_res_send(res, 200, type, b.p, b.n);
-  cb_res_header(res, "Cache-Control", "no-store");
-  buf_free(&b);
+  cb_send_file(ctx, req, res, path, type, "no-store");
 }
 
 /* ---- the routes' shared start ---- */
 typedef struct {
   arena *a;
+  cb_ctx *ctx;
   const cb_http_req *req;
   cb_http_res *res;
   const str *params; /* the route's parameters, raw, in pattern order */
@@ -375,16 +361,26 @@ static void h_media(rq *q) {
   if (!amgi_uri_decode(q->a, q->params[0], &name))
     return amgi_send_message(q->a, q->res, 400, S("the clip name is not a valid name"));
   if (!ready(q)) return;
-  /* A clip is a name in the media folder and nothing else: no folder, no way up, no NUL. Node left
-   * this to the collection; here it is refused outright, as "no such clip". */
-  int bad = memchr(name.p, '/', name.n) || memchr(name.p, '\0', name.n) || str_eq_c(name, "..") || str_eq_c(name, ".");
+  const char *type = media_type(name);
+  const char *cache = "private, max-age=31536000, immutable";
+  if (ops_is_direct(&q->o)) {
+    /* A clip is one name in the collection's media folder: cbase's safe join refuses any other shape
+     * (a '/', '..', a control byte) and a link out of the folder, and those, like a clip that is not
+     * there, are "no such clip". */
+    char path[4096];
+    int rc = cb_path_join(str_z(q->a, col_media_dir(q->a, q->o.path)), str_z(q->a, name), path, sizeof path);
+    if (rc != CB_OK || memchr(name.p, 0, name.n)) return amgi_send_text(q->res, 404, S("no such clip"));
+    cb_send_file(q->ctx, q->req, q->res, path, type, cache);
+    return;
+  }
+  /* Through the bridge the add-on reads the clip, as Node asked it to. */
   int found = 0;
   str bytes = {0};
   col_err e = {0};
-  if (!bad && ops_read_media(q->a, &q->o, name, &found, &bytes, &e)) return fail500(q, &e);
-  if (bad || !found) return amgi_send_text(q->res, 404, S("no such clip"));
-  cb_res_send(q->res, 200, media_type(name), bytes.p, bytes.n);
-  cb_res_header(q->res, "Cache-Control", "private, max-age=31536000, immutable");
+  if (ops_read_media(q->a, &q->o, name, &found, &bytes, &e)) return fail500(q, &e);
+  if (!found) return amgi_send_text(q->res, 404, S("no such clip"));
+  cb_res_send(q->res, 200, type, bytes.p, bytes.n);
+  cb_res_header(q->res, "Cache-Control", cache);
 }
 
 /* ---- the table: serve.mjs's ROUTES, each a cbase route ---- */
@@ -422,9 +418,9 @@ static const amgi_route ROUTES[] = {
 #define NROUTES (sizeof ROUTES / sizeof *ROUTES)
 
 /* What serve.mjs's api() did once a route matched: the body's type and decode, then the handler. */
-static void run(const amgi_route *r, const str *params, const cb_http_req *req, cb_http_res *res) {
+static void run(cb_ctx *ctx, const amgi_route *r, const str *params, const cb_http_req *req, cb_http_res *res) {
   arena a = {0};
-  rq q = {.a = &a, .req = req, .res = res, .params = params};
+  rq q = {.a = &a, .ctx = ctx, .req = req, .res = res, .params = params};
   if (r->body >= 0) {
     const char *type = cb_http_header_get(req, "content-type");
     if (!type || strncmp(type, WIRE_MIME, strlen(WIRE_MIME)) != 0) {
@@ -468,7 +464,6 @@ static int shape_params(const char *shape, str *segs, size_t nsegs, str *params,
 
 /* "* /api/anki/...": serve.mjs's own matching, for every path cbase's patterns did not take. */
 static void h_api_fallback(cb_ctx *ctx, const cb_http_req *req, cb_http_res *res) {
-  (void)ctx;
   arena a = {0};
   str path = str_c(req->path);
   str rest = str_sub(path, strlen("/api/anki/"), path.n);
@@ -500,7 +495,7 @@ static void h_api_fallback(cb_ctx *ctx, const cb_http_req *req, cb_http_res *res
   for (size_t i = 0; i < NROUTES; i++)
     if (!strcmp(ROUTES[i].shape, best) && !strcmp(ROUTES[i].method, req->method)) {
       ar_free(&a);
-      run(&ROUTES[i], best_params, req, res);
+      run(ctx, &ROUTES[i], best_params, req, res);
       return;
     }
   amgi_send_text(res, 501, str_c(ar_fmt(&a, "no wire layout for %s %s", req->method, req->path)));
@@ -508,7 +503,7 @@ static void h_api_fallback(cb_ctx *ctx, const cb_http_req *req, cb_http_res *res
 }
 
 /* One cbase handler per route, which reads the route's parameters as the router bound them. */
-static void dispatch(size_t i, const cb_http_req *req, cb_http_res *res) {
+static void dispatch(cb_ctx *ctx, size_t i, const cb_http_req *req, cb_http_res *res) {
   str params[8];
   size_t np = 0;
   for (const char *s = ROUTES[i].shape; *s;) {
@@ -522,10 +517,10 @@ static void dispatch(size_t i, const cb_http_req *req, cb_http_res *res) {
     if (!e) break;
     s = e + 1;
   }
-  run(&ROUTES[i], params, req, res);
+  run(ctx, &ROUTES[i], params, req, res);
 }
 #define THUNK(i) \
-  static void h##i(cb_ctx *ctx, const cb_http_req *req, cb_http_res *res) { (void)ctx; dispatch(i, req, res); }
+  static void h##i(cb_ctx *ctx, const cb_http_req *req, cb_http_res *res) { dispatch(ctx, i, req, res); }
 THUNK(0) THUNK(1) THUNK(2) THUNK(3) THUNK(4) THUNK(5) THUNK(6) THUNK(7) THUNK(8) THUNK(9) THUNK(10)
 THUNK(11) THUNK(12) THUNK(13) THUNK(14) THUNK(15) THUNK(16) THUNK(17) THUNK(18) THUNK(19) THUNK(20)
 _Static_assert(NROUTES == 21, "one cbase handler per route");
@@ -537,26 +532,22 @@ static void h_root(cb_ctx *ctx, const cb_http_req *req, cb_http_res *res) {
   cb_res_header(res, "Location", "/decks");
 }
 static void h_page(cb_ctx *ctx, const cb_http_req *req, cb_http_res *res) {
-  (void)ctx, (void)req;
   arena a = {0};
-  serve_file(&a, res, S("ui/out/index.html"), "text/html; charset=utf-8");
+  serve_file(&a, ctx, req, res, S("ui/out/index.html"), "text/html; charset=utf-8");
   ar_free(&a);
 }
 static void h_wasm(cb_ctx *ctx, const cb_http_req *req, cb_http_res *res) {
-  (void)ctx, (void)req;
   arena a = {0};
-  serve_file(&a, res, S("ui/out/app.wasm"), "application/wasm");
+  serve_file(&a, ctx, req, res, S("ui/out/app.wasm"), "application/wasm");
   ar_free(&a);
 }
 static void h_css(cb_ctx *ctx, const cb_http_req *req, cb_http_res *res) {
-  (void)ctx, (void)req;
   arena a = {0};
-  serve_file(&a, res, S("ui/out/app.css"), "text/css; charset=utf-8");
+  serve_file(&a, ctx, req, res, S("ui/out/app.css"), "text/css; charset=utf-8");
   ar_free(&a);
 }
 /* Everything else: an icon from public/ at the top level by name (.png, .svg, .ico), or 404. */
 static void h_other(cb_ctx *ctx, const cb_http_req *req, cb_http_res *res) {
-  (void)ctx;
   arena a = {0};
   str path = str_c(req->path);
   const char *slash = strrchr(req->path, '/');
@@ -564,7 +555,7 @@ static void h_other(cb_ctx *ctx, const cb_http_req *req, cb_http_res *res) {
   str ext = path_extname(base);
   const char *type = str_eq_c(ext, ".png") ? "image/png" : str_eq_c(ext, ".svg") ? "image/svg+xml"
                      : str_eq_c(ext, ".ico") ? "image/x-icon" : NULL;
-  if (type && slash == req->path && path.n > 1) serve_file(&a, res, str_cat(&a, S("public/"), base), type);
+  if (type && slash == req->path && path.n > 1) serve_file(&a, ctx, req, res, str_cat(&a, S("public/"), base), type);
   else amgi_send_text(res, 404, S("not found"));
   ar_free(&a);
 }
