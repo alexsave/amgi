@@ -159,6 +159,29 @@ class BridgeServerTestCase(unittest.TestCase):
         return response.status, dict(response.getheaders()), parsed
 
 
+class PackageImportTests(unittest.TestCase):
+    def test_the_server_and_its_wire_load_as_parts_of_the_add_on_package(self):
+        # Inside Anki the add-on is the package amgi_bridge, and bridge_server.py takes bridge_wire
+        # and wire_schema by relative import; every other test here imports the files directly.
+        # The package's own __init__.py needs aqt, so the package is stood up empty around them.
+        import importlib
+        import types
+
+        here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        package = types.ModuleType("amgi_bridge_pkgtest")
+        package.__path__ = [here]
+        sys.modules["amgi_bridge_pkgtest"] = package
+        try:
+            server = importlib.import_module("amgi_bridge_pkgtest.bridge_server")
+            self.assertEqual(server.bridge_wire.__name__, "amgi_bridge_pkgtest.bridge_wire")
+            self.assertEqual(server.PROTOCOL, wire_schema.BRIDGE_PROTOCOL)
+            self.assertEqual(server.bridge_wire.decode("b_deck", server.bridge_wire.encode("b_deck", {"id": 3, "name": "x"})),
+                             {"id": 3, "name": "x"})
+        finally:
+            for name in [n for n in sys.modules if n.startswith("amgi_bridge_pkgtest")]:
+                del sys.modules[name]
+
+
 class BindingTests(BridgeServerTestCase):
     def test_binds_to_127_0_0_1_only(self):
         # Never 0.0.0.0: BridgeServer.__init__ hardcodes the bind host and
