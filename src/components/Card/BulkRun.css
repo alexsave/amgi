@@ -61,6 +61,13 @@
   color: #e07050;
 }
 
+/* Waiting out Gemini's per-minute limit: not a failure, so not red. The
+   countdown sits in the note column (see BulkRun.js's waitNote). */
+.bulk-run-row.is-waiting .bulk-run-state,
+.bulk-run-row.is-waiting .bulk-run-cue {
+  color: #d0a030;
+}
+
 .bulk-run-text,
 .bulk-run-cue {
   flex: 1 1 0;
@@ -81,6 +88,32 @@
 
 .bulk-run-row.is-queued .bulk-run-text {
   opacity: 0.55;
+}
+
+/* An error is the one note a person has to be able to read in full: it says
+   what went wrong and what to do. It wraps instead of being cut to "…"
+   (the row grows for it, which is fine on a row that has stopped moving). */
+.bulk-run-row.is-error .bulk-run-cue {
+  white-space: normal;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  line-height: 1.35;
+}
+
+.bulk-run-retry {
+  font: inherit;
+  font-size: 0.78rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--text-primary, inherit);
+  cursor: pointer;
+}
+
+.bulk-run-retry:hover {
+  border-color: #e07050;
+  color: #e07050;
 }
 
 /* A card whose two sides came back identical: written, but wrong, and said
