@@ -13,6 +13,7 @@ import path from 'node:path';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { seed } from './seed.mjs';
+import { WIRE_MIME, decode, encode } from '../server/wire.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const cdom = process.env.CDOM || path.join(here, '..', '..', 'cdom');
@@ -83,6 +84,16 @@ print("DECKS:", "|".join(sorted(d.name for d in col.decks.all_names_and_ids())))
 print("DECK-GRAVES:", col.db.scalar("select count() from graves where type = 2"))
 print("INTEGRITY:", col.db.scalar("pragma integrity_check"))
 `);
+
+// A change made beside the page, as Anki or another device would make it, through the app's own API
+// (one request at a time on the server's side, so it never races the page's polls for the file).
+async function api(method, route, kind, body) {
+  const headers = { 'X-Amgi-Collection': encodeURIComponent(collection), 'X-Amgi-Base-Dir': encodeURIComponent(ankiDir) };
+  if (kind) headers['Content-Type'] = WIRE_MIME;
+  const r = await fetch(`${base}/api/anki${route}`, { method, headers, body: kind ? encode(kind, body) : undefined });
+  if (!r.ok) throw new Error(`${method} ${route}: ${r.status}`);
+  return r;
+}
 
 async function openDeck(b, deck) {
   await goto(b, `${base}/decks`);
@@ -188,18 +199,30 @@ try {
   await click(b, 'dialog.confirm-dialog .submit-btn');
   check(await until(b, `location.pathname === '/decks' && !${deckNames}.includes('Showcase source')`, 150), 'once Anki lets go, it is deleted');
 
-  // 6. Deleted underneath the page (in Anki, say): Delete deck says the deck is gone.
-  check(await openDeck(b, 'Existing'), 'the Existing page');
-  withAnkiLibrary(collection, `col.decks.remove([${ids.Existing}])`);
+  // 6. Deleted underneath the page before Delete deck is pressed: the check before the confirmation
+  // finds it gone, and the page says so without asking.
+  const made = await api('POST', '/decks', 'q_deck_name', { name: 'Spare' });
+  const spare = decode('deck_created', new Uint8Array(await made.arrayBuffer()))['deck.id'];
+  check(await openDeck(b, 'Spare'), 'the Spare page');
+  await api('DELETE', `/decks/${spare}`);
   await click(b, '.deck-danger-btn');
-  check(await until(b, `document.querySelector('.deck-gone h1')?.textContent === 'This deck no longer exists'`, 150), 'a deck deleted elsewhere: the page says it no longer exists');
+  check(await until(b, `document.querySelector('.deck-gone h1')?.textContent === 'This deck no longer exists'`, 150), 'gone before asking: the page says it no longer exists');
   check(!(await b.evaluate(dialogOpen)), 'and asks nothing');
+
+  // 7. Deleted underneath the page (in Anki, say), while the confirmation was open: Delete answers
+  // that it is gone, and the page says so.
+  check(await openDeck(b, 'Existing'), 'the Existing page');
+  await ask(b);
+  await api('DELETE', `/decks/${ids.Existing}`);
+  await click(b, 'dialog.confirm-dialog .submit-btn');
+  check(await until(b, `document.querySelector('.deck-gone h1')?.textContent === 'This deck no longer exists'`, 150), 'a deck deleted elsewhere: the page says it no longer exists');
+  check(!(await b.evaluate(dialogOpen)) && !(await b.evaluate(`!!document.querySelector('.deck-danger-error')`)), 'and shows no error or dialog');
   await sleep(300);
   await shot(b, '63-deck-gone');
   await click(b, '.deck-gone .back-btn');
   check(await until(b, `location.pathname === '/decks' && document.querySelectorAll('.deck-item').length === 1`, 150), 'its button goes back to the list (Default alone now)');
 
-  // 7. The page of a deck that is gone, opened directly.
+  // 8. The page of a deck that is gone, opened directly.
   await goto(b, `${base}/deck/${ids['Long']}`);
   check(await until(b, `document.querySelector('.deck-gone h1')?.textContent === 'This deck no longer exists'`, 150), 'a gone deck\'s address says it no longer exists');
   anki = inAnki();
