@@ -27,12 +27,21 @@ import path from 'node:path';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
 const FOLDER = 'plusaudio/lib/json/';
+/** The C quarantine: the one JSON reader and writer in amgi's C (server/json/anki_json.h says why). */
+const C_FOLDER = 'server/json/';
 
 /**
  * JavaScript: JSON.x, .json() (Response.json, NextResponse.json, request.json), and fork(), whose
  * IPC channel Node serializes as JSON unless the call asks for 'advanced' (see BINARY_IPC).
  */
 const JS_JSON = /\bJSON\s*\.\s*[A-Za-z_]+|\.json\s*\(|\bfork\s*\(/g;
+/**
+ * C: a call that parses or formats JSON (the quarantine's anki_json_parse and anki_json_stringify,
+ * and the entry points of the JSON libraries a C program would reach for: json-c, jansson, cJSON,
+ * yyjson, parson), and any JSON library's header. The quarantine's own header may be included;
+ * calling into it still counts, file by file.
+ */
+const C_JSON = /\b(?:anki_json_parse|anki_json_stringify|json_(?:loads?|dumps?|parse\w*|tokener_\w+|object_\w+|value_\w+|serialize\w*)|cJSON_\w+|yyjson_\w+)\s*\(|#\s*include\s*[<"](?![^>"]*\banki_json\.h)[^>"]*(?:json|jansson|parson)[^>"]*[>"]/gi;
 /** Python: the json module imported, or any of its four calls. */
 const PY_JSON = /^\s*import\s+json\b|^\s*from\s+json\s+import\b|\bjson\s*\.\s*(?:loads|dumps|load|dump)\s*\(/g;
 
@@ -49,7 +58,7 @@ function callAt(src, open) {
   return src.slice(open);
 }
 
-const SOURCE = /\.(?:js|mjs|cjs|ts|html|py)$/;
+const SOURCE = /\.(?:js|mjs|cjs|ts|html|py|c|h)$/;
 /** Not shipped: a directory of this name anywhere in the path. */
 const NOT_SHIPPED_DIR = new Set([
   'test', 'tests', '__tests__', 'test-helpers', 'tools', 'scripts', 'docs', 'fixtures', 'e2e', 'vendor', 'node_modules',
@@ -74,6 +83,22 @@ const ALLOWED = [
 
 
 
+  {
+    file: `${C_FOLDER}anki_json.c`, count: 2, kind: 'anki',
+    why: `${ANKI}the C collection core's one JSON reader and writer (anki_json_parse and anki_json_stringify, defined here), for Anki's JSON columns, written to give the bytes JSON.parse and JSON.stringify gave.`,
+  },
+  {
+    file: `${C_FOLDER}anki_json.h`, count: 2, kind: 'anki',
+    why: `${ANKI}the declarations of the C quarantine's two named functions; the header says what Anki stores as JSON and why.`,
+  },
+  {
+    file: 'server/collection/decks.c', count: 5, kind: 'anki',
+    why: `${ANKI}the C port of decks.js and deck-remove.js: a schema 11 collection's col.decks and col.conf are JSON columns, read and rewritten through the quarantine.`,
+  },
+  {
+    file: 'server/collection/notes.c', count: 5, kind: 'anki',
+    why: `${ANKI}the C port of notes.js and notetypes.js: col.models (schema 11), and nextPos in col.conf (schema 11) or the config table (schema 18), through the quarantine.`,
+  },
   {
     file: 'plusaudio/lib/collection/decks.js', count: 5, kind: 'anki',
     why: `${ANKI}a schema 11 collection keeps every deck in one JSON column (col.decks); listing, creating and renaming decks reads and rewrites it as Anki does.`,
@@ -158,11 +183,14 @@ function stripPyComments(src) {
 /** Every JSON use in a file's source, as "line: text". */
 export function jsonUses(src, file) {
   const py = file.endsWith('.py');
+  const c = /\.[ch]$/.test(file);
+  // C's comments are JavaScript's (and a char literal reads as a short string), so one stripper serves both.
   const code = py ? stripPyComments(src) : stripJsComments(src);
   const hits = [];
   code.split('\n').forEach((line, n) => {
-    for (const m of line.matchAll(py ? PY_JSON : JS_JSON)) hits.push({ line: n + 1, text: m[0].trim() });
+    for (const m of line.matchAll(py ? PY_JSON : c ? C_JSON : JS_JSON)) hits.push({ line: n + 1, text: m[0].trim() });
   });
+  if (c) return hits.map((h) => `${h.line}: ${h.text}`);
   if (!py) {
     // A fork that asks for the binary channel is not a JSON use: drop it, looking at the whole call.
     const lineStarts = [0];
@@ -272,6 +300,17 @@ test('amgi\'s own JSON lives in the one folder, and every entry says why', () =>
     else assert.equal(a.kind, 'anki', `${a.file}: kind ${a.kind}`);
   }
   assert.ok(ALLOWED.find((a) => a.file === `${FOLDER}modelAnswer.js`).why.includes(ANSWER_FORMAT));
+});
+
+test('C reaches JSON only through the quarantine\'s two named functions', () => {
+  for (const [file, hits] of scan()) {
+    if (!/\.[ch]$/.test(file) || file.startsWith(C_FOLDER)) continue;
+    for (const hit of hits) assert.match(hit, /: anki_json_(?:parse|stringify)\($/, `${file}: ${hit}`);
+  }
+  // And the scan sees a library call, a library header and the quarantine's own calls, in C.
+  assert.deepEqual(jsonUses('#include <jansson.h>\njson_t *v = json_loads(s, 0, &e);\nstr t = anki_json_stringify(a, v); // json_dumps(x)\n', 'x.c'),
+    ['1: #include <jansson.h>', '2: json_loads(', '3: anki_json_stringify(']);
+  assert.deepEqual(jsonUses('#include "../json/anki_json.h"\nstatic aj *read_col_value(void);\n', 'x.c'), []);
 });
 
 test('README.md\'s "JSON that remains and why" names exactly the allowed files', () => {

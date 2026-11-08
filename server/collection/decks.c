@@ -125,7 +125,7 @@ static double alloc_id(const idset *s, double wanted) {
 }
 
 /* ---- schema 11: col.decks ---- */
-static aj *read_col_json(cx *c, conn *k, const char *column) {
+static aj *read_col_value(cx *c, conn *k, const char *column) {
   char sql[64];
   snprintf(sql, sizeof sql, "SELECT %s FROM col", column);
   sqlite3_stmt *st = q_prep(c, k, sql);
@@ -141,7 +141,7 @@ static aj *read_col_json(cx *c, conn *k, const char *column) {
   return v;
 }
 
-static aj *new_deck_json(cx *c, double id, str name, double mtime) {
+static aj *new_deck_value(cx *c, double id, str name, double mtime) {
   aj *d = aj_obj(c->a);
   aj *pair[4];
   for (int i = 0; i < 4; i++) {
@@ -194,7 +194,7 @@ static double num_of(const aj *v) {
 static str str_of(const aj *v) { return v && v->type == AJ_STR ? v->s : S(""); }
 
 /* Object.values(col.decks), with each deck's id and name. */
-static aj **json_values(cx *c, const aj *obj, size_t *n) {
+static aj **object_values(cx *c, const aj *obj, size_t *n) {
   str *keys = aj_keys(c->a, obj, n);
   aj **out = ar_alloc(c->a, (*n + 1) * sizeof *out);
   for (size_t i = 0; i < *n; i++) out[i] = aj_get(obj, keys[i]);
@@ -211,9 +211,9 @@ static str id_key(cx *c, double id) {
 
 deck_row *list_decks_for_schema(cx *c, conn *k, size_t *n, aj **json_out) {
   if (k->schema == 11) {
-    aj *decks = read_col_json(c, k, "decks");
+    aj *decks = read_col_value(c, k, "decks");
     if (json_out) *json_out = decks;
-    aj **vals = json_values(c, decks, n);
+    aj **vals = object_values(c, decks, n);
     deck_row *out = ar_alloc(c->a, (*n + 1) * sizeof *out);
     for (size_t i = 0; i < *n; i++) {
       out[i].id = (int64_t)num_of(aj_get(vals[i], S("id")));
@@ -280,9 +280,9 @@ static void insert_decks(cx *c, conn *k, void *arg) {
 static const char *const DECKS_TABLE[] = {"decks"};
 
 static void create_legacy(cx *c, conn *k, str human, double now, col_deck_made *out) {
-  aj *decks = read_col_json(c, k, "decks");
+  aj *decks = read_col_value(c, k, "decks");
   size_t nv;
-  aj **vals = json_values(c, decks, &nv);
+  aj **vals = object_values(c, decks, &nv);
   /* byFold: a Map of fold -> deck, a later deck replacing an earlier one with the same fold. */
   size_t cap = nv + 16, nf = 0;
   str *folds = ar_alloc(c->a, cap * sizeof *folds);
@@ -307,7 +307,7 @@ static void create_legacy(cx *c, conn *k, str human, double now, col_deck_made *
     if (j < nf) continue;
     double id = alloc_id(&ids, (double)now_ms());
     ids_add(c, &ids, id);
-    aj *deck = new_deck_json(c, id, name, now);
+    aj *deck = new_deck_value(c, id, name, now);
     aj_set(c->a, decks, id_key(c, id), deck);
     if (nf == cap) cx_throw(c, NULL, 0, "too many decks");
     folds[nf] = f;
@@ -492,7 +492,7 @@ static void rename_18(cx *c, conn *k, double deck_id, str human, double now, col
 }
 
 static void rename_legacy(cx *c, conn *k, double deck_id, str human, double now, col_renamed *out) {
-  aj *decks = read_col_json(c, k, "decks");
+  aj *decks = read_col_value(c, k, "decks");
   aj *current = aj_get(decks, id_key(c, deck_id));
   if (!current) {
     str id = js_id(c, deck_id);
@@ -502,7 +502,7 @@ static void rename_legacy(cx *c, conn *k, double deck_id, str human, double now,
   str *comp = human_name_to_components(c, human, &nc);
   str name = join_with(c, comp, nc, S("::"));
   size_t nv;
-  aj **vals = json_values(c, decks, &nv);
+  aj **vals = object_values(c, decks, &nv);
   double cur_id = num_of(aj_get(current, S("id")));
   str nfold = fold_key(c, name);
   for (size_t i = 0; i < nv; i++) {
@@ -529,7 +529,7 @@ static void rename_legacy(cx *c, conn *k, double deck_id, str human, double now,
   aj_set(c->a, current, S("mod"), aj_num(c->a, now));
   aj_set(c->a, current, S("usn"), aj_num(c->a, -1));
   /* A subdeck needs its parent: the missing ancestors, made as new decks. */
-  vals = json_values(c, decks, &nv);
+  vals = object_values(c, decks, &nv);
   size_t cap = nv + nc + 1, nf = 0;
   str *folds = ar_alloc(c->a, cap * sizeof *folds);
   idset ids = {0};
@@ -548,7 +548,7 @@ static void rename_legacy(cx *c, conn *k, double deck_id, str human, double now,
     if (found) continue;
     double id = alloc_id(&ids, (double)now_ms());
     ids_add(c, &ids, id);
-    aj_set(c->a, decks, id_key(c, id), new_deck_json(c, id, anc, now));
+    aj_set(c->a, decks, id_key(c, id), new_deck_value(c, id, anc, now));
     folds[nf++] = af;
   }
   sqlite3_stmt *st = q_prep(c, k, "UPDATE col SET decks = ?, mod = ? WHERE id = 1");
@@ -824,7 +824,7 @@ static void remove_18(cx *c, conn *k, plan_t *p, double now) {
 
 static void remove_legacy(cx *c, conn *k, plan_t *p, double now) {
   sqlite3_stmt *grave = remove_rows(c, k, p);
-  aj *conf = read_col_json(c, k, "conf");
+  aj *conf = read_col_value(c, k, "conf");
   for (size_t i = 0; i < p->ntree; i++) {
     str key = str_c(ar_fmt(c->a, "_deck_%lld_", (long long)p->tree[i].id));
     size_t nk;
