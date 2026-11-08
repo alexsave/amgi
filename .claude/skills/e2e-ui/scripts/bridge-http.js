@@ -18,6 +18,7 @@ const { anki } = require('./fixture');
 
 const TOKEN = 'e2e-test-token';
 const TOKEN_HEADER = 'X-Amgi-Bridge-Token';
+const PROTOCOL_HEADER = 'X-Amgi-Bridge-Protocol';
 // The default anki/addon/amgi_bridge/config.json allowlist - the amgi web
 // UI's own local dev origin.
 const ALLOWED_ORIGIN = 'http://localhost:3000';
@@ -65,12 +66,15 @@ async function check(label, response, expectedStatus) {
     process.exit(1);
   }
 
+  // The bridge's bodies are amgi's wire format; ui/build.sh builds the walkers this reads them with.
+  const { BRIDGE_PROTOCOL, WIRE_MIME, decode, encode } = await import(path.join(__dirname, '..', '..', '..', '..', 'ui', 'server', 'wire.mjs'));
+  const PROTOCOL = { [PROTOCOL_HEADER]: String(BRIDGE_PROTOCOL) };
   const server = startServer(collectionPath);
   const port = await server.ready;
   const base = `http://127.0.0.1:${port}`;
   console.log(`bridge listening on ${base}\n`);
 
-  const get = (routePath, headers) => fetch(`${base}${routePath}`, { headers });
+  const get = (routePath, headers) => fetch(`${base}${routePath}`, { headers: { ...PROTOCOL, ...headers } });
 
   // -- Token rules --------------------------------------------------------
   await check('no token at all', await get('/status', {}), 401);
@@ -79,6 +83,13 @@ async function check(label, response, expectedStatus) {
     'correct token, no Origin header (the Node bridge client\'s own shape - see bridgeClient.js)',
     await get('/status', { [TOKEN_HEADER]: TOKEN }),
     200,
+  );
+
+  // -- The protocol version ---------------------------------------------------
+  await check(
+    'correct token, another bridge protocol - refused, so a mismatched add-on is never misread',
+    await fetch(`${base}/status`, { headers: { [TOKEN_HEADER]: TOKEN, [PROTOCOL_HEADER]: String(BRIDGE_PROTOCOL + 1) } }),
+    409,
   );
 
   // -- Origin rules ---------------------------------------------------------
@@ -108,16 +119,16 @@ async function check(label, response, expectedStatus) {
   // -- And a real mutation actually lands in the collection, not just a 200 --
   const createResponse = await fetch(`${base}/decks`, {
     method: 'POST',
-    headers: { [TOKEN_HEADER]: TOKEN, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name: `e2e-ui bridge ${Date.now()}` }),
+    headers: { ...PROTOCOL, [TOKEN_HEADER]: TOKEN, 'Content-Type': WIRE_MIME },
+    body: encode('q_deck_name', { name: `e2e-ui bridge ${process.pid}` }),
   });
   await check('creating a deck through the bridge', createResponse, 200);
-  const created = await createResponse.json();
-  console.log(`  -> ${JSON.stringify(created)}`);
+  const created = decode('b_deck_created', new Uint8Array(await createResponse.arrayBuffer()));
+  console.log(`  -> deck ${created['deck.id']}, ${created['deck.name']}`);
 
   const decksResponse = await get('/decks', { [TOKEN_HEADER]: TOKEN });
-  const decks = await decksResponse.json();
-  const found = decks.some((d) => d.id === created.deck.id);
+  const { decks } = decode('b_decks', new Uint8Array(await decksResponse.arrayBuffer()));
+  const found = decks.some((d) => d.id === created['deck.id']);
   console.log(`${found ? 'ok  ' : 'FAIL'} the deck just created shows up in a fresh GET /decks`);
   if (!found) failures += 1;
 

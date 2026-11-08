@@ -66,7 +66,7 @@ Every call reads five plain headers, each value percent-encoded (`src/server/ank
   The token and port are in Anki under Tools > amgi: Bridge status..., which is also where the bridge is switched on (it is off by default).
   When the bridge answers, amgi uses it; otherwise it falls back to the file.
 
-`GET /api/anki/status` says which transport answered: `direct`, `bridge`, or why neither did (`locked`: Anki has the file open and the bridge is off; `not-found`; `unsupported-schema`; `bridge-no-collection`; `unconfigured`).
+`GET /api/anki/status` says which transport answered: `direct`, `bridge`, or why neither did (`locked`: Anki has the file open and the bridge is off; `bridge-outdated`: the add-on running in Anki is from another amgi, so press Install into Anki again and restart Anki; `not-found`; `unsupported-schema`; `bridge-no-collection`; `unconfigured`).
 On `locked`, ask the user to close Anki or turn the bridge on; never copy or force the file.
 
 ### The routes
@@ -160,7 +160,7 @@ Both exit 3 when rate limited (stdout then carries `retry-after-ms=<n>`) and 4 w
 ## The bridge directly
 
 With Anki open and the bridge on, the add-on serves the collection calls at `http://127.0.0.1:8798`, without the `/api/anki` prefix: status, decks, notetypes, notes, field values and media.
-Every request needs `X-Amgi-Bridge-Token: <token>`.
+Every request needs `X-Amgi-Bridge-Token: <token>` and `X-Amgi-Bridge-Protocol: 1`, and every body both ways is amgi's wire format (the `b_*` kinds in `ui/wire/wire.c`, read and written with `ui/server/wire.mjs` as for the app's API).
 It has no profiles, install, starter or Gemini endpoints, so making cards still goes through the app.
 `anki/addon/amgi_bridge/README.md` has the request and reply shapes and the security model.
 
