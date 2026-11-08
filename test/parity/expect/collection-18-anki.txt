@@ -1,6 +1,6 @@
 schema 18
 integrity ok
-decks ['A', 'A::blank', 'A::blank::B', 'Café', 'Café decomposed', 'CtlChar', 'Default', 'Moved', 'Moved::Parent', 'Moved::Parent::Child', 'Moved::Parent::Child::Grand', 'STRASSE', 'Sub', 'Sub::Deep', 'Sub::Deep::Straße', 'Trim me', 'Trim me::inner', 'amgi starter', 'blank', 'blank::blank', 'renamed', '한국어', '한국어::문장']
+decks ['A', 'A::blank', 'A::blank::B', 'Café', 'Café decomposed', 'CtlChar', 'Default', 'Moved', 'Moved::Parent', 'Moved::Parent::Child', 'Moved::Parent::Child::Grand', 'Sub', 'Sub::Deep', 'Sub::Deep::Straße', 'Trim me', 'Trim me::inner', 'amgi starter', 'blank', 'blank::blank', 'renamed', '한국어', '한국어::문장']
 notetypes ['Basic', 'Basic (and reversed card)', 'Basic (optional reversed card)', 'Basic (type in the answer)', 'Cloze', 'Image Occlusion', "Retro's sentences", 'amgi Listening']
 notes 63 cards 86
 check database True Database rebuilt and optimized.
