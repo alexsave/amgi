@@ -16,6 +16,7 @@
     "@testing-library/user-event": "^14.6.1",
     "eslint": "^9.39.5",
     "eslint-config-next": "^16.3.5",
+    "globals": "^14.0.0",
     "jest": "^30.5.1",
     "jest-environment-jsdom": "^30.5.1",
     "puppeteer-core": "^25.11.0"
