@@ -136,6 +136,42 @@ test('a spent daily quota on the judge stops the clip too, instead of falling ba
   assert.equal(gemini.of('transcriptJudge').length, 0);
 });
 
+test('a long per-minute limit leaves the clip at once, typed with its wait, spending no attempts', async () => {
+  const perMinute = {
+    raw: true,
+    status: 429,
+    body: { error: { code: 429, details: [
+      { '@type': 'type.googleapis.com/google.rpc.QuotaFailure', violations: [{ quotaId: 'GenerateRequestsPerMinutePerProjectPerModel' }] },
+      { '@type': 'type.googleapis.com/google.rpc.RetryInfo', retryDelay: '49s' },
+    ] } },
+  };
+  const gemini = fakeGemini({ speech: perMinute });
+
+  const error = await generatorWith(gemini)({ text: '배고파요?', language: 'ko' }).then(() => null, (e) => e);
+
+  assert.equal(error.rateLimited, true);
+  assert.equal(error.retryAfterMs, 49000);
+  assert.equal(gemini.of('speech').length, 1, 'no second voice tried into the same limit');
+});
+
+test('a long per-minute limit on the judge is handed back too, not judged from the transcript instead', async () => {
+  const perMinute = {
+    raw: true,
+    status: 429,
+    body: { error: { code: 429, details: [
+      { '@type': 'type.googleapis.com/google.rpc.QuotaFailure', violations: [{ quotaId: 'GenerateRequestsPerMinutePerProjectPerModel' }] },
+      { '@type': 'type.googleapis.com/google.rpc.RetryInfo', retryDelay: '40s' },
+    ] } },
+  };
+  const gemini = fakeGemini({ transcribe: 'nope', judge: perMinute, transcriptJudge: { matches: true } });
+
+  const error = await generatorWith(gemini)({ text: '배고파요?', language: 'ko' }).then(() => null, (e) => e);
+
+  assert.equal(error.rateLimited, true);
+  assert.equal(error.retryAfterMs, 40000);
+  assert.equal(gemini.of('transcriptJudge').length, 0);
+});
+
 test('without a key nothing is attempted, and the error names the key', () => {
   assert.throws(() => createGenerator({}), /GEMINI_API_KEY is not set/);
 });
