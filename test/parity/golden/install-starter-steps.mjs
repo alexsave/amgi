@@ -1,6 +1,6 @@
 // The install and starter sequence over HTTP, as the page drives it, written as lines a golden file
 // can hold: what golden_install_starter.test.mjs replays against the C server and what
-// make-golden-install-starter.mjs (scaffolding) recorded once from the Node server.
+// a generator (removed at L4) recorded once from the Node server.
 //
 // On a fresh Anki folder with one profile and Anki closed: the install's state, the install, the
 // state after it, the note types (the amgi note type the direct install writes), the starter's
