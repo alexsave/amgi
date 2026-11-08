@@ -36,7 +36,7 @@
 //               omitting this keeps that path working exactly as before. Passed straight
 //               through to generateCardAudio, which is the only place a reading is
 //               allowed to inform validation - the audio judge listens for it; it is never
-//               sent to the synthesiser, which would read it aloud (see src/server/anki/cardText.js
+//               sent to the synthesiser, which would read it aloud (see server/amgi/gen.c
 //               for the one caller that actually has one, and why it must be passed in
 //               the same call that produced it rather than a later one).
 //

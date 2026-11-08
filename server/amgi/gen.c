@@ -1,4 +1,4 @@
-/* POST /card-text and POST /audio: the card-text and audio routes (src/server/api/anki/card-text and
+/* POST /card-text and POST /audio: the port of what were the card-text and audio routes (src/server/api/anki/card-text and
  * audio), src/server/anki/cardText.js (the one-pass rule: the reading the text call gives steers the
  * clip made in the same request, and is then dropped), audio.js (a clip named by its content,
  * reused unless a fresh take is asked for, added as media) and rateLimit.js (the gate's 429s), all

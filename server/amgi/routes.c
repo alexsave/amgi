@@ -1,4 +1,4 @@
-/* Every route the amgi server answers, as ui/server/serve.mjs and the route modules under src/server/api/anki answered
+/* Every route the amgi server answers, as the Node server (ui/server/serve.mjs and src/server/api/anki, removed at L4) answered
  * them.
  *
  * Each /api/anki route is a cbase route (its method, its pattern with :parameters, and its body cap),
