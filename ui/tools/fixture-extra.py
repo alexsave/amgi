@@ -46,5 +46,11 @@ with tempfile.TemporaryDirectory() as tmp:
         note.fields[fields["TargetAudio"]] = f'<audio src="{clips[target_clip]}"></audio>'
         note.fields[fields["Language"]] = "ko"
         col.add_note(note, parent)
+# An amgi note made before its clips were: the list says so ("no audio yet"), last in Long.
+note = col.new_note(amgi)
+note.fields[fields["Cue"]] = "No clip yet"
+note.fields[fields["Target"]] = "아직 없어요"
+note.fields[fields["Language"]] = "ko"
+col.add_note(note, long_deck)
 col.close()
 print("added the Korean decks and two amgi notes with clips")
