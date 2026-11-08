@@ -99,3 +99,8 @@ check-app: build/asan/app_unit
 	build/asan/app_unit
 
 .PHONY: check-collection check-app
+
+# The libraries build/amgi links, for test/license.test.mjs (every one of them has a notice).
+print-ldlibs:
+	@echo $(LDLIBS)
+.PHONY: print-ldlibs
