@@ -52,3 +52,11 @@ test('the server\'s own names are answered', async () => {
     assert.equal(await get('/api/anki/media/clip.ogg', host, headers), 200, `${host} a clip`);
   }
 });
+
+// The platform's own routes are not amgi's: a loopback app answers its own 404 on them, as the Node
+// server did, since cbase serves /health, /ready and /admin only for an app that declares them.
+test('the platform\'s /health, /ready and /admin are not served', async () => {
+  for (const p of ['/health', '/ready', '/admin', '/admin/', '/admin/api/overview']) {
+    assert.equal(await get(p, `127.0.0.1:${port}`), 404, p);
+  }
+});
