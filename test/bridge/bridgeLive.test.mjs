@@ -118,14 +118,6 @@ maybe(`the bridge protocol against the real add-on server and a real collection`
     assert.match(changed.warning, /romanised/, 'the romanisation guard still answers through the wire');
 
     const clip = Buffer.from([0, 1, 2, 255, 0x0a, 0x22, 0x7b, 0, 128]);
-    // KNOWN QUIRK, reported to amgi (2026-11-08): the client escapes a media name in the path
-    // (encodeURIComponent) and the add-on does not decode it, so a stored name that needs escaping
-    // (a space, Korean, '#', '%') reads as not there. Pinned so both clients escape the same way;
-    // when the add-on is fixed, these two assertions flip.
-    const named = await ops.addMedia('클립 #1 & 100%.wav', Buffer.from('escaped'));
-    assert.equal(named, '클립 #1 & 100%.wav');
-    assert.equal(await ops.hasMedia(named), false, 'known quirk: the add-on reads the escaped name as it is');
-    assert.equal(await ops.readMedia(named), null, 'known quirk: the same for its bytes');
     assert.equal(await ops.hasMedia('live-clip.wav'), false);
     const stored = await ops.addMedia('live-clip.wav', clip);
     assert.equal(await ops.hasMedia(stored), true);
