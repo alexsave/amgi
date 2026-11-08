@@ -128,17 +128,32 @@ static void with_collection(cx *c, str path, conn_fn fn, void *arg) {
   if (failed) cx_rethrow(c);
 }
 
-/* A write: withCollection, in one BEGIN IMMEDIATE ... COMMIT, rolled back on any error, so a note,
- * its cards, nextPos and col.mod land together or not at all (the PR #30 review, finding 3: the
- * JavaScript wrote them as separate autocommit statements). The one owner of a write transaction:
- * no body begins or commits its own. A collection Anki takes in the meantime is "locked", as the
- * statements would have been. */
-typedef struct { conn *k; conn_fn fn; void *arg; } write_args;
+/* A write: withCollection with _withBackup, in one BEGIN ... COMMIT on one connection, rolled back on
+ * any error, so a note, its cards, nextPos and col.mod land together or not at all (the PR #30
+ * review, finding 3: the JavaScript wrote them as separate autocommit statements), and the backup
+ * is a copy of the very snapshot the write starts from (finding 4: the JavaScript probed, closed,
+ * copied and opened again, so Anki could write in between). The one owner of a write transaction
+ * and of the backup around it: no body begins or commits its own.
+ *
+ * BEGIN, not BEGIN IMMEDIATE: SQLite cannot back up a connection that holds the write lock
+ * (sqlite3_backup_step answers SQLITE_BUSY, and backup.c refuses it). The write lock comes with the
+ * body's first write; if Anki committed after the snapshot was taken, that write fails
+ * SQLITE_BUSY_SNAPSHOT ("database is locked"), which sql_throw makes "locked", as before. */
+typedef struct { conn *k; str path; conn_fn fn; void *arg; } write_args;
 static void write_body(cx *c, void *arg) {
   write_args *w = arg;
-  conn_exec(c, w->k, "BEGIN IMMEDIATE");
+  conn_exec(c, w->k, "BEGIN");
+  ensure_backup_on(c, w->path, w->k);
   w->fn(c, w->k, w->arg);
   conn_exec(c, w->k, "COMMIT");
+}
+/* noteCollectionWritten, on the writing connection, whatever happened. Its own failure changes
+ * nothing the caller is told: the write landed (or did not) either way, and a ledger left behind
+ * costs at most one more backup. */
+typedef struct { str path; conn *k; } noted_args;
+static void noted_body(cx *c, void *arg) {
+  noted_args *n = arg;
+  note_written_on(c, n->path, n->k);
 }
 static void with_write(cx *c, str path, conn_fn fn, void *arg) {
   conn k;
@@ -146,42 +161,16 @@ static void with_write(cx *c, str path, conn_fn fn, void *arg) {
   int open = conn_open(c, path, &k, &schema);
   if (open != OPEN_OK) not_ready(c, open);
   k.schema = schema;
-  write_args w = {&k, fn, arg};
+  write_args w = {&k, path, fn, arg};
   int failed = cx_try(c, write_body, &w);
-  if (failed) {
-    col_err saved = c->err;
-    /* A rollback that fails itself loses nothing: closing the connection rolls back too. */
-    sqlite3_exec(k.db, "ROLLBACK", NULL, NULL, NULL);
-    c->err = saved;
-  }
+  col_err saved = c->err;
+  /* A rollback that fails itself loses nothing: closing the connection rolls back too. */
+  if (failed) sqlite3_exec(k.db, "ROLLBACK", NULL, NULL, NULL);
+  noted_args nd = {path, &k};
+  cx_try(c, noted_body, &nd);
+  c->err = saved;
   conn_close(&k);
   if (failed) cx_rethrow(c);
-}
-
-/* _withBackup: probe (a lock is returned as it is, never copied), back up if this change needs a
- * fresh copy, then the change, and the ledger told how the file looks after it whatever happened. */
-typedef void (*path_fn)(cx *, str, void *);
-typedef struct { str path; path_fn fn; void *arg; } backup_args;
-static void backup_body(cx *c, void *arg) {
-  backup_args *b = arg;
-  b->fn(c, b->path, b->arg);
-}
-static void with_backup(cx *c, str path, path_fn fn, void *arg) {
-  conn probe;
-  int schema;
-  int open = conn_open(c, path, &probe, &schema);
-  if (open != OPEN_OK) not_ready(c, open);
-  str mark = read_mark(c, path, &probe);
-  conn_close(&probe);
-  ensure_backup(c, path, mark);
-  backup_args b = {path, fn, arg};
-  int failed = cx_try(c, backup_body, &b);
-  col_err saved = c->err;
-  note_written(c, path);
-  if (failed) {
-    c->err = saved;
-    cx_rethrow(c);
-  }
 }
 
 /* ---- the ops ---- */
@@ -287,12 +276,11 @@ static void nt_create_path(cx *c, str path, void *arg) {
     for (size_t i = 0; i < n->nmedia; i++) media_write_fixed(c, dir, n->media[i].name, n->media[i].data, n->media[i].len);
   }
 }
-static void nt_create_fn(cx *c, str path, void *arg) { with_backup(c, path, nt_create_path, arg); }
 int col_create_notetype(arena *a, str path, const col_spec *spec, const col_media *media, size_t nmedia,
                         col_notetype_made *out, col_err *err) {
   memset(out, 0, sizeof *out);
   nt_create_args n = {spec, media, nmedia, out};
-  return locked(a, path, nt_create_fn, &n, err);
+  return locked(a, path, nt_create_path, &n, err);
 }
 
 typedef struct { str name; col_deck_made *out; } create_args;
@@ -301,11 +289,10 @@ static void create_conn(cx *c, conn *k, void *arg) {
   deck_create(c, k, cr->name, cr->out);
 }
 static void create_path(cx *c, str path, void *arg) { with_write(c, path, create_conn, arg); }
-static void create_fn(cx *c, str path, void *arg) { with_backup(c, path, create_path, arg); }
 int col_create_deck(arena *a, str path, str name, col_deck_made *out, col_err *err) {
   memset(out, 0, sizeof *out);
   create_args cr = {name, out};
-  return locked(a, path, create_fn, &cr, err);
+  return locked(a, path, create_path, &cr, err);
 }
 
 static void touch(cx *c, conn *k) {
@@ -344,14 +331,13 @@ static void add_conn(cx *c, conn *k, void *arg) {
   touch(c, k);
 }
 static void add_path(cx *c, str path, void *arg) { with_write(c, path, add_conn, arg); }
-static void add_fn(cx *c, str path, void *arg) { with_backup(c, path, add_path, arg); }
 int col_add_note(arena *a, str path, const col_new_note *note, col_added *out, col_err *err) {
   add_args ad = {note, 1, out, 0};
-  return locked(a, path, add_fn, &ad, err);
+  return locked(a, path, add_path, &ad, err);
 }
 int col_add_notes(arena *a, str path, const col_new_note *notes, size_t n, col_added *out, col_err *err) {
   add_args ad = {notes, n, out, 1};
-  return locked(a, path, add_fn, &ad, err);
+  return locked(a, path, add_path, &ad, err);
 }
 
 typedef struct { double deck; str name; col_renamed *out; } rename_args2;
@@ -360,11 +346,10 @@ static void rename_conn(cx *c, conn *k, void *arg) {
   deck_rename(c, k, r->deck, r->name, r->out);
 }
 static void rename_path(cx *c, str path, void *arg) { with_write(c, path, rename_conn, arg); }
-static void rename_fn(cx *c, str path, void *arg) { with_backup(c, path, rename_path, arg); }
 int col_rename_deck(arena *a, str path, double deck, str name, col_renamed *out, col_err *err) {
   memset(out, 0, sizeof *out);
   rename_args2 r = {deck, name, out};
-  return locked(a, path, rename_fn, &r, err);
+  return locked(a, path, rename_path, &r, err);
 }
 
 typedef struct { double deck; col_removal *out; } removal_args;
@@ -388,11 +373,10 @@ static void remove_path(cx *c, str path, void *arg) {
   if (r->deck == 1) cx_throw(c, NULL, 400, "The Default deck cannot be deleted: Anki keeps it, and would only empty it.");
   with_write(c, path, remove_conn, arg);
 }
-static void remove_fn(cx *c, str path, void *arg) { with_backup(c, path, remove_path, arg); }
 int col_remove_deck(arena *a, str path, double deck, col_removal *out, col_err *err) {
   memset(out, 0, sizeof *out);
   removal_args r = {deck, out};
-  return locked(a, path, remove_fn, &r, err);
+  return locked(a, path, remove_path, &r, err);
 }
 
 typedef struct { double note; int64_t *id, *removed; } rm_note_args;
@@ -401,10 +385,9 @@ static void rm_note_conn(cx *c, conn *k, void *arg) {
   note_remove(c, k, r->note, r->id, r->removed);
 }
 static void rm_note_path(cx *c, str path, void *arg) { with_write(c, path, rm_note_conn, arg); }
-static void rm_note_fn(cx *c, str path, void *arg) { with_backup(c, path, rm_note_path, arg); }
 int col_remove_note(arena *a, str path, double note, int64_t *note_id, int64_t *cards_removed, col_err *err) {
   rm_note_args r = {note, note_id, cards_removed};
-  return locked(a, path, rm_note_fn, &r, err);
+  return locked(a, path, rm_note_path, &r, err);
 }
 
 typedef struct {
@@ -423,12 +406,11 @@ static void update_conn(cx *c, conn *k, void *arg) {
   note_update(c, k, u->note, u->fields, u->nfields, u->has_language, u->language, u->has_lfi, u->lfi, u->has_warning, u->warning);
 }
 static void update_path(cx *c, str path, void *arg) { with_write(c, path, update_conn, arg); }
-static void update_fn(cx *c, str path, void *arg) { with_backup(c, path, update_path, arg); }
 int col_update_note(arena *a, str path, double note, const str *fields, size_t nfields, int has_language, str language,
                     int has_learning_field, double learning_field, int *has_warning, str *warning, col_err *err) {
   *has_warning = 0;
   update_args u = {note, fields, nfields, has_language, language, has_learning_field, learning_field, has_warning, warning};
-  return locked(a, path, update_fn, &u, err);
+  return locked(a, path, update_path, &u, err);
 }
 
 /* Media: a plain folder, not behind the collection's lock (but behind this process's path lock, as
@@ -456,7 +438,7 @@ int col_read_media(arena *a, str path, str name, int *found, str *bytes, col_err
 typedef struct { str name; const void *data; size_t len; str *stored; } addm_args;
 static void addm_fn(cx *c, str path, void *arg) {
   addm_args *m = arg;
-  ensure_backup(c, path, read_mark(c, path, NULL));
+  ensure_backup_on(c, path, NULL);
   *m->stored = media_add(c, media_dir_for(c, path), m->name, m->data, m->len);
 }
 int col_add_media(arena *a, str path, str name, const void *data, size_t len, str *stored, col_err *err) {

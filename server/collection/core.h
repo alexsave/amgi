@@ -60,9 +60,10 @@ int64_t now_ms(void);
 int unicase_cmp(void *ctx, int na, const void *a, int nb, const void *b);
 
 /* backup.js */
-str read_mark(cx *c, str path, conn *open_conn); /* empty str: unknown (null) */
-str ensure_backup(cx *c, str path, str mark);   /* the backup's path, or empty */
-void note_written(cx *c, str path);
+/* backup.c: the backup a write takes first, on the connection it writes with (NULL: a handle of
+ * its own), and the ledger told how the collection looks after it. The comments are in backup.c. */
+str ensure_backup_on(cx *c, str path, conn *k); /* the backup's path, or empty */
+void note_written_on(cx *c, str path, conn *k);
 
 /* ---- text (deck.js, cardText.ts, template.js) ---- */
 str strip_html_preserving_media(cx *c, str html);
