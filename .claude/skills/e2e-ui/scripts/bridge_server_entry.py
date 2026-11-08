@@ -49,7 +49,7 @@ class SyncDispatcher:
     method per bridge_server.py route, matching bridge_dispatch.AqtBridgeDispatcher's
     payload shapes exactly (mutations return `.payload`, reads return the
     plain dict/list bridge_ops.py already built) so a caller of this server
-    cannot tell it apart from the real one by the JSON it gets back."""
+    cannot tell it apart from the real one by the messages it gets back."""
 
     def __init__(self, col: Collection) -> None:
         self._col = col
@@ -74,11 +74,37 @@ class SyncDispatcher:
     def create_deck(self, name: str) -> dict:
         return ops.create_deck(self._col, name).payload
 
-    def add_note(self, *, deck_id: int, notetype_id: int, fields: list, tags: list) -> dict:
-        return ops.add_note(self._col, deck_id=deck_id, notetype_id=notetype_id, fields=fields, tags=tags).payload
+    def add_note(self, **note) -> dict:
+        return ops.add_note(self._col, **note).payload
 
-    def update_note(self, note_id: int, fields: list) -> dict:
-        return ops.update_note(self._col, note_id, fields).payload
+    def add_notes_bulk(self, notes: list) -> dict:
+        return ops.add_notes_bulk(self._col, notes).payload
+
+    def update_note(self, note_id: int, fields: list, language=None, learning_field_index=None) -> dict:
+        return ops.update_note(
+            self._col, note_id, fields, language=language, learning_field_index=learning_field_index
+        ).payload
+
+    def list_field_values(self, deck_id: int, notetype_id: int, field_index: int) -> list:
+        return ops.list_field_values(self._col, deck_id, notetype_id, field_index)
+
+    def rename_deck(self, deck_id: int, human_name: str) -> dict:
+        return ops.rename_deck(self._col, deck_id, human_name).payload
+
+    def remove_note(self, note_id: int) -> dict:
+        return ops.remove_note(self._col, note_id).payload
+
+    def deck_summary(self, deck_id: int) -> dict:
+        return ops.deck_summary(self._col, deck_id)
+
+    def remove_deck(self, deck_id: int) -> dict:
+        return ops.remove_deck(self._col, deck_id).payload
+
+    def has_media(self, filename: str) -> bool:
+        return ops.has_media(self._col, filename)
+
+    def read_media(self, filename: str):
+        return ops.read_media(self._col, filename)
 
     def add_media(self, filename: str, data: bytes) -> dict:
         return ops.add_media(self._col, filename, data)
