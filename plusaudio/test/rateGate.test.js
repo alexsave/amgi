@@ -125,6 +125,19 @@ test('one draw per acquire, whether or not it waits, so timing never changes the
   assert.equal(draws, 3);
 });
 
+test('five requests refused together still teach the true limit, not the in-flight count', () => {
+  // Measured in the e2e: ten went through, then five bulk lanes asked at
+  // once - all admitted by a gate that knew nothing yet - and all five were
+  // refused. Counting those five as evidence learned a cap of 11, above the
+  // real 10, and cost another 429 a minute later.
+  const { gate, clock } = gateAt();
+  admit(gate, clock, 10);
+  for (let lane = 0; lane < 5; lane += 1) assert.equal(gate.acquire(M), 0);
+  for (let lane = 0; lane < 5; lane += 1) gate.record(M, 'rateLimited', 59_000);
+  assert.equal(gate.inspect(M).cap, Math.floor(10 * 0.8));
+  assert.equal(gate.inspect(M).inWindow, 10, 'the refused five left the window');
+});
+
 test('a 429 with too few requests seen to learn from blocks, but learns no cap', () => {
   const { gate, clock } = gateAt();
   admit(gate, clock, 2);
@@ -150,6 +163,16 @@ test('admission: new work waits while any known model is blocked, and records no
   assert.equal(gate.inspect('gemini-3.8-flash').inWindow, 1, 'asking admitted nothing');
   clock.t += 30_000;
   assert.equal(gate.admissionWait(), 0, 'open again once the block has passed');
+});
+
+test('the shared gate survives the module being loaded again, as Next dev does', () => {
+  const file = require.resolve('../lib/rateGate');
+  const first = require('../lib/rateGate').sharedGate();
+  first.record('reload-test-model', 'rateLimited', 10_000);
+  delete require.cache[file];
+  const again = require('../lib/rateGate');
+  assert.equal(again.sharedGate(), first, 'one gate per process, however many copies of the module');
+  assert.ok(again.sharedGate().inspect('reload-test-model').blockedUntil > 0);
 });
 
 test('models are gated separately: a busy speech model does not hold back text', () => {

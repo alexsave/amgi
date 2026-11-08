@@ -122,7 +122,13 @@ function createRateGate({ now = () => Date.now(), random = defaultRandom } = {})
         // traffic this gate never saw - another process, the same key used
         // elsewhere - not of the limit, and learning "1 a minute" from it
         // would throttle everything for nothing; then only the block applies.
-        const admitted = Math.max(0, state.starts.length - 1);
+        // A refused request used none of the allowance, so it leaves the
+        // window. With several requests refused at once - five bulk lanes in
+        // flight together - each one's 429 takes its own start out, and the
+        // cap (a minimum over every 429) settles on the true count once all
+        // of them are in, instead of on the inflated count the first one saw.
+        state.starts.pop();
+        const admitted = state.starts.length;
         if (admitted >= MIN_EVIDENCE) state.cap = Math.min(state.cap, Math.floor(admitted * DECREASE));
         const doubled = BASE_BLOCK_MS * 2 ** (state.consecutive429 - 1);
         const block = Math.max(retryDelayMs || 0, Math.min(MAX_BLOCK_MS, doubled));
@@ -163,12 +169,16 @@ function createRateGate({ now = () => Date.now(), random = defaultRandom } = {})
   };
 }
 
-let shared = null;
+// Anchored on globalThis, not a module variable: Next's dev server can load
+// this module more than once in the same process (it re-requires server code
+// as routes compile), and every copy must find the same gate, or a reload
+// would forget every 429 the server had learned from.
+const SHARED_KEY = Symbol.for('amgi.rateGate');
 
 /** The one gate this process shares between every Gemini client in it. */
 function sharedGate() {
-  if (!shared) shared = createRateGate();
-  return shared;
+  if (!globalThis[SHARED_KEY]) globalThis[SHARED_KEY] = createRateGate();
+  return globalThis[SHARED_KEY];
 }
 
 module.exports = { BASE_BLOCK_MS, JITTER, MAX_BLOCK_MS, WINDOW_MS, createRateGate, sharedGate };
