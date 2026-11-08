@@ -1,44 +1,29 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
 # dependencies
-/node_modules
-**/node_modules
-/.pnp
-.pnp.js
+node_modules/
+
+# Next.js
+/.next
 
 # testing
 /coverage
 /.e2e
 
-# production
-/build
-/dist
-/.next
-/out
-
 # misc
 .DS_Store
 __pycache__/
 *.pyc
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-
+*.swp
 npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
 
-# Environment Variables
-.env
-.env.build
+# Environment variables (GEMINI_API_KEY lives in .env.local)
+.env*
 
-server/audio
-
-# Audio files - generated content
+# Generated audio, its cache, and decks
 *.mp3
 *.wav
 *.m4a
+plusaudio-audio/
+*.apkg
 
 # ...except the starter deck's, which are source, not generated content.
 # They are the one set of clips amgi ships rather than makes, because the
@@ -46,10 +31,3 @@ server/audio
 # with (see src/server/anki/starterDeck.js). Rebuilt by
 # scripts/build-starter-audio.js.
 !anki/starter/media/*.mp3
-.cache/
-plusaudio/audio/
-plusaudio/*.json
-**/*.apkg
-**/*.swp
-!plusaudio/package.json
-.env*
