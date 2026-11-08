@@ -418,7 +418,9 @@ function resolveOrCreateDeck(collectionPath, humanName) {
 
 module.exports = {
   deckAndChildIds,
+  foldKey,
   listDecks,
+  withDecksCollationRelaxed,
   normalizeComponent,
   renameDeck,
   resolveOrCreateDeck,
