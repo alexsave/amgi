@@ -167,4 +167,4 @@ async function probeBridge(baseUrl, token) {
   }
 }
 
-module.exports = { BridgeError, createBridgeOps, probeBridge };
+module.exports = { probeBridge };

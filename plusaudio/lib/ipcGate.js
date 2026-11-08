@@ -106,4 +106,4 @@ function gateForThisProcess() {
   return typeof process.send === 'function' && process.connected ? createIpcGate(process) : sharedGate();
 }
 
-module.exports = { FAIL_OPEN_WAIT_MS, REPLY_TIMEOUT_MS, createIpcGate, gateForThisProcess, serveGate };
+module.exports = { FAIL_OPEN_WAIT_MS, createIpcGate, gateForThisProcess, serveGate };

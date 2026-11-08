@@ -163,13 +163,10 @@ function writeBytesField(number, bytes) {
 }
 
 module.exports = {
-  WIRE_FIXED32,
-  WIRE_FIXED64,
   WIRE_LENGTH,
   WIRE_VARINT,
   readFields,
   readFieldsLenient,
-  readVarint,
   writeBytesField,
   writeVarint,
   writeVarintField,

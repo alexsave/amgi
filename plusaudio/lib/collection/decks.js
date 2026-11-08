@@ -417,10 +417,7 @@ function resolveOrCreateDeck(collectionPath, humanName) {
 }
 
 module.exports = {
-  DEFAULT_DECK_CONFIG_ID,
   deckAndChildIds,
-  foldKey,
-  humanNameToComponents,
   listDecks,
   normalizeComponent,
   renameDeck,
