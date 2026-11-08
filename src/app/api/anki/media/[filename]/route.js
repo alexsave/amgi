@@ -15,7 +15,7 @@ export async function GET(request, { params }) {
   const { filename } = await params;
   const settings = readSettings(request);
   const transport = await resolveTransport(settings);
-  if (!transport.ops) return notReadyResponse(transport);
+  if (!transport.ops) return notReadyResponse(transport.mode);
 
   const data = await transport.ops.readMedia(filename);
   if (!data) return new Response('no such clip', { status: 404 });
