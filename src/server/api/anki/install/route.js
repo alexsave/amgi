@@ -10,7 +10,7 @@ import { discoverProfiles, resolveTransport } from '../../../../server/anki/tran
 export async function POST(request) {
   const settings = readSettings(request);
   // The override in the request body wins over the one in the saved settings
-  // header. The Settings panel holds an unsaved override in React state, so
+  // header. The Settings panel holds an unsaved override of its own, so
   // reading only the saved value silently installs somewhere other than the
   // folder the person is looking at - which is how add-ons end up written
   // into a real Anki profile by accident.

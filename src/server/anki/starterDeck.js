@@ -38,9 +38,6 @@ import { existingKeySet, normalizeForDedupe } from '../../utils/lyricsParse';
 // as every other note - which is what makes the starter deck a real deck the
 // person can then edit, extend and delete like any other.
 
-// Not named __dirname: this module is imported by a jest test, and jest
-// transpiles ESM to CommonJS, where __dirname is already a binding - the
-// redeclaration is a syntax error before a single test runs.
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(HERE, '..', '..', '..');
 const PHRASE_FILE = path.join(ROOT, 'src', 'data', 'starterPhrases.json');

@@ -1,6 +1,6 @@
 // The one interface, two implementations, chosen at runtime.
 //
-// Every route handler under src/app/api/anki/ calls resolveTransport(settings)
+// Every route handler under src/server/api/anki/ calls resolveTransport(settings)
 // at the top of the request and gets back an object shaped the same way
 // regardless of which real backend answered it - see bridgeClient.js and
 // directClient.js, which both build to this same `ops` shape. Nothing here is
@@ -12,13 +12,9 @@
 //
 // This file - and everything it requires (plusaudio/lib/collection, which
 // touches node:sqlite and the filesystem) - must only ever be imported from
-// a Next.js route handler (src/app/api/**/route.js). Route handlers run in
-// the Node.js runtime on the server, never in the browser bundle, which is
-// what keeps the filesystem and localhost reachability on the correct side
-// of the client/server line (see the task this was built from: "this runs on
-// the user's machine, so the filesystem work belongs on the server side of
-// Next.js"). Nothing under src/components or src/contexts may require this
-// file directly - they only ever reach it through fetch() to /api/anki/*.
+// a route handler (src/server/api/**/route.js), which ui/server/serve.mjs runs
+// on the user's machine: the filesystem work belongs on the server side. The
+// page reaches it only through /api/anki/*.
 
 import fs from 'node:fs';
 import { defaultBaseDir, listProfiles } from 'plusaudio/lib/collection';

@@ -399,7 +399,7 @@ class _BridgeHTTPServer(ThreadingHTTPServer):
     # sequential requests, but a real browser tab can fire off several
     # /api/anki/* calls back to back (a status poll racing a deck fetch
     # racing a page of notes), and this app itself only ever talks to this
-    # bridge from its own Next.js server, which can have several requests to
+    # bridge from its own local Node server, which can have several requests to
     # the SAME bridge in flight for the same reason. A short backlog under a
     # burst like that means the OS refuses the connection outright
     # (ECONNRESET on the caller's side) before this server even gets a

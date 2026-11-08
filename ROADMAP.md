@@ -26,7 +26,7 @@ Shipping this needs a `Reading` field on the `amgi Listening` note type (see `an
 
 ## Bulk topic generation
 
-The deck page already makes one card per pasted line (`src/components/Card/BulkRun.js`).
+The deck page already makes one card per pasted line (`ui/src/bulk.c`).
 What is missing is the step before it: asking for twenty phrases about a topic in one request, and reviewing them before the run starts.
 No plan has been written for it yet.
 
