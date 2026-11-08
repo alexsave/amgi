@@ -20,7 +20,7 @@ cd_id listen_as(uint32_t ev, uint32_t tag) {
 }
 void listen_click(uint32_t tag) { listen_as(CD_EV_CLICK, tag); }
 
-void icon(const char *d1, const char *d2, cd_str style) {
+void icon_with(const char *d1, const char *d2, cd_str style, cd_str cls) {
   cd_open(CD_LIT("svg"));
   cd_attr(CD_LIT("xmlns"), CD_LIT("http://www.w3.org/2000/svg"));
   cd_attr(CD_LIT("fill"), CD_LIT("none"));
@@ -29,6 +29,7 @@ void icon(const char *d1, const char *d2, cd_str style) {
   cd_attr(CD_LIT("stroke"), CD_LIT("currentColor"));
   cd_attr(CD_LIT("aria-hidden"), CD_LIT("true"));
   cd_attr(CD_LIT("data-slot"), CD_LIT("icon"));
+  if (cls) cd_attr(CD_LIT("class"), cls);
   if (style) cd_attr(CD_LIT("style"), style);
   for (int i = 0; i < 2; i++) {
     const char *d = i ? d2 : d1;
@@ -41,6 +42,8 @@ void icon(const char *d1, const char *d2, cd_str style) {
   }
   cd_close();
 }
+
+void icon(const char *d1, const char *d2, cd_str style) { icon_with(d1, d2, style, 0); }
 
 const char ICON_COG[] =
   "M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083."
