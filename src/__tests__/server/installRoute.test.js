@@ -16,7 +16,7 @@ import path from 'node:path';
 import { POST } from '../../server/api/anki/install/route';
 import { INSTALLED_MESSAGE, RESTART_MESSAGE } from '../../server/anki/install';
 
-const { anki, buildFixtureCollection, holdCollectionOpen, tempDir } = require('../../../plusaudio/test/collection/helpers/anki-python');
+const { anki, buildFixtureCollection, holdCollectionOpen } = require('../../../plusaudio/test/collection/helpers/anki-python');
 
 const maybe = anki ? test : test.skip;
 

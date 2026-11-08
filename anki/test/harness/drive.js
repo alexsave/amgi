@@ -18,8 +18,6 @@ const http = require('node:http');
 const os = require('node:os');
 const path = require('node:path');
 
-const puppeteer = require('puppeteer-core');
-
 const ROOT = path.resolve(__dirname, '..', '..', '..');
 const SKILL = path.join(ROOT, '.claude', 'skills', 'e2e-ui', 'scripts');
 const fakeVoiceScript = require(path.join(SKILL, 'fakevoice.js'));
