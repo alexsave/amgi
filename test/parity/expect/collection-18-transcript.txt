@@ -609,6 +609,6 @@ ok <N53> <guid> [<C75>,<C76>] !
 # starter ko/ja: {deckId=<D21> deckName="amgi starter" added=10 alreadyThere=0 missingAudio=[]}
 # parallel: ok ok ok ok ok ok ok ok
 > existingFieldValues 1794170430287 1794170430283 0
-ok [%EC%97%AD%EC%9D%B4%20%EC%96%B4%EB%94%94%EC%98%88%EC%9A%94%3F,parallel%200,parallel%201,parallel%202,parallel%203,parallel%204,parallel%205]
+ok [%EC%97%AD%EC%9D%B4%20%EC%96%B4%EB%94%94%EC%98%88%EC%9A%94%3F,parallel,parallel,parallel,parallel,parallel,parallel]
 > status
 ok ok 18

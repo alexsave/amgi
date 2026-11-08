@@ -29,15 +29,19 @@ int media_exists(cx *c, str dir, str name);
 int media_read(cx *c, str dir, str name, str *out);
 
 /* ---- the per-path lock: directClient's promise chain, one per path.resolve spelling ---- */
+/* A ticket lock: callers are served in the order they asked, as the promise chain serves them, so a
+ * write queued behind a long one is never overtaken by a later arrival. */
 typedef struct path_lock {
   struct path_lock *next;
   char *key;
   pthread_mutex_t m;
+  pthread_cond_t turn;
+  uint64_t next_ticket, serving;
 } path_lock;
 static path_lock *locks;
 static pthread_mutex_t locks_lock = PTHREAD_MUTEX_INITIALIZER;
 
-static pthread_mutex_t *lock_for(arena *a, str path) {
+static path_lock *lock_for(arena *a, str path) {
   cx c = {a, NULL, {0}};
   str key = path_resolve(c.a, path);
   pthread_mutex_lock(&locks_lock);
@@ -51,11 +55,26 @@ static pthread_mutex_t *lock_for(arena *a, str path) {
     memcpy(l->key, key.p, key.n);
     l->key[key.n] = 0;
     pthread_mutex_init(&l->m, NULL);
+    pthread_cond_init(&l->turn, NULL);
     l->next = locks;
     locks = l;
   }
   pthread_mutex_unlock(&locks_lock);
-  return &l->m;
+  return l;
+}
+
+static void lock_take(path_lock *l) {
+  pthread_mutex_lock(&l->m);
+  uint64_t mine = l->next_ticket++;
+  while (l->serving != mine) pthread_cond_wait(&l->turn, &l->m);
+  pthread_mutex_unlock(&l->m);
+}
+
+static void lock_give(path_lock *l) {
+  pthread_mutex_lock(&l->m);
+  l->serving++;
+  pthread_cond_broadcast(&l->turn);
+  pthread_mutex_unlock(&l->m);
 }
 
 /* Run fn under the path's lock, catching what it throws into *err. */
@@ -65,12 +84,12 @@ static void locked_body(cx *c, void *arg) {
   l->fn(c, l->path, l->arg);
 }
 static int locked(arena *a, str path, void (*fn)(cx *, str, void *), void *arg, col_err *err) {
-  pthread_mutex_t *m = lock_for(a, path);
-  pthread_mutex_lock(m);
+  path_lock *pl = lock_for(a, path);
+  lock_take(pl);
   cx c = {a, NULL, {0}};
   locked_args l = {path, arg, fn};
   int r = cx_try(&c, locked_body, &l);
-  pthread_mutex_unlock(m);
+  lock_give(pl);
   if (r < 0 && err) *err = c.err;
   return r;
 }
