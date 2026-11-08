@@ -67,6 +67,10 @@ export const DeckProvider = ({ children }) => {
   // without needing a page reload when Anki opens, closes, or the bridge
   // toggles.
   const [ankiStatus, setAnkiStatus] = useState({ mode: 'unconfigured' });
+  // Whether the add-ons and card type are installed in Anki. null while
+  // unknown. One owner for the setup screen and the navbar badge, so the
+  // badge cannot say "connected" over a page that says "set amgi up".
+  const [ankiInstalled, setAnkiInstalled] = useState(null);
   const [ankiNotetypes, setAnkiNotetypes] = useState([]);
   const notetypesRef = useRef(null);
 
@@ -92,6 +96,9 @@ export const DeckProvider = ({ children }) => {
         return next;
       });
       setError(null);
+      ankiApi.installState()
+        .then((state) => setAnkiInstalled(state.installed))
+        .catch(() => setAnkiInstalled(true));
     } catch (err) {
       // Not reachable right now (no profile picked, locked, bridge down) -
       // reported through ankiStatus, not the generic `error` state: this is
@@ -287,6 +294,7 @@ export const DeckProvider = ({ children }) => {
     addAnkiNotesBulk,
     updateAnkiNote,
     ankiStatus,
+    ankiInstalled,
     ankiNotetypes,
     ensureAnkiNotetypes,
     refreshAnkiDecks,

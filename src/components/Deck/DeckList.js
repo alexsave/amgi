@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { useDecks } from '../../contexts/DeckContext';
 import DeckItem from './DeckItem';
 import { PlusIcon } from '@heroicons/react/24/outline';
@@ -7,24 +7,11 @@ import CreateDeckModal from './CreateDeckModal';
 import { ANKI_READY_MODES, ankiModePresentation } from '../../utils/ankiModeText';
 import FirstRun from '../Setup/FirstRun';
 import StarterDeck from '../Setup/StarterDeck';
-import { ankiApi } from '../../utils/ankiApi';
 
 const DeckList = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const { decks, loading, ankiStatus } = useDecks();
+  const { decks, loading, ankiStatus, ankiInstalled: installed } = useDecks();
   const ready = ANKI_READY_MODES.has(ankiStatus?.mode);
-  // null while unknown, so a slow answer shows the deck list rather than
-  // flashing the setup screen at someone who set up months ago.
-  const [installed, setInstalled] = useState(null);
-
-  useEffect(() => {
-    let live = true;
-    ankiApi.installState()
-      .then((state) => { if (live) setInstalled(state.installed); })
-      .catch(() => { if (live) setInstalled(true); });
-    return () => { live = false; };
-  }, [ankiStatus?.mode]);
-
   const emptyState = () => {
     // An empty deck list because Anki is locked, unconfigured, or otherwise
     // unreachable is a completely different situation from a genuinely
