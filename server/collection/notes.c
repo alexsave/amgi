@@ -604,19 +604,7 @@ static void encode_config(cx *c, const col_spec *spec, buf *b) {
 static void create_rows(cx *c, conn *k, void *arg) {
   nt_args *na = arg;
   const col_spec *spec = na->spec;
-  conn_exec(c, k, "BEGIN IMMEDIATE");
-  jmp_buf jb, *outer = c->jb;
-  c->jb = &jb;
-  if (setjmp(jb)) {
-    c->jb = outer;
-    col_err saved = c->err;
-    jmp_buf jb2;
-    c->jb = &jb2;
-    if (!setjmp(jb2)) conn_exec(c, k, "ROLLBACK");
-    c->jb = outer;
-    c->err = saved;
-    cx_rethrow(c);
-  }
+  /* In the caller's one transaction (direct.c with_write). */
   buf cfg = {0};
   encode_config(c, spec, &cfg);
   str config = buf_str(c->a, &cfg);
@@ -658,8 +646,6 @@ static void create_rows(cx *c, conn *k, void *arg) {
   st = q_prep(c, k, "UPDATE col SET mod = ? WHERE id = 1");
   q_int(st, 1, na->now);
   q_run(c, k, st);
-  conn_exec(c, k, "COMMIT");
-  c->jb = outer;
 }
 
 void notetype_create(cx *c, conn *k, const col_spec *spec, col_notetype_made *out) {

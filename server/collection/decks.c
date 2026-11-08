@@ -863,19 +863,7 @@ static void remove_legacy(cx *c, conn *k, plan_t *p, double now) {
 }
 
 void deck_remove(cx *c, conn *k, double deck_id, col_removal *out) {
-  conn_exec(c, k, "BEGIN IMMEDIATE");
-  jmp_buf jb, *outer = c->jb;
-  c->jb = &jb;
-  if (setjmp(jb)) {
-    c->jb = outer;
-    col_err saved = c->err;
-    jmp_buf jb2;
-    c->jb = &jb2;
-    if (!setjmp(jb2)) conn_exec(c, k, "ROLLBACK");
-    c->jb = outer;
-    c->err = saved;
-    cx_rethrow(c);
-  }
+  /* In the caller's one transaction (direct.c with_write), which rolls it all back on a throw. */
   plan_t p;
   if (!plan(c, k, deck_id, &p)) not_there(c, deck_id);
   double now = floor((double)now_ms() / 1000);
@@ -885,8 +873,6 @@ void deck_remove(cx *c, conn *k, double deck_id, col_removal *out) {
   sqlite3_stmt *st = q_prep(c, k, "UPDATE col SET mod = ? WHERE id = 1");
   q_int(st, 1, now_ms());
   q_run(c, k, st);
-  conn_exec(c, k, "COMMIT");
-  c->jb = outer;
   out->id = p.target.id;
   out->name = p.target.name;
   int64_t decks = 0;
