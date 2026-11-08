@@ -152,6 +152,45 @@ test('a spent daily quota fails at once, once, with the message the add-card row
   assert.deepEqual(sleeps, []);
 });
 
+test("a billed project's daily cap says what it is, and does not tell a paying user to enable billing", async () => {
+  // The body Gemini sent live on 2026-11-08, from a billed (Tier 1) project.
+  const tier1 = {
+    status: 429,
+    body: { error: { code: 429, status: 'RESOURCE_EXHAUSTED', message: 'You exceeded your current quota...', details: [
+      { '@type': 'type.googleapis.com/google.rpc.Help', links: [] },
+      { '@type': 'type.googleapis.com/google.rpc.QuotaFailure', violations: [{
+        description: 'Generate content requests per day limit exceeded on Tier 1.',
+        quotaMetric: 'generativelanguage.googleapis.com/generate_requests_per_model_per_day',
+        quotaId: 'GenerateRequestsPerDayPerProjectPerModel',
+        quotaDimensions: { location: 'global', model: MODEL },
+        quotaValue: '100',
+      }] },
+      { '@type': 'type.googleapis.com/google.rpc.RetryInfo', retryDelay: '20556s' },
+    ] } },
+  };
+  const { speech, calls, sleeps } = speechWith([tier1]);
+
+  const error = await speech.synthesize(REQUEST).then(() => null, (e) => e);
+
+  assert.ok(error instanceof GeminiUnavailableError);
+  assert.equal(error.message, `Your Gemini project's daily limit of 100 requests for ${MODEL} is used up. It resets in about 6 hour(s). A higher usage tier raises it (Google AI Studio, https://aistudio.google.com/apikey).`);
+  assert.doesNotMatch(error.message, /free tier|Enable billing/);
+  assert.equal(calls.length, 1);
+  assert.deepEqual(sleeps, []);
+});
+
+test('a free-tier daily cap names the limit Google reports', async () => {
+  const freeTier = quota429('GenerateRequestsPerDayPerProjectPerModel-FreeTier');
+  freeTier.body.error.details[0].violations[0].quotaValue = '10';
+  const { speech } = speechWith([freeTier]);
+
+  const error = await speech.synthesize(REQUEST).then(() => null, (e) => e);
+
+  assert.equal(error.message, dailyQuotaMessage(MODEL, { freeTier: true, limit: 10 }));
+  assert.match(error.message, /free tier allows 10 requests per day per model/);
+  assert.match(error.message, /Enable billing/);
+});
+
 test('a per-minute limit is waited out for as long as Gemini asks, then retried with the same request', async () => {
   const wav = wavBytes();
   const { speech, calls, sleeps } = speechWith([
