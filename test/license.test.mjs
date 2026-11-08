@@ -39,3 +39,13 @@ test('the README and the notices are there and point at each other', () => {
   for (const link of ['(LICENSE)', '(skills/LICENSE)', '(THIRD_PARTY_NOTICES.md)']) assert.ok(readme.includes(link), link);
   assert.match(read('THIRD_PARTY_NOTICES.md'), /^# Third-party notices\n/);
 });
+
+test('the starter clips carry their notice: how they were made, and what reuse is subject to', () => {
+  const text = read('anki/starter/NOTICE.md');
+  assert.match(text, /gemini-3\.8-flash-lite-tts/);
+  assert.match(text, /`voices\.tsv`/);
+  assert.match(text, /AGPL-3\.0-or-later/);
+  assert.match(text, /https:\/\/aistudio\.google\.com\/docs\/terms on 2026-11-08/);
+  assert.ok(fs.existsSync(path.join(ROOT, 'anki', 'starter', 'voices.tsv')), 'the voices file it names');
+  assert.match(read('THIRD_PARTY_NOTICES.md'), /`anki\/starter\/NOTICE\.md`/);
+});

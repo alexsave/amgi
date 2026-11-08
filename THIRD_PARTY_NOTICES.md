@@ -1,15 +1,14 @@
 # Third-party notices
 
 amgi is licensed under the GNU Affero General Public License, version 3 or later (see `LICENSE`).
-The parts below come from elsewhere and keep their own licences.
+The parts below come from elsewhere and keep their own licences; the last section notes two of amgi's own assets that are not code.
 Node packages installed by `npm install` are not listed here; each carries its own licence in `node_modules`.
 
 ## cdom
 
 The C DOM library the page is built on, included as a git submodule at `cdom/` (https://github.com/alexsave/cdom).
-Copyright 2026 Alex Saveliev.
-Licensed under the MIT License.
-Its repository does not carry a LICENSE file yet; its owner has said one is coming, and the MIT text will be the one in that file.
+Copyright (c) 2026 Alex Saveliev.
+Licensed under the MIT License; the full text is the LICENSE file in its repository (https://github.com/alexsave/cdom/blob/main/LICENSE).
 
 ## Heroicons
 
@@ -98,7 +97,15 @@ Documentation in the docs-site folder is licensed under the CC BY-SA 4.0
 license; other files in that folder remain under the AGPL3.
 ```
 
-## To confirm with the owner
+## amgi's own assets
 
-- The favicons in `public/` (`favicon.svg`, `favicon.ico`, `favicon-96x96.png`, `apple-touch-icon.png`), added on 2025-03-16. They show "암기" set in Noto Serif KR; `favicon.svg` names the font and does not embed it, and its `svgjs` namespace suggests it came from an online favicon generator. Noto Serif KR is under the SIL Open Font License 1.1, which does not restrict images rendered with it, but the generator and the source of the artwork are not recorded.
-- The starter deck's clips in `anki/starter/media/`, which were generated with Gemini text-to-speech (`anki/starter/voices.tsv` names the model and voice of each); Google's terms for generated output apply to them.
+### The favicons
+
+The favicons in `public/` (`favicon.svg`, `favicon.ico`, `favicon-96x96.png`, `apple-touch-icon.png`) are the owner's own work and ship under the repository's licence, AGPL-3.0-or-later.
+They show "암기" set in Noto Serif KR; `favicon.svg` names the font and does not embed it.
+Noto Serif KR is under the SIL Open Font License 1.1, which does not restrict images rendered with it.
+
+### The starter deck's clips
+
+The clips in `anki/starter/media/` were generated with Gemini text-to-speech, and ship under the repository's licence.
+How they were made, and what their reuse is subject to, is in `anki/starter/NOTICE.md`.
