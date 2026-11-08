@@ -340,6 +340,12 @@ static void core_state(void) {
   sqlite3_close(anki);
   CHECK(col_status(&a, held, &st, &e) == 0 && !strcmp(st.status, "ok") && st.schema == 18, "released: ok again");
 
+  /* addMedia changes the collection's folder, so it backs the collection up first like any write. */
+  str med = fixture(&a, "18", "media-first");
+  str stored;
+  CHECK(col_add_media(&a, med, S("clip.ogg"), "ogg", 3, &stored, &e) == 0, "a media file");
+  CHECK(count_backups(med.p) == 1, "the first write of the session, so one backup (%zu)", count_backups(med.p));
+
   /* The ledger: one backup per session, another after somebody else's change, then none. */
   str led = fixture(&a, "11", "ledger");
   CHECK(col_create_deck(&a, led, S("Ours 1"), &made, &e) == 0 && made.created, "a deck");

@@ -85,7 +85,7 @@ static int open_own_conn(cx *c, str path, conn *k) {
   return o.result;
 }
 
-str read_mark(cx *c, str path, conn *open_conn) {
+static str read_mark(cx *c, str path, conn *open_conn) {
   if (open_conn) return mark_on(c, path, open_conn);
   conn own;
   if (open_own_conn(c, path, &own) != OPEN_OK) return (str){NULL, 0};
@@ -352,18 +352,13 @@ static void backup_body(cx *c, void *arg) {
  * (SQLITE_BUSY_SNAPSHOT), so no write lands on a state the backup missed. A k in autocommit gets a
  * transaction of its own around the probe and the copy. k NULL: a handle of its own, and a
  * collection it cannot open is not copied, since the copy would be torn (addMedia only: a write
- * cannot get here with an unreadable collection). must: k NULL, and the caller had read the
- * collection, so not being able to now is an error. The backup's path, or empty. */
-static str ensure_on(cx *c, str path, conn *k, int must) {
+ * cannot get here with an unreadable collection). The backup's path, or empty. */
+str ensure_backup_on(cx *c, str path, conn *k) {
   backup_run r = {path, k, {NULL, 0}, path_resolve(c->a, path), now_ms(), {NULL, 0}, 0};
   conn own;
   if (!k) {
     int open = open_own_conn(c, path, &own);
-    if (open != OPEN_OK) {
-      if (!must) return (str){NULL, 0};
-      const char *s = open == OPEN_NOT_FOUND ? "not-found" : open == OPEN_UNSUPPORTED ? "unsupported-schema" : "locked";
-      cx_throw(c, s, 0, "collection is %s", s);
-    }
+    if (open != OPEN_OK) return (str){NULL, 0};
     r.k = &own;
   }
   int began = sqlite3_get_autocommit(r.k->db);
@@ -394,8 +389,6 @@ static str ensure_on(cx *c, str path, conn *k, int must) {
   return r.dst;
 }
 
-str ensure_backup_on(cx *c, str path, conn *k) { return ensure_on(c, path, k, 0); }
-
 /* noteCollectionWritten: how the collection looks after our write, read on k (NULL: a handle of
  * its own, whose open folds the WAL into the file). Read first, whether or not there is a record,
  * as noteCollectionWritten's default parameter does. */
@@ -411,7 +404,3 @@ void note_written_on(cx *c, str path, conn *k) {
   pthread_mutex_unlock(&ledger_lock);
 }
 
-/* The entries direct.c calls today, until it takes the backup on its writing connection (asked in
- * email.txt): the mark it read on its probe only says whether it could read the collection. */
-str ensure_backup(cx *c, str path, str mark) { return ensure_on(c, path, NULL, mark.p != NULL); }
-void note_written(cx *c, str path) { note_written_on(c, path, NULL); }
