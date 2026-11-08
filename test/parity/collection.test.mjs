@@ -14,7 +14,7 @@
 // The sessions that need the real Anki library (a real lock held by Anki, a change Anki makes
 // between two of ours, and opening each result with Anki) skip when no python with `anki` is
 // found (ANKI_PYTHON_BIN, as the rest of the suite).
-import { test, describe, before } from 'node:test';
+import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawn } from 'node:child_process';
 import fs from 'node:fs';
@@ -558,12 +558,26 @@ col.close()
   return out;
 }
 
-before(() => {
-  execFileSync('make', ['-s', '-C', path.join(ROOT, 'server'), 'build/parity_dump'], { stdio: 'inherit' });
-});
+/**
+ * The dump tool is C (server/Makefile: a C compiler, sqlite and ICU). Built here, once; on a machine
+ * that cannot build it, the sessions that need it skip with this sentence rather than fail, so
+ * npm test still runs everything else. AMGI_REQUIRE_NATIVE=1 makes that a failure instead, for a
+ * machine that is meant to have them.
+ */
+const NO_DUMP = (() => {
+  try {
+    execFileSync('make', ['-s', '-C', path.join(ROOT, 'server'), 'build/parity_dump'], { stdio: ['ignore', 'pipe', 'pipe'] });
+    return null;
+  } catch (error) {
+    const said = `${error.stderr ?? ''}${error.stdout ?? ''}`.split('\n').map((l) => l.trim()).filter(Boolean);
+    const why = said.find((l) => /error|not found|no such/i.test(l)) ?? said[0] ?? error.message;
+    if (process.env.AMGI_REQUIRE_NATIVE === '1') throw new Error(`AMGI_REQUIRE_NATIVE=1, and the C dump tool did not build: ${why}`);
+    return `the collection parity runner needs its C dump tool (server/Makefile: a C compiler, sqlite and ICU), which did not build on this machine (${why}), so it is skipped`;
+  }
+})();
 
 for (const schema of ['18', '11']) {
-  describe(`collection parity, schema ${schema}${IMPL ? ` (${path.basename(IMPL)})` : ' (Node)'}`, () => {
+  describe(`collection parity, schema ${schema}${IMPL ? ` (${path.basename(IMPL)})` : ' (Node)'}`, { skip: NO_DUMP ?? false }, () => {
     let main;
     test('the operation list: every answer, and every row afterwards', async () => {
       main = await session(schema, (t, impl) => operations(t, impl, schema));
