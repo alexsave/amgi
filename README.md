@@ -95,7 +95,7 @@ See [plusaudio/README.md](plusaudio/README.md) for the options.
 ```bash
 npm start       # builds ui/out, then serves http://localhost:3000 (PORT=0 takes a free port)
 npm run lint
-npm test        # builds, then the node:test suites (server, plusaudio, anki, ui) and the add-on's Python tests
+npm test        # builds, then the node:test suites (server, plusaudio, anki, ui, the parity suites) and the add-on's Python tests
 npm run e2e     # builds, then every browser drive against fresh servers (see .claude/skills/e2e-ui)
 ```
 
@@ -103,6 +103,8 @@ The page is C, compiled to WebAssembly by `ui/build.sh`, on [cdom](https://githu
 The server is one plain Node HTTP server, `ui/server/serve.mjs`, that serves the page and runs the `/api/anki` routes.
 `.claude/skills/e2e-ui/` and `ui/tools/` drive the app in headless Chrome against a fixture Anki collection.
 `anki/test/harness/drive.js` does the same for the card template.
+`test/parity/` pins what the server does so a second implementation can be held to it: an HTTP suite over every route and error shape, compared byte for byte with a recording from the Node server, and a collection runner that applies one operation list to schema 11 and 18 fixtures and compares every row afterwards.
+Both, and `npm run e2e`, take the server under test from `AMGI_SERVER` (and the collection core from `AMGI_COLLECTION_IMPL`); unset, they run today's Node code.
 
 ```
 ui/src/          The page, in C: decks, deck view, card form and panel, bulk run, settings, first run
@@ -111,6 +113,8 @@ ui/wire/         The wire format between the page and the server
 ui/server/       The HTTP server
 ui/tools/        Browser drives and their fixture
 ui/test/         Tests of the C against what it must agree with
+test/parity/     The parity suites, their fixtures and recordings (each suite's header says how it compares)
+server/          Native code: the parity dump tool today (make -C server)
 src/server/      The /api/anki routes and the server-only transport, resolved on every request
 src/utils/       The review loop and voice-activity detection the card template shares
 plusaudio/       CLI for .apkg files and the card generation policy (lib/cardGeneration/)
