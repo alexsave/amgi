@@ -285,6 +285,9 @@ async function operations(t, impl, schema) {
   await t.cmd(`addNote ${note(created, basic, ['x', 'y'], { language: 'ko', learningFieldIndex: 7 })}`);
   await t.cmd(`addNote ${note(created, basic, ['<b>Hi</b> &amp; <img src="pic.png"> &#x41;&nbsp;x &#66; &bogus; <!-- c --> <audio src=\'a.wav\'>', '<i>b</i>'])}`);
   await t.cmd(`addNote ${note(created, basic, ['<IMG SRC=bare.jpg alt=x>', ''])}`);
+  // Still markup-like after one strip: its checksum is where C (stripping once, as Anki) and the
+  // frozen Node (stripping twice) part (test/parity/C_DIFFS.txt).
+  await t.cmd(`addNote ${note(created, basic, ['<b>&lt;i&gt;</b>', 'csum'])}`);
   await t.cmd(`addNote ${note(created, reversed, ['only front', ''])}`);
   await t.cmd(`addNote ${note(created, reversed, ['both', 'sides'])}`);
   await t.cmd(`addNote ${note(created, cloze, ['{{c1::one}} {{c3::three}} {{c3::again}}', ''])}`);

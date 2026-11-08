@@ -30,7 +30,7 @@ static void body(cx *c, void *arg) {
   else if (str_eq_c(k->op, "trim")) buf_s(&r, js_trim(x));
   else if (str_eq_c(k->op, "fold")) buf_s(&r, fold_key(c, x));
   else if (str_eq_c(k->op, "strip")) buf_s(&r, strip_html_preserving_media(c, x));
-  else if (str_eq_c(k->op, "csum")) buf_fmt(&r, "%lld", (long long)field_checksum(c, x));
+  else if (str_eq_c(k->op, "csum")) buf_fmt(&r, "%lld", (long long)field_checksum(c, strip_html_preserving_media(c, x)));
   else if (str_eq_c(k->op, "ankifield")) buf_s(&r, anki_fields(c, &x, 1)[0]);
   else if (str_eq_c(k->op, "roman")) buf_c(&r, looks_romanized(c, x, y) ? "1" : "0");
   else if (str_eq_c(k->op, "audio")) buf_s(&r, render_audio_reference(c, x));
