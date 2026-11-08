@@ -34,10 +34,10 @@ uint32_t strip_tags(char *dst, wire_str s);
 wire_str audio_src(wire_str field);
 /* A field holds a sound reference: [sound:...] or an <audio ... src=. */
 int has_audio_ref(wire_str field);
-/* lyricsParse.js's normalizeForDedupe into dst (s.len bytes): white space trimmed and collapsed,
+/* What lyricsParse.js's normalizeForDedupe was, into dst (s.len bytes): white space trimmed and collapsed,
  * the trailing run of white space and punctuation dropped (unless that is all there is). */
 uint32_t dedupe_key(char *dst, wire_str s);
-/* lyricsParse.js's parseLyricsPaste: the lines a paste makes cards of (see text.c). */
+/* What lyricsParse.js's parseLyricsPaste was: the lines a paste makes cards of (see text.c). */
 uint32_t paste_lines(const char *s, uint32_t len, wire_str *out, uint32_t cap, char *keys);
 
 /* ---- the DOM, shorthand (dom.c) ---- */

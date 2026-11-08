@@ -120,7 +120,7 @@ amgi_fields amgi_field_indexes(arena *a, const col_notetype *nt) {
   return (amgi_fields){at[0], at[1], at[2], at[3], at[4], at[5]};
 }
 
-/* lyricsParse.js normalizeForDedupe: trimmed, runs of blanks as one space, trailing punctuation off
+/* What lyricsParse.js's normalizeForDedupe was: trimmed, runs of blanks as one space, trailing punctuation off
  * (unless that leaves nothing). */
 static int trailing_punct(uint32_t cp) {
   static const uint32_t SET[] = {',', '.', '!', '?', ';', ':', 0x3001, 0x3002, 0xff01, 0xff1f, 0xff0c, 0xff1b, 0xff1a,
