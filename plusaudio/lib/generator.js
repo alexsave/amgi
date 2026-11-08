@@ -21,51 +21,20 @@
 // source, which is the failure this whole exercise exists to prevent.
 
 const { generateCardAudio } = require('./cardGeneration/cardGeneration.ts');
-const { createGeminiSpeech } = require('./cardGeneration/geminiSpeech.ts');
-const { CARD_MODELS, GEMINI_TTS_VOICES } = require('./cardGeneration/models.ts');
-const { random: defaultRandom } = require('./random');
+const { createGeminiContext } = require('./geminiContext');
 
 /**
- * Build a generator for augmentPackage.
+ * Build a clip generator for augmentPackage and generate-clip.js.
  *
- * Speech is Gemini's and nothing else's, so `geminiApiKey` is required: a
- * generator built without one fails every clip with "GEMINI_API_KEY is not
- * set" (the OpenAI client is still needed for transcription and the judge).
+ * Every model call - speech, transcription, the judge - is Gemini's, through
+ * the one context geminiContext.js builds from `options` (apiKey is
+ * GEMINI_API_KEY). Without a key this throws at once, before any note is
+ * attempted.
  *
- * @param {object} openai      an OpenAI client
- * @param {object} [options]
- * @param {string} [options.geminiApiKey]
- * @param {string} [options.geminiApiBase]  Gemini's endpoint; set only by tests and the e2e fake server (GEMINI_API_BASE)
- * @param {function} [options.fetch]        what the Gemini client calls; global fetch by default
- * @param {object} [options.random]         the voice draw's source; ./random.js's process-wide generator by default
- * @param {function} [options.sleep]        how a per-minute rate limit is waited out
- * @param {function} [options.log]          where the policy's own warnings go
+ * @param {object} options  see geminiContext.js's createGeminiContext
  */
-function createGenerator(openai, options = {}) {
-  const { log = () => {}, geminiApiKey = '', geminiApiBase, fetch, random = defaultRandom, sleep } = options;
-
-  const speech = geminiApiKey
-    ? createGeminiSpeech({
-        apiKey: geminiApiKey,
-        model: CARD_MODELS.tts,
-        voices: GEMINI_TTS_VOICES,
-        random,
-        ...(geminiApiBase ? { baseUrl: geminiApiBase } : {}),
-        ...(fetch ? { fetch } : {}),
-        ...(sleep ? { sleep } : {}),
-      })
-    : null;
-
-  const context = {
-    openai,
-    models: CARD_MODELS,
-    speech,
-    // Indented because these lines explain the note the CLI just announced.
-    log: {
-      warn: (message) => log(`  ${message}`),
-      error: (message) => log(`  ${message}`),
-    },
-  };
+function createGenerator(options = {}) {
+  const context = createGeminiContext(options);
 
   // `reading` is optional and empty by default: a deck this CLI did not
   // write carries no romanisation of its own text, so for Japanese and
@@ -79,7 +48,6 @@ function createGenerator(openai, options = {}) {
   // (audio-store.js's CLIP_EXTENSION) relies on. geminiSpeech.ts is the one
   // place that is enforced: it wraps raw PCM and refuses anything else.
   return async function generate({ text, language, reading = '' }) {
-    if (!speech) throw new Error('GEMINI_API_KEY is not set; audio was not generated.');
     return Buffer.from(await generateCardAudio(context, { text, language, reading }));
   };
 }

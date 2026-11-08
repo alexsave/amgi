@@ -16,12 +16,13 @@
 //
 // What is in here: prompts (via cardPrompts.ts), schemas, assembly (via
 // cardText.ts), the corrective retry for unspeakable text, and the
-// synthesise-transcribe-judge validation loop. The synthesiser itself is
-// Gemini's (geminiSpeech.ts), injected like the OpenAI client.
+// synthesise-transcribe-judge validation loop. Every model call goes through
+// one injected Gemini client (gemini.ts); the synthesiser (geminiSpeech.ts)
+// is injected beside it.
 //
 // What is NOT in here, and must stay out: authentication, quota, storage,
 // the database, environment variables, and any runtime-specific API. The
-// OpenAI client, the speech synthesiser and the model ids are injected (see
+// Gemini client, the speech synthesiser and the model ids are injected (see
 // CardGenerationContext)
 // so a test can drive the whole policy without a key or a network. Keeping
 // the module free of npm: specifiers is what lets Node require it directly,
@@ -30,11 +31,11 @@
 import {
     assembleCard,
     composeKnownSide,
+    languageName,
     normalizeForComparison,
     readingIsAmbiguous,
     registerTag,
     spokenForm,
-    transcriptionLanguage,
     type AssembledCard,
     type GeneratedCardFields,
 } from "./cardText.ts";
@@ -49,50 +50,7 @@ import {
 } from "./cardPrompts.ts";
 import type { CardModels } from "./models.ts";
 import type { SpeechSynthesizer } from "./geminiSpeech.ts";
-
-// ========================
-// THE INJECTED CLIENT
-// ========================
-//
-// Structural types rather than the SDK's own: the retired edge function ran
-// npm:openai@6, the CLI runs the Node package, and a test passes neither.
-// Only the three calls this module makes are described. Speech synthesis is
-// not one of them: it is Gemini's, behind SpeechSynthesizer.
-
-interface ChatToolCall {
-    type?: string;
-    function?: { name?: string; arguments?: string };
-}
-
-interface ChatCompletionLike {
-    choices: Array<{
-        message?: {
-            content?: string | null;
-            tool_calls?: ChatToolCall[] | null;
-        };
-    }>;
-}
-
-// The request bodies are the SDK's own parameter types, which live behind an
-// npm: specifier this module is not allowed to import. Typing them loosely is
-// what lets a real client, a client from a different SDK major, and a test
-// double all satisfy the same seam; the bodies themselves are built in one
-// place each, a few lines below.
-// deno-lint-ignore no-explicit-any
-type RequestBody = any;
-
-export interface OpenAIClientLike {
-    chat: {
-        completions: {
-            create(body: RequestBody): Promise<ChatCompletionLike>;
-        };
-    };
-    audio: {
-        transcriptions: {
-            create(body: RequestBody): Promise<{ text?: string }>;
-        };
-    };
-}
+import { bytesToBase64, responseText, type GeminiClient, type GenerateContentRequest } from "./gemini.ts";
 
 /** Where the module's warnings go; console in both runtimes unless overridden. */
 export interface GenerationLog {
@@ -106,7 +64,8 @@ const CONSOLE_LOG: GenerationLog = {
 };
 
 export interface CardGenerationContext {
-    openai: OpenAIClientLike;
+    /** Every text, transcription and judge call goes through this one client. */
+    gemini: GeminiClient;
     models: CardModels;
     /** Needed only by generateCardAudio; card text never touches it. */
     speech?: SpeechSynthesizer;
@@ -136,11 +95,10 @@ function messageOf(error: unknown): string {
 // by construction - so asking the model invited a "Korean" or "ko-KR" that
 // would have silently degraded the transcription language hint.
 //
-// Written as JSON Schema rather than built from zod, because zod would be an
-// npm: import and this module has to load in Node too. These objects are
-// byte-for-byte what zodResponseFormat() produced from the zod schemas they
-// replace, down to the $schema key, so the request on the wire is unchanged;
-// src/__tests__/edge/cardGeneration.test.js pins them against that output.
+// Written as plain JSON Schema (draft-07), which Gemini's
+// generationConfig.responseJsonSchema takes as is - $schema, enum and
+// additionalProperties included, verified live 2026-11-08 - and which keeps
+// this module free of a schema library.
 
 const SENSE_TAG_FIELD = {
     type: "string",
@@ -165,27 +123,21 @@ const SPOKEN_READING_FIELD = {
 const JSON_SCHEMA_DRAFT = "http://json-schema.org/draft-07/schema#";
 
 export interface StructuredResponseFormat {
-    type: "json_schema";
-    json_schema: {
-        name: string;
-        strict: true;
-        schema: Record<string, unknown>;
-    };
+    /** Names the format in error messages and logs; not sent. */
+    name: string;
+    /** Sent as generationConfig.responseJsonSchema. */
+    schema: Record<string, unknown>;
 }
 
 function responseFormat(name: string, properties: Record<string, unknown>): StructuredResponseFormat {
     return {
-        type: "json_schema",
-        json_schema: {
-            name,
-            strict: true,
-            schema: {
-                type: "object",
-                properties,
-                required: Object.keys(properties),
-                additionalProperties: false,
-                $schema: JSON_SCHEMA_DRAFT,
-            },
+        name,
+        schema: {
+            type: "object",
+            properties,
+            required: Object.keys(properties),
+            additionalProperties: false,
+            $schema: JSON_SCHEMA_DRAFT,
         },
     };
 }
@@ -218,8 +170,45 @@ const TRANSCRIPTION_MATCH_FORMAT = responseFormat("transcription_match", {
     matches: { type: "boolean" },
 });
 
+/** The generationConfig every non-speech call shares: the thinking level from models.ts. */
+function thinkingConfig(ctx: CardGenerationContext): Record<string, unknown> {
+    // Filling a short structured template, writing down what a clip says and
+    // a yes/no verdict do not benefit from deliberation, and thinking tokens
+    // bill as output - see models.ts's GEMINI_THINKING_LEVEL. Omitted (not
+    // sent as undefined) when the injected config leaves it unset.
+    return ctx.models.thinkingLevel ? { thinkingConfig: { thinkingLevel: ctx.models.thinkingLevel } } : {};
+}
+
+/** A structured-output request: JSON back, shaped by `format`. */
+function structuredRequest(
+    ctx: CardGenerationContext,
+    systemPrompt: string,
+    parts: GenerateContentRequest[],
+    format: StructuredResponseFormat,
+): GenerateContentRequest {
+    return {
+        systemInstruction: { parts: [{ text: systemPrompt }] },
+        contents: [{ role: "user", parts }],
+        generationConfig: {
+            responseMimeType: "application/json",
+            responseJsonSchema: format.schema,
+            ...thinkingConfig(ctx),
+        },
+    };
+}
+
+/** Parses a structured answer, or says which format the model failed to fill. */
+function parseStructured<T>(text: string, format: StructuredResponseFormat): T {
+    if (!text) throw new Error(`Failed to parse ${format.name} from model response`);
+    try {
+        return JSON.parse(text) as T;
+    } catch {
+        throw new Error(`Failed to parse ${format.name} from model response`);
+    }
+}
+
 /**
- * Runs a structured-output chat completion and returns the parsed object.
+ * Runs a structured-output text call and returns the parsed object.
  */
 async function parseCompletion<T>(
     ctx: CardGenerationContext,
@@ -227,29 +216,11 @@ async function parseCompletion<T>(
     userPrompt: string,
     format: StructuredResponseFormat,
 ): Promise<T> {
-    const completion = await ctx.openai.chat.completions.create({
-        model: ctx.models.text,
-        messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt }
-        ],
-        response_format: format,
-        // Filling a short structured template is not a task that benefits
-        // from deliberation, and on a reasoning model like gpt-5-mini every
-        // reasoning token is billed as output - see models.ts's
-        // TEXT_REASONING_EFFORT for the measurement behind these defaults.
-        // Both are omitted (rather than sent as undefined) when the injected
-        // config leaves them unset, so a test double or a non-reasoning model
-        // never has to know this parameter exists.
-        ...(ctx.models.textReasoningEffort ? { reasoning_effort: ctx.models.textReasoningEffort } : {}),
-        ...(ctx.models.textVerbosity ? { verbosity: ctx.models.textVerbosity } : {}),
-    });
-
-    const content = completion.choices[0]?.message?.content;
-    if (!content) {
-        throw new Error(`Failed to parse ${format.json_schema.name} from model response`);
-    }
-    return JSON.parse(content) as T;
+    const response = await ctx.gemini.generateContent(
+        ctx.models.text,
+        structuredRequest(ctx, systemPrompt, [{ text: userPrompt }], format),
+    );
+    return parseStructured<T>(responseText(response), format);
 }
 
 /**
@@ -288,38 +259,22 @@ async function generateSpeakableSide<T extends GeneratedCardFields>(
 // AUDIO
 // ========================
 
-function arrayBufferToBase64(buffer: ArrayBuffer): string {
-    const bytes = new Uint8Array(buffer);
-    let binary = '';
-    const chunkSize = 0x8000;
-    for (let i = 0; i < bytes.length; i += chunkSize) {
-        binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
-    }
-    return btoa(binary);
-}
-
 const AUDIO_JUDGE_SYSTEM_PROMPT = `You are a strict quality judge for text-to-speech audio used on language-learning flashcards. You are given the exact phrase the audio must say and the language it must be spoken in, followed by the audio clip. Listen carefully and judge whether the clip:
 1. Says exactly the expected phrase - no missing, extra, or different words. Natural readings (numerals read out as words, expanded abbreviations, spoken or skipped punctuation) are acceptable.
 2. Is spoken in the expected language with clear, intelligible pronunciation.
 3. When an expected reading is given, uses that reading. The written form has more than one possible pronunciation, and reading the same characters a different way is a mismatch even though the words are right.
-Judge only what you actually hear in the audio. Call judge_audio with what you heard and your verdict.`;
+Judge only what you actually hear in the audio. Answer with what you heard and your verdict.`;
 
-const audioJudgeTools = [{
-    type: "function" as const,
-    function: {
-        name: "judge_audio",
-        description: "Report whether the audio clip says the expected phrase in the expected language",
-        parameters: {
-            type: "object",
-            properties: {
-                heard: { type: "string", description: "What the audio actually says, as heard" },
-                matches: { type: "boolean", description: "True if the audio says exactly the expected phrase in the expected language with intelligible pronunciation" },
-                reason: { type: "string", description: "Brief justification for the verdict" }
-            },
-            required: ["heard", "matches", "reason"]
-        }
-    }
-}];
+const AUDIO_VERDICT_FORMAT = responseFormat("audio_verdict", {
+    heard: { type: "string", description: "What the audio actually says, as heard" },
+    matches: { type: "boolean", description: "True if the audio says exactly the expected phrase in the expected language with intelligible pronunciation" },
+    reason: { type: "string", description: "Brief justification for the verdict" },
+});
+
+/** Every clip is WAV (geminiSpeech.ts guarantees it). */
+function audioPart(audioBuffer: ArrayBuffer): GenerateContentRequest {
+    return { inlineData: { mimeType: "audio/wav", data: bytesToBase64(audioBuffer) } };
+}
 
 interface AudioVerdict {
     matches: boolean;
@@ -329,7 +284,7 @@ interface AudioVerdict {
 
 /**
  * Judges generated TTS audio by listening to it directly with an audio-input
- * chat model. Unlike a transcription round-trip, this works uniformly for any
+ * model. Unlike a transcription round-trip, this works uniformly for any
  * language: there is no intermediate transcript in a possibly different
  * script or language to compare against, and it can also catch wrong-language
  * or garbled pronunciation that a transcript would hide.
@@ -345,34 +300,40 @@ async function judgeAudio(
         ? `\nIt must be read aloud as: ${reading}. This writing system allows more than one reading of the same characters, so a different reading is a mismatch.`
         : '';
 
-    const response = await ctx.openai.chat.completions.create({
-        model: ctx.models.speechEvaluation,
-        messages: [
-            { role: "system", content: AUDIO_JUDGE_SYSTEM_PROMPT },
-            {
-                role: "user",
-                content: [
-                    { type: "text", text: `Expected phrase (language: ${language}): "${text}"${readingLine}\nJudge this audio:` },
-                    // Every clip is WAV (geminiSpeech.ts guarantees it).
-                    { type: "input_audio", input_audio: { data: arrayBufferToBase64(audioBuffer), format: "wav" } }
-                ]
-            }
-        ],
-        tools: audioJudgeTools,
-        tool_choice: { type: "function", function: { name: "judge_audio" } }
-    });
-
-    const toolCall = response.choices[0]?.message?.tool_calls?.[0];
-    if (!toolCall || toolCall.type !== "function") {
-        throw new Error('No tool call in audio judge response');
-    }
-
-    const verdict = JSON.parse(toolCall.function?.arguments ?? '{}');
+    const response = await ctx.gemini.generateContent(
+        ctx.models.speechEvaluation,
+        structuredRequest(ctx, AUDIO_JUDGE_SYSTEM_PROMPT, [
+            { text: `Expected phrase (language: ${languageName(language)}): "${text}"${readingLine}\nJudge this audio:` },
+            audioPart(audioBuffer),
+        ], AUDIO_VERDICT_FORMAT),
+    );
+    const verdict = parseStructured<Partial<AudioVerdict>>(responseText(response), AUDIO_VERDICT_FORMAT);
     return {
         matches: verdict.matches === true,
         heard: String(verdict.heard ?? ''),
         reason: String(verdict.reason ?? '')
     };
+}
+
+/**
+ * What the clip says, written down by an audio-input model - the fast path's
+ * half of validation. Asked for the language's own script, verbatim, so the
+ * comparison below compares like with like; a transcriber that drifts into
+ * another script or a translation only sends the clip on to the judge.
+ */
+async function transcribeAudio(ctx: CardGenerationContext, audioBuffer: ArrayBuffer, language: string): Promise<string> {
+    const name = languageName(language);
+    const response = await ctx.gemini.generateContent(ctx.models.transcribe, {
+        contents: [{
+            role: "user",
+            parts: [
+                { text: `Transcribe this ${name} audio exactly as spoken, in ${name}'s own writing system. Do not translate, romanise, explain or correct it. Answer with the transcript only.` },
+                audioPart(audioBuffer),
+            ],
+        }],
+        generationConfig: { ...thinkingConfig(ctx) },
+    });
+    return responseText(response);
 }
 
 export interface CardAudioRequest {
@@ -412,13 +373,19 @@ export interface CardAudioRequest {
  *     starter-deck backfill, every clip plusaudio adds to a deck it did not
  *     write) carries no reading, because no card column stores one. Those
  *     fall back to the transcript check and are logged.
+ *   - The synthesiser, the transcriber and the judge are all Google's
+ *     (Gemini TTS, and gemini-3.8-flash for both checks), so a systematic
+ *     mispronunciation they share - the same model family reading a word the
+ *     same wrong way, and hearing it as right - would pass. Before 2026-11
+ *     the checks were OpenAI's and this gap was a cross-vendor one; it is not
+ *     any more, and nothing here pretends otherwise.
  *
  * Each attempt draws a voice from the synthesiser's pool, never the voice of
  * the attempt before it: the same voice tends to repeat the same
  * mispronunciation.
  *
  * Fails closed: if no attempt produces audio that passes validation, throws.
- * A failure no retry can fix (SpeechUnavailableError: the day's Gemini quota
+ * A failure no retry can fix (GeminiUnavailableError: the day's Gemini quota
  * is spent, the key is refused) is thrown at once, with its own message, so
  * the person sees what to do instead of "failed after 3 attempts".
  *
@@ -449,16 +416,7 @@ export async function generateCardAudio(
             // it (a style note, the reading) is read aloud by the model.
             const audioBuffer = await speech.synthesize({ text: spoken, language, voice });
 
-            const transcription = await ctx.openai.audio.transcriptions.create({
-                model: ctx.models.transcribe,
-                file: new File([audioBuffer], 'audio.wav', { type: 'audio/wav' }),
-                // gpt-transcribe replaces the singular `language` field
-                // gpt-4o-mini-transcribe took with a `languages` array (see
-                // models.ts) - confirmed against OpenAI's speech-to-text
-                // guide, 2026-09-19.
-                languages: [transcriptionLanguage(language)],
-            });
-            const transcript = transcription.text ?? '';
+            const transcript = await transcribeAudio(ctx, audioBuffer, language);
             // By pronunciation for Korean, where liaison makes different
             // spellings sound the same (see normalizeForComparison).
             const transcriptMatches = normalizeForComparison(transcript, language) === normalizeForComparison(spoken, language);
@@ -471,6 +429,9 @@ export async function generateCardAudio(
             try {
                 verdict = await judgeAudio(ctx, audioBuffer, spoken, language, expectedReading);
             } catch (judgeError) {
+                // A spent quota or a refused key fails the transcript
+                // fallback too; say so now instead of trying it.
+                if ((judgeError as { fatal?: boolean })?.fatal === true) throw judgeError;
                 if (transcriptMatches) {
                     // The words are right and only the reading was in
                     // question. Losing the card over a judge outage would be

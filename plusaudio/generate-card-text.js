@@ -40,8 +40,12 @@
 //   stdout, on success: one line of JSON - {"front_text":...,"back_text":...,"spoken_reading":...}
 //   stderr: usage text, the failure message, and cardGeneration.ts's own warnings
 //           (a corrective retry, a model that kept breaking the speakable rule).
-//   exit 0: success. exit 1: could not generate a card - OPENAI_API_KEY is not
-//           set, or a network/API error. exit 2: usage error.
+//   exit 0: success. exit 1: could not generate a card - GEMINI_API_KEY is not
+//           set, or a network/API error (the last stderr line says which, in
+//           one line meant to be shown as is). exit 2: usage error.
+//
+// ENVIRONMENT: GEMINI_API_KEY, from the environment or plusaudio/.env;
+// GEMINI_API_BASE overrides Gemini's endpoint for tests and the e2e fake server.
 //
 // No --audio-out here: text and audio are two different calls
 // (src/server/anki/cardText.js makes both, passing this file's own
@@ -91,7 +95,7 @@ function parseArgs(argv) {
 /**
  * Runs the already-parsed, already-validated request and prints its result.
  * Split out from `main` so tests can drive it with a stubbed `generate`
- * function and never construct a real OpenAI client or touch the network.
+ * function and never construct a real client or touch the network.
  *
  * @returns {Promise<number>} the process exit code.
  */
@@ -163,16 +167,14 @@ async function main(argv) {
   } catch {
     // No .env next to this script; the environment is expected to carry the key.
   }
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    process.stderr.write('OPENAI_API_KEY is not set (checked the environment and plusaudio/.env).\n');
+  const { MISSING_KEY_MESSAGE, geminiOptionsFromEnv } = require('./lib/geminiContext');
+  const gemini = geminiOptionsFromEnv();
+  if (!gemini.apiKey) {
+    process.stderr.write(`${MISSING_KEY_MESSAGE}\n`);
     return 1;
   }
 
-  const OpenAI = require('openai');
-  const generate = createTextGenerator(new OpenAI({ apiKey }), {
-    log: (line) => process.stderr.write(`${line}\n`),
-  });
+  const generate = createTextGenerator({ ...gemini, log: (line) => process.stderr.write(`${line}\n`) });
 
   return run(options, generate);
 }

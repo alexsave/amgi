@@ -60,18 +60,6 @@ export function languageName(language: string): string {
     return LANGUAGE_NAMES[code] || code || 'the target language';
 }
 
-/**
- * Maps app language codes to what the transcription API expects: ISO-639
- * primary subtags, except Cantonese which needs 'yue' - plain 'zh' would
- * make the model transcribe Cantonese TTS audio as Mandarin and fail
- * validation every time.
- */
-export function transcriptionLanguage(language: string): string {
-    const code = normalizeLanguageCode(language);
-    if (code === 'zh_hk') return 'yue';
-    return code.split('_')[0];
-}
-
 export type RegisterLevel = 'casual' | 'polite' | 'formal';
 
 export const REGISTER_LEVELS: RegisterLevel[] = ['casual', 'polite', 'formal'];
