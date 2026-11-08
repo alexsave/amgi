@@ -1,6 +1,6 @@
 # Where this add-on gets a clip's audio bytes from.
 #
-# The generation policy - prompts, TTS voice instructions, the
+# The generation policy - prompts, Gemini speech, the
 # transcribe-then-judge validation loop - lives in exactly one place,
 # plusaudio/lib/cardGeneration/cardGeneration.ts, and is not allowed a second
 # copy. This add-on is Python and cannot require() that TypeScript module the
