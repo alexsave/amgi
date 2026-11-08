@@ -5,6 +5,7 @@
 // control characters, a carriage return, and text not in Unicode NFC form. The direct writer must
 // store exactly what Anki's own add_note and update_note store for the same input, so each case is
 // written once by amgi and once by Anki into the same collection, and the rows compared.
+// AMGI_COLLECTION_IMPL=<executable> writes amgi's side through that implementation (the C core).
 
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -12,8 +13,8 @@ const path = require('node:path');
 const { test } = require('node:test');
 
 const { anki, buildFixtureCollection, tempDir, withAnkiLibrary } = require('./helpers/anki-python');
-const { Collection } = require('../../lib/collection');
 const { ankiFields } = require('../../lib/deck');
+const { openCollectionUnderTest } = require('./helpers/collection-under-test');
 
 const INPUTS = [
   ['a\x1fb', 'back'],
@@ -28,23 +29,25 @@ const py = (s) => `"${[...s].map((c) => `\\U${c.codePointAt(0).toString(16).padS
 
 for (const schema of [11, 18]) {
   test(`schema ${schema}: amgi stores a field's text exactly as Anki's add_note and update_note do`,
-    { skip: !anki && 'no python3 with the anki library on PATH (set ANKI_PYTHON_BIN)' }, () => {
+    { skip: !anki && 'no python3 with the anki library on PATH (set ANKI_PYTHON_BIN)' }, async () => {
       const dir = tempDir();
       try {
         const collectionPath = path.join(dir, 'collection.anki2');
         buildFixtureCollection(collectionPath, { downgradeToSchema11: schema === 11 });
-        const col = new Collection(collectionPath);
-        const basic = col.listNotetypes().result.find((n) => n.name === 'Basic');
-        const deck = col.createDeck('Field text').result.deck;
+        const col = await openCollectionUnderTest(collectionPath);
+        const basic = (await col.listNotetypes()).find((n) => n.name === 'Basic');
+        const deck = await col.createDeck('Field text');
 
-        const added = INPUTS.map((fields) => col.addNote({ deckId: deck.id, notetypeId: basic.id, fields, tags: [] }).result.noteId);
+        const added = [];
+        for (const fields of INPUTS) added.push((await col.addNote({ deckId: deck.id, notetypeId: basic.id, fields, tags: [] })).noteId);
         // And edited to the same text from something plain.
-        const edited = INPUTS.map((fields) => {
-          const id = col.addNote({ deckId: deck.id, notetypeId: basic.id, fields: ['before', 'before'], tags: [] }).result.noteId;
-          const result = col.updateNote(id, fields);
-          assert.equal(result.status, 'ok', JSON.stringify(result));
-          return id;
-        });
+        const edited = [];
+        for (const fields of INPUTS) {
+          const id = (await col.addNote({ deckId: deck.id, notetypeId: basic.id, fields: ['before', 'before'], tags: [] })).noteId;
+          await col.updateNote(id, fields);
+          edited.push(id);
+        }
+        await col.close();
 
         // Anki writes the same inputs through its own API; each line compares a note of ours with Anki's.
         const report = withAnkiLibrary(collectionPath, `
