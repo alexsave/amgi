@@ -19,6 +19,8 @@ function idAllocationExpr(table) {
   return `(CASE WHEN ?1 IN (SELECT id FROM ${table}) THEN (SELECT max(id) + 1 FROM ${table}) ELSE ?1 END)`;
 }
 
+const { random } = require('../random');
+
 const BASE91_ALPHABET =
   "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!#$%&()*+,-./:;<=>?@[]^_`{|}~";
 
@@ -27,14 +29,18 @@ const BASE91_ALPHABET =
  * (vendor/anki-src proto not needed here - this is plain Rust, see
  * rslib/src/notes/mod.rs, base91_u64 / anki_base91 / to_base_n). The alphabet
  * above is copied verbatim from that function.
+ *
+ * The 64 bits come from ../random.js, the codebase's one random source, so a
+ * fixed seed there makes guids reproducible too (see that file for why a
+ * fixed seed is for debugging only).
  */
-function randomGuid(randomBytes = require('node:crypto').randomBytes) {
+function randomGuid(source = random) {
   let n = 0n;
   // to_base_n's `while n > 0` loop produces an empty string for n == 0; Anki
   // never observes this in practice (1-in-2^64) but this function should
   // never return an empty guid, so it re-rolls on the one input that would.
   while (n === 0n) {
-    n = randomBytes(8).readBigUInt64BE(0);
+    n = source.bytes(8).readBigUInt64BE(0);
   }
   const table = BigInt(BASE91_ALPHABET.length);
   let out = '';

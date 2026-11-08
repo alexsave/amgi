@@ -159,7 +159,7 @@ describe('augmentPackage', () => {
     const authorRecording = byId.get(1547294381723)[1];
     assert.match(authorRecording, /\[sound:1-1-13-2\.mp3\]/, 'the author recording must survive');
     assert.match(authorRecording, /<img src="pic\.jpg">/, 'the image must survive');
-    assert.match(authorRecording, /\[sound:plusaudio-[0-9a-f]{20}\.mp3\]/);
+    assert.match(authorRecording, /\[sound:plusaudio-[0-9a-f]{20}\.wav\]/);
 
     assert.match(byId.get(1547294520938)[1], /<img src="pic\.jpg">\[sound:plusaudio-/);
     assert.equal(byId.get(1547294664607)[1], '', 'a note with no text must be left alone');
@@ -201,13 +201,13 @@ describe('augmentPackage', () => {
 
     const result = inspectPackage(output);
     const byId = new Map(result.notes.map((n) => [n.id, n.flds.split('\x1f')]));
-    assert.match(byId.get(1547294175188)[1], /^<audio src="plusaudio-[0-9a-f]{20}\.mp3"><\/audio>$/);
+    assert.match(byId.get(1547294175188)[1], /^<audio src="plusaudio-[0-9a-f]{20}\.wav"><\/audio>$/);
 
     // The author's own sound tag is not ours to convert, so it stays a sound tag.
     const authorRecording = byId.get(1547294381723)[1];
     assert.match(authorRecording, /\[sound:1-1-13-2\.mp3\]/);
     assert.match(authorRecording, /<img src="pic\.jpg">/);
-    assert.match(authorRecording, /<audio src="plusaudio-[0-9a-f]{20}\.mp3"><\/audio>$/);
+    assert.match(authorRecording, /<audio src="plusaudio-[0-9a-f]{20}\.wav"><\/audio>$/);
 
     for (const note of result.notes) {
       for (const [, name] of note.flds.matchAll(/<audio src="([^"]+)">/g)) {
@@ -257,11 +257,11 @@ describe('augmentPackage', () => {
     assert.equal(converted.mediaNames.size, 5, 'no clip is added or dropped by the conversion');
     for (const note of converted.notes) {
       const audioField = note.flds.split('\x1f')[1];
-      const owned = [...audioField.matchAll(/plusaudio-[0-9a-f]{20}\.mp3/g)];
+      const owned = [...audioField.matchAll(/plusaudio-[0-9a-f]{20}\.wav/g)];
       assert.ok(owned.length <= 1, `note ${note.id} ended up with ${owned.length} references`);
       assert.ok(!/\[sound:plusaudio-/.test(audioField), 'the sound tag must be gone, not kept alongside');
       if (owned.length === 1) {
-        assert.match(audioField, /<audio src="plusaudio-[0-9a-f]{20}\.mp3"><\/audio>/);
+        assert.match(audioField, /<audio src="plusaudio-[0-9a-f]{20}\.wav"><\/audio>/);
         assert.equal(note.mod, NOW_RUN_2, 'a converted note is a changed note');
       } else {
         assert.equal(note.mod, soundNotes.get(note.id).mod);

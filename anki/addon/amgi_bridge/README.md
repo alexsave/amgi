@@ -55,7 +55,7 @@ That does mean it needs a few things a purely-installed add-on would not:
 
 1. Copy the `amgi_bridge` folder into your Anki add-ons folder (Tools > Add-ons > View Files puts you in the right place), then restart Anki.
 2. Tools > Add-ons, select amgi_bridge, click Config, and set `plusaudio_dir` to the `plusaudio` folder of your checkout.
-   Set `node_path` too if `node` is not on the `PATH` Anki itself runs with, and `openai_api_key` if you are not already setting `OPENAI_API_KEY` some other way.
+   Set `node_path` too if `node` is not on the `PATH` Anki itself runs with, and `gemini_api_key` / `openai_api_key` if you are not already setting `GEMINI_API_KEY` / `OPENAI_API_KEY` some other way.
    See `config.md` (shown next to the config editor) for all three, in the order they are checked.
 3. Tools > amgi: Fill missing audio...
 
@@ -95,7 +95,7 @@ Same generation policy, same clip-naming scheme, two different situations:
   Use it for your own live deck, when you have Anki open.
   No export, no import, and Anki's own GUID matching, scheduling and undo history are never in question because Anki is the one doing the writing.
 
-They stay interchangeable on the same deck: `plusaudio` and this add-on name a clip the same way (`plusaudio-<hash of profile, language, text>.mp3`, from `plusaudio/lib/audio-store.js`, ported for Python in `deck_text.py`), so a deck touched by one and then the other treats the other's clips as already done rather than regenerating them.
+They stay interchangeable on the same deck: `plusaudio` and this add-on name a clip the same way (`plusaudio-<hash of profile, language, text>.wav`, or `.mp3` for a clip made before speech moved to Gemini, from `plusaudio/lib/audio-store.js`, ported for Python in `deck_text.py`), so a deck touched by one and then the other treats the other's clips as already done rather than regenerating them.
 
 ## Idempotency and cancellation
 
@@ -109,7 +109,7 @@ See `core.apply_fill`'s docstring for why, and `test_core_collection.py`'s cance
 
 ## Generation: local, not the edge function
 
-The generation policy - prompts, the TTS voice instructions, the transcribe-then-judge validation loop - lives in exactly one place, `plusaudio/lib/cardGeneration/cardGeneration.ts`, and this add-on does not get a second copy of it in Python.
+The generation policy - prompts, Gemini speech, the transcribe-then-judge validation loop - lives in exactly one place, `plusaudio/lib/cardGeneration/cardGeneration.ts`, and this add-on does not get a second copy of it in Python.
 It is Python, so it cannot `require()` that TypeScript module the way `plusaudio/lib/generator.js` does.
 Instead `generator.py` shells out to `plusaudio/generate-clip.js`, a small Node entry point built for exactly this - text and a language in, one clip written to a file, over a documented contract (see that file's own top-of-file comment) - which in turn calls the same shared generator `plusaudio/add-audio.js` uses.
 
@@ -286,9 +286,9 @@ To check it:
    This was written against the operations API's documented shape as of Anki 2.1.45+, but its exact keyword arguments (`.with_progress(label=...)` in particular) have not been checked against the installed Anki version's `aqt/operations/__init__.py`.
    If the dialog or the run raises a `TypeError` about an unexpected keyword, that file is the first place to look.
 
-5. **`generate-clip.js` against a real OpenAI key.**
-   `test_generator.py` proves the command this add-on builds and the way it handles the result are correct; `generate-clip.test.js` proves the Node side of the same contract. Neither proves a real OpenAI account accepts the request, because there is no API key available to test against here.
-   To check: set `OPENAI_API_KEY` (or `plusaudio/.env`), configure `plusaudio_dir` in this add-on, run it on a small test deck, and confirm a clip comes back and plays.
+5. **`generate-clip.js` against real Gemini and OpenAI keys.**
+   `test_generator.py` proves the command this add-on builds and the way it handles the result are correct; `generate-clip.test.js` proves the Node side of the same contract. Neither proves a real account accepts the request.
+   To check: set `GEMINI_API_KEY` and `OPENAI_API_KEY` (or `plusaudio/.env`), configure `plusaudio_dir` in this add-on, run it on a small test deck, and confirm a clip comes back and plays.
 
 6. **The bridge actually starts, stops, and is reachable from a browser.**
    `bridge_server.py` and `bridge_ops.py` are proven directly (see "Testing" above); what is not proven without Qt is the wiring around them in `__init__.py` and `bridge_dispatch.py`.

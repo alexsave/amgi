@@ -21,9 +21,10 @@
 //               deck_text.spoken_text, add-audio.js's own note-field handling) has
 //               already reduced it to plain spoken text before this is called.
 //   --language  an amgi language code (ko, ja, zh_cn, es, ...). Required. Picks the
-//               speaking instructions and the language the validator transcribes in, the
-//               same as everywhere else this generator is called from.
-//   --out       filesystem path to write the generated clip's bytes to. Required. The
+//               language the validator transcribes and judges in, the same as everywhere
+//               else this generator is called from.
+//   --out       filesystem path to write the generated clip to - always a WAV file (Gemini
+//               TTS, 24 kHz mono 16-bit, about 48 KB per second), so name it *.wav. The
 //               parent directory must already exist. Written only on success; a failed
 //               run leaves no file at this path, and removes one left over from an
 //               earlier attempt at the same path, so a caller can tell success from
@@ -34,7 +35,8 @@
 //               text and nothing else has no romanisation of its own to pass, and
 //               omitting this keeps that path working exactly as before. Passed straight
 //               through to generateCardAudio, which is the only place a reading is
-//               allowed to steer synthesis and validation (see src/server/anki/cardText.js
+//               allowed to inform validation - the audio judge listens for it; it is never
+//               sent to the synthesiser, which would read it aloud (see src/server/anki/cardText.js
 //               for the one caller that actually has one, and why it must be passed in
 //               the same call that produced it rather than a later one).
 //
@@ -48,9 +50,14 @@
 //           unreachable). A caller that only checks the exit code is still correct:
 //           stderr here is for a human reading a log, not for a parser.
 //   exit 0: success. --out was written.
-//   exit 1: could not produce audio - OPENAI_API_KEY is not set, a network/API error, or
-//           cardGeneration.ts's own validation gave up after its retries. --out was not
-//           written.
+//   exit 1: could not produce audio - GEMINI_API_KEY (speech) or OPENAI_API_KEY
+//           (transcription and the audio judge) is not set, a network/API error, the day's
+//           Gemini quota is spent, or cardGeneration.ts's own validation gave up after its
+//           retries. The last stderr line is a one-line message meant to be shown to the
+//           person as-is. --out was not written.
+//
+// ENVIRONMENT: GEMINI_API_KEY and OPENAI_API_KEY, from the environment or plusaudio/.env.
+// GEMINI_API_BASE overrides Gemini's endpoint; it exists for tests and the e2e fake server.
 //   exit 2: usage error - a missing, unknown or valueless argument. Nothing was
 //           attempted; --out, if it already existed, is untouched.
 //
@@ -62,7 +69,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { createGenerator } = require('./lib/generator');
 
-const USAGE = 'Usage: node generate-clip.js --text <text> --language <code> --out <path>\n';
+const USAGE = 'Usage: node generate-clip.js --text <text> --language <code> --out <path.wav> [--reading <text>]\n';
 
 const FLAGS_WITH_VALUES = new Set(['--text', '--language', '--out', '--reading']);
 
@@ -142,14 +149,21 @@ async function main(argv) {
   } catch {
     // No .env next to this script; the environment is expected to carry the key.
   }
+  const geminiApiKey = process.env.GEMINI_API_KEY;
+  if (!geminiApiKey) {
+    process.stderr.write('GEMINI_API_KEY is not set, so no audio can be made: get a key at https://aistudio.google.com/apikey and add GEMINI_API_KEY to the environment or plusaudio/.env.\n');
+    return 1;
+  }
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
-    process.stderr.write('OPENAI_API_KEY is not set (checked the environment and plusaudio/.env).\n');
+    process.stderr.write('OPENAI_API_KEY is not set (checked the environment and plusaudio/.env); it is needed to check each clip says what the card says.\n');
     return 1;
   }
 
   const OpenAI = require('openai');
   const generate = createGenerator(new OpenAI({ apiKey }), {
+    geminiApiKey,
+    geminiApiBase: process.env.GEMINI_API_BASE,
     log: (line) => process.stderr.write(`${line}\n`),
   });
 

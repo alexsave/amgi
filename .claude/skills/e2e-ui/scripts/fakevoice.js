@@ -23,10 +23,15 @@ module.exports = function fakeVoiceScript({ leadMs = 600, speechMs = 1500, total
       const end = start + Math.floor((speechMs / 1000) * rate);
       for (let i = start; i < end && i < data.length; i++) {
         // A wobbling tone plus noise: loud enough and irregular enough to
-        // look like a voice to an RMS-based detector.
+        // look like a voice to an RMS-based detector. The noise is a
+        // stateless hash of the sample index, not a random draw, so the
+        // same take is the same samples every run (plusaudio/lib/random.js
+        // is the repo's only random source, and this runs inside the page).
         const t = (i - start) / rate;
         const env = Math.min(1, t * 8) * Math.min(1, (speechMs / 1000 - t) * 8);
-        data[i] = env * (0.45 * Math.sin(2 * Math.PI * 180 * t) + 0.15 * (Math.random() * 2 - 1));
+        const hashed = Math.sin(i * 12.9898) * 43758.5453;
+        const noise = (hashed - Math.floor(hashed)) * 2 - 1;
+        data[i] = env * (0.45 * Math.sin(2 * Math.PI * 180 * t) + 0.15 * noise);
       }
       const source = ctx.createBufferSource();
       source.buffer = buffer;

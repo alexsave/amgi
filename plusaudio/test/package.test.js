@@ -236,7 +236,7 @@ describe('modern packages', () => {
     for (const note of converted.notes) {
       const audioField = note.flds.split('\x1f')[1];
       assert.ok(!/\[sound:plusaudio-/.test(audioField), 'the sound tag must be gone, not kept alongside');
-      assert.match(audioField, /<audio src="plusaudio-[0-9a-f]{20}\.mp3"><\/audio>/);
+      assert.match(audioField, /<audio src="plusaudio-[0-9a-f]{20}\.wav"><\/audio>/);
     }
 
     const stable = await run(html, again, { audioTag: 'html', now: NOW_RUN_2 });

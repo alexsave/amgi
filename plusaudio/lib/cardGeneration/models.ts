@@ -4,14 +4,22 @@
 //   2027-01-20 - see /private/tmp/.../scratchpad/tts-options.md for the
 //   research behind this swap, dated 2026-09-19)
 // - gpt-5-mini: fast text model for translation / card generation
-// - gpt-4o-mini-tts: steerable TTS with per-language instructions. Still
-//   OpenAI's only and current TTS model as of the same research pass -
-//   nothing to swap here.
+// - gemini-3.8-flash-tts: speech synthesis, and the only synthesiser (see
+//   geminiSpeech.ts). It replaced OpenAI's gpt-4o-mini-tts, which OpenAI
+//   shuts down on 2027-01-06 and whose Japanese and Korean sounded like an
+//   English speaker reading them; the owner compared clips side by side and
+//   found Gemini's "way better". The account also has
+//   gemini-3.8-flash-lite-tts and gemini-3.1-flash-tts-preview (the latter
+//   answers raw PCM instead of WAV; geminiSpeech.ts handles both).
 // - gpt-transcribe: transcription used to validate generated TTS audio,
 //   successor of gpt-4o-mini-transcribe (shutdown 2027-02-26). Its request
 //   shape differs from the old model's: the singular `language` field is
 //   replaced by a `languages` array - see the call site in
 //   generateCardAudio() in cardGeneration.ts.
+//
+// So speech comes from Google and everything else (card text, transcription,
+// the audio judge) from OpenAI, and both keys are needed. Whether to move
+// the other three off OpenAI too is an open decision, not an oversight.
 //
 // gpt-realtime (live conversation practice) used to be listed here too, but
 // nothing in this codebase calls it - the realtime voice-mode feature is
@@ -19,16 +27,14 @@
 // to its own successor, gpt-realtime-2.1. Re-add it, migrated, only once
 // something actually imports it again.
 //
-// Kept separate from an OpenAI client wrapper so it stays runtime-agnostic
+// Kept separate from any client wrapper so it stays runtime-agnostic
 // policy: the plusaudio CLI has to generate with the same models the app's
 // own local generation path does, or the two produce audibly different
-// decks. (Before the replatform this also had to be Deno-safe, because the
-// same ids were re-exported to a `cards`/`speech` edge function's own
-// Deno-only openai.ts; that edge function is retired.)
+// decks.
 
 export const SPEECH_EVALUATION_MODEL = "gpt-audio-1.5";
 export const TEXT_MODEL = "gpt-5-mini";
-export const TTS_MODEL = "gpt-4o-mini-tts";
+export const GEMINI_TTS_MODEL = "gemini-3.8-flash-tts";
 export const TRANSCRIBE_MODEL = "gpt-transcribe";
 
 // gpt-5-mini is a reasoning model: left unset, every structured-output call
@@ -71,6 +77,15 @@ export const TRANSCRIBE_MODEL = "gpt-transcribe";
 // model is not writing prose. See plusaudio/test/textGenerator.test.js for
 // the test that pins these values against silently drifting back to the
 // (expensive) API default.
+// The voices a clip is read in. Each clip draws one at random from this pool
+// (through plusaudio/lib/random.js, the one seedable random source), and a
+// retry after a failed validation always draws a different one than the
+// attempt before it: the same voice tends to repeat the same
+// mispronunciation. These three are the ones the owner listened to in the
+// bake-off; none was preferred over the others, so all three stay in. Add or
+// remove names here - Gemini lists its prebuilt voices in its TTS docs.
+export const GEMINI_TTS_VOICES = ["Kore", "Aoede", "Charon"] as const;
+
 export const TEXT_REASONING_EFFORT = "minimal";
 export const TEXT_VERBOSITY = "low";
 
@@ -78,7 +93,7 @@ export const TEXT_VERBOSITY = "low";
 export interface CardModels {
     /** Structured-output text generation of the card sides. */
     text: string;
-    /** Speech synthesis of a card side. */
+    /** Speech synthesis of a card side (a Gemini TTS model; see geminiSpeech.ts). */
     tts: string;
     /** Transcription of generated audio, for the fast validation path. */
     transcribe: string;
@@ -99,7 +114,7 @@ export interface CardModels {
 
 export const CARD_MODELS: CardModels = {
     text: TEXT_MODEL,
-    tts: TTS_MODEL,
+    tts: GEMINI_TTS_MODEL,
     transcribe: TRANSCRIBE_MODEL,
     speechEvaluation: SPEECH_EVALUATION_MODEL,
     textReasoningEffort: TEXT_REASONING_EFFORT,

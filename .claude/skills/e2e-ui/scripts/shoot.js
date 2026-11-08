@@ -7,7 +7,8 @@
 // last step has to end in the form's own "OPENAI_API_KEY is not set" error
 // and no new note - a card is never made from placeholder text or audio
 // (see src/server/anki/cardText.js and audio.js). With a key it makes one
-// real card, which is a real, paid OpenAI call.
+// real card: paid OpenAI calls for the text and its check, and Gemini TTS
+// calls for the speech (GEMINI_API_BASE can point those at a fake server).
 //
 //   node .claude/skills/e2e-ui/scripts/fixture.js .e2e/fixture
 //   npx next dev --webpack -p 3111 &
