@@ -13,6 +13,8 @@ const assert = require('node:assert/strict');
 const { test } = require('node:test');
 
 const { createGenerator } = require('../lib/generator');
+const { createGeminiContext } = require('../lib/geminiContext');
+const { generateCardAudio } = require('../lib/cardGeneration/cardGeneration.ts');
 const { CARD_MODELS, GEMINI_TTS_VOICES } = require('../lib/cardGeneration/models.ts');
 const { dailyQuotaMessage } = require('../lib/cardGeneration/gemini.ts');
 const { createRandom } = require('../lib/random');
@@ -162,6 +164,8 @@ test('a long per-minute limit leaves the clip at once, typed with its wait, spen
 });
 
 test('a long per-minute limit on the judge is handed back too, not judged from the transcript instead', async () => {
+  // A judge model of its own, so the transcript fallback (on the text model)
+  // would be free to answer: only the rule itself stops it.
   const perMinute = {
     raw: true,
     status: 429,
@@ -171,12 +175,22 @@ test('a long per-minute limit on the judge is handed back too, not judged from t
     ] } },
   };
   const gemini = fakeGemini({ transcribe: 'nope', judge: perMinute, transcriptJudge: { matches: true } });
+  const clock = { t: 1_000_000 };
+  const context = createGeminiContext({
+    apiKey: 'test-key',
+    baseUrl: 'http://fake.invalid',
+    fetch: gemini.fetch,
+    random: createRandom(1),
+    gate: createRateGate({ now: () => clock.t, random: createRandom(1) }),
+    sleep: async (ms) => { clock.t += ms; },
+  });
+  context.models = { ...context.models, speechEvaluation: 'judge-only-model' };
 
-  const error = await generatorWith(gemini)({ text: '배고파요?', language: 'ko' }).then(() => null, (e) => e);
+  const error = await generateCardAudio(context, { text: '배고파요?', language: 'ko' }).then(() => null, (e) => e);
 
-  assert.equal(error.rateLimited, true);
+  assert.equal(error && error.rateLimited, true);
   assert.ok(error.retryAfterMs >= 40000 && error.retryAfterMs < 40000 * (1 + JITTER), `${error.retryAfterMs}`);
-  assert.equal(gemini.of('transcriptJudge').length, 0);
+  assert.equal(gemini.of('transcriptJudge').length, 0, 'the transcript fallback was not asked instead');
 });
 
 test('without a key nothing is attempted, and the error names the key', () => {

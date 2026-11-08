@@ -82,7 +82,9 @@ test('a send that errors fails open instead of rejecting', async () => {
   const broken = new EventEmitter();
   broken.connected = true;
   broken.send = (message, done) => { done(new Error('EPIPE')); return false; };
-  assert.equal(await createIpcGate(broken).acquire(M), FAIL_OPEN_WAIT_MS);
+  // A timer that never fires: the send error alone must end the wait.
+  const gate = createIpcGate(broken, { setTimer: () => 0, clearTimer: () => {} });
+  assert.equal(await gate.acquire(M), FAIL_OPEN_WAIT_MS);
 });
 
 test('two real forked children share one gate in the parent: the second sees the block the first one\'s 429 set', async () => {
