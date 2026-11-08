@@ -1,4 +1,4 @@
-/* What every route shares: ui/server/serve.mjs's answers, src/server/anki/settings.js's headers,
+/* What every route shares: what were ui/server/serve.mjs's answers and src/server/anki/settings.js's headers,
  * respond.js's not-ready answer, and the JavaScript built-ins the handlers leaned on (Number(),
  * decodeURIComponent, URLSearchParams.get). */
 #include <math.h>

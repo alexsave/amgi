@@ -93,7 +93,7 @@ uint32_t answer_message(const answer *a, char *dst, uint32_t cap);
 enum { S_BASE_DIR, S_COLLECTION, S_PROFILE, S_BRIDGE_URL, S_BRIDGE_TOKEN, S_FIELDS };
 extern text settings[S_FIELDS];
 extern int settings_stored, settings_loaded;
-/* The settings as the five header lines the server reads (src/server/anki/settings.js), of s (0:
+/* The settings as the five header lines the server reads (server/amgi/web.c), of s (0:
  * the saved ones): into dst, room settings_room(s); returns the bytes. */
 uint32_t settings_block(char *dst, const text *s);
 uint32_t settings_room(const text *s);

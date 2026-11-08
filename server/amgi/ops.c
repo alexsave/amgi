@@ -1,4 +1,4 @@
-/* src/server/anki/transport.js's ops: the one shape both transports answer in, so no route knows
+/* The transport's ops (what was src/server/anki/transport.js's): the one shape both transports answer in, so no route knows
  * which one is live. The direct transport is the collection core (collection.h), the bridge the
  * C bridge client (bridge.h); withNormalizedPaging's hasMore from the bridge's total is here. */
 #include <string.h>

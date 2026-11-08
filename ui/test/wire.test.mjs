@@ -1,5 +1,5 @@
 // amgi's wire format end to end, through every walker over wire.c's one schema:
-//   the server's writer (ui/server/wire.mjs encode, over ui/out/wire.wasm)
+//   the server's writer (ui/wire/wire.mjs encode, over ui/out/wire.wasm)
 //   -> the app's reader (wire_decode, built natively as ui/out/wire_dump), field for field
 //   -> the app's writer (wire_encode), which must give back the same bytes
 //   -> the server's reader (decode), which must give back the object.

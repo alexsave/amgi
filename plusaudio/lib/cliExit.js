@@ -1,8 +1,8 @@
 'use strict';
 
-// How plusaudio's command-line scripts (generate-clip.js, generate-card-text.js)
-// say "rate limited, try again in N ms" across the process boundary, so the
-// caller on the other side (src/server/anki/plusaudioCli.js) gets the same
+// How plusaudio's command-line scripts (generate-clip.js) say "rate limited,
+// try again in N ms" across the process boundary, so the caller on the other
+// side (the Anki add-on's fill-audio) gets the same
 // typed answer the Gemini client gave, not a line of text to guess from.
 //
 // The protocol, documented in each script's own contract:

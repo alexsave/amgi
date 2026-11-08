@@ -1,4 +1,4 @@
-/* src/server/anki/install.js and the install route (src/server/api/anki/install/route.js) in C.
+/* Install in C: the port of what was src/server/anki/install.js and its route (Node, removed at L4).
  *
  * The file half is here: copying amgi's two add-ons and its card type into <Anki folder>/addons21,
  * written over the top and then pruned of what this build no longer ships (never deleted first, so

@@ -38,7 +38,7 @@ const { controlFake } = require('../../plusaudio/test/helpers/fake-gemini.js');
 const EXPECT = path.join(ROOT, 'test', 'parity', 'expect', 'http.txt');
 const FIXTURES = path.join(ROOT, 'test', 'parity', 'fixtures');
 
-/** The kind each route answers (ui/server/serve.mjs's ROUTES), by method and path pattern. */
+/** The kind each route answers (server/amgi/routes.c's ROUTES), by method and path pattern. */
 const ANSWERS = [
   ['GET', /^status$/, 'status'], ['GET', /^decks$/, 'decks'], ['POST', /^decks$/, 'deck_created'],
   ['PATCH', /^decks\/[^/]+$/, 'deck_renamed'], ['GET', /^decks\/[^/]+$/, 'deck_summary'],
