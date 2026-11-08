@@ -448,9 +448,8 @@ for (const schema of ['18', '11']) {
     });
 
     // Names that differ only by case, as Anki's unicase collation folds them (full case folding).
-    // Here the C core and the frozen Node part on purpose: C finds the deck Anki would, Node
-    // lower-cases and makes a second one (test/parity/C_DIFFS.txt names each line). Its own
-    // session, so the main recordings stay the same for both.
+    // The C core finds the deck Anki would (the Node core it replaced lower-cased and made a
+    // second one). Its own session, so the main recordings do not move with it.
     test('deck names that differ only by case, and what Anki makes of the result', async () => {
       const s = await session(schema, async (t) => {
         // Where both fold the same (toLowerCase does for these), first; the ones only unicase folds
