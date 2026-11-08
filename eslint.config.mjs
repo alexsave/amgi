@@ -8,10 +8,9 @@ import globals from 'globals';
 const clean = (source) =>
   Object.fromEntries(Object.entries(source).map(([name, value]) => [name.trim(), value]));
 
-// `archives/` holds retired code that is not part of the build.
 const config = [
   {
-    ignores: ['.next/**', 'build/**', 'node_modules/**', 'archives/**'],
+    ignores: ['.next/**', 'node_modules/**'],
   },
   ...next,
   {
