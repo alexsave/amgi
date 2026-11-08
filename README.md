@@ -104,7 +104,8 @@ The server is one plain Node HTTP server, `ui/server/serve.mjs`, that serves the
 `.claude/skills/e2e-ui/` and `ui/tools/` drive the app in headless Chrome against a fixture Anki collection.
 `anki/test/harness/drive.js` does the same for the card template.
 `test/parity/` pins what the server does so a second implementation can be held to it: an HTTP suite over every route and error shape, compared byte for byte with a recording from the Node server, and a collection runner that applies one operation list to schema 11 and 18 fixtures and compares every row afterwards.
-Both, and `npm run e2e`, take the server under test from `AMGI_SERVER` (and the collection core from `AMGI_COLLECTION_IMPL`); unset, they run today's Node code.
+The collection runner's dump tool is C (`make -C server`: a C compiler, sqlite and ICU); where it cannot build, those sessions skip with a sentence saying why, and `AMGI_REQUIRE_NATIVE=1` makes that a failure.
+Both suites, and `npm run e2e`, take the server under test from `AMGI_SERVER` (and the collection core from `AMGI_COLLECTION_IMPL`); unset, they run today's Node code.
 
 ```
 ui/src/          The page, in C: decks, deck view, card form and panel, bulk run, settings, first run
