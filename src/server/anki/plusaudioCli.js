@@ -18,7 +18,7 @@ import { promisify } from 'node:util';
 
 // spawnSync, which the callers used to use, blocks the Node event loop for
 // the whole life of the subprocess - and a clip or a card's text is several
-// seconds of talking to OpenAI. That made this server incapable of having
+// seconds of talking to Gemini. That made this server incapable of having
 // two requests in flight at once no matter what a caller did: the bulk-add
 // screen asking for five cards at a time (see BulkRun.js's CONCURRENCY)
 // would have had its five requests served strictly one after another. It

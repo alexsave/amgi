@@ -1,7 +1,7 @@
 'use strict';
 
 // Hides plusaudio/.env for the duration of a test that wants to prove "no
-// OPENAI_API_KEY anywhere" behaviour, then restores it - used by both
+// GEMINI_API_KEY anywhere" behaviour, then restores it - used by both
 // generate-clip.test.js and generate-card-text.test.js, whose main()
 // functions each fall back to this same real, gitignored file. `node --test`
 // runs separate test files as separate processes, potentially concurrently,

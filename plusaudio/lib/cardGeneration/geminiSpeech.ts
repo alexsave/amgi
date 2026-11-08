@@ -1,26 +1,26 @@
 // Speech synthesis through Google's Gemini TTS models - the only synthesiser
 // amgi uses. (OpenAI's gpt-4o-mini-tts was the synthesiser until it was
 // dropped: it is shut down on 2027-01-06, and its Japanese and Korean sounded
-// like an English speaker reading them. Card text, transcription and the
-// audio judge are still OpenAI's - see models.ts.)
+// like an English speaker reading them.)
 //
-// Like the rest of cardGeneration/, this module reads no environment variable
-// and owns no global state: the key, the base URL, fetch, the clock's sleep
-// and the random source are all injected, so a test drives it with a fake
-// fetch and a seeded generator and never reaches the network.
+// The HTTP request, the quota handling and the error messages are gemini.ts's;
+// what is here is only what speech needs: the voice draw, the request shape,
+// and turning the answer into a WAV file.
 //
 // What the API does, as verified live on 2026-11-07:
-//   POST {base}/v1beta/models/{model}:generateContent, header x-goog-api-key.
 //   The audio comes back as candidates[0].content.parts[].inlineData
 //   {mimeType, data(base64)}. gemini-3.8-* answer "audio/wav" with a RIFF
 //   header (24 kHz mono 16-bit); gemini-3.1-flash-tts-preview answers raw PCM,
 //   "audio/l16; rate=24000; channels=1", with no header at all. Never mp3.
 //   Whatever arrives, what leaves this module is a complete WAV file.
 //
-// What it must NOT do: prepend style or pronunciation text to the input. The
-// model reads it aloud (verified), so the request carries the verbatim
-// spoken text and nothing else. A Japanese reading therefore never reaches
-// the synthesiser; it still reaches the audio judge (cardGeneration.ts).
+// What it must NOT do: prepend free-form style or pronunciation text to the
+// input. The model reads it aloud (verified), so by default the request
+// carries the verbatim spoken text and nothing else. A Japanese reading
+// therefore never reaches the synthesiser; it still reaches the audio judge
+// (cardGeneration.ts).
+
+import type { GeminiClient, GenerateContentResponse } from "./gemini.ts";
 
 /** The one draw this module needs from the codebase's random source (plusaudio/lib/random.js). */
 export interface RandomSource {
@@ -28,37 +28,27 @@ export interface RandomSource {
     int(n: number): number;
 }
 
-type FetchLike = (url: string, init: {
-    method: string;
-    headers: Record<string, string>;
-    body: string;
-    signal?: AbortSignal;
-}) => Promise<{
-    ok: boolean;
-    status: number;
-    text(): Promise<string>;
-}>;
-
 export interface GeminiSpeechOptions {
-    apiKey: string;
+    client: GeminiClient;
     model: string;
     /** The pool a clip's voice is drawn from; see models.ts's GEMINI_TTS_VOICES. */
     voices: readonly string[];
     random: RandomSource;
-    fetch?: FetchLike;
-    /** Defaults to Google's endpoint. Overridden only by tests and the e2e fake server. */
-    baseUrl?: string;
-    sleep?: (ms: number) => Promise<void>;
-    /** The most a per-minute rate limit may make one clip wait, in total. */
-    maxRateLimitWaitMs?: number;
-    requestTimeoutMs?: number;
     /**
-     * STEERING HOOK - DELIBERATELY NOT WIRED ON. A per-language instruction
-     * (accent, pace) that would be sent as the request's `systemInstruction`,
-     * never as part of the spoken text. Whether the TTS models honour
-     * systemInstruction at all is untested (the free tier's 10 requests per
-     * day did not leave room to find out), so nothing passes this today and
-     * nothing may come to depend on it until someone has heard what it does.
+     * STEERING HOOK - DELIBERATELY NOT WIRED ON. A per-language style tag
+     * (accent, pace), sent as a bracketed prefix of the input:
+     * "[native Tokyo speaker, natural pitch accent] 駅はどこですか。".
+     *
+     * Why a bracket tag and nothing else, both tested live by the owner on
+     * gemini-3.8-flash-tts (2026-11-08):
+     *   - `systemInstruction` is refused outright: HTTP 400 "Developer
+     *     instruction is not enabled for this model". Do not use it.
+     *   - free-form text before the input is read aloud.
+     *   - a bracketed tag is NOT read aloud: the clip was 1.84 s against
+     *     1.64 s plain, and its transcript equalled the bare text.
+     * Nothing passes this today: the default (no hook, or an empty string)
+     * sends the verbatim text only, and it stays that way until the owner
+     * has listened to tagged clips and chosen the tags.
      */
     steering?: (language: string) => string;
 }
@@ -74,30 +64,6 @@ export interface SpeechSynthesizer {
     pickVoice(previous: string | null): string;
     /** One clip as a complete WAV file. */
     synthesize(request: SpeechRequest): Promise<ArrayBuffer>;
-}
-
-/**
- * A failure no retry can fix: the day's quota is spent, the key is refused,
- * the text is blocked. generateCardAudio rethrows these at once instead of
- * spending its remaining attempts (and the remaining quota) on them, and the
- * message is shown to the person verbatim, so it is one line and says what
- * to do.
- */
-export class SpeechUnavailableError extends Error {
-    readonly fatal = true;
-    constructor(message: string) {
-        super(message);
-        this.name = 'SpeechUnavailableError';
-    }
-}
-
-export const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com';
-export const GEMINI_KEY_PAGE = 'https://aistudio.google.com/apikey';
-
-/** The message a spent daily quota surfaces as, word for word, in the add-card row. */
-export function dailyQuotaMessage(model: string): string {
-    return `Gemini's free tier allows 10 speech requests per day per model, and today's are used up for ${model}. ` +
-        `Enable billing for your Gemini API key's project in Google AI Studio (${GEMINI_KEY_PAGE}) to lift the limit, or try again tomorrow.`;
 }
 
 // ========================
@@ -172,64 +138,18 @@ function base64ToBytes(data: string): Uint8Array {
 }
 
 // ========================
-// ERRORS AND QUOTA
-// ========================
-
-interface GoogleErrorDetail {
-    '@type'?: string;
-    violations?: Array<{ quotaId?: string; quotaMetric?: string }>;
-    retryDelay?: string;
-}
-
-interface GoogleErrorBody {
-    error?: { code?: number; message?: string; status?: string; details?: GoogleErrorDetail[] };
-}
-
-function parseErrorBody(text: string): GoogleErrorBody {
-    try {
-        return JSON.parse(text) as GoogleErrorBody;
-    } catch {
-        return {};
-    }
-}
-
-/** "23s" / "1.5s" -> milliseconds, or null. */
-function parseRetryDelay(value: string | undefined): number | null {
-    const match = /^(\d+(?:\.\d+)?)s$/.exec((value || '').trim());
-    return match ? Math.ceil(Number(match[1]) * 1000) : null;
-}
-
-/** A per-day limit cannot be waited out; anything else (per minute, unlabelled) can, briefly. */
-function isDailyQuota(details: GoogleErrorDetail[]): boolean {
-    return details.some((detail) => (detail.violations || []).some((violation) =>
-        /PerDay/i.test(violation.quotaId || '') || /per_day|PerDay/i.test(violation.quotaMetric || '')));
-}
-
-/** Used when a 429 carries no RetryInfo of its own. */
-const DEFAULT_RATE_LIMIT_DELAY_MS = 5000;
-
-// ========================
 // THE SYNTHESISER
 // ========================
 
+/** The text the model is asked to speak: the verbatim text, or "[tag] text" when a steering tag is given. */
+export function spokenInput(text: string, tag: string): string {
+    const trimmed = (tag || '').replace(/[[\]]/g, '').trim();
+    return trimmed ? `[${trimmed}] ${text}` : text;
+}
+
 export function createGeminiSpeech(options: GeminiSpeechOptions): SpeechSynthesizer {
-    const {
-        apiKey,
-        model,
-        voices,
-        random,
-        fetch: fetchImpl = globalThis.fetch as unknown as FetchLike,
-        baseUrl = GEMINI_API_BASE,
-        sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)),
-        maxRateLimitWaitMs = 30_000,
-        requestTimeoutMs = 60_000,
-        steering,
-    } = options;
-
-    if (!apiKey) throw new SpeechUnavailableError('GEMINI_API_KEY is not set; audio was not generated.');
+    const { client, model, voices, random, steering } = options;
     if (voices.length === 0) throw new Error('Gemini speech needs at least one voice');
-
-    const url = `${baseUrl.replace(/\/+$/, '')}/v1beta/models/${encodeURIComponent(model)}:generateContent`;
 
     function pickVoice(previous: string | null): string {
         // One draw per pick whatever happens, so the draw sequence for a
@@ -238,82 +158,24 @@ export function createGeminiSpeech(options: GeminiSpeechOptions): SpeechSynthesi
         return pool[random.int(pool.length)];
     }
 
-    function requestBody({ text, language, voice }: SpeechRequest): string {
-        const body: Record<string, unknown> = {
-            contents: [{ parts: [{ text }] }],
+    async function synthesize({ text, language, voice }: SpeechRequest): Promise<ArrayBuffer> {
+        const response = await client.generateContent(model, {
+            contents: [{ parts: [{ text: spokenInput(text, steering ? steering(language) : '') }] }],
             generationConfig: {
                 responseModalities: ['AUDIO'],
                 speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } },
             },
-        };
-        const instruction = steering ? steering(language).trim() : '';
-        if (instruction) body.systemInstruction = { parts: [{ text: instruction }] };
-        return JSON.stringify(body);
+        });
+        return audioFromResponse(response);
     }
 
-    async function synthesize(request: SpeechRequest): Promise<ArrayBuffer> {
-        const body = requestBody(request);
-        let waitedMs = 0;
-
-        for (;;) {
-            const response = await fetchImpl(url, {
-                method: 'POST',
-                headers: { 'content-type': 'application/json', 'x-goog-api-key': apiKey },
-                body,
-                signal: AbortSignal.timeout(requestTimeoutMs),
-            });
-            const text = await response.text();
-
-            if (response.status === 429) {
-                const error = parseErrorBody(text).error ?? {};
-                const details = error.details ?? [];
-                if (isDailyQuota(details)) throw new SpeechUnavailableError(dailyQuotaMessage(model));
-                const retryInfo = details.find((detail) => detail.retryDelay !== undefined);
-                const delayMs = parseRetryDelay(retryInfo?.retryDelay) ?? DEFAULT_RATE_LIMIT_DELAY_MS;
-                if (waitedMs + delayMs > maxRateLimitWaitMs) {
-                    throw new SpeechUnavailableError(
-                        `Gemini is limiting how many speech requests ${model} takes per minute and asked to wait ${Math.ceil(delayMs / 1000)}s; try again in a minute.`,
-                    );
-                }
-                await sleep(delayMs);
-                waitedMs += delayMs;
-                continue;
-            }
-
-            if (!response.ok) {
-                const message = (parseErrorBody(text).error?.message || text || '').replace(/\s+/g, ' ').trim().slice(0, 300);
-                const summary = `Gemini speech request failed (HTTP ${response.status})${message ? `: ${message}` : ''}`;
-                // A refused key, a bad request or an unknown model fails the
-                // same way on every retry; a server error might not.
-                if (response.status >= 400 && response.status < 500) throw new SpeechUnavailableError(summary);
-                throw new Error(summary);
-            }
-
-            return audioFromResponse(text);
-        }
-    }
-
-    function audioFromResponse(text: string): ArrayBuffer {
-        let data: {
-            promptFeedback?: { blockReason?: string };
-            candidates?: Array<{ finishReason?: string; content?: { parts?: Array<{ inlineData?: { mimeType?: string; data?: string } }> } }>;
-        };
-        try {
-            data = JSON.parse(text);
-        } catch {
-            throw new Error('Gemini returned a response that is not JSON');
-        }
-
-        const blockReason = data.promptFeedback?.blockReason;
-        if (blockReason) throw new SpeechUnavailableError(`Gemini refused to read this text aloud (${blockReason}).`);
-
+    function audioFromResponse(data: GenerateContentResponse): ArrayBuffer {
         const candidate = data.candidates?.[0];
         const audioParts = (candidate?.content?.parts ?? []).filter((part) => part.inlineData?.data);
         if (audioParts.length === 0) {
             // finishReason OTHER happens now and then with no audio at all; a
             // fresh attempt with another voice usually succeeds, so this one
-            // is not fatal. SAFETY would repeat, but is rare enough for TTS
-            // that spending a retry on it beats a special case.
+            // is not fatal.
             throw new Error(`Gemini returned no audio (finishReason: ${candidate?.finishReason ?? 'none'})`);
         }
 

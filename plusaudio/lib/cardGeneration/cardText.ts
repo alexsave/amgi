@@ -60,18 +60,6 @@ export function languageName(language: string): string {
     return LANGUAGE_NAMES[code] || code || 'the target language';
 }
 
-/**
- * Maps app language codes to what the transcription API expects: ISO-639
- * primary subtags, except Cantonese which needs 'yue' - plain 'zh' would
- * make the model transcribe Cantonese TTS audio as Mandarin and fail
- * validation every time.
- */
-export function transcriptionLanguage(language: string): string {
-    const code = normalizeLanguageCode(language);
-    if (code === 'zh_hk') return 'yue';
-    return code.split('_')[0];
-}
-
 export type RegisterLevel = 'casual' | 'polite' | 'formal';
 
 export const REGISTER_LEVELS: RegisterLevel[] = ['casual', 'polite', 'formal'];
@@ -517,6 +505,11 @@ export function normalizeForComparison(text: string, language = ''): string {
 //   - 유음화 (lateralisation): 신라 -> 실라, 설날 -> 설랄.
 //   - 경음화 (tensification) after an obstruent: 학교 -> 학꾜, 먹다 -> 먹따, and
 //     after a stem-final ㄵ ㄻ ㄼ ㄾ: 앉다 -> 안따, 젊다 -> 점따.
+//   - 예 spoken as 에 after an open syllable: 어디예요 -> 어디에요, 의자예요 ->
+//     의자에요. Only there - a syllable with no final consonant before a bare
+//     예 - which is where the two are homophones and where native writers
+//     (and Gemini's transcriber, on 1 of 8 real clips) write either one;
+//     예 at the start of a word, or after a consonant, keeps its glide.
 //
 // NOT COVERED, deliberately - each needs knowledge of word structure that
 // spelling alone does not carry, and a wrong guess would make two different
@@ -529,7 +522,8 @@ export function normalizeForComparison(text: string, language = ''): string {
 //     사이시옷 compounds;
 //   - ㅎ weakening between voiced sounds (은행 [으냉]), ㄹ->ㄴ exceptions
 //     (의견란 [의견난]), ㄼ read as ㅂ (밟다 [밥따]);
-//   - vowel variation (ㅢ as ㅣ/ㅔ, ㅖ as ㅔ, the ㅐ/ㅔ merger).
+//   - other vowel variation (ㅢ as ㅣ/ㅔ, ㅖ as ㅔ after a consonant as in
+//     계시다, the ㅐ/ㅔ merger).
 // A mismatch from any of these is not a failure: it just sends the clip on to
 // the audio judge, which is what happened to every mismatch before.
 //
@@ -543,6 +537,9 @@ const INITIALS = ['ㄱ', 'ㄲ', 'ㄴ', 'ㄷ', 'ㄸ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅃ',
 const FINALS = ['', 'ㄱ', 'ㄲ', 'ㄳ', 'ㄴ', 'ㄵ', 'ㄶ', 'ㄷ', 'ㄹ', 'ㄺ', 'ㄻ', 'ㄼ', 'ㄽ', 'ㄾ', 'ㄿ', 'ㅀ', 'ㅁ', 'ㅂ', 'ㅄ', 'ㅅ', 'ㅆ', 'ㅇ', 'ㅈ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ'];
 /** The medial index of ㅣ. */
 const VOWEL_I = 20;
+/** The medial indices of ㅖ and ㅔ. */
+const VOWEL_YE = 7;
+const VOWEL_E = 5;
 
 const CLUSTERS: Record<string, [string, string]> = {
     'ㄳ': ['ㄱ', 'ㅅ'], 'ㄵ': ['ㄴ', 'ㅈ'], 'ㄶ': ['ㄴ', 'ㅎ'], 'ㄺ': ['ㄹ', 'ㄱ'], 'ㄻ': ['ㄹ', 'ㅁ'],
@@ -587,7 +584,12 @@ function applyBoundary(a: Syllable, b: Syllable): void {
     const original = a.final;
     let final = a.final;
     const initial = b.initial;
-    if (!final) return;
+    if (!final) {
+        // An open syllable: the only rule is that a following bare 예 loses
+        // its glide (어디예요 [어디에요]).
+        if (initial === 'ㅇ' && b.vowel === VOWEL_YE) b.vowel = VOWEL_E;
+        return;
+    }
 
     // ㅎ as (part of) the final.
     if (final in WITHOUT_H) {

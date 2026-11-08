@@ -15,7 +15,7 @@ Nothing here has been replaced with a new set of features to build; see README.m
 - There are no migrations, no schema and no RLS.
   The only persistent state amgi has of its own is the browser's `localStorage` (which Anki profile, whether the bridge is on) - everything else lives in the user's real Anki collection.
 - There is no usage quota and nothing to charge or refund.
-  Generation cost is the user's own OpenAI bill, paid directly to OpenAI with their own key.
+  Generation cost is the user's own Gemini bill, paid directly to Google with their own key.
 - Model names live in `plusaudio/lib/cardGeneration/models.ts` (moved from `supabase/functions/_shared/models.ts` when the backend was archived) - never hardcode a model string anywhere else.
 - How a card is written and how its audio is validated live in `plusaudio/lib/cardGeneration/cardGeneration.ts`, run from Node by `plusaudio/lib/generator.js`, and reached from the app and from the Anki add-on's bridge by shelling out to `plusaudio/generate-clip.js` rather than requiring the TypeScript module into a browser bundle.
   It imports nothing from Deno, npm or Supabase.
@@ -86,7 +86,7 @@ The loop itself - prompt audio, mic, native audio, self-grade, zero taps beyond 
 
 **Status: no longer applicable.** This was a punch list against `src/contexts/RealtimeContext.js` and `supabase/functions/realtime/index.ts`.
 The voice conversation mode's frontend half was already archived to `archives/realtime/` before this roadmap was last touched; its backend half is now archived to `archives/supabase-2026/functions/realtime/`.
-If a local-first equivalent is ever rebuilt, that archive's README says what is worth reusing from the OpenAI side of it.
+If a local-first equivalent is ever rebuilt, that archive's README says what is worth reusing from the model side of it (it was written against OpenAI's realtime API; amgi's models are Google's now).
 
 ### 2.5 Self-compare playback after AI evaluations
 
@@ -154,4 +154,4 @@ Anki's desktop client is already a fully offline-capable reviewer; there is noth
 ## Known quota/pricing footnotes (decide, then encode)
 
 **Status: no longer applicable.** There is no free tier, no subscription, and no usage limit to tune - the entire section assumed Supabase-metered quotas that no longer exist.
-Generation cost is the user's own OpenAI bill, paid directly to OpenAI with their own key, with no markup and no cap amgi enforces.
+Generation cost is the user's own Gemini bill, paid directly to Google with their own key, with no markup and no cap amgi enforces.

@@ -63,7 +63,7 @@ beforeEach(() => {
 describe('making many cards from a paste', () => {
   test('makes several lines at once instead of one at a time', async () => {
     // The whole point of the change this guards: every line is several
-    // seconds of waiting on OpenAI, and a strictly sequential run spent all
+    // seconds of waiting on Gemini, and a strictly sequential run spent all
     // of it idle. Five is BulkRun's own CONCURRENCY.
     const gates = new Map();
     ankiApi.generateCardText.mockImplementation((text) => new Promise((resolve) => {
@@ -268,7 +268,7 @@ describe('making many cards from a paste', () => {
     // punctuation. BulkRun looked those keys up with
     // `text.trim().toLowerCase()`, so a line with a capital letter in it and
     // a line whose existing note ends in punctuation both missed - and a
-    // missed skip is not a cosmetic one: the line is sent to OpenAI again
+    // missed skip is not a cosmetic one: the line is sent to Gemini again
     // and lands in the deck a second time.
     ankiApi.fieldValuesInDeck.mockResolvedValue({ values: ['Hello there', 'Comment ça va?'] });
 

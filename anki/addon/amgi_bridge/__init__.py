@@ -61,7 +61,6 @@ def _build_generator(config: dict) -> NodeCliAudioGenerator:
     return NodeCliAudioGenerator(
         node_path=(config.get("node_path") or "node"),
         plusaudio_dir=(config.get("plusaudio_dir") or ""),
-        openai_api_key=(config.get("openai_api_key") or None),
         gemini_api_key=(config.get("gemini_api_key") or None),
     )
 

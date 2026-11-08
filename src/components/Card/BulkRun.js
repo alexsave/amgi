@@ -62,8 +62,9 @@ const rowNote = (row) => {
 // which this app does nothing but wait, one line at a time.
 //
 // Five rather than "all of them" because a row is not one request: it is
-// closer to seven, spread over four different OpenAI models, each with its
-// own per-minute allowance. Five lanes over a five-second row settles at
+// closer to seven, spread over two Gemini models (gemini-3.8-flash for the
+// text, transcriptions and judging; gemini-3.8-flash-tts for speech), each
+// with its own per-minute allowance. Five lanes over a five-second row settles at
 // about one row a second - some sixty text calls, a hundred and twenty
 // clips and a hundred and twenty transcriptions in a minute - which leaves
 // those allowances room for the retries the audio judge makes on its own.
@@ -73,7 +74,7 @@ const rowNote = (row) => {
 //
 // It is also five and not fifty because finished rows are written to Anki as
 // they come (see below), and the local bridge answers one collection
-// operation at a time - a wide pool would only move the queue from OpenAI's
+// operation at a time - a wide pool would only move the queue from Gemini's
 // end to Anki's.
 const CONCURRENCY = 5;
 
@@ -180,7 +181,7 @@ const BulkRun = ({ deckId, notetype, idx, languages, lines, onFinished }) => {
         // (see lyricsParse.js's policy). So every line with a capital letter
         // in it, and every line whose existing note ends in a comma or a
         // full stop, missed the set it was being checked against: the skip
-        // silently did nothing, the line was generated again at OpenAI's
+        // silently did nothing, the line was generated again at the API's
         // expense, and the deck got a second copy of a card it already had.
         if (already.has(normalizeForDedupe(text))) patch(i, { status: 'skipped' });
         else pending.push(i);

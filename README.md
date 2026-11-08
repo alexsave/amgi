@@ -10,13 +10,13 @@ Anki already does scheduling, storage, sync and review better than a solo projec
 What is left is a local-first tool that reaches into your real Anki collection - the same `collection.anki2` the desktop client reads - to generate cards with native-quality audio and to fill audio into notes you already have, while Anki itself does everything a spaced-repetition app is actually good at.
 
 There is no login, no hosted backend, and no environment variable required to start it up.
-Card generation calls Google Gemini (the speech) and OpenAI (the card text, and the check that each clip says what the card says) with your own keys, from your own machine.
+Card generation calls Google Gemini - for the card text, the speech, and the check that each clip says what the card says - with your own key, from your own machine.
 Reviewing happens inside Anki, using a card template this repo ships, which still runs the same hands-free listen-then-speak loop amgi always had - prompt plays, the microphone opens by itself, voice-activity detection ends your turn, and the native recording plays back against yours.
 
 ## Zero to your first card
 
 Budget about half an hour, most of it downloads.
-Everything happens on one machine, and nothing you make leaves it except the text amgi sends Gemini and OpenAI to make the card and its audio from.
+Everything happens on one machine, and nothing you make leaves it except what amgi sends Gemini to make the card and its audio from (the text, and each clip back for checking).
 
 **Before you start, two things have to be installed.**
 
@@ -40,31 +40,27 @@ npm install
 
 No `git`? Download the repo as a ZIP and unpack it; nothing here needs git history to run.
 
-**2. Get two keys, or skip this and come back to it.**
-A card needs both.
+**2. Get a Gemini API key, or skip this and come back to it.**
+One key does everything: Google's Gemini writes each card, speaks it, and checks that the recording says what the card says.
+Create the key at [aistudio.google.com/apikey](https://aistudio.google.com/apikey).
+Gemini's voices are what make Japanese and Korean sound native rather than read by an English speaker.
 
-- **A Gemini API key, for the speech.**
-  Create one at [aistudio.google.com/apikey](https://aistudio.google.com/apikey).
-  Gemini's voices are what make Japanese and Korean sound native rather than read by an English speaker, which is why amgi uses them for every clip.
-  Be aware of the free tier: it allows **10 speech requests per day per model**, and a clip that fails its check is retried, so that is fewer than ten cards a day.
-  For real use, enable billing on the key's Google Cloud project (the key page in AI Studio links to it); amgi shows the same advice in the card's row when the day's quota runs out.
-- **An OpenAI API key, for the card text and for checking each clip.**
-  Sign in at [platform.openai.com](https://platform.openai.com), open **API keys**, and create one.
-  You need credits on the account: a key alone will not generate anything.
+Be aware of the free tier: it allows **10 requests per day per model**, and one card takes roughly five to seven requests (its text, then for each of its two clips a recording, a transcription and, for Japanese and Chinese or on a mismatch, a judging; more when a clip fails its check and is retried).
+That is one or two cards a day.
+For real use, enable billing on the key's Google Cloud project (the key page in AI Studio links to it); amgi shows the same advice in the card's row when the day's quota runs out.
 
-Put both in a file called `.env.local` at the top of the repo:
+Put the key in a file called `.env.local` at the top of the repo:
 
 ```
 GEMINI_API_KEY=...
-OPENAI_API_KEY=sk-...
 ```
 
 Clips are stored as WAV (24 kHz mono, about 48 KB per second of speech, so a typical two-second clip is around 100 KB); clips amgi made before it moved to Gemini are mp3 and keep playing.
 
 If you would rather see the whole thing working before paying anyone, skip this step entirely.
-Without both keys set amgi offers you a starter deck instead: ten everyday phrases that ship with amgi, already recorded, in any pair of the eighteen languages it supports.
+With no key set amgi offers you a starter deck instead: ten everyday phrases that ship with amgi, already recorded, in any pair of the eighteen languages it supports.
 It is a real deck - you review it in Anki, edit it and delete it like any other - so you can hear what a finished card sounds like before deciding whether it is worth a key.
-The offer disappears once both keys are set, since at that point you can make cards about whatever you actually want to learn.
+The offer disappears once a key is set, since at that point you can make cards about whatever you actually want to learn.
 
 Anything you try to generate yourself without the keys fails with a message saying which key is missing; nothing fake is ever written into a card.
 
@@ -151,7 +147,7 @@ For a deck as a `.apkg` file rather than a live collection:
 ```bash
 cd plusaudio
 node add-audio.js "My Deck.apkg" --dry-run   # see what would be generated, no key needed
-node add-audio.js "My Deck.apkg"             # generate for real, needs GEMINI_API_KEY and OPENAI_API_KEY
+node add-audio.js "My Deck.apkg"             # generate for real, needs GEMINI_API_KEY
 ```
 
 It changes a note only when it changes that note's audio field, matches Anki's own GUID-based import so re-importing updates the deck in place instead of cloning it, and only regenerates a clip whose text actually changed since the last run.
@@ -161,12 +157,12 @@ It needs Node 24.12, 25.1, or 26 and later; see `plusaudio/README.md` for the fu
 
 Every generated clip - from the app, from `plusaudio/`, or from the `amgi_bridge` add-on filling a live collection - goes through the same policy in `plusaudio/lib/cardGeneration/cardGeneration.ts`: the prompts, Gemini speech in a voice drawn at random for each clip, and a transcribe-then-judge loop that refuses to keep a clip that does not say what the card says.
 
-It needs `GEMINI_API_KEY` and `OPENAI_API_KEY`, and nothing else - no account, no quota beyond your own Gemini and OpenAI usage:
+It needs `GEMINI_API_KEY`, and nothing else - no account, no quota beyond your own Gemini usage:
 
-- For the app, set them in your shell before `npm run dev` / `npm start`, or put them in `.env.local` at the repo root, which Next.js loads automatically.
-- For `plusaudio/` run directly, the same environment variables work, or a `.env` file inside `plusaudio/` itself.
+- For the app, set it in your shell before `npm run dev` / `npm start`, or put it in `.env.local` at the repo root, which Next.js loads automatically.
+- For `plusaudio/` run directly, the same environment variable works, or a `.env` file inside `plusaudio/` itself.
 
-With a key missing, generation fails with a message that names it, and nothing is written; there is no stub clip.
+With no key, generation fails with a message that names it, and nothing is written; there is no stub clip.
 
 ## Running the app
 
