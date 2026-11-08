@@ -20,7 +20,8 @@ const { random: defaultRandom } = require('./random');
 
 /**
  * Build the context cardGeneration.ts's generateCardText and
- * generateCardAudio take, or throw MISSING_KEY_MESSAGE when there is no key.
+ * generateCardAudio take. Without a key this throws MISSING_KEY_MESSAGE -
+ * from createGeminiClient, which owns that check.
  *
  * @param {object} options
  * @param {string} options.apiKey            GEMINI_API_KEY
@@ -31,7 +32,6 @@ const { random: defaultRandom } = require('./random');
  * @param {function} [options.log]           where the policy's own warnings go
  */
 function createGeminiContext({ apiKey, baseUrl, fetch, random = defaultRandom, sleep, log = () => {} } = {}) {
-  if (!apiKey) throw new Error(MISSING_KEY_MESSAGE);
   const gemini = createGeminiClient({
     apiKey,
     ...(baseUrl ? { baseUrl } : {}),

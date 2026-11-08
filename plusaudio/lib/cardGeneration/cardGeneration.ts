@@ -320,8 +320,10 @@ async function judgeAudio(
  * half of validation. Asked for the language's own script, verbatim, so the
  * comparison below compares like with like; a transcriber that drifts into
  * another script or a translation only sends the clip on to the judge.
+ * Exported so a survey script (a new voice, a new model) checks clips with
+ * exactly the step the pipeline uses.
  */
-async function transcribeAudio(ctx: CardGenerationContext, audioBuffer: ArrayBuffer, language: string): Promise<string> {
+export async function transcribeAudio(ctx: CardGenerationContext, audioBuffer: ArrayBuffer, language: string): Promise<string> {
     const name = languageName(language);
     const response = await ctx.gemini.generateContent(ctx.models.transcribe, {
         contents: [{
