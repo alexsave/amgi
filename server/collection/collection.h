@@ -111,6 +111,13 @@ int col_update_note(arena *a, str path, double note, const str *fields, size_t n
 int col_has_media(arena *a, str path, str name, int *out, col_err *err);
 int col_read_media(arena *a, str path, str name, int *found, str *bytes, col_err *err);
 int col_add_media(arena *a, str path, str name, const void *data, size_t len, str *stored, col_err *err);
+/* The file a server sends for media `name` of the collection at `path` (cbase's cb_send_file),
+ * under the one rule hasMedia and readMedia share: a separator, a NUL, ".", ".." or nothing is not a
+ * media file; a symlink is not followed; only a regular file of at most 256 MiB counts. 0 and
+ * *found = 1 with *file a NUL-terminated path in `a`; 0 and *found = 0 when there is no such media
+ * file; -1 with err on failure. Media is written to a temporary and renamed into place, so the file
+ * at a name is always whole and no lock is needed to read it. */
+int col_media_path(arena *a, str path, str name, int *found, str *file, col_err *err);
 
 /* paths.js: the default Anki folder for this platform, and the profiles in a folder (sorted as
  * localeCompare sorts). */
