@@ -266,7 +266,6 @@ async function operations(t, impl, schema) {
   await t.cmd(`createDeck ${enc('A::::B')}`);
   await t.cmd(`createDeck ${enc('CAFÉ')}`);
   await t.cmd(`createDeck ${enc('Straße')}`);
-  await t.cmd(`createDeck ${enc('STRASSE')}`);
   await t.cmd(`createDeck ${enc('Ctl\u0001Char\u007f')}`);
   await t.cmd(`createDeck ${enc('Korean::문장')}`);
   await t.cmd(`createDeck ${enc('Café decomposed')}`);
@@ -415,6 +414,7 @@ async function session(schema, body) {
   const entries = [];
   const t = {
     copy,
+    impl,
     record(line, more, answer) {
       entries.push({ line, more, answer });
     },
@@ -563,6 +563,34 @@ for (const schema of ['18', '11']) {
       });
       check(`collection-${schema}-locked-transcript`, s.transcript);
       check(`collection-${schema}-locked-dump`, s.dump);
+    });
+
+    // Names that differ only by case, as Anki's unicase collation folds them (full case folding).
+    // Here the C core and the frozen Node part on purpose: C finds the deck Anki would, Node
+    // lower-cases and makes a second one (test/parity/C_DIFFS.txt names each line). Its own
+    // session, so the main recordings stay the same for both.
+    test('deck names that differ only by case, and what Anki makes of the result', async () => {
+      const s = await session(schema, async (t) => {
+        // Where both fold the same (toLowerCase does for these), first; the ones only unicase folds
+        // last, so a deck one makes and the other does not shifts no number before it.
+        for (const name of ['Äpfel', 'äPFEL', 'Öl::Ä', 'öl::ä', 'Straße', 'ﬃ']) await t.cmd(`createDeck ${enc(name)}`);
+        const ids = await deckIds(t.impl);
+        await t.cmd(`renameDeck ${ids['Äpfel']} ${enc('ÄPFEL::Öl')}`);
+        await t.cmd(`createDeck ${enc('STRASSE')}`);
+        await t.cmd(`createDeck ${enc('FFI')}`);
+        await t.cmd(`renameDeck ${ids['Straße']} ${enc('strasse')}`);
+        await t.cmd('listDecks');
+      });
+      check(`collection-${schema}-unicase-transcript`, s.transcript);
+      check(`collection-${schema}-unicase-dump`, s.dump);
+      if (anki) {
+        const out = ankiCheck(s.copy.collection);
+        // C's result is clean, and recorded (a C-only recording). Node's is not: its relaxed index
+        // holds two names Anki calls equal, and Anki's repair renames either one, so only that
+        // there is something to repair is checked.
+        if (IMPL) check(`collection-${schema}-unicase-anki`, out);
+        else assert.ok(/non-unique|_'|check database False/.test(out), `Anki finds Node's duplicate:\n${out}`);
+      }
     });
 
     test('a change Anki makes between two of ours takes a second backup, and only then', { skip: !anki && 'needs ANKI_PYTHON_BIN' }, async () => {

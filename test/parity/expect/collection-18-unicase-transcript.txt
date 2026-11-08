@@ -1,0 +1,37 @@
+> createDeck %C3%84pfel
+ok <D1> %C3%84pfel 1
+> createDeck %C3%A4PFEL
+ok <D1> %C3%84pfel 0
+> createDeck %C3%96l%3A%3A%C3%84
+ok <D2> %C3%96l%3A%3A%C3%84 1
+> createDeck %C3%B6l%3A%3A%C3%A4
+ok <D2> %C3%96l%3A%3A%C3%84 0
+> createDeck Stra%C3%9Fe
+ok <D3> Stra%C3%9Fe 1
+> createDeck %EF%AC%83
+ok <D4> %EF%AC%83 1
+> renameDeck <D1> %C3%84PFEL%3A%3A%C3%96l
+ok <D1> %C3%84PFEL%3A%3A%C3%96l 0
+> createDeck STRASSE
+ok <D5> STRASSE 1
+> createDeck FFI
+ok <D6> FFI 1
+> renameDeck <D3> strasse
+err error a%20deck%20called%20%22strasse%22%20already%20exists
+> listDecks
+ok 15
+1 Default
+1794170430284 Existing
+1794170430285 Existing%3A%3AChild
+1794170430286 Korean
+1794170430287 Korean%3A%3A%EB%AC%B8%EC%9E%A5
+1794170430288 Caf%C3%A9
+1794170430289 Empty
+1794170430294 Filtered
+<D1> %C3%84PFEL%3A%3A%C3%96l
+<D7> %C3%96l
+<D2> %C3%96l%3A%3A%C3%84
+<D3> Stra%C3%9Fe
+<D4> %EF%AC%83
+<D5> STRASSE
+<D6> FFI

@@ -51,6 +51,11 @@ str js_trim(str s);
 /* String.prototype.toLowerCase (locale-independent, full mappings, final sigma) and normalize('NFC'). */
 str js_lower(arena *a, str s);
 str js_nfc(arena *a, str s);
+/* Anki's unicase collation's fold (see util.c): full case folding, a three-code-point fold
+ * reordered as the crate Anki is built with yields it. "Straße" and "STRASSE" fold the same; "ﬃ"
+ * folds to "iff", so it is not "FFI" (Anki says the same). As code points, and as UTF-8. */
+size_t unicase_fold32(arena *a, str s, uint32_t **out);
+str case_fold(arena *a, str s);
 /* a < b as JavaScript compares strings: by UTF-16 code unit. */
 int js_cmp(str a, str b);
 /* String.prototype.localeCompare in the default locale, as Node's Intl collation answers. */

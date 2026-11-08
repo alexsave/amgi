@@ -1,0 +1,6 @@
+schema 18
+integrity ok
+decks ['Café', 'Default', 'Empty', 'Existing', 'Existing::Child', 'FFI', 'Filtered', 'Korean', 'Korean::문장', 'strasse', 'ÄPFEL', 'ÄPFEL::Öl', 'Öl', 'Öl::Ä', 'ﬃ']
+notetypes ['Basic', 'Basic (and reversed card)', 'Basic (optional reversed card)', 'Basic (type in the answer)', 'Cloze', 'Image Occlusion', "Retro's sentences"]
+notes 9 cards 11
+check database True Database rebuilt and optimized.
