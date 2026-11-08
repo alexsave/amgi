@@ -46,7 +46,9 @@ function matchRoute(parts) {
     const params = {};
     let ok = true;
     route.segments.forEach((segment, i) => {
-      if (segment.startsWith('[')) params[segment.slice(1, -1)] = decodeURIComponent(parts[i]);
+      // A parameter is the path's own text, as sent: the route that takes a name decodes it, and says
+      // so when it is not a valid one (media/[filename]).
+      if (segment.startsWith('[')) params[segment.slice(1, -1)] = parts[i];
       else if (segment !== parts[i]) ok = false;
     });
     if (ok) return { route, params };
@@ -119,7 +121,9 @@ async function api(req, res, url) {
   if (body) withBody(request, body);
   const response = await handler(request, { params: Promise.resolve(found.params) });
   if (!(ANSWER in response)) {
-    // Not an object answer (a clip's bytes from /media): passed through as it is.
+    // Not an object answer (a clip's bytes from /media): passed through as it is, but a refusal is
+    // sent as every other one of this server's plain ones is.
+    if (response.status >= 400) return send(res, response.status, 'text/plain', await response.text());
     const headers = Object.fromEntries(response.headers);
     res.writeHead(response.status, headers);
     return res.end(Buffer.from(await response.arrayBuffer()));
