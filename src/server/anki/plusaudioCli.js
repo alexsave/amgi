@@ -30,8 +30,6 @@ import { fileURLToPath } from 'node:url';
 import { DAILY_CAP_EXIT, RATE_LIMITED_EXIT, parseRetryAfter } from 'plusaudio/lib/cliExit';
 import { serveGate } from 'plusaudio/lib/ipcGate';
 
-// Not named __dirname, for the reason starterDeck.js gives: jest compiles
-// this to CommonJS, where that name is already taken.
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const PLUSAUDIO_DIR = path.join(HERE, '..', '..', '..', 'plusaudio');
 

@@ -60,10 +60,10 @@ It is not recommended: Anki does not recognise a bare filename as a media refere
 
 ### Generating the audio
 
-The amgi app itself (the Next.js app under `src/`) already writes both audio
+The amgi app itself already writes both audio
 fields in this form when it adds or bulk-adds notes to this note type - it
-guesses `CueAudio`/`TargetAudio` from the field names (see
-`src/utils/ankiFields.js`) and renders every clip with
+finds `CueAudio`/`TargetAudio` by their names (see `amgi_fields_of` in
+`ui/src/fields.c`) and renders every clip with
 `plusaudio/lib/deck.js`'s own `renderAudioReference(..., 'html')`, the same
 function `plusaudio/` and `addon/amgi_bridge/` use. A deck built entirely
 through the app needs no conversion step at all.

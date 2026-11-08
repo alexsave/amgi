@@ -1,4 +1,4 @@
-// A stand-in for child_process.fork in jest tests of the code that runs
+// A stand-in for child_process.fork in tests of the code that runs
 // plusaudio's scripts (src/server/anki/plusaudioCli.js): a child with stdout
 // and stderr streams, an IPC-shaped send/on('message'), and an exit code -
 // decided by `outcome(args)`, which answers {stdout, stderr, code} (or

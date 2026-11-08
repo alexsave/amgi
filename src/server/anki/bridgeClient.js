@@ -2,7 +2,7 @@
 // "Anki open" transport. See that add-on's README, "Local HTTP bridge", for
 // the endpoint contract this mirrors and the auth model this relies on.
 //
-// This client only ever runs on the Next.js server (see transport.js's
+// This client only ever runs on amgi's own server (see transport.js's
 // module comment), so the `fetch()` calls here never carry a browser
 // `Origin` header at all - and bridge_auth.py treats "no Origin" as not an
 // origin failure by design (a same-machine CLI caller, which this is). The
