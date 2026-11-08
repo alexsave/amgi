@@ -23,6 +23,7 @@
 // prints the GEMINI_API_BASE to point the app or a CLI at, and answers every
 // kind with a passing default.
 
+const crypto = require('node:crypto');
 const http2 = require('node:http2');
 
 const { pcmToWav } = require('../../lib/cardGeneration/geminiSpeech.ts');
@@ -119,9 +120,10 @@ function respond(stream, entry) {
  *   {raw: true, httpStatus, body} for a non-gRPC reply, or {raw: true, hang: true} for none.
  * @param {object} [options]
  * @param {number} [options.port]  0 (an ephemeral port) unless the e2e fake asks for a fixed one
+ * @param {function} [options.control]  answers POST /control: called with its query's URLSearchParams
  * @returns {Promise<{baseUrl: string, requests: object[], of: function, close: function}>}
  */
-async function fakeGemini(script = {}, { port = 0 } = {}) {
+async function fakeGemini(script = {}, { port = 0, control } = {}) {
   const requests = [];
   const counts = {};
   const server = http2.createServer();
@@ -136,6 +138,12 @@ async function fakeGemini(script = {}, { port = 0 } = {}) {
     const chunks = [];
     stream.on('data', (chunk) => chunks.push(chunk));
     stream.on('end', () => {
+      if (control && headers[':path'].startsWith('/control')) {
+        control(new URL(headers[':path'], 'http://fake').searchParams);
+        stream.respond({ ':status': 204 });
+        stream.end();
+        return;
+      }
       if (headers[':path'] !== GENERATE_CONTENT_PATH) {
         respond(stream, grpcError(12, `unknown method ${headers[':path']}`));
         return;
@@ -149,7 +157,7 @@ async function fakeGemini(script = {}, { port = 0 } = {}) {
       requests.push({ path: headers[':path'], model, kind, body, headers, bytes: message.length });
 
       let entry = script[kind];
-      if (typeof entry === 'function') entry = entry(body, index);
+      if (typeof entry === 'function') entry = entry(body, index, model);
       if (Array.isArray(entry)) entry = entry[Math.min(index, entry.length - 1)];
 
       let reply;
@@ -171,17 +179,93 @@ async function fakeGemini(script = {}, { port = 0 } = {}) {
   return { baseUrl: `http://127.0.0.1:${server.address().port}`, requests, of, close, server };
 }
 
-module.exports = { WAV, answer, dailyQuotaExhausted, fakeGemini, grpcError, kindOf, quotaExhausted, textAnswer, wavAnswer };
+/**
+ * The e2e fake's script: every kind passes, as a person's card would, with the limits a run of
+ * cards meets switchable while it serves (state, changed by control):
+ *   text        known = the line typed ("Their input"), learning = a Korean sentence numbered from it
+ *   speech      a tone unique to its text; refused per minute past state.perMinute per model, with
+ *               the RetryInfo of the oldest request's minute
+ *   transcribe  the text whose tone it hears, so every clip passes
+ *   judge       matches
+ *   state.daily: every text call refused for the day; the line "broken line" fails its first call.
+ */
+function e2eScript(state = { perMinute: Infinity, daily: false }, now = () => Date.now()) {
+  const windows = new Map();
+  const spoken = [];
+  let broken = false;
+  const tone = (said) => {
+    const rate = 24000;
+    const pcm = new Int16Array(rate / 2);
+    const freq = 200 + (crypto.createHash('sha1').update(said).digest()[0] % 200);
+    for (let i = 0; i < pcm.length; i += 1) pcm[i] = Math.round(6000 * Math.sin((2 * Math.PI * freq * i) / rate));
+    const bytes = Buffer.from(pcmToWav(new Uint8Array(pcm.buffer), rate, 1));
+    spoken.push({ needle: bytes.subarray(44 + 2 * freq, 44 + 2 * freq + 64), said });
+    return bytes;
+  };
+  const textOf = (body) => (body.contents || []).flatMap((c) => c.parts || []).map((p) => p.text || '').join('\n');
+  const heard = (body) => {
+    const audio = (body.contents || []).flatMap((c) => c.parts || []).find((p) => p.inlineData);
+    const bytes = Buffer.from(audio.inlineData.data);
+    return spoken.find((s) => bytes.includes(s.needle))?.said ?? '';
+  };
+  return {
+    state,
+    text: (body) => {
+      if (state.daily) return dailyQuotaExhausted();
+      const input = (/Their input: "([^"\n]+)"/.exec(textOf(body)) || [])[1] || 'line';
+      if (input === 'broken line' && !broken) {
+        broken = true;
+        return grpcError(13, 'The model is overloaded. Please try again later.');
+      }
+      const number = (input.match(/\d+/) || [String(input.length)])[0];
+      return { known_text: input, learning_text: `${number}번 문장이에요.`, sense_tag: '', register: 'polite', spoken_reading: '' };
+    },
+    speech: (body, index, model) => {
+      const t = now();
+      const starts = (windows.get(model) || []).filter((s) => t - s < 60_000);
+      windows.set(model, starts);
+      if (starts.length >= state.perMinute) {
+        return quotaExhausted({ quotaId: 'GenerateRequestsPerMinutePerProjectPerModel', quotaValue: state.perMinute },
+          (starts[0] + 60_000 - t) / 1000);
+      }
+      starts.push(t);
+      return wavAnswer(tone(textOf(body)));
+    },
+    transcribe: (body) => heard(body),
+    judge: (body) => ({ heard: heard(body), matches: true, reason: 'fake server' }),
+    transcriptJudge: { matches: true },
+    /** POST /control?perMinute=N&daily=0|1: the limits from now on; the minute's count starts again. */
+    control(params) {
+      if (params.has('perMinute')) state.perMinute = Number(params.get('perMinute'));
+      if (params.has('daily')) state.daily = params.get('daily') === '1';
+      windows.clear();
+    },
+  };
+}
+
+/** POST /control on a running fake (it speaks HTTP/2 only), resolved once it answered. */
+function controlFake(baseUrl, query) {
+  return new Promise((resolve, reject) => {
+    const session = http2.connect(baseUrl);
+    session.on('error', reject);
+    const request = session.request({ ':method': 'POST', ':path': `/control?${query}` });
+    request.on('response', () => {});
+    request.on('end', () => {
+      session.close();
+      resolve();
+    });
+    request.on('error', reject);
+    request.resume();
+    request.end();
+  });
+}
+
+module.exports = { WAV, answer, controlFake, dailyQuotaExhausted, e2eScript, fakeGemini, grpcError, kindOf, quotaExhausted, textAnswer, wavAnswer };
 
 if (require.main === module) {
-  // The e2e fake: every kind passes, so a whole card goes through.
-  const script = {
-    text: { known_text: 'Where is the station?', learning_text: '역이 어디예요?', sense_tag: '', register: 'polite', spoken_reading: '' },
-    transcribe: '',
-    judge: { heard: '', matches: true, reason: 'fake server' },
-    transcriptJudge: { matches: true },
-  };
-  fakeGemini(script, { port: Number(process.argv[2] || 0) }).then(({ baseUrl, server }) => {
+  // The e2e fake: every kind passes, so whole cards go through; its limits switch through /control.
+  const script = e2eScript();
+  fakeGemini(script, { port: Number(process.argv[2] || 0), control: script.control }).then(({ baseUrl, server }) => {
     server.ref();
     console.log(`GEMINI_API_BASE=${baseUrl}`);
   });
