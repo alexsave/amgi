@@ -195,7 +195,6 @@ void decks_answer(uint32_t token, uint32_t status, const uint8_t *p, uint32_t le
 }
 
 void decks_event(const cd_event_rec *e, uint32_t tag) {
-  if (e->type != (TAG_ACTION(tag) == A_MODAL_SUBMIT ? CD_EV_SUBMIT : CD_EV_CLICK)) return; /* see deck_event */
   switch (TAG_ACTION(tag)) {
   case A_DECK: {
     uint32_t i = TAG_INDEX(tag);

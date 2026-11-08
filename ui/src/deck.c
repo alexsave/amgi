@@ -550,11 +550,6 @@ void deck_event(const cd_event_rec *e, uint32_t tag) {
     return;
   }
   if (TAG_MODULE(tag) != M_DECK) return; /* the form and the run: phase 4 */
-  /* Only the event each node listens for acts: a focusout from a node already taken away arrives
-   * late, under its id, which a node built since may have been given (cdom reuses ids). */
-  uint32_t action = TAG_ACTION(tag);
-  int typed = action == A_NAME_BLUR || action == A_KNOWN || action == A_LEARNING;
-  if (!typed && e->type != CD_EV_CLICK) return;
   char code[8];
   switch (TAG_ACTION(tag)) {
   case A_BACK: go("/decks", 6); break;
