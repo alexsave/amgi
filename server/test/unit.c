@@ -102,6 +102,16 @@ static void text_rules(void) {
   rng_seed(&r, 1);
   uint32_t want[] = {1828152527, 3394835397u, 2967886022u, 2251045104u};
   for (int i = 0; i < 4; i++) CHECK(rng_next(&r) == want[i], "draw %d of seed 1", i);
+  /* The OS seed uses every one of its 16 bytes: two that differ only past the fourth differ. */
+  uint8_t e1[16] = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}, e2[16];
+  memcpy(e2, e1, 16);
+  e2[15] ^= 0x80;
+  rng r1, r2;
+  rng_seed_entropy(&r1, e1);
+  rng_seed_entropy(&r2, e2);
+  int differ = 0;
+  for (int i = 0; i < 4; i++) differ |= rng_next(&r1) != rng_next(&r2);
+  CHECK(differ, "an OS seed of 16 bytes draws differently when only its last byte differs");
   CHECK_STR(path_join(&a, S("/m/collection.media"), S("../clip.ogg")), "/m/clip.ogg");
   CHECK_STR(path_extname(S("a.b.")), ".");
   CHECK_STR(path_extname(S(".hidden")), "");

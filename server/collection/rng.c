@@ -36,17 +36,33 @@ uint32_t rng_next(rng *r) {
   return t;
 }
 
+void rng_seed_entropy(rng *r, const uint8_t entropy[16]) {
+  uint32_t w[4];
+  for (int i = 0; i < 4; i++)
+    w[i] = (uint32_t)entropy[4 * i] | (uint32_t)entropy[4 * i + 1] << 8 | (uint32_t)entropy[4 * i + 2] << 16 |
+           (uint32_t)entropy[4 * i + 3] << 24;
+  r->a = w[0], r->b = w[1], r->c = w[2], r->d = w[3];
+  for (int i = 0; i < 12; i++) rng_next(r);
+}
+
 static rng process_rng;
 static pthread_once_t once = PTHREAD_ONCE_INIT;
 static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 
+/* A fixed seed goes through random.js's own seeding (so a seed gives random.js's draws); the OS
+ * seed fills the whole 128-bit state from 16 bytes of entropy, once per process: a note's guid is a
+ * 64-bit draw, and 32 bits of seed would let two processes share a guid sequence. */
 static void seed_once(void) {
-  uint32_t seed = (uint32_t)AMGI_SEED;
-  if (AMGI_SEED < 0 && getentropy(&seed, sizeof seed) != 0) {
+  if (AMGI_SEED >= 0) {
+    rng_seed(&process_rng, (uint32_t)AMGI_SEED);
+    return;
+  }
+  uint8_t entropy[16];
+  if (getentropy(entropy, sizeof entropy) != 0) {
     perror("amgi: getentropy");
     abort();
   }
-  rng_seed(&process_rng, seed);
+  rng_seed_entropy(&process_rng, entropy);
 }
 
 uint32_t rng_uint32(void) {
