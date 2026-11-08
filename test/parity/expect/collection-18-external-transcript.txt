@@ -1,0 +1,9 @@
+> createDeck Ours%201
+ok <D1> Ours%201 1
+> createDeck Ours%202
+ok <D2> Ours%202 1
+# Anki added a deck
+> createDeck Ours%203
+ok <D3> Ours%203 1
+> createDeck Ours%204
+ok <D4> Ours%204 1

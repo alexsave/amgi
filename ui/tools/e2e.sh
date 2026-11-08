@@ -5,6 +5,11 @@
 # ui/tools/drives.sh. Build first (ui/build.sh) and make the fixture (ui/tools/fixture.sh).
 #
 #   ui/tools/e2e.sh [shots dir]        (default .e2e/shots)
+#
+# The app server under test is node ui/server/serve.mjs, or AMGI_SERVER=<executable> (run from the
+# repo root with no arguments, PORT=0, printing the same "amgi on <url>" line), so the same drives
+# check another implementation of the server unchanged (test/parity/servers.mjs takes the same
+# variable).
 set -uo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 root="$(cd "$here/../.." && pwd)"
@@ -16,6 +21,7 @@ mkdir -p "$shots" "$logs"
 for v in ANKI_PYTHON_BIN ANKI_FIXTURE_APKG; do
   if [ -z "${!v:-}" ]; then echo "set $v (see the e2e-ui skill)" >&2; exit 1; fi
 done
+if [ -n "${AMGI_SERVER:-}" ]; then server=("$AMGI_SERVER"); else server=(node ui/server/serve.mjs); fi
 pids=()
 trap '[ ${#pids[@]} -gt 0 ] && kill "${pids[@]}" 2> /dev/null' EXIT
 
@@ -31,7 +37,7 @@ start() {
   if [ -z "${!var}" ]; then echo "$var did not start: see $log" >&2; exit 1; fi
 }
 start gemini GEMINI_API_BASE= node plusaudio/test/helpers/fake-gemini.js 0
-start app 'amgi on ' env GEMINI_API_KEY=offline-dummy GEMINI_API_BASE=http://127.0.0.1:9 PORT=0 node ui/server/serve.mjs
-start keyless 'amgi on ' env GEMINI_API_KEY= PORT=0 node ui/server/serve.mjs
-start faked 'amgi on ' env GEMINI_API_KEY=fake "GEMINI_API_BASE=$gemini" PORT=0 node ui/server/serve.mjs
+start app 'amgi on ' env GEMINI_API_KEY=offline-dummy GEMINI_API_BASE=http://127.0.0.1:9 PORT=0 "${server[@]}"
+start keyless 'amgi on ' env GEMINI_API_KEY= PORT=0 "${server[@]}"
+start faked 'amgi on ' env GEMINI_API_KEY=fake "GEMINI_API_BASE=$gemini" PORT=0 "${server[@]}"
 ui/tools/drives.sh cdom "$app" "$keyless" "$faked" "$gemini" "$shots"

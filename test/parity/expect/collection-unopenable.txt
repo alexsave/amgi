@@ -1,0 +1,30 @@
+> open missing.anki2
+ok
+> status
+ok not-found !
+> listDecks
+err not-found collection%20is%20not-found
+> createDeck x
+err not-found collection%20is%20not-found
+> addNote 1 1 [x,y] [] ! !
+err not-found collection%20is%20not-found
+> open old.anki2
+ok
+> status
+ok unsupported-schema !
+> listDecks
+err unsupported-schema collection%20is%20unsupported-schema
+> createDeck x
+err unsupported-schema collection%20is%20unsupported-schema
+> addNote 1 1 [x,y] [] ! !
+err unsupported-schema collection%20is%20unsupported-schema
+> open junk.anki2
+ok
+> status
+err error file%20is%20not%20a%20database
+> listDecks
+err error file%20is%20not%20a%20database
+> createDeck x
+err error file%20is%20not%20a%20database
+> addNote 1 1 [x,y] [] ! !
+err error file%20is%20not%20a%20database
