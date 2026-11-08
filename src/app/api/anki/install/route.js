@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
 import { readSettings } from '../../../../server/anki/settings';
-import { collectionDrift, installAddons, installState } from '../../../../server/anki/install';
+import { INSTALLED_MESSAGE, collectionDrift, installAddons, installNotetypeDirect, installState } from '../../../../server/anki/install';
 import { discoverProfiles, resolveTransport } from '../../../../server/anki/transport';
 
 // One-button setup: copy amgi's two add-ons and its card type into the Anki
-// data folder. See src/server/anki/install.js for why the note type itself is
-// created by the add-on rather than here.
+// data folder, and, when Anki is closed, create the note type in the
+// collection right here. With Anki open the add-on does that at its next
+// start. See src/server/anki/install.js for how the two writers split.
 export async function POST(request) {
   const settings = readSettings(request);
   // The override in the request body wins over the one in the saved settings
@@ -19,7 +20,16 @@ export async function POST(request) {
     : settings.baseDirOverride;
   const { baseDir } = discoverProfiles(override);
   const result = installAddons({ baseDir });
-  return NextResponse.json(result, { status: result.ok ? 200 : 409 });
+  if (!result.ok) return NextResponse.json(result, { status: 409 });
+
+  // Whichever transport is live right now: only the direct one can write.
+  const transport = await resolveTransport(settings);
+  const notetype = await installNotetypeDirect({ ops: transport.ops });
+  const ready = notetype.created || notetype.existed === true;
+  return NextResponse.json(
+    { ...result, notetypeCreated: notetype.created, needsRestart: !ready, message: ready ? INSTALLED_MESSAGE : result.message },
+    { status: 200 },
+  );
 }
 
 // Whether amgi is already in this Anki, and whether Anki has caught up.

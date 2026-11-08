@@ -101,6 +101,10 @@ export function createDirectOps(collectionPath) {
     async existingFieldValues(deckId, notetypeId, fieldIndex) {
       return locked(() => unwrap(col.listFieldValuesInDeck(deckId, notetypeId, fieldIndex)));
     },
+    /** Create a note type with its fixed-name media - see plusaudio/lib/collection/notetype-write.js. Absent from the bridge ops on purpose: with Anki open the add-on makes it. */
+    async createNotetype(spec, media) {
+      return locked(() => unwrap(col.createNotetype(spec, media)));
+    },
     async createDeck(name) {
       return locked(() => unwrap(col.createDeck(name)));
     },

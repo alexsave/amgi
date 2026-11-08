@@ -5,9 +5,11 @@ import { collectionDrift, installAddons, installState, sourceAvailable } from '.
 
 // What the website's one-button setup actually puts on disk.
 //
-// The note type is NOT tested here, on purpose: it is created inside Anki by
-// anki/addon/amgi_bridge/notetype.py, against Anki's own API, and is covered
-// by test_notetype_collection.py running against a real Collection. What this
+// The note type is NOT tested here, on purpose: with Anki open it is created
+// inside Anki by anki/addon/amgi_bridge/notetype.py (covered by
+// test_notetype_collection.py against a real Collection), and with Anki closed
+// by the Node writer (covered against the real library, and against the
+// add-on's output, in installNotetype.test.js). What this
 // file is responsible for is narrower and entirely checkable from Node - do
 // the right folders land in the right place, is anything shipped that should
 // not be, and does a machine with no Anki on it get told so rather than
