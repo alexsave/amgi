@@ -7,7 +7,6 @@
 #include "app.h"
 
 enum { QUEUED, MAKING, WAITING, DONE, SKIPPED, BROKEN };
-enum { T_KEYS = 1, T_LINE, T_WRITE };
 enum { TM_WAIT = 1, TM_TICK, TM_FLUSH };
 #define CONCURRENCY 5
 #define FLUSH_SIZE 10
@@ -42,6 +41,16 @@ static holder h;
 static void (*finished)(void);
 
 static uint32_t token(uint32_t kind, uint32_t i) { return (run & 0xf) << 20 | kind << 16 | (i & 0xffff); }
+/* A request's ctx: the run that asked and the row or batch it is for. A request cannot be taken
+ * back, so an answer for a run that is over (a later run, or the view gone) is dropped by its run. */
+static void *asked(uint32_t i) { return CTX_OF((run & 0xffff) << 16 | (i & 0xffff)); }
+static int current(void *ctx, uint32_t *i) {
+  *i = CTX_INDEX(ctx) & 0xffff;
+  return shown && CTX_INDEX(ctx) >> 16 == (run & 0xffff);
+}
+ON_ANSWER(keys_answered);
+ON_ANSWER(line_answered);
+ON_ANSWER(write_answered);
 
 static const char *const STATUS_LABEL[] = {"queued", "making…", "rate limited", "in the deck", "already here", "failed"};
 
@@ -212,7 +221,7 @@ static void write_next(void) {
   }
   wire_q_notes q = {notes, n};
   writing = 1;
-  ask(M_BULK, token(T_WRITE, batch_head), "POST", "/notes/bulk", WK_Q_NOTES, &q);
+  ask(write_answered, asked(batch_head), "POST", "/notes/bulk", WK_Q_NOTES, &q);
   cd_free(all);
   cd_free(notes);
 }
@@ -243,7 +252,7 @@ static void line_ask(uint32_t i) {
   text_free(&r->error);
   changed(i);
   wire_q_card_text q = {{r->line.p, r->line.len}, {langs.known, zlen(langs.known)}, {langs.learning, zlen(langs.learning)}, 1};
-  ask(M_BULK, token(T_LINE, i), "POST", "/card-text", WK_Q_CARD_TEXT, &q);
+  ask(line_answered, asked(i), "POST", "/card-text", WK_Q_CARD_TEXT, &q);
 }
 
 static void start_more(void);
@@ -298,7 +307,9 @@ static void wait_then_ask(uint32_t i, uint32_t ms, uint32_t status) {
   timer_start(M_BULK, ms, token(TM_WAIT, i));
 }
 
-static void line_answer(uint32_t i, uint32_t status, const uint8_t *p, uint32_t len) {
+ON_ANSWER(line_answered) {
+  uint32_t i;
+  if (!current(ctx, &i) || i >= nrows) return;
   row *r = &rows[i];
   wire_card_text c;
   answer a = take(&h, WK_CARD_TEXT, status, p, len, &c);
@@ -364,7 +375,9 @@ static void line_answer(uint32_t i, uint32_t status, const uint8_t *p, uint32_t 
   line_ended(i);
 }
 
-static void write_answer(uint32_t batch, uint32_t status, const uint8_t *p, uint32_t len) {
+ON_ANSWER(write_answered) {
+  uint32_t batch;
+  if (!current(ctx, &batch) || batch >= nbatches) return;
   wire_notes_added w;
   answer a = take(&h, WK_NOTES_ADDED, status, p, len, &w);
   uint32_t *b = batches[batch], n = batch_n[batch];
@@ -400,7 +413,9 @@ static void begin(void) {
   if (!nrows) maybe_done();
 }
 
-static void keys_answer(uint32_t status, const uint8_t *p, uint32_t len) {
+ON_ANSWER(keys_answered) {
+  uint32_t field;
+  if (!current(ctx, &field)) return;
   wire_field_values v;
   answer a = take(&h, WK_FIELD_VALUES, status, p, len, &v);
   if (a.ok) {
@@ -504,7 +519,7 @@ void bulk_start(cd_id form_box, int64_t deck, const notetype *type, const lang_p
     pn = catz(path, pn, "&fieldIndex=");
     pn = catn(path, pn, (uint32_t)fields[k]);
     path[pn] = 0;
-    ask(M_BULK, token(T_KEYS, (uint32_t)k), "GET", path, WIRE_NONE, 0);
+    ask(keys_answered, asked((uint32_t)k), "GET", path, WIRE_NONE, 0);
   }
 }
 
@@ -515,14 +530,6 @@ void bulk_forget(void) {
   clear_run();
   shown = 0;
   run++;
-}
-
-void bulk_answer(uint32_t t, uint32_t status, const uint8_t *p, uint32_t len) {
-  if (!shown || (t >> 20) != (run & 0xf)) return;
-  uint32_t kind = (t >> 16) & 0xf, i = t & 0xffff;
-  if (kind == T_KEYS) keys_answer(status, p, len);
-  else if (kind == T_LINE && i < nrows) line_answer(i, status, p, len);
-  else if (kind == T_WRITE && i < nbatches) write_answer(i, status, p, len);
 }
 
 void bulk_timer(uint32_t t) {

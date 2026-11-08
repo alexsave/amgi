@@ -60,10 +60,9 @@ void icon(const char *d1, const char *d2, cd_str style);
 void icon_with(const char *d1, const char *d2, cd_str style, cd_str cls); /* with a class (className="icon") */
 extern const char ICON_COG[], ICON_COG_HUB[], ICON_PLUS[], ICON_TRASH[], ICON_X[];
 
-/* ---- modules: a module's id is the top byte of its tokens ---- */
-enum { M_SHELL = 1, M_DECKS, M_SETTINGS, M_DECK, M_CHIP, M_FORM, M_PANEL, M_BULK, M_MODAL, M_FIRSTRUN, M_STARTER,
-       M_TEMPLATE, M_COUNT /* not a module: one past the last */ };
-/* A module id is a token's top byte (timers, requests, store calls), and cdom keeps every token from
+/* ---- modules: the ones whose timers and store calls are routed by a token's top byte ---- */
+enum { M_SHELL = 1, M_SETTINGS, M_DECK, M_BULK, M_COUNT /* not a module: one past the last */ };
+/* A module id is a token's top byte (timers, store calls), and cdom keeps every token from
  * CD_TOKEN_CDOM (0x80000000) up for itself: so no module id may reach 0x80. */
 _Static_assert(M_COUNT <= 0x80, "a module id past 0x7f makes tokens in cdom's own range");
 /* A timer: cd_on_timer(module << 24 | token) after ms, which shell.c hands to that module. The only
@@ -79,18 +78,23 @@ static inline void timer_start(uint32_t module, uint32_t ms, uint32_t token) {
  * caller passed (out). ok: a 2xx of the expected kind. err: the error answer, when one came. */
 typedef struct { uint32_t status; int ok; wire_error err; } answer;
 /* Ask: method and path under /api/anki; the body a request struct of kind qkind (WIRE_NONE: no
- * body). The answer comes to the module's on_answer hook with the token as given. */
-void ask(uint32_t module, uint32_t token, const char *method, const char *path, uint32_t qkind, const void *body);
+ * body). The answer comes to fn(ctx, status, bytes, len) (cd_http_cb). */
+void ask(cd_http_fn fn, void *ctx, const char *method, const char *path, uint32_t qkind, const void *body);
 /* The same with other settings than the saved ones (a scan of a folder typed but not saved). */
-void ask_as(const text *with, uint32_t module, uint32_t token, const char *method, const char *path, uint32_t qkind,
+void ask_as(const text *with, cd_http_fn fn, void *ctx, const char *method, const char *path, uint32_t qkind,
             const void *body);
-/* Inside an on_answer hook: read the bytes as kind into out, its lists in held room that lives until
- * the next take into the same holder (so a page of notes can stay on screen). */
+/* An answer's handler, defined: static, and ctx may go unused. */
+#define ON_ANSWER(name) \
+  static void name(void *ctx __attribute__((unused)), uint32_t status, const uint8_t *p, uint32_t len)
+/* Inside an answer's handler: read the bytes as kind into out, its lists in held room that lives
+ * until the next take into the same holder (so a page of notes can stay on screen). */
 typedef struct { uint8_t *bytes; void *mem; } holder;
 answer take(holder *h, uint32_t kind, uint32_t status, const uint8_t *p, uint32_t len, void *out);
 void holder_free(holder *h);
-/* A clip's own bytes (GET /media/<name>), to cd_on_http as module M_CHIP. */
-void ask_media(uint32_t token, const char *name, uint32_t len);
+/* A clip's own bytes (GET /media/<name>), to fn(ctx, ...). */
+void ask_media(cd_http_fn fn, void *ctx, const char *name, uint32_t len);
+/* The token form and its hook are poisoned: a request's answer is its callback's. */
+#pragma GCC poison cd_http cd_on_http
 /* The answer's failure as a sentence (the server's error, or what went wrong on the way). */
 uint32_t answer_message(const answer *a, char *dst, uint32_t cap);
 
@@ -119,7 +123,6 @@ const deck *deck_by_id(int64_t id);
 void refresh_decks(void);
 void decks_drop_tree(int64_t id);  /* a deck that was deleted, and its subdecks, out of the list now */
 void poll_status(void);
-void state_answer(uint32_t token, uint32_t status, const uint8_t *p, uint32_t len);
 void state_start(void);   /* the settings are loaded: poll, fetch, and keep polling */
 void state_timer(uint32_t token);
 /* The note types, asked once (ensure) and kept: id, name, field names. */
@@ -176,18 +179,15 @@ void decks_rows(void);                    /* its rows, when decks change */
 int decks_setup_wanted(void);             /* the setup screen is what the state calls for */
 int decks_setup_shown(void);              /* the setup screen is what is on screen */
 void decks_forget(void);
-void decks_answer(uint32_t token, uint32_t status, const uint8_t *p, uint32_t len);
 
 void settings_build(void);
 void settings_after(void);                /* after the page region closed */
 void settings_forget(void);
-void settings_answer(uint32_t token, uint32_t status, const uint8_t *p, uint32_t len);
 void settings_timer(uint32_t token);
 
 void deck_build(void);                    /* CardList, for route_deck */
 void deck_after(void);
 void deck_forget(void);
-void deck_answer(uint32_t token, uint32_t status, const uint8_t *p, uint32_t len);
 void deck_reload(void);                   /* the open page of notes, asked again */
 void deck_decks_changed(void);            /* the deck list changed (a rename, a count) */
 void deck_notetypes_known(void);
@@ -200,7 +200,6 @@ enum { TONE_CUE, TONE_TARGET };
 int32_t chip_build(const char *filename, uint32_t flen, const char *label, uint32_t tone);
 void chip_forget(int32_t slot);           /* its node went with a region */
 cd_id chip_node(int32_t slot);
-void chip_answer(uint32_t token, uint32_t status, const uint8_t *p, uint32_t len);
 void chips_audio_loaded(uint32_t token, uint32_t clip);
 void chips_audio_ended(uint32_t voice);
 
@@ -213,27 +212,22 @@ void form_langs_changed(const lang_pair *langs);
 void bulk_start(cd_id form_box, int64_t deck, const notetype *type, const lang_pair *langs, const wire_str *lines,
                 uint32_t n, void (*on_finished)(void));
 void bulk_forget(void);
-void bulk_answer(uint32_t token, uint32_t status, const uint8_t *p, uint32_t len);
 void bulk_timer(uint32_t token);
 
 /* FirstRun (firstrun.c), shown as all of parent's children. */
 void firstrun_show(cd_id parent);
 void firstrun_forget(void);
-void firstrun_answer(uint32_t token, uint32_t status, const uint8_t *p, uint32_t len);
 
 /* CardPanel (panel.c), in the open row of the deck page. */
 void panel_build(int64_t id, const wire_strs *fields, const text *names, uint32_t nnames, const lang_pair *langs);
 void panel_after(void);
 void panel_forget(void);
-void panel_answer(uint32_t token, uint32_t status, const uint8_t *p, uint32_t len);
 void deck_note_removed(int64_t id);       /* the panel deleted its note */
 
 /* StarterDeck (starter.c), last in parent; TemplateUpdate (template.c), first in .app-content. */
 void starter_show(cd_id parent);
 void starter_forget(void);
-void starter_answer(uint32_t token, uint32_t status, const uint8_t *p, uint32_t len);
 void template_mode_changed(void);
-void template_answer(uint32_t token, uint32_t status, const uint8_t *p, uint32_t len);
 
 /* A confirmation in the page (modal.c), in place of window.confirm. */
 void confirm_ask(const char *title, const char *body, uint32_t blen, const char *note, const char *yes,
