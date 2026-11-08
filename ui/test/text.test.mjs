@@ -6,7 +6,7 @@ import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripHtmlForPreview, hasAudioReference, guessFields } from '../../src/utils/ankiFields.js';
-import { normalizeForDedupe } from '../../src/utils/lyricsParse.js';
+import { normalizeForDedupe, parseLyricsPaste } from '../../src/utils/lyricsParse.js';
 
 const dump = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'out', 'text_dump');
 const enc = new TextEncoder(), dec = new TextDecoder();
@@ -72,5 +72,17 @@ test('guess_fields picks the fields guessFields does', () => {
   types.forEach((t, i) => {
     const g = guessFields(t);
     assert.equal(got[i], [g.textIndex ?? -1, g.audioIndex ?? -1, g.cueAudioIndex ?? -1].join(','), JSON.stringify(t));
+  });
+});
+
+test('paste_lines makes the lines parseLyricsPaste does', () => {
+  const pastes = [
+    '', 'one line', 'a\nb\r\nc\rd', '  spaced  \n\n\t\n', '[Chorus]\nla la\n[Verse 2]\nla la.\nLa la',
+    'I said [laughs] okay\n[a]b]\n[]\n[ ]', '역이 어디예요?\n역이 어디예요\n역이  어디예요?!', '...\n!!!\n...',
+    'trailing\n', '\r\n\r\n', 'Hello, world\nhello, world\nHello world', '「引用」。\n「引用」',
+  ];
+  const got = c(pastes.map((p) => [7, p]));
+  pastes.forEach((p, i) => {
+    assert.equal(got[i], parseLyricsPaste(p, { skipSectionMarkers: true }).lines.map((l) => l.text).join('\x1f'), JSON.stringify(p));
   });
 });

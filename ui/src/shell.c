@@ -94,6 +94,7 @@ void cd_on_timer(uint32_t token) {
   switch (token >> 24) {
   case M_SHELL: state_timer(token & 0xffffff); break;
   case M_SETTINGS: settings_timer(token & 0xffffff); break;
+  case M_BULK: bulk_timer(token & 0xffffff); break;
   }
 }
 

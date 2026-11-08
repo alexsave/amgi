@@ -506,6 +506,14 @@ void deck_event(const cd_event_rec *e, uint32_t tag) {
     panel_event(e, tag);
     return;
   }
+  if (TAG_MODULE(tag) == M_FORM) {
+    form_event(e, tag);
+    return;
+  }
+  if (TAG_MODULE(tag) == M_BULK) {
+    bulk_event(e, tag);
+    return;
+  }
   if (TAG_MODULE(tag) != M_DECK) return; /* the form and the run: phase 4 */
   /* Only the event each node listens for acts: a focusout from a node already taken away arrives
    * late, under its id, which a node built since may have been given (cdom reuses ids). */

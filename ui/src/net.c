@@ -108,6 +108,7 @@ void cd_on_http(uint32_t token, uint32_t status, const uint8_t *p, uint32_t len)
   case M_FIRSTRUN: firstrun_answer(t, status, p, len); break;
   case M_DECKS: decks_answer(t, status, p, len); break;
   case M_PANEL: panel_answer(t, status, p, len); break;
+  case M_BULK: bulk_answer(t, status, p, len); break;
   case M_STARTER: starter_answer(t, status, p, len); break;
   case M_TEMPLATE: template_answer(t, status, p, len); break;
   }
