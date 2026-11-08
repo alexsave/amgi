@@ -72,6 +72,8 @@ str join_fields(cx *c, const str *fields, size_t n);
 str *split_fields(cx *c, str flds, size_t *n);
 int looks_romanized(cx *c, str text, str language);
 str render_audio_reference(cx *c, str filename);
+/* templateRendersNonEmpty: would the question render anything, given the non-empty names. */
+int template_renders_nonempty(cx *c, str question, const str *names, size_t n);
 /* ordinalsForNewNote: the 0-based card ordinals a new note needs. */
 size_t ordinals_for_new_note(cx *c, const col_notetype *nt, const str *fields, size_t nfields, size_t ntags, int64_t **out);
 

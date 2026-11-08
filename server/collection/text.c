@@ -488,6 +488,15 @@ static int renders(const nameset *nonempty, const node *nodes, size_t n) {
   return 0;
 }
 
+int template_renders_nonempty(cx *c, str question, const str *names, size_t n) {
+  nameset s = {names, n};
+  size_t nt, cursor = 0, nn;
+  token *t = tokenize(c, question, &nt);
+  node *nodes;
+  if (parse_until(c, t, nt, &cursor, 0, &nodes, &nn) < 0) return 0;
+  return renders(&s, nodes, nn);
+}
+
 static int template_renders(cx *c, str question, const nameset *nonempty) {
   size_t nt, cursor = 0, nn;
   token *t = tokenize(c, question, &nt);

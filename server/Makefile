@@ -40,10 +40,15 @@ COL_SRC := collection/util.c collection/rng.c collection/db.c collection/backup.
   collection/decks.c collection/notes.c collection/media.c collection/direct.c json/anki_json.c
 COL_HDR := $(wildcard collection/*.h json/*.h)
 
-all: $(BUILD)/parity_dump $(BUILD)/collection_cli
+all: $(BUILD)/parity_dump $(BUILD)/collection_cli $(BUILD)/difftest
 
 $(BUILD)/collection_cli: $(COL_SRC) collection/cli.c $(COL_HDR) | $(BUILD)
 	$(CC) $(CFLAGS_ALL) -o $@ $(COL_SRC) collection/cli.c $(LIBS)
+
+# The C side of test/parity/difftest.test.mjs, under the sanitizers.
+$(BUILD)/difftest: $(COL_SRC) test/difftest.c $(COL_HDR) | $(BUILD)
+	$(CC) $(WARN) -O1 -g -fsanitize=address,undefined -fno-sanitize-recover=all $(DEP_CFLAGS) -pthread \
+	  -o $@ $(COL_SRC) test/difftest.c $(LIBS)
 
 # The same CLI under AddressSanitizer and UndefinedBehaviorSanitizer, for the parity runner.
 $(BUILD)/collection_cli_san: $(COL_SRC) collection/cli.c $(COL_HDR) | $(BUILD)
