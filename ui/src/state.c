@@ -13,6 +13,12 @@ int decks_known;
 uint32_t mode = WIRE_MODE_UNCONFIGURED;
 int installed = -1;
 static int status_seen;
+static int64_t open_next = -1;
+
+void open_after_refresh(int64_t id) {
+  open_next = id;
+  refresh_decks();
+}
 notetype *notetypes;
 uint32_t nnotetypes;
 int notetypes_known;
@@ -35,6 +41,7 @@ void ensure_notetypes(void) {
 }
 
 void state_start(void) {
+  template_mode_changed();
   poll_status();
   refresh_decks();
   cd_timer_start(POLL_MS, TIMER_POLL);
@@ -49,6 +56,7 @@ static void set_mode(uint32_t m) {
   if (m == mode) return;
   mode = m;
   badges_update();
+  template_mode_changed(); /* whether Anki is open decides what the notice may do */
 }
 
 /* Closing Anki, or the bridge going up or down, changes the mode: what the mode implies is fetched
@@ -91,7 +99,11 @@ void state_answer(uint32_t token, uint32_t status, const uint8_t *p, uint32_t le
       /* not reachable now (no profile, locked, bridge down): a mode the page explains */
       set_mode(a.err.mode != WIRE_MODE_OTHER && a.err.error.len ? a.err.mode : WIRE_MODE_UNCONFIGURED);
     }
-    if (route == R_DECKS) {
+    if (open_next >= 0 && deck_by_id(open_next)) {
+      int64_t id = open_next;
+      open_next = -1;
+      go_deck(id);
+    } else if (route == R_DECKS) {
       if (!was_known) page_show();
       else decks_rows();
     } else if (route == R_DECK) {

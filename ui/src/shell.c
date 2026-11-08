@@ -6,6 +6,7 @@ uint32_t route = R_DECKS;
 int64_t route_deck;
 cd_id app_content;
 static cd_region page = {0};
+cd_id page_root(void) { return page.shown ? page.root : 0; }
 
 static int parse_route(const char *p, uint32_t len) {
   uint32_t end = 0;
@@ -69,8 +70,10 @@ void page_show(void) {
 
 /* ---- every hook cdom calls ---- */
 void cd_on_event(const cd_event_rec *e) {
-  if (e->type == CD_EV_VISIBILITY) {
-    if (!e->key) poll_status(); /* key 1: hidden. Coming back is when the answer most likely changed. */
+  /* Coming back to the tab is when the answer most likely changed: you were just in Anki. As
+   * DeckContext did, on the window's focus and on the document showing again (key 1: hidden). */
+  if (e->type == CD_EV_VISIBILITY || (e->type == CD_EV_FOCUS && (cd_id)e->id == CD_WINDOW)) {
+    if (e->type == CD_EV_FOCUS || !e->key) poll_status();
     return;
   }
   uint32_t tag = cd_tag((cd_id)e->id);
@@ -78,7 +81,11 @@ void cd_on_event(const cd_event_rec *e) {
   case M_SHELL: go("/settings", 9); break;
   case M_DECKS: decks_event(e, tag); break;
   case M_SETTINGS: settings_event(e, tag); break;
-  case M_DECK: case M_FORM: case M_PANEL: case M_BULK: case M_MODAL: deck_event(e, tag); break;
+  case M_DECK: case M_FORM: case M_PANEL: case M_BULK: deck_event(e, tag); break;
+  case M_MODAL: modal_event(e, tag); break;
+  case M_FIRSTRUN: firstrun_event(tag); break;
+  case M_STARTER: if (e->type == CD_EV_CLICK || e->type == CD_EV_CHANGE) starter_event(tag); break;
+  case M_TEMPLATE: template_event(tag); break;
   case M_CHIP: if (e->type == CD_EV_CLICK) chip_event(tag); break;
   }
 }
@@ -109,6 +116,7 @@ void cd_main(void) {
     cd_url_replace("/decks", 6);
   }
   cd_listen_window(CD_EV_VISIBILITY);
+  cd_listen(CD_WINDOW, CD_EV_FOCUS);
   app_content = cd_id_new();
   cd_at(CD_MOUNT, 0);
   el(CD_LIT("div"), CD_LIT("App"));
