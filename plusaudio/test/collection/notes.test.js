@@ -94,7 +94,7 @@ assert ${added.noteId} in found, "search index (sfld) was not updated to match t
     `listNotesInDeck (schema ${schema}): pagination never returns more than the page size, and covers every note`,
     { skip: !anki && 'no python3 with the anki library on PATH (set ANKI_PYTHON_BIN)' },
     () => {
-      const { dir, collectionPath, col } = setUp(schema);
+      const { dir, col } = setUp(schema);
       const basic = col.listNotetypes().result.find((n) => n.name === 'Basic');
       const deck = col.createDeck('Pagination Test').result.deck;
       const wanted = 25;

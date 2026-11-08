@@ -172,7 +172,7 @@ function listDecksSchema18(db) {
   return db
     .prepare('SELECT id, name FROM decks')
     .all()
-    .map((row) => ({ id: Number(row.id), name: row.name.replace(/\x1f/g, '::') }));
+    .map((row) => ({ id: Number(row.id), name: row.name.replaceAll('\x1f', '::') }));
 }
 
 /**
@@ -205,7 +205,7 @@ function withDecksCollationRelaxed(db, fn) {
 
 function resolveOrCreateDeckSchema18(db, humanName, now) {
   const existing = db.prepare('SELECT id, name FROM decks').all();
-  const byFold = new Map(existing.map((row) => [foldKey(row.name.replace(/\x1f/g, '::')), row]));
+  const byFold = new Map(existing.map((row) => [foldKey(row.name.replaceAll('\x1f', '::')), row]));
   const existingIds = new Set(existing.map((row) => Number(row.id)));
 
   const components = humanNameToComponents(humanName);
@@ -221,7 +221,7 @@ function resolveOrCreateDeckSchema18(db, humanName, now) {
 
   if (toCreate.length === 0) {
     const finalRow = byFold.get(foldKey(components.join('::')));
-    return { deck: { id: Number(finalRow.id), name: finalRow.name.replace(/\x1f/g, '::') }, created: false };
+    return { deck: { id: Number(finalRow.id), name: finalRow.name.replaceAll('\x1f', '::') }, created: false };
   }
 
   withDecksCollationRelaxed(db, () => {
@@ -239,7 +239,7 @@ function resolveOrCreateDeckSchema18(db, humanName, now) {
   db.prepare('UPDATE col SET mod = ? WHERE id = 1').run(Date.now());
 
   const last = toCreate[toCreate.length - 1];
-  return { deck: { id: last.id, name: last.nativeName.replace(/\x1f/g, '::') }, created: true };
+  return { deck: { id: last.id, name: last.nativeName.replaceAll('\x1f', '::') }, created: true };
 }
 
 /** Every deck in the collection, given an already-open handle - the shared read both listDecks and deckAndChildIds build on. */

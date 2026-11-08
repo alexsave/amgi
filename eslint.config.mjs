@@ -27,6 +27,12 @@ const config = [
       'no-unused-vars': ['error', { args: 'none', caughtErrors: 'none' }],
     },
   },
+  {
+    // anki/tools/build-loop.js concatenates voiceActivity.js and reviewLoop.js in front of this file,
+    // so these names are defined by the time it runs, just not in this file.
+    files: ['anki/src/anki-loop.js'],
+    languageOptions: { globals: { createReviewLoop: 'readonly', detectSpeechEnd: 'readonly', PHASE: 'readonly' } },
+  },
 ];
 
 export default config;

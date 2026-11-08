@@ -10,9 +10,7 @@
 
 import { beforeEach, describe, mock, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createRequire } from 'node:module';
 
-const require = createRequire(import.meta.url);
 import path from 'node:path';
 
 const started = [];

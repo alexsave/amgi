@@ -46,7 +46,7 @@ function decodeEntities(text) {
       const named = NAMED_ENTITIES[body.toLowerCase()];
       return named === undefined ? match : named;
     })
-    .replace(/ /g, ' ');
+    .replaceAll('\u00a0', ' ');
 }
 
 /**
