@@ -1,68 +1,79 @@
-/* Reads one wire answer on stdin and prints what the app's readers make of it, a field a line, or
- * "bad" when a reader refuses the bytes. ui/test/wire.test.mjs feeds it the server's encoders. */
+/* Reads one wire message on stdin the way the app does (wire_room, wire_decode into the kind's
+ * struct), prints the struct field by field through the schema, then writes the struct again with
+ * the app's writer (wire_encode) and says whether the bytes came back the same. "bad" when the
+ * reader refuses the bytes. ui/test/wire.test.mjs feeds it the server's encoder. */
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include "../wire/wire.h"
 
-uint8_t *wire_grow(uint8_t *p, uint32_t len, uint32_t cap) { (void)p; (void)len; (void)cap; return 0; }
+uint8_t *wire_grow(uint8_t *p, uint32_t len, uint32_t cap) {
+  (void)len;
+  return realloc(p, cap);
+}
 
-static void str(const char *k, wire_str s) { printf("%s=%.*s\n", k, (int)s.len, s.p); }
+static void print(const wire_schema *s, const uint8_t *in, const char *prefix) {
+  for (uint32_t i = 0; i < s->n; i++) {
+    const wire_field *f = &s->f[i];
+    const uint8_t *at = in + f->off;
+    printf("%s%s=", prefix, f->key);
+    switch (f->type) {
+    case WT_BOOL: case WT_TRI: printf("%u\n", *at); break;
+    case WT_MODE: printf("%s\n", wire_mode_name(*(const uint32_t *)at)); break;
+    case WT_U32: case WT_OPT: printf("%u\n", *(const uint32_t *)at); break;
+    case WT_I32: printf("%d\n", *(const int32_t *)at); break;
+    case WT_I64: {
+      int64_t v;
+      memcpy(&v, at, sizeof v);
+      printf("%lld\n", (long long)v);
+      break;
+    }
+    case WT_STR: {
+      const wire_str *v = (const wire_str *)at;
+      printf("%.*s\n", (int)v->len, v->p);
+      break;
+    }
+    case WT_STRS: {
+      const wire_strs *v = (const wire_strs *)at;
+      printf("[");
+      for (uint32_t k = 0; k < v->n; k++) printf("%s%.*s", k ? "|" : "", (int)v->v[k].len, v->v[k].p);
+      printf("]\n");
+      break;
+    }
+    case WT_LIST: {
+      const uint8_t *items = *(const uint8_t *const *)at;
+      uint32_t n = *(const uint32_t *)(in + f->off_n);
+      printf("%u\n", n);
+      char sub[64];
+      for (uint32_t k = 0; k < n; k++) {
+        snprintf(sub, sizeof sub, "%s%s.%u.", prefix, f->key, k);
+        print(f->sub, items + k * f->sub->size, sub);
+      }
+      break;
+    }
+    }
+  }
+}
 
 int main(void) {
   static uint8_t buf[1 << 20];
   uint32_t len = (uint32_t)fread(buf, 1, sizeof buf, stdin);
-  switch (wire_kind(buf, len)) {
-  case WIRE_ERROR: {
-    wire_error e;
-    if (!wire_read_error(buf, len, &e)) break;
-    printf("mode=%s\nretry=%u\nflags=%u\n", wire_mode_name(e.mode), e.retry_after_ms, e.flags);
-    str("error", e.error);
-    return 0;
+  int32_t kind = wire_kind(buf, len);
+  const wire_schema *s = kind >= 0 ? wire_schema_of((uint32_t)kind) : 0;
+  uint32_t room = s ? wire_room((uint32_t)kind, buf, len) : WIRE_NONE;
+  if (room == WIRE_NONE) {
+    printf("bad\n");
+    return 1;
   }
-  case WIRE_STATUS: {
-    wire_status s;
-    if (!wire_read_status(buf, len, &s)) break;
-    printf("mode=%s\nschema=%u\n", wire_mode_name(s.mode), s.schema_version);
-    str("detail", s.detail);
-    return 0;
-  }
-  case WIRE_DECKS: {
-    wire_in in;
-    wire_deck d;
-    uint32_t mode, n;
-    if (!wire_decks_check(buf, len) || !wire_decks_open(&in, buf, len, &mode, &n)) break;
-    printf("mode=%s\nn=%u\n", wire_mode_name(mode), n);
-    while (wire_decks_next(&in, &d)) {
-      printf("id=%lld\ncount=%u\n", (long long)d.id, d.note_count);
-      str("name", d.name);
-    }
-    return 0;
-  }
-  case WIRE_INSTALL: {
-    wire_install s;
-    if (!wire_read_install(buf, len, &s)) break;
-    printf("installed=%u\nup_to_date=%u\nchecked=%u\nstale=%u\nready=%u\n", s.installed, s.up_to_date,
-           s.collection_checked, s.stale_count, s.ready);
-    return 0;
-  }
-  case WIRE_PROFILES: {
-    wire_in in;
-    wire_str base;
-    wire_profile p;
-    uint32_t exists, n, seen = 0;
-    /* Read it all once to check it, then again to print it. */
-    if (!wire_profiles_open(&in, buf, len, &base, &exists, &n)) break;
-    while (wire_profiles_next(&in, &p)) seen++;
-    if (seen != n || in.bad || in.p != in.end) break;
-    wire_profiles_open(&in, buf, len, &base, &exists, &n);
-    str("base", base);
-    printf("exists=%u\nn=%u\n", exists, n);
-    while (wire_profiles_next(&in, &p)) {
-      str("name", p.name);
-      str("path", p.collection_path);
-    }
-    return 0;
-  }
-  }
-  printf("bad\n");
-  return 1;
+  void *out = calloc(1, s->size), *mem = malloc(room ? room : 1);
+  wire_decode((uint32_t)kind, buf, len, out, mem);
+  printf("kind=%s\n", wire_kind_name((uint32_t)kind));
+  print(s, out, "");
+  wire_buf b = {0, 0, 0};
+  wire_encode(&b, (uint32_t)kind, out);
+  printf("rewritten=%s\n", b.len == len && !memcmp(b.p, buf, len) ? "same" : "differ");
+  free(b.p);
+  free(out);
+  free(mem);
+  return 0;
 }

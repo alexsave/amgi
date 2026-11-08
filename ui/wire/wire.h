@@ -1,81 +1,141 @@
-/* amgi's wire format: the /api/anki answers as fixed binary layouts, written and read by this one
- * C file. The browser app links the readers; the Node server loads the same file built as
- * ui/out/wire.wasm and calls the writers through ui/server/wire.mjs, which only copies arguments in.
- * So the layout has one owner: a field's order and width are written down here and nowhere else.
+/* amgi's wire format: every /api/anki request body and answer between the app and its server as a
+ * fixed binary layout. One table in wire.c, the schema, names each kind's fields in order with
+ * their types and their JS key names; four walkers read it:
+ *   - the app (ui/src) reads an answer into the C struct below (wire_decode) and writes a request
+ *     from one (wire_encode);
+ *   - the Node server, through the same file built as ui/out/wire.wasm (wire_node.c and
+ *     ui/server/wire.mjs), writes an answer from the JS object a route handler returns and reads a
+ *     request body into a JS object for the handler, finding fields by the schema's key names.
+ * So a field's order, width and name are written down once, in wire.c's table.
  *
- * Every number is little-endian. A string is a u32 byte count then that many bytes of UTF-8.
- * An answer starts with the u32 WIRE_MAGIC, then a u8 kind, then the kind's body:
- *   WIRE_ERROR    u8 mode, u32 retry_after_ms (WIRE_NO_RETRY: none), u8 flags (WIRE_F_*), str error
- *   WIRE_STATUS   u8 mode, u32 schema_version, str detail
- *   WIRE_DECKS    u8 mode, u32 n, then n times: i64 id, u32 note_count, str name
- *   WIRE_INSTALL  u8 installed, u8 up_to_date (WIRE_UNKNOWN: null), u8 collection_checked,
- *                 u32 stale_count, u8 ready
- *   WIRE_PROFILES str base_dir, u8 base_dir_exists, u32 n, then n times: str name, str collection_path
- * A client asks for it with the request header "Accept: application/x-amgi-wire"; without it the
- * server answers the JSON that skills/amgi documents, unchanged. */
+ * A client asks for it with "Accept: application/x-amgi-wire" and sends bodies as
+ * "Content-Type: application/x-amgi-wire". Without those the server speaks the JSON API that
+ * skills/amgi documents for LLMs and scripts: a recorded exception for that outside surface only
+ * (README, "JSON that remains and why"). The app never uses it.
+ *
+ * Bytes: little-endian. A string is a u32 byte count and that many bytes of UTF-8. A list is a u32
+ * count and its items. A message is the u32 WIRE_MAGIC, a u8 kind, then the kind's fields. */
 #ifndef AMGI_WIRE_H
 #define AMGI_WIRE_H
+#include <stddef.h>
 #include <stdint.h>
 
-#define WIRE_MAGIC 0x31574d41u /* "AMW1" */
+#define WIRE_MAGIC 0x32574d41u /* "AMW2" */
 #define WIRE_MIME "application/x-amgi-wire"
 
-enum { WIRE_ERROR, WIRE_STATUS, WIRE_DECKS, WIRE_INSTALL, WIRE_PROFILES, WIRE_KINDS };
+/* Field types. */
+enum {
+  WT_BOOL,  /* u8: JS true is 1, anything else 0 */
+  WT_TRI,   /* u8: true 1, false 0, anything else WIRE_UNKNOWN */
+  WT_U32,   /* u32: a JS number, rounded, clamped to 0..2^32-1; missing 0 */
+  WT_OPT,   /* u32: the same, but missing (or not a number) is WIRE_NONE and left out of a JS object */
+  WT_I32,   /* i32: an index; missing WIRE_ABSENT and left out of a JS object */
+  WT_I64,   /* i64: an Anki id (ms since 1970, past 2^32) */
+  WT_STR,   /* string; missing "" */
+  WT_MODE,  /* u8: a transport mode, by name (wire_mode_of) */
+  WT_STRS,  /* list of strings */
+  WT_LIST,  /* list of items of a sub-schema */
+};
+#define WIRE_UNKNOWN 2u
+#define WIRE_NONE 0xffffffffu
+#define WIRE_ABSENT INT32_MIN
 
-/* The transport modes of src/server/anki/transport.js, in the order this table names them.
- * A mode the table does not know (a newer server) is WIRE_MODE_OTHER. */
+/* The transport modes of src/server/anki/transport.js. A name the table does not know (a newer
+ * server) is WIRE_MODE_OTHER, which reads back as "". */
 enum { WIRE_MODE_DIRECT, WIRE_MODE_BRIDGE, WIRE_MODE_LOCKED, WIRE_MODE_NOT_FOUND, WIRE_MODE_UNSUPPORTED_SCHEMA,
        WIRE_MODE_BRIDGE_NO_COLLECTION, WIRE_MODE_UNCONFIGURED, WIRE_MODE_OTHER, WIRE_MODES };
-/* The mode's name as the JSON API spells it ("not-found"), for mode < WIRE_MODES ("" for OTHER). */
 const char *wire_mode_name(uint32_t mode);
 uint32_t wire_mode_of(const char *s, uint32_t len);
 
-#define WIRE_NO_RETRY 0xffffffffu
-#define WIRE_UNKNOWN 2u
-enum { WIRE_F_NOT_STARTED = 1, WIRE_F_DAILY_CAP = 2 };
+typedef struct { const char *p; uint32_t len; } wire_str; /* points into the message's bytes */
+typedef struct { wire_str *v; uint32_t n; } wire_strs;
 
-/* ---- reading: the app's side. A string read is a pointer into the answer's bytes (valid while
- * they are) and a length. Every reader checks bounds and returns 0 for bytes that are not a whole
- * answer of that kind, 1 for one that is. ---- */
-typedef struct { const uint8_t *p, *end; int bad; uint32_t left; } wire_in; /* left: items still to read */
-typedef struct { const char *p; uint32_t len; } wire_str;
+/* ---- the kinds, and the C view of each ---- */
+enum {
+  /* answers */
+  WK_ERROR, WK_STATUS, WK_DECKS, WK_INSTALL_STATE, WK_PROFILES, WK_NOTETYPES, WK_NOTES, WK_FIELD_VALUES,
+  WK_DECK_CREATED, WK_DECK_RENAMED, WK_NOTE_ADDED, WK_NOTES_ADDED, WK_NOTE_CHANGED, WK_CARD_TEXT, WK_CLIP,
+  WK_STARTER_STATE, WK_STARTER_BUILT, WK_INSTALLED,
+  /* requests */
+  WK_Q_DECK_NAME, WK_Q_INSTALL, WK_Q_STARTER, WK_Q_NOTE, WK_Q_NOTES, WK_Q_NOTE_UPDATE, WK_Q_CARD_TEXT, WK_Q_AUDIO,
+  WK_KINDS
+};
+/* The kind's name as the server's route table spells it ("decks", "q_note"); 0 past the last. */
+const char *wire_kind_name(uint32_t kind);
 
-/* The kind of the answer in p, len, or -1 when it does not start with the magic. */
-int32_t wire_kind(const uint8_t *p, uint32_t len);
-/* An answer of kind WIRE_ERROR. */
-typedef struct { uint32_t mode, retry_after_ms, flags; wire_str error; } wire_error;
-int wire_read_error(const uint8_t *p, uint32_t len, wire_error *out);
+/* A 4xx or 5xx answer. retry_after_ms and max_wait_ms are WIRE_NONE unless Gemini's limit answered. */
+typedef struct { uint32_t mode; wire_str error; uint32_t retry_after_ms; uint8_t not_started, daily_cap; uint32_t max_wait_ms; } wire_error;
 typedef struct { uint32_t mode, schema_version; wire_str detail; } wire_status;
-int wire_read_status(const uint8_t *p, uint32_t len, wire_status *out);
-/* The decks answer is read deck by deck: wire_decks_open reads its head, then each wire_decks_next
- * one deck (n of them; a call past the last, or on bad bytes, returns 0). */
-typedef struct { int64_t id; uint32_t note_count; wire_str name; } wire_deck;
-int wire_decks_open(wire_in *in, const uint8_t *p, uint32_t len, uint32_t *mode, uint32_t *n);
-int wire_decks_next(wire_in *in, wire_deck *out);
-/* wire_decks_open, then every deck, checked to the end: 1 when the whole answer is well formed. */
-int wire_decks_check(const uint8_t *p, uint32_t len);
-typedef struct { uint32_t installed, up_to_date, collection_checked, stale_count, ready; } wire_install;
-int wire_read_install(const uint8_t *p, uint32_t len, wire_install *out);
+typedef struct { int64_t id; wire_str name; uint32_t note_count; } wire_deck;
+typedef struct { uint32_t mode; wire_deck *decks; uint32_t ndecks; } wire_decks;
+typedef struct { uint8_t installed, up_to_date, collection_checked; wire_strs stale; uint8_t ready; wire_str base_dir; } wire_install_state;
 typedef struct { wire_str name, collection_path; } wire_profile;
-int wire_profiles_open(wire_in *in, const uint8_t *p, uint32_t len, wire_str *base_dir, uint32_t *exists, uint32_t *n);
-int wire_profiles_next(wire_in *in, wire_profile *out);
+typedef struct { wire_str base_dir; uint8_t base_dir_exists; wire_profile *profiles; uint32_t nprofiles; } wire_profiles;
+typedef struct { int64_t id; wire_str name; wire_strs field_names; uint32_t sort_field_index; } wire_notetype;
+typedef struct { uint32_t mode; wire_notetype *notetypes; uint32_t nnotetypes; } wire_notetypes;
+typedef struct { int64_t id, notetype_id; wire_strs fields, tags; } wire_note;
+typedef struct { uint32_t mode; wire_note *notes; uint32_t nnotes; uint32_t offset, limit; uint8_t has_more; } wire_notes;
+typedef struct { uint32_t mode; wire_strs values; } wire_field_values;
+typedef struct { uint32_t mode; int64_t id; wire_str name; uint8_t created; } wire_deck_created;
+typedef struct { uint32_t mode; int64_t id; wire_str name; } wire_deck_renamed;
+typedef struct { uint32_t mode; int64_t note_id; } wire_note_added;
+typedef struct { uint8_t ok; int64_t note_id; wire_str error; } wire_note_result;
+typedef struct { uint32_t mode; wire_note_result *results; uint32_t nresults; } wire_notes_added;
+typedef struct { uint32_t mode; int64_t note_id; wire_str warning; } wire_note_changed;
+typedef struct { wire_str filename, reference; } wire_clip_ref;
+typedef struct { uint32_t mode; wire_str front_text, back_text; wire_clip_ref audio, cue_audio; } wire_card_text;
+typedef struct { uint32_t mode; wire_str filename, reference; uint8_t reused; } wire_clip;
+typedef struct { uint8_t offered, generation_available; wire_strs languages; uint32_t phrase_count; } wire_starter_state;
+typedef struct { uint32_t mode; int64_t deck_id; wire_str deck_name; uint32_t added, already_there; } wire_starter_built;
+typedef struct { uint8_t ok, needs_restart; wire_str message, addons_dir; } wire_installed;
 
-/* ---- writing: the server's side. One answer at a time, into a buffer of the writer's own:
- * wire_begin starts one (forgetting the last), each call below appends, wire_out names the bytes.
- * Strings are passed as (pointer, length) of UTF-8. ---- */
+typedef struct { wire_str name; } wire_q_deck_name;
+typedef struct { wire_str base_dir_override; } wire_q_install;
+typedef struct { wire_str known, learning, name; } wire_q_starter;
+typedef struct { int64_t deck_id, notetype_id; wire_strs fields, tags; wire_str language; int32_t learning_field_index; } wire_q_note;
+typedef struct { wire_q_note *notes; uint32_t nnotes; } wire_q_notes;
+typedef struct { wire_strs fields; wire_str language; int32_t learning_field_index; } wire_q_note_update;
+typedef struct { wire_str user_input, known_language, learning_language; uint8_t include_cue_audio; } wire_q_card_text;
+typedef struct { wire_str text, language; uint8_t fresh; } wire_q_audio;
+
+/* ---- the schema (wire.c's table), for the walkers ---- */
+typedef struct wire_schema wire_schema;
+typedef struct {
+  const char *key;          /* the JS name; dotted for a nested object ("audio.reference") */
+  uint8_t type;             /* WT_* */
+  uint16_t off;             /* where the field sits in the C struct (a list: its items pointer) */
+  uint16_t off_n;           /* a WT_LIST: where its count sits */
+  const wire_schema *sub;   /* a WT_LIST: its items */
+} wire_field;
+struct wire_schema { const wire_field *f; uint32_t n; uint32_t size; };
+const wire_schema *wire_schema_of(uint32_t kind);
+
+/* ---- the app's side ---- */
+/* The kind of the message at p, or -1 when it does not start with the magic. */
+int32_t wire_kind(const uint8_t *p, uint32_t len);
+/* The room wire_decode needs for its lists, or WIRE_NONE when the bytes are not one whole message
+ * of that kind (nothing short, nothing left over). */
+uint32_t wire_room(uint32_t kind, const uint8_t *p, uint32_t len);
+/* Reads the message into out (the kind's struct), once wire_room has said it is whole (wire_room is
+ * the one check of the bytes): strings point into p, lists are laid out in mem (wire_room bytes of
+ * it, 8-aligned). */
+void wire_decode(uint32_t kind, const uint8_t *p, uint32_t len, void *out, void *mem);
+
+/* A message being written, into a buffer of the writer's own that wire_grow resizes. */
 typedef struct { uint8_t *p; uint32_t len, cap; } wire_buf;
-void wire_begin(wire_buf *b, uint32_t kind);
-void wire_w_error(wire_buf *b, const char *mode, uint32_t mlen, uint32_t retry_after_ms, uint32_t flags,
-                  const char *err, uint32_t elen);
-void wire_w_status(wire_buf *b, const char *mode, uint32_t mlen, uint32_t schema_version, const char *detail,
-                   uint32_t dlen);
-void wire_w_decks_head(wire_buf *b, const char *mode, uint32_t mlen, uint32_t n);
-void wire_w_deck(wire_buf *b, int64_t id, uint32_t note_count, const char *name, uint32_t nlen);
-void wire_w_install(wire_buf *b, uint32_t installed, uint32_t up_to_date, uint32_t collection_checked,
-                    uint32_t stale_count, uint32_t ready);
-void wire_w_profiles_head(wire_buf *b, const char *base_dir, uint32_t blen, uint32_t exists, uint32_t n);
-void wire_w_profile(wire_buf *b, const char *name, uint32_t nlen, const char *path, uint32_t plen);
-/* The writer's growth: the caller supplies it (the app's and the server's builds differ). Returns
- * a buffer of at least cap bytes holding the first len bytes of p. */
-uint8_t *wire_grow(uint8_t *p, uint32_t len, uint32_t cap);
+void wire_begin(wire_buf *b, uint32_t kind);  /* from the buffer's start: the magic and the kind */
+void wire_encode(wire_buf *b, uint32_t kind, const void *in); /* wire_begin, then in's fields */
+uint8_t *wire_grow(uint8_t *p, uint32_t len, uint32_t cap);   /* the build supplies it */
+/* The primitive writes, for the server's walker (wire_node.c). */
+void wire_u8(wire_buf *b, uint32_t v);
+void wire_u32(wire_buf *b, uint32_t v);
+void wire_i64(wire_buf *b, int64_t v);
+void wire_bytes(wire_buf *b, const void *p, uint32_t n); /* a string: its count, then the bytes */
+/* The primitive reads, for the server's walker. A read past the end sets in->bad and answers 0. */
+typedef struct { const uint8_t *p, *end; int bad; } wire_in;
+uint32_t wire_r_u8(wire_in *in);
+uint32_t wire_r_u32(wire_in *in);
+int64_t wire_r_i64(wire_in *in);
+wire_str wire_r_str(wire_in *in);
+int wire_open(wire_in *in, uint32_t kind, const uint8_t *p, uint32_t len); /* past the magic and kind */
 #endif
