@@ -38,20 +38,37 @@ static int mkdir_p(const char *path) {
   return 0;
 }
 
-/* fs.readFileSync: 0, or -1 with errno (ENOENT, EISDIR, ...). */
+/* The most a media file may be read at: a clip is well under a megabyte, and a file past this is
+ * not one amgi wrote. */
+#define MEDIA_READ_MAX (256u << 20)
+
+/* fs.readFileSync, hardened: 0, or -1 with errno. A symlink is not followed (ELOOP), so a link in
+ * the media folder cannot read a file outside it; only a regular file is read (EISDIR for a
+ * directory, EINVAL for a FIFO or a device, which the non-blocking open keeps from hanging); and
+ * nothing past MEDIA_READ_MAX is read (EFBIG). */
 static int read_file(cx *c, str path, str *out) {
-  int fd = open(str_z(c->a, path), O_RDONLY);
+  int fd = open(str_z(c->a, path), O_RDONLY | O_NOFOLLOW | O_NONBLOCK);
   if (fd < 0) return -1;
   struct stat sb;
-  if (fstat(fd, &sb) != 0 || S_ISDIR(sb.st_mode)) {
+  if (fstat(fd, &sb) != 0 || !S_ISREG(sb.st_mode) || sb.st_size > (off_t)MEDIA_READ_MAX) {
+    int e = errno;
+    if (fstat(fd, &sb) == 0) e = S_ISDIR(sb.st_mode) ? EISDIR : S_ISREG(sb.st_mode) ? EFBIG : EINVAL;
     close(fd);
-    errno = EISDIR;
+    errno = e;
     return -1;
   }
   buf b = {0};
   char chunk[1 << 16];
   ssize_t r;
-  while ((r = read(fd, chunk, sizeof chunk)) > 0) buf_put(&b, chunk, (size_t)r);
+  while ((r = read(fd, chunk, sizeof chunk)) > 0) {
+    if (b.n + (size_t)r > MEDIA_READ_MAX) {
+      buf_free(&b);
+      close(fd);
+      errno = EFBIG;
+      return -1;
+    }
+    buf_put(&b, chunk, (size_t)r);
+  }
   int e = errno;
   close(fd);
   if (r < 0) {
@@ -145,13 +162,17 @@ int media_write_fixed(cx *c, str dir, str name, const void *data, size_t len) {
   return 1;
 }
 
-int media_exists(cx *c, str dir, str name) { return exists(c, path_join(c->a, dir, name)); }
+/* hasMedia: the same name rules as readMedia (a separator, a NUL, ".", ".." or nothing is not a
+ * media file), so it never probes outside the folder. */
+static int hostile_name(str name) {
+  return !name.n || memchr(name.p, '/', name.n) || memchr(name.p, '\\', name.n) || memchr(name.p, 0, name.n) ||
+         str_eq_c(name, ".") || str_eq_c(name, "..");
+}
+int media_exists(cx *c, str dir, str name) { return !hostile_name(name) && exists(c, path_join(c->a, dir, name)); }
 
 /* readMediaFile: a hostile name (a separator, a parent, a NUL) is refused, not resolved. */
 int media_read(cx *c, str dir, str name, str *out) {
-  if (!name.n) return 0;
-  if (memchr(name.p, '/', name.n) || memchr(name.p, '\\', name.n) || memchr(name.p, 0, name.n)) return 0;
-  if (str_eq_c(name, ".") || str_eq_c(name, "..")) return 0;
+  if (hostile_name(name)) return 0;
   str full = path_join(c->a, dir, name);
   if (!exists(c, full)) return 0;
   return read_file(c, full, out) == 0;

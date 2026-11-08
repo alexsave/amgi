@@ -115,7 +115,9 @@ static int64_t mono_ms(void) {
 
 /* Decode bytes of kind into out, or 0 when they are not one whole message of it. Strings point
  * into the arena's copy of the bytes. */
+int wire_length_fits(size_t n);
 static int decode(cx *c, uint32_t kind, const cb_buf *body, void *out) {
+  if (!wire_length_fits(body->len)) return 0; /* past a u32: not a message the wire can hold */
   uint8_t *p = (uint8_t *)ar_dup(c->a, body->p ? (const char *)body->p : "", body->len);
   uint32_t room = wire_room(kind, p, (uint32_t)body->len);
   if (room == WIRE_NONE) return 0;
