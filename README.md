@@ -128,6 +128,8 @@ Everything the page and the server say to each other is in amgi's wire format, s
   Every answer is `application/x-amgi-wire`, and a request body must be sent as that type.
 - **Routes**: `ROUTES` in `ui/server/serve.mjs` names, for each method and path under `/api/anki/`, the kind of its request body and of its answer.
   Any 4xx or 5xx answer is the `error` kind.
+  A route that cannot reach the collection answers 409 with `mode` (`locked`, `unconfigured`, ...), and `GET` or `DELETE /decks/:id` for a deck that is not there answers 404.
+  `DELETE /decks/:id` deletes a deck as Anki does (its subdecks, their cards, the notes left with no card, with graves so a sync deletes the same on every device), and `GET /decks/:id` says beforehand what it would take; the Default deck is refused, since Anki only empties it.
 - **Settings**: every request carries the five `X-Amgi-*` headers from `src/server/anki/settings.js` (Anki folder, collection, profile, bridge address and token), each percent-encoded.
 - **Rate limits**: a refused Gemini call is a 429 `error` with `retryAfterMs` (wait, then the same request again), `notStarted` (nothing was done), `dailyCap` (nothing will work until the daily cap resets) and `maxWaitMs` (the longest wait worth making).
   The generator scripts report the same two cases as exit codes 3 (rate limited, the wait on stdout) and 4 (daily cap), from `plusaudio/lib/cliExit.js`.

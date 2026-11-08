@@ -33,6 +33,27 @@ const deck *deck_by_id(int64_t id) {
 }
 
 void refresh_decks(void) { ask(M_SHELL, T_DECKS, "GET", "/decks", WIRE_NONE, 0); }
+
+/* The list without a deck just deleted and the decks under it ("A" takes "A::B"), at once: the
+ * list is drawn before the fresh answer comes, and must not show them in the meantime. */
+void decks_drop_tree(int64_t id) {
+  const deck *gone = deck_by_id(id);
+  if (!gone) return;
+  uint32_t glen;
+  const char *g = cd_bytes(gone->name, &glen);
+  char *prefix = cd_alloc(glen + 3);
+  __builtin_memcpy(prefix, g, glen);
+  __builtin_memcpy(prefix + glen, "::", 2);
+  uint32_t kept = 0;
+  for (uint32_t i = 0; i < ndecks; i++) {
+    uint32_t n;
+    const char *name = cd_bytes(decks[i].name, &n);
+    if (decks[i].id == id || (n > glen + 2 && same(name, glen + 2, prefix, glen + 2))) continue;
+    decks[kept++] = decks[i];
+  }
+  ndecks = kept;
+  cd_free(prefix);
+}
 void poll_status(void) { ask(M_SHELL, T_STATUS, "GET", "/status", WIRE_NONE, 0); }
 void ensure_notetypes(void) {
   if (notetypes_asked) return;

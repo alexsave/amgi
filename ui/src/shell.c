@@ -27,6 +27,11 @@ void go(const char *path, uint32_t len) {
   parse_route(path, len);
   page_show();
 }
+void go_replace(const char *path, uint32_t len) {
+  cd_url_replace(path, len);
+  parse_route(path, len);
+  page_show();
+}
 void go_deck(int64_t id) {
   char path[32] = "/deck/";
   go(path, 6 + id_dec(path + 6, id));
@@ -50,8 +55,12 @@ static void page_hide(void) {
 void page_show(void) {
   page_hide();
   if (!settings_loaded || (route != R_SETTINGS && !decks_known)) return;
-  /* A deck that is not in the list: DeckLayout sent you back to /decks. */
-  if (route == R_DECK && !deck_by_id(route_deck)) {
+  /* A deck that is not in the list. With the collection answering, it is gone (deleted, here or
+   * elsewhere) and the page says so. Without (locked, no profile), the list is no evidence either
+   * way, and /decks explains what is wrong, as DeckLayout's redirect did. */
+  int gone = route == R_DECK && !deck_by_id(route_deck);
+  if (gone && !ready()) {
+    gone = 0;
     route = R_DECKS;
     cd_url_replace("/decks", 6);
   }
@@ -59,13 +68,14 @@ void page_show(void) {
   cd_at(app_content, 0);
   if (route == R_SETTINGS) settings_build();
   else if (route == R_DECKS) decks_build();
+  else if (gone) deck_gone_build();
   else deck_build();
   cd_name_open(page.root);
   cd_close();
   cd_region_end(&page);
   if (route == R_DECKS) decks_rows();
   else if (route == R_SETTINGS) settings_after();
-  else deck_after();
+  else if (!gone) deck_after();
 }
 
 /* ---- every hook cdom calls ---- */

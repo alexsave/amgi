@@ -83,6 +83,8 @@ A failure is the `error` kind, `{error}`, with a 4xx or 5xx status.
 | `GET /decks` | `{decks: [{id, name, noteCount}]}`. `A::B` is subdeck B of A |
 | `POST /decks` `{name}` | Find or create, parents included |
 | `PATCH /decks/:id` `{name}` | Rename |
+| `GET /decks/:id` | `{id, name, subdecks, cards, notes}`: what deleting the deck would take, changing nothing. 404 when it is not there |
+| `DELETE /decks/:id` | Deletes the deck, its subdecks, their cards and the notes left with no card, as Anki's own delete does: `{id, name, decks, cards, notes}`. The Default deck (id 1) is refused (400), since Anki would only empty it; a deck already gone is 404. Ask first, naming what `GET /decks/:id` counted |
 | `GET /notetypes` | `{notetypes: [{id, name, fieldNames, sortFieldIndex}]}` |
 | `GET /decks/:id/notes?offset=&limit=` | `{notes: [{id, notetypeId, fields, tags}], offset, limit, hasMore}`, at most 200 a page, subdecks included |
 | `GET /decks/:id/notes/field-values?notetypeId=&fieldIndex=` | `{values}`: one field of every note of that type in the deck, for duplicate checks |
@@ -165,7 +167,8 @@ It has no profiles, install, starter or Gemini endpoints, so making cards still 
 ## Rules
 
 - Notes keep their identity: update a note in place rather than deleting and re-adding it, which loses its review history and duplicates it on the user's other devices after sync.
-- Ask before anything destructive: deleting notes, renaming decks the user did not mention, or changing a note type that already has reviews.
+- Ask before anything destructive: deleting notes or decks, renaming decks the user did not mention, or changing a note type that already has reviews.
+  A deck delete takes its subdecks and every card in them, on every device the user syncs with.
 - After an edit with Anki closed, the user should open Anki and sync.
   If AnkiWeb asks to upload or download the whole collection, the side with the edits is this computer: upload.
 - Every random draw (the Gemini voice, note GUIDs) comes from one seedable source, `plusaudio/lib/random.js`.
