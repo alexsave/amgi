@@ -2,7 +2,7 @@
  * u32 length, bytes) on stdin and writes each answer as (u32 length, bytes). Functions:
  * 0 trim, 1 strip_html, 2 strip_tags, 3 audio_src, 4 has_audio_ref ("1"/"0"), 5 dedupe_key,
  * 6 guess_fields: names split by 0x1f, then 0x1e and the sort field's index (or nothing), answered
- * "text,audio,cue". */
+ * "text,audio,cue". 7 paste_lines: the lines joined by 0x1f. */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -29,6 +29,19 @@ int main(void) {
     case 3: { wire_str t = audio_src(s); put(t.p, t.len); break; }
     case 4: put(has_audio_ref(s) ? "1" : "0", 1); break;
     case 5: put(out, dedupe_key(out, s)); break;
+    case 7: {
+      wire_str lines[600];
+      uint32_t n = paste_lines(in, len, lines, 600, out), w = 0;
+      char *joined = malloc(len + 600);
+      for (uint32_t i = 0; i < n && i < 600; i++) {
+        if (i) joined[w++] = 0x1f;
+        memcpy(joined + w, lines[i].p, lines[i].len);
+        w += lines[i].len;
+      }
+      put(joined, w);
+      free(joined);
+      break;
+    }
     case 6: {
       text names[32];
       uint32_t n = 0, sort = WIRE_NONE, start = 0, end = len;
