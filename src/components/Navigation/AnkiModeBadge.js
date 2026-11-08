@@ -9,8 +9,10 @@ import { ankiModePresentation } from '../../utils/ankiModeText';
 // the user's own - closing Anki, or the bridge going up or down - so it has
 // to be something a person glances at, not something they have to ask for.
 export default function AnkiModeBadge() {
-  const { ankiStatus } = useDecks();
-  const presentation = ankiModePresentation(ankiStatus?.mode);
+  const { ankiStatus, ankiInstalled } = useDecks();
+  // Readable collection file is not the same as set up: with the add-ons
+  // missing the page shows the install screen, so say that here too.
+  const presentation = ankiModePresentation(ankiInstalled === false ? 'unconfigured' : ankiStatus?.mode);
 
   return (
     <span
