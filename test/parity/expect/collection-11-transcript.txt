@@ -409,6 +409,6 @@ ok 7
 # starter ko/ja failed: Restart Anki once so it adds the "amgi Listening" card type, then try again.
 # parallel: ok ok ok ok ok ok ok ok
 > existingFieldValues 1794170430306 1794170430302 0
-ok [%EC%97%AD%EC%9D%B4%20%EC%96%B4%EB%94%94%EC%98%88%EC%9A%94%3F,parallel%200,parallel%201,parallel%202,parallel%203,parallel%204,parallel%205]
+ok [%EC%97%AD%EC%9D%B4%20%EC%96%B4%EB%94%94%EC%98%88%EC%9A%94%3F,parallel,parallel,parallel,parallel,parallel,parallel]
 > status
 ok ok 11
