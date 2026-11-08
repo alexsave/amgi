@@ -89,7 +89,7 @@ node .claude/skills/e2e-ui/scripts/bridge-http.js .e2e/fixture/collection.anki2
 
 No browser here - this is a backend test.
 `scripts/bridge_server_entry.py` starts a real `anki/addon/amgi_bridge` HTTP server (real `bridge_server.py` routing and `bridge_auth.py` auth, a real `anki.collection.Collection` behind `bridge_ops.py`) with no Qt and no running Anki process - see that file's own module comment for exactly what that does and does not prove, and why it is a legitimate stand-in rather than a shortcut.
-`scripts/bridge-http.js` then does real HTTP requests against it: missing token, wrong token, correct token with no `Origin` header (the shape `src/server/anki/bridgeClient.js`'s own server-side `fetch()` calls always have), a request in another bridge protocol (refused with 409), correct token with an allowed vs. a foreign `Origin`, a CORS preflight from each, and a real `POST /decks` mutation that a follow-up `GET /decks` has to actually see - proving a write lands in the collection, not just that the server answers 200.
+`scripts/bridge-http.js` then does real HTTP requests against it: missing token, wrong token, correct token with no `Origin` header (the shape the C server's bridge client, `server/collection/bridge.c`, always sends), a request in another bridge protocol (refused with 409), correct token with an allowed vs. a foreign `Origin`, a CORS preflight from each, and a real `POST /decks` mutation that a follow-up `GET /decks` has to actually see - proving a write lands in the collection, not just that the server answers 200.
 
 ## Gotchas worth remembering
 
