@@ -156,6 +156,8 @@ cd_id page_root(void);                    /* the screen's root element, or 0 */
 /* ---- the screens and parts: each module's hooks ---- */
 void decks_build(void);                   /* DeckList, under page.root */
 void decks_rows(void);                    /* its rows, when decks change */
+int decks_setup_wanted(void);             /* the setup screen is what the state calls for */
+int decks_setup_shown(void);              /* the setup screen is what is on screen */
 void decks_forget(void);
 void decks_click(uint32_t tag);
 void decks_event(const cd_event_rec *e, uint32_t tag);
