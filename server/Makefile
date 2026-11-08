@@ -36,7 +36,19 @@ CFLAGS_ALL := $(WARN) $(OPT) $(SAN) $(DEP_CFLAGS) -pthread
 LIBS := $(DEP_LDFLAGS) -lsqlite3 -licui18n -licuuc -lcrypto -lpthread
 BUILD ?= build
 
-all: $(BUILD)/parity_dump
+COL_SRC := collection/util.c collection/rng.c collection/db.c collection/backup.c collection/text.c collection/pb.c \
+  collection/decks.c collection/notes.c collection/media.c collection/direct.c json/anki_json.c
+COL_HDR := $(wildcard collection/*.h json/*.h)
+
+all: $(BUILD)/parity_dump $(BUILD)/collection_cli
+
+$(BUILD)/collection_cli: $(COL_SRC) collection/cli.c $(COL_HDR) | $(BUILD)
+	$(CC) $(CFLAGS_ALL) -o $@ $(COL_SRC) collection/cli.c $(LIBS)
+
+# The same CLI under AddressSanitizer and UndefinedBehaviorSanitizer, for the parity runner.
+$(BUILD)/collection_cli_san: $(COL_SRC) collection/cli.c $(COL_HDR) | $(BUILD)
+	$(CC) $(WARN) -O1 -g -fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer $(DEP_CFLAGS) -pthread \
+	  -o $@ $(COL_SRC) collection/cli.c $(LIBS)
 
 $(BUILD)/parity_dump: ../test/parity/dump.c | $(BUILD)
 	$(CC) $(CFLAGS_ALL) -o $@ $< $(LIBS)
