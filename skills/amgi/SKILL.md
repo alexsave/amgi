@@ -6,6 +6,7 @@ description: Use amgi to build speaking-practice Anki decks - run the app, make 
 # Using amgi
 
 amgi is one app in this repo: a page written in C (built to WebAssembly on cdom) and a plain Node server, `ui/server/serve.mjs`.
+The same server in C, answering byte for byte the same, is `server/build/amgi` on cbase serve (`npm run start:c`; it says `cbase: listening <host>:<port>` and takes `CBASE_LISTEN=127.0.0.1:0` for a free port); the parity suites and the drives run it with `AMGI_SERVER=c`.
 Its server reads and writes the user's real Anki collection, directly from `collection.anki2` when Anki is closed, or through the `amgi_bridge` add-on's local HTTP server when Anki is open.
 Card text, speech and the check that each clip says what the card says all come from Google Gemini, with the user's own key.
 There is no login and no hosted backend.
@@ -43,7 +44,7 @@ The `e2e-ui` skill runs them against a fixture collection.
 Every request and answer is in amgi's wire format, not JSON: fixed binary layouts, `application/x-amgi-wire`.
 
 - `ui/wire/wire.h` describes the bytes, and the one schema table in `ui/wire/wire.c` lists each kind's fields in order, with their names.
-- `ROUTES` in `ui/server/serve.mjs` names, for each route, the kind of its request body and of its answer; any 4xx or 5xx answer is the `error` kind.
+- `ROUTES` in `ui/server/serve.mjs` (and the same table in `server/amgi/routes.c`) names, for each route, the kind of its request body and of its answer; any 4xx or 5xx answer is the `error` kind.
 - `ui/server/wire.mjs` turns an object into a kind's bytes and back (`encode(kind, object)`, `decode(kind, bytes)`), after `ui/build.sh` has built `ui/out/wire.wasm`.
   A Node script can use it to call the API, with the same field names as the table below:
 
