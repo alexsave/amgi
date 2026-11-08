@@ -329,6 +329,9 @@ static void core_state(void) {
           str_eq_c(e.message, "collection is locked"),
         "a write is refused as locked");
   CHECK(count_backups(held.p) == 0, "and nothing was copied");
+  /* Every op that threw gave its path's ticket back: one more on the same path still runs (it would
+   * wait for ever otherwise). */
+  for (int i = 0; i < 5; i++) col_create_deck(&a, held, S("Still held"), &made, &e);
   sqlite3_close(anki);
   CHECK(col_status(&a, held, &st, &e) == 0 && !strcmp(st.status, "ok") && st.schema == 18, "released: ok again");
 
