@@ -1,8 +1,8 @@
 'use strict';
 
 // The Node side of generate-card-text.js's own documented contract: known
-// language, learning language and an input in; one line of JSON with both
-// card sides and the reading out; a clean exit code. Mirrors
+// language, learning language and an input in; both card sides and the
+// reading out, in lib/cardTextLayout.js's layout; a clean exit code. Mirrors
 // generate-clip.test.js's shape for the audio side of the same boundary.
 //
 // `run()` is exercised here with a stubbed generator, never a real client -
@@ -13,6 +13,7 @@ const { test } = require('node:test');
 
 const { main, parseArgs, run } = require('../generate-card-text');
 const { withEnvHidden } = require('./helpers/hide-env');
+const { readCardText } = require('../lib/cardTextLayout');
 
 test('parseArgs collects a fresh-generation request', () => {
   const options = parseArgs(['--known', 'en', '--learning', 'ko', '--input', '날짜']);
@@ -36,7 +37,7 @@ test('parseArgs collects a regeneration request', () => {
   assert.throws(() => parseArgs(['--bogus', 'x']), /unknown option --bogus/);
 });
 
-test('run() prints the generated card as one line of JSON and returns exit code 0', async () => {
+test('run() prints the generated card in the card-text layout and returns exit code 0', async () => {
   const calls = [];
   const generate = async (request) => {
     calls.push(request);
@@ -63,7 +64,9 @@ test('run() prints the generated card as one line of JSON and returns exit code 
     currentCard: null,
     regenerateParts: [],
   }]);
-  assert.deepEqual(JSON.parse(writes.join('')), { front_text: 'date', back_text: '날짜', spoken_reading: '' });
+  const printed = Buffer.concat(writes.map((chunk) => Buffer.from(chunk)));
+  assert.equal(printed.toString('utf8'), 'amgi-card-text 1\nfront_text 4\ndate\nback_text 6\n날짜\nspoken_reading 0\n\n');
+  assert.deepEqual(readCardText(printed), { front_text: 'date', back_text: '날짜', spoken_reading: '' });
 });
 
 test('run() builds a currentCard and regenerateParts from the regeneration flags', async () => {
