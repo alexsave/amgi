@@ -466,11 +466,8 @@ for (const schema of ['18', '11']) {
       check(`collection-${schema}-unicase-dump`, s.dump);
       if (anki) {
         const out = ankiCheck(s.copy.collection);
-        // C's result is clean, and recorded (a C-only recording). Node's is not: its relaxed index
-        // holds two names Anki calls equal, and Anki's repair renames either one, so only that
-        // there is something to repair is checked.
-        if (IMPL) check(`collection-${schema}-unicase-anki`, out);
-        else assert.ok(/non-unique|_'|check database False/.test(out), `Anki finds Node's duplicate:\n${out}`);
+        // The result is clean, and recorded.
+        check(`collection-${schema}-unicase-anki`, out);
       }
     });
 
