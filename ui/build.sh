@@ -47,10 +47,9 @@ css=(index.css App.css Navbar.css TemplateUpdate.css DeckItem.css DeckList.css F
 : > "$out/app.css"
 for f in "${css[@]}"; do cat "$here/css/$f" >> "$out/app.css"; printf '\n' >> "$out/app.css"; done
 
-# The page: cdom's shim inlined. No node on this path (the build is C and the shell's tools): the
-# pre-minified shim when cdom ships one at the pinned commit, else the shim as it is.
+# The page: cdom's shim, minified by cdom itself (shim/cdom.min.js, committed in cdom and checked
+# there against cdom.js), inlined. No node on this path: the build is C and the shell's tools.
 shim="$CDOM/shim/cdom.min.js"
-[ -f "$shim" ] || shim="$CDOM/shim/cdom.js"
 cp "$shim" "$out/cdom.min.js"
 sed -e "/\/\*CDOM_SHIM\*\//{r $out/cdom.min.js" -e "d;}" "$here/src/index.html" > "$out/index.html"
 
@@ -61,4 +60,4 @@ size() { # size <file>: its bytes, and its brotli size when brotli is there
   if command -v brotli > /dev/null; then printf '%s bytes, %s brotli' "$n" "$(brotli -c -q 11 "$1" | wc -c | tr -d ' ')"
   else printf '%s bytes' "$n"; fi
 }
-echo "app.wasm: $(size "$out/app.wasm"); shim ($(basename "$shim")): $(size "$out/cdom.min.js"); index.html $(wc -c < "$out/index.html" | tr -d ' ') bytes"
+echo "app.wasm: $(size "$out/app.wasm"); shim, minified by cdom: $(size "$out/cdom.min.js"); index.html $(wc -c < "$out/index.html" | tr -d ' ') bytes"
