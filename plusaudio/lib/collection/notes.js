@@ -10,7 +10,7 @@
 // col.mod" - and vendor/anki-src/rslib/src/storage/sync.rs, which is what
 // decides what gets uploaded). Every write in this file sets it.
 
-const { fieldChecksum, joinFields, splitFields, stripHtmlPreservingMedia } = require('../deck');
+const { ankiFields, fieldChecksum, joinFields, splitFields, stripHtmlPreservingMedia } = require('../deck');
 const { idAllocationExpr, randomGuid } = require('./ids');
 const { deckAndChildIds } = require('./decks');
 const { withCollection } = require('./open');
@@ -169,7 +169,8 @@ function listNotesInDeck(collectionPath, deckId, { offset = 0, limit = 200 } = {
  * per-note-isolated contract bridge_ops.add_notes_bulk already has on the
  * bridge side.
  */
-function insertOneNote(db, schemaVersion, notetypes, { deckId, notetypeId, fields, tags = [], language, learningFieldIndex }) {
+function insertOneNote(db, schemaVersion, notetypes, { deckId, notetypeId, fields: given, tags = [], language, learningFieldIndex }) {
+  const fields = ankiFields(given);
   const notetype = notetypes.get(notetypeId);
   if (!notetype) throw new Error(`no note type with id ${notetypeId} in this collection`);
   if (fields.length !== notetype.fieldNames.length) {
@@ -284,7 +285,8 @@ function addNotesBulk(collectionPath, notes) {
  * type's templates; changing field text doesn't retroactively remove or add
  * cards in real Anki either, short of a full "empty cards" pass).
  */
-function updateNoteFields(collectionPath, noteId, fields, language, learningFieldIndex) {
+function updateNoteFields(collectionPath, noteId, given, language, learningFieldIndex) {
+  const fields = ankiFields(given);
   return withCollection(collectionPath, ({ db, schemaVersion }) => {
     const existing = db.prepare('SELECT mid FROM notes WHERE id = ?').get(noteId);
     if (!existing) throw new Error(`no note with id ${noteId} in this collection`);
