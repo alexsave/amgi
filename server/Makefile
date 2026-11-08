@@ -21,6 +21,8 @@ C_ROOT := ..
 CBASE_PROVIDERS := local
 APP_SERVE := amgi
 APP_SRC_ROOTS := app
+# wire.h, for the tests that include the app's headers (test/app_unit.c)
+APP_INC := -I../ui/wire
 ICU_MAJOR ?= 78
 ifeq ($(shell uname -s),Darwin)
   ICU_PREFIX ?= $(shell brew --prefix icu4c@$(ICU_MAJOR) 2>/dev/null)
@@ -45,7 +47,7 @@ APP_EXTRA_SRC := $(COL_SRC) $(BRIDGE_SRC) $(AMGI_SRC)
 APP_EXTRA_CFLAGS = $(WARN) -O2 -g -pthread -I$(CBASE)/core/include -I$(CBASE)/core/src -I$(CBASE)/lib -I../ui/wire \
   $(ICU_CFLAGS) $(SQLITE_CFLAGS) $(OPENSSL_CFLAGS)
 APP_LDLIBS := $(ICU_LDFLAGS) -licui18n -licuuc
-APP_PROGS := collection_cli=collection/cli.c
+APP_PROGS := collection_cli=collection/cli.c app_unit=test/app_unit.c cards_dump=test/cards_dump.c
 include $(CBASE)/cbase.mk
 
 # The ones not linked with cbase: the dump tool, and the core's own tests, under the sanitizers.
@@ -89,4 +91,9 @@ check-collection: build/unit build/backup_unit build/media_unit
 # The collection CLI under ASan and UBSan, linked with cbase's sanitized build.
 $(call prog,build/asan,build/obj/asan,build/obj/asan-extra,collection_cli,collection/cli.c,ASAN_CB_CFLAGS)
 
-.PHONY: check-collection
+# The amgi app's own tests (server/test/app_unit.c), under ASan and UBSan.
+$(call prog,build/asan,build/obj/asan,build/obj/asan-extra,app_unit,test/app_unit.c,ASAN_CB_CFLAGS)
+check-app: build/asan/app_unit
+	build/asan/app_unit
+
+.PHONY: check-collection check-app

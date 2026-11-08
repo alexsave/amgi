@@ -27,7 +27,11 @@ import path from 'node:path';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
 const FOLDER = 'plusaudio/lib/json/';
-/** The C quarantine: the one JSON reader and writer in amgi's C (server/json/anki_json.h says why). */
+/**
+ * The C quarantine: amgi's C reads and writes JSON only here (server/json/anki_json.h says why), through
+ * three named functions: anki_json_parse and anki_json_stringify for Anki's columns, and
+ * model_answer_parse for the Gemini model's answer (server/json/model_answer.h).
+ */
 const C_FOLDER = 'server/json/';
 
 /**
@@ -36,12 +40,12 @@ const C_FOLDER = 'server/json/';
  */
 const JS_JSON = /\bJSON\s*\.\s*[A-Za-z_]+|\.json\s*\(|\bfork\s*\(/g;
 /**
- * C: a call that parses or formats JSON (the quarantine's anki_json_parse and anki_json_stringify,
+ * C: a call that parses or formats JSON (the quarantine's anki_json_parse, anki_json_stringify and model_answer_parse,
  * and the entry points of the JSON libraries a C program would reach for: json-c, jansson, cJSON,
  * yyjson, parson), and any JSON library's header. The quarantine's own header may be included;
  * calling into it still counts, file by file.
  */
-const C_JSON = /\b(?:anki_json_parse|anki_json_stringify|json_(?:loads?|dumps?|parse\w*|tokener_\w+|object_\w+|value_\w+|serialize\w*)|cJSON_\w+|yyjson_\w+)\s*\(|#\s*include\s*[<"](?![^>"]*\banki_json\.h)[^>"]*(?:json|jansson|parson)[^>"]*[>"]/gi;
+const C_JSON = /\b(?:anki_json_parse|anki_json_stringify|model_answer_parse|json_(?:loads?|dumps?|parse\w*|tokener_\w+|object_\w+|value_\w+|serialize\w*)|cJSON_\w+|yyjson_\w+)\s*\(|#\s*include\s*[<"](?![^>"]*\b(?:anki_json|model_answer)\.h)[^>"]*(?:json|jansson|parson)[^>"]*[>"]/gi;
 /** Python: the json module imported, or any of its four calls. */
 const PY_JSON = /^\s*import\s+json\b|^\s*from\s+json\s+import\b|\bjson\s*\.\s*(?:loads|dumps|load|dump)\s*\(/g;
 
@@ -71,7 +75,8 @@ const notShipped = (file) => {
 const ANSWER_FORMAT = 'plusaudio/ANSWER_FORMAT.md';
 const ANKI = 'FORCED by Anki: ';
 /**
- * kind: 'ours' (amgi's own JSON, which must live in FOLDER), or 'anki' (Anki's own formats, read
+ * kind: 'ours' (amgi's own JSON, which must live in FOLDER), 'model' (the Gemini model's answer in C:
+ * the quarantine's model_answer_parse and its one caller), or 'anki' (Anki's own formats, read
  * and written where the collection code is).
  */
 const ALLOWED = [
@@ -90,6 +95,18 @@ const ALLOWED = [
   {
     file: `${C_FOLDER}anki_json.h`, count: 2, kind: 'anki',
     why: `${ANKI}the declarations of the C quarantine's two named functions; the header says what Anki stores as JSON and why.`,
+  },
+  {
+    file: `${C_FOLDER}model_answer.c`, count: 2, kind: 'model',
+    why: `FORCED by Gemini: model_answer_parse (defined here) reads the model's structured answer, JSON text and nothing else, through the quarantine's one parser (anki_json_parse); the caller then checks every field against its format. ${ANSWER_FORMAT} records what was measured against the alternatives.`,
+  },
+  {
+    file: `${C_FOLDER}model_answer.h`, count: 1, kind: 'model',
+    why: 'FORCED by Gemini: the declaration of model_answer_parse, the C reader of the model\'s answer.',
+  },
+  {
+    file: 'server/amgi/cards.c', count: 1, kind: 'model',
+    why: `FORCED by Gemini: cardGeneration.ts's readStructured in C reads each structured answer (card text, the audio verdict, the transcript match) once, through model_answer_parse, and checks every field against its format. ${ANSWER_FORMAT}.`,
   },
   {
     file: 'server/collection/decks.c', count: 5, kind: 'anki',
@@ -297,20 +314,22 @@ test('amgi\'s own JSON lives in the one folder, and every entry says why', () =>
   for (const a of ALLOWED) {
     assert.ok(a.why.length > 40, `${a.file}: a reason, not a label`);
     if (a.kind === 'ours') assert.ok(a.file.startsWith(FOLDER), `${a.file}: our own JSON belongs in ${FOLDER}`);
+    else if (a.kind === 'model') assert.ok(a.file.startsWith(C_FOLDER) || a.file === 'server/amgi/cards.c', `${a.file}: the model's answer is read in ${C_FOLDER}, by cards.c alone`);
     else assert.equal(a.kind, 'anki', `${a.file}: kind ${a.kind}`);
   }
   assert.ok(ALLOWED.find((a) => a.file === `${FOLDER}modelAnswer.js`).why.includes(ANSWER_FORMAT));
 });
 
-test('C reaches JSON only through the quarantine\'s two named functions', () => {
+test('C reaches JSON only through the quarantine\'s three named functions', () => {
   for (const [file, hits] of scan()) {
     if (!/\.[ch]$/.test(file) || file.startsWith(C_FOLDER)) continue;
-    for (const hit of hits) assert.match(hit, /: anki_json_(?:parse|stringify)\($/, `${file}: ${hit}`);
+    for (const hit of hits) assert.match(hit, /: (?:anki_json_(?:parse|stringify)|model_answer_parse)\($/, `${file}: ${hit}`);
   }
   // And the scan sees a library call, a library header and the quarantine's own calls, in C.
   assert.deepEqual(jsonUses('#include <jansson.h>\njson_t *v = json_loads(s, 0, &e);\nstr t = anki_json_stringify(a, v); // json_dumps(x)\n', 'x.c'),
     ['1: #include <jansson.h>', '2: json_loads(', '3: anki_json_stringify(']);
   assert.deepEqual(jsonUses('#include "../json/anki_json.h"\nstatic aj *read_col_value(void);\n', 'x.c'), []);
+  assert.deepEqual(jsonUses('#include "../json/model_answer.h"\naj *v = model_answer_parse(a, t, &d);\n', 'x.c'), ['2: model_answer_parse(']);
 });
 
 test('README.md\'s "JSON that remains and why" names exactly the allowed files', () => {
