@@ -15,7 +15,8 @@ static holder h;
 
 /* the modes that mean Anki is open right now: writing under it is writing under a running program */
 static int anki_open(void) {
-  return mode == WIRE_MODE_BRIDGE || mode == WIRE_MODE_BRIDGE_NO_COLLECTION || mode == WIRE_MODE_LOCKED;
+  return mode == WIRE_MODE_BRIDGE || mode == WIRE_MODE_BRIDGE_NO_COLLECTION || mode == WIRE_MODE_LOCKED ||
+         mode == WIRE_MODE_BRIDGE_OUTDATED;
 }
 
 static void button(cd_str label, uint32_t action, int aria) {

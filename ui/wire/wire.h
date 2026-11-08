@@ -8,6 +8,13 @@
  *     request body into a JS object for the handler, finding fields by the schema's key names.
  * So a field's order, width and name are written down once, in wire.c's table.
  *
+ * The same format, and the same table, carry the Anki bridge add-on's protocol (the b_* kinds below):
+ * the server's bridge client (src/server/anki/bridgeClient.js) writes and reads them through
+ * wire.wasm, and the add-on's Python (anki/addon/amgi_bridge/bridge_wire.py) through
+ * anki/addon/amgi_bridge/wire_schema.py, which ui/wire/wire_py.c writes from this table at every
+ * build. WIRE_BRIDGE_PROTOCOL names the protocol's version; both ends send it on every request and
+ * answer (X-Amgi-Bridge-Protocol), and a mismatch is answered, not guessed at.
+ *
  * The server answers every /api/anki request in it, as "application/x-amgi-wire", and takes a
  * request body only as that type (415 otherwise). There is no other format on this path.
  *
@@ -20,6 +27,9 @@
 
 #define WIRE_MAGIC 0x32574d41u /* "AMW2" */
 #define WIRE_MIME "application/x-amgi-wire"
+/* The bridge protocol's version. 1 is the first binary one; the add-on that spoke JSON sent none.
+ * Change it with any change to a b_* kind or to a request kind the bridge reads. */
+#define WIRE_BRIDGE_PROTOCOL 1u
 
 /* Field types. */
 enum {
@@ -33,6 +43,8 @@ enum {
   WT_MODE,  /* u8: a transport mode, by name (wire_mode_of) */
   WT_STRS,  /* list of strings */
   WT_LIST,  /* list of items of a sub-schema */
+  WT_BYTES, /* bytes, laid out as a string is (a media file); missing none. Only the bridge uses it */
+  WT_TYPES
 };
 #define WIRE_UNKNOWN 2u
 #define WIRE_NONE 0xffffffffu
@@ -41,7 +53,8 @@ enum {
 /* The transport modes of src/server/anki/transport.js. A name the table does not know (a newer
  * server) is WIRE_MODE_OTHER, which reads back as "". */
 enum { WIRE_MODE_DIRECT, WIRE_MODE_BRIDGE, WIRE_MODE_LOCKED, WIRE_MODE_NOT_FOUND, WIRE_MODE_UNSUPPORTED_SCHEMA,
-       WIRE_MODE_BRIDGE_NO_COLLECTION, WIRE_MODE_UNCONFIGURED, WIRE_MODE_OTHER, WIRE_MODES };
+       WIRE_MODE_BRIDGE_NO_COLLECTION, WIRE_MODE_UNCONFIGURED, WIRE_MODE_BRIDGE_OUTDATED, WIRE_MODE_OTHER,
+       WIRE_MODES };
 const char *wire_mode_name(uint32_t mode);
 uint32_t wire_mode_of(const char *s, uint32_t len);
 
@@ -56,6 +69,12 @@ enum {
   WK_STARTER_STATE, WK_STARTER_BUILT, WK_INSTALLED, WK_DECK_SUMMARY, WK_DECK_REMOVED,
   /* requests */
   WK_Q_DECK_NAME, WK_Q_INSTALL, WK_Q_STARTER, WK_Q_NOTE, WK_Q_NOTES, WK_Q_NOTE_UPDATE, WK_Q_CARD_TEXT, WK_Q_AUDIO,
+  /* the bridge add-on's answers (its requests are q_deck_name, q_note, q_notes, q_note_update and
+   * b_q_media) */
+  WK_B_ERROR, WK_B_STATUS, WK_B_DECKS, WK_B_NOTETYPES, WK_B_NOTES, WK_B_VALUES, WK_B_DECK_CREATED, WK_B_DECK,
+  WK_B_NOTE, WK_B_NOTES_ADDED, WK_B_NOTE_REMOVED, WK_B_DECK_SUMMARY, WK_B_DECK_REMOVED, WK_B_MEDIA_EXISTS,
+  WK_B_MEDIA_DATA, WK_B_MEDIA_ADDED,
+  WK_B_Q_MEDIA,
   WK_KINDS
 };
 /* The kind's name as the server's route table spells it ("decks", "q_note"); 0 past the last. */
@@ -99,6 +118,30 @@ typedef struct { wire_q_note *notes; uint32_t nnotes; } wire_q_notes;
 typedef struct { wire_strs fields; wire_str language; int32_t learning_field_index; } wire_q_note_update;
 typedef struct { wire_str user_input, known_language, learning_language; uint8_t include_cue_audio; } wire_q_card_text;
 typedef struct { wire_str text, language; uint8_t fresh; } wire_q_audio;
+
+/* The bridge add-on's messages: what bridge_ops.py answers, field for field. schema_version is
+ * WIRE_NONE with no collection open. */
+typedef struct { uint8_t profile_open; wire_str profile_name; uint8_t collection_open; uint32_t schema_version;
+                 wire_str anki_version, qt_version; } wire_b_status;
+typedef struct { wire_str error; } wire_b_error;
+typedef struct { int64_t id; wire_str name; } wire_b_deck; /* a deck listed, or renamed */
+typedef struct { wire_b_deck *decks; uint32_t ndecks; } wire_b_decks;
+typedef struct { uint32_t ord; wire_str name, question_format, answer_format; } wire_b_template;
+typedef struct { int64_t id; wire_str name, kind; uint32_t sort_field_index; wire_strs field_names;
+                 wire_b_template *templates; uint32_t ntemplates; } wire_b_notetype;
+typedef struct { wire_b_notetype *notetypes; uint32_t nnotetypes; } wire_b_notetypes;
+typedef struct { wire_note *notes; uint32_t nnotes; uint32_t total, offset, limit; } wire_b_notes;
+typedef struct { wire_strs values; } wire_b_values;
+typedef struct { int64_t id; wire_str name; uint8_t created; } wire_b_deck_created;
+typedef struct { int64_t note_id; wire_str warning; } wire_b_note; /* a note added or changed */
+typedef struct { wire_note_result *results; uint32_t nresults; } wire_b_notes_added;
+typedef struct { int64_t note_id; uint32_t cards_removed; } wire_b_note_removed;
+typedef struct { int64_t id; wire_str name; uint32_t subdecks, cards, notes; } wire_b_deck_summary;
+typedef struct { int64_t id; wire_str name; uint32_t decks, cards, notes; } wire_b_deck_removed;
+typedef struct { uint8_t exists; } wire_b_media_exists;
+typedef struct { uint8_t found; wire_str data; } wire_b_media_data;
+typedef struct { wire_str filename; } wire_b_media_added;
+typedef struct { wire_str filename, data; } wire_b_q_media;
 
 /* ---- the schema (wire.c's table), for the walkers ---- */
 typedef struct wire_schema wire_schema;

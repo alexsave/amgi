@@ -42,6 +42,11 @@ const imports = {
       kept = encoder.encode(typeof v === 'string' ? v : '');
       return kept.length;
     },
+    bytes_len(p, n) {
+      const v = lookup(p, n);
+      kept = v instanceof Uint8Array ? v : new Uint8Array(0);
+      return kept.length;
+    },
     str_copy(dst) {
       new Uint8Array(w.memory.buffer, dst, kept.length).set(kept);
     },
@@ -63,6 +68,9 @@ const imports = {
     },
     set_str(p, n, sp, sn) {
       current()[text(p, n)] = text(sp, sn);
+    },
+    set_bytes(p, n, sp, sn) {
+      current()[text(p, n)] = Buffer.from(new Uint8Array(w.memory.buffer, sp, sn));
     },
     set_list(p, n) {
       const list = [];
@@ -89,6 +97,9 @@ for (let k = 0; ; k++) {
   const bytes = new Uint8Array(w.memory.buffer, p);
   KIND[decoder.decode(bytes.subarray(0, bytes.indexOf(0)))] = k;
 }
+
+// The bridge protocol's version (wire.h, WIRE_BRIDGE_PROTOCOL): the add-on must speak the same one.
+export const BRIDGE_PROTOCOL = w.w_bridge_protocol();
 
 // An answer object as a message of kind (a name in KIND).
 export function encode(kind, object) {

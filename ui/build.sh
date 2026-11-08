@@ -2,7 +2,7 @@
 # Builds the C UI into ui/out: app.wasm, app.css (the components' own CSS files, unchanged, in the
 # order the React app loads them), index.html (cdom's shim inlined), wire.wasm (the wire writers for
 # the Node server), and natively for ui/test: wire_dump (the app's wire walkers) and text_dump
-# (ui/src/text.c and fields.c).
+# (ui/src/text.c and fields.c), and wire_py, which writes anki/addon/amgi_bridge/wire_schema.py.
 # Run from anywhere. WASM_CC overrides the compiler (homebrew LLVM by default), CDOM the cdom
 # checkout (the submodule at cdom/ by default).
 set -euo pipefail
@@ -28,6 +28,10 @@ nice -n 10 clang -O1 -g -fsanitize=address,undefined -fno-sanitize-recover=all -
   -o "$out/wire_dump" "$here/test/wire_dump.c" "$here/wire/wire.c"
 nice -n 10 clang -O1 -g -fsanitize=address,undefined -fno-sanitize-recover=all -Wall -Wextra -Werror -I"$CDOM/src" \
   -o "$out/text_dump" "$here/test/text_dump.c" "$here/src/text.c" "$here/src/fields.c"
+# The schema for the Anki bridge add-on's Python (anki/addon/amgi_bridge/bridge_wire.py), written from
+# wire.c's table: the add-on holds no layout of its own.
+nice -n 10 clang -O1 -Wall -Wextra -Werror -o "$out/wire_py" "$here/wire/wire_py.c" "$here/wire/wire.c"
+"$out/wire_py" > "$root/anki/addon/amgi_bridge/wire_schema.py"
 
 nice -n 10 "$CC" "${WFLAGS[@]}" -I"$CDOM/src" "${LFLAGS[@]}" -o "$out/app.wasm" \
   "$here"/src/*.c "$here/wire/wire.c" \
