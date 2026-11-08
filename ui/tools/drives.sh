@@ -2,7 +2,8 @@
 # Every browser drive of the UI, one Chrome at a time, each on a fresh copy of the UI fixture
 # (ui/tools/fixture.sh first): shoot.mjs (the screens and the back button), flows.mjs (first run,
 # new deck, card design notice, install, starter deck), edit.mjs (editing, deleting, renaming) and
-# bulk.mjs (making cards against the fake Gemini). Prints each drive's checks and failures; exits 1
+# bulk.mjs (making cards against the fake Gemini) and states.mjs (the decks screen in each setup
+# state; it needs ANKI_PYTHON_BIN and ANKI_FIXTURE_APKG, as the e2e-ui skill sets them). Prints each drive's checks and failures; exits 1
 # when any failed.
 #
 #   ui/tools/drives.sh <name> <app url> <no-key app url> <fake-gemini app url> <fake gemini url> <shots dir>
@@ -38,4 +39,5 @@ run shoot "$app" "$name" "$root/.e2e/fixture/collection.anki2" "$shots"
 run flows "$app" "$keyless" "$name" "$(fresh flows)" "$shots"
 run edit "$app" "$name" "$(fresh edit installed)" "$shots"
 run bulk "$faked" "$gemini" "$name" "$(fresh bulk installed)" "$shots"
+run states "$app" "$name" "$work" "$shots"
 exit $failed
