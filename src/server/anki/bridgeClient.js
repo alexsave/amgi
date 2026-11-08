@@ -1,5 +1,3 @@
-'use strict';
-
 // Talking to a running anki/addon/amgi_bridge over localhost HTTP - the
 // "Anki open" transport. See that add-on's README, "Local HTTP bridge", for
 // the endpoint contract this mirrors and the auth model this relies on.
@@ -158,7 +156,7 @@ function createBridgeOps(baseUrl, token) {
 }
 
 /** Probe a configured bridge; resolves to ops on success, null if unreachable (caller falls back to direct). */
-async function probeBridge(baseUrl, token) {
+export async function probeBridge(baseUrl, token) {
   try {
     const status = await bridgeFetch(baseUrl, token, '/status', { timeoutMs: DEFAULT_TIMEOUT_MS });
     return { ops: createBridgeOps(baseUrl, token), status };
@@ -166,5 +164,3 @@ async function probeBridge(baseUrl, token) {
     return null;
   }
 }
-
-module.exports = { probeBridge };

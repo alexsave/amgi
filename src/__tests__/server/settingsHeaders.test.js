@@ -1,6 +1,6 @@
-const { describe, test } = require('node:test');
-const assert = require('node:assert/strict');
-const { readSettings, PLAIN_HEADERS } = require('../../server/anki/settings');
+import { describe, test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readSettings, PLAIN_HEADERS } from '../../server/anki/settings';
 
 const request = (headers) => new Request('http://127.0.0.1/api/anki/status', { headers });
 
