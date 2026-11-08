@@ -128,7 +128,6 @@ void cd_main(void) {
   }
   cd_listen_window(CD_EV_VISIBILITY);
   cd_listen(CD_WINDOW, CD_EV_FOCUS);
-  app_content = cd_id_new();
   cd_at(CD_MOUNT, 0);
   el(CD_LIT("div"), CD_LIT("App"));
   el(CD_LIT("div"), CD_LIT("app-container"));
@@ -143,8 +142,7 @@ void cd_main(void) {
   cd_close();
   cd_close();
   cd_close();
-  el(CD_LIT("div"), CD_LIT("app-content"));
-  cd_name_open(app_content);
+  app_content = el_id(CD_LIT("div"), CD_LIT("app-content"));
   cd_close();
   cd_close();
   cd_close();

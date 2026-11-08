@@ -42,6 +42,7 @@ uint32_t paste_lines(const char *s, uint32_t len, wire_str *out, uint32_t cap, c
 
 /* ---- the DOM, shorthand (dom.c) ---- */
 void el(cd_str tag, cd_str cls);                  /* cd_open, then class when cls */
+cd_id el_id(cd_str tag, cd_str cls);              /* the same, named with a new id (cd_open_id) */
 void el_text(cd_str tag, cd_str cls, cd_str s);   /* an element holding one text, closed */
 void tmp_text(const char *p, uint32_t len);       /* a one-off text node */
 void attr_tmp(cd_str name, const char *p, uint32_t len);

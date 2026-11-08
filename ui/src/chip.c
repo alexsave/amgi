@@ -55,10 +55,8 @@ static void set_state(chip *c, uint32_t state) {
   cd_set_bool(c->node, CD_LIT("disabled"), state == LOADING);
   if ((was == BROKEN) != (state == BROKEN)) title_into(c);
   if (state == BROKEN && !c->bad) {
-    c->bad = cd_id_new();
     cd_at(c->node, 0);
-    el(CD_LIT("span"), CD_LIT("audio-chip-bad"));
-    cd_name_open(c->bad);
+    c->bad = el_id(CD_LIT("span"), CD_LIT("audio-chip-bad"));
     cd_text(CD_LIT("missing"));
     cd_close();
   } else if (state != BROKEN && c->bad) {
@@ -82,8 +80,7 @@ int32_t chip_build(const char *filename, uint32_t flen, const char *label, uint3
   c->voice = 0;
   text_set(&c->filename, filename, flen);
   text_setz(&c->label, label);
-  c->node = cd_id_new();
-  cd_open(CD_LIT("button"));
+  c->node = cd_open_id(CD_LIT("button"));
   cd_attr(CD_LIT("type"), CD_LIT("button"));
   cd_class(class_of(c));
   char t[160];

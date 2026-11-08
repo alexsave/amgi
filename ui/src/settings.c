@@ -95,9 +95,7 @@ static void label(const char *for_id, cd_str s) {
   cd_close();
 }
 static cd_id text_input(const char *id, const text *value, cd_str placeholder) {
-  cd_id node = cd_id_new();
-  cd_open(CD_LIT("input"));
-  cd_name(node);
+  cd_id node = cd_open_id(CD_LIT("input"));
   cd_attr(CD_LIT("id"), cd_internz(id));
   cd_attr(CD_LIT("type"), CD_LIT("text"));
   cd_str v = CD_LIT("value");
@@ -107,8 +105,7 @@ static cd_id text_input(const char *id, const text *value, cd_str placeholder) {
   return node;
 }
 static cd_id save_button(uint32_t action, cd_str s, cd_id *txt) {
-  cd_id b = cd_id_new();
-  el(CD_LIT("button"), 0);
+  cd_id b = el_id(CD_LIT("button"), 0);
   cd_attr(CD_LIT("type"), CD_LIT("button"));
   cd_class(CD_LIT("save-button"));
   cd_listen(b, CD_EV_CLICK);
@@ -134,9 +131,7 @@ void settings_build(void) {
 
   el(CD_LIT("div"), CD_LIT("settings-content"));
   el_text(CD_LIT("h3"), 0, CD_LIT("Anki (local)"));
-  el(CD_LIT("div"), CD_LIT("preferences-section"));
-  section = cd_id_new();
-  cd_name_open(section);
+  section = el_id(CD_LIT("div"), CD_LIT("preferences-section"));
 
   row_open();
   cd_attr(CD_LIT("style"), CD_LIT("align-items: center;"));
@@ -144,9 +139,7 @@ void settings_build(void) {
   badge_build(&badges[1]);
   cd_close();
 
-  el(CD_LIT("div"), CD_LIT("preference-item install-block"));
-  install_block = cd_id_new();
-  cd_name_open(install_block);
+  install_block = el_id(CD_LIT("div"), CD_LIT("preference-item install-block"));
   label(0, CD_LIT("Install amgi into Anki"));
   el_text(CD_LIT("p"), CD_LIT("preference-help"),
           CD_LIT("Adds amgi’s microphone and bridge add-ons, and the “amgi Listening” note type, to the Anki on this "
@@ -171,9 +164,7 @@ void settings_build(void) {
   scan_button = save_button(A_SCAN, CD_LIT("Scan for profiles"), &scan_text);
   cd_close();
 
-  row_open();
-  before_bridge = cd_id_new();
-  cd_name_open(before_bridge);
+  before_bridge = el_id(CD_LIT("div"), CD_LIT("preference-item"));
   label("bridgeUrl", CD_LIT("Bridge address"));
   url_input = text_input("bridgeUrl", &draft[S_BRIDGE_URL], CD_LIT("http://127.0.0.1:8798"));
   cd_close();
@@ -182,9 +173,7 @@ void settings_build(void) {
   token_input = text_input("bridgeToken", &draft[S_BRIDGE_TOKEN], CD_LIT("From Anki's Tools > amgi: Bridge status…"));
   cd_close();
 
-  row_open();
-  saved_slot = cd_id_new();
-  cd_name_open(saved_slot);
+  saved_slot = el_id(CD_LIT("div"), CD_LIT("preference-item"));
   save_button(A_SAVE, CD_LIT("Save Anki settings"), 0);
   cd_close();
 
