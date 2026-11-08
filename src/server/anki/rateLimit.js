@@ -18,10 +18,13 @@
 
 import { NextResponse } from 'next/server';
 import { sharedGate } from 'plusaudio/lib/rateGate';
+import { MAX_WAIT_MS } from 'plusaudio/lib/rateLimits';
 
 function retryAfterResponse(error, retryAfterMs, extra = {}) {
   return NextResponse.json(
-    { error, retryAfterMs, ...extra },
+    // maxWaitMs: the most a card waits in all before giving up (BulkRun), sent rather than copied
+    // into the client, so plusaudio/lib/rateLimits.js stays its one owner.
+    { error, retryAfterMs, maxWaitMs: MAX_WAIT_MS, ...extra },
     { status: 429, headers: { 'Retry-After': String(Math.max(1, Math.ceil(retryAfterMs / 1000))) } },
   );
 }
