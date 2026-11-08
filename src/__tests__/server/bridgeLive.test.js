@@ -9,6 +9,8 @@
 // the bridge-outdated mode, with its "press Install into Anki again" message.
 //
 // Needs the anki library (ANKI_PYTHON_BIN, as the other collection tests); skipped without it.
+// AMGI_COLLECTION_IMPL=<the C core's collection_cli> runs every case against the C bridge client
+// instead (test/parity/bridge-under-test.mjs), against the same real add-on server.
 import { after, before, describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
@@ -16,8 +18,10 @@ import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
 import { createRequire } from 'node:module';
-import { BridgeError, PROTOCOL_HEADER, probeBridge } from '../../server/anki/bridgeClient';
-import { resolveTransport } from '../../server/anki/transport';
+import { BridgeError, PROTOCOL_HEADER } from '../../server/anki/bridgeClient';
+import {
+  BRIDGE_IMPL, closeBridgesUnderTest, probeBridgeUnderTest as probeBridge, resolveTransportUnderTest as resolveTransport,
+} from '../../../test/parity/bridge-under-test.mjs';
 import { notReadyResponse } from '../../server/anki/respond';
 import { ANSWER } from '../../server/anki/answer';
 import { BRIDGE_PROTOCOL, WIRE_MIME, decode, encode } from '../../../ui/server/wire.mjs';
@@ -48,7 +52,9 @@ function startBridge(collectionPath) {
   return { ready, stop };
 }
 
-maybe('the bridge protocol against the real add-on server and a real collection', () => {
+after(closeBridgesUnderTest);
+
+maybe(`the bridge protocol against the real add-on server and a real collection (${BRIDGE_IMPL})`, () => {
   let dir;
   let collectionPath;
   let bridge;
@@ -181,7 +187,7 @@ print(len(col.find_notes("")))
   });
 });
 
-describe('an add-on in another protocol', () => {
+describe(`an add-on in another protocol (${BRIDGE_IMPL})`, () => {
   /** A stand-in add-on that answers every request with `status`, `headers` and `body`. */
   async function fakeAddon(status, headers, body) {
     const server = http.createServer((req, res) => {
@@ -224,3 +230,37 @@ describe('an add-on in another protocol', () => {
     }
   });
 });
+
+describe(`a slow add-on: reads wait 1500 ms, writes the add-on's 30000 (${BRIDGE_IMPL})`, () => {
+  test('a read that takes 2 s is aborted, a write that takes 2 s lands', async () => {
+    const headers = { 'Content-Type': WIRE_MIME, [PROTOCOL_HEADER]: String(BRIDGE_PROTOCOL) };
+    const server = http.createServer((req, res) => {
+      if (req.url === '/status') {
+        res.writeHead(200, headers);
+        res.end(encode('b_status', { profileOpen: true, profileName: 'slow', collectionOpen: true, schemaVersion: 18, ankiVersion: 'x', qtVersion: 'y' }));
+        return;
+      }
+      req.resume();
+      setTimeout(() => {
+        res.writeHead(200, headers);
+        res.end(req.url === '/decks' && req.method === 'POST'
+          ? encode('b_deck_created', { deck: { id: 1794169279580, name: 'Slow' }, created: true })
+          : encode('b_decks', { decks: [] }));
+      }, 2000);
+    });
+    await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+    try {
+      const probed = await probeBridge(`http://127.0.0.1:${server.address().port}`, TOKEN);
+      assert.ok(probed?.ops, 'the status answers at once');
+      const started = Date.now();
+      await assert.rejects(probed.ops.listDecks(), (error) => error.message === 'This operation was aborted');
+      const waited = Date.now() - started;
+      assert.ok(waited >= 1400 && waited < 1950, `the read gave up at 1500 ms (${waited})`);
+      assert.deepEqual(await probed.ops.createDeck('Slow'), { deck: { id: 1794169279580, name: 'Slow' }, created: true }, 'the write waited');
+    } finally {
+      server.closeAllConnections();
+      await new Promise((resolve) => server.close(resolve));
+    }
+  });
+});
+
