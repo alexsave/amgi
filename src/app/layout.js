@@ -1,6 +1,5 @@
 import '../index.css';
 import '../App.css';
-import Providers from './providers';
 
 export const metadata = {
   title: 'AMGI',
@@ -27,7 +26,7 @@ export default function RootLayout({ children }) {
     <html lang="en">
       <body>
         <noscript>You need to enable JavaScript to run this app.</noscript>
-        <Providers>{children}</Providers>
+        {children}
       </body>
     </html>
   );
