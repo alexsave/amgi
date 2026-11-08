@@ -1,4 +1,3 @@
 [submodule "cdom"]
 	path = cdom
-	url = /Users/alex/Dev/cdom
-	branch = amgi
+	url = git@github.com:alexsave/cdom.git
