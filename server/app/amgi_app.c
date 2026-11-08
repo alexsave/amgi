@@ -11,6 +11,7 @@
 #include <stdio.h>
 
 extern const cb_route_list AMGI_ROUTE_LIST;
+void amgi_slow_full(cb_ctx *ctx, const cb_http_req *req, cb_http_res *res);
 int amgi_gen_open(char *err, size_t cap);
 void amgi_gen_close(void);
 
@@ -38,9 +39,14 @@ static const cb_app AMGI_APP = {
     .storeless = true,
     .serve_open = amgi_open,
     .serve_close = amgi_close,
-    // Gemini calls hold a request's thread for up to about 30 s, and the bulk screen keeps five cards
-    // in flight beside the status poll and the page's reads.
-    .req_workers = 12,
+    // The fast routes: the status poll, the clips, the deck list, a paste's notes.
+    .req_workers = 8,
+    // The Gemini routes (card text, a clip) run on the slow pool: a card holds its thread for as long
+    // as Gemini takes. Five bulk lanes in each of two tabs, and headroom; one more is refused at once
+    // with the notStarted 429 (amgi_slow_full), which the bulk screen waits out and sends again.
+    .slow_workers = 12,
+    .slow_queue = 0,
+    .slow_full = amgi_slow_full,
     // A desktop app's terminal: warnings and errors only.
     .log_level = "warn",
     .host_allow = AMGI_HOSTS,

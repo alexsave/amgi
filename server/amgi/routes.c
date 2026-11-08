@@ -560,7 +560,9 @@ static void h_other(cb_ctx *ctx, const cb_http_req *req, cb_http_res *res) {
   ar_free(&a);
 }
 
-/* POST /notes/bulk takes a whole paste in one body; every other route the server's default. */
+/* POST /notes/bulk takes a whole paste in one body; every other route the server's default. The two
+ * Gemini routes run on cbase's slow pool (CB_ROUTE_SLOW): a card holds its thread for as long as
+ * Gemini takes, and the status poll, the clips and the deck list never wait behind one. */
 #define BULK_MAX_BODY ((size_t)256 << 20)
 #define ANY(p, f) {.method = "*", .pattern = (p), .flags = CB_ROUTE_POOL, .fn = (f)}
 static const cb_route AMGI_ROUTES[] = {
@@ -580,8 +582,8 @@ static const cb_route AMGI_ROUTES[] = {
   {.method = "POST", .pattern = "/api/anki/notes/bulk", .flags = CB_ROUTE_POOL, .fn = h13, .max_body = BULK_MAX_BODY},
   {.method = "PATCH", .pattern = "/api/anki/notes/:id", .flags = CB_ROUTE_POOL, .fn = h14},
   {.method = "DELETE", .pattern = "/api/anki/notes/:id", .flags = CB_ROUTE_POOL, .fn = h15},
-  {.method = "POST", .pattern = "/api/anki/card-text", .flags = CB_ROUTE_POOL, .fn = h16},
-  {.method = "POST", .pattern = "/api/anki/audio", .flags = CB_ROUTE_POOL, .fn = h17},
+  {.method = "POST", .pattern = "/api/anki/card-text", .flags = CB_ROUTE_SLOW, .fn = h16},
+  {.method = "POST", .pattern = "/api/anki/audio", .flags = CB_ROUTE_SLOW, .fn = h17},
   {.method = "GET", .pattern = "/api/anki/starter", .flags = CB_ROUTE_POOL, .fn = h18},
   {.method = "POST", .pattern = "/api/anki/starter", .flags = CB_ROUTE_POOL, .fn = h19},
   {.method = "GET", .pattern = "/api/anki/media/:filename", .flags = CB_ROUTE_POOL, .fn = h20},
@@ -595,3 +597,18 @@ static const cb_route AMGI_ROUTES[] = {
   ANY("/*", h_other),
 };
 const cb_route_list AMGI_ROUTE_LIST = {AMGI_ROUTES, (int)(sizeof AMGI_ROUTES / sizeof *AMGI_ROUTES)};
+
+/* cb_app.slow_full: a Gemini request that finds every slow worker busy is refused at once, as work
+ * that has not started (the bulk screen waits retryAfterMs and sends it again). Runs on serve's loop
+ * thread: it builds its answer and takes no lock. */
+void amgi_slow_full(cb_ctx *ctx, const cb_http_req *req, cb_http_res *res) {
+  (void)ctx, (void)req;
+  arena a = {0};
+  amgi_error e = {0};
+  e.error = S("amgi is making as many cards as it can at once; this one waits 2s before starting.");
+  e.has_retry = 1;
+  e.retry_after_ms = 2000;
+  e.not_started = 1;
+  amgi_send_error(&a, res, 429, &e);
+  ar_free(&a);
+}
