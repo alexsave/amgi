@@ -151,33 +151,6 @@
   color: #e74c3c;
 }
 
-.legal-links {
-  margin-top: 40px;
-  padding-top: 20px;
-  border-top: 1px solid var(--border-color);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 12px;
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-}
-
-.legal-links a {
-  color: var(--text-secondary);
-  text-decoration: none;
-  transition: color 0.2s ease;
-}
-
-.legal-links a:hover {
-  color: var(--flame-orange);
-}
-
-.legal-links .separator {
-  color: var(--text-secondary);
-  opacity: 0.5;
-}
-
 @media (max-width: 600px) {
   .settings-page {
     padding: 16px;
@@ -190,15 +163,6 @@
   .preference-item input[type="number"],
   .preference-item select {
     max-width: 100%;
-  }
-
-  .legal-links {
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .legal-links .separator {
-    display: none;
   }
 } 
 /* The install block leads the Anki panel, so it reads as the first thing to
