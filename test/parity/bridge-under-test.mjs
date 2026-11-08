@@ -1,19 +1,23 @@
-// The bridge client a test talks through: src/server/anki/bridgeClient.js and transport.js in this
-// process, or, with AMGI_COLLECTION_IMPL=<executable> (the C core's server/build/collection_cli),
-// that program's bridge client over the collection-parity protocol (test/parity/protocol.mjs:
-// "probe" and "transport", then the same commands, answered by the bridge). Either way the answers
-// have bridgeClient.js's shapes and its errors (BridgeError with the status), so a test of the
-// bridge against the add-on's real server (src/__tests__/server/bridgeLive.test.js) checks either.
-//
-// At L4 the in-process half goes with the JavaScript; the C half stays, checking C against the
-// add-on's real server.
-import { BridgeError, probeBridge } from '../../src/server/anki/bridgeClient.js';
-import { resolveTransport } from '../../src/server/anki/transport.js';
+// The bridge client a test talks through: the C core's (server/collection/bridge.c and
+// transport.c), driven over the collection-parity protocol (test/parity/protocol.mjs: "probe" and
+// "transport", then the same commands, answered by the bridge) by server/build/collection_cli. The
+// answers come back in the shapes the tests read, and a failure as a BridgeError with its status, so
+// the bridge tests (test/bridge/bridgeLive.test.mjs) check the client against the add-on's real
+// server.
+export const PROTOCOL_HEADER = 'X-Amgi-Bridge-Protocol';
+
+/** A failure the bridge answered, with its HTTP status (a refused token, a deck not there). */
+export class BridgeError extends Error {
+  constructor(message, status) {
+    super(message);
+    this.name = 'BridgeError';
+    this.status = status;
+  }
+}
+
 import { Impl } from './impl-process.mjs';
 import { dec, enc, hex, items, noteTokens, strs, unhex } from './protocol.mjs';
 
-const IMPL = process.env.AMGI_COLLECTION_IMPL;
-export const BRIDGE_IMPL = IMPL ? 'c' : 'node';
 const sessions = new Set();
 
 function errorOf(answer) {
@@ -115,7 +119,6 @@ function opsOver(impl) {
 
 /** probeBridge: null, { outdated }, or { ops, status }. */
 export async function probeBridgeUnderTest(baseUrl, token) {
-  if (!IMPL) return probeBridge(baseUrl, token);
   const impl = new Impl();
   sessions.add(impl);
   const t = ok(await impl.cmd(`probe ${enc(baseUrl)} ${enc(token)}`));
@@ -126,7 +129,6 @@ export async function probeBridgeUnderTest(baseUrl, token) {
 
 /** resolveTransport: the mode (and its detail), as transport.js answers. */
 export async function resolveTransportUnderTest(settings) {
-  if (!IMPL) return resolveTransport(settings);
   const impl = new Impl();
   sessions.add(impl);
   const opt = (v) => (v ? enc(v) : '!');

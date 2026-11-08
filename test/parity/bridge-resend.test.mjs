@@ -11,7 +11,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import net from 'node:net';
-import { BRIDGE_PROTOCOL, WIRE_MIME, encode } from '../../ui/server/wire.mjs';
+import { BRIDGE_PROTOCOL, WIRE_MIME, encode } from '../../ui/wire/wire.mjs';
 import { startServer } from './servers.mjs';
 
 const STATUS = encode('b_status', { profileOpen: true, profileName: 'User 1', collectionOpen: true, schemaVersion: 18, ankiVersion: '26.09.4', qtVersion: '6.9' });

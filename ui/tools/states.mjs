@@ -33,7 +33,7 @@ const sh = (cmd, args) => execFileSync(cmd, args, { cwd: root, encoding: 'utf8',
 // A folder as one profile, "User 1", from the UI fixture; installed fully, add-ons only, or not at all.
 function folder(dirName, install) {
   const dir = sh(path.join(here, 'flows.sh'), [path.join(root, '.e2e', 'fixture'), path.join(work, dirName)]);
-  if (install) sh(process.execPath, ['--import', './ui/server/hooks.mjs', 'ui/tools/fixture-install.mjs', dir, ...(install === 'addons' ? ['--addons-only'] : [])]);
+  if (install) sh(process.execPath, ['ui/tools/fixture-install.mjs', dir, ...(install === 'addons' ? ['--addons-only'] : [])]);
   return dir;
 }
 // The base fixture, before amgi touched it: no card type in the collection.
@@ -92,7 +92,7 @@ try {
 
   // 2. Installed, the card type not in the collection yet.
   const behind = bareFolder('state-behind');
-  sh(process.execPath, ['--import', './ui/server/hooks.mjs', 'ui/tools/fixture-install.mjs', behind, '--addons-only']);
+  sh(process.execPath, ['ui/tools/fixture-install.mjs', behind, '--addons-only']);
   b = await open({ base: behind, collection: path.join(behind, 'User 1', 'collection.anki2') });
   await goto(b, `${base}/decks`);
   check(await until(b, `document.querySelectorAll('.deck-item').length > 0 && document.querySelector('.template-update.is-behind strong')?.textContent === 'restart Anki'`, 150),

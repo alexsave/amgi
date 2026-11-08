@@ -1,16 +1,16 @@
-// One implementation of the collection-parity protocol (test/parity/protocol.mjs) as a process:
-// one server session, as the backup ledger and the lock chains see it. Which one is
-// AMGI_COLLECTION_IMPL's: the C CLI at that path, or (unset) the Node one, which goes at L4.
+// The collection core as a process speaking the collection-parity protocol (test/parity/protocol.mjs):
+// one server session, as the backup ledger and the lock chains see it. It is the C core's CLI,
+// server/build/collection_cli (make -C server), or the program AMGI_COLLECTION_IMPL names.
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 
 const ROOT = path.resolve(import.meta.dirname, '..', '..');
 const IMPL = process.env.AMGI_COLLECTION_IMPL;
 
+export const COLLECTION_CLI = path.join(ROOT, 'server', 'build', 'collection_cli');
+
 export function implCommand() {
-  return IMPL
-    ? [IMPL, []]
-    : [process.execPath, ['--import', './ui/server/hooks.mjs', 'test/parity/collection-impl.mjs']];
+  return [IMPL || COLLECTION_CLI, []];
 }
 
 /** One implementation process: one server session, as the ledger and the lock chains see it. */

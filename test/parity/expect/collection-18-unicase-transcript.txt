@@ -13,11 +13,11 @@ ok <D4> %EF%AC%83 1
 > renameDeck <D1> %C3%84PFEL%3A%3A%C3%96l
 ok <D1> %C3%84PFEL%3A%3A%C3%96l 0
 > createDeck STRASSE
-ok <D5> STRASSE 1
+ok <D3> Stra%C3%9Fe 0
 > createDeck FFI
-ok <D6> FFI 1
+ok <D5> FFI 1
 > renameDeck <D3> strasse
-err error a%20deck%20called%20%22strasse%22%20already%20exists
+ok <D3> strasse 0
 > listDecks
 ok 15
 1 Default
@@ -29,9 +29,9 @@ ok 15
 1794170430289 Empty
 1794170430294 Filtered
 <D1> %C3%84PFEL%3A%3A%C3%96l
-<D7> %C3%96l
+<D6> %C3%96l
 <D2> %C3%96l%3A%3A%C3%84
-<D3> Stra%C3%9Fe
+<D3> strasse
 <D4> %EF%AC%83
-<D5> STRASSE
-<D6> FFI
+<D7> %C3%84PFEL
+<D5> FFI

@@ -1,25 +1,12 @@
-// Starting what the parity suites talk to, each on a free port, stopped by PID.
-//
-// The server under test is chosen by environment variable, so the same suite (and the browser
-// drives, ui/tools/e2e.sh) runs against the Node server today and the C server later:
-//   AMGI_SERVER unset           node ui/server/serve.mjs (removed at L4)
-//   AMGI_SERVER=c               the C server: server/build/amgi serve (make -C server build/amgi)
-//   AMGI_SERVER=<executable>    that program, run from the repo root with no arguments
-// Either way it is asked for a free port (PORT=0 for the Node server, CBASE_LISTEN=127.0.0.1:0 for the
-// C server on cbase serve) and must say where it listens on stdout: `amgi on http://127.0.0.1:<port>`
-// (Node) or cbase's startup line, `cbase: listening 127.0.0.1:<port>`.
+// Starting what the suites talk to, each on a free port, stopped by PID: the amgi server
+// (server/build/amgi serve, on cbase; make -C server builds it), from the repo root, asked for a free
+// port with CBASE_LISTEN=127.0.0.1:0, and ready once cbase's startup line names it
+// (`cbase: listening 127.0.0.1:<port>`); and the tests' fake Gemini.
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 
 export const ROOT = path.resolve(import.meta.dirname, '..', '..');
-export const SERVER = process.env.AMGI_SERVER;
-
-export const C_SERVER = path.join(ROOT, 'server', 'build', 'amgi');
-
-function serverCommand() {
-  if (SERVER === 'c') return [C_SERVER, ['serve']];
-  return SERVER ? [SERVER, []] : [process.execPath, ['ui/server/serve.mjs']];
-}
+export const SERVER = path.join(ROOT, 'server', 'build', 'amgi');
 
 /** Start `cmd` and resolve with its child and the first match of `pattern` on its stdout. */
 function startAndRead(cmd, args, env, pattern, what) {
@@ -35,7 +22,7 @@ function startAndRead(cmd, args, env, pattern, what) {
       const m = pattern.exec(out);
       if (m) {
         clearTimeout(timer);
-        resolve({ child, match: m.slice(1).find(Boolean), stop: () => stop(child) });
+        resolve({ child, match: m[1], stop: () => stop(child) });
       }
     });
     child.stderr.on('data', (chunk) => { err += chunk; });
@@ -46,9 +33,8 @@ function startAndRead(cmd, args, env, pattern, what) {
   });
 }
 
-/** Where the server says it listens: Node's line, or cbase's startup line (a URL either way). */
-export const LISTENING = /amgi on (http:\/\/127\.0\.0\.1:\d+)|cbase: listening (127\.0\.0\.1:\d+)/;
-const asUrl = (where) => (where.startsWith('http') ? where : `http://${where}`);
+/** cbase's startup line, which names where the server listens. */
+export const LISTENING = /cbase: listening (127\.0\.0\.1:\d+)/;
 
 function stop(child) {
   if (child.exitCode !== null || child.signalCode !== null) return Promise.resolve();
@@ -65,12 +51,11 @@ function stop(child) {
  */
 export async function startServer({ key = 'offline-dummy', base = 'http://127.0.0.1:9' } = {}) {
   const env = {
-    PATH: process.env.PATH, HOME: process.env.HOME, TMPDIR: process.env.TMPDIR, PORT: '0', CBASE_LISTEN: '127.0.0.1:0', GEMINI_API_KEY: key,
+    PATH: process.env.PATH, HOME: process.env.HOME, TMPDIR: process.env.TMPDIR, CBASE_LISTEN: '127.0.0.1:0', GEMINI_API_KEY: key,
   };
   if (base) env.GEMINI_API_BASE = base;
-  const [cmd, args] = serverCommand();
-  const s = await startAndRead(cmd, args, env, LISTENING, 'the server under test');
-  return { url: asUrl(s.match), stop: s.stop, pid: s.child.pid };
+  const s = await startAndRead(SERVER, ['serve'], env, LISTENING, 'the amgi server');
+  return { url: `http://${s.match}`, stop: s.stop, pid: s.child.pid };
 }
 
 /** The tests' fake Gemini (plusaudio/test/helpers/fake-gemini.js), standalone, on its own free port. */

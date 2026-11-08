@@ -100,6 +100,11 @@ str amgi_root(arena *a);
 /* ---- install.c ---- */
 void amgi_install_get(arena *a, const amgi_settings *s, cb_http_res *res);
 void amgi_install_post(arena *a, const amgi_settings *s, str body_override, cb_http_res *res);
+/* The collection half on its own, for the collection runner (collection_cli): collectionDrift (1 when
+ * checked, and what is stale), and installNotetypeDirect (1 when the note type is there now; *made
+ * says what the core answered). */
+int amgi_collection_drift(arena *a, const amgi_ops *o, str root, str **stale, size_t *n);
+int amgi_install_notetype(arena *a, const amgi_ops *o, str root, col_notetype_made *made);
 /* Where the profiles are (transport.js discoverProfiles). */
 str amgi_base_dir(arena *a, str override);
 

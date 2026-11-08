@@ -1,7 +1,7 @@
 import { describe, mock, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { isDeepStrictEqual } from 'node:util';
-import { createReviewLoop, PHASE } from '../../utils/reviewLoop';
+import { createReviewLoop, PHASE } from '../../utils/reviewLoop.js';
 
 // The loop's own timing comes entirely from the host's promises and from the
 // detector, so both are stubbed and the tests drive them by hand.

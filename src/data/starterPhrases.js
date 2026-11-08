@@ -1,11 +1,11 @@
-// The starter deck's phrases: src/data/starterPhrases.tsv, the same ten concepts in every language
-// amgi supports, index for index (starterDeck.js says why they are parallel). The first line names
+// The starter deck's phrases: starterPhrases.tsv beside this file, the same ten concepts in every language
+// amgi supports, index for index (server/amgi/starter.c says why they are parallel). Read here for scripts/build-starter-audio.js; the server reads the same file in C. The first line names
 // each column by its language code; every line after it is one concept, one phrase per column.
 // Tab-separated UTF-8, no quoting: a phrase never holds a tab or a line break.
 import fs from 'node:fs';
 import path from 'node:path';
 
-export const STARTER_PHRASES_FILE = path.join(import.meta.dirname, '..', '..', 'data', 'starterPhrases.tsv');
+export const STARTER_PHRASES_FILE = path.join(import.meta.dirname, 'starterPhrases.tsv');
 
 /**
  * The phrases by language code, each a list in concept order, or null when the text is not a

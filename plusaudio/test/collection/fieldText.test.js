@@ -23,15 +23,12 @@ const INPUTS = [
   ['é decomposed', '한국어 가'],
   ['plain', '<b>html</b> \x1f'],
   // Text still markup-like after one strip: Anki strips the first field once before its checksum.
-  // Fixed in the C core only (PR #30 review finding 2; Node is frozen and strips twice), so these
-  // run against the C core alone (test/parity/C_DIFFS.txt names the recordings this changes).
-  ...(process.env.AMGI_COLLECTION_IMPL ? [
-    ['<b>&lt;i&gt;</b>', 'x'],
-    ['x &amp;amp; y', 'x'],
-    ['a &amp;lt;b&amp;gt; c', 'x'],
-    ['&amp;#65; &amp;nbsp; &lt;!-- c --&gt;', 'x'],
-    ['<img src="a&amp;amp;b.png"> &lt;img src=x&gt;', 'x'],
-  ] : []),
+  // (PR #30 review finding 2: the Node core this replaced stripped twice.)
+  ['<b>&lt;i&gt;</b>', 'x'],
+  ['x &amp;amp; y', 'x'],
+  ['a &amp;lt;b&amp;gt; c', 'x'],
+  ['&amp;#65; &amp;nbsp; &lt;!-- c --&gt;', 'x'],
+  ['<img src="a&amp;amp;b.png"> &lt;img src=x&gt;', 'x'],
 ];
 
 // A JS string as a Python literal, every code point escaped.

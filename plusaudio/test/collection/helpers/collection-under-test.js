@@ -1,37 +1,17 @@
 'use strict';
 
-// The collection core a test writes through, behind one small async face: plusaudio/lib/collection
-// in this process, or, with AMGI_COLLECTION_IMPL=<executable> (the C core's server/build/collection_cli),
-// that program over the collection-parity protocol (test/parity/protocol.mjs). A test that checks
-// what the core writes against real Anki then checks either implementation unchanged.
+// The collection core a test writes through, behind one small async face: the C core's
+// server/build/collection_cli (make -C server), or the program AMGI_COLLECTION_IMPL names, over the
+// collection-parity protocol (test/parity/protocol.mjs). A test that checks what the core writes
+// against real Anki reads it through this.
 
 const { spawn } = require('node:child_process');
 const path = require('node:path');
 
-const { Collection } = require('../../../lib/collection');
-
-const IMPL = process.env.AMGI_COLLECTION_IMPL;
 const ROOT = path.resolve(__dirname, '..', '..', '..', '..');
+const IMPL = process.env.AMGI_COLLECTION_IMPL || path.join(ROOT, 'server', 'build', 'collection_cli');
 
-function unwrap(outcome) {
-  if (outcome.status !== 'ok') throw new Error(`collection is ${outcome.status}`);
-  return outcome.result;
-}
-
-/** plusaudio/lib/collection, in this process. */
-function inProcess(collectionPath) {
-  const col = new Collection(collectionPath);
-  return {
-    name: 'node',
-    async listNotetypes() { return unwrap(col.listNotetypes()); },
-    async createDeck(name) { return unwrap(col.createDeck(name)).deck; },
-    async addNote(note) { return unwrap(col.addNote(note)); },
-    async updateNote(id, fields) { return unwrap(col.updateNote(id, fields)); },
-    async close() {},
-  };
-}
-
-/** The implementation at AMGI_COLLECTION_IMPL, over the protocol. */
+/** The C core, over the protocol. */
 async function overProtocol(collectionPath) {
   const { dec, enc, items, noteTokens, strs } = await import(path.join(ROOT, 'test', 'parity', 'protocol.mjs'));
   const child = spawn(IMPL, [], { stdio: ['pipe', 'pipe', 'inherit'] });
@@ -93,7 +73,7 @@ async function overProtocol(collectionPath) {
 
 /** The collection core under test, opened on `collectionPath`. */
 function openCollectionUnderTest(collectionPath) {
-  return IMPL ? overProtocol(collectionPath) : Promise.resolve(inProcess(collectionPath));
+  return overProtocol(collectionPath);
 }
 
 module.exports = { openCollectionUnderTest };

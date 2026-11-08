@@ -86,6 +86,10 @@ int gem_synthesize(arena *a, str text, const char *voice, str *wav, gem_err *e);
 int gem_audio_to_wav(arena *a, str mime, str bytes, str *wav, str *error);
 str gem_pcm_to_wav(arena *a, str pcm, uint32_t rate, uint32_t channels);
 
+/* The info line logged for each 429 (gemini.c says what it carries, and what it never does). */
+size_t gem_quota_line(char *out, size_t cap, const char *model, const char *quota_id, int daily, int has_delay,
+                      int64_t delay_ms, int64_t learned_cap);
+
 /* gemini.ts dailyQuotaMessage */
 str gem_daily_quota_message(arena *a, const char *model, int free_tier, int has_limit, double limit, int has_resets,
                             int64_t resets_in_ms);

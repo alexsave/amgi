@@ -9,7 +9,7 @@
 //   ... --model gemini-3.8-flash-lite-tts            # another named TTS model (see below)
 //
 // The starter deck exists for people who have downloaded amgi and have no
-// Gemini key - see src/server/anki/starterDeck.js. Everything else in this
+// Gemini key - see server/amgi/starter.c. Everything else in this
 // repo generates audio on demand and pays for it per clip; this one deck
 // cannot, by definition, so its clips ship with the source. That is the whole
 // reason this script exists as a build step rather than as something the app
@@ -153,7 +153,7 @@ function toMp3(wavPath, mp3Path) {
 
 async function main() {
   const options = parseArgs(process.argv.slice(2));
-  const { readStarterPhrases } = require('../src/server/anki/starterPhrases.js');
+  const { readStarterPhrases } = require('../src/data/starterPhrases.js');
   const phrases = readStarterPhrases();
   if (!phrases) throw new Error('src/data/starterPhrases.tsv is missing or not a whole table');
 

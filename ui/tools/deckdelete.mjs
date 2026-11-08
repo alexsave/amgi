@@ -13,7 +13,7 @@ import path from 'node:path';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { seed } from './seed.mjs';
-import { WIRE_MIME, decode, encode } from '../server/wire.mjs';
+import { WIRE_MIME, decode, encode } from '../wire/wire.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const cdom = process.env.CDOM || path.join(here, '..', '..', 'cdom');

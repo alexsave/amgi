@@ -1,5 +1,5 @@
-# The test that matters most in this add-on's bridge: proving the Node
-# transport (plusaudio/lib/collection/, used when Anki is closed) and the
+# The test that matters most in this add-on's bridge: proving the direct
+# transport (the C collection core, server/collection/, used when Anki is closed) and the
 # in-process transport (bridge_ops.py, used through the HTTP bridge when
 # Anki is running) agree on the same collection file - not each against its
 # own idea of "correct", but against each other, on the same bytes on disk.
@@ -10,13 +10,12 @@
 # proves nothing about that assumption; this file is what actually pins it.
 #
 # Needs both a working `anki` Python install (ANKI_PYTHON_BIN, or a plain
-# python3 with anki on PATH; see test_bridge_ops.py) and a `node` on PATH.
-# Skips cleanly, like every other test in this suite, when either is
-# missing - see README.md, "Testing".
+# python3 with anki on PATH; see test_bridge_ops.py) and the C core's CLI,
+# server/build/collection_cli (make -C server). Skips cleanly, like every
+# other test in this suite, when either is missing - see README.md, "Testing".
 
 from __future__ import annotations
 
-import json
 import os
 import shutil
 import subprocess
@@ -37,65 +36,101 @@ except ModuleNotFoundError:  # pragma: no cover - environment-dependent
 REPO_ROOT = os.path.dirname(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 )
-COLLECTION_LIB = os.path.join(REPO_ROOT, "plusaudio", "lib", "collection")
-
-# One small dispatcher script, so every call below is "run this one Node
-# Collection method against this file" rather than a bespoke script per
-# operation - keeping the Node side of this test as close as possible to
-# just "the same lib/collection index.js everything else in plusaudio uses".
-NODE_RUNNER = r"""
-const { Collection } = require(process.argv[1]);
-const [, , collectionPath, op, argsJson] = process.argv;
-const args = JSON.parse(argsJson);
-const col = new Collection(collectionPath);
-let out;
-switch (op) {
-  case 'createDeck': out = col.createDeck(args.name); break;
-  case 'listDecks': out = col.listDecks(); break;
-  case 'listNotetypes': out = col.listNotetypes(); break;
-  case 'addNote': out = col.addNote(args.note); break;
-  case 'listNotesInDeck': out = col.listNotesInDeck(args.deckId, args.options || {}); break;
-  default: throw new Error('unknown op ' + op);
-}
-process.stdout.write(JSON.stringify(out));
-"""
+COLLECTION_CLI = os.path.join(REPO_ROOT, "server", "build", "collection_cli")
 
 
-def node_available() -> bool:
-    try:
-        subprocess.run(["node", "--version"], capture_output=True, check=True)
-        return True
-    except (OSError, subprocess.CalledProcessError):
-        return False
+# The CLI's line protocol (test/parity/protocol.mjs says it in full): a text token is
+# percent-encoded UTF-8, "~" the empty string; a list is "[a,b]".
+def _enc(value: str) -> str:
+    if value == "":
+        return "~"
+    safe = set("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.")
+    return "".join(chr(b) if chr(b) in safe else "%%%02X" % b for b in value.encode("utf-8"))
 
 
-def run_node(collection_path: str, op: str, args: dict):
-    """Run one plusaudio/lib/collection Collection method against
-    `collection_path` from Node, and return its `.result` - the file must
+def _dec(token: str) -> str:
+    if token == "~":
+        return ""
+    out = bytearray()
+    i = 0
+    while i < len(token):
+        if token[i] == "%":
+            out.append(int(token[i + 1:i + 3], 16))
+            i += 3
+        else:
+            out.append(ord(token[i]))
+            i += 1
+    return out.decode("utf-8")
+
+
+def _items(token: str) -> list:
+    inner = token[1:-1]
+    return [] if inner == "" else inner.split(",")
+
+
+def run_c(collection_path: str, op: str, args: dict):
+    """Run one collection operation against `collection_path` through the C
+    core's CLI, answered in the shapes the checks below read - the file must
     not be open from Python (or anywhere else) when this runs; Anki's
-    exclusive-lock semantics (see plusaudio/lib/collection/open.js) make that
-    a hard requirement, not just good hygiene."""
+    exclusive-lock semantics make that a hard requirement, not just good
+    hygiene."""
+    if op == "createDeck":
+        line = "createDeck " + _enc(args["name"])
+    elif op == "listDecks":
+        line = "listDecks"
+    elif op == "listNotetypes":
+        line = "listNotetypes"
+    elif op == "addNote":
+        note = args["note"]
+        fields = "[" + ",".join(_enc(f) for f in note["fields"]) + "]"
+        tags = "[" + ",".join(_enc(t) for t in note.get("tags", [])) + "]"
+        line = "addNote %d %d %s %s ! !" % (note["deckId"], note["notetypeId"], fields, tags)
+    elif op == "listNotesInDeck":
+        line = "listNotesInDeck %d 0 50" % args["deckId"]
+    else:
+        raise ValueError("unknown op " + op)
     completed = subprocess.run(
-        ["node", "-e", NODE_RUNNER, COLLECTION_LIB, collection_path, op, json.dumps(args)],
+        [COLLECTION_CLI],
+        input="open %s\n%s\nquit\n" % (_enc(collection_path), line),
         capture_output=True,
         text=True,
         check=True,
     )
-    envelope = json.loads(completed.stdout)
-    assert envelope["status"] == "ok", f"node side returned non-ok status: {envelope}"
-    return envelope["result"]
+    lines = completed.stdout.split("\n")
+    assert lines[0].startswith("ok"), lines[0]
+    answer = lines[1].split(" ")
+    assert answer[0] == "ok", f"the C core answered: {lines[1]}"
+    rows = lines[2:]
+    if op == "createDeck":
+        return {"deck": {"id": int(answer[1]), "name": _dec(answer[2])}, "created": answer[3] == "1"}
+    if op == "listDecks":
+        return [{"id": int(r.split(" ")[0]), "name": _dec(r.split(" ")[1])} for r in rows[: int(answer[1])]]
+    if op == "listNotetypes":
+        out = []
+        for r in rows[: int(answer[1])]:
+            t = r.split(" ")
+            out.append({"id": int(t[0]), "name": _dec(t[1]), "fieldNames": [_dec(f) for f in _items(t[4])]})
+        return out
+    if op == "addNote":
+        return {"noteId": int(answer[1])}
+    out = []
+    for r in rows[: int(answer[4])]:
+        t = r.split(" ")
+        out.append({"id": int(t[0]), "notetypeId": int(t[1]), "fields": [_dec(f) for f in _items(t[2])],
+                    "tags": [_dec(g) for g in _items(t[3])]})
+    return out
 
 
-def _require_anki_and_node() -> None:
+def _require_anki_and_c() -> None:
     if anki is None:
         raise unittest.SkipTest("the `anki` pip package is not installed; see test_bridge_ops.py")
-    if not node_available():
-        raise unittest.SkipTest("no `node` on PATH")
+    if not os.path.exists(COLLECTION_CLI):
+        raise unittest.SkipTest("no server/build/collection_cli (make -C server)")
 
 
 class CrossTransportTests(unittest.TestCase):
     def setUp(self):
-        _require_anki_and_node()
+        _require_anki_and_c()
         self.tmpdir = tempfile.mkdtemp()
         self.collection_path = os.path.join(self.tmpdir, "collection.anki2")
         self.addCleanup(lambda: shutil.rmtree(self.tmpdir, ignore_errors=True))
@@ -116,9 +151,9 @@ class CrossTransportTests(unittest.TestCase):
 
         return Collection(self.collection_path)
 
-    def test_a_deck_node_creates_is_recognised_not_duplicated_by_the_bridge(self):
-        node_created = run_node(self.collection_path, "createDeck", {"name": "Korean::Verbs"})
-        self.assertTrue(node_created["created"])
+    def test_a_deck_the_c_core_creates_is_recognised_not_duplicated_by_the_bridge(self):
+        c_created = run_c(self.collection_path, "createDeck", {"name": "Korean::Verbs"})
+        self.assertTrue(c_created["created"])
 
         col = self._open()
         try:
@@ -127,10 +162,10 @@ class CrossTransportTests(unittest.TestCase):
             col.close()
 
         self.assertFalse(bridge_result.payload["created"])
-        self.assertEqual(bridge_result.payload["deck"]["id"], node_created["deck"]["id"])
-        self.assertEqual(bridge_result.payload["deck"]["name"], node_created["deck"]["name"])
+        self.assertEqual(bridge_result.payload["deck"]["id"], c_created["deck"]["id"])
+        self.assertEqual(bridge_result.payload["deck"]["name"], c_created["deck"]["name"])
 
-    def test_a_deck_the_bridge_creates_is_recognised_not_duplicated_by_node(self):
+    def test_a_deck_the_bridge_creates_is_recognised_not_duplicated_by_the_c_core(self):
         col = self._open()
         try:
             bridge_result = bridge_ops.create_deck(col, "Japanese::Verbs")
@@ -138,36 +173,36 @@ class CrossTransportTests(unittest.TestCase):
             col.close()
         self.assertTrue(bridge_result.payload["created"])
 
-        node_result = run_node(self.collection_path, "createDeck", {"name": "japanese::VERBS"})
-        self.assertFalse(node_result["created"])
-        self.assertEqual(node_result["deck"]["id"], bridge_result.payload["deck"]["id"])
+        c_result = run_c(self.collection_path, "createDeck", {"name": "japanese::VERBS"})
+        self.assertFalse(c_result["created"])
+        self.assertEqual(c_result["deck"]["id"], bridge_result.payload["deck"]["id"])
 
     def test_both_transports_see_the_same_deck_list_after_writes_from_both(self):
-        run_node(self.collection_path, "createDeck", {"name": "Korean"})
+        run_c(self.collection_path, "createDeck", {"name": "Korean"})
         col = self._open()
         try:
             bridge_ops.create_deck(col, "Japanese")
         finally:
             col.close()
 
-        node_decks = {d["name"] for d in run_node(self.collection_path, "listDecks", {})}
+        c_decks = {d["name"] for d in run_c(self.collection_path, "listDecks", {})}
         col = self._open()
         try:
             bridge_decks = {d["name"] for d in bridge_ops.list_decks(col)}
         finally:
             col.close()
 
-        self.assertEqual(node_decks, bridge_decks)
-        self.assertEqual({"Default", "Korean", "Japanese"}, node_decks)
+        self.assertEqual(c_decks, bridge_decks)
+        self.assertEqual({"Default", "Korean", "Japanese"}, c_decks)
 
-    def test_a_note_node_adds_round_trips_through_the_bridges_own_reader(self):
-        deck = run_node(self.collection_path, "createDeck", {"name": "Korean"})["deck"]
-        basic = next(nt for nt in run_node(self.collection_path, "listNotetypes", {}) if nt["name"] == "Basic")
+    def test_a_note_the_c_core_adds_round_trips_through_the_bridges_own_reader(self):
+        deck = run_c(self.collection_path, "createDeck", {"name": "Korean"})["deck"]
+        basic = next(nt for nt in run_c(self.collection_path, "listNotetypes", {}) if nt["name"] == "Basic")
 
-        added = run_node(
+        added = run_c(
             self.collection_path,
             "addNote",
-            {"note": {"deckId": deck["id"], "notetypeId": basic["id"], "fields": ["node front", "node back"], "tags": ["from-node"]}},
+            {"note": {"deckId": deck["id"], "notetypeId": basic["id"], "fields": ["c front", "c back"], "tags": ["from-c"]}},
         )
 
         col = self._open()
@@ -178,10 +213,10 @@ class CrossTransportTests(unittest.TestCase):
 
         note = next(n for n in page["notes"] if n["id"] == added["noteId"])
         self.assertEqual(note["notetypeId"], basic["id"])
-        self.assertEqual(note["fields"], ["node front", "node back"])
-        self.assertEqual(note["tags"], ["from-node"])
+        self.assertEqual(note["fields"], ["c front", "c back"])
+        self.assertEqual(note["tags"], ["from-c"])
 
-    def test_a_note_the_bridge_adds_round_trips_through_nodes_own_reader(self):
+    def test_a_note_the_bridge_adds_round_trips_through_the_c_cores_own_reader(self):
         col = self._open()
         try:
             deck = bridge_ops.create_deck(col, "Korean").payload["deck"]
@@ -196,7 +231,7 @@ class CrossTransportTests(unittest.TestCase):
         # plusaudio/lib/collection/notes.js) - unlike bridge_ops.py's
         # dict-with-pagination-metadata shape, a deliberate divergence noted
         # in bridge_ops.list_notes_in_deck's own docstring.
-        notes = run_node(self.collection_path, "listNotesInDeck", {"deckId": deck["id"], "options": {}})
+        notes = run_c(self.collection_path, "listNotesInDeck", {"deckId": deck["id"], "options": {}})
         note = next(n for n in notes if n["id"] == added.payload["noteId"])
         self.assertEqual(note["notetypeId"], basic["id"])
         self.assertEqual(note["fields"], ["py front", "py back"])

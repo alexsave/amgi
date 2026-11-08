@@ -14,7 +14,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
-import { WIRE_MIME, encode } from '../../ui/server/wire.mjs';
+import { WIRE_MIME, encode } from '../../ui/wire/wire.mjs';
 import { ROOT, startServer } from './servers.mjs';
 
 const require = createRequire(import.meta.url);

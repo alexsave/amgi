@@ -1,6 +1,6 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existingKeySet, isSectionMarker, normalizeForDedupe, parseLyricsPaste } from '../../utils/lyricsParse';
+import { existingKeySet, isSectionMarker, normalizeForDedupe, parseLyricsPaste } from '../../utils/lyricsParse.js';
 
 describe('normalizeForDedupe', () => {
   test('trims and collapses internal whitespace', () => {
