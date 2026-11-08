@@ -120,8 +120,9 @@
 < bytes 414d57320800819698000000000005000000547970656401
 == a malformed escape in the path
 > GET /api/anki/media/%E0%A4%A
-< 500 content-type=text/plain cache-control=no-store
-< raw "URI malformed"
+< 400 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="" error="the clip name is not a valid name" notStarted=false dailyCap=false}
+< bytes 414d573200082100000074686520636c6970206e616d65206973206e6f7420612076616c6964206e616d65ffffffff0000ffffffff
 == cross-origin GET
 > GET /api/anki/decks
 < 200 content-type=application/x-amgi-wire cache-control=no-store
@@ -592,24 +593,24 @@
 < bytes 414d5732070003000000020000006232020000006233020000006331
 == s18 field values 
 > GET /api/anki/decks/1794170430284/notes/field-values
-< 200 content-type=application/x-amgi-wire cache-control=no-store
-< field_values {mode="direct" values=[]}
-< bytes 414d5732070000000000
+< 400 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="" error="notetypeId and fieldIndex must be given, as a whole number" notStarted=false dailyCap=false}
+< bytes 414d573200083a0000006e6f746574797065496420616e64206669656c64496e646578206d75737420626520676976656e2c20617320612077686f6c65206e756d626572ffffffff0000ffffffff
 == s18 field values ?notetypeId=abc&fieldIndex=0
 > GET /api/anki/decks/1794170430284/notes/field-values?notetypeId=abc&fieldIndex=0
 < 400 content-type=application/x-amgi-wire cache-control=no-store
-< error {mode="" error="notetypeId and fieldIndex are required" notStarted=false dailyCap=false}
-< bytes 414d57320008260000006e6f746574797065496420616e64206669656c64496e64657820617265207265717569726564ffffffff0000ffffffff
+< error {mode="" error="notetypeId must be given, as a whole number" notStarted=false dailyCap=false}
+< bytes 414d573200082b0000006e6f7465747970654964206d75737420626520676976656e2c20617320612077686f6c65206e756d626572ffffffff0000ffffffff
 == s18 field values ?notetypeId=Basic&fieldIndex=1.5
 > GET /api/anki/decks/1794170430284/notes/field-values?notetypeId=1794170430283&fieldIndex=1.5
 < 400 content-type=application/x-amgi-wire cache-control=no-store
-< error {mode="" error="notetypeId and fieldIndex are required" notStarted=false dailyCap=false}
-< bytes 414d57320008260000006e6f746574797065496420616e64206669656c64496e64657820617265207265717569726564ffffffff0000ffffffff
+< error {mode="" error="fieldIndex must be given, as a whole number" notStarted=false dailyCap=false}
+< bytes 414d573200082b0000006669656c64496e646578206d75737420626520676976656e2c20617320612077686f6c65206e756d626572ffffffff0000ffffffff
 == s18 field values ?notetypeId=Basic
 > GET /api/anki/decks/1794170430284/notes/field-values?notetypeId=1794170430283
-< 200 content-type=application/x-amgi-wire cache-control=no-store
-< field_values {mode="direct" values=["existing two", "<b>bold</b> &amp; more", "child one"]}
-< bytes 414d57320700030000000c0000006578697374696e672074776f160000003c623e626f6c643c2f623e2026616d703b206d6f7265090000006368696c64206f6e65
+< 400 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="" error="fieldIndex must be given, as a whole number" notStarted=false dailyCap=false}
+< bytes 414d573200082b0000006669656c64496e646578206d75737420626520676976656e2c20617320612077686f6c65206e756d626572ffffffff0000ffffffff
 == s18 field values ?notetypeId=Basic&fieldIndex=9
 > GET /api/anki/decks/1794170430284/notes/field-values?notetypeId=1794170430283&fieldIndex=9
 < 200 content-type=application/x-amgi-wire cache-control=no-store
@@ -742,11 +743,11 @@
 < raw "OggS fixture clip\n"
 == s18 clip nope.wav
 > GET /api/anki/media/nope.wav
-< 404 content-type=text/plain;charset=UTF-8
+< 404 content-type=text/plain cache-control=no-store
 < raw "no such clip"
 == s18 clip ..%2Fclip.ogg
 > GET /api/anki/media/..%2Fclip.ogg
-< 404 content-type=text/plain;charset=UTF-8
+< 404 content-type=text/plain cache-control=no-store
 < raw "no such clip"
 == s18 clip %2E%2E
 > GET /api/anki/
@@ -759,7 +760,7 @@
 < raw "OggS fixture clip\n"
 == s18 clip a%5Cb
 > GET /api/anki/media/a%5Cb
-< 404 content-type=text/plain;charset=UTF-8
+< 404 content-type=text/plain cache-control=no-store
 < raw "no such clip"
 == s18 clip type Upper.MP3
 > GET /api/anki/media/Upper.MP3
@@ -977,24 +978,24 @@
 < bytes 414d5732070003000000020000006232020000006233020000006331
 == s11 field values 
 > GET /api/anki/decks/1794170430303/notes/field-values
-< 200 content-type=application/x-amgi-wire cache-control=no-store
-< field_values {mode="direct" values=[]}
-< bytes 414d5732070000000000
+< 400 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="" error="notetypeId and fieldIndex must be given, as a whole number" notStarted=false dailyCap=false}
+< bytes 414d573200083a0000006e6f746574797065496420616e64206669656c64496e646578206d75737420626520676976656e2c20617320612077686f6c65206e756d626572ffffffff0000ffffffff
 == s11 field values ?notetypeId=abc&fieldIndex=0
 > GET /api/anki/decks/1794170430303/notes/field-values?notetypeId=abc&fieldIndex=0
 < 400 content-type=application/x-amgi-wire cache-control=no-store
-< error {mode="" error="notetypeId and fieldIndex are required" notStarted=false dailyCap=false}
-< bytes 414d57320008260000006e6f746574797065496420616e64206669656c64496e64657820617265207265717569726564ffffffff0000ffffffff
+< error {mode="" error="notetypeId must be given, as a whole number" notStarted=false dailyCap=false}
+< bytes 414d573200082b0000006e6f7465747970654964206d75737420626520676976656e2c20617320612077686f6c65206e756d626572ffffffff0000ffffffff
 == s11 field values ?notetypeId=Basic&fieldIndex=1.5
 > GET /api/anki/decks/1794170430303/notes/field-values?notetypeId=1794170430302&fieldIndex=1.5
 < 400 content-type=application/x-amgi-wire cache-control=no-store
-< error {mode="" error="notetypeId and fieldIndex are required" notStarted=false dailyCap=false}
-< bytes 414d57320008260000006e6f746574797065496420616e64206669656c64496e64657820617265207265717569726564ffffffff0000ffffffff
+< error {mode="" error="fieldIndex must be given, as a whole number" notStarted=false dailyCap=false}
+< bytes 414d573200082b0000006669656c64496e646578206d75737420626520676976656e2c20617320612077686f6c65206e756d626572ffffffff0000ffffffff
 == s11 field values ?notetypeId=Basic
 > GET /api/anki/decks/1794170430303/notes/field-values?notetypeId=1794170430302
-< 200 content-type=application/x-amgi-wire cache-control=no-store
-< field_values {mode="direct" values=["existing two", "<b>bold</b> &amp; more", "child one"]}
-< bytes 414d57320700030000000c0000006578697374696e672074776f160000003c623e626f6c643c2f623e2026616d703b206d6f7265090000006368696c64206f6e65
+< 400 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="" error="fieldIndex must be given, as a whole number" notStarted=false dailyCap=false}
+< bytes 414d573200082b0000006669656c64496e646578206d75737420626520676976656e2c20617320612077686f6c65206e756d626572ffffffff0000ffffffff
 == s11 field values ?notetypeId=Basic&fieldIndex=9
 > GET /api/anki/decks/1794170430303/notes/field-values?notetypeId=1794170430302&fieldIndex=9
 < 200 content-type=application/x-amgi-wire cache-control=no-store
@@ -1127,11 +1128,11 @@
 < raw "OggS fixture clip\n"
 == s11 clip nope.wav
 > GET /api/anki/media/nope.wav
-< 404 content-type=text/plain;charset=UTF-8
+< 404 content-type=text/plain cache-control=no-store
 < raw "no such clip"
 == s11 clip ..%2Fclip.ogg
 > GET /api/anki/media/..%2Fclip.ogg
-< 404 content-type=text/plain;charset=UTF-8
+< 404 content-type=text/plain cache-control=no-store
 < raw "no such clip"
 == s11 clip %2E%2E
 > GET /api/anki/
@@ -1144,7 +1145,7 @@
 < raw "OggS fixture clip\n"
 == s11 clip a%5Cb
 > GET /api/anki/media/a%5Cb
-< 404 content-type=text/plain;charset=UTF-8
+< 404 content-type=text/plain cache-control=no-store
 < raw "no such clip"
 == s11 clip type Upper.MP3
 > GET /api/anki/media/Upper.MP3
