@@ -105,11 +105,11 @@ test('createNotetype: an existing name (any case) is left alone, and its media i
 test('createNotetype: ids come from the injected source and are unique per field and template', { skip }, () => {
   const { dir, collectionPath } = fresh();
   let counter = 0;
-  const randomBytes = (n) => {
+  const drawBytes = (n) => {
     counter += 1;
     return Buffer.alloc(n, 0).fill(counter, n - 1);
   };
-  const outcome = createNotetype(collectionPath, SPEC, { now: () => 1700000000123, randomBytes });
+  const outcome = createNotetype(collectionPath, SPEC, { now: () => 1700000000123, drawBytes });
   assert.equal(outcome.result.notetypeId, 1700000000123);
   const ids = withAnkiLibrary(
     collectionPath,
@@ -123,6 +123,27 @@ print("IDS:", out)
 `,
   );
   assert.match(ids, /IDS: \[1, 2, 3, 4, 5\]/);
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test('createNotetype: with no injected source the ids come from the shared random source and differ per field and template', { skip }, () => {
+  const { dir, collectionPath } = fresh();
+  createNotetype(collectionPath, SPEC, { now: () => 1700000000123 });
+  const ids = withAnkiLibrary(
+    collectionPath,
+    `
+import sqlite3
+from anki import notetypes_pb2 as pb
+c = sqlite3.connect(col.path); c.create_collation("unicase", lambda a, b: (a.lower() > b.lower()) - (a.lower() < b.lower()))
+out = [pb.Notetype.Field.Config.FromString(r[0]).id for r in c.execute("select config from fields where ntid = 1700000000123 order by ord")]
+out += [pb.Notetype.Template.Config.FromString(r[0]).id for r in c.execute("select config from templates where ntid = 1700000000123 order by ord")]
+print("IDS:", out)
+`,
+  );
+  const parsed = JSON.parse(ids.match(/IDS: (\[.*\])/)[1]);
+  assert.equal(parsed.length, 5);
+  assert.equal(new Set(parsed).size, 5, 'every field and template id differs');
+  assert.ok(parsed.every((id) => id > 0), 'every id is set');
   fs.rmSync(dir, { recursive: true, force: true });
 });
 

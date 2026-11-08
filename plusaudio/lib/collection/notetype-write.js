@@ -51,6 +51,7 @@
 // decks.js for the full argument and for what is and is not guaranteed.
 
 const { writeBytesField, writeVarint, writeVarintField } = require('../protobuf');
+const { random } = require('../random');
 const { idAllocationExpr } = require('./ids');
 const { withCollection } = require('./open');
 const { withLiveCollationsRelaxed } = require('./relaxed-read');
@@ -92,10 +93,11 @@ const utf8 = (text) => Buffer.from(text, 'utf8');
 // The `id` on a field or template is an `optional int64` Anki fills with a
 // random value so a rename can be told from a replacement across a sync. It
 // only has to be unique and stable, so 48 random bits (a safe JS integer,
-// always positive, always a valid int64) is plenty. The source is injectable,
-// the same way ids.js's randomGuid takes one, so a test can pin it.
-function randomId(randomBytes) {
-  return randomBytes(6).readUIntBE(0, 6);
+// always positive, always a valid int64) is plenty. The draw comes from the
+// one seedable source in ../random.js, and is injectable, the same way
+// ids.js's randomGuid takes one, so a test can pin it.
+function randomId(drawBytes) {
+  return drawBytes(6).readUIntBE(0, 6);
 }
 
 function packedUint32(values) {
@@ -151,7 +153,7 @@ function validateSpec(spec) {
 
 const NOTETYPE_ID = idAllocationExpr('notetypes');
 
-function createNotetypeSchema18(db, spec, { now, randomBytes }) {
+function createNotetypeSchema18(db, spec, { now, drawBytes }) {
   const taken = db.prepare('SELECT id, name FROM notetypes').all();
   const existing = taken.find((row) => row.name.toLowerCase() === spec.name.toLowerCase());
   if (existing) return { created: false, reason: 'exists', notetypeId: Number(existing.id) };
@@ -173,7 +175,7 @@ function createNotetypeSchema18(db, spec, { now, randomBytes }) {
       );
       const insertField = db.prepare('INSERT INTO fields (ntid, ord, name, config) VALUES (?, ?, ?, ?)');
       spec.fields.forEach((name, ord) => {
-        insertField.run(notetypeId, ord, name, encodeFieldConfig(randomId(randomBytes)));
+        insertField.run(notetypeId, ord, name, encodeFieldConfig(randomId(drawBytes)));
       });
       // Templates carry their own mtime/usn columns, and Anki writes both 0
       // for a template created with its note type.
@@ -181,7 +183,7 @@ function createNotetypeSchema18(db, spec, { now, randomBytes }) {
         'INSERT INTO templates (ntid, ord, name, mtime_secs, usn, config) VALUES (?, ?, ?, 0, 0, ?)',
       );
       spec.templates.forEach((template, ord) => {
-        insertTemplate.run(notetypeId, ord, template.name, encodeTemplateConfig(template, randomId(randomBytes)));
+        insertTemplate.run(notetypeId, ord, template.name, encodeTemplateConfig(template, randomId(drawBytes)));
       });
       db.prepare('UPDATE col SET mod = ? WHERE id = 1').run(nowMs);
       db.exec('COMMIT');
@@ -211,11 +213,11 @@ function createNotetypeSchema18(db, spec, { now, randomBytes }) {
  *   client or an export reads it.
  * @returns {{status: string, result?: {created: boolean, notetypeId?: number, reason?: string}}}
  */
-function createNotetype(collectionPath, spec, { now = Date.now, randomBytes = require('node:crypto').randomBytes } = {}) {
+function createNotetype(collectionPath, spec, { now = Date.now, drawBytes = (count) => random.bytes(count) } = {}) {
   validateSpec(spec);
   return withCollection(collectionPath, ({ db, schemaVersion }) => {
     if (schemaVersion === 11) return { created: false, reason: 'legacy-schema' };
-    return createNotetypeSchema18(db, spec, { now, randomBytes });
+    return createNotetypeSchema18(db, spec, { now, drawBytes });
   });
 }
 
