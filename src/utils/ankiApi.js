@@ -21,6 +21,12 @@ async function call(path, options = {}) {
     const error = new Error(data.error || `request to ${path} failed (${response.status})`);
     error.mode = data.mode;
     error.status = response.status;
+    // Gemini's limits, as the server's rate gate answered them (see
+    // src/server/anki/rateLimit.js): how long to wait, whether the card was
+    // never started, and whether the day's cap is spent.
+    if (Number.isFinite(data.retryAfterMs)) error.retryAfterMs = data.retryAfterMs;
+    if (data.notStarted === true) error.notStarted = true;
+    if (data.dailyCap === true) error.dailyCap = true;
     throw error;
   }
   return data;
