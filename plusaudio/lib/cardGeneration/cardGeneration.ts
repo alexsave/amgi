@@ -8,8 +8,8 @@
 // built any of those ways is built to the same standard, instead of drifting
 // into a second, worse generator.
 //
-// This module used to run in a Deno edge function too (the hosted Supabase
-// backend, retired - see archives/supabase-2026/), which is why it still
+// This module used to run in a Deno edge function too (the retired hosted
+// backend, now only in git history), which is why it still
 // avoids Deno APIs and npm:/jsr: imports: those constraints cost nothing now
 // and there is no reason to add either kind of dependency to a module that
 // otherwise has none.
