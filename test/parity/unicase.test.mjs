@@ -1,5 +1,5 @@
 // The C core's unicase collation against Anki's own, through what Anki checks: deck names written
-// by the C core (AMGI_COLLECTION_IMPL) must leave a name index Anki's integrity check and Check
+// by the C core must leave a name index Anki's integrity check and Check
 // Database accept, and the C core must find or make exactly the decks Anki's own col.decks.id makes
 // for the same names. The names cover every character whose case fold is more than one code point
 // (where Anki's collation, measured, puts a three-code-point fold's third first), the ones Unicode
@@ -20,9 +20,8 @@ const require = createRequire(import.meta.url);
 const { anki, runPython } = require('../../plusaudio/test/collection/helpers/anki-python.js');
 const { createRandom } = require('../../plusaudio/lib/random.js');
 
-const IMPL = process.env.AMGI_COLLECTION_IMPL;
 const ROOT = path.resolve(import.meta.dirname, '..', '..');
-const skip = !IMPL ? 'needs the C core (AMGI_COLLECTION_IMPL)' : !anki ? 'needs the anki library (ANKI_PYTHON_BIN)' : false;
+const skip = !anki ? 'needs the anki library (ANKI_PYTHON_BIN)' : false;
 
 /** Every code point whose full case fold is two or three code points, from Python's casefold. */
 function expandingFolds() {
