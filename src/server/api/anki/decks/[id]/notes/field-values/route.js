@@ -12,17 +12,23 @@ import { notReadyResponse } from '../../../../../../../server/anki/respond';
 // paste itself").
 export async function GET(request, { params }) {
   const { id } = await params;
+  const url = new URL(request.url);
+  const notetypeId = wholeNumber(url.searchParams.get('notetypeId'));
+  const fieldIndex = wholeNumber(url.searchParams.get('fieldIndex'));
+  if (notetypeId === null || fieldIndex === null) {
+    const which = [notetypeId === null && 'notetypeId', fieldIndex === null && 'fieldIndex'].filter(Boolean).join(' and ');
+    return answer({ error: `${which} must be given, as a whole number` }, { status: 400 });
+  }
   const settings = readSettings(request);
   const result = await resolveTransport(settings);
   if (!result.ops) return notReadyResponse(result.mode);
 
-  const url = new URL(request.url);
-  const notetypeId = Number(url.searchParams.get('notetypeId'));
-  const fieldIndex = Number(url.searchParams.get('fieldIndex'));
-  if (!Number.isInteger(notetypeId) || !Number.isInteger(fieldIndex)) {
-    return answer({ error: 'notetypeId and fieldIndex are required' }, { status: 400 });
-  }
-
   const values = await result.ops.existingFieldValues(Number(id), notetypeId, fieldIndex);
   return answer({ mode: result.mode, values });
+}
+
+// A query parameter that is a whole number written in digits, or null: missing, empty, signed,
+// fractional or anything else is not one (Number() would read a missing one as 0).
+function wholeNumber(text) {
+  return text !== null && /^[0-9]+$/.test(text) ? Number(text) : null;
 }

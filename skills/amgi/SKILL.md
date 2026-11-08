@@ -87,14 +87,14 @@ A failure is the `error` kind, `{error}`, with a 4xx or 5xx status.
 | `DELETE /decks/:id` | Deletes the deck, its subdecks, their cards and the notes left with no card, as Anki's own delete does: `{id, name, decks, cards, notes}`. The Default deck (id 1) is refused (400), since Anki would only empty it; a deck already gone is 404. Ask first, naming what `GET /decks/:id` counted |
 | `GET /notetypes` | `{notetypes: [{id, name, fieldNames, sortFieldIndex}]}` |
 | `GET /decks/:id/notes?offset=&limit=` | `{notes: [{id, notetypeId, fields, tags}], offset, limit, hasMore}`, at most 200 a page, subdecks included |
-| `GET /decks/:id/notes/field-values?notetypeId=&fieldIndex=` | `{values}`: one field of every note of that type in the deck, for duplicate checks |
+| `GET /decks/:id/notes/field-values?notetypeId=&fieldIndex=` | `{values}`: one field of every note of that type in the deck, for duplicate checks. Both parameters are required whole numbers (400 otherwise) |
 | `POST /card-text` `{userInput, knownLanguage, learningLanguage, includeCueAudio}` | Writes one card's text, records and stores its clips; adds no note |
 | `POST /audio` `{text, language, fresh}` | One validated clip, stored: `{filename, reference, reused}` |
 | `POST /notes` `{deckId, notetypeId, fields, tags, language, learningFieldIndex}` | Adds one note; `fields` is a list in the note type's field order |
 | `POST /notes/bulk` `{notes: [...]}` | The same shape per note, in one write; one result per note, and one bad note never aborts the rest |
 | `PATCH /notes/:id` `{fields, language, learningFieldIndex}` | Replaces a note's fields in place |
 | `DELETE /notes/:id` | Deletes a note and its cards, with their review history. Ask first |
-| `GET /media/:filename` | A stored clip's bytes |
+| `GET /media/:filename` | A stored clip's bytes; the name percent-encoded (400 when it is not a valid encoding, a plain-text 404 when there is no such clip) |
 | `GET /starter`, `POST /starter` `{known, learning, name}` | A ready-made ten-phrase deck with shipped audio, for a user with no key |
 
 The exact fields of each kind are the schema table's; where this table and `ui/wire/wire.c` disagree, the table in `wire.c` is right.

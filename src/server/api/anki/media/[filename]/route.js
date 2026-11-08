@@ -1,3 +1,4 @@
+import { answer } from '../../../../anki/answer';
 import { readSettings } from '../../../../../server/anki/settings';
 import { resolveTransport } from '../../../../../server/anki/transport';
 import { notReadyResponse } from '../../../../../server/anki/respond';
@@ -12,7 +13,13 @@ import { contentTypeFor } from '../../../../../server/anki/mediaType';
 // whether Anki is open or closed, and the folder is reachable in both cases
 // even though the collection file is not.
 export async function GET(request, { params }) {
-  const { filename } = await params;
+  // The name as the path carries it, percent-encoded (the page writes it with cd_url_encode).
+  let filename;
+  try {
+    filename = decodeURIComponent((await params).filename);
+  } catch {
+    return answer({ error: 'the clip name is not a valid name' }, { status: 400 });
+  }
   const settings = readSettings(request);
   const transport = await resolveTransport(settings);
   if (!transport.ops) return notReadyResponse(transport.mode);
