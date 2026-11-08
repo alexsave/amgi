@@ -274,18 +274,18 @@ str strip_html_preserving_media(cx *c, str html) {
   return decode_entities(c, s3);
 }
 
-/* fieldChecksum: the first 8 hex digits of the sha1 of the stripped text, as a number. */
-int64_t field_checksum(cx *c, str text) {
-  str stripped = strip_html_preserving_media(c, text);
+/* fieldChecksum: the first 8 hex digits of the sha1 of the text it is given, as a number. The
+ * caller strips the first field once (strip_html_preserving_media) and hands the result here, as
+ * Anki's own add_note does; plusaudio/lib/deck.js stripped a second time inside, which decoded an
+ * entity twice and gave a checksum Anki disagrees with (the PR #30 review, finding 2). */
+int64_t field_checksum(cx *c, str stripped) {
+  (void)c;
   char hex[41];
   sha1_hex(stripped.p, stripped.n, hex);
   hex[8] = 0;
   return (int64_t)strtoull(hex, NULL, 16);
 }
 
-/* ankiFields (deck.js): what Anki's add_note and update_note do to a field's text first. Every
- * ASCII control character but tab and line feed is removed (the field separator 0x1f among them,
- * and a carriage return), then the text is put in NFC. */
 str *anki_fields(cx *c, const str *fields, size_t n) {
   str *out = ar_alloc(c->a, (n + 1) * sizeof *out);
   for (size_t i = 0; i < n; i++) {
