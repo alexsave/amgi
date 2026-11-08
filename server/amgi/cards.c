@@ -151,13 +151,20 @@ int card_has_native_script(arena *a, str text, str language) {
   return 0;
 }
 
+/* REGISTER_LEVELS, the one list of them: the register field's enum in the schema, the check of the
+ * model's answer, and the known side's label all read it. Every policy's default is "polite". */
+static const char *const REGISTER_LEVELS[] = {"casual", "polite", "formal"};
+#define DEFAULT_LEVEL 1
+static int register_level(str s) {
+  for (int i = 0; i < (int)N(REGISTER_LEVELS); i++)
+    if (str_eq_c(s, REGISTER_LEVELS[i])) return i;
+  return -1;
+}
+
 const char *card_register_tag(arena *a, str language, str level) {
   if (!policy_of(card_normalize_language_code(a, language)) || !level.n) return NULL;
-  str norm = js_lower(a, js_trim(level));
-  const char *levels[] = {"casual", "polite", "formal"};
-  for (int i = 0; i < 3; i++)
-    if (str_eq_c(norm, levels[i])) return i == 1 ? NULL : levels[i]; /* polite is every policy's default */
-  return NULL;
+  int i = register_level(js_lower(a, js_trim(level)));
+  return i < 0 || i == DEFAULT_LEVEL ? NULL : REGISTER_LEVELS[i];
 }
 
 /* ---- text shaping ---- */
@@ -702,10 +709,9 @@ static void schema_of(const format *f, buf *out) {
     gv_field(&body, "type", &v);
     if (f->props[i].register_enum) {
       buf items = {0}, item = {0}, list = {0};
-      const char *levels[] = {"casual", "polite", "formal"};
-      for (int k = 0; k < 3; k++) {
+      for (size_t k = 0; k < N(REGISTER_LEVELS); k++) {
         item.n = 0;
-        value_string(&item, levels[k]);
+        value_string(&item, REGISTER_LEVELS[k]);
         gv_list_item(&items, &item);
       }
       gv_list_of(&list, &items);
@@ -808,9 +814,12 @@ static int parse_structured(arena *a, str text, const format *f, fields *out, ge
         if (!x || x->type == AJ_NULL) detail = str_c(ar_fmt(a, "%s is missing", p->key));
         else if ((want_bool && x->type != AJ_BOOL) || (!want_bool && x->type != AJ_STR))
           detail = str_c(ar_fmt(a, "%s is %s, not a %s", p->key, type_desc(x), p->type));
-        else if (p->register_enum && !str_eq_c(x->s, "casual") && !str_eq_c(x->s, "polite") && !str_eq_c(x->s, "formal")) {
+        else if (p->register_enum && register_level(x->s) < 0) {
           str shown = slice_units(usv(a, x->s), 40);
-          detail = str_c(ar_fmt(a, "%s is \"%.*s\", not one of casual, polite, formal", p->key, (int)shown.n, shown.p));
+          buf names = {0};
+          for (size_t k = 0; k < N(REGISTER_LEVELS); k++) buf_fmt(&names, "%s%s", k ? ", " : "", REGISTER_LEVELS[k]);
+          detail = str_c(ar_fmt(a, "%s is \"%.*s\", not one of %.*s", p->key, (int)shown.n, shown.p, (int)names.n, names.p));
+          buf_free(&names);
         } else if (want_bool) {
           out->b[i] = x->b;
         } else {
