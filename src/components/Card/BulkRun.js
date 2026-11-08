@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useDecks } from '../../contexts/DeckContext';
 import { ankiApi } from '../../utils/ankiApi';
 import { runPool } from '../../utils/concurrency';
-import { existingKeySet, normalizeForDedupe } from '../../utils/lyricsParse';
+import { existingLineKeys, isAlreadyInDeck } from '../../utils/deckDupes';
 import AudioChip from './AudioChip';
 import './BulkRun.css';
 
@@ -156,10 +156,9 @@ const BulkRun = ({ deckId, notetype, idx, languages, lines, onFinished }) => {
       // is always "do not add it twice".
       let already = new Set();
       try {
-        if (idx.target >= 0) {
-          const { values } = await ankiApi.fieldValuesInDeck(deckId, notetype.id, idx.target);
-          already = existingKeySet(values);
-        }
+        // Both sides of every card, not just the learning side: a pasted
+        // line is as often the known-language side (see deckDupes.js).
+        already = await existingLineKeys(deckId, notetype.id, idx);
       } catch {
         // A failed dupe check is not a reason to refuse to add cards; the
         // worst case is a duplicate the person can delete from the row.
@@ -173,7 +172,7 @@ const BulkRun = ({ deckId, notetype, idx, languages, lines, onFinished }) => {
       // entirely in the deck now resolves in one frame instead of trickling.
       const pending = [];
       queue.forEach((text, i) => {
-        // normalizeForDedupe on both sides, which is the whole point of that
+        // normalizeForDedupe on both sides (isAlreadyInDeck), which is the whole point of that
         // function living in one place. This used to look up
         // `text.trim().toLowerCase()` against a set whose keys were built by
         // normalizeForDedupe - which trims and collapses whitespace and
@@ -183,7 +182,7 @@ const BulkRun = ({ deckId, notetype, idx, languages, lines, onFinished }) => {
         // full stop, missed the set it was being checked against: the skip
         // silently did nothing, the line was generated again at the API's
         // expense, and the deck got a second copy of a card it already had.
-        if (already.has(normalizeForDedupe(text))) patch(i, { status: 'skipped' });
+        if (isAlreadyInDeck(already, text)) patch(i, { status: 'skipped' });
         else pending.push(i);
       });
 
