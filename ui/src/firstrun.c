@@ -2,7 +2,6 @@
  * install the add-ons and the card type, then restart Anki. */
 #include "app.h"
 
-enum { T_PROFILES = 1, T_INSTALL };
 
 typedef struct { text name, path; } profile;
 static profile *profiles;
@@ -39,6 +38,9 @@ static uint32_t cat(char *dst, uint32_t n, const char *s, uint32_t len) {
 
 ON_EVENT(install_pressed);
 ON_EVENT(profile_chosen);
+
+ON_ANSWER(profiles_answered);
+ON_ANSWER(installed_answered);
 
 static void draw(void) {
   if (!shown) return;
@@ -140,7 +142,7 @@ void firstrun_show(cd_id parent) {
   scan_loading = 1;
   text_free(&scan_error);
   draw();
-  ask(M_FIRSTRUN, T_PROFILES, "GET", "/profiles", WIRE_NONE, 0);
+  ask(profiles_answered, 0, "GET", "/profiles", WIRE_NONE, 0);
 }
 void firstrun_forget(void) {
   if (!shown) return;
@@ -159,47 +161,48 @@ ON_EVENT(install_pressed) {
   install_failed = 0;
   draw();
   wire_q_install q = {{settings[S_BASE_DIR].p ? settings[S_BASE_DIR].p : "", settings[S_BASE_DIR].len}};
-  ask(M_FIRSTRUN, T_INSTALL, "POST", "/install", WK_Q_INSTALL, &q);
+  ask(installed_answered, 0, "POST", "/install", WK_Q_INSTALL, &q);
 }
 
-void firstrun_answer(uint32_t token, uint32_t status, const uint8_t *p, uint32_t len) {
+ON_ANSWER(profiles_answered) {
   char m[600];
-  if (token == T_PROFILES) {
-    wire_profiles pr;
-    answer a = take(&h, WK_PROFILES, status, p, len, &pr);
-    scan_loading = 0;
-    if (a.ok) {
-      for (uint32_t i = 0; i < nprofiles; i++) {
-        text_free(&profiles[i].name);
-        text_free(&profiles[i].path);
-      }
-      profiles = cd_realloc(profiles, (pr.nprofiles ? pr.nprofiles : 1) * sizeof *profiles);
-      for (uint32_t i = 0; i < pr.nprofiles; i++) {
-        profiles[i] = (profile){{0, 0}, {0, 0}};
-        text_set(&profiles[i].name, pr.profiles[i].name.p, pr.profiles[i].name.len);
-        text_set(&profiles[i].path, pr.profiles[i].collection_path.p, pr.profiles[i].collection_path.len);
-      }
-      nprofiles = pr.nprofiles;
-      text_set(&base_dir, pr.base_dir.p, pr.base_dir.len);
-      base_exists = pr.base_dir_exists;
-      /* one profile and none picked yet: picked for you */
-      if (nprofiles == 1 && !settings[S_COLLECTION].len) choose(0);
-    } else {
-      text_set(&scan_error, m, answer_message(&a, m, sizeof m));
+  wire_profiles pr;
+  answer a = take(&h, WK_PROFILES, status, p, len, &pr);
+  scan_loading = 0;
+  if (a.ok) {
+    for (uint32_t i = 0; i < nprofiles; i++) {
+      text_free(&profiles[i].name);
+      text_free(&profiles[i].path);
     }
-  } else if (token == T_INSTALL) {
-    wire_installed in;
-    answer a = take(&h, WK_INSTALLED, status, p, len, &in);
-    install_running = 0;
-    if (a.ok) {
-      install_done = 1;
-      needs_restart = in.needs_restart;
-      text_set(&install_message, in.message.p, in.message.len);
-      refresh_decks();
-    } else {
-      install_failed = 1;
-      text_set(&install_message, m, answer_message(&a, m, sizeof m));
+    profiles = cd_realloc(profiles, (pr.nprofiles ? pr.nprofiles : 1) * sizeof *profiles);
+    for (uint32_t i = 0; i < pr.nprofiles; i++) {
+      profiles[i] = (profile){{0, 0}, {0, 0}};
+      text_set(&profiles[i].name, pr.profiles[i].name.p, pr.profiles[i].name.len);
+      text_set(&profiles[i].path, pr.profiles[i].collection_path.p, pr.profiles[i].collection_path.len);
     }
+    nprofiles = pr.nprofiles;
+    text_set(&base_dir, pr.base_dir.p, pr.base_dir.len);
+    base_exists = pr.base_dir_exists;
+    /* one profile and none picked yet: picked for you */
+    if (nprofiles == 1 && !settings[S_COLLECTION].len) choose(0);
+  } else {
+    text_set(&scan_error, m, answer_message(&a, m, sizeof m));
+  }
+  draw();
+}
+ON_ANSWER(installed_answered) {
+  char m[600];
+  wire_installed in;
+  answer a = take(&h, WK_INSTALLED, status, p, len, &in);
+  install_running = 0;
+  if (a.ok) {
+    install_done = 1;
+    needs_restart = in.needs_restart;
+    text_set(&install_message, in.message.p, in.message.len);
+    refresh_decks();
+  } else {
+    install_failed = 1;
+    text_set(&install_message, m, answer_message(&a, m, sizeof m));
   }
   draw();
 }

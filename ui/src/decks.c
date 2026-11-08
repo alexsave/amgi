@@ -1,7 +1,6 @@
 /* The decks screen (DeckList, DeckItem, CreateDeckModal); FirstRun and StarterDeck in their files. */
 #include "app.h"
 
-enum { T_CREATE = 1 };
 
 static cd_region rows = {0};  /* the rows: all the children of .deck-list */
 static cd_region modal = {0}; /* CreateDeckModal, between the header and the list */
@@ -168,6 +167,8 @@ static void modal_open(void) {
   cd_call(modal_input, CD_LIT("focus")); /* autoFocus */
 }
 
+ON_ANSWER(created);
+
 static void modal_submit(void) {
   char name[512];
   wire_str typed = trim((wire_str){name, cd_input_value(modal_input, name, sizeof name)});
@@ -181,7 +182,7 @@ static void modal_submit(void) {
   text_free(&modal_error);
   modal_error_view();
   wire_q_deck_name q = {typed};
-  ask(M_DECKS, T_CREATE, "POST", "/decks", WK_Q_DECK_NAME, &q);
+  ask(created, 0, "POST", "/decks", WK_Q_DECK_NAME, &q);
 }
 
 ON_EVENT(new_deck) { modal_open(); }
@@ -191,8 +192,7 @@ ON_EVENT(modal_submitted) {
 }
 
 static holder h;
-void decks_answer(uint32_t token, uint32_t status, const uint8_t *p, uint32_t len) {
-  if (token != T_CREATE) return;
+ON_ANSWER(created) {
   wire_deck_created d;
   answer a = take(&h, WK_DECK_CREATED, status, p, len, &d);
   creating = 0;

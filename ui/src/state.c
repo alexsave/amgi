@@ -2,7 +2,6 @@
  * decks, whether amgi is installed, the note types; and the mode badge that shows the first two. */
 #include "app.h"
 
-enum { T_STATUS = 1, T_DECKS, T_INSTALL, T_NOTETYPES };
 enum { TIMER_POLL = 1 };
 #define POLL_MS 4000
 
@@ -32,7 +31,12 @@ const deck *deck_by_id(int64_t id) {
   return 0;
 }
 
-void refresh_decks(void) { ask(M_SHELL, T_DECKS, "GET", "/decks", WIRE_NONE, 0); }
+ON_ANSWER(status_answered);
+ON_ANSWER(decks_answered);
+ON_ANSWER(install_answered);
+ON_ANSWER(notetypes_answered);
+
+void refresh_decks(void) { ask(decks_answered, 0, "GET", "/decks", WIRE_NONE, 0); }
 
 /* The list without a deck just deleted and the decks under it ("A" takes "A::B"), at once: the
  * list is drawn before the fresh answer comes, and must not show them in the meantime. */
@@ -54,11 +58,11 @@ void decks_drop_tree(int64_t id) {
   ndecks = kept;
   cd_free(prefix);
 }
-void poll_status(void) { ask(M_SHELL, T_STATUS, "GET", "/status", WIRE_NONE, 0); }
+void poll_status(void) { ask(status_answered, 0, "GET", "/status", WIRE_NONE, 0); }
 void ensure_notetypes(void) {
   if (notetypes_asked) return;
   notetypes_asked = 1;
-  ask(M_SHELL, T_NOTETYPES, "GET", "/notetypes", WIRE_NONE, 0);
+  ask(notetypes_answered, 0, "GET", "/notetypes", WIRE_NONE, 0);
 }
 
 void state_start(void) {
@@ -95,85 +99,80 @@ static void mode_changed(void) {
 
 static holder h_status, h_decks, h_install, h_notetypes;
 
-void state_answer(uint32_t token, uint32_t status, const uint8_t *p, uint32_t len) {
-  switch (token) {
-  case T_STATUS: {
-    wire_status s;
-    answer a = take(&h_status, WK_STATUS, status, p, len, &s);
-    if (!a.ok) return; /* the route always answers; no answer is the server not up */
-    int changed = status_seen && s.mode != mode, first = !status_seen;
-    status_seen = 1;
-    set_mode(s.mode);
-    if (changed && !first) mode_changed();
-    break;
-  }
-  case T_DECKS: {
-    wire_decks d;
-    answer a = take(&h_decks, WK_DECKS, status, p, len, &d);
-    int was_known = decks_known;
-    decks_known = 1;
-    if (a.ok) {
-      if (d.ndecks > decks_cap) {
-        decks_cap = d.ndecks;
-        decks = cd_realloc(decks, decks_cap * sizeof *decks);
-      }
-      for (uint32_t i = 0; i < d.ndecks; i++)
-        decks[i] = (deck){d.decks[i].id, cd_intern(d.decks[i].name.p, d.decks[i].name.len), d.decks[i].note_count};
-      ndecks = d.ndecks;
-      set_mode(d.mode);
-      ask(M_SHELL, T_INSTALL, "GET", "/install", WIRE_NONE, 0);
-    } else {
-      /* not reachable now (no profile, locked, bridge down): a mode the page explains */
-      set_mode(a.err.mode != WIRE_MODE_OTHER && a.err.error.len ? a.err.mode : WIRE_MODE_UNCONFIGURED);
+ON_ANSWER(status_answered) {
+  wire_status s;
+  answer a = take(&h_status, WK_STATUS, status, p, len, &s);
+  if (!a.ok) return; /* the route always answers; no answer is the server not up */
+  int changed = status_seen && s.mode != mode, first = !status_seen;
+  status_seen = 1;
+  set_mode(s.mode);
+  if (changed && !first) mode_changed();
+}
+
+ON_ANSWER(decks_answered) {
+  wire_decks d;
+  answer a = take(&h_decks, WK_DECKS, status, p, len, &d);
+  int was_known = decks_known;
+  decks_known = 1;
+  if (a.ok) {
+    if (d.ndecks > decks_cap) {
+      decks_cap = d.ndecks;
+      decks = cd_realloc(decks, decks_cap * sizeof *decks);
     }
-    if (open_next >= 0 && deck_by_id(open_next)) {
-      int64_t id = open_next;
-      open_next = -1;
-      go_deck(id);
-    } else if (route == R_DECKS) {
-      if (!was_known) page_show();
-      else decks_rows();
-    } else if (route == R_DECK) {
-      if (!was_known) page_show();
-      else deck_decks_changed();
+    for (uint32_t i = 0; i < d.ndecks; i++)
+      decks[i] = (deck){d.decks[i].id, cd_intern(d.decks[i].name.p, d.decks[i].name.len), d.decks[i].note_count};
+    ndecks = d.ndecks;
+    set_mode(d.mode);
+    ask(install_answered, 0, "GET", "/install", WIRE_NONE, 0);
+  } else {
+    /* not reachable now (no profile, locked, bridge down): a mode the page explains */
+    set_mode(a.err.mode != WIRE_MODE_OTHER && a.err.error.len ? a.err.mode : WIRE_MODE_UNCONFIGURED);
+  }
+  if (open_next >= 0 && deck_by_id(open_next)) {
+    int64_t id = open_next;
+    open_next = -1;
+    go_deck(id);
+  } else if (route == R_DECKS) {
+    if (!was_known) page_show();
+    else decks_rows();
+  } else if (route == R_DECK) {
+    if (!was_known) page_show();
+    else deck_decks_changed();
+  }
+}
+
+ON_ANSWER(install_answered) {
+  wire_install_state s;
+  answer a = take(&h_install, WK_INSTALL_STATE, status, p, len, &s);
+  int was = installed;
+  installed = a.ok ? s.installed : 1; /* an answer that is not one counts as installed, as DeckContext's catch did */
+  if (installed == was) return;
+  badges_update();
+  decks_follow();
+}
+
+ON_ANSWER(notetypes_answered) {
+  wire_notetypes n;
+  answer a = take(&h_notetypes, WK_NOTETYPES, status, p, len, &n);
+  if (!a.ok) {
+    notetypes_asked = 0; /* asked again next time something needs them */
+    return;
+  }
+  notetypes = cd_alloc((n.nnotetypes ? n.nnotetypes : 1) * sizeof *notetypes);
+  for (uint32_t i = 0; i < n.nnotetypes; i++) {
+    notetype *t = &notetypes[i];
+    *t = (notetype){n.notetypes[i].id, {0, 0}, 0, n.notetypes[i].field_names.n, n.notetypes[i].sort_field_index};
+    text_set(&t->name, n.notetypes[i].name.p, n.notetypes[i].name.len);
+    t->fields = cd_alloc((t->nfields ? t->nfields : 1) * sizeof *t->fields);
+    for (uint32_t k = 0; k < t->nfields; k++) {
+      t->fields[k] = (text){0, 0};
+      text_set(&t->fields[k], n.notetypes[i].field_names.v[k].p, n.notetypes[i].field_names.v[k].len);
     }
-    break;
   }
-  case T_INSTALL: {
-    wire_install_state s;
-    answer a = take(&h_install, WK_INSTALL_STATE, status, p, len, &s);
-    int was = installed;
-    installed = a.ok ? s.installed : 1; /* an answer that is not one counts as installed, as DeckContext's catch did */
-    if (installed == was) return;
-    badges_update();
-    decks_follow();
-    break;
-  }
-  case T_NOTETYPES: {
-    wire_notetypes n;
-    answer a = take(&h_notetypes, WK_NOTETYPES, status, p, len, &n);
-    if (!a.ok) {
-      notetypes_asked = 0; /* asked again next time something needs them */
-      return;
-    }
-    notetypes = cd_alloc((n.nnotetypes ? n.nnotetypes : 1) * sizeof *notetypes);
-    for (uint32_t i = 0; i < n.nnotetypes; i++) {
-      notetype *t = &notetypes[i];
-      *t = (notetype){n.notetypes[i].id, {0, 0}, 0, n.notetypes[i].field_names.n, n.notetypes[i].sort_field_index};
-      text_set(&t->name, n.notetypes[i].name.p, n.notetypes[i].name.len);
-      t->fields = cd_alloc((t->nfields ? t->nfields : 1) * sizeof *t->fields);
-      for (uint32_t k = 0; k < t->nfields; k++) {
-        t->fields[k] = (text){0, 0};
-        text_set(&t->fields[k], n.notetypes[i].field_names.v[k].p, n.notetypes[i].field_names.v[k].len);
-      }
-    }
-    nnotetypes = n.nnotetypes;
-    notetypes_known = 1;
-    holder_free(&h_notetypes);
-    if (route == R_DECK) deck_notetypes_known();
-    break;
-  }
-  }
+  nnotetypes = n.nnotetypes;
+  notetypes_known = 1;
+  holder_free(&h_notetypes);
+  if (route == R_DECK) deck_notetypes_known();
 }
 
 const notetype *notetype_by_id(int64_t id) {
