@@ -12,11 +12,17 @@
 
 #include "bridge.h"
 
-static str g_path; /* the collection "open" named; owned by g_arena */
-static arena g_arena;
+enum { MAX_LINES = 1 << 16 }; /* the most lines a "parallel" or "addNotesBulk" may carry */
+
+/* The collection "open" (or a transport) named, owned by g_path_arena, and the bridge "probe" (or a
+ * transport) named, owned by g_br_arena: two owners, so a probe never frees the path the direct
+ * commands still use. */
+static str g_path;
+static arena g_path_arena;
+static col_bridge g_br;
+static arena g_br_arena;
 /* After "probe" or "transport" picked the bridge: the commands go to it, as the bridge's ops. */
 static int g_bridge;
-static col_bridge g_br;
 
 /* ---- tokens ---- */
 static int safe(unsigned char c) { return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' || c == '_' || c == '.'; }
@@ -539,14 +545,14 @@ int main(void) {
     str *t = split(&a, line, ' ', &n);
     buf out = {0};
     if (str_eq_c(t[0], "open")) {
-      ar_free(&g_arena);
-      g_path = dec(&g_arena, n > 1 ? t[1] : S("~"));
+      ar_free(&g_path_arena);
+      g_path = dec(&g_path_arena, n > 1 ? t[1] : S("~"));
       g_bridge = 0;
       buf_c(&out, "ok");
     } else if (str_eq_c(t[0], "probe")) {
       /* probe <url> <token>: probeBridge; answered, the commands that follow go to the bridge. */
-      ar_free(&g_arena);
-      g_br = (col_bridge){dec(&g_arena, n > 1 ? t[1] : S("~")), dec(&g_arena, n > 2 ? t[2] : S("~"))};
+      ar_free(&g_br_arena);
+      g_br = (col_bridge){dec(&g_br_arena, n > 1 ? t[1] : S("~")), dec(&g_br_arena, n > 2 ? t[2] : S("~"))};
       col_bridge_status st;
       col_err why;
       int probed = col_bridge_probe(&a, &g_br, &st, &why);
@@ -563,9 +569,11 @@ int main(void) {
     } else if (str_eq_c(t[0], "transport")) {
       /* transport <collection> <url> <token> ("!" for one not set): resolveTransport; the commands
        * that follow go to whichever transport answered. */
-      ar_free(&g_arena);
+      /* Decoded into arenas of their own, which become the session's only when the transport
+       * resolves; a refused one leaves the session as it was. */
+      arena path_arena = {0}, br_arena = {0};
       col_settings set;
-      str coll = dec(&g_arena, n > 1 ? t[1] : S("!")), url = dec(&g_arena, n > 2 ? t[2] : S("!")), tok = dec(&g_arena, n > 3 ? t[3] : S("!"));
+      str coll = dec(&path_arena, n > 1 ? t[1] : S("!")), url = dec(&br_arena, n > 2 ? t[2] : S("!")), tok = dec(&br_arena, n > 3 ? t[3] : S("!"));
       set.collection_path = coll.p ? coll : S("");
       set.bridge_url = url.p ? url : S("");
       set.bridge_token = tok.p ? tok : S("");
@@ -573,7 +581,13 @@ int main(void) {
       col_err e;
       if (col_resolve_transport(&a, &set, &tr, &e) < 0) {
         put_err(&out, &e);
+        ar_free(&path_arena);
+        ar_free(&br_arena);
       } else {
+        ar_free(&g_path_arena);
+        ar_free(&g_br_arena);
+        g_path_arena = path_arena;
+        g_br_arena = br_arena;
         g_path = set.collection_path;
         g_bridge = tr.ops && !strcmp(tr.mode, "bridge");
         if (g_bridge) g_br = (col_bridge){set.bridge_url, set.bridge_token};
@@ -584,7 +598,20 @@ int main(void) {
         if (tr.has_detail) put_status(&out, &tr.detail);
       }
     } else if (str_eq_c(t[0], "addNotesBulk") || str_eq_c(t[0], "parallel")) {
-      size_t count = (size_t)num(n > 1 ? t[1] : S("0"));
+      /* The runner sends a small decimal; anything else (negative, NaN, past MAX_LINES) is refused
+       * before a line is read, so no cast of an unrepresentable double and no unbounded wait. */
+      double want = num(n > 1 ? t[1] : S("0"));
+      if (!(want >= 0 && want <= MAX_LINES && want == floor(want))) {
+        buf_c(&out, "err error ");
+        enc(&out, S("bad line count"));
+        buf_ch(&out, '\n');
+        fwrite(out.p, 1, out.n, stdout);
+        fflush(stdout);
+        buf_free(&out);
+        ar_free(&a);
+        continue;
+      }
+      size_t count = (size_t)want;
       str *more = ar_alloc(&a, (count + 1) * sizeof *more);
       for (size_t i = 0; i < count; i++) more[i] = read_line(&a, &eof);
       if (str_eq_c(t[0], "addNotesBulk")) {
@@ -593,18 +620,22 @@ int main(void) {
         job *jobs = calloc(count + 1, sizeof *jobs);
         pthread_t *th = calloc(count + 1, sizeof *th);
         if (!jobs || !th) abort();
+        char *started = calloc(count + 1, 1);
+        if (!started) abort();
         for (size_t i = 0; i < count; i++) {
           jobs[i].line = more[i];
-          pthread_create(&th[i], NULL, job_run, &jobs[i]);
+          started[i] = pthread_create(&th[i], NULL, job_run, &jobs[i]) == 0;
+          if (!started[i]) job_run(&jobs[i]); /* out of threads: this one runs here, in turn */
         }
         for (size_t i = 0; i < count; i++) {
-          pthread_join(th[i], NULL);
+          if (started[i]) pthread_join(th[i], NULL);
           if (i) buf_ch(&out, '\n');
           buf_put(&out, jobs[i].out.p ? jobs[i].out.p : "", jobs[i].out.n);
           buf_free(&jobs[i].out);
         }
         free(jobs);
         free(th);
+        free(started);
       }
     } else {
       run(&a, line, NULL, 0, &out);
@@ -615,6 +646,7 @@ int main(void) {
     buf_free(&out);
     ar_free(&a);
   }
-  ar_free(&g_arena);
+  ar_free(&g_path_arena);
+  ar_free(&g_br_arena);
   return 0;
 }
