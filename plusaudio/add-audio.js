@@ -86,7 +86,7 @@ async function main(argv) {
   }
 
   let generate = () => {
-    throw new Error('OPENAI_API_KEY is not set');
+    throw new Error('OPENAI_API_KEY and GEMINI_API_KEY are not set');
   };
   if (!dryRun) {
     // Required lazily so --dry-run and the tests never need the sdk or a key.
@@ -98,10 +98,18 @@ async function main(argv) {
     }
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
-      process.stderr.write('OPENAI_API_KEY is not set; use --dry-run to see the plan.\n');
+      process.stderr.write('OPENAI_API_KEY is not set (it checks each clip); use --dry-run to see the plan.\n');
       return 1;
     }
-    generate = createGenerator(new OpenAI({ apiKey }), { log: (line) => console.log(line) });
+    if (!process.env.GEMINI_API_KEY) {
+      process.stderr.write('GEMINI_API_KEY is not set (it makes the audio, https://aistudio.google.com/apikey); use --dry-run to see the plan.\n');
+      return 1;
+    }
+    generate = createGenerator(new OpenAI({ apiKey }), {
+      geminiApiKey: process.env.GEMINI_API_KEY,
+      geminiApiBase: process.env.GEMINI_API_BASE,
+      log: (line) => console.log(line),
+    });
   }
 
   const summary = await augmentPackage({
