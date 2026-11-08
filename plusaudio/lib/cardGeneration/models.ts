@@ -38,10 +38,29 @@ export const GEMINI_TTS_MODEL = "gemini-3.8-flash-tts";
 // (through plusaudio/lib/random.js, the one seedable random source), and a
 // retry after a failed validation always draws a different one than the
 // attempt before it: the same voice tends to repeat the same
-// mispronunciation. These three are the ones the owner listened to in the
-// bake-off; none was preferred over the others, so all three stay in. Add or
-// remove names here - Gemini lists its prebuilt voices in its TTS docs.
-export const GEMINI_TTS_VOICES = ["Kore", "Aoede", "Charon"] as const;
+// mispronunciation. The owner's call: random, because hearing many speakers
+// is good for a learner.
+//
+// Who is in it, and why. Gemini documents 30 prebuilt voices. On 2026-11-08
+// each was asked, on gemini-3.8-flash-tts, to say 駅はどこですか。,
+// 역이 어디예요? and Где находится вокзал?, and each clip went through the
+// pipeline's own transcription check (pronunciation-aware for Korean). Every
+// one of the 26 voices below passed all three (Despina's Korean on its
+// second take, which the pipeline's retry would also have given it). Four
+// documented voices - Vindemiatrix, Sadachbia, Sadaltager, Sulafat - are NOT
+// here only because the project's Tier 1 cap (100 TTS requests per day per
+// model) ran out before they were surveyed, not because they failed; add
+// them once they have been through the same check.
+//
+// Passing a transcript check is not sounding good: only Kore, Aoede and
+// Charon have been heard by the owner. Drop any voice here that sounds wrong
+// - one clip per voice and language is saved for that audition.
+export const GEMINI_TTS_VOICES = [
+    "Zephyr", "Puck", "Charon", "Kore", "Fenrir", "Leda", "Orus", "Aoede", "Callirrhoe",
+    "Autonoe", "Enceladus", "Iapetus", "Umbriel", "Algieba", "Despina", "Erinome", "Algenib",
+    "Rasalgethi", "Laomedeia", "Achernar", "Alnilam", "Schedar", "Gacrux", "Pulcherrima",
+    "Achird", "Zubenelgenubi"
+] as const;
 
 // Thinking level for the text, transcription and judge calls
 // (generationConfig.thinkingConfig.thinkingLevel). Filling a short
