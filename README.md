@@ -136,12 +136,11 @@ Everything the page and the server say to each other is in amgi's wire format, s
 
 ### JSON that remains and why
 
-amgi's own boundaries are binary layouts; JSON stays only where something outside amgi forces it, or while work in flight replaces it.
+amgi's own boundaries are binary layouts, the Anki bridge's included; JSON stays only where something outside amgi forces it.
 `test/no-json.test.mjs` scans every shipped source file and fails on any JSON call not listed here (its `ALLOWED` list holds the exact counts and reasons, and the test checks this section names the same files).
 amgi's own JSON lives in one folder, `plusaudio/lib/json/`, behind one named function per use.
 
 - `plusaudio/lib/json/modelAnswer.js`: Gemini's structured answers are JSON text, and nothing else is offered ([plusaudio/ANSWER_FORMAT.md](plusaudio/ANSWER_FORMAT.md) says what was measured against the alternatives).
-- `plusaudio/lib/json/bridgeBody.js` and the add-on's `anki/addon/amgi_bridge/bridge_server.py` (leaving): the bridge protocol, which moves to a binary layout with a version check.
 - `plusaudio/lib/collection/decks.js`, `plusaudio/lib/collection/deck-remove.js`, `plusaudio/lib/collection/notes.js`, `plusaudio/lib/collection/notetypes.js`, `plusaudio/lib/deck.js`, `plusaudio/lib/package.js`: Anki's own formats (a schema 11 collection's `col` columns, the config table's values, an older `.apkg`'s media map), read and written as Anki defines them.
 
 See [ROADMAP.md](ROADMAP.md) for what is still open.

@@ -7,9 +7,17 @@
 // `Origin` header at all - and bridge_auth.py treats "no Origin" as not an
 // origin failure by design (a same-machine CLI caller, which this is). The
 // shared-secret token is therefore the only credential these requests need.
+//
+// Every body, both ways, is in amgi's wire format: the b_* kinds and the request kinds in
+// ui/wire/wire.c's table, written and read through ui/server/wire.mjs (the add-on reads the same
+// table, generated into its wire_schema.py). This file only names, per call, which kind goes and
+// which comes back. Every request carries the protocol version; an answer in another one (or with
+// none: an add-on old enough to speak JSON) is a BridgeOutdatedError, which transport.js reports
+// as the bridge-outdated mode: press Install into Anki again, then restart Anki.
 
+import { BRIDGE_PROTOCOL, WIRE_MIME, decode, encode } from '../../../ui/server/wire.mjs';
 
-import { formatBridgeBody, parseBridgeBody } from 'plusaudio/lib/json/bridgeBody';
+export const PROTOCOL_HEADER = 'X-Amgi-Bridge-Protocol';
 // The short timeout is for "is a bridge there, and is it answering": the
 // probe below, and the fixed-size reads whose cost does not depend on the
 // collection. Failing those fast is the point - the caller falls back to the
@@ -37,7 +45,7 @@ const DEFAULT_TIMEOUT_MS = 1500;
 // read whose cost scales with the deck rather than with the request.
 const OPERATION_TIMEOUT_MS = 30000;
 
-class BridgeError extends Error {
+export class BridgeError extends Error {
   constructor(message, status) {
     super(message);
     this.name = 'BridgeError';
@@ -45,7 +53,21 @@ class BridgeError extends Error {
   }
 }
 
-async function bridgeFetch(baseUrl, token, path, { method = 'GET', body, timeoutMs = DEFAULT_TIMEOUT_MS } = {}) {
+/** The add-on answered in another bridge protocol than this server speaks. */
+export class BridgeOutdatedError extends BridgeError {
+  constructor(theirs) {
+    super(`the amgi add-on in Anki speaks bridge protocol ${theirs || 'none (it predates them)'}, this amgi ${BRIDGE_PROTOCOL}`, 409);
+    this.name = 'BridgeOutdatedError';
+    this.theirs = theirs;
+  }
+}
+
+/**
+ * One call: `answer` is the kind of a 2xx answer, `send` the request's kind and object if it has a
+ * body. Resolves to the answer's object; throws BridgeError on a 4xx or 5xx (its b_error message)
+ * and BridgeOutdatedError when the add-on speaks another protocol.
+ */
+async function bridgeFetch(baseUrl, token, path, answer, { method = 'GET', send, timeoutMs = DEFAULT_TIMEOUT_MS } = {}) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -53,16 +75,26 @@ async function bridgeFetch(baseUrl, token, path, { method = 'GET', body, timeout
       method,
       headers: {
         'X-Amgi-Bridge-Token': token,
-        ...(body ? { 'Content-Type': 'application/json' } : {}),
+        [PROTOCOL_HEADER]: String(BRIDGE_PROTOCOL),
+        ...(send ? { 'Content-Type': WIRE_MIME } : {}),
       },
-      body: body ? formatBridgeBody(body) : undefined,
+      body: send ? encode(send[0], send[1]) : undefined,
       signal: controller.signal,
     });
-    const text = await response.text();
-    const data = parseBridgeBody(text);
-    if (!response.ok) {
-      throw new BridgeError(data?.error || `bridge responded ${response.status}`, response.status);
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    const theirs = response.headers.get(PROTOCOL_HEADER) || '';
+    if (theirs !== String(BRIDGE_PROTOCOL)) {
+      // A refusal of the token or the origin from an add-on too old to name its protocol says nothing
+      // about its version: only an answer (or the new add-on's own 409) does.
+      if (response.ok || response.status === 409) throw new BridgeOutdatedError(theirs);
+      throw new BridgeError(`bridge responded ${response.status}`, response.status);
     }
+    if (!response.ok) {
+      const error = decode('b_error', bytes);
+      throw new BridgeError(error?.error || `bridge responded ${response.status}`, response.status);
+    }
+    const data = decode(answer, bytes);
+    if (!data) throw new BridgeError(`the bridge's answer is not a whole ${answer} message`, 502);
     return data;
   } finally {
     clearTimeout(timer);
@@ -71,34 +103,34 @@ async function bridgeFetch(baseUrl, token, path, { method = 'GET', body, timeout
 
 /** A live handle to a reachable bridge, matching directClient.js's shape (see transport.js). */
 function createBridgeOps(baseUrl, token) {
+  const call = (path, answer, options) => bridgeFetch(baseUrl, token, path, answer, options);
+  const write = (method, path, answer, send) => call(path, answer, { method, send, timeoutMs: OPERATION_TIMEOUT_MS });
   return {
     mode: 'bridge',
 
     async status() {
-      return bridgeFetch(baseUrl, token, '/status');
+      return call('/status', 'b_status');
     },
     async listDecks() {
-      return bridgeFetch(baseUrl, token, '/decks');
+      return (await call('/decks', 'b_decks')).decks;
     },
     async listNotetypes() {
-      return bridgeFetch(baseUrl, token, '/notetypes');
+      return (await call('/notetypes', 'b_notetypes')).notetypes;
     },
     async listNotesInDeck(deckId, { offset = 0, limit = 50 } = {}) {
-      return bridgeFetch(baseUrl, token, `/decks/${deckId}/notes?offset=${offset}&limit=${limit}`);
+      return call(`/decks/${deckId}/notes?offset=${offset}&limit=${limit}`, 'b_notes');
     },
     async countNotesInDeck(deckId) {
-      const page = await bridgeFetch(baseUrl, token, `/decks/${deckId}/notes?offset=0&limit=1`);
-      return page.total;
+      return (await call(`/decks/${deckId}/notes?offset=0&limit=1`, 'b_notes')).total;
     },
     /** Every value already in `fieldIndex` for `notetypeId`'s notes in `deckId` - the bulk-add-vs-deck dupe check. */
     async existingFieldValues(deckId, notetypeId, fieldIndex) {
-      const result = await bridgeFetch(
-        baseUrl,
-        token,
+      const result = await call(
         `/decks/${deckId}/notes/field-values?notetypeId=${notetypeId}&fieldIndex=${fieldIndex}`,
+        'b_values',
         // Reads every note in the deck, so its cost is the deck's size, not
         // this request's. It is also the bulk-add screen's dupe check, whose
-        // failure is swallowed by design (BulkRun.js) - timing this one out
+        // failure is swallowed by design (ui/src/bulk.c) - timing this one out
         // does not show an error, it silently pays Gemini to regenerate
         // cards the deck already has.
         { timeoutMs: OPERATION_TIMEOUT_MS },
@@ -106,10 +138,11 @@ function createBridgeOps(baseUrl, token) {
       return result.values;
     },
     async createDeck(name) {
-      return bridgeFetch(baseUrl, token, '/decks', { method: 'POST', body: { name }, timeoutMs: OPERATION_TIMEOUT_MS });
+      const made = await write('POST', '/decks', 'b_deck_created', ['q_deck_name', { name }]);
+      return { deck: { id: made['deck.id'], name: made['deck.name'] }, created: made.created };
     },
     async addNote(note) {
-      return bridgeFetch(baseUrl, token, '/notes', { method: 'POST', body: note, timeoutMs: OPERATION_TIMEOUT_MS });
+      return withoutEmptyWarning(await write('POST', '/notes', 'b_note', ['q_note', note]));
     },
     /**
      * Add several notes through one `POST /notes/bulk` call, which the
@@ -118,59 +151,56 @@ function createBridgeOps(baseUrl, token) {
      * change-hook firing for the whole paste, instead of 60 of each.
      */
     async addNotesBulk(notes) {
-      const result = await bridgeFetch(baseUrl, token, '/notes/bulk', {
-        method: 'POST',
-        body: { notes },
-        timeoutMs: OPERATION_TIMEOUT_MS,
-      });
-      return result.results;
+      return (await write('POST', '/notes/bulk', 'b_notes_added', ['q_notes', { notes }])).results;
     },
     async updateNote(noteId, fields, language, learningFieldIndex) {
-      return bridgeFetch(baseUrl, token, `/notes/${noteId}`, {
-        method: 'PATCH',
-        body: { fields, language, learningFieldIndex },
-        timeoutMs: OPERATION_TIMEOUT_MS,
-      });
+      const send = ['q_note_update', { fields, language, learningFieldIndex }];
+      return withoutEmptyWarning(await write('PATCH', `/notes/${noteId}`, 'b_note', send));
     },
     async hasMedia(filename) {
-      const result = await bridgeFetch(baseUrl, token, `/media/${encodeURIComponent(filename)}`);
-      return result.exists;
+      return (await call(`/media/${encodeURIComponent(filename)}`, 'b_media_exists')).exists;
     },
     async renameDeck(deckId, name) {
-      return bridgeFetch(baseUrl, token, `/decks/${deckId}`, { method: 'PATCH', body: { name }, timeoutMs: OPERATION_TIMEOUT_MS });
+      return write('PATCH', `/decks/${deckId}`, 'b_deck', ['q_deck_name', { name }]);
     },
     /** GET /decks/:id: what deleting it would take. A deck that is not there is a BridgeError with status 404. */
     async deckRemovalSummary(deckId) {
-      return bridgeFetch(baseUrl, token, `/decks/${deckId}`, { timeoutMs: OPERATION_TIMEOUT_MS });
+      return call(`/decks/${deckId}`, 'b_deck_summary', { timeoutMs: OPERATION_TIMEOUT_MS });
     },
     /** DELETE /decks/:id, through Anki's own col.decks.remove (bridge_ops.remove_deck). */
     async removeDeck(deckId) {
-      return bridgeFetch(baseUrl, token, `/decks/${deckId}`, { method: 'DELETE', timeoutMs: OPERATION_TIMEOUT_MS });
+      return write('DELETE', `/decks/${deckId}`, 'b_deck_removed');
     },
     async removeNote(noteId) {
-      return bridgeFetch(baseUrl, token, `/notes/${noteId}`, { method: 'DELETE', timeoutMs: OPERATION_TIMEOUT_MS });
+      return write('DELETE', `/notes/${noteId}`, 'b_note_removed');
     },
     async readMedia(filename) {
-      const result = await bridgeFetch(baseUrl, token, `/media/${encodeURIComponent(filename)}/data`);
-      return result.found ? Buffer.from(result.dataBase64, 'base64') : null;
+      const result = await call(`/media/${encodeURIComponent(filename)}/data`, 'b_media_data');
+      return result.found ? result.data : null;
     },
     async addMedia(filename, data) {
-      const result = await bridgeFetch(baseUrl, token, '/media', {
-        method: 'POST',
-        body: { filename, dataBase64: data.toString('base64') },
-        timeoutMs: OPERATION_TIMEOUT_MS,
-      });
-      return result.filename;
+      return (await write('POST', '/media', 'b_media_added', ['b_q_media', { filename, data }])).filename;
     },
   };
 }
 
-/** Probe a configured bridge; resolves to ops on success, null if unreachable (caller falls back to direct). */
+// The wire carries "no warning" as "", where the JSON answers left the key out: callers test it.
+function withoutEmptyWarning(answer) {
+  const { warning, ...rest } = answer;
+  return warning ? answer : rest;
+}
+
+/**
+ * Probe a configured bridge. Resolves to { ops, status } when it answers in this server's protocol,
+ * { outdated: error } when it answers in another, and null when it does not answer at all (the
+ * caller falls back to the direct transport).
+ */
 export async function probeBridge(baseUrl, token) {
   try {
-    const status = await bridgeFetch(baseUrl, token, '/status', { timeoutMs: DEFAULT_TIMEOUT_MS });
+    const status = await bridgeFetch(baseUrl, token, '/status', 'b_status', { timeoutMs: DEFAULT_TIMEOUT_MS });
     return { ops: createBridgeOps(baseUrl, token), status };
-  } catch {
+  } catch (error) {
+    if (error instanceof BridgeOutdatedError) return { outdated: error };
     return null;
   }
 }

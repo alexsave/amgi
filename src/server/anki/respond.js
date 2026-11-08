@@ -15,6 +15,9 @@ const MESSAGES = {
   locked:
     'Anki is open on this collection and the local bridge is not reachable. ' +
     'Either close Anki, or turn on the bridge in Anki (Tools > amgi: Bridge status...) and paste its token into Settings.',
+  'bridge-outdated':
+    'The amgi add-on running in Anki is from a different amgi than this one. ' +
+    'Press Install into Anki again (Settings), then restart Anki.',
   'bridge-no-collection':
     'Anki is open with the bridge running, but no profile is loaded yet (the profile picker is showing). Pick a profile in Anki.',
 };
