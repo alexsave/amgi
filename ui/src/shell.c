@@ -78,28 +78,15 @@ void page_show(void) {
   else if (!gone) deck_after();
 }
 
-/* ---- every hook cdom calls ---- */
-void cd_on_event(const cd_event_rec *e) {
-  /* Coming back to the tab is when the answer most likely changed: you were just in Anki. As
-   * DeckContext did, on the window's focus and on the document showing again (key 1: hidden). */
-  if (e->type == CD_EV_VISIBILITY || (e->type == CD_EV_FOCUS && (cd_id)e->id == CD_WINDOW)) {
-    if (e->type == CD_EV_FOCUS || !e->key) poll_status();
-    return;
-  }
-  uint32_t tag = cd_tag((cd_id)e->id);
-  switch (TAG_MODULE(tag)) {
-  case M_SHELL: go("/settings", 9); break;
-  case M_DECKS: decks_event(e, tag); break;
-  case M_SETTINGS: settings_event(e, tag); break;
-  case M_DECK: case M_FORM: case M_PANEL: case M_BULK: deck_event(e, tag); break;
-  case M_MODAL: modal_event(e, tag); break;
-  case M_FIRSTRUN: firstrun_event(tag); break;
-  case M_STARTER: starter_event(tag); break;
-  case M_TEMPLATE: template_event(tag); break;
-  case M_CHIP: if (e->type == CD_EV_CLICK) chip_event(tag); break;
-  }
+/* Coming back to the tab is when the answer most likely changed: you were just in Anki. As
+ * DeckContext did, on the window's focus and on the document showing again (key 1: hidden). */
+ON_EVENT(came_back) { poll_status(); }
+ON_EVENT(shown_again) {
+  if (!e->key) poll_status();
 }
+ON_EVENT(open_settings) { go("/settings", 9); }
 
+/* ---- every hook cdom calls ---- */
 void cd_on_timer(uint32_t token) {
   switch (token >> 24) {
   case M_SHELL: state_timer(token & 0xffffff); break;
@@ -126,8 +113,8 @@ void cd_main(void) {
     route = R_DECKS;
     cd_url_replace("/decks", 6);
   }
-  cd_listen_window(CD_EV_VISIBILITY);
-  cd_listen(CD_WINDOW, CD_EV_FOCUS);
+  cd_on(CD_DOCUMENT, CD_EV_VISIBILITY, shown_again, 0);
+  cd_on(CD_WINDOW, CD_EV_FOCUS, came_back, 0);
   cd_at(CD_MOUNT, 0);
   el(CD_LIT("div"), CD_LIT("App"));
   el(CD_LIT("div"), CD_LIT("app-container"));
@@ -135,9 +122,9 @@ void cd_main(void) {
   el_text(CD_LIT("div"), CD_LIT("navbar-brand"), CD_LIT("AMGI"));
   el(CD_LIT("div"), CD_LIT("navbar-actions"));
   badge_build(&badges[0]);
-  el(CD_LIT("button"), CD_LIT("navbar-button action-btn settings-icon"));
+  cd_id settings_button = el_id(CD_LIT("button"), CD_LIT("navbar-button action-btn settings-icon"));
   cd_attr(CD_LIT("title"), CD_LIT("Settings"));
-  listen_click(TAG(M_SHELL, 1, 0));
+  cd_on(settings_button, CD_EV_CLICK, open_settings, 0);
   icon(ICON_COG, ICON_COG_HUB, 0);
   cd_close();
   cd_close();

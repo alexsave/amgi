@@ -3,7 +3,6 @@
  * exists. */
 #include "app.h"
 
-enum { A_KNOWN = 1, A_LEARNING, A_BUILD };
 enum { T_STATE = 1, T_BUILD };
 
 static cd_region view = {0};
@@ -32,6 +31,9 @@ static void option(uint32_t i, uint32_t selected) {
   cd_close();
 }
 
+ON_EVENT(language_picked);
+ON_EVENT(build_pressed);
+
 static void draw(void) {
   if (!shown) return;
   cd_region_hide(&view);
@@ -51,9 +53,9 @@ static void draw(void) {
   for (int which = 0; which < 2; which++) {
     el(CD_LIT("label"), CD_LIT("starter-deck-field"));
     el_text(CD_LIT("span"), 0, which ? CD_LIT("I am learning") : CD_LIT("I know"));
-    cd_open(CD_LIT("select"));
+    cd_id sel = cd_open_id(CD_LIT("select"));
     if (busy) cd_attr(CD_LIT("disabled"), CD_LIT(""));
-    cd_id sel = listen_as(CD_EV_CHANGE, TAG(M_STARTER, which ? A_LEARNING : A_KNOWN, 0));
+    cd_on(sel, CD_EV_CHANGE, language_picked, CTX_OF(which));
     if (which) learning_sel = sel;
     else known_sel = sel;
     /* in the order LANGUAGES declares, not the server's alphabetical one; learning leaves out known */
@@ -63,11 +65,11 @@ static void draw(void) {
     cd_close();
   }
   cd_close();
-  el(CD_LIT("button"), 0);
+  cd_id cta = el_id(CD_LIT("button"), 0);
   cd_attr(CD_LIT("type"), CD_LIT("button"));
   cd_class(CD_LIT("starter-deck-cta"));
   if (busy || learning >= NLANGUAGES || learning == known) cd_attr(CD_LIT("disabled"), CD_LIT(""));
-  listen_click(TAG(M_STARTER, A_BUILD, 0));
+  cd_on(cta, CD_EV_CLICK, build_pressed, 0);
   cd_text(busy ? CD_LIT("Building the deck…") : CD_LIT("Make me a starter deck"));
   cd_close();
   if (error.len) {
@@ -102,36 +104,31 @@ void starter_forget(void) {
   cd_region_hide(&view);
 }
 
-void starter_event(uint32_t tag) {
+/* ctx: 0 the language known, 1 the one learnt */
+ON_EVENT(language_picked) {
   char code[8];
-  switch (TAG_ACTION(tag)) {
-  case A_KNOWN: case A_LEARNING: {
-    int which = TAG_ACTION(tag) == A_LEARNING;
-    uint32_t n = cd_input_value(which ? learning_sel : known_sel, code, sizeof code);
-    uint32_t i = index_of(code, n);
-    if (i >= NLANGUAGES) break;
-    if (which) learning = i;
-    else known = i;
-    draw();
-    break;
-  }
-  case A_BUILD: {
-    if (busy || learning >= NLANGUAGES || learning == known) break;
-    busy = 1;
-    text_free(&error);
-    draw();
-    static const char P[] = "amgi starter - ";
-    char name[64];
-    uint32_t l = zlen(LANGUAGES[learning].name);
-    __builtin_memcpy(name, P, sizeof P - 1);
-    __builtin_memcpy(name + sizeof P - 1, LANGUAGES[learning].name, l);
-    wire_q_starter q = {{LANGUAGES[known].code, zlen(LANGUAGES[known].code)},
-                        {LANGUAGES[learning].code, zlen(LANGUAGES[learning].code)},
-                        {name, (uint32_t)sizeof P - 1 + l}};
-    ask(M_STARTER, T_BUILD, "POST", "/starter", WK_Q_STARTER, &q);
-    break;
-  }
-  }
+  int which = CTX_INDEX(ctx) == 1;
+  uint32_t n = cd_input_value(which ? learning_sel : known_sel, code, sizeof code);
+  uint32_t i = index_of(code, n);
+  if (i >= NLANGUAGES) return;
+  if (which) learning = i;
+  else known = i;
+  draw();
+}
+ON_EVENT(build_pressed) {
+  if (busy || learning >= NLANGUAGES || learning == known) return;
+  busy = 1;
+  text_free(&error);
+  draw();
+  static const char P[] = "amgi starter - ";
+  char name[64];
+  uint32_t l = zlen(LANGUAGES[learning].name);
+  __builtin_memcpy(name, P, sizeof P - 1);
+  __builtin_memcpy(name + sizeof P - 1, LANGUAGES[learning].name, l);
+  wire_q_starter q = {{LANGUAGES[known].code, zlen(LANGUAGES[known].code)},
+                      {LANGUAGES[learning].code, zlen(LANGUAGES[learning].code)},
+                      {name, (uint32_t)sizeof P - 1 + l}};
+  ask(M_STARTER, T_BUILD, "POST", "/starter", WK_Q_STARTER, &q);
 }
 
 void starter_answer(uint32_t token, uint32_t status, const uint8_t *p, uint32_t len) {

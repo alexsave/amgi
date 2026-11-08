@@ -70,7 +70,6 @@ void settings_save(void) {
 }
 
 /* ---- the screen ---- */
-enum { A_BACK = 1, A_INSTALL, A_SCAN, A_SAVE, A_PROFILE };
 enum { T_PROFILES = 1, T_INSTALL };
 enum { TIMER_SAVED = 1 };
 
@@ -104,17 +103,21 @@ static cd_id text_input(const char *id, const text *value, cd_str placeholder) {
   cd_close();
   return node;
 }
-static cd_id save_button(uint32_t action, cd_str s, cd_id *txt) {
+static cd_id save_button(cd_event_fn on_click, cd_str s, cd_id *txt) {
   cd_id b = el_id(CD_LIT("button"), 0);
   cd_attr(CD_LIT("type"), CD_LIT("button"));
   cd_class(CD_LIT("save-button"));
-  cd_listen(b, CD_EV_CLICK);
-  cd_tag_set(b, TAG(M_SETTINGS, action, 0));
+  cd_on(b, CD_EV_CLICK, on_click, 0);
   cd_text(s);
   if (txt) cd_name(*txt = cd_id_new());
   cd_close();
   return b;
 }
+
+ON_EVENT(back) { cd_url_step(-1); }
+ON_EVENT(install_pressed);
+ON_EVENT(scan_pressed);
+ON_EVENT(save_pressed);
 
 void settings_build(void) {
   for (int f = 0; f < S_FIELDS; f++) text_set(&draft[f], settings[f].p ? settings[f].p : "", settings[f].len);
@@ -122,8 +125,7 @@ void settings_build(void) {
   shown = 1;
   el(CD_LIT("div"), CD_LIT("settings-page"));
   el(CD_LIT("div"), CD_LIT("settings-header"));
-  el(CD_LIT("button"), CD_LIT("back-button"));
-  listen_click(TAG(M_SETTINGS, A_BACK, 0));
+  cd_on(el_id(CD_LIT("button"), CD_LIT("back-button")), CD_EV_CLICK, back, 0);
   cd_text(CD_LIT("← Back"));
   cd_close();
   el_text(CD_LIT("h2"), 0, CD_LIT("Settings"));
@@ -152,7 +154,7 @@ void settings_build(void) {
   cd_close();
   if (!draft[S_BASE_DIR].len) cd_text(CD_LIT(" - set the override below to install somewhere else."));
   cd_close();
-  install_button = save_button(A_INSTALL, CD_LIT("Install into Anki"), &install_text);
+  install_button = save_button(install_pressed, CD_LIT("Install into Anki"), &install_text);
   cd_close();
 
   row_open();
@@ -161,7 +163,7 @@ void settings_build(void) {
   cd_close();
 
   row_open();
-  scan_button = save_button(A_SCAN, CD_LIT("Scan for profiles"), &scan_text);
+  scan_button = save_button(scan_pressed, CD_LIT("Scan for profiles"), &scan_text);
   cd_close();
 
   before_bridge = el_id(CD_LIT("div"), CD_LIT("preference-item"));
@@ -174,7 +176,7 @@ void settings_build(void) {
   cd_close();
 
   saved_slot = el_id(CD_LIT("div"), CD_LIT("preference-item"));
-  save_button(A_SAVE, CD_LIT("Save Anki settings"), 0);
+  save_button(save_pressed, CD_LIT("Save Anki settings"), 0);
   cd_close();
 
   cd_close(); /* .preferences-section */
@@ -187,6 +189,14 @@ void settings_forget(void) {
   cd_region_hide(&scan_out);
   cd_region_hide(&saved_msg);
   cd_region_hide(&install_msg);
+}
+
+ON_EVENT(profile_picked) {
+  uint32_t i = CTX_INDEX(ctx);
+  if (i < nprofiles) {
+    text_set(&draft[S_COLLECTION], profiles[i].path.p, profiles[i].path.len);
+    text_set(&draft[S_PROFILE], profiles[i].name.p, profiles[i].name.len);
+  }
 }
 
 /* The scan's part of the screen, built again whenever the scan changes: the button's label, then
@@ -222,12 +232,12 @@ static void scan_view(void) {
     for (uint32_t i = 0; i < nprofiles; i++) {
       cd_open(CD_LIT("label"));
       cd_attr(CD_LIT("style"), CD_LIT("display: flex; gap: 0.5rem; align-items: center; font-weight: 400;"));
-      cd_open(CD_LIT("input"));
+      cd_id radio = cd_open_id(CD_LIT("input"));
       cd_attr(CD_LIT("type"), CD_LIT("radio"));
       cd_attr(CD_LIT("name"), CD_LIT("ankiProfile"));
       if (same(profiles[i].path.p, profiles[i].path.len, draft[S_COLLECTION].p, draft[S_COLLECTION].len))
         cd_attr(CD_LIT("checked"), CD_LIT(""));
-      listen_as(CD_EV_CHANGE, TAG(M_SETTINGS, A_PROFILE, i));
+      cd_on(radio, CD_EV_CHANGE, profile_picked, CTX_OF(i));
       cd_close();
       tmp_text(profiles[i].name.p, profiles[i].name.len);
       cd_close();
@@ -308,22 +318,12 @@ static void install(void) {
   ask(M_SETTINGS, T_INSTALL, "POST", "/install", WK_Q_INSTALL, &q);
 }
 
-void settings_event(const cd_event_rec *e, uint32_t tag) {
-  (void)e;
-  switch (TAG_ACTION(tag)) {
-  case A_BACK: cd_url_step(-1); break;
-  case A_SCAN: if (!scan_loading) scan(); break;
-  case A_SAVE: save(); break;
-  case A_INSTALL: if (!install_running) install(); break;
-  case A_PROFILE: {
-    uint32_t i = TAG_INDEX(tag);
-    if (i < nprofiles) {
-      text_set(&draft[S_COLLECTION], profiles[i].path.p, profiles[i].path.len);
-      text_set(&draft[S_PROFILE], profiles[i].name.p, profiles[i].name.len);
-    }
-    break;
-  }
-  }
+ON_EVENT(scan_pressed) {
+  if (!scan_loading) scan();
+}
+ON_EVENT(save_pressed) { save(); }
+ON_EVENT(install_pressed) {
+  if (!install_running) install();
 }
 
 void settings_timer(uint32_t token) {
