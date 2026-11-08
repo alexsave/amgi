@@ -19,7 +19,8 @@
     "globals": "^14.0.0",
     "jest": "^30.5.1",
     "jest-environment-jsdom": "^30.5.1",
-    "puppeteer-core": "^25.11.0"
+    "puppeteer-core": "^25.11.0",
+    "terser": "5.44.0"
   },
   "scripts": {
     "dev": "next dev --webpack",
