@@ -30,7 +30,12 @@ int media_read(cx *c, str dir, str name, str *out);
 
 /* ---- the per-path lock: directClient's promise chain, one per path.resolve spelling ---- */
 /* A ticket lock: callers are served in the order they asked, as the promise chain serves them, so a
- * write queued behind a long one is never overtaken by a later arrival. */
+ * write queued behind a long one is never overtaken by a later arrival.
+ *
+ * A ticket is always given back: the op runs inside cx_try (locked below), so a throw, which is a
+ * longjmp out of the op, lands before lock_give. A thread is never cancelled while it holds one:
+ * nothing in amgi's C or in cbase cancels a thread (test/parity/c-rules.test.mjs fails if one
+ * appears), so no cancellation point can leave a ticket taken and its path stuck. */
 typedef struct path_lock {
   struct path_lock *next;
   char *key;
