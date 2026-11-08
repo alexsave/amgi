@@ -6,6 +6,7 @@
 //   node scripts/build-starter-audio.js --rerecord   # record every clip again
 //   node scripts/build-starter-audio.js --check      # report, write nothing
 //   ... --only ja,ko                                 # limit to some languages
+//   ... --model gemini-3.8-flash-lite-tts            # another named TTS model (see below)
 //
 // The starter deck exists for people who have downloaded amgi and have no
 // Gemini key - see src/server/anki/starterDeck.js. Everything else in this
@@ -23,6 +24,18 @@
 // A clip that does not validate is NOT shipped: the run lists it and exits 1,
 // and nothing under anki/starter/ changes until every clip asked for has
 // validated.
+//
+// MODEL. The speech model defaults to the runtime one (models.ts's
+// GEMINI_TTS_MODEL); --model picks another of models.ts's named TTS
+// constants and nothing else. The owner chose GEMINI_TTS_LITE_MODEL for the
+// starter clips. Transcription and the judge stay on the runtime models, so
+// every clip is checked exactly as a card would be. The model is recorded per
+// clip in voices.tsv, and a cached take made with a different model is
+// recorded again rather than reused.
+//
+// DAILY CAPS. A per-day cap on any model stops the run at once (another clip
+// would only be refused too): the cache keeps what passed, the run reports
+// how many clips are done and how many remain, and nothing is shipped.
 //
 // VOICES. Each clip's voice is drawn from models.ts's GEMINI_TTS_VOICES by a
 // generator seeded from STARTER_SEED and the clip's own name, through
@@ -68,14 +81,24 @@ const STARTER_SEED = 20261108;
 const MP3_BITRATE = '64k';
 
 function parseArgs(argv) {
-  const options = { rerecord: false, check: false, only: null };
+  const { GEMINI_TTS_MODEL, GEMINI_TTS_LITE_MODEL } = require('../plusaudio/lib/cardGeneration/models.ts');
+  const named = [GEMINI_TTS_MODEL, GEMINI_TTS_LITE_MODEL];
+  const options = { rerecord: false, check: false, only: null, model: GEMINI_TTS_MODEL };
   for (let i = 0; i < argv.length; i += 1) {
     if (argv[i] === '--rerecord') options.rerecord = true;
     else if (argv[i] === '--check') options.check = true;
     else if (argv[i] === '--only') options.only = new Set((argv[++i] || '').split(',').filter(Boolean));
-    else throw new Error(`unknown option ${argv[i]}`);
+    else if (argv[i] === '--model') {
+      options.model = argv[++i];
+      if (!named.includes(options.model)) throw new Error(`--model must be one of ${named.join(', ')}`);
+    } else throw new Error(`unknown option ${argv[i]}`);
   }
   return options;
+}
+
+/** A refusal no wait inside this run fixes: a per-day cap (gemini.ts's dailyQuotaMessage). */
+function isDailyCap(message) {
+  return /daily limit|requests per day per model/.test(message);
 }
 
 /** A clip's own seed: STARTER_SEED and its name, so a resumed run draws the same voice. */
@@ -96,13 +119,13 @@ function readTakes() {
   return takes;
 }
 
-async function recordClip(clip, { apiKey, baseUrl }) {
+async function recordClip(clip, { apiKey, baseUrl, model }) {
   const { createGeminiContext } = require('../plusaudio/lib/geminiContext');
   const { generateCardAudio } = require('../plusaudio/lib/cardGeneration/cardGeneration.ts');
   const { createRandom } = require('../plusaudio/lib/random');
 
   const warnings = [];
-  const context = createGeminiContext({ apiKey, baseUrl, random: createRandom(clipSeed(clip.name)), log: (line) => warnings.push(line.trim()) });
+  const context = createGeminiContext({ apiKey, baseUrl, ttsModel: model, random: createRandom(clipSeed(clip.name)), log: (line) => warnings.push(line.trim()) });
   const voices = [];
   const pickVoice = context.speech.pickVoice;
   context.speech = { ...context.speech, pickVoice: (previous) => { const voice = pickVoice(previous); voices.push(voice); return voice; } };
@@ -119,7 +142,7 @@ async function recordClip(clip, { apiKey, baseUrl }) {
         await sleep(60_000);
         continue;
       }
-      return { error: error.message, attempts: voices.length, warnings };
+      return { error: error.message, dailyCap: isDailyCap(error.message), attempts: voices.length, warnings };
     }
   }
 }
@@ -140,7 +163,7 @@ async function main() {
   }
   const shipped = (clip) => fs.existsSync(path.join(OUT_DIR, clip.name));
   const wanted = clips.filter((clip) => options.rerecord || !shipped(clip));
-  process.stdout.write(`${clips.length - clips.filter((clip) => !shipped(clip)).length} of ${clips.length} clips shipped; ${wanted.length} to record\n`);
+  process.stdout.write(`${clips.length - clips.filter((clip) => !shipped(clip)).length} of ${clips.length} clips shipped; ${wanted.length} to record with ${options.model}\n`);
   if (options.check || wanted.length === 0) return wanted.length === 0 || options.check ? 0 : 1;
 
   try {
@@ -161,11 +184,17 @@ async function main() {
   for (const [index, clip] of wanted.entries()) {
     const stem = clip.name.replace(/\.[^.]+$/, '');
     const cached = path.join(CACHE, `${stem}.wav`);
-    if (fs.existsSync(cached) && takes.has(clip.name)) {
+    if (fs.existsSync(cached) && takes.get(clip.name)?.model === options.model) {
       process.stdout.write(`${index + 1}/${wanted.length} ${clip.language} cached (${takes.get(clip.name).voice})\n`);
       continue;
     }
-    const result = await recordClip(clip, { apiKey, baseUrl });
+    const result = await recordClip(clip, { apiKey, baseUrl, model: options.model });
+    if (result.dailyCap) {
+      const done = wanted.filter((c) => takes.get(c.name)?.model === options.model && fs.existsSync(path.join(CACHE, `${c.name.replace(/\.[^.]+$/, '')}.wav`))).length;
+      process.stderr.write(`\nStopped at a daily cap: ${result.error}\n`);
+      process.stderr.write(`${done} of ${wanted.length} clips are validated and cached; ${wanted.length - done} remain. Nothing under anki/starter/ was changed; run again after the reset to continue.\n`);
+      return 1;
+    }
     if (result.error) {
       failed.push({ ...clip, error: result.error, attempts: result.attempts });
       process.stdout.write(`${index + 1}/${wanted.length} ${clip.language} FAILED after ${result.attempts} attempt(s): ${result.error}\n`);
