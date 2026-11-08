@@ -108,6 +108,8 @@ int32_t chip_build(const char *filename, uint32_t flen, const char *label, uint3
   return slot;
 }
 
+cd_id chip_node(int32_t slot) { return slot >= 0 && slot < CHIPS && chips[slot].used ? chips[slot].node : 0; }
+
 /* The chip's node went with a region: it stops, and its slot is free. Its clip stays cached. */
 void chip_forget(int32_t slot) {
   if (slot < 0 || slot >= CHIPS || !chips[slot].used) return;
