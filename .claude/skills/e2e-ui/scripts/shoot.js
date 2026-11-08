@@ -39,7 +39,23 @@ const COLLECTION = process.env.ANKI_COLLECTION;
   const page = await browser.newPage();
   const logs = [];
   watch(page, logs);
-  await page.evaluateOnNewDocument(ankiSettingsScript(directSettings(COLLECTION)));
+  // The fixture's own folder doubles as the Anki base folder, so the install
+  // below and the app's own install check look at .e2e/, never at a real Anki.
+  const fixtureDir = path.resolve(path.dirname(COLLECTION));
+  const settings = directSettings(COLLECTION, { baseDirOverride: fixtureDir });
+  await page.evaluateOnNewDocument(ankiSettingsScript(settings));
+
+  // A fresh fixture has neither amgi's add-ons nor its "amgi Listening" note
+  // type, so the app would open on its first-run screen and the deck page
+  // would have no card form. Install both the way the app's own "Install
+  // into Anki" button does; the add-ons land in the fixture folder.
+  const installResponse = await fetch(`${BASE}/api/anki/install`, {
+    method: 'POST',
+    headers: { 'x-amgi-anki-settings': JSON.stringify(settings), 'content-type': 'application/json' },
+    body: '{}',
+  });
+  const install = await installResponse.json();
+  if (!installResponse.ok || install.needsRestart) throw new Error(`install failed: ${JSON.stringify(install)}`);
 
   const shot = (name) => page.screenshot({ path: path.join(OUT, `${name}.png`) });
 
@@ -95,11 +111,18 @@ const COLLECTION = process.env.ANKI_COLLECTION;
   await shot('05-card-form-filled');
   const rowsBefore = await page.$$eval('.note-row-wrap', (els) => els.length);
   await page.click('.card-form-go');
+  // Every card, even a single one, is made as a run of rows (BulkRun.js):
+  // wait until each row has settled into the deck or failed.
   await page.waitForFunction(
-    () => document.querySelector('.card-form-error') || /Added to the deck/.test(document.body.textContent),
+    () => {
+      const rows = [...document.querySelectorAll('.bulk-run-row')];
+      return rows.length > 0 && rows.every((row) => /is-(done|skipped|error)/.test(row.className));
+    },
     { timeout: 180000 },
   );
-  const formError = await page.$eval('.card-form-error', (el) => el.textContent).catch(() => '');
+  const formError = await page
+    .$$eval('.bulk-run-row.is-error', (rows) => rows.map((row) => row.textContent).join('\n'))
+    .catch(() => '');
   await sleep(500);
   const rowsAfter = await page.$$eval('.note-row-wrap', (els) => els.length);
   await shot('06-card-made');
