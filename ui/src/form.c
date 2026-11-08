@@ -2,7 +2,6 @@
  * row each (bulk.c). Enter makes the card of a single line; Shift+Enter starts a second line. */
 #include "app.h"
 
-enum { A_INPUT = 1, A_GO };
 #define MAX_PASTE 65536
 #define MAX_LINES 500
 
@@ -75,6 +74,10 @@ static void follow_text(const char *v, uint32_t n) {
   cd_set_bool(go_button, CD_LIT("disabled"), !ready() || !has_text);
 }
 
+ON_EVENT(typed);
+ON_EVENT(key_down);
+ON_EVENT(go_pressed);
+
 static void form_draw(void) {
   if (!shown) return;
   bulk_forget();
@@ -97,7 +100,7 @@ static void form_draw(void) {
   } else {
     el(CD_LIT("div"), CD_LIT("card-form-lead"));
     cd_name_open(inner.root);
-    cd_open(CD_LIT("textarea"));
+    input = cd_open_id(CD_LIT("textarea"));
     cd_attr(CD_LIT("id"), CD_LIT("amgiCardInput"));
     cd_class(CD_LIT("card-form-input"));
     cd_attr(CD_LIT("rows"), CD_LIT("1"));
@@ -105,14 +108,14 @@ static void form_draw(void) {
     cd_str p = CD_LIT("placeholder");
     attr_tmp(p, ph, placeholder(ph));
     if (!ready()) cd_attr(CD_LIT("disabled"), CD_LIT(""));
-    input = listen_as(CD_EV_INPUT, TAG(M_FORM, A_INPUT, 0));
-    cd_listen(input, CD_EV_KEYDOWN);
+    cd_on(input, CD_EV_INPUT, typed, 0);
+    cd_on(input, CD_EV_KEYDOWN, key_down, 0);
     cd_close();
-    el(CD_LIT("button"), 0);
+    go_button = el_id(CD_LIT("button"), 0);
     cd_attr(CD_LIT("type"), CD_LIT("button"));
     cd_class(CD_LIT("card-form-go"));
     cd_attr(CD_LIT("disabled"), CD_LIT(""));
-    go_button = listen_as(CD_EV_CLICK, TAG(M_FORM, A_GO, 0));
+    cd_on(go_button, CD_EV_CLICK, go_pressed, 0);
     cd_text(CD_LIT("Make the card"));
     cd_name(go_text = cd_id_new());
     cd_close();
@@ -152,27 +155,26 @@ static void submit(void) {
   cd_free(v);
 }
 
-void form_event(const cd_event_rec *e, uint32_t tag) {
+ON_EVENT(go_pressed) {
+  if (shown) submit();
+}
+ON_EVENT(typed) {
   if (!shown) return;
-  if (TAG_ACTION(tag) == A_GO) {
-    if (e->type == CD_EV_CLICK) submit();
-    return;
-  }
-  if (e->type == CD_EV_INPUT) {
-    char *v = cd_alloc(MAX_PASTE);
-    uint32_t n = cd_input_value(input, v, MAX_PASTE);
-    follow_text(v, n);
-    cd_free(v);
-    bulk_forget(); /* typing again puts the last run away */
-  } else if (e->type == CD_EV_KEYDOWN && e->key == 13 && !(e->mods & CD_MOD_SHIFT)) {
-    /* Enter makes the card of a single line; with a line break already in, it is a new line */
-    char *v = cd_alloc(MAX_PASTE);
-    uint32_t n = cd_input_value(input, v, MAX_PASTE), breaks = 0;
-    for (uint32_t i = 0; i < n; i++) breaks += v[i] == '\n';
-    cd_free(v);
-    if (!breaks) {
-      cd_prevent_default();
-      submit();
-    }
+  char *v = cd_alloc(MAX_PASTE);
+  uint32_t n = cd_input_value(input, v, MAX_PASTE);
+  follow_text(v, n);
+  cd_free(v);
+  bulk_forget(); /* typing again puts the last run away */
+}
+ON_EVENT(key_down) {
+  if (!shown || e->key != 13 || (e->mods & CD_MOD_SHIFT)) return;
+  /* Enter makes the card of a single line; with a line break already in, it is a new line */
+  char *v = cd_alloc(MAX_PASTE);
+  uint32_t n = cd_input_value(input, v, MAX_PASTE), breaks = 0;
+  for (uint32_t i = 0; i < n; i++) breaks += v[i] == '\n';
+  cd_free(v);
+  if (!breaks) {
+    cd_prevent_default();
+    submit();
   }
 }

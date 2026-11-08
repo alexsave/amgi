@@ -46,23 +46,26 @@ cd_id el_id(cd_str tag, cd_str cls);              /* the same, named with a new 
 void el_text(cd_str tag, cd_str cls, cd_str s);   /* an element holding one text, closed */
 void tmp_text(const char *p, uint32_t len);       /* a one-off text node */
 void attr_tmp(cd_str name, const char *p, uint32_t len);
-void listen_click(uint32_t tag);                  /* the last node listens for clicks as tag */
-cd_id listen_as(uint32_t ev, uint32_t tag);       /* the last node listens for ev as tag; its id */
+/* A cd_on handler, defined: static, and either argument may go unused. */
+#define ON_EVENT(name) \
+  static void name(const cd_event_rec *e __attribute__((unused)), void *ctx __attribute__((unused)))
+/* A small index carried in a handler's ctx (a row, a slot), and back. */
+#define CTX_OF(i) ((void *)(uintptr_t)(i))
+#define CTX_INDEX(ctx) ((uint32_t)(uintptr_t)(ctx))
+/* An event is a cd_on handler's: the listening and tagging it replaced, and the catch-all hook, are
+ * poisoned, so a direct use of any of them does not compile. */
+#pragma GCC poison cd_listen cd_listen_window cd_tag_set cd_tag cd_on_event
 /* heroicons 24/outline as @heroicons/react renders them: one or two paths, an optional style. */
 void icon(const char *d1, const char *d2, cd_str style);
 void icon_with(const char *d1, const char *d2, cd_str style, cd_str cls); /* with a class (className="icon") */
 extern const char ICON_COG[], ICON_COG_HUB[], ICON_PLUS[], ICON_TRASH[], ICON_X[];
 
-/* ---- event tags: a module's id in the top byte, its own action and index below ---- */
+/* ---- modules: a module's id is the top byte of its tokens ---- */
 enum { M_SHELL = 1, M_DECKS, M_SETTINGS, M_DECK, M_CHIP, M_FORM, M_PANEL, M_BULK, M_MODAL, M_FIRSTRUN, M_STARTER,
        M_TEMPLATE, M_COUNT /* not a module: one past the last */ };
 /* A module id is a token's top byte (timers, requests, store calls), and cdom keeps every token from
  * CD_TOKEN_CDOM (0x80000000) up for itself: so no module id may reach 0x80. */
 _Static_assert(M_COUNT <= 0x80, "a module id past 0x7f makes tokens in cdom's own range");
-#define TAG(module, action, index) ((uint32_t)(module) << 24 | (uint32_t)(action) << 16 | (uint32_t)(index))
-#define TAG_MODULE(t) ((t) >> 24)
-#define TAG_ACTION(t) (((t) >> 16) & 0xff)
-#define TAG_INDEX(t) ((t) & 0xffff)
 /* A timer: cd_on_timer(module << 24 | token) after ms, which shell.c hands to that module. The only
  * way to start one, so no timer can go out without the module that is waiting for it: cdom's own
  * call is poisoned below, and a direct use of it does not compile. */
@@ -173,21 +176,17 @@ void decks_rows(void);                    /* its rows, when decks change */
 int decks_setup_wanted(void);             /* the setup screen is what the state calls for */
 int decks_setup_shown(void);              /* the setup screen is what is on screen */
 void decks_forget(void);
-void decks_click(uint32_t tag);
-void decks_event(const cd_event_rec *e, uint32_t tag);
 void decks_answer(uint32_t token, uint32_t status, const uint8_t *p, uint32_t len);
 
 void settings_build(void);
 void settings_after(void);                /* after the page region closed */
 void settings_forget(void);
-void settings_event(const cd_event_rec *e, uint32_t tag);
 void settings_answer(uint32_t token, uint32_t status, const uint8_t *p, uint32_t len);
 void settings_timer(uint32_t token);
 
 void deck_build(void);                    /* CardList, for route_deck */
 void deck_after(void);
 void deck_forget(void);
-void deck_event(const cd_event_rec *e, uint32_t tag);
 void deck_answer(uint32_t token, uint32_t status, const uint8_t *p, uint32_t len);
 void deck_reload(void);                   /* the open page of notes, asked again */
 void deck_decks_changed(void);            /* the deck list changed (a rename, a count) */
@@ -201,14 +200,12 @@ enum { TONE_CUE, TONE_TARGET };
 int32_t chip_build(const char *filename, uint32_t flen, const char *label, uint32_t tone);
 void chip_forget(int32_t slot);           /* its node went with a region */
 cd_id chip_node(int32_t slot);
-void chip_event(uint32_t tag);
 void chip_answer(uint32_t token, uint32_t status, const uint8_t *p, uint32_t len);
 void chips_audio_loaded(uint32_t token, uint32_t clip);
 void chips_audio_ended(uint32_t voice);
 
 void form_build(int64_t deck_id, const lang_pair *langs); /* CardForm */
 void form_forget(void);
-void form_event(const cd_event_rec *e, uint32_t tag);
 void form_notetypes_known(void);
 void form_langs_changed(const lang_pair *langs);
 
@@ -218,36 +215,30 @@ void bulk_start(cd_id form_box, int64_t deck, const notetype *type, const lang_p
 void bulk_forget(void);
 void bulk_answer(uint32_t token, uint32_t status, const uint8_t *p, uint32_t len);
 void bulk_timer(uint32_t token);
-void bulk_event(const cd_event_rec *e, uint32_t tag);
 
 /* FirstRun (firstrun.c), shown as all of parent's children. */
 void firstrun_show(cd_id parent);
 void firstrun_forget(void);
-void firstrun_event(uint32_t tag);
 void firstrun_answer(uint32_t token, uint32_t status, const uint8_t *p, uint32_t len);
 
 /* CardPanel (panel.c), in the open row of the deck page. */
 void panel_build(int64_t id, const wire_strs *fields, const text *names, uint32_t nnames, const lang_pair *langs);
 void panel_after(void);
 void panel_forget(void);
-void panel_event(const cd_event_rec *e, uint32_t tag);
 void panel_answer(uint32_t token, uint32_t status, const uint8_t *p, uint32_t len);
 void deck_note_removed(int64_t id);       /* the panel deleted its note */
 
 /* StarterDeck (starter.c), last in parent; TemplateUpdate (template.c), first in .app-content. */
 void starter_show(cd_id parent);
 void starter_forget(void);
-void starter_event(uint32_t tag);
 void starter_answer(uint32_t token, uint32_t status, const uint8_t *p, uint32_t len);
 void template_mode_changed(void);
-void template_event(uint32_t tag);
 void template_answer(uint32_t token, uint32_t status, const uint8_t *p, uint32_t len);
 
 /* A confirmation in the page (modal.c), in place of window.confirm. */
 void confirm_ask(const char *title, const char *body, uint32_t blen, const char *note, const char *yes,
                  void (*then)(void *), void *ctx);
 void confirm_close(void);
-void modal_event(const cd_event_rec *e, uint32_t tag);
 
 /* After the next decks answer, open deck id (a deck just made: the list must know it first). */
 void open_after_refresh(int64_t id);

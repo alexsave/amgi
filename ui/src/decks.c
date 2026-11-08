@@ -1,7 +1,6 @@
 /* The decks screen (DeckList, DeckItem, CreateDeckModal); FirstRun and StarterDeck in their files. */
 #include "app.h"
 
-enum { A_NEW_DECK = 1, A_DECK, A_MODAL_CLOSE, A_MODAL_SUBMIT };
 enum { T_CREATE = 1 };
 
 static cd_region rows = {0};  /* the rows: all the children of .deck-list */
@@ -10,6 +9,12 @@ static cd_region modal_err = {0};
 static cd_id modal_form, modal_input, modal_buttons;
 static text modal_error;
 static int shown, setup, creating;
+
+ON_EVENT(new_deck);
+ON_EVENT(open_deck) {
+  uint32_t i = CTX_INDEX(ctx);
+  if (i < ndecks) go_deck(decks[i].id);
+}
 
 void decks_build(void) {
   shown = 1;
@@ -22,9 +27,9 @@ void decks_build(void) {
   el(CD_LIT("div"), CD_LIT("deck-header"));
   el_text(CD_LIT("h2"), 0, CD_LIT("Decks"));
   el(CD_LIT("div"), CD_LIT("deck-actions"));
-  el(CD_LIT("button"), CD_LIT("action-btn"));
+  cd_id new_button = el_id(CD_LIT("button"), CD_LIT("action-btn"));
   cd_attr(CD_LIT("title"), CD_LIT("New Deck"));
-  listen_click(TAG(M_DECKS, A_NEW_DECK, 0));
+  cd_on(new_button, CD_EV_CLICK, new_deck, 0);
   icon(ICON_PLUS, 0, 0);
   cd_close();
   cd_close();
@@ -76,16 +81,14 @@ void decks_rows(void) {
     cd_close();
   } else if (!ndecks) {
     el(CD_LIT("div"), CD_LIT("empty-deck-state"));
-    el(CD_LIT("button"), CD_LIT("create-first-deck-btn"));
-    listen_click(TAG(M_DECKS, A_NEW_DECK, 0));
+    cd_on(el_id(CD_LIT("button"), CD_LIT("create-first-deck-btn")), CD_EV_CLICK, new_deck, 0);
     icon(ICON_PLUS, 0, CD_LIT("height: 20px; width: 20px;"));
     el_text(CD_LIT("span"), 0, CD_LIT("Create your first deck"));
     cd_close();
     cd_close();
   } else {
     for (uint32_t i = 0; i < ndecks; i++) {
-      el(CD_LIT("div"), CD_LIT("deck-item"));
-      listen_click(TAG(M_DECKS, A_DECK, i));
+      cd_on(el_id(CD_LIT("div"), CD_LIT("deck-item")), CD_EV_CLICK, open_deck, CTX_OF(i));
       el(CD_LIT("div"), CD_LIT("deck-info"));
       el_text(CD_LIT("h3"), 0, decks[i].name);
       cd_open(CD_LIT("small"));
@@ -115,6 +118,9 @@ static void modal_error_view(void) {
   cd_region_end(&modal_err);
 }
 
+ON_EVENT(modal_dismiss) { modal_close(); }
+ON_EVENT(modal_submitted);
+
 static void modal_open(void) {
   modal_close();
   if (!rows.parent || !cd_region_show(&modal, 1)) return;
@@ -124,14 +130,13 @@ static void modal_open(void) {
   el(CD_LIT("div"), CD_LIT("modal-content"));
   el(CD_LIT("div"), CD_LIT("modal-header"));
   el_text(CD_LIT("h3"), 0, CD_LIT("Create New Deck"));
-  el(CD_LIT("button"), CD_LIT("close-btn"));
-  listen_click(TAG(M_DECKS, A_MODAL_CLOSE, 0));
+  cd_on(el_id(CD_LIT("button"), CD_LIT("close-btn")), CD_EV_CLICK, modal_dismiss, 0);
   icon_with(ICON_X, 0, 0, CD_LIT("icon"));
   cd_close();
   cd_close();
-  cd_open(CD_LIT("form"));
+  modal_form = cd_open_id(CD_LIT("form"));
   cd_attr(CD_LIT("autocomplete"), CD_LIT("off"));
-  modal_form = listen_as(CD_EV_SUBMIT, TAG(M_DECKS, A_MODAL_SUBMIT, 0));
+  cd_on(modal_form, CD_EV_SUBMIT, modal_submitted, 0);
   el(CD_LIT("div"), CD_LIT("form-group"));
   cd_open(CD_LIT("label"));
   cd_attr(CD_LIT("for"), CD_LIT("deckName"));
@@ -179,6 +184,12 @@ static void modal_submit(void) {
   ask(M_DECKS, T_CREATE, "POST", "/decks", WK_Q_DECK_NAME, &q);
 }
 
+ON_EVENT(new_deck) { modal_open(); }
+ON_EVENT(modal_submitted) {
+  cd_prevent_default();
+  modal_submit();
+}
+
 static holder h;
 void decks_answer(uint32_t token, uint32_t status, const uint8_t *p, uint32_t len) {
   if (token != T_CREATE) return;
@@ -194,21 +205,4 @@ void decks_answer(uint32_t token, uint32_t status, const uint8_t *p, uint32_t le
   uint32_t n = 23 + answer_message(&a, m + 23, sizeof m - 23);
   text_set(&modal_error, m, n);
   modal_error_view();
-}
-
-void decks_event(const cd_event_rec *e, uint32_t tag) {
-  switch (TAG_ACTION(tag)) {
-  case A_DECK: {
-    uint32_t i = TAG_INDEX(tag);
-    if (i < ndecks) go_deck(decks[i].id);
-    break;
-  }
-  case A_NEW_DECK: modal_open(); break;
-  case A_MODAL_CLOSE: modal_close(); break;
-  case A_MODAL_SUBMIT:
-    cd_prevent_default();
-    (void)e;
-    modal_submit();
-    break;
-  }
 }

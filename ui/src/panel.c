@@ -3,7 +3,6 @@
  * in its field now; Delete asks first, in the page. */
 #include "app.h"
 
-enum { A_FIELD_KEY = 1, A_FIELD_BLUR, A_REDO_TARGET, A_REDO_CUE, A_DELETE };
 enum { T_SAVE = 1, T_CLIP, T_DELETE };
 enum { K_TARGET, K_CUE, K_NOTES, KEYS };
 
@@ -68,6 +67,12 @@ static wire_str clip_of(int32_t i) {
   return audio_src((wire_str){fields[i].p, fields[i].len});
 }
 
+ON_EVENT(field_left);
+ON_EVENT(field_key);
+ON_EVENT(redo_target);
+ON_EVENT(redo_cue);
+ON_EVENT(delete_pressed);
+
 /* Built inside the open row's .note-row-editor; fields are the note's, copied. */
 void panel_build(int64_t id, const wire_strs *f, const text *names, uint32_t nnames, const lang_pair *l) {
   panel_forget();
@@ -100,14 +105,14 @@ void panel_build(int64_t id, const wire_strs *f, const text *names, uint32_t nna
       tmp_text(n, zlen(n));
     }
     cd_close();
-    cd_open(CD_LIT("input"));
+    inputs[k] = cd_open_id(CD_LIT("input"));
     cd_attr(CD_LIT("type"), CD_LIT("text"));
     cd_class(k == K_TARGET ? CD_LIT("card-panel-value card-panel-value-big") : CD_LIT("card-panel-value"));
     cd_str value = CD_LIT("value");
     attr_tmp(value, fields[i].p, fields[i].len);
     cd_attr(CD_LIT("placeholder"), k == K_NOTES ? CD_LIT("anything you want on the answer") : CD_LIT(""));
-    inputs[k] = listen_as(CD_EV_FOCUSOUT, TAG(M_PANEL, A_FIELD_BLUR, k));
-    cd_listen(inputs[k], CD_EV_KEYDOWN);
+    cd_on(inputs[k], CD_EV_FOCUSOUT, field_left, CTX_OF(k));
+    cd_on(inputs[k], CD_EV_KEYDOWN, field_key, CTX_OF(k));
     cd_close();
     cd_close();
   }
@@ -118,10 +123,10 @@ void panel_build(int64_t id, const wire_strs *f, const text *names, uint32_t nna
   chips[0] = chip_build(cue.p, cue.len, name_of(langs.known), TONE_CUE);
   chips[1] = chip_build(target.p, target.len, name_of(langs.learning), TONE_TARGET);
   for (int s = 0; s < 2; s++) {
-    el(CD_LIT("button"), 0);
+    redo_btn[s] = el_id(CD_LIT("button"), 0);
     cd_attr(CD_LIT("type"), CD_LIT("button"));
     cd_class(CD_LIT("card-panel-redo"));
-    redo_btn[s] = listen_as(CD_EV_CLICK, TAG(M_PANEL, s ? A_REDO_CUE : A_REDO_TARGET, 0));
+    cd_on(redo_btn[s], CD_EV_CLICK, s ? redo_cue : redo_target, 0);
     cd_text(CD_LIT(" "));
     cd_name(redo_text[s] = cd_id_new());
     cd_close();
@@ -130,10 +135,10 @@ void panel_build(int64_t id, const wire_strs *f, const text *names, uint32_t nna
 
   foot = el_id(CD_LIT("div"), CD_LIT("card-panel-foot"));
   el_text(CD_LIT("span"), 0, CD_LIT("Changes save as you make them, straight into Anki."));
-  el(CD_LIT("button"), 0);
+  delete_btn = el_id(CD_LIT("button"), 0);
   cd_attr(CD_LIT("type"), CD_LIT("button"));
   cd_class(CD_LIT("card-panel-delete"));
-  delete_btn = listen_as(CD_EV_CLICK, TAG(M_PANEL, A_DELETE, 0));
+  cd_on(delete_btn, CD_EV_CLICK, delete_pressed, 0);
   cd_text(CD_LIT("Delete card"));
   cd_name(delete_text = cd_id_new());
   cd_close();
@@ -210,28 +215,27 @@ static void removed(void *ctx) {
   ask(M_PANEL, T_DELETE, "DELETE", path, WIRE_NONE, 0);
 }
 
-void panel_event(const cd_event_rec *e, uint32_t tag) {
-  if (!open_) return;
-  switch (TAG_ACTION(tag)) {
-  case A_FIELD_BLUR:
-    if (e->type == CD_EV_KEYDOWN) {
-      if (e->key == 13) cd_call(inputs[TAG_INDEX(tag)], CD_LIT("blur")); /* Enter leaves the field: it saves */
-    } else {
-      commit(TAG_INDEX(tag));
-    }
-    break;
-  case A_REDO_TARGET: redo(0); break;
-  case A_REDO_CUE: redo(1); break;
-  case A_DELETE: {
-    if (deleting) break;
-    int32_t ti = idx.target;
-    char *t = cd_alloc(ti >= 0 && (uint32_t)ti < nfields ? fields[ti].len + 1 : 1);
-    uint32_t n = ti >= 0 && (uint32_t)ti < nfields ? strip_tags(t, (wire_str){fields[ti].p, fields[ti].len}) : 0;
-    confirm_ask("Delete this card?", t, n, "Its review history goes too, on every device you sync with.", "Delete", removed, 0);
-    cd_free(t);
-    break;
-  }
-  }
+/* ctx: the field's key (K_*) */
+ON_EVENT(field_key) {
+  if (open_ && e->key == 13) cd_call(inputs[CTX_INDEX(ctx)], CD_LIT("blur")); /* Enter leaves the field: it saves */
+}
+ON_EVENT(field_left) {
+  if (open_) commit(CTX_INDEX(ctx));
+}
+ON_EVENT(redo_target) {
+  if (open_) redo(0);
+}
+ON_EVENT(redo_cue) {
+  if (open_) redo(1);
+}
+ON_EVENT(delete_pressed) {
+  if (!open_ || deleting) return;
+  int32_t ti = idx.target;
+  char *t = cd_alloc(ti >= 0 && (uint32_t)ti < nfields ? fields[ti].len + 1 : 1);
+  uint32_t n = ti >= 0 && (uint32_t)ti < nfields ? strip_tags(t, (wire_str){fields[ti].p, fields[ti].len}) : 0;
+  confirm_ask("Delete this card?", t, n, "Its review history goes too, on every device you sync with.", "Delete", removed,
+              0);
+  cd_free(t);
 }
 
 void panel_answer(uint32_t token, uint32_t status, const uint8_t *p, uint32_t len) {

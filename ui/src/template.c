@@ -4,7 +4,6 @@
 #include "app.h"
 
 enum { P_CHECKING, P_IDLE, P_OFFERED, P_UPDATING, P_BEHIND, P_FAILED };
-enum { A_INSTALL_NOW = 1, A_CHECK, A_DISMISS };
 enum { T_STATE = 1, T_INSTALL, T_RECHECK };
 
 static uint32_t phase = P_CHECKING;
@@ -19,15 +18,19 @@ static int anki_open(void) {
          mode == WIRE_MODE_BRIDGE_OUTDATED;
 }
 
-static void button(cd_str label, uint32_t action, int aria) {
-  el(CD_LIT("button"), 0);
+static void button(cd_str label, cd_event_fn on_click, int aria) {
+  cd_id b = el_id(CD_LIT("button"), 0);
   cd_attr(CD_LIT("type"), CD_LIT("button"));
   cd_class(CD_LIT("template-update-dismiss"));
   if (aria) cd_attr(CD_LIT("aria-label"), CD_LIT("Dismiss this notice"));
-  listen_click(TAG(M_TEMPLATE, action, 0));
+  cd_on(b, CD_EV_CLICK, on_click, 0);
   cd_text(label);
   cd_close();
 }
+
+ON_EVENT(install_now);
+ON_EVENT(check_again);
+ON_EVENT(dismiss);
 
 static void draw(void) {
   cd_region_hide(&view);
@@ -46,23 +49,23 @@ static void draw(void) {
     el_text(CD_LIT("span"), 0,
             CD_LIT("amgi has a newer card design, and Anki is open. Installing it rewrites amgi’s add-on while Anki is "
                    "running, so it is waiting for you."));
-    button(CD_LIT("Install now"), A_INSTALL_NOW, 0);
-    button(CD_LIT("Dismiss"), A_DISMISS, 1);
+    button(CD_LIT("Install now"), install_now, 0);
+    button(CD_LIT("Dismiss"), dismiss, 1);
   } else if (phase == P_BEHIND) {
     cd_open(CD_LIT("span"));
     cd_text(CD_LIT("amgi has a newer card design. Anki picks it up when it next opens your collection, so "));
     el_text(CD_LIT("strong"), 0, CD_LIT("restart Anki"));
     cd_text(CD_LIT(" to see it."));
     cd_close();
-    button(CD_LIT("Check again"), A_CHECK, 0);
-    button(CD_LIT("Dismiss"), A_DISMISS, 1);
+    button(CD_LIT("Check again"), check_again, 0);
+    button(CD_LIT("Dismiss"), dismiss, 1);
   } else {
     cd_open(CD_LIT("span"));
     cd_text(CD_LIT("Could not update amgi’s files in Anki: "));
     tmp_text(message.p, message.len);
     cd_close();
-    button(CD_LIT("Try again"), A_CHECK, 0);
-    button(CD_LIT("Dismiss"), A_DISMISS, 1);
+    button(CD_LIT("Try again"), check_again, 0);
+    button(CD_LIT("Dismiss"), dismiss, 1);
   }
   cd_close();
   cd_region_end(&view);
@@ -117,14 +120,10 @@ void template_answer(uint32_t token, uint32_t status, const uint8_t *p, uint32_t
   }
 }
 
-void template_event(uint32_t tag) {
-  switch (TAG_ACTION(tag)) {
-  case A_INSTALL_NOW: check(1); break;
-  case A_CHECK: check(0); break;
-  case A_DISMISS:
-    /* for this visit only: a reload brings it back, because what it reports is still true */
-    dismissed = 1;
-    draw();
-    break;
-  }
+ON_EVENT(install_now) { check(1); }
+ON_EVENT(check_again) { check(0); }
+ON_EVENT(dismiss) {
+  /* for this visit only: a reload brings it back, because what it reports is still true */
+  dismissed = 1;
+  draw();
 }

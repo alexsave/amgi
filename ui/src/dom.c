@@ -17,13 +17,6 @@ void el_text(cd_str tag, cd_str cls, cd_str s) {
 }
 void tmp_text(const char *p, uint32_t len) { cd_text(cd_tmp(p, len)); }
 void attr_tmp(cd_str name, const char *p, uint32_t len) { cd_attr(name, cd_tmp(p, len)); }
-cd_id listen_as(uint32_t ev, uint32_t tag) {
-  cd_id id = cd_id_new();
-  cd_listen(id, ev);
-  cd_tag_set(id, tag);
-  return id;
-}
-void listen_click(uint32_t tag) { listen_as(CD_EV_CLICK, tag); }
 
 void icon_with(const char *d1, const char *d2, cd_str style, cd_str cls) {
   cd_open(CD_LIT("svg"));

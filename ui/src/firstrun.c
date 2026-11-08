@@ -2,7 +2,6 @@
  * install the add-ons and the card type, then restart Anki. */
 #include "app.h"
 
-enum { A_INSTALL = 1, A_CHOOSE };
 enum { T_PROFILES = 1, T_INSTALL };
 
 typedef struct { text name, path; } profile;
@@ -38,6 +37,9 @@ static uint32_t cat(char *dst, uint32_t n, const char *s, uint32_t len) {
   return n + len;
 }
 
+ON_EVENT(install_pressed);
+ON_EVENT(profile_chosen);
+
 static void draw(void) {
   if (!shown) return;
   cd_region_hide(&view);
@@ -48,11 +50,11 @@ static void draw(void) {
   el(CD_LIT("div"), CD_LIT("first-run"));
   el_text(CD_LIT("h2"), CD_LIT("first-run-title"), CD_LIT("Set amgi up in your Anki"));
   el_text(CD_LIT("p"), CD_LIT("first-run-lead"), CD_LIT("One press: the add-ons, and the card type amgi builds decks with."));
-  el(CD_LIT("button"), 0);
+  cd_id cta = el_id(CD_LIT("button"), 0);
   cd_attr(CD_LIT("type"), CD_LIT("button"));
   cd_class(CD_LIT("first-run-cta"));
   if (install_running || no_anki) cd_attr(CD_LIT("disabled"), CD_LIT(""));
-  listen_click(TAG(M_FIRSTRUN, A_INSTALL, 0));
+  cd_on(cta, CD_EV_CLICK, install_pressed, 0);
   cd_text(install_running ? CD_LIT("Installing…") : install_done ? CD_LIT("Install again") : CD_LIT("Install into Anki"));
   cd_close();
   if (base_dir.len) {
@@ -84,10 +86,10 @@ static void draw(void) {
     el(CD_LIT("div"), CD_LIT("first-run-choices"));
     el_text(CD_LIT("p"), CD_LIT("first-run-step-text"), CD_LIT("More than one Anki profile here. Which one?"));
     for (uint32_t i = 0; i < nprofiles; i++) {
-      el(CD_LIT("button"), 0);
+      cd_id choice = el_id(CD_LIT("button"), 0);
       cd_attr(CD_LIT("type"), CD_LIT("button"));
       cd_class(CD_LIT("first-run-choice"));
-      listen_click(TAG(M_FIRSTRUN, A_CHOOSE, i));
+      cd_on(choice, CD_EV_CLICK, profile_chosen, CTX_OF(i));
       tmp_text(profiles[i].name.p, profiles[i].name.len);
       cd_close();
     }
@@ -147,17 +149,17 @@ void firstrun_forget(void) {
   view.parent = 0;
 }
 
-void firstrun_event(uint32_t tag) {
-  if (TAG_ACTION(tag) == A_CHOOSE) {
-    if (TAG_INDEX(tag) < nprofiles) choose(TAG_INDEX(tag));
-    draw();
-  } else if (TAG_ACTION(tag) == A_INSTALL && !install_running) {
-    install_running = 1;
-    install_failed = 0;
-    draw();
-    wire_q_install q = {{settings[S_BASE_DIR].p ? settings[S_BASE_DIR].p : "", settings[S_BASE_DIR].len}};
-    ask(M_FIRSTRUN, T_INSTALL, "POST", "/install", WK_Q_INSTALL, &q);
-  }
+ON_EVENT(profile_chosen) {
+  if (CTX_INDEX(ctx) < nprofiles) choose(CTX_INDEX(ctx));
+  draw();
+}
+ON_EVENT(install_pressed) {
+  if (install_running) return;
+  install_running = 1;
+  install_failed = 0;
+  draw();
+  wire_q_install q = {{settings[S_BASE_DIR].p ? settings[S_BASE_DIR].p : "", settings[S_BASE_DIR].len}};
+  ask(M_FIRSTRUN, T_INSTALL, "POST", "/install", WK_Q_INSTALL, &q);
 }
 
 void firstrun_answer(uint32_t token, uint32_t status, const uint8_t *p, uint32_t len) {
