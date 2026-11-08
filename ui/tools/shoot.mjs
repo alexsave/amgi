@@ -1,5 +1,5 @@
 // Drives one amgi UI in headless Chrome (cdom's tools/cdp.mjs: one Chrome, killed by its own PID)
-// against a fixture collection, and screenshots the same screens for either app:
+// against a fixture collection, and screenshots these screens:
 //   01-decks       the deck list, settled ("Anki connected", every deck drawn)
 //   02-settings    Settings, reached with the navbar's button, its profile scan done
 //   03-back        the browser's back button from Settings (the history entry before)
@@ -8,11 +8,11 @@
 // and checks the address and the screen at each step. Then it times first paint over fresh loads.
 //
 //   node ui/tools/shoot.mjs <base url> <name> <collection.anki2> [out dir]
-//   APP=react seeds the React app's localStorage; otherwise the C app's store gets the header block.
 //   LOADS (default 7) first-paint loads; 0 skips timing.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { seed } from './seed.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const cdom = process.env.CDOM || path.join(here, '..', '..', 'cdom');
@@ -26,7 +26,6 @@ if (!base || !name || !collection) {
 const out = outArg || path.join(here, '..', 'out', 'shots');
 fs.mkdirSync(out, { recursive: true });
 const fixtureDir = path.dirname(path.resolve(collection));
-const react = process.env.APP === 'react';
 const LOADS = Number(process.env.LOADS ?? 7);
 
 const failures = [];
@@ -51,32 +50,6 @@ async function goto(b, url) {
   await until(b, `document.readyState === 'complete'`);
 }
 
-// The settings, as each app keeps them: React's localStorage JSON, or the C app's cdom_store entry
-// (the header block the server reads, percent-encoded).
-async function seed(b) {
-  await goto(b, `${base}/__seed__`); // a 404 on the same origin: no app runs here
-  if (react) {
-    const settings = { baseDirOverride: fixtureDir, collectionPath: path.resolve(collection), profileName: '',
-      bridge: { baseUrl: 'http://127.0.0.1:8798', token: '' } };
-    await b.evaluate(`localStorage.setItem('amgi:anki-settings', ${JSON.stringify(JSON.stringify(settings))})`);
-    return;
-  }
-  const block = [
-    ['X-Amgi-Base-Dir', fixtureDir], ['X-Amgi-Collection', path.resolve(collection)], ['X-Amgi-Profile', ''],
-    ['X-Amgi-Bridge-Url', 'http://127.0.0.1:8798'], ['X-Amgi-Bridge-Token', ''],
-  ].map(([k, v]) => `${k}: ${encodeURIComponent(v)}\n`).join('');
-  await b.evaluate(`new Promise((resolve, reject) => {
-    const open = indexedDB.open('cdom', 1);
-    open.onupgradeneeded = () => open.result.createObjectStore('kv');
-    open.onsuccess = () => {
-      const tx = open.result.transaction('kv', 'readwrite');
-      tx.objectStore('kv').put(new TextEncoder().encode(${JSON.stringify(block)}), 'amgi:anki-settings:1');
-      tx.oncomplete = () => { open.result.close(); resolve(true); };
-      tx.onerror = () => reject(tx.error);
-    };
-    open.onerror = () => reject(open.error);
-  })`);
-}
 
 const shot = async (b, file) => {
   const { result } = await b.send('Page.captureScreenshot', { format: 'png' });
@@ -120,7 +93,7 @@ b.onEvent = (d) => {
 try {
   await b.send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 900, deviceScaleFactor: 2, mobile: false });
   await b.send('Network.enable');
-  await seed(b);
+  await seed(b, base, { baseDir: fixtureDir, collection: path.resolve(collection) });
 
   await goto(b, `${base}/decks`);
   const decks = await until(b, settled);
@@ -150,15 +123,12 @@ try {
   await sleep(600);
   await shot(b, '04-deck');
 
-  // A clip plays (an MP3), its chip marked while it does; the next chip pressed takes over (in the
-  // C app; React's chips overlap, so this is checked there only).
+  // A clip plays (an MP3), its chip marked while it does; the next chip pressed takes over.
   await click(b, '.note-rows > li:nth-child(3) .audio-chip-target');
   check(await until(b, `!!document.querySelector('.note-rows > li:nth-child(3) .audio-chip-target.is-playing')`, 50), 'a target chip plays its MP3');
-  if (!react) {
-    await click(b, '.note-rows > li:nth-child(4) .audio-chip-cue');
-    const one = await until(b, `document.querySelector('.note-rows > li:nth-child(4) .audio-chip-cue.is-playing') && !document.querySelector('.note-rows > li:nth-child(3) .audio-chip-target.is-playing')`, 50);
-    check(one, 'pressing another chip stops the first: one voice at a time');
-  }
+  await click(b, '.note-rows > li:nth-child(4) .audio-chip-cue');
+  const one = await until(b, `document.querySelector('.note-rows > li:nth-child(4) .audio-chip-cue.is-playing') && !document.querySelector('.note-rows > li:nth-child(3) .audio-chip-target.is-playing')`, 50);
+  check(one, 'pressing another chip stops the first: one voice at a time');
   check(await until(b, `!document.querySelector('.audio-chip.is-playing')`, 50), 'the chips go idle when their clips end');
 
   // The deck's languages: Change opens the two selects.

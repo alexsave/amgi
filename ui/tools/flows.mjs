@@ -1,12 +1,13 @@
 // The setup flows, against an Anki folder of their own that each run builds fresh (ui/tools/flows.sh):
 // the first run (a profile found and picked, amgi installed), a new deck by the modal, the card
 // design notice (files behind, then the collection behind), Settings' Install button, and the
-// starter deck on a server with no Gemini key. Either app: APP=react seeds React's localStorage.
+// starter deck on a server with no Gemini key.
 //
 //   node ui/tools/flows.mjs <base url> <no-key base url> <name> <anki folder> [out dir]
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { seed } from './seed.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const cdom = process.env.CDOM || path.join(here, '..', '..', 'cdom');
@@ -14,7 +15,6 @@ const { launch, sleep } = await import(path.join(cdom, 'tools', 'cdp.mjs'));
 const [base, keyless, name, ankiDir, outArg] = process.argv.slice(2);
 const out = outArg || path.join(here, '..', 'out', 'shots');
 fs.mkdirSync(out, { recursive: true });
-const react = process.env.APP === 'react';
 const failures = [];
 const check = (ok, what) => {
   console.log(`${ok ? 'ok  ' : 'FAIL'} ${what}`);
@@ -33,27 +33,6 @@ async function until(b, expr, tries = 100) {
 async function goto(b, url) {
   await b.send('Page.navigate', { url });
   await until(b, `document.readyState === 'complete'`);
-}
-// Only the Anki folder: the profile is the app's to find. Never empty: an empty folder setting
-// means the real Anki folder.
-async function seed(b, at, collection = '') {
-  await goto(b, `${at}/__seed__`);
-  if (react) {
-    const s = { baseDirOverride: ankiDir, collectionPath: collection, profileName: '', bridge: { baseUrl: 'http://127.0.0.1:8798', token: '' } };
-    await b.evaluate(`localStorage.setItem('amgi:anki-settings', ${JSON.stringify(JSON.stringify(s))})`);
-    return;
-  }
-  const block = `X-Amgi-Base-Dir: ${encodeURIComponent(ankiDir)}\nX-Amgi-Collection: ${encodeURIComponent(collection)}\nX-Amgi-Profile: \nX-Amgi-Bridge-Url: ${encodeURIComponent('http://127.0.0.1:8798')}\nX-Amgi-Bridge-Token: \n`;
-  await b.evaluate(`new Promise((resolve, reject) => {
-    const open = indexedDB.open('cdom', 1);
-    open.onupgradeneeded = () => open.result.createObjectStore('kv');
-    open.onsuccess = () => {
-      const tx = open.result.transaction('kv', 'readwrite');
-      tx.objectStore('kv').put(new TextEncoder().encode(${JSON.stringify(block)}), 'amgi:anki-settings:1');
-      tx.oncomplete = () => { open.result.close(); resolve(true); };
-      tx.onerror = () => reject(tx.error);
-    };
-  })`);
 }
 const shot = async (b, file) => {
   const { result } = await b.send('Page.captureScreenshot', { format: 'png' });
@@ -84,7 +63,8 @@ b.onEvent = (d) => {
 };
 try {
   await b.send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 900, deviceScaleFactor: 2, mobile: false });
-  await seed(b, base);
+  // Only the Anki folder: the profile is the app's to find.
+  await seed(b, base, { baseDir: ankiDir });
 
   // 1. The first run: the one profile found and picked for you, amgi not yet installed here.
   await goto(b, `${base}/decks`);
@@ -148,7 +128,7 @@ try {
 
   // 5. The starter deck, on a server with no key: offered below the list, built, opened.
   if (keyless) {
-    await seed(b, keyless, path.join(ankiDir, 'User 1', 'collection.anki2'));
+    await seed(b, keyless, { baseDir: ankiDir, collection: path.join(ankiDir, 'User 1', 'collection.anki2') });
     await goto(b, `${keyless}/decks`);
     await until(b, `${decksShown} > 0`, 150);
     const offered = await until(b, `document.querySelector('.starter-deck-title')?.textContent`, 150);

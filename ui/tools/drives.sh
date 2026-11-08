@@ -12,7 +12,6 @@
 # none (the starter deck is offered), one pointed at the fake (node plusaudio/test/helpers/fake-gemini.js
 # <port>, whose limits the bulk drive switches). Start the fake and its server fresh before a run:
 # the fake's "broken line" fails once, and a server's rate gate remembers the limits it met.
-# APP=react drives the React app instead (it keeps its settings in localStorage).
 set -uo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 root="$(cd "$here/../.." && pwd)"

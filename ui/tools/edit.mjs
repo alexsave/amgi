@@ -2,13 +2,13 @@
 // (ui/tools/flows.sh): a card opened in its row and a field changed (saved when the field is left),
 // Redo with Gemini unreachable (the error shown, nothing written), a row deleted after the
 // page's own confirmation (Cancel first, then Delete), and the deck renamed in place (Escape
-// abandons, Enter saves). Either app: APP=react seeds React's localStorage and answers
-// window.confirm through CDP's dialog event.
+// abandons, Enter saves)..
 //
 //   node ui/tools/edit.mjs <base url> <name> <anki folder> [out dir]
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { seed } from './seed.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const cdom = process.env.CDOM || path.join(here, '..', '..', 'cdom');
@@ -16,7 +16,6 @@ const { launch, sleep } = await import(path.join(cdom, 'tools', 'cdp.mjs'));
 const [base, name, ankiDir, outArg] = process.argv.slice(2);
 const out = outArg || path.join(here, '..', 'out', 'shots');
 fs.mkdirSync(out, { recursive: true });
-const react = process.env.APP === 'react';
 const collection = path.join(ankiDir, 'User 1', 'collection.anki2');
 const failures = [];
 const check = (ok, what) => {
@@ -35,26 +34,6 @@ async function until(b, expr, tries = 100) {
 async function goto(b, url) {
   await b.send('Page.navigate', { url });
   await until(b, `document.readyState === 'complete'`);
-}
-async function seed(b) {
-  await goto(b, `${base}/__seed__`);
-  if (react) {
-    const s = { baseDirOverride: ankiDir, collectionPath: collection, profileName: 'User 1', bridge: { baseUrl: 'http://127.0.0.1:8798', token: '' } };
-    await b.evaluate(`localStorage.setItem('amgi:anki-settings', ${JSON.stringify(JSON.stringify(s))})`);
-    return;
-  }
-  const block = [['X-Amgi-Base-Dir', ankiDir], ['X-Amgi-Collection', collection], ['X-Amgi-Profile', 'User 1'],
-    ['X-Amgi-Bridge-Url', 'http://127.0.0.1:8798'], ['X-Amgi-Bridge-Token', '']].map(([k, v]) => `${k}: ${encodeURIComponent(v)}\n`).join('');
-  await b.evaluate(`new Promise((resolve, reject) => {
-    const open = indexedDB.open('cdom', 1);
-    open.onupgradeneeded = () => open.result.createObjectStore('kv');
-    open.onsuccess = () => {
-      const tx = open.result.transaction('kv', 'readwrite');
-      tx.objectStore('kv').put(new TextEncoder().encode(${JSON.stringify(block)}), 'amgi:anki-settings:1');
-      tx.oncomplete = () => { open.result.close(); resolve(true); };
-      tx.onerror = () => reject(tx.error);
-    };
-  })`);
 }
 const shot = async (b, file) => {
   const { result } = await b.send('Page.captureScreenshot', { format: 'png' });
@@ -83,15 +62,13 @@ const watchdog = setTimeout(async () => {
   process.exit(1);
 }, 240000);
 const pageErrors = [];
-let dialogs = []; // React's window.confirm, answered by the next value in this list
 b.onEvent = (d) => {
   if (d.method === 'Runtime.exceptionThrown') pageErrors.push(d.params.exceptionDetails.exception?.description || d.params.exceptionDetails.text);
   if (d.method === 'Runtime.consoleAPICalled' && d.params.type === 'error') pageErrors.push(d.params.args.map((a) => a.value ?? a.description).join(' '));
-  if (d.method === 'Page.javascriptDialogOpening') b.send('Page.handleJavaScriptDialog', { accept: dialogs.shift() ?? false });
 };
 try {
   await b.send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 900, deviceScaleFactor: 2, mobile: false });
-  await seed(b);
+  await seed(b, base, { baseDir: ankiDir, collection, profile: 'User 1' });
   await goto(b, `${base}/decks`);
   await until(b, `document.querySelectorAll('.deck-item').length === 7`, 150);
   const i = await b.evaluate(`[...document.querySelectorAll('.deck-item h3')].findIndex(h => h.textContent === '한국어')`);
@@ -129,29 +106,23 @@ try {
   await click(b, '.note-rows > li:nth-child(3) .note-row-edit');
 
   // 3. A row deleted: Cancel keeps it, Delete takes it.
-  if (react) dialogs = [false];
   await click(b, '.note-rows > li:nth-child(1) .note-row-delete');
-  if (!react) {
-    check(await until(b, `!!document.querySelector('dialog.confirm-dialog[open]') && document.activeElement?.classList.contains('submit-btn')`), 'the page asks, in a modal dialog, the action focused');
-    const asked = await b.evaluate(`document.querySelector('dialog.confirm-dialog p')?.textContent`);
-    check(asked === '역이 어디예요?', `it names the card: ${asked}`);
-    await sleep(300);
-    await shot(b, '22-confirm');
-    await click(b, 'dialog.confirm-dialog .cancel-btn');
-    check(await until(b, `!document.querySelector('dialog.confirm-dialog')`), 'Cancel closes it');
-  }
+  check(await until(b, `!!document.querySelector('dialog.confirm-dialog[open]') && document.activeElement?.classList.contains('submit-btn')`), 'the page asks, in a modal dialog, the action focused');
+  const asked = await b.evaluate(`document.querySelector('dialog.confirm-dialog p')?.textContent`);
+  check(asked === '역이 어디예요?', `it names the card: ${asked}`);
+  await sleep(300);
+  await shot(b, '22-confirm');
+  await click(b, 'dialog.confirm-dialog .cancel-btn');
+  check(await until(b, `!document.querySelector('dialog.confirm-dialog')`), 'Cancel closes it');
   await sleep(500);
   check((await b.evaluate(rows)).startsWith('역이 어디예요?'), 'and the card is still there');
-  if (react) dialogs = [true];
   await click(b, '.note-rows > li:nth-child(1) .note-row-delete');
-  if (!react) {
-    await until(b, `!!document.querySelector('dialog.confirm-dialog[open]')`);
-    await key(b, 'Escape', 'Escape', 27);
-    check(await until(b, `!document.querySelector('dialog.confirm-dialog')`), 'Escape closes it too');
-    await click(b, '.note-rows > li:nth-child(1) .note-row-delete');
-    await until(b, `!!document.querySelector('dialog.confirm-dialog[open]')`);
-    await click(b, 'dialog.confirm-dialog .submit-btn');
-  }
+  await until(b, `!!document.querySelector('dialog.confirm-dialog[open]')`);
+  await key(b, 'Escape', 'Escape', 27);
+  check(await until(b, `!document.querySelector('dialog.confirm-dialog')`), 'Escape closes it too');
+  await click(b, '.note-rows > li:nth-child(1) .note-row-delete');
+  await until(b, `!!document.querySelector('dialog.confirm-dialog[open]')`);
+  await click(b, 'dialog.confirm-dialog .submit-btn');
   check(await until(b, `document.querySelectorAll('.note-rows > li').length === 3 && !${rows}.includes('역이 어디예요?')`, 150), 'Delete takes the card');
   check(await until(b, `document.querySelector('.deck-cards-listhead span')?.textContent === '3'`, 100), 'and the count follows');
 
