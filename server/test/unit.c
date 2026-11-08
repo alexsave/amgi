@@ -101,6 +101,49 @@ static void text_rules(void) {
   ar_free(&a);
 }
 
+/* ---- hostile protobuf: a varint past ten bytes, a skip that would run past the end ---- */
+typedef struct { const unsigned char *p; size_t n; uint64_t wanted; int fields; } pb_case;
+static void pb_walk(cx *c, void *arg) {
+  pb_case *k = arg;
+  size_t at = 0;
+  pb_field f;
+  k->fields = 0;
+  while (pb_next(c, k->p, k->n, &at, k->wanted, &f)) {
+    k->fields++;
+    if (at > k->n) cx_throw(c, NULL, 0, "read past the end (%zu of %zu)", at, k->n);
+  }
+}
+static void pb_rules(void) {
+  arena a = {0};
+  unsigned char long_tag[160], long_value[160], skip_end[3] = {0x08, 0x80, 0x80};
+  memset(long_tag, 0x80, sizeof long_tag);
+  long_tag[sizeof long_tag - 1] = 0x01;
+  long_value[0] = 0x08;
+  memset(long_value + 1, 0x80, sizeof long_value - 2);
+  long_value[sizeof long_value - 1] = 0x01;
+  unsigned char eleven[12] = {0x08, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x00};
+  unsigned char ok[] = {0x08, 0x96, 0x01, 0x12, 0x02, 'h', 'i', 0x10, 0xff, 0xff, 0xff, 0xff, 0x0f};
+  struct { const unsigned char *p; size_t n; uint64_t wanted; const char *want; int fields; } cases[] = {
+    {long_tag, sizeof long_tag, 0, "protobuf varint is too large to read exactly", 0},
+    {long_value, sizeof long_value, 1u << 1, "protobuf varint is too large to read exactly", 0},
+    {eleven, sizeof eleven, 1u << 1, "protobuf varint is too large to read exactly", 0},
+    {skip_end, sizeof skip_end, 0, NULL, 1},
+    {ok, sizeof ok, (1u << 1) | (1u << 2), NULL, 3},
+  };
+  for (size_t i = 0; i < sizeof cases / sizeof *cases; i++) {
+    cx c = {&a, NULL, {0}};
+    pb_case k = {cases[i].p, cases[i].n, cases[i].wanted, 0};
+    int threw = cx_try(&c, pb_walk, &k) < 0;
+    if (cases[i].want)
+      CHECK(threw && str_eq_c(c.err.message, cases[i].want), "pb case %zu throws \"%s\" (got %.*s)", i, cases[i].want,
+            threw ? (int)c.err.message.n : 2, threw ? c.err.message.p : "ok");
+    else
+      CHECK(!threw && k.fields == cases[i].fields, "pb case %zu reads %d fields and stays in bounds (%s)", i, cases[i].fields,
+            threw ? c.err.message.p : "ok");
+  }
+  ar_free(&a);
+}
+
 /* ---- the core on a fixture copy ---- */
 static char scratch[4096];
 
@@ -222,6 +265,7 @@ int main(int argc, char **argv) {
     return 2;
   }
   json_rules();
+  pb_rules();
   text_rules();
   core_state();
   char cmd[4200];

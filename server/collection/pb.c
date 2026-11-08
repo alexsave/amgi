@@ -22,17 +22,22 @@ void pb_bytes_field(buf *b, uint32_t field, const void *p, size_t n) {
   buf_put(b, p, n);
 }
 
-/* readVarint: a double in the JavaScript, refused past 2^53; the same here. */
+/* readVarint: refused past 2^53, as the JavaScript's double is. A varint is at most ten bytes;
+ * a longer one is refused as too large (on a hostile blob the JavaScript's scale overflows to
+ * infinity and the value to NaN, which it refuses the same way), so nothing here leaves a 64-bit
+ * integer's range. */
 static uint64_t read_varint(cx *c, const unsigned char *p, size_t n, size_t *at) {
-  double value = 0, scale = 1;
-  for (size_t i = *at; i < n; i++) {
-    value += (p[i] & 0x7f) * scale;
+  uint64_t value = 0;
+  for (size_t i = *at, k = 0; i < n; i++, k++) {
+    if (k == 10) cx_throw(c, NULL, 0, "protobuf varint is too large to read exactly");
+    if (k < 9) value |= (uint64_t)(p[i] & 0x7f) << (7 * k);
+    else if (p[i] & 0x7e) value = UINT64_MAX; /* past 64 bits: certainly too large */
+    else value |= (uint64_t)(p[i] & 0x01) << 63;
     if (!(p[i] & 0x80)) {
-      if (value > 9007199254740991.0) cx_throw(c, NULL, 0, "protobuf varint is too large to read exactly");
+      if (value > 9007199254740991ull) cx_throw(c, NULL, 0, "protobuf varint is too large to read exactly");
       *at = i + 1;
-      return (uint64_t)value;
+      return value;
     }
-    scale *= 128;
   }
   cx_throw(c, NULL, 0, "truncated protobuf varint");
 }
@@ -49,9 +54,9 @@ int pb_next(cx *c, const unsigned char *p, size_t n, size_t *at, uint64_t wanted
     if (f->number < 64 && (wanted >> f->number & 1)) {
       f->value = read_varint(c, p, n, at);
     } else {
-      /* skipVarint: past it unread, whatever it holds. */
+      /* skipVarint: past it unread, whatever it holds, and never past the end. */
       while (*at < n && (p[*at] & 0x80)) (*at)++;
-      (*at)++;
+      if (*at < n) (*at)++;
     }
   } else if (f->wire == 2) {
     uint64_t len = read_varint(c, p, n, at);
