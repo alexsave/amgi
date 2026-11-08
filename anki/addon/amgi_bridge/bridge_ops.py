@@ -403,7 +403,7 @@ def update_note(
     return OpResult(payload=payload, changes=changes)
 
 
-def rename_deck(col: "Collection", deck_id: int, human_name: str) -> dict:
+def rename_deck(col: "Collection", deck_id: int, human_name: str) -> OpResult:
     """Rename a deck, through Anki's own API.
 
     `col.decks.rename` is what handles the two things that make this more
@@ -412,13 +412,19 @@ def rename_deck(col: "Collection", deck_id: int, human_name: str) -> dict:
     INTO a subdeck needs the parent deck to exist. Doing it here means the
     Node side's hand-rolled version (plusaudio/lib/collection/decks.js) and
     this one cannot disagree about either, because this one is the reference.
+
+    An OpResult like every other write here: bridge_dispatch's CollectionOp
+    reads `.changes` off it and hands the caller `.payload`. It used to return
+    the bare dict, which the dispatcher could not unwrap, so a rename through
+    a real Anki failed after the deck had already been renamed.
     """
-    deck = col.decks.get(int(deck_id))
+    deck = col.decks.get(int(deck_id), default=False)
     if deck is None:
-        raise ValueError(f"no deck with id {deck_id} in this collection")
-    col.decks.rename(deck, human_name)
+        raise DeckNotFound(f"no deck with id {deck_id} in this collection")
+    changes = col.decks.rename(deck, human_name)
     renamed = col.decks.get(int(deck_id))
-    return {"id": int(deck_id), "name": (renamed or {}).get("name", human_name).replace("\x1f", "::")}
+    payload = {"id": int(deck_id), "name": (renamed or {}).get("name", human_name).replace("\x1f", "::")}
+    return OpResult(payload=payload, changes=changes)
 
 
 def remove_note(col: "Collection", note_id: int) -> OpResult:
@@ -429,8 +435,76 @@ def remove_note(col: "Collection", note_id: int) -> OpResult:
     pushed back from AnkiWeb, and it is undoable from Anki's own Edit menu
     afterwards, which deleting rows by hand would not be.
     """
-    changes = col.remove_notes([note_id])
-    return OpResult(changes=changes.changes if hasattr(changes, "changes") else changes, count=1)
+    if col.db.scalar("select count() from notes where id = ?", int(note_id)) == 0:
+        raise LookupError(f"no note with id {note_id} in this collection")
+    removed = col.remove_notes([int(note_id)])
+    return OpResult(payload={"noteId": int(note_id), "cardsRemoved": removed.count}, changes=removed.changes)
+
+
+class DeckNotFound(LookupError):
+    """A deck id the collection does not have: the bridge answers 404 for it
+    (bridge_server reads `http_status`), so the app can tell "already gone"
+    from a bad request."""
+
+    http_status = 404
+
+
+DEFAULT_DECK_ID = 1
+
+
+def _removal(col: "Collection", deck_id: int) -> dict:
+    """What deleting `deck_id` takes, read only, by the rule Anki's own
+    remove_decks_and_child_decks follows (rslib/src/decks/remove.rs): every
+    card in a normal deck of the tree, or whose home deck is one (a card
+    borrowed by a filtered deck anywhere); every note left with no card; a
+    filtered deck's other cards are sent home, not deleted. The same counts
+    plusaudio/lib/collection/deck-remove.js reports for a closed collection."""
+    deck = col.decks.get(int(deck_id), default=False)
+    if deck is None:
+        raise DeckNotFound(f"no deck with id {deck_id} in this collection")
+    tree = col.decks.deck_and_child_ids(int(deck_id))
+    normal = [did for did in tree if not col.decks.get(did)["dyn"]]
+    ids = ",".join(str(int(did)) for did in normal)
+    goes = lambda t: f"({t}.did in ({ids}) or ({t}.odid != 0 and {t}.odid in ({ids})))"  # noqa: E731
+    cards = col.db.scalar(f"select count() from cards c where {goes('c')}")
+    notes = col.db.scalar(
+        f"select count(distinct c.nid) from cards c where {goes('c')} "
+        f"and not exists (select 1 from cards o where o.nid = c.nid and not {goes('o')})"
+    )
+    return {
+        "id": int(deck_id),
+        "name": deck["name"].replace("\x1f", "::"),
+        "subdecks": len(tree) - 1,
+        "cards": cards,
+        "notes": notes,
+        "decks": len([did for did in tree if did != DEFAULT_DECK_ID]),
+    }
+
+
+def deck_summary(col: "Collection", deck_id: int) -> dict:
+    """What the page's confirmation names before anything goes: the deck,
+    how many subdecks, cards and notes deleting it takes."""
+    found = _removal(col, deck_id)
+    return {k: found[k] for k in ("id", "name", "subdecks", "cards", "notes")}
+
+
+def remove_deck(col: "Collection", deck_id: int) -> OpResult:
+    """Delete a deck and every deck under it, with their cards and the notes
+    left with no card, through Anki's own `col.decks.remove`: it writes the
+    graves a sync needs, sends a filtered deck's cards home, clears the
+    deck's own config keys, and is one undo step in Anki's Edit menu.
+
+    The Default deck (id 1) is refused: Anki never removes it, only empties
+    it and resets its name, which is not what deleting says. The page never
+    offers it either.
+    """
+    if int(deck_id) == DEFAULT_DECK_ID:
+        raise ValueError("The Default deck cannot be deleted: Anki keeps it, and would only empty it.")
+    found = _removal(col, deck_id)
+    removed = col.decks.remove([int(deck_id)])
+    payload = {k: found[k] for k in ("id", "name", "decks", "notes")}
+    payload["cards"] = removed.count
+    return OpResult(payload=payload, changes=removed.changes)
 
 
 def read_media(col: "Collection", filename: str) -> Optional[bytes]:
