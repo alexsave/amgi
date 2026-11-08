@@ -14,6 +14,10 @@ static lang_pair langs = {"en", "ko"};
 static int langs_open;
 static holder h_notes;
 static wire_notes page_notes;     /* the page on screen; its strings live in h_notes */
+/* What the rows on screen show, as a hash of the page (page_hash). A page that answers the same
+ * again (the reload after a mode change: Anki opened or closed, the lock taken or let go) leaves
+ * them as they are, so an open editor keeps its typing, its caret and its focus. 0: no rows. */
+static uint64_t rows_hash;
 static text notes_error;
 static uint32_t want_offset;
 static cd_id name_h1, title_box, sub_line, listhead_count, list_box, name_input;
@@ -267,6 +271,7 @@ static void editor_open(uint32_t i) {
 }
 
 static void rows_forget(void) {
+  rows_hash = 0;
   if (editor_row >= 0) {
     panel_forget();
     cd_region_hide(&editor);
@@ -404,6 +409,38 @@ static void row_build(uint32_t i) {
   cd_free(front);
 }
 
+/* FNV-1a over everything the rows draw from: the page's place, each note's id, type, fields and
+ * tags, and the page's own state a row shows. */
+static uint64_t mix(uint64_t h, const void *p, uint32_t n) {
+  const uint8_t *b = p;
+  for (uint32_t i = 0; i < n; i++) h = (h ^ b[i]) * 0x100000001b3ull;
+  return h;
+}
+static uint64_t mix_strs(uint64_t h, const wire_strs *v) {
+  h = mix(h, &v->n, sizeof v->n);
+  for (uint32_t i = 0; i < v->n; i++) {
+    h = mix(h, &v->v[i].len, sizeof v->v[i].len);
+    h = mix(h, v->v[i].p, v->v[i].len);
+  }
+  return h;
+}
+static uint64_t page_hash(void) {
+  uint64_t h = 0xcbf29ce484222325ull;
+  /* what else a row shows: the card being deleted, and the languages its chips are labelled with */
+  h = mix(h, &deleting, sizeof deleting);
+  h = mix(h, &langs, sizeof langs);
+  h = mix(h, &page_notes.offset, sizeof page_notes.offset);
+  h = mix(h, &page_notes.has_more, sizeof page_notes.has_more);
+  for (uint32_t i = 0; i < page_notes.nnotes; i++) {
+    const wire_note *n = &page_notes.notes[i];
+    h = mix(h, &n->id, sizeof n->id);
+    h = mix(h, &n->notetype_id, sizeof n->notetype_id);
+    h = mix_strs(h, &n->fields);
+    h = mix_strs(h, &n->tags);
+  }
+  return h | 1; /* never 0, which means no rows */
+}
+
 static void rows_build(void) {
   if (!shown || !list_box) return;
   rows_forget();
@@ -431,6 +468,7 @@ static void rows_build(void) {
     row_edit = cd_realloc(row_edit, (page_notes.nnotes + 1) * sizeof *row_edit);
     for (uint32_t i = 0; i < page_notes.nnotes; i++) row_build(i);
     cd_close();
+    rows_hash = page_hash();
   }
   cd_region_end(&body);
   for (uint32_t i = 0; editing >= 0 && notes_known && i < page_notes.nnotes; i++)
@@ -507,7 +545,7 @@ void deck_decks_changed(void) {
     page_show(); /* the deck went: back to the list */
     return;
   }
-  name_view();
+  if (!renaming) name_view(); /* an open rename keeps what is typed in it; it shows the name again when it closes */
   cd_set_text_num(listhead_count, d->count);
   sub_build();
 }
@@ -670,11 +708,25 @@ void deck_answer(uint32_t token, uint32_t status, const uint8_t *p, uint32_t len
     return;
   }
   if (token != T_NOTES) return;
-  answer a = take(&h_notes, WK_NOTES, status, p, len, &page_notes);
+  /* Read into a page of its own first: the one on screen stays whole until this one replaces it. */
+  static holder h_next;
+  wire_notes next = {0};
+  answer a = take(&h_next, WK_NOTES, status, p, len, &next);
   notes_loading = 0;
+  if (!a.ok && rows_hash && want_offset == page_notes.offset) {
+    /* The same page asked for again, and not answered: Anki took the file (the badge says so) or the
+     * bridge went. The rows on screen are still what the deck holds; keep them, and an open editor. */
+    holder_free(&h_next);
+    return;
+  }
+  holder_free(&h_notes);
+  h_notes = h_next;
+  h_next = (holder){0};
+  page_notes = next;
   if (a.ok) {
     notes_known = 1;
     text_free(&notes_error);
+    if (rows_hash && notetypes_known && page_hash() == rows_hash) return; /* the same rows: keep them */
   } else {
     char m[512];
     text_set(&notes_error, m, answer_message(&a, m, sizeof m));

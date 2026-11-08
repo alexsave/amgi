@@ -8,7 +8,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
 import { seed } from './seed.mjs';
+
+const { holdCollectionOpen } = createRequire(import.meta.url)('../../plusaudio/test/collection/helpers/anki-python.js');
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const cdom = process.env.CDOM || path.join(here, '..', '..', 'cdom');
@@ -145,6 +148,55 @@ try {
   await shot(b, '23-renamed');
   await goto(b, `${base}/decks`);
   check(await until(b, `[...document.querySelectorAll('.deck-item h3')].map(h => h.textContent).includes('한국어 연습::일상 표현')`, 150), 'the subdeck moved with it');
+
+  // 5. Anki takes the file while a card is open with unsaved typing, then lets it go: the page's
+  // status poll (every 4 s) sees both mode changes and reloads the deck under the editor, which must
+  // stay open with its text, its caret and its focus. A real lock, held by the anki library.
+  await click(b, '.deck-item:nth-child(' + (1 + await b.evaluate(`[...document.querySelectorAll('.deck-item h3')].findIndex(h => h.textContent === '한국어 연습')`)) + ')');
+  await until(b, `document.querySelectorAll('.note-rows > li').length === 3`, 150);
+  await click(b, '.note-rows > li:nth-child(2) .note-row-edit');
+  await until(b, `!!document.querySelector('.card-panel-value-big')`);
+  await click(b, '.card-panel-value-big');
+  await b.send('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'End', code: 'End', windowsVirtualKeyCode: 35, commands: ['moveToEndOfLine'] });
+  await b.send('Input.insertText', { text: ' 아직' });
+  const typed = await b.evaluate(`document.querySelector('.card-panel-value-big').value`);
+  const kept = `!!document.querySelector('.note-rows > li.is-open .card-panel') && document.querySelector('.card-panel-value-big')?.value === ${JSON.stringify(typed)} && document.activeElement === document.querySelector('.card-panel-value-big')`;
+  const badge = `document.querySelector('nav.navbar span[title]')?.textContent`;
+  const holder = holdCollectionOpen(collection);
+  await holder.held;
+  try {
+    check(await until(b, `${badge} === 'Anki locked'`, 150), 'the lock is seen: the badge says so');
+    await sleep(500); // the reload that follows the mode change has answered
+    check(await b.evaluate(kept), `under the lock the editor stays open, its typing and focus with it (${typed})`);
+  } finally {
+    await holder.release();
+  }
+  check(await until(b, `${badge} === 'Anki connected'`, 150), 'the lock let go: connected again');
+  await sleep(500);
+  check(await b.evaluate(kept), 'and the editor is still open with the typing, the caret where it was');
+  await b.send('Input.insertText', { text: '!' });
+  check(await b.evaluate(`document.querySelector('.card-panel-value-big').value === ${JSON.stringify(typed + '!')}`), 'typing goes on where it stopped');
+
+  // 6. The same for a rename half typed: the name stays an input with what was typed in it.
+  await key(b, 'Escape', 'Escape', 27);
+  await click(b, '.deck-name-button');
+  await until(b, `document.activeElement?.classList.contains('deck-name-input')`);
+  await b.send('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'End', code: 'End', windowsVirtualKeyCode: 35, commands: ['moveToEndOfLine'] });
+  await b.send('Input.insertText', { text: ' 반' });
+  const naming = `document.activeElement?.classList.contains('deck-name-input') && document.activeElement.value === '한국어 연습 반'`;
+  const holder2 = holdCollectionOpen(collection);
+  await holder2.held;
+  try {
+    check(await until(b, `${badge} === 'Anki locked'`, 150), 'locked again');
+    await sleep(500);
+    check(await b.evaluate(naming), 'under the lock the rename keeps its typing and focus');
+  } finally {
+    await holder2.release();
+  }
+  check(await until(b, `${badge} === 'Anki connected'`, 150), 'and let go again');
+  await sleep(500);
+  check(await b.evaluate(naming), 'the rename is still being typed');
+  await key(b, 'Escape', 'Escape', 27);
 
   check(!pageErrors.length, `no page errors${pageErrors.length ? `: ${pageErrors.join(' / ')}` : ''}`);
 } finally {
