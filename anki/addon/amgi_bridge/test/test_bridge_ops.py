@@ -204,6 +204,114 @@ class UpdateNoteTests(BridgeOpsTestCase):
         self.assertEqual(list(note.tags), ["keep-me"])
 
 
+class RenameDeckTests(BridgeOpsTestCase):
+    def test_renames_with_its_subdecks_and_returns_a_real_opresult(self):
+        from anki.collection import OpChanges
+
+        did = self.col.decks.id("Korean")
+        child = self.col.decks.id("Korean::Verbs")
+        result = bridge_ops.rename_deck(self.col, did, "Korean 2")
+        self.assertIsInstance(result, bridge_ops.OpResult)
+        self.assertIsInstance(result.changes, OpChanges)
+        self.assertEqual(result.payload, {"id": did, "name": "Korean 2"})
+        self.assertEqual(self.col.decks.get(child)["name"], "Korean 2::Verbs")
+
+    def test_an_unknown_deck_is_a_404(self):
+        with self.assertRaises(bridge_ops.DeckNotFound) as raised:
+            bridge_ops.rename_deck(self.col, 12345, "x")
+        self.assertEqual(raised.exception.http_status, 404)
+
+
+class RemoveNoteTests(BridgeOpsTestCase):
+    def test_removes_the_note_and_its_cards_with_graves(self):
+        from anki.collection import OpChanges
+
+        deck_id = self.col.decks.id("Korean")
+        added = bridge_ops.add_note(self.col, deck_id=deck_id, notetype_id=self._basic_notetype_id(), fields=["a", "b"])
+        nid = added.payload["noteId"]
+        result = bridge_ops.remove_note(self.col, nid)
+        self.assertIsInstance(result.changes, OpChanges)
+        self.assertEqual(result.payload, {"noteId": nid, "cardsRemoved": 1})
+        self.assertEqual(self.col.db.scalar("select count() from notes where id = ?", nid), 0)
+        self.assertEqual(self.col.db.scalar("select count() from graves where oid = ? and type = 1", nid), 1)
+
+    def test_an_unknown_note_is_an_error(self):
+        with self.assertRaises(LookupError):
+            bridge_ops.remove_note(self.col, 12345)
+
+
+class RemoveDeckTests(BridgeOpsTestCase):
+    def setUp(self):
+        super().setUp()
+        basic = self.col.models.by_name("Basic")
+        both = self.col.models.by_name("Basic (and reversed card)")
+        self.top = self.col.decks.id("Korean")
+        self.child = self.col.decks.id("Korean::Verbs")
+        self.other = self.col.decks.id("Other")
+
+        def add(did, front, nt=basic):
+            note = self.col.new_note(nt)
+            note.fields[0], note.fields[1] = front, "back"
+            self.col.add_note(note, did)
+            return note
+
+        add(self.top, "a")
+        add(self.child, "b")
+        self.kept = add(self.other, "c")
+        split = add(self.top, "split", both)  # one card here, one in Other: the note stays
+        card = split.cards()[1]
+        card.did = self.other
+        self.col.update_card(card)
+        self.split = split
+
+    def test_the_summary_counts_what_goes(self):
+        self.assertEqual(
+            bridge_ops.deck_summary(self.col, self.top),
+            {"id": self.top, "name": "Korean", "subdecks": 1, "cards": 3, "notes": 2},
+        )
+        self.assertEqual(bridge_ops.deck_summary(self.col, self.child)["subdecks"], 0)
+
+    def test_removes_the_tree_its_cards_and_orphaned_notes_through_anki(self):
+        from anki.collection import OpChanges
+
+        result = bridge_ops.remove_deck(self.col, self.top)
+        self.assertIsInstance(result.changes, OpChanges)
+        self.assertEqual(result.payload, {"id": self.top, "name": "Korean", "decks": 2, "cards": 3, "notes": 2})
+        names = [d["name"] for d in bridge_ops.list_decks(self.col)]
+        self.assertEqual(sorted(names), ["Default", "Other"])
+        self.assertEqual(self.col.db.scalar("select count() from notes"), 2)  # c, and split's note
+        self.assertEqual(len(self.col.get_note(self.split.id).cards()), 1)
+        self.assertEqual(self.col.db.scalar("select count() from graves where type = 2"), 2)
+
+    def test_a_filtered_subdeck_sends_its_borrowed_cards_home_and_they_are_not_counted(self):
+        filtered = self.col.decks.new_filtered("Korean::Review")
+        deck = self.col.decks.get(filtered)
+        deck["terms"] = [["deck:Other", 100, 0]]
+        self.col.decks.save(deck)
+        self.col.sched.rebuild_filtered_deck(filtered)
+        borrowed = self.col.db.list("select id from cards where did = ?", filtered)
+        self.assertEqual(len(borrowed), 2)  # c, and split's second card
+        summary = bridge_ops.deck_summary(self.col, self.top)
+        self.assertEqual((summary["subdecks"], summary["cards"], summary["notes"]), (2, 3, 2))
+        bridge_ops.remove_deck(self.col, self.top)
+        self.assertEqual(self.col.db.list("select did from cards where id in (%s)" % ",".join(map(str, borrowed))), [self.other] * 2)
+
+    def test_the_default_deck_is_refused_and_left_alone(self):
+        add = self.col.new_note(self.col.models.by_name("Basic"))
+        add.fields[0] = "in default"
+        self.col.add_note(add, 1)
+        with self.assertRaises(ValueError):
+            bridge_ops.remove_deck(self.col, 1)
+        self.assertEqual(self.col.db.scalar("select count() from cards where did = 1"), 1)
+
+    def test_a_deck_already_gone_is_a_404(self):
+        bridge_ops.remove_deck(self.col, self.child)
+        for op in (bridge_ops.remove_deck, bridge_ops.deck_summary):
+            with self.assertRaises(bridge_ops.DeckNotFound) as raised:
+                op(self.col, self.child)
+            self.assertEqual(raised.exception.http_status, 404)
+
+
 class ListNotesInDeckTests(BridgeOpsTestCase):
     def _add(self, deck_id, front, back):
         return bridge_ops.add_note(

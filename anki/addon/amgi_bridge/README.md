@@ -146,6 +146,10 @@ One endpoint per capability the Node layer exposes, deliberately matching its vo
 | `POST /notes` `{deckId, notetypeId, fields, tags}` | `Collection.addNote({deckId, notetypeId, fields, tags})` | |
 | `POST /notes/bulk` `{notes: [{deckId, notetypeId, fields, tags, language, learningFieldIndex}, ...]}` | `Collection.addNotesBulk(notes)`-shaped loop in `directClient.js` | The bulk-add-from-paste screen's write path. Runs as one `CollectionOp` on the bridge side (see `bridge_ops.add_notes_bulk`) rather than one per note, so a 60-line paste produces one undo step and one UI refresh instead of 60. Response is `{results: [{ok, noteId, guid, cardIds, warning?} \| {ok: false, error}, ...]}`, one entry per note in the same order, so one bad line never aborts the rest of the batch. |
 | `PATCH /notes/:id` `{fields}` | `Collection.updateNote(id, fields)` | Never touches tags or regenerates cards, on either side. |
+| `DELETE /notes/:id` | `Collection.removeNote(id)` | Through `col.remove_notes`: the note, its cards, and their graves. Response is `{noteId, cardsRemoved}`. |
+| `PATCH /decks/:id` `{name}` | `Collection.renameDeck(id, name)` | Through `col.decks.rename`, subdecks included. Response is `{id, name}`; an unknown deck is a 404. |
+| `GET /decks/:id` | `Collection.deckRemovalSummary(id)` | What deleting the deck would take, changing nothing: `{id, name, subdecks, cards, notes}`. The cards are those in its normal decks or borrowed from them by a filtered deck; the notes are those left with no card. A deck that is not there is a 404. |
+| `DELETE /decks/:id` | `Collection.removeDeck(id)` | Through `col.decks.remove`: the deck, its subdecks, their cards, the notes left with no card, a filtered subdeck's borrowed cards sent home, and graves for every deletion, as one undo step. Response is `{id, name, decks, cards, notes}`. The Default deck (id 1) is a 400, since Anki would only empty it; a deck that is not there is a 404. |
 | `POST /media` `{filename, dataBase64}` | `Collection.addMedia(filename, data)` | Body carries the file as base64 since JSON has no binary type; response is `{filename}`, the name Anki (or Node) actually stored it under. |
 | `GET /media/:filename` | `Collection.hasMedia(filename)` | Response is `{exists: boolean}`. The resumability check a clip generator makes before calling out to a real TTS API, so re-running audio generation over a deck never regenerates a clip it already made. |
 
@@ -223,7 +227,7 @@ See that file's own module docstring for the full reasoning, and "Testing" below
 ### What is actually verified
 
 `test/test_deck_text.py`, `test/test_core_config.py`, `test/test_generator.py`, `test/test_bridge_auth.py` and `test/test_bridge_server.py` need no `anki` pip package and no network.
-`npm test` runs them.
+`npm test` runs them with `ANKI_PYTHON_BIN` (a Python with the `anki` package) when it is set, and `python3` otherwise, so with it set the tests below that need `anki` run too instead of skipping.
 
 - `test_deck_text.py` checks `deck_text.py` against `plusaudio/lib/deck.js` and `audio-store.js` themselves, by shelling out to Node on the same inputs and asserting equality - not against a second, hand-written idea of what those functions do.
 - `test_generator.py` checks the subprocess seam - the command built, the environment passed through, exit-code and stderr handling, temp-file cleanup, and the actionable errors for a missing Node, a missing repo checkout, and a missing API key - by mocking `subprocess.run`.
@@ -241,6 +245,9 @@ Another (`SampleDeckTests`, gated on the `AMGI_SAMPLE_APKG` environment variable
 `test/test_bridge_ops.py` is the same style of test for the bridge side: every function in `bridge_ops.py` (`status`, `list_decks`, `list_notetypes`, `create_deck`, `add_note`, `update_note`, `list_notes_in_deck`, `add_media`) against a REAL `anki.collection.Collection`.
 Its pagination test adds 2,500 notes to one deck and pages through all of them in fixed-size batches, checking every note is returned exactly once and the total count is right on every page - proving the SQL `LIMIT`/`OFFSET` path is what actually runs, not something that loads the whole deck and slices it in Python, which is what "must not choke on a 20k-note collection" requires in practice.
 Its own `SampleDeckTests` (also gated on `AMGI_SAMPLE_APKG`) pages through the same real 333-note deck and checks every note's note type is one `list_notetypes` also reports, with non-empty field names.
+
+`test/test_bridge_dispatch.py` runs `bridge_dispatch.py`'s writes through its real code against a real collection, with a stand-in for `aqt.mw` and `aqt.operations` that does what Anki's `CollectionOp` does with a result: hand it to the success callback, then read the `OpChanges` off it.
+A write that returns anything but an `OpResult` with real changes fails there as it would inside Anki.
 
 `test/test_cross_transport.py` is the one described above in "Cross-transport parity": it needs both `anki` and a `node` on `PATH`, and runs the Node layer and `bridge_ops.py` against the same collection file, checking they agree.
 

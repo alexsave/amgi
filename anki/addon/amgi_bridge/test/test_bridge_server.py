@@ -88,6 +88,26 @@ class FakeDispatcher:
         self._record("has_media", filename)
         return filename == "already-there.mp3"
 
+    def deck_summary(self, deck_id):
+        self._record("deck_summary", deck_id)
+        if deck_id == 404:
+            raise _Gone(f"no deck with id {deck_id} in this collection")
+        return {"id": deck_id, "name": "Korean", "subdecks": 1, "cards": 6, "notes": 4}
+
+    def remove_deck(self, deck_id):
+        self._record("remove_deck", deck_id)
+        if deck_id == 404:
+            raise _Gone(f"no deck with id {deck_id} in this collection")
+        if deck_id == 1:
+            raise ValueError("The Default deck cannot be deleted")
+        return {"id": deck_id, "name": "Korean", "decks": 2, "cards": 6, "notes": 4}
+
+
+class _Gone(LookupError):
+    """What bridge_ops.DeckNotFound is: a LookupError that names its status."""
+
+    http_status = 404
+
 
 class FailingDispatcher(FakeDispatcher):
     def __init__(self, exc: Exception) -> None:
@@ -246,6 +266,27 @@ class RoutingTests(BridgeServerTestCase):
         )
         self.assertEqual(status, 200)
         self.assertEqual(body, {"deck": {"id": 42, "name": "Korean::Verbs"}, "created": True})
+
+    def test_deck_summary(self):
+        status, _headers, body = self._request("GET", "/decks/9", headers=self._auth_headers())
+        self.assertEqual(status, 200)
+        self.assertEqual(body, {"id": 9, "name": "Korean", "subdecks": 1, "cards": 6, "notes": 4})
+        self.assertEqual(self.dispatcher.calls, [("deck_summary", (9,), {})])
+
+    def test_remove_deck(self):
+        status, _headers, body = self._request("DELETE", "/decks/9", headers=self._auth_headers())
+        self.assertEqual(status, 200)
+        self.assertEqual(body, {"id": 9, "name": "Korean", "decks": 2, "cards": 6, "notes": 4})
+        self.assertEqual(self.dispatcher.calls, [("remove_deck", (9,), {})])
+
+    def test_a_deck_already_gone_is_a_404_and_the_default_deck_a_400(self):
+        for method in ("GET", "DELETE"):
+            status, _headers, body = self._request(method, "/decks/404", headers=self._auth_headers())
+            self.assertEqual(status, 404, method)
+            self.assertIn("no deck with id 404", body["error"])
+        status, _headers, body = self._request("DELETE", "/decks/1", headers=self._auth_headers())
+        self.assertEqual(status, 400)
+        self.assertIn("Default deck", body["error"])
 
     def test_create_deck_without_a_name_is_a_bad_request(self):
         status, _headers, body = self._request("POST", "/decks", headers=self._auth_headers(), body="{}")

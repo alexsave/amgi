@@ -211,6 +211,15 @@ class AqtBridgeDispatcher:
         # step and Anki's own change hooks fire, the same as add_note.
         return self._run_write(lambda col: bridge_ops.remove_note(col, note_id))
 
+    def deck_summary(self, deck_id: int) -> dict:
+        # A read: what deleting the deck would take, for the confirmation.
+        return self._run_read(lambda col: bridge_ops.deck_summary(col, deck_id))
+
+    def remove_deck(self, deck_id: int) -> dict:
+        # CollectionOp, as remove_note: one undo step, and Anki's deck list
+        # and browser hear about it through its own change hooks.
+        return self._run_write(lambda col: bridge_ops.remove_deck(col, deck_id))
+
     def read_media(self, filename: str) -> Optional[bytes]:
         # A read of the media folder, same as has_media: no collection
         # mutation, so QueryOp rather than CollectionOp.
