@@ -208,3 +208,36 @@ uint32_t dedupe_key(char *dst, wire_str s) {
   }
   return end ? end : n;
 }
+
+/* lyricsParse.js's parseLyricsPaste(s, { skipSectionMarkers: true }): the lines a paste makes cards
+ * of, in order, each trimmed, without blank lines, without lines that are one [bracketed] marker,
+ * and without a line whose dedupe key an earlier line had. Writes at most cap lines to out (they
+ * point into s); returns how many there are in all. keys needs room for len bytes. */
+uint32_t paste_lines(const char *s, uint32_t len, wire_str *out, uint32_t cap, char *keys) {
+  typedef struct { uint32_t at, n; } key_ref;
+  uint32_t count = 0, used = 0, a = 0;
+  key_ref refs[512];
+  while (a <= len) {
+    uint32_t e = a;
+    while (e < len && s[e] != '\n' && s[e] != '\r') e++;
+    wire_str line = trim((wire_str){s + a, e - a});
+    /* \r\n is one break; a lone \r or \n is one too */
+    a = e + (e + 1 < len && s[e] == '\r' && s[e + 1] == '\n' ? 2 : 1);
+    if (!line.len) continue;
+    if (line.len > 2 && line.p[0] == '[' && line.p[line.len - 1] == ']') {
+      int marker = 1;
+      for (uint32_t k = 1; k + 1 < line.len && marker; k++)
+        if (line.p[k] == '[' || line.p[k] == ']') marker = 0;
+      if (marker) continue;
+    }
+    uint32_t kn = dedupe_key(keys + used, line), dup = 0;
+    for (uint32_t i = 0; i < count && i < 512 && !dup; i++)
+      dup = same(keys + refs[i].at, refs[i].n, keys + used, kn);
+    if (dup) continue;
+    if (count < 512) refs[count] = (key_ref){used, kn};
+    used += kn;
+    if (count < cap) out[count] = line;
+    count++;
+  }
+  return count;
+}

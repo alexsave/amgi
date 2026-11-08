@@ -37,6 +37,8 @@ int has_audio_ref(wire_str field);
 /* lyricsParse.js's normalizeForDedupe into dst (s.len bytes): white space trimmed and collapsed,
  * the trailing run of white space and punctuation dropped (unless that is all there is). */
 uint32_t dedupe_key(char *dst, wire_str s);
+/* lyricsParse.js's parseLyricsPaste: the lines a paste makes cards of (see text.c). */
+uint32_t paste_lines(const char *s, uint32_t len, wire_str *out, uint32_t cap, char *keys);
 
 /* ---- the DOM, shorthand (dom.c) ---- */
 void el(cd_str tag, cd_str cls);                  /* cd_open, then class when cls */
@@ -192,6 +194,14 @@ void form_forget(void);
 void form_event(const cd_event_rec *e, uint32_t tag);
 void form_notetypes_known(void);
 void form_langs_changed(const lang_pair *langs);
+
+/* BulkRun (bulk.c): a run of lines into cards, built at the end of the form's box. */
+void bulk_start(cd_id form_box, int64_t deck, const notetype *type, const lang_pair *langs, const wire_str *lines,
+                uint32_t n, void (*on_finished)(void));
+void bulk_forget(void);
+void bulk_answer(uint32_t token, uint32_t status, const uint8_t *p, uint32_t len);
+void bulk_timer(uint32_t token);
+void bulk_event(const cd_event_rec *e, uint32_t tag);
 
 /* FirstRun (firstrun.c), shown as all of parent's children. */
 void firstrun_show(cd_id parent);
