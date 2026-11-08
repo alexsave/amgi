@@ -58,7 +58,15 @@ static str uri_component(cx *c, str s) {
 /* `${baseUrl.replace(/\/$/, '')}${path}` as fetch reads it: http or https, a host, a port (80 and
  * 443 by default), and a path prefix. 0, or -1 when it is not a URL fetch would take. */
 static int split_url(cx *c, str url, str path, int *tls, const char **host, int *port, const char **full_path) {
-  str u = url;
+  /* The URL parser removes every tab, LF and CR first (WHATWG URL), and refuses a host or path that
+   * would still hold a control character or a space; nothing of the URL reaches the request line raw. */
+  buf clean = {0};
+  for (size_t i = 0; i < url.n; i++)
+    if (url.p[i] != '\t' && url.p[i] != '\n' && url.p[i] != '\r') buf_ch(&clean, url.p[i]);
+  str u = buf_str(c->a, &clean);
+  buf_free(&clean);
+  for (size_t i = 0; i < u.n; i++)
+    if ((unsigned char)u.p[i] <= 0x20 || u.p[i] == 0x7f) return -1;
   if (u.n && u.p[u.n - 1] == '/') u.n--;
   if (str_starts(u, S("http://"))) *tls = 0, u = str_sub(u, 7, u.n);
   else if (str_starts(u, S("https://"))) *tls = 1, u = str_sub(u, 8, u.n);
@@ -118,14 +126,52 @@ static int decode(cx *c, uint32_t kind, const cb_buf *body, void *out) {
 
 static void throw_status(cx *c, int status, str message) { cx_throw(c, NULL, status, "%.*s", (int)message.n, message.p); }
 
+/* A header value as fetch takes it, or a throw of fetch's own TypeError: each UTF-16 unit must fit
+ * a byte (a ByteString), HTTP whitespace (tab, LF, CR, space) is trimmed from both ends, and a NUL,
+ * CR or LF left inside is refused. What goes on the wire is the value's Latin-1 bytes, never the
+ * UTF-8 it arrived as, so no value can carry a line break into the request. */
+static str header_bytes(cx *c, str value) {
+  buf b = {0};
+  size_t unit = 0;
+  for (size_t at = 0; at < value.n;) {
+    uint32_t cp = utf8_next(value, &at);
+    if (cp > 255) {
+      buf_free(&b);
+      cx_throw(c, NULL, 0, "Cannot convert argument to a ByteString because the character at index %zu has a value of %u which is greater than 255.",
+               unit, cp >= 0x10000 ? 0xd800 + ((cp - 0x10000) >> 10) : cp);
+    }
+    unsigned char byte = (unsigned char)cp;
+    buf_put(&b, &byte, 1);
+    unit += cp >= 0x10000 ? 2 : 1;
+  }
+  str bytes = buf_str(c->a, &b);
+  buf_free(&b);
+  size_t start = 0, end = bytes.n;
+  while (start < end && strchr("\t\n\r ", bytes.p[start]) && bytes.p[start]) start++;
+  while (end > start && strchr("\t\n\r ", bytes.p[end - 1]) && bytes.p[end - 1]) end--;
+  str trimmed = str_sub(bytes, start, end);
+  for (size_t i = 0; i < trimmed.n; i++)
+    if (trimmed.p[i] == 0 || trimmed.p[i] == '\r' || trimmed.p[i] == '\n') {
+      /* The message names the value as JavaScript holds it: the trimmed text, back in UTF-8. */
+      buf shown = {0};
+      for (size_t j = 0; j < trimmed.n; j++) utf8_put(&shown, (unsigned char)trimmed.p[j]);
+      str v = buf_str(c->a, &shown);
+      buf_free(&shown);
+      cx_throw(c, NULL, 0, "Headers.append: \"%.*s\" is an invalid header value.", (int)v.n, v.p);
+    }
+  return trimmed;
+}
+
 /* bridgeFetch. */
 static void fetch(cx *c, call *k) {
   int tls, port;
   const char *host, *path;
   if (split_url(c, k->b->url, k->path, &tls, &host, &port, &path) < 0) cx_throw(c, NULL, 0, "fetch failed");
+  str token = header_bytes(c, k->b->token);
   buf headers = {0};
-  buf_fmt(&headers, "X-Amgi-Bridge-Token: %.*s\r\n%s: %u\r\n", (int)k->b->token.n, k->b->token.p, PROTOCOL_HEADER,
-          (unsigned)WIRE_BRIDGE_PROTOCOL);
+  buf_c(&headers, "X-Amgi-Bridge-Token: ");
+  buf_s(&headers, token);
+  buf_fmt(&headers, "\r\n%s: %u\r\n", PROTOCOL_HEADER, (unsigned)WIRE_BRIDGE_PROTOCOL);
   wire_buf body = {0};
   if (k->has_send) {
     buf_c(&headers, "Content-Type: " WIRE_MIME "\r\n");
