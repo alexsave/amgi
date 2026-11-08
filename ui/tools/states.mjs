@@ -1,18 +1,19 @@
 // What the decks screen shows in each state amgi's setup can be in, against folders of their own
-// (each built fresh here): as React's DeckList and FirstRun decided it.
+// (each built fresh here):
 //   ready, no profile picked yet: the profile is picked, and the list shows at /decks, no setup
 //   installed, the card type not in the collection: the list, the notice to restart Anki, and on a
 //     deck the form's hint that Anki adds the card type at its next start
 //   Anki locked (a real lock, held by the anki library): the list's place says why, the badge too
 //   an Anki folder with no profile: the setup screen, "Could not find an Anki profile"
 //   no Anki folder: the setup screen says so, and Install is off
-// Needs ANKI_PYTHON_BIN and ANKI_FIXTURE_APKG (the e2e-ui skill). APP=react drives React.
+// Needs ANKI_PYTHON_BIN and ANKI_FIXTURE_APKG (the e2e-ui skill).
 //   node ui/tools/states.mjs <base url> <name> <work dir> [out dir]
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
+import { seed } from './seed.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(here, '..', '..');
@@ -22,7 +23,6 @@ const { holdCollectionOpen } = createRequire(import.meta.url)('../../plusaudio/t
 const [base, name, work, outArg] = process.argv.slice(2);
 const out = outArg || path.join(here, '..', 'out', 'shots');
 fs.mkdirSync(out, { recursive: true });
-const react = process.env.APP === 'react';
 const failures = [];
 const check = (ok, what) => {
   console.log(`${ok ? 'ok  ' : 'FAIL'} ${what}`);
@@ -61,16 +61,7 @@ async function goto(b, url) {
 async function open(settings) {
   const b = await launch(['--hide-scrollbars']);
   await b.send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 900, deviceScaleFactor: 2, mobile: false });
-  await goto(b, `${base}/__seed__`);
-  if (react) {
-    const s = { baseDirOverride: settings.base, collectionPath: settings.collection || '', profileName: '', bridge: { baseUrl: 'http://127.0.0.1:8798', token: '' } };
-    await b.evaluate(`localStorage.setItem('amgi:anki-settings', ${JSON.stringify(JSON.stringify(s))})`);
-  } else {
-    const block = `X-Amgi-Base-Dir: ${encodeURIComponent(settings.base)}\nX-Amgi-Collection: ${encodeURIComponent(settings.collection || '')}\n`;
-    await b.evaluate(`new Promise((resolve) => { const o = indexedDB.open('cdom', 1); o.onupgradeneeded = () => o.result.createObjectStore('kv');
-      o.onsuccess = () => { const t = o.result.transaction('kv', 'readwrite'); t.objectStore('kv').put(new TextEncoder().encode(${JSON.stringify(block)}), 'amgi:anki-settings:1');
-      t.oncomplete = () => { o.result.close(); resolve(true); }; }; })`);
-  }
+  await seed(b, base, { baseDir: settings.base, collection: settings.collection || '' });
   return b;
 }
 const shot = async (b, file) => {

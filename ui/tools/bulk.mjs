@@ -2,13 +2,14 @@
 // its limits switched through POST /control) and a fresh copy of the UI fixture (ui/tools/flows.sh, amgi installed): one line by
 // Enter; a paste of several, a section marker dropped and a line the deck already has skipped; a
 // per-minute limit waited out with its countdown; a failed line and its Retry; the day's cap ending
-// every line still to go. Either app (APP=react seeds React's localStorage).
+// every line still to go.
 //
 //   node ui/tools/bulk.mjs <base url> <fake gemini url> <name> <anki folder> [out dir]
 import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
+import { seed } from './seed.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const cdom = process.env.CDOM || path.join(here, '..', '..', 'cdom');
@@ -16,7 +17,6 @@ const { launch, sleep } = await import(path.join(cdom, 'tools', 'cdp.mjs'));
 const [base, gemini, name, ankiDir, outArg] = process.argv.slice(2);
 const out = outArg || path.join(here, '..', 'out', 'shots');
 fs.mkdirSync(out, { recursive: true });
-const react = process.env.APP === 'react';
 const collection = path.join(ankiDir, 'User 1', 'collection.anki2');
 const failures = [];
 const check = (ok, what) => {
@@ -35,26 +35,6 @@ async function until(b, expr, tries = 100) {
 async function goto(b, url) {
   await b.send('Page.navigate', { url });
   await until(b, `document.readyState === 'complete'`);
-}
-async function seed(b) {
-  await goto(b, `${base}/__seed__`);
-  if (react) {
-    const s = { baseDirOverride: ankiDir, collectionPath: collection, profileName: 'User 1', bridge: { baseUrl: 'http://127.0.0.1:8798', token: '' } };
-    await b.evaluate(`localStorage.setItem('amgi:anki-settings', ${JSON.stringify(JSON.stringify(s))})`);
-    return;
-  }
-  const block = [['X-Amgi-Base-Dir', ankiDir], ['X-Amgi-Collection', collection], ['X-Amgi-Profile', 'User 1'],
-    ['X-Amgi-Bridge-Url', 'http://127.0.0.1:8798'], ['X-Amgi-Bridge-Token', '']].map(([k, v]) => `${k}: ${encodeURIComponent(v)}\n`).join('');
-  await b.evaluate(`new Promise((resolve, reject) => {
-    const open = indexedDB.open('cdom', 1);
-    open.onupgradeneeded = () => open.result.createObjectStore('kv');
-    open.onsuccess = () => {
-      const tx = open.result.transaction('kv', 'readwrite');
-      tx.objectStore('kv').put(new TextEncoder().encode(${JSON.stringify(block)}), 'amgi:anki-settings:1');
-      tx.oncomplete = () => { open.result.close(); resolve(true); };
-      tx.onerror = () => reject(tx.error);
-    };
-  })`);
 }
 const shot = async (b, file) => {
   const { result } = await b.send('Page.captureScreenshot', { format: 'png' });
@@ -100,7 +80,7 @@ try {
   await control('perMinute=1000&daily=0');
   await b.send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 900, deviceScaleFactor: 2, mobile: false });
   await b.send('Network.enable');
-  await seed(b);
+  await seed(b, base, { baseDir: ankiDir, collection, profile: 'User 1' });
   await goto(b, `${base}/decks`);
   await until(b, `document.querySelectorAll('.deck-item').length === 7`, 150);
   const i = await b.evaluate(`[...document.querySelectorAll('.deck-item h3')].findIndex(h => h.textContent === 'Showcase source')`);
