@@ -1,7 +1,6 @@
 'use strict';
 
 const assert = require('node:assert/strict');
-const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 const { test } = require('node:test');
@@ -9,6 +8,7 @@ const { test } = require('node:test');
 const { addMediaFile, mediaDirFor, mediaFileExists } = require('../../lib/collection/media');
 const { anki, buildFixtureCollection, tempDir, withAnkiLibrary } = require('./helpers/anki-python');
 const { Collection } = require('../../lib/collection');
+const { createRandom } = require('../../lib/random');
 
 test('mediaDirFor: derives collection.media from collection.anki2, same directory', () => {
   assert.equal(mediaDirFor('/profile/collection.anki2'), '/profile/collection.media');
@@ -71,7 +71,7 @@ test(
     buildFixtureCollection(collectionPath);
     const col = new Collection(collectionPath);
 
-    const data = crypto.randomBytes(64);
+    const data = createRandom(64).bytes(64);
     const filename = col.addMedia('new-clip.mp3', data);
     assert.equal(filename, 'new-clip.mp3');
 
