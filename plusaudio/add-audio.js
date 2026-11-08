@@ -16,6 +16,7 @@ const { augmentPackage } = require('./lib/augment');
 const { AUDIO_TAG_FORMS } = require('./lib/deck');
 const { UnsupportedPackageError } = require('./lib/package');
 const { createGenerator } = require('./lib/generator');
+const { MISSING_KEY_MESSAGE, geminiOptionsFromEnv } = require('./lib/geminiContext');
 
 const USAGE = `Usage: node add-audio.js <deck.apkg> [options]
 
@@ -86,30 +87,20 @@ async function main(argv) {
   }
 
   let generate = () => {
-    throw new Error('OPENAI_API_KEY and GEMINI_API_KEY are not set');
+    throw new Error('GEMINI_API_KEY is not set');
   };
   if (!dryRun) {
-    // Required lazily so --dry-run and the tests never need the sdk or a key.
-    const OpenAI = require('openai');
     try {
       process.loadEnvFile(path.join(__dirname, '.env'));
     } catch {
       // No .env next to the CLI; the environment is expected to carry the key.
     }
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      process.stderr.write('OPENAI_API_KEY is not set (it checks each clip); use --dry-run to see the plan.\n');
+    const gemini = geminiOptionsFromEnv();
+    if (!gemini.apiKey) {
+      process.stderr.write(`${MISSING_KEY_MESSAGE} (Or use --dry-run to see the plan.)\n`);
       return 1;
     }
-    if (!process.env.GEMINI_API_KEY) {
-      process.stderr.write('GEMINI_API_KEY is not set (it makes the audio, https://aistudio.google.com/apikey); use --dry-run to see the plan.\n');
-      return 1;
-    }
-    generate = createGenerator(new OpenAI({ apiKey }), {
-      geminiApiKey: process.env.GEMINI_API_KEY,
-      geminiApiBase: process.env.GEMINI_API_BASE,
-      log: (line) => console.log(line),
-    });
+    generate = createGenerator({ ...gemini, log: (line) => console.log(line) });
   }
 
   const summary = await augmentPackage({

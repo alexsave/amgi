@@ -8,7 +8,7 @@ import { existingKeySet, normalizeForDedupe } from '../../utils/lyricsParse';
 
 // A deck you can have without paying for one.
 //
-// Everything else amgi makes costs an OpenAI call: a card is a translation
+// Everything else amgi makes costs Gemini calls: a card is a translation
 // plus two recordings, and there is no honest placeholder for either (see
 // cardText.js on why generated text has no safe stub, unlike audio). So
 // somebody who downloads amgi, installs the add-ons and has no key gets a
@@ -62,15 +62,15 @@ function phraseData() {
 }
 
 /**
- * Can a real card be made at all? That takes both keys: OpenAI writes the
- * card text and checks each clip, and Gemini speaks it.
+ * Can a real card be made at all? That takes the one key, GEMINI_API_KEY:
+ * Gemini writes the card text, speaks it and checks each clip.
  *
- * The only thing the browser is ever told about the keys: whether both are
+ * The only thing the browser is ever told about the key: whether one is
  * configured. Never its value, never its length, never a masked form of it -
  * a boolean cannot leak anything, and nothing on the client needs more.
  */
 export function generationAvailable() {
-  return Boolean(process.env.OPENAI_API_KEY && process.env.GEMINI_API_KEY);
+  return Boolean(process.env.GEMINI_API_KEY);
 }
 
 /**

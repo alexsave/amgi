@@ -59,6 +59,17 @@ for (const [rule, cases] of Object.entries(RULES)) {
   });
 }
 
+test('예 after an open syllable sounds like 에, and only there', () => {
+  // Gemini's transcriber wrote 여기 어디에요? for one of eight real clips of 역이 어디예요?.
+  assert.ok(sameSound('역이 어디예요?', '여기 어디에요?'));
+  assert.ok(sameSound('의자예요', '의자에요'));
+  assert.equal(koreanPronunciation('어디예요'), '어디에요');
+  assert.equal(koreanPronunciation('예'), '예', 'a word-initial 예 keeps its glide');
+  assert.ok(!sameSound('예', '에'));
+  assert.ok(!sameSound('시계', '시게'), 'ㅖ after a consonant (계) is outside the rule');
+  assert.equal(koreanPronunciation('책예'), '채계', 'after a consonant the final moves over and 예 keeps its glide');
+});
+
 test('the homophones the rules create compare equal; the transcriber may write either', () => {
   assert.ok(sameSound('낮', '낫'));
   assert.ok(sameSound('같이 가요', '가치 가요'));

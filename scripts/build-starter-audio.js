@@ -6,7 +6,7 @@
 //   node scripts/build-starter-audio.js --check    # report, write nothing
 //
 // The starter deck exists for people who have downloaded amgi and have no
-// OpenAI key - see src/server/anki/starterDeck.js. Everything else in this
+// Gemini key - see src/server/anki/starterDeck.js. Everything else in this
 // repo generates audio on demand and pays for it per clip; this one deck
 // cannot, by definition, so its clips ship with the source. That is the whole
 // reason this script exists as a build step rather than as something the app
@@ -18,9 +18,9 @@
 // starter deck's audio is reused rather than re-recorded if the same sentence
 // is ever generated again with a key configured.
 //
-// Needs GEMINI_API_KEY and OPENAI_API_KEY (in the environment or
-// plusaudio/.env), and costs one Gemini TTS call per missing clip - 180 of
-// them from cold, far past the free tier's 10 per model per day.
+// Needs GEMINI_API_KEY (in the environment or plusaudio/.env), and costs
+// a Gemini TTS call plus its checks per missing clip - 180 of them from
+// cold, far past the free tier's 10 requests per model per day.
 //
 // The clips committed so far are mp3, recorded by OpenAI's TTS before speech
 // moved to Gemini. They still count as recorded; a missing one is recorded

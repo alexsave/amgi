@@ -2,7 +2,6 @@
   "plusaudio_dir": "",
   "node_path": "",
   "gemini_api_key": "",
-  "openai_api_key": "",
   "bridge_enabled": false,
   "bridge_port": 8798,
   "bridge_token": "",

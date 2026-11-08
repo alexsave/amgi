@@ -99,7 +99,7 @@ function createBridgeOps(baseUrl, token) {
         // Reads every note in the deck, so its cost is the deck's size, not
         // this request's. It is also the bulk-add screen's dupe check, whose
         // failure is swallowed by design (BulkRun.js) - timing this one out
-        // does not show an error, it silently pays OpenAI to regenerate
+        // does not show an error, it silently pays Gemini to regenerate
         // cards the deck already has.
         { timeoutMs: OPERATION_TIMEOUT_MS },
       );

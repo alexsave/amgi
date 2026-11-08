@@ -1,7 +1,7 @@
 ## amgi audio fill settings
 
 This add-on generates entirely on your own machine: no amgi account, no hosted service, and no
-quota but your own Gemini and OpenAI accounts'.
+quota but your own Gemini account's.
 It needs three things to do that, and checks all three before a run starts so a bad setting is one
 clear message, not a stall or a traceback partway through.
 
@@ -23,14 +23,11 @@ If Tools > amgi: Fill missing audio... says it cannot find Node, run `which node
 where you know it works and paste that full path in here.
 
 `gemini_api_key`
-Optional, in the same way as `openai_api_key` below, for `GEMINI_API_KEY`.
-Gemini speaks every clip; get a key at https://aistudio.google.com/apikey.
-Its free tier allows 10 speech requests per day per model, so a real deck needs billing enabled
-on the key's Google project.
-
-`openai_api_key`
 Optional.
-If you already export `OPENAI_API_KEY` in the environment Anki itself runs in, or keep it in a
+Gemini speaks every clip and checks it; get a key at https://aistudio.google.com/apikey.
+Its free tier allows 10 requests per day per model, so a real deck needs billing enabled on the
+key's Google project.
+If you already export `GEMINI_API_KEY` in the environment Anki itself runs in, or keep it in a
 `.env` file in your `plusaudio` checkout (the same file `plusaudio/add-audio.js` reads), leave this
 blank and either of those is used.
 Setting it here overrides both, and is stored in this add-on's own config file, in plain text:
@@ -40,7 +37,7 @@ tradeoff `plusaudio/.env` already makes for the same key.
 None of this add-on's earlier Supabase/amgi-account settings (`supabase_url`, `supabase_anon_key`,
 `email`, `password`) exist any more.
 Generation used to go through a deployed edge function and your amgi account's quota; now it runs
-locally against your own Gemini and OpenAI keys, and there is no amgi account or password stored here at all.
+locally against your own Gemini key, and there is no amgi account or password stored here at all.
 
 ## Local HTTP bridge settings
 
@@ -66,7 +63,7 @@ Generated automatically the first time the bridge starts; leave this blank and i
 Every request to the bridge must carry it in an `X-Amgi-Bridge-Token` header, or it is rejected
 before anything it asks for happens - see `bridge_auth.py` for exactly what this does and does not
 defend against. Paste this value into the amgi web UI's own local-bridge settings so it can
-authenticate. Stored in plain text in this add-on's config file, the same tradeoff `openai_api_key`
+authenticate. Stored in plain text in this add-on's config file, the same tradeoff `gemini_api_key`
 above already makes: readable to anything with access to your Anki profile folder, and to nothing
 else.
 

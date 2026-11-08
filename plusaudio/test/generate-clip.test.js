@@ -5,10 +5,10 @@
 // bearing on stdout or stderr. anki/addon/amgi_bridge's test/test_generator.py proves the
 // Python side of the same contract.
 //
-// `run()` is exercised here with a stubbed generator, never a real OpenAI client - there
+// `run()` is exercised here with a stubbed generator, never a real client - there
 // is no API key in this environment and live calls are not authorised. `main()`'s own
 // argument handling and its "no key" failure are exercised too, since both return before
-// ever requiring the `openai` package or touching the network.
+// ever building a client or touching the network.
 
 const assert = require('node:assert/strict');
 const { spawnSync } = require('node:child_process');
@@ -101,14 +101,14 @@ test('main() returns exit code 2 and touches nothing when a required flag is mis
 });
 
 /**
- * Runs main() with exactly `env` set for the two keys (undefined = unset), and
+ * Runs main() with exactly `env` set for the key (undefined = unset), and
  * plusaudio/.env hidden: main() falls back to that real, gitignored file when a
  * variable is unset - the whole point of the fallback for a plain checkout - so
  * "unset" is only unset with it out of the way. See helpers/hide-env.js for why
  * that has to be lock-guarded rather than a plain rename.
  */
 async function mainWithKeys(env, argv) {
-  const names = ['OPENAI_API_KEY', 'GEMINI_API_KEY'];
+  const names = ['GEMINI_API_KEY'];
   const previous = Object.fromEntries(names.map((name) => [name, process.env[name]]));
   const writes = [];
   const realWrite = process.stderr.write;
@@ -138,7 +138,10 @@ async function mainWithKeys(env, argv) {
 
 test('main() returns exit code 1 with an actionable message when GEMINI_API_KEY is unset', async () => {
   const out = tempOutputPath();
-  const { code, stderr } = await mainWithKeys({ OPENAI_API_KEY: 'sk-test' }, ['--text', 'hello', '--language', 'ko', '--out', out]);
+  // An old OpenAI key is no help any more: Gemini is the only provider.
+  process.env.OPENAI_API_KEY = 'sk-old';
+  const { code, stderr } = await mainWithKeys({}, ['--text', 'hello', '--language', 'ko', '--out', out]);
+  delete process.env.OPENAI_API_KEY;
   assert.equal(code, 1);
   assert.equal(fs.existsSync(out), false);
   assert.match(stderr, /GEMINI_API_KEY is not set/);
@@ -146,22 +149,14 @@ test('main() returns exit code 1 with an actionable message when GEMINI_API_KEY 
   assert.equal(stderr.trim().split('\n').length, 1, 'one line: the app shows the last line verbatim');
 });
 
-test('main() returns exit code 1 with an actionable message when OPENAI_API_KEY is unset', async () => {
-  const out = tempOutputPath();
-  const { code, stderr } = await mainWithKeys({ GEMINI_API_KEY: 'g-test' }, ['--text', 'hello', '--language', 'ko', '--out', out]);
-  assert.equal(code, 1);
-  assert.equal(fs.existsSync(out), false);
-  assert.match(stderr, /OPENAI_API_KEY is not set/);
-});
-
 test('main() prints usage and exits 0 on --help without requiring an API key', async () => {
-  const previous = process.env.OPENAI_API_KEY;
-  delete process.env.OPENAI_API_KEY;
+  const previous = process.env.GEMINI_API_KEY;
+  delete process.env.GEMINI_API_KEY;
   try {
     const code = await main(['--help']);
     assert.equal(code, 0);
   } finally {
-    if (previous !== undefined) process.env.OPENAI_API_KEY = previous;
+    if (previous !== undefined) process.env.GEMINI_API_KEY = previous;
   }
 });
 

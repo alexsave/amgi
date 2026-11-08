@@ -7,8 +7,5 @@
   },
   "scripts": {
     "test": "node --test \"test/**/*.test.js\""
-  },
-  "dependencies": {
-    "openai": "^4.79.4"
   }
 }

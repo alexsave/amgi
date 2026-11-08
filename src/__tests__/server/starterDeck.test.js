@@ -8,7 +8,7 @@ import {
   starterState,
 } from '../../server/anki/starterDeck';
 
-// The deck somebody gets when they have no OpenAI key.
+// The deck somebody gets when they have no Gemini key.
 //
 // The invariant worth guarding here is the parallel one: index i is the same
 // concept in every language. That is what lets eighteen lists of ten cover
@@ -73,39 +73,37 @@ describe('the starter phrase data', () => {
 });
 
 describe('what the app is told about the key', () => {
-  const saved = process.env.OPENAI_API_KEY;
-  const savedGemini = process.env.GEMINI_API_KEY;
+  const saved = process.env.GEMINI_API_KEY;
   afterEach(() => {
-    if (saved === undefined) delete process.env.OPENAI_API_KEY;
-    else process.env.OPENAI_API_KEY = saved;
-    if (savedGemini === undefined) delete process.env.GEMINI_API_KEY;
-    else process.env.GEMINI_API_KEY = savedGemini;
+    if (saved === undefined) delete process.env.GEMINI_API_KEY;
+    else process.env.GEMINI_API_KEY = saved;
   });
 
-  it('reports only whether the keys exist, never anything derived from them', () => {
-    process.env.OPENAI_API_KEY = 'sk-something-secret';
+  it('reports only whether the key exists, never anything derived from it', () => {
     process.env.GEMINI_API_KEY = 'gemini-something-secret';
     expect(generationAvailable()).toBe(true);
     expect(JSON.stringify(starterState())).not.toContain('secret');
   });
 
-  it('does not offer the starter deck when both keys are configured', () => {
-    process.env.OPENAI_API_KEY = 'sk-something';
+  it('does not offer the starter deck when the key is configured', () => {
     process.env.GEMINI_API_KEY = 'gemini-something';
     expect(starterState().offered).toBe(false);
   });
 
-  it('cannot make a card with only one of the two keys', () => {
-    process.env.OPENAI_API_KEY = 'sk-something';
+  it('an old OpenAI key alone makes no cards: Gemini is the one key now', () => {
     delete process.env.GEMINI_API_KEY;
-    expect(generationAvailable()).toBe(false);
-    delete process.env.OPENAI_API_KEY;
-    process.env.GEMINI_API_KEY = 'gemini-something';
-    expect(generationAvailable()).toBe(false);
+    const savedOpenAI = process.env.OPENAI_API_KEY;
+    process.env.OPENAI_API_KEY = 'sk-old';
+    try {
+      expect(generationAvailable()).toBe(false);
+    } finally {
+      if (savedOpenAI === undefined) delete process.env.OPENAI_API_KEY;
+      else process.env.OPENAI_API_KEY = savedOpenAI;
+    }
   });
 
   it('offers it when there is no key', () => {
-    delete process.env.OPENAI_API_KEY;
+    delete process.env.GEMINI_API_KEY;
     // Guarded on the clips actually being present, so this test says
     // something about the offer rather than about a half-built checkout.
     if (starterLanguages().length > 1) expect(starterState().offered).toBe(true);
@@ -113,11 +111,11 @@ describe('what the app is told about the key', () => {
 });
 
 describe('building one', () => {
-  const saved = process.env.OPENAI_API_KEY;
-  beforeEach(() => { delete process.env.OPENAI_API_KEY; });
+  const saved = process.env.GEMINI_API_KEY;
+  beforeEach(() => { delete process.env.GEMINI_API_KEY; });
   afterEach(() => {
-    if (saved === undefined) delete process.env.OPENAI_API_KEY;
-    else process.env.OPENAI_API_KEY = saved;
+    if (saved === undefined) delete process.env.GEMINI_API_KEY;
+    else process.env.GEMINI_API_KEY = saved;
   });
 
   const pair = () => {

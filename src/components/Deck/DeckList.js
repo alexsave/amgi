@@ -97,7 +97,7 @@ const DeckList = () => {
           with a Default deck, so a brand new install usually has one deck
           already and never sees "create your first deck" at all.
 
-          It renders nothing whenever an OpenAI key is configured, which is
+          It renders nothing whenever a Gemini key is configured, which is
           what keeps it from being clutter. Without a key there is nothing
           else in this app a person can do, so a second starter deck - a
           different pair of languages - is a real offer rather than a repeat
