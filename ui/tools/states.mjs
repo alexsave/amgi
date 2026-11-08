@@ -28,7 +28,7 @@ const check = (ok, what) => {
   console.log(`${ok ? 'ok  ' : 'FAIL'} ${what}`);
   if (!ok) failures.push(what);
 };
-const sh = (cmd, args) => execFileSync(cmd, args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+const sh = (cmd, args) => execFileSync(cmd, args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
 // A folder as one profile, "User 1", from the UI fixture; installed fully, add-ons only, or not at all.
 function folder(dirName, install) {
   const dir = sh(path.join(here, 'flows.sh'), [path.join(root, '.e2e', 'fixture'), path.join(work, dirName)]);
@@ -96,6 +96,7 @@ try {
   await sleep(300);
   await shot(b, '40-ready');
   await b.close();
+  b = null;
 
   // 2. Installed, the card type not in the collection yet.
   const behind = bareFolder('state-behind');
@@ -112,6 +113,7 @@ try {
   const hint = await b.evaluate(`document.querySelector('.card-form-hint')?.textContent`);
   check(/Restart Anki once and it will add the “amgi Listening” card type/.test(hint || ''), `card type missing: the deck's form says Anki adds it (${hint})`);
   await b.close();
+  b = null;
 
   // 3. Anki locked: a real lock on the collection.
   const locked = folder('state-locked', 'all');
@@ -127,6 +129,7 @@ try {
     await sleep(300);
     await shot(b, '42-locked');
     await b.close();
+    b = null;
   } finally {
     await holder.release();
   }
@@ -142,6 +145,7 @@ try {
   await sleep(300);
   await shot(b, '43-no-profile');
   await b.close();
+  b = null;
 
   // 5. No Anki folder at all.
   b = await open({ base: path.join(work, 'state-nowhere') });
@@ -153,6 +157,9 @@ try {
   await shot(b, '44-no-folder');
   await b.close();
   b = null;
+} catch (error) {
+  failures.push(`the drive stopped: ${error.stack || error}`);
+  console.log(`FAIL the drive stopped: ${error.stack || error}`);
 } finally {
   clearTimeout(watchdog);
   if (b) await b.close();
