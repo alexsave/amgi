@@ -7,13 +7,13 @@
 //
 // Every /api/anki answer and request body crosses in amgi's wire format (ui/wire/wire.h): the
 // handler's answer object is written by the kind ROUTES names, and a body is read into the object
-// the handler's request.json() returns. There is no JSON on this path.
+// the handler reads with bodyOf (src/server/anki/answer.js). There is no JSON on this path.
 import './hooks.mjs';
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { ANSWER } from '../../src/server/anki/answer.js';
+import { ANSWER, withBody } from '../../src/server/anki/answer.js';
 import { WIRE_MIME, decode, encode } from './wire.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -113,8 +113,8 @@ async function api(req, res, url) {
     method: req.method,
     headers: Object.entries(req.headers).flatMap(([k, v]) => (Array.isArray(v) ? v.map((x) => [k, x]) : [[k, v]])),
   });
-  // What the handlers read a body with: the object the wire body decoded to.
-  request.json = async () => body ?? {};
+  // What the handlers read with bodyOf: the object the wire body decoded to.
+  if (body) withBody(request, body);
   const response = await handler(request, { params: Promise.resolve(found.params) });
   if (!(ANSWER in response)) {
     // Not an object answer (a clip's bytes from /media): passed through as it is.

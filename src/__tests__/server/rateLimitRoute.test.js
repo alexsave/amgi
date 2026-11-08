@@ -6,7 +6,7 @@
 
 import { beforeEach, mock, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ANSWER } from '../../server/anki/answer';
+import { ANSWER, withBody } from '../../server/anki/answer';
 import { DailyCapError, RateLimitedError } from '../../server/anki/plusaudioCli';
 import { sharedGate } from 'plusaudio/lib/rateGate';
 import { MAX_WAIT_MS } from 'plusaudio/lib/rateLimits';
@@ -19,10 +19,8 @@ mock.module(at('transport'), { namedExports: { resolveTransport: async () => ({ 
 mock.module(at('cardText'), { namedExports: { generateCardTextAndAudio } });
 const { POST } = await import('../../server/api/anki/card-text/route');
 
-const post = () => POST(new Request('http://localhost/api/anki/card-text', {
-  method: 'POST',
-  body: JSON.stringify({ userInput: 'Where is the station?', knownLanguage: 'en', learningLanguage: 'ko' }),
-}));
+const post = () => POST(withBody(new Request('http://localhost/api/anki/card-text', { method: 'POST' }),
+  { userInput: 'Where is the station?', knownLanguage: 'en', learningLanguage: 'ko' }));
 
 // Each test that needs the gate open uses a model name no other test blocked;
 // the gate is the server's one instance, exactly as the route sees it.
