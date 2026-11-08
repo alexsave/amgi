@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { test } = require('node:test');
 
-const { anki, buildFixtureCollection, fixtureApkg, tempDir, withAnkiLibrary } = require('./helpers/anki-python');
+const { anki, buildFixtureCollection, buildSharedDeckPackage, tempDir, withAnkiLibrary } = require('./helpers/anki-python');
 const { Collection } = require('../../lib/collection');
 const { normalizeComponent } = require('../../lib/collection/decks');
 
@@ -93,17 +93,19 @@ test(
 );
 
 test(
-  'createDeck against the real fixture deck: nested Korean deck names, non-ASCII throughout',
-  { skip: (!anki || !fixtureApkg) && 'requires ANKI_PYTHON_BIN and ANKI_FIXTURE_APKG' },
+  'createDeck beside an imported shared deck: nested Korean deck names, non-ASCII throughout',
+  { skip: !anki && 'no python3 with the anki library on PATH (set ANKI_PYTHON_BIN)' },
   () => {
     for (const downgradeToSchema11 of [false, true]) {
       const dir = tempDir();
       const collectionPath = path.join(dir, 'collection.anki2');
-      buildFixtureCollection(collectionPath, { importApkg: true, downgradeToSchema11 });
+      const apkg = path.join(dir, 'shared.apkg');
+      buildSharedDeckPackage(apkg);
+      buildFixtureCollection(collectionPath, { importApkg: apkg, downgradeToSchema11 });
 
       const col = new Collection(collectionPath);
-      const decks = col.listDecks().result;
-      assert.ok(decks.some((d) => d.name.includes('Retro')), 'the real deck was imported');
+      const names = col.listDecks().result.map((d) => d.name);
+      assert.ok(names.includes("Retro's Korean::문장::일상"), `the shared deck was imported: ${names}`);
 
       const created = col.createDeck('Korean::문장::New Practice');
       assert.equal(created.result.created, true);
@@ -113,6 +115,8 @@ test(
         `
 did = col.decks.id("Korean::문장::New Practice", create=False)
 assert did == ${created.result.deck.id}
+assert col.db.scalar("select count() from notes") == 4, "the fixture's note and the package's three"
+assert col.media.have("retro-clip.mp3"), "the package's clip came with it"
 problems = col.fix_integrity()
 print("INTEGRITY:", problems.problems if hasattr(problems, "problems") else problems)
 `,

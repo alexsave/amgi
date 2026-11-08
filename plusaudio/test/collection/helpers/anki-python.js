@@ -52,10 +52,49 @@ function tempDir(prefix = 'anki-collection-test-') {
 }
 
 /**
+ * Write a small shared-deck package to `apkgPath`, made and exported by Anki itself, shaped like
+ * the decks people download: a custom note type whose name has an apostrophe ("Retro's
+ * sentences": Korean, Audio, Sort), nested decks with Korean names ("Retro's Korean::문장::일상"),
+ * notes with [sound:] references and the clip they name, exported with its media. The tests that need "a real package to import" build this one, so they never depend
+ * on a deck the person running them happens to have.
+ */
+function buildSharedDeckPackage(apkgPath) {
+  const script = `
+import os, sys, tempfile
+from anki.collection import Collection, ExportAnkiPackageOptions, DeckIdLimit
+out = sys.argv[1]
+work = tempfile.mkdtemp()
+col = Collection(os.path.join(work, "collection.anki2"))
+mm = col.models
+nt = mm.new("Retro's sentences")
+for name in ["Korean", "Audio", "Sort"]:
+    mm.add_field(nt, mm.new_field(name))
+t = mm.new_template("Listen")
+t["qfmt"] = "{{Audio}}"
+t["afmt"] = "{{FrontSide}}<hr id=answer>{{Korean}}"
+mm.add_template(nt, t)
+mm.set_sort_index(nt, 2)
+mm.add(nt)
+nt = mm.by_name("Retro's sentences")
+top = col.decks.id("Retro's Korean")
+leaf = col.decks.id("Retro's Korean::문장::일상")
+clip = col.media.write_data("retro-clip.mp3", b"ID3 not really audio")
+for i, text in enumerate(["안녕하세요", "감사합니다", "역이 어디예요?"]):
+    n = col.new_note(nt)
+    n["Korean"], n["Audio"], n["Sort"] = text, "[sound:%s]" % clip, "%02d" % i
+    col.add_note(n, leaf if i else top)
+col.export_anki_package(out_path=out, limit=DeckIdLimit(deck_id=top),
+    options=ExportAnkiPackageOptions(with_scheduling=False, with_deck_configs=True, with_media=True, legacy=True))
+col.close()
+`;
+  runPython(script, [apkgPath]);
+}
+
+/**
  * Build a fresh collection at `collectionPath` (schema 18, as any current
  * Anki writes), seeded with a couple of decks/notes so tests have something
- * pre-existing to check against, and optionally importing the real
- * ANKI_FIXTURE_APKG deck. Returns nothing; inspect the file afterwards.
+ * pre-existing to check against, and optionally importing a package:
+ * `importApkg: true` for ANKI_FIXTURE_APKG, or a path (buildSharedDeckPackage's). Returns nothing; inspect the file afterwards.
  */
 function buildFixtureCollection(collectionPath, { importApkg = false, downgradeToSchema11 = false } = {}) {
   const script = `
@@ -77,7 +116,8 @@ col.import_anki_package(ImportAnkiPackageRequest(package_path=sys.argv[2]))
 }
 col.close(downgrade=${downgradeToSchema11 ? 'True' : 'False'})
 `;
-  const args = importApkg ? [collectionPath, fixtureApkg] : [collectionPath];
+  // importApkg: true imports ANKI_FIXTURE_APKG (the e2e fixture's seed); a path imports that package.
+  const args = importApkg ? [collectionPath, typeof importApkg === 'string' ? importApkg : fixtureApkg] : [collectionPath];
   runPython(script, args);
 }
 
@@ -131,6 +171,7 @@ print("RELEASED", flush=True)
 module.exports = {
   anki,
   buildFixtureCollection,
+  buildSharedDeckPackage,
   fixtureApkg,
   holdCollectionOpen,
   runPython,

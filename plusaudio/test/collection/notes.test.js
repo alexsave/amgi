@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { test } = require('node:test');
 
-const { anki, buildFixtureCollection, fixtureApkg, tempDir, withAnkiLibrary } = require('./helpers/anki-python');
+const { anki, buildFixtureCollection, buildSharedDeckPackage, tempDir, withAnkiLibrary } = require('./helpers/anki-python');
 const { Collection } = require('../../lib/collection');
 
 function setUp(schema) {
@@ -120,18 +120,21 @@ assert ${added.noteId} in found, "search index (sfld) was not updated to match t
 }
 
 test(
-  'addNote against the real fixture: a custom note type ("Retro\'s sentences") with an apostrophe in its name',
-  { skip: (!anki || !fixtureApkg) && 'requires ANKI_PYTHON_BIN and ANKI_FIXTURE_APKG' },
+  'addNote with an imported shared deck\'s note type ("Retro\'s sentences"), an apostrophe in its name',
+  { skip: !anki && 'no python3 with the anki library on PATH (set ANKI_PYTHON_BIN)' },
   () => {
     const dir = tempDir();
     const collectionPath = path.join(dir, 'collection.anki2');
-    buildFixtureCollection(collectionPath, { importApkg: true });
+    const apkg = path.join(dir, 'shared.apkg');
+    buildSharedDeckPackage(apkg);
+    buildFixtureCollection(collectionPath, { importApkg: apkg });
     const col = new Collection(collectionPath);
 
     const notetypes = col.listNotetypes().result;
-    const retro = notetypes.find((n) => n.name.includes('Retro'));
-    assert.ok(retro, 'the real note type was imported');
-    assert.equal(retro.fieldNames.length, 3);
+    const retro = notetypes.find((n) => n.name === "Retro's sentences");
+    assert.ok(retro, 'the shared note type was imported');
+    assert.deepEqual(retro.fieldNames, ['Korean', 'Audio', 'Sort']);
+    assert.equal(retro.sortFieldIndex, 2);
 
     const deck = col.createDeck('Korean::문장::Fresh Cards').result.deck;
     const added = col.addNote({
