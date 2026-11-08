@@ -142,7 +142,25 @@ Export, generate, import.
 Node 24.12, 25.1 or 26 and later, which is what `engines` says.
 The floor is `node:sqlite`'s `enableDefensive`, needed to read a modern collection's `unicase` collation, and type stripping, which runs the shared generator's TypeScript with no build step.
 `enableDefensive` landed in 25.1.0 and was backported to 24.12.0, so 25.0.x is out while 24.12 and later is in - hence the three ranges rather than one `>=`.
-No native builds and no runtime dependencies at all: every model call goes to Google's Gemini API over Node's own `fetch`, through `lib/cardGeneration/gemini.ts`, so `--dry-run` and the tests need no key and no package.
+No native builds and no runtime dependencies at all: every model call goes to Google's Gemini API through `lib/cardGeneration/gemini.ts`, so `--dry-run` and the tests need no key and no package.
+
+## Talking to Gemini
+
+The client speaks gRPC to `generativelanguage.googleapis.com:443` (`google.ai.generativelanguage.v1beta.GenerativeService/GenerateContent`), with the key in the `x-goog-api-key` metadata.
+It runs on Node's own `node:http2`, and the protobuf messages are a hand-written subset in [`lib/cardGeneration/geminiWire.ts`](lib/cardGeneration/geminiWire.ts), encoded with the same primitives as the package metadata above.
+Nothing on the wire is JSON, and audio goes both ways as raw bytes: one TTS clip of 83 KB was 83 KB on the wire, against 116 KB of base64 JSON over REST.
+A request field that `geminiWire.ts` does not declare is refused before anything is sent, rather than silently dropped.
+
+The subset is hand-written rather than generated because Google's published protos lag the live service: their `ThinkingConfig` has no `thinking_level`, the one generation setting amgi relies on.
+Its field number (4) and enum values were confirmed against the live service, and the header of `geminiWire.ts` lists what was verified and how.
+A gRPC runtime (`@grpc/grpc-js` with `protobufjs`, about 7 MB) would also end the zero-dependency rule for a dozen small messages.
+
+Errors arrive as a gRPC status with `google.rpc` details in `grpc-status-details-bin`.
+A spent quota is `RESOURCE_EXHAUSTED` with a `QuotaFailure` (whose `quotaId` says per day or per minute) and a `RetryInfo`.
+Codes that Google maps to an HTTP 4xx are fatal and the rest are retried, the same split the REST client made.
+
+`GEMINI_API_BASE` points the CLIs at another server; an `http://` address is spoken to as cleartext HTTP/2.
+`node test/helpers/fake-gemini.js [port]` starts the tests' fake gRPC server on its own, answering every kind of request with a passing default, and prints the `GEMINI_API_BASE` to use.
 
 ## Tests
 

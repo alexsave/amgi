@@ -126,7 +126,12 @@ async function fakeGemini(script = {}, { port = 0 } = {}) {
   const counts = {};
   const server = http2.createServer();
   // Neither the listener nor a connection keeps a test process alive.
-  server.on('session', (session) => session.unref());
+  const sessions = new Set();
+  server.on('session', (session) => {
+    session.unref();
+    sessions.add(session);
+    session.on('close', () => sessions.delete(session));
+  });
   server.on('stream', (stream, headers) => {
     const chunks = [];
     stream.on('data', (chunk) => chunks.push(chunk));
@@ -159,7 +164,10 @@ async function fakeGemini(script = {}, { port = 0 } = {}) {
   await new Promise((resolve) => server.listen(port, '127.0.0.1', resolve));
   server.unref();
   const of = (kind) => requests.filter((request) => request.kind === kind);
-  const close = () => new Promise((resolve) => server.close(() => resolve()));
+  const close = () => new Promise((resolve) => {
+    server.close(() => resolve());
+    for (const session of sessions) session.destroy();
+  });
   return { baseUrl: `http://127.0.0.1:${server.address().port}`, requests, of, close, server };
 }
 
