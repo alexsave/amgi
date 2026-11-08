@@ -17,6 +17,9 @@
 # one Node is built with (process.versions.icu, 78 today), so case folding, NFC and script lookups
 # answer exactly as the Node code they replace did: on macOS Homebrew's icu4c@78.
 CBASE := ../cbase
+ifeq ($(wildcard $(CBASE)/cbase.mk),)
+  $(error the cbase submodule is not checked out (server/../cbase): git submodule update --init --recursive)
+endif
 C_ROOT := ..
 CBASE_PROVIDERS := local
 APP_SERVE := amgi
@@ -25,6 +28,10 @@ APP_SRC_ROOTS := app
 APP_INC := -I../ui/wire
 ICU_MAJOR ?= 78
 ifeq ($(shell uname -s),Darwin)
+  OPENSSL_PREFIX ?= $(shell brew --prefix openssl@3 2>/dev/null)
+  ifeq ($(wildcard $(OPENSSL_PREFIX)/include/openssl/evp.h),)
+    $(error no Homebrew OpenSSL 3 (OPENSSL_PREFIX='$(OPENSSL_PREFIX)'): brew install openssl@3)
+  endif
   ICU_PREFIX ?= $(shell brew --prefix icu4c@$(ICU_MAJOR) 2>/dev/null)
   ifeq ($(wildcard $(ICU_PREFIX)/include/unicode/uchar.h),)
     $(error no Homebrew ICU $(ICU_MAJOR) (ICU_PREFIX='$(ICU_PREFIX)'): brew install icu4c@$(ICU_MAJOR))
