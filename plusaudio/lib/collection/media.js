@@ -88,6 +88,37 @@ function addMediaFile(mediaDir, desiredName, data) {
   return filename;
 }
 
+/**
+ * Write a file whose NAME is fixed because something else refers to it by
+ * name, replacing whatever is there if its bytes differ.
+ *
+ * addMediaFile is the wrong call for these: handed a name that exists with
+ * different bytes it keeps both and returns a hash-suffixed name, which is
+ * right for a note's attachment (the caller stores the returned name) and
+ * wrong for a file like _amgi-loop.js that a template loads by its literal
+ * name - the card would keep loading the stale one. See the add-on's
+ * _write_media in anki/addon/amgi_bridge/notetype.py, which writes the same
+ * way for the same reason. A file already holding the same bytes is not
+ * rewritten, so a current install does no media work (AnkiWeb has to send
+ * every media write).
+ *
+ * @returns true if the file was written
+ */
+function writeFixedNameMedia(mediaDir, name, data) {
+  if (name !== path.basename(name) || name === '.' || name === '..') {
+    throw new Error(`refusing to write media outside the media folder: ${name}`);
+  }
+  fs.mkdirSync(mediaDir, { recursive: true });
+  const full = path.join(mediaDir, name);
+  try {
+    if (Buffer.compare(fs.readFileSync(full), data) === 0) return false;
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+  }
+  fs.writeFileSync(full, data);
+  return true;
+}
+
 /** The collection.media/ folder for a given collection.anki2 path. */
 function mediaDirFor(collectionPath) {
   return `${collectionPath.replace(/\.anki2$/, '')}.media`;
@@ -130,4 +161,4 @@ function readMediaFile(mediaDir, filename) {
   }
 }
 
-module.exports = { addMediaFile, mediaDirFor, mediaFileExists, normalizeFilename, readMediaFile };
+module.exports = { addMediaFile, mediaDirFor, mediaFileExists, normalizeFilename, readMediaFile, writeFixedNameMedia };

@@ -11,6 +11,7 @@ const { openCollection } = require('./open');
 const { ensureBackupBeforeChange, noteCollectionWritten, readCollectionMark } = require('./backup');
 const { listDecks, renameDeck, resolveOrCreateDeck } = require('./decks');
 const { readNotetypes } = require('./notetypes');
+const { createNotetype } = require('./notetype-write');
 const {
   addNote,
   addNotesBulk,
@@ -20,7 +21,7 @@ const {
   updateNoteFields,
   removeNote,
 } = require('./notes');
-const { addMediaFile, mediaDirFor, mediaFileExists, readMediaFile } = require('./media');
+const { addMediaFile, mediaDirFor, mediaFileExists, readMediaFile, writeFixedNameMedia } = require('./media');
 const { withCollection } = require('./open');
 
 /**
@@ -76,6 +77,26 @@ class Collection {
 
   createDeck(humanName) {
     return this._withBackup(() => resolveOrCreateDeck(this.path, humanName));
+  }
+
+  /**
+   * Create a note type (schema 18), unless one with that name exists - see
+   * notetype-write.js for what that does and does not cover next to the
+   * add-on's own writer. `media` is {name: Buffer} of fixed-name files the
+   * note type's templates load by name, written into collection.media/.
+   * They are written after the rows, so a failed create leaves no orphan
+   * files, and only when the note type really was created: an existing one
+   * belongs to the add-on, which owns keeping its media current.
+   */
+  createNotetype(spec, media = {}, options) {
+    return this._withBackup(() => {
+      const outcome = createNotetype(this.path, spec, options);
+      if (outcome.status === 'ok' && outcome.result.created) {
+        const dir = mediaDirFor(this.path);
+        for (const [name, data] of Object.entries(media)) writeFixedNameMedia(dir, name, data);
+      }
+      return outcome;
+    });
   }
 
   addNote(note) {
