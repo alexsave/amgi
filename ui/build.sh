@@ -35,18 +35,13 @@ nice -n 10 "$CC" "${WFLAGS[@]}" -I"$CDOM/src" "${LFLAGS[@]}" -o "$out/app.wasm" 
   "$CDOM/src/mini.c"
 opt "$out/app.wasm"
 
-# The stylesheet: what the React app links for these screens, file for file, in its order (the
-# layout's, AppShell's chunk, the decks page's chunk, the settings page's, the deck page's).
-css=(src/index.css src/App.css
-  src/components/Navigation/Navbar.css src/components/Setup/TemplateUpdate.css
-  src/components/Deck/DeckItem.css src/components/Deck/DeckList.css
-  src/components/Setup/FirstRun.css src/components/Setup/StarterDeck.css
-  src/components/Settings/Settings.css
-  src/components/Card/AudioChip.css src/components/Card/BulkRun.css src/components/Card/CardForm.css
-  src/components/Card/CardPanel.css src/components/Card/CardList.css
-  ui/src/confirm.css)
+# The stylesheet: ui/css's files, kept as the React app's components had them, in the order that app
+# loaded them (its layout, its shell, the decks page, settings, the deck page), then the one sheet
+# the C UI adds (confirm.css, for the <dialog> that replaced window.confirm).
+css=(index.css App.css Navbar.css TemplateUpdate.css DeckItem.css DeckList.css FirstRun.css StarterDeck.css
+  Settings.css AudioChip.css BulkRun.css CardForm.css CardPanel.css CardList.css confirm.css)
 : > "$out/app.css"
-for f in "${css[@]}"; do cat "$root/$f" >> "$out/app.css"; printf '\n' >> "$out/app.css"; done
+for f in "${css[@]}"; do cat "$here/css/$f" >> "$out/app.css"; printf '\n' >> "$out/app.css"; done
 
 # The page: the shim minified and inlined.
 "$root/node_modules/.bin/terser" "$CDOM/shim/cdom.js" -c passes=2 -m -o "$out/cdom.min.js"
