@@ -4,7 +4,7 @@
 // real Anki collection through bridge_ops.py - see that file's own comment
 // for exactly what "real" means here) with real HTTP requests, to prove the
 // token and Origin rules bridge_auth.py enforces - the same rules
-// src/server/anki/bridgeClient.js's requests have to satisfy - against
+// server/collection/bridge.c's requests have to satisfy - against
 // actual bytes on a socket, not a mock of either side.
 //
 //   node .claude/skills/e2e-ui/scripts/fixture.js .e2e/fixture
@@ -67,7 +67,7 @@ async function check(label, response, expectedStatus) {
   }
 
   // The bridge's bodies are amgi's wire format; ui/build.sh builds the walkers this reads them with.
-  const { BRIDGE_PROTOCOL, WIRE_MIME, decode, encode } = await import(path.join(__dirname, '..', '..', '..', '..', 'ui', 'server', 'wire.mjs'));
+  const { BRIDGE_PROTOCOL, WIRE_MIME, decode, encode } = await import(path.join(__dirname, '..', '..', '..', '..', 'ui', 'wire', 'wire.mjs'));
   const PROTOCOL = { [PROTOCOL_HEADER]: String(BRIDGE_PROTOCOL) };
   const server = startServer(collectionPath);
   const port = await server.ready;
