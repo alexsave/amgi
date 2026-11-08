@@ -36,7 +36,7 @@ const path = require('node:path');
 // normalize. This does not reproduce every Windows-reserved-name and
 // length-truncation rule that file does; those exist to protect Anki's own
 // sync protocol's filename limits, and a plusaudio-generated clip name
-// (plusaudio-<hex>.mp3, see audio-store.js) never comes close to needing them.
+// (plusaudio-<hex>.wav, see audio-store.js) never comes close to needing them.
 function normalizeFilename(desiredName) {
   const base = path.basename(desiredName).normalize('NFC');
   const cleaned = [...base].filter((ch) => ch.codePointAt(0) > 0x1f && ch.codePointAt(0) !== 0x7f).join('');

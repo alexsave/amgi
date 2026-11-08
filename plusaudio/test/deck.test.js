@@ -152,6 +152,17 @@ describe('media names', () => {
     assert.ok(!isOwnedMediaName('1-1-13-1.mp3'));
     assert.ok(!isOwnedMediaName('paste-abc.jpg'));
   });
+
+  it('a mixed deck: an older mp3 clip of ours is replaced by the new wav, never kept beside it', () => {
+    const oldClip = mediaName('안녕', 'ko', 'mp3');
+    const newClip = mediaName('안녕하세요', 'ko');
+    assert.ok(isOwnedMediaName(oldClip));
+    assert.match(newClip, /\.wav$/);
+    assert.equal(
+      setOwnedAudio(`[sound:author.mp3]<audio src="${oldClip}"></audio>`, newClip, isOwnedMediaName, 'html'),
+      `[sound:author.mp3]<audio src="${newClip}"></audio>`,
+    );
+  });
 });
 
 describe('field resolution', () => {
