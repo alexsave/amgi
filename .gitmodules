@@ -3,4 +3,4 @@
 	url = https://github.com/alexsave/cdom.git
 [submodule "cbase"]
 	path = cbase
-	url = git@github.com:alexsave/cbase.git
+	url = https://github.com/alexsave/cbase.git
