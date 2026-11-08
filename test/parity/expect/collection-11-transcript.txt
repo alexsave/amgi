@@ -300,6 +300,10 @@ ok <D19> Doomed%3A%3ASub 1
 ok <N24> <guid> [<C27>] !
 > addNote <D19> 1794170430302 [sep%1Fin%20field,x] [] ! !
 ok <N25> <guid> [<C28>] !
+> listNotesInDeck <D19> 0 50
+ok 0 50 0 2
+<N24> 1794170430302 [doomed,x] []
+<N25> 1794170430302 [sep,in%20field,x] []
 > removeDeck <D20>
 ok <D20> Doomed 2 2 2
 > listDecks
