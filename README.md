@@ -19,11 +19,13 @@ You need:
   Open it once so it creates a profile, then quit it.
 - **Node** 24.12, 25.1, or 26 and later (`node --version`).
   25.0.x does not work.
+- **LLVM's clang**, for the page, which is C built to WebAssembly (`brew install llvm`; Apple's clang has no WebAssembly target).
+  `brew install binaryen brotli` is optional: a smaller build, and its sizes in the build's last line.
 - **A Gemini API key** from [aistudio.google.com/apikey](https://aistudio.google.com/apikey).
   The free tier allows 10 requests per day per model, and a card needs five to seven, so enable billing on the key's project for real use.
 
 ```bash
-git clone <this repo> amgi && cd amgi
+git clone --recurse-submodules <this repo> amgi && cd amgi
 npm install
 ```
 
@@ -33,10 +35,10 @@ Put the key in a file called `.env.local` at the top of the repo:
 GEMINI_API_KEY=...
 ```
 
-Then start it:
+Then build it and start it:
 
 ```bash
-npm run dev
+npm start
 ```
 
 1. Open <http://localhost:3000> and press **Install into Anki**.
@@ -91,27 +93,43 @@ See [plusaudio/README.md](plusaudio/README.md) for the options.
 ## Development
 
 ```bash
-npm run dev     # http://localhost:3000
+npm start       # builds ui/out, then serves http://localhost:3000 (PORT=0 takes a free port)
 npm run lint
-npm test        # jest, plusaudio and anki node:test suites, add-on Python tests
-npm run build
-npm start
+npm test        # builds, then the node:test suites (server, plusaudio, anki, ui) and the add-on's Python tests
+npm run e2e     # builds, then every browser drive against fresh servers (see .claude/skills/e2e-ui)
 ```
 
-`dev` and `build` pass `--webpack` because Turbopack cannot yet resolve `plusaudio`'s `node:sqlite` through an externalized workspace package (see `next.config.js`).
-
-`.claude/skills/e2e-ui/` runs the app against a fixture Anki collection and drives it with `puppeteer-core`.
+The page is C, compiled to WebAssembly by `ui/build.sh`, on [cdom](https://github.com/alexsave/cdom) (the submodule at `cdom/`): the C owns the DOM, one call per change, and there is no JavaScript framework.
+The server is one plain Node HTTP server, `ui/server/serve.mjs`, that serves the page and runs the `/api/anki` routes.
+`.claude/skills/e2e-ui/` and `ui/tools/` drive the app in headless Chrome against a fixture Anki collection.
 `anki/test/harness/drive.js` does the same for the card template.
 
 ```
-src/app/         Next.js routes, including /api/anki/*
-src/components/  Deck list, deck view, card form, settings
-src/contexts/    DeckContext, backed by whichever transport is live
-src/server/anki/ Server-only transport, resolved on every request
-src/utils/       API client, shared review loop and voice-activity detection
+ui/src/          The page, in C: decks, deck view, card form and panel, bulk run, settings, first run
+ui/css/          Its stylesheets
+ui/wire/         The wire format between the page and the server
+ui/server/       The HTTP server
+ui/tools/        Browser drives and their fixture
+ui/test/         Tests of the C against what it must agree with
+src/server/      The /api/anki routes and the server-only transport, resolved on every request
+src/utils/       The review loop and voice-activity detection the card template shares
 plusaudio/       CLI for .apkg files and the card generation policy (lib/cardGeneration/)
 anki/            Card template plus the mic and bridge add-ons
-skills/amgi/     Agent skill: how an LLM runs and drives amgi
+skills/amgi/     Agent skill: how an LLM runs and drives amgi (linked from .claude/skills, beside e2e-ui)
 ```
+
+### The app's API
+
+Everything the page and the server say to each other is in amgi's wire format, so a second server (in C, say) could be written from these four things alone, and the page would not change.
+
+- **Layouts**: `ui/wire/wire.h` describes the bytes (little-endian, length-prefixed UTF-8 strings, counted lists, a `AMW2` magic and a kind byte per message).
+  `ui/wire/wire.c` holds the one schema table: each kind's fields in order, their types and their names.
+  The page's C and the Node server both walk that table, so there is no second copy of a layout.
+  Every answer is `application/x-amgi-wire`, and a request body must be sent as that type.
+- **Routes**: `ROUTES` in `ui/server/serve.mjs` names, for each method and path under `/api/anki/`, the kind of its request body and of its answer.
+  Any 4xx or 5xx answer is the `error` kind.
+- **Settings**: every request carries the five `X-Amgi-*` headers from `src/server/anki/settings.js` (Anki folder, collection, profile, bridge address and token), each percent-encoded.
+- **Rate limits**: a refused Gemini call is a 429 `error` with `retryAfterMs` (wait, then the same request again), `notStarted` (nothing was done), `dailyCap` (nothing will work until the daily cap resets) and `maxWaitMs` (the longest wait worth making).
+  The generator scripts report the same two cases as exit codes 3 (rate limited, the wait on stdout) and 4 (daily cap), from `plusaudio/lib/cliExit.js`.
 
 See [ROADMAP.md](ROADMAP.md) for what is still open.

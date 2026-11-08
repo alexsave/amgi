@@ -5,23 +5,24 @@ description: Use amgi to build speaking-practice Anki decks - run the app, make 
 
 # Using amgi
 
-amgi is one Next.js app in this repo.
+amgi is one app in this repo: a page written in C (built to WebAssembly on cdom) and a plain Node server, `ui/server/serve.mjs`.
 Its server reads and writes the user's real Anki collection, directly from `collection.anki2` when Anki is closed, or through the `amgi_bridge` add-on's local HTTP server when Anki is open.
 Card text, speech and the check that each clip says what the card says all come from Google Gemini, with the user's own key.
 There is no login and no hosted backend.
 
-Drive it through the app's HTTP API (`/api/anki/*`).
-It picks the transport on every request, writes through the same code the UI uses, and enforces the rate limits.
+Drive it through the app: the page in a browser, or the server's API (`/api/anki/*`) from a script.
+Either way the server picks the transport on every request, writes through the same code, and enforces the rate limits.
 Never edit `collection.anki2` with sqlite3 or any other tool: see `references/collection-internals.md` for why.
 
 ## Run it
 
-Needs Node 24.12, 25.1 or 26+ (not 25.0.x), desktop Anki opened once so it has a profile, and a Gemini key.
+Needs Node 24.12, 25.1 or 26+ (not 25.0.x), LLVM's clang (`brew install llvm`) to build the page, desktop Anki opened once so it has a profile, and a Gemini key.
 
 ```bash
+git submodule update --init                 # cdom, the page's DOM library
 npm install
 echo 'GEMINI_API_KEY=...' > .env.local     # read by the app's server
-npm run dev                                 # http://localhost:3000
+npm start                                   # builds ui/out, serves http://localhost:3000
 ```
 
 Keep port 3000 if the user will use the UI with Anki open: the `amgi_bridge` add-on only accepts browser origins listed in its `bridge_allowed_origins` config, which defaults to port 3000.
@@ -29,59 +30,83 @@ Calls from the app's server to the bridge send no `Origin` and are not affected.
 
 Then install once with `POST /api/anki/install` (the **Install into Anki** button does the same).
 It copies the `amgi_mic` and `amgi_bridge` add-ons into the Anki folder and, with Anki closed, adds the `amgi Listening` note type at once.
-With Anki open, the note type arrives when Anki next restarts (`needsRestart: true` in the reply).
+With Anki open, the note type arrives when Anki next restarts (`needsRestart` in the reply).
 
-## Point every request at a collection
+## Driving the page
 
-Every `/api/anki/*` call reads one header, `X-Amgi-Anki-Settings`, holding JSON:
+The simplest way to do what a user does is to do it in the page: open <http://localhost:3000>, and the deck list, the deck page, the card form and the paste-many-lines run all work as for a person.
+`ui/tools/` has headless Chrome drives (shoot, flows, edit, bulk, states) that do exactly this through `cdom/tools/cdp.mjs`, and they are the worked examples of every flow: what to click, what to wait for, what the page shows.
+The `e2e-ui` skill runs them against a fixture collection.
 
-```json
-{"baseDirOverride": "", "collectionPath": "/Users/me/Library/Application Support/Anki2/User 1/collection.anki2", "profileName": "User 1", "bridge": {"baseUrl": "http://127.0.0.1:8798", "token": "..."}}
+## The server's API
+
+Every request and answer is in amgi's wire format, not JSON: fixed binary layouts, `application/x-amgi-wire`.
+
+- `ui/wire/wire.h` describes the bytes, and the one schema table in `ui/wire/wire.c` lists each kind's fields in order, with their names.
+- `ROUTES` in `ui/server/serve.mjs` names, for each route, the kind of its request body and of its answer; any 4xx or 5xx answer is the `error` kind.
+- `ui/server/wire.mjs` turns an object into a kind's bytes and back (`encode(kind, object)`, `decode(kind, bytes)`), after `ui/build.sh` has built `ui/out/wire.wasm`.
+  A Node script can use it to call the API, with the same field names as the table below:
+
+```js
+import { encode, decode, WIRE_MIME } from './ui/server/wire.mjs';
+const headers = { 'X-Amgi-Collection': encodeURIComponent(collectionPath), 'Content-Type': WIRE_MIME };
+const r = await fetch('http://localhost:3000/api/anki/decks', { method: 'POST', headers, body: encode('q_deck_name', { name: 'Korean::Travel' }) });
+console.log(r.status, decode(r.ok ? 'deck_created' : 'error', new Uint8Array(await r.arrayBuffer())));
 ```
 
-- `collectionPath` comes from `GET /api/anki/profiles`, which lists `{name, collectionPath}` for every profile under the Anki folder (or under `baseDirOverride`).
-  Without it, and without a working bridge, every call answers `mode: "unconfigured"`.
-- `bridge` is optional.
+### Point every request at a collection
+
+Every call reads five plain headers, each value percent-encoded (`src/server/anki/settings.js`):
+
+- `X-Amgi-Collection`: the profile's `collection.anki2`, as `GET /api/anki/profiles` lists it (`{name, collectionPath}` for every profile under the Anki folder).
+  Without it, and without a working bridge, every call answers `mode` `unconfigured`.
+- `X-Amgi-Profile`: that profile's name.
+- `X-Amgi-Base-Dir`: another Anki folder than the usual one; leave it out for the user's own.
+- `X-Amgi-Bridge-Url` and `X-Amgi-Bridge-Token`: optional.
   The token and port are in Anki under Tools > amgi: Bridge status..., which is also where the bridge is switched on (it is off by default).
   When the bridge answers, amgi uses it; otherwise it falls back to the file.
-- `GET /api/anki/status` says which transport answered: `direct`, `bridge`, or why neither did (`locked`: Anki has the file open and the bridge is off; `not-found`; `unsupported-schema`; `bridge-no-collection`; `unconfigured`).
-  On `locked`, ask the user to close Anki or turn the bridge on; never copy or force the file.
 
-## The API
+`GET /api/anki/status` says which transport answered: `direct`, `bridge`, or why neither did (`locked`: Anki has the file open and the bridge is off; `not-found`; `unsupported-schema`; `bridge-no-collection`; `unconfigured`).
+On `locked`, ask the user to close Anki or turn the bridge on; never copy or force the file.
+
+### The routes
 
 Paths are under `/api/anki`.
-Bodies are JSON, and every success reply carries `mode`.
-A failure is `{error}` with a 4xx or 5xx status.
+Every success answer carries `mode`.
+A failure is the `error` kind, `{error}`, with a 4xx or 5xx status.
 
 | Call | Does |
 | --- | --- |
 | `GET /status` | Transport and schema version |
 | `GET /profiles` | Profiles under the Anki folder |
 | `GET /install`, `POST /install` | Whether the add-ons and note type are current; install or update them |
-| `GET /decks` | `{decks: [{id, name, noteCount, ...}]}`. `A::B` is subdeck B of A |
+| `GET /decks` | `{decks: [{id, name, noteCount}]}`. `A::B` is subdeck B of A |
 | `POST /decks` `{name}` | Find or create, parents included |
 | `PATCH /decks/:id` `{name}` | Rename |
-| `GET /notetypes` | `{notetypes: [{id, name, fieldNames, templates}]}` |
-| `GET /decks/:id/notes?offset=&limit=` | `{notes: [{id, notetypeId, fields, ...}], offset, limit, hasMore}`, at most 200 a page, subdecks included |
+| `GET /notetypes` | `{notetypes: [{id, name, fieldNames, sortFieldIndex}]}` |
+| `GET /decks/:id/notes?offset=&limit=` | `{notes: [{id, notetypeId, fields, tags}], offset, limit, hasMore}`, at most 200 a page, subdecks included |
 | `GET /decks/:id/notes/field-values?notetypeId=&fieldIndex=` | `{values}`: one field of every note of that type in the deck, for duplicate checks |
 | `POST /card-text` `{userInput, knownLanguage, learningLanguage, includeCueAudio}` | Writes one card's text, records and stores its clips; adds no note |
 | `POST /audio` `{text, language, fresh}` | One validated clip, stored: `{filename, reference, reused}` |
-| `POST /notes` `{deckId, notetypeId, fields, tags, language, learningFieldIndex}` | Adds one note; `fields` is an array in the note type's field order |
+| `POST /notes` `{deckId, notetypeId, fields, tags, language, learningFieldIndex}` | Adds one note; `fields` is a list in the note type's field order |
 | `POST /notes/bulk` `{notes: [...]}` | The same shape per note, in one write; one result per note, and one bad note never aborts the rest |
 | `PATCH /notes/:id` `{fields, language, learningFieldIndex}` | Replaces a note's fields in place |
 | `DELETE /notes/:id` | Deletes a note and its cards, with their review history. Ask first |
 | `GET /media/:filename` | A stored clip's bytes |
 | `GET /starter`, `POST /starter` `{known, learning, name}` | A ready-made ten-phrase deck with shipped audio, for a user with no key |
 
+The exact fields of each kind are the schema table's; where this table and `ui/wire/wire.c` disagree, the table in `wire.c` is right.
+`decode` gives a dotted name in the schema (`deck.id` in `deck_created`, `audio.reference` in `card_text`) as one flat key of that name.
+
 Language codes are amgi's own: `en`, `ko`, `ja`, `zh_cn`, `zh_hk`, `es`, `fr`, `pt`, `ru`, `id`, `de`, `tr`, `vi`, `it`, `th`, `hi`, `ur`, `ar` (`src/constants/languages.js`).
 
 ## Making cards
 
-Do what the deck page does (`src/components/Card/BulkRun.js`), one phrase at a time:
+Do what the deck page's paste-many-lines run does (`ui/src/bulk.c`), one phrase at a time:
 
 1. `GET /notetypes` and find `amgi Listening`.
    Its fields are `Cue`, `CueAudio`, `Target`, `TargetAudio`, `Language`, `Notes`.
-   Find them by name, case-insensitively, never by position: the user may have added fields of their own (`src/utils/amgiNotetype.js`).
+   Find them by name, case-insensitively, never by position: the user may have added fields of their own (`amgi_fields_of` in `ui/src/fields.c`).
    Every note makes two cards: hear the cue and say the target, and the reverse.
 2. `POST /card-text` with the phrase, the known and learning languages, and `includeCueAudio: true`.
    The reply has `front_text` (known side), `back_text` (learning side), `audio.reference` and `cueAudio.reference`.
@@ -100,7 +125,7 @@ A card costs five to seven Gemini requests.
 The free tier allows 10 requests a day per model, so a real deck needs billing enabled on the key's project.
 Say so before a long run.
 
-When a model is limited, the API answers 429 with `retryAfterMs`:
+When a model is limited, the API answers 429, an `error` with `retryAfterMs` and `maxWaitMs` (the longest wait worth making):
 
 - `notStarted: true`: nothing was spent; wait `retryAfterMs` and send the same call again.
 - no `notStarted`: the card had started and hit a per-minute limit; wait `retryAfterMs` and retry it.
