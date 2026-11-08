@@ -131,7 +131,7 @@ class FakeMediaCollection(unittest.TestCase):
 
         note = self.col.get_note(nid)
         self.assertIn('<img src="pic.jpg">', note["Audio"])
-        self.assertRegex(note["Audio"], r"\[sound:plusaudio-[0-9a-f]{20}\.mp3\]")
+        self.assertRegex(note["Audio"], r"\[sound:plusaudio-[0-9a-f]{20}\.wav\]")
 
         filename = core.media_name("안녕하세요", "ko")
         self.assertTrue(self.col.media.have(filename))
@@ -143,7 +143,7 @@ class FakeMediaCollection(unittest.TestCase):
         plan = plan_fill(self.col, self.config(audio_tag="html"))
         apply_fill(self.col, plan, fetch_audio=lambda text: b"FAKE-MP3-BYTES")
         note = self.col.get_note(nid)
-        self.assertRegex(note["Audio"], r'<audio src="plusaudio-[0-9a-f]{20}\.mp3"></audio>')
+        self.assertRegex(note["Audio"], r'<audio src="plusaudio-[0-9a-f]{20}\.wav"></audio>')
 
     def test_a_second_run_is_a_no_op(self):
         self._add_note("안녕하세요")
@@ -199,7 +199,7 @@ class FakeMediaCollection(unittest.TestCase):
         apply_fill(self.col, plan_fill(self.col, self.config()), fetch_audio=lambda text: b"FAKE")
         note = self.col.get_note(nid)
         self.assertIn("[sound:original-recording.mp3]", note["Audio"])
-        self.assertRegex(note["Audio"], r"\[sound:plusaudio-[0-9a-f]{20}\.mp3\]")
+        self.assertRegex(note["Audio"], r"\[sound:plusaudio-[0-9a-f]{20}\.wav\]")
 
     def test_a_note_type_missing_the_mapped_field_is_skipped_not_crashed_on(self):
         other_notetype = self.col.models.by_name("Basic (and reversed card)")
@@ -330,7 +330,7 @@ class SampleDeckTests(unittest.TestCase):
 
         for planned in subset:
             note = self.col.get_note(planned.note_id)
-            self.assertRegex(note["Audio"], r"\[sound:plusaudio-[0-9a-f]{20}\.mp3\]")
+            self.assertRegex(note["Audio"], r"\[sound:plusaudio-[0-9a-f]{20}\.wav\]")
             # The original deck's own recording, wherever there was one,
             # must still be there.
             self.assertIn(planned.note_id, [p.note_id for p in subset])

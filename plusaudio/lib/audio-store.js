@@ -17,18 +17,31 @@ const path = require('node:path');
 // existing clip should be regenerated.
 const AUDIO_PROFILE = 'v1';
 
-const OWNED_NAME = /^plusaudio-[0-9a-f]{20}\.mp3$/;
+// Every clip generated now is WAV: Gemini TTS answers WAV or raw PCM, never
+// mp3 (see cardGeneration/geminiSpeech.ts), and generator.js refuses bytes
+// that are not a WAV file. Clips made before that, by OpenAI's TTS, are mp3
+// and stay where they are: the note that references one keeps playing it, and
+// both extensions count as ours, so a deck can hold a mix of the two and a
+// changed note's old mp3 is replaced instead of kept alongside a new wav.
+const CLIP_EXTENSION = 'wav';
+
+const OWNED_NAME = /^plusaudio-[0-9a-f]{20}\.(?:mp3|wav)$/;
 // Clips written by the 2025 scripts this module replaces. Recognising them
 // means a deck already augmented by the old tool is updated in place instead of
 // ending up with two sound tags per note.
 const LEGACY_OWNED_NAME = /_gpt4o\.mp3$/;
 
-function mediaName(text, language) {
+/**
+ * The name a clip of `text` in `language` is stored under. `extension` is
+ * only ever passed to find a clip recorded before the switch to WAV (the
+ * shipped starter clips are mp3 - see src/server/anki/starterDeck.js).
+ */
+function mediaName(text, language, extension = CLIP_EXTENSION) {
   const digest = crypto
     .createHash('sha1')
     .update(`${AUDIO_PROFILE}\n${language}\n${text}`, 'utf8')
     .digest('hex');
-  return `plusaudio-${digest.slice(0, 20)}.mp3`;
+  return `plusaudio-${digest.slice(0, 20)}.${extension}`;
 }
 
 function isOwnedMediaName(filename) {
@@ -60,4 +73,4 @@ class AudioCache {
   }
 }
 
-module.exports = { AUDIO_PROFILE, AudioCache, isOwnedMediaName, mediaName };
+module.exports = { AUDIO_PROFILE, AudioCache, CLIP_EXTENSION, isOwnedMediaName, mediaName };

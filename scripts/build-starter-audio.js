@@ -18,14 +18,19 @@
 // starter deck's audio is reused rather than re-recorded if the same sentence
 // is ever generated again with a key configured.
 //
-// Needs OPENAI_API_KEY (in the environment or plusaudio/.env), and costs one
-// TTS call per missing clip - 180 of them from cold.
+// Needs GEMINI_API_KEY and OPENAI_API_KEY (in the environment or
+// plusaudio/.env), and costs one Gemini TTS call per missing clip - 180 of
+// them from cold, far past the free tier's 10 per model per day.
+//
+// The clips committed so far are mp3, recorded by OpenAI's TTS before speech
+// moved to Gemini. They still count as recorded; a missing one is recorded
+// now as wav. src/server/anki/starterDeck.js finds either.
 
 const { spawnSync } = require('node:child_process');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { mediaName } = require('../plusaudio/lib/audio-store');
+const { CLIP_EXTENSION, mediaName } = require('../plusaudio/lib/audio-store');
 
 const ROOT = path.resolve(__dirname, '..');
 const PHRASES = path.join(ROOT, 'src', 'data', 'starterPhrases.json');
@@ -46,7 +51,9 @@ function main() {
   for (const [language, list] of Object.entries(phrases)) {
     for (const text of list) {
       const name = mediaName(text, language);
-      if (fs.existsSync(path.join(OUT_DIR, name))) have += 1;
+      const recorded = [CLIP_EXTENSION, 'mp3'].some((extension) =>
+        fs.existsSync(path.join(OUT_DIR, mediaName(text, language, extension))));
+      if (recorded) have += 1;
       else missing.push({ language, text, name });
     }
   }
@@ -58,7 +65,7 @@ function main() {
 
   let failed = 0;
   for (const [index, clip] of missing.entries()) {
-    const tmp = path.join(os.tmpdir(), `amgi-starter-${process.pid}-${index}.mp3`);
+    const tmp = path.join(os.tmpdir(), `amgi-starter-${process.pid}-${index}.${CLIP_EXTENSION}`);
     const result = spawnSync(
       process.execPath,
       [GENERATE, '--text', clip.text, '--language', clip.language, '--out', tmp],

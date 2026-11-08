@@ -47,6 +47,7 @@ server/audio
 # with (see src/server/anki/starterDeck.js). Rebuilt by
 # scripts/build-starter-audio.js.
 !anki/starter/media/*.mp3
+!anki/starter/media/*.wav
 plusaudio/audio/
 plusaudio/*.json
 **/*.apkg
