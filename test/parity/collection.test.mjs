@@ -435,6 +435,7 @@ async function operations(t, impl, schema) {
   // back with one field too many (a known Node bug, kept here so the port matches it until it is
   // fixed on both sides). In a deck that goes, so the collection Anki checks below stays whole.
   await t.cmd(`addNote ${note(doomed2, basic, ['sep\u001fin field', 'x'])}`);
+  await t.cmd(`listNotesInDeck ${doomed2} 0 50`);
   await t.cmd(`removeDeck ${(await deckIds(impl)).Doomed}`);
   await t.cmd('listDecks');
 
@@ -561,6 +562,16 @@ for (const schema of ['18', '11']) {
       main = await session(schema, (t, impl) => operations(t, impl, schema));
       check(`collection-${schema}-transcript`, main.transcript);
       check(`collection-${schema}-dump`, main.dump);
+    });
+
+    // KNOWN QUIRK, ABOUT TO CHANGE: a field holding Anki's field separator (\x1f) is written as it
+    // is, so a Basic note reads back with three fields. amgi PM's call (2026-11-08): Node is fixed
+    // first to match real Anki (branch field-separator); this check then fails on purpose when the
+    // recording is updated, and goes, with the port changed to match.
+    test('known quirk, about to change: a field holding \\x1f splits the note into one field too many', () => {
+      const recorded = fs.readFileSync(expectFile(`collection-${schema}-transcript`), 'utf8');
+      assert.ok(recorded.includes('[sep,in%20field,x] []'),
+        'the recording no longer shows the \\x1f quirk: the field-separator fix has landed, so drop this check and match the port to it');
     });
 
     test('one backup for the whole session, however many writes', () => {
