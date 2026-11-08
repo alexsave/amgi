@@ -308,7 +308,7 @@ describe(`a slow add-on: reads wait 1500 ms, writes the add-on's 30000`, () => {
   });
 });
 
-describe(`the token on the wire, as fetch sends it (${BRIDGE_IMPL})`, () => {
+describe("the token on the wire, as fetch sends it", () => {
   /** A stand-in add-on that answers only the token `wanted`, and remembers every token it got. */
   async function tokenAddon(wanted) {
     const seen = [];
