@@ -5,8 +5,8 @@ description: Use amgi to build speaking-practice Anki decks - run the app, make 
 
 # Using amgi
 
-amgi is one app in this repo: a page written in C (built to WebAssembly on cdom) and a plain Node server, `ui/server/serve.mjs`.
-The same server in C, answering byte for byte the same, is `server/build/amgi` on cbase serve (`npm run start:c`; it says `cbase: listening <host>:<port>` and takes `CBASE_LISTEN=127.0.0.1:0` for a free port); the parity suites and the drives run it with `AMGI_SERVER=c`.
+amgi is one app in this repo: a page written in C (built to WebAssembly on cdom) and a server in C, `server/build/amgi`, the amgi app on cbase serve (the submodules `cdom/` and `cbase/`).
+The server says `cbase: listening <host>:<port>` on stdout, takes `CBASE_LISTEN=127.0.0.1:0` for a free port, and answers only a `Host` of `127.0.0.1`, `localhost` or `[::1]` at that port.
 Its server reads and writes the user's real Anki collection, directly from `collection.anki2` when Anki is closed, or through the `amgi_bridge` add-on's local HTTP server when Anki is open.
 Card text, speech and the check that each clip says what the card says all come from Google Gemini, with the user's own key.
 There is no login and no hosted backend.
@@ -17,13 +17,13 @@ Never edit `collection.anki2` with sqlite3 or any other tool: see `references/co
 
 ## Run it
 
-Needs Node 24.12, 25.1 or 26+ (not 25.0.x), LLVM's clang (`brew install llvm`) to build the page, desktop Anki opened once so it has a profile, and a Gemini key.
+Needs Node 24.12, 25.1 or 26+ (not 25.0.x) for the build and the tests, LLVM's clang (`brew install llvm`) to build the page, Homebrew's sqlite, ICU 78 and OpenSSL (`brew install sqlite icu4c@78 openssl@3`) and Xcode's command line tools to build the server, desktop Anki opened once so it has a profile, and a Gemini key.
 
 ```bash
-git submodule update --init                 # cdom, the page's DOM library
+git submodule update --init --recursive     # cdom (the page's DOM library) and cbase (the server's platform)
 npm install
-echo 'GEMINI_API_KEY=...' > .env.local     # read by the app's server
-npm start                                   # builds ui/out, serves http://localhost:3000
+echo 'GEMINI_API_KEY=...' > .env.local     # read by the app's server: KEY=VALUE, no blank around the =
+npm start                                   # builds ui/out and server/build/amgi, serves http://127.0.0.1:3000
 ```
 
 Keep port 3000 if the user will use the UI with Anki open: the `amgi_bridge` add-on only accepts browser origins listed in its `bridge_allowed_origins` config, which defaults to port 3000.
@@ -44,12 +44,12 @@ The `e2e-ui` skill runs them against a fixture collection.
 Every request and answer is in amgi's wire format, not JSON: fixed binary layouts, `application/x-amgi-wire`.
 
 - `ui/wire/wire.h` describes the bytes, and the one schema table in `ui/wire/wire.c` lists each kind's fields in order, with their names.
-- `ROUTES` in `ui/server/serve.mjs` (and the same table in `server/amgi/routes.c`) names, for each route, the kind of its request body and of its answer; any 4xx or 5xx answer is the `error` kind.
-- `ui/server/wire.mjs` turns an object into a kind's bytes and back (`encode(kind, object)`, `decode(kind, bytes)`), after `ui/build.sh` has built `ui/out/wire.wasm`.
+- `ROUTES` in `server/amgi/routes.c` names, for each route, the kind of its request body and of its answer; any 4xx or 5xx answer is the `error` kind.
+- `ui/wire/wire.mjs` turns an object into a kind's bytes and back (`encode(kind, object)`, `decode(kind, bytes)`), after `ui/build.sh` has built `ui/out/wire.wasm`.
   A Node script can use it to call the API, with the same field names as the table below:
 
 ```js
-import { encode, decode, WIRE_MIME } from './ui/server/wire.mjs';
+import { encode, decode, WIRE_MIME } from './ui/wire/wire.mjs';
 const headers = { 'X-Amgi-Collection': encodeURIComponent(collectionPath), 'Content-Type': WIRE_MIME };
 const r = await fetch('http://localhost:3000/api/anki/decks', { method: 'POST', headers, body: encode('q_deck_name', { name: 'Korean::Travel' }) });
 console.log(r.status, decode(r.ok ? 'deck_created' : 'error', new Uint8Array(await r.arrayBuffer())));
@@ -57,7 +57,7 @@ console.log(r.status, decode(r.ok ? 'deck_created' : 'error', new Uint8Array(awa
 
 ### Point every request at a collection
 
-Every call reads five plain headers, each value percent-encoded (`src/server/anki/settings.js`):
+Every call reads five plain headers, each value percent-encoded (`server/amgi/web.c`):
 
 - `X-Amgi-Collection`: the profile's `collection.anki2`, as `GET /api/anki/profiles` lists it (`{name, collectionPath}` for every profile under the Anki folder).
   Without it, and without a working bridge, every call answers `mode` `unconfigured`.
@@ -139,7 +139,7 @@ Make cards one after another; parallel calls only queue on the same gate.
 
 ## Command line
 
-`plusaudio/` has three Node scripts.
+`plusaudio/` has two Node scripts for decks outside the app.
 They read `GEMINI_API_KEY` from the environment only, not from `.env.local`.
 They reach Gemini over gRPC (HTTP/2 to `generativelanguage.googleapis.com:443`), so a network that only lets HTTP/1.1 through a proxy blocks them.
 
@@ -147,7 +147,6 @@ They reach Gemini over gRPC (HTTP/2 to `generativelanguage.googleapis.com:443`),
 cd plusaudio
 node add-audio.js "My Deck.apkg" --dry-run          # what would be generated, no key needed
 GEMINI_API_KEY=... node add-audio.js "My Deck.apkg" --text-field Back --audio-field Audio --language ko
-GEMINI_API_KEY=... node generate-card-text.js --known en --learning ko --input "where is the station"
 GEMINI_API_KEY=... node generate-clip.js --text "역이 어디예요?" --language ko --out /tmp/clip.wav
 ```
 
@@ -155,8 +154,9 @@ GEMINI_API_KEY=... node generate-clip.js --text "역이 어디예요?" --languag
 Run `--dry-run` first and show the user the count, because generation costs them money.
 Clip names are hashes of the language and text, so a rerun only makes clips for new or changed text.
 `plusaudio/README.md` lists every option.
-`generate-card-text.js` prints the card in a length-prefixed layout, not JSON: the line `amgi-card-text 1`, then `front_text`, `back_text` and `spoken_reading`, each as its name and UTF-8 byte length on one line followed by exactly that many bytes of text and a line break (`plusaudio/lib/cardTextLayout.js`, whose `readCardText` reads it); `generate-clip.js` writes one WAV.
-Both exit 3 when rate limited (stdout then carries `retry-after-ms=<n>`) and 4 when the daily cap is spent.
+`generate-clip.js` writes one WAV (the add-on's fill-audio runs it).
+It exits 3 when rate limited (stdout then carries `retry-after-ms=<n>`) and 4 when the daily cap is spent.
+A card's text, and rewriting one side of a card, is the app's own (`POST /api/anki/card-text`); there is no script for it.
 
 ## The bridge directly
 
