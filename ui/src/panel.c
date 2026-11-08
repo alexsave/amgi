@@ -84,8 +84,7 @@ void panel_build(int64_t id, const wire_strs *f, const text *names, uint32_t nna
   busy = deleting = 0;
   text_free(&error);
 
-  el(CD_LIT("div"), CD_LIT("card-panel"));
-  cd_name_open(root = cd_id_new());
+  root = el_id(CD_LIT("div"), CD_LIT("card-panel"));
   el(CD_LIT("div"), CD_LIT("card-panel-fields"));
   for (uint32_t k = 0; k < KEYS; k++) {
     int32_t i = index_of_key(k);
@@ -114,8 +113,7 @@ void panel_build(int64_t id, const wire_strs *f, const text *names, uint32_t nna
   }
   cd_close();
 
-  el(CD_LIT("div"), CD_LIT("card-panel-clips"));
-  cd_name_open(clips_box = cd_id_new());
+  clips_box = el_id(CD_LIT("div"), CD_LIT("card-panel-clips"));
   wire_str cue = clip_of(idx.cue_audio), target = clip_of(idx.target_audio);
   chips[0] = chip_build(cue.p, cue.len, name_of(langs.known), TONE_CUE);
   chips[1] = chip_build(target.p, target.len, name_of(langs.learning), TONE_TARGET);
@@ -130,8 +128,7 @@ void panel_build(int64_t id, const wire_strs *f, const text *names, uint32_t nna
   }
   cd_close();
 
-  el(CD_LIT("div"), CD_LIT("card-panel-foot"));
-  cd_name_open(foot = cd_id_new());
+  foot = el_id(CD_LIT("div"), CD_LIT("card-panel-foot"));
   el_text(CD_LIT("span"), 0, CD_LIT("Changes save as you make them, straight into Anki."));
   el(CD_LIT("button"), 0);
   cd_attr(CD_LIT("type"), CD_LIT("button"));
