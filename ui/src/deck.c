@@ -21,6 +21,11 @@ static cd_region name_err = {0};  /* p.deck-name-error, under the h1 */
 static int renaming, rename_saving, rename_cancelled;
 static text rename_error;
 static int64_t editing = -1, deleting = -1;
+/* The open card's editor, opened and closed in place in its row: building the rows again would
+ * leave the pointer over a new node the browser does not count as hovered until the mouse moves. */
+static cd_region editor = {0};
+static cd_id *row_li, *row_edit;   /* each row's li and its Edit button's text, by row */
+static int32_t editor_row = -1;
 static cd_region sub = {0};       /* the count and the languages: all the children of p.deck-cards-sub */
 static cd_region body = {0};      /* div.empty-deck or ol.note-rows */
 static cd_region pager = {0};
@@ -221,8 +226,37 @@ void deck_build(void) {
   cd_close();
 }
 
-static void rows_forget(void) {
+static void editor_close(void) {
+  if (editor_row < 0) return;
   panel_forget();
+  cd_region_hide(&editor);
+  cd_set_class(row_li[editor_row], CD_LIT("note-row-wrap"));
+  cd_set_text(row_edit[editor_row], CD_LIT("Edit"));
+  editor_row = -1;
+}
+
+static void editor_open(uint32_t i) {
+  const wire_note *n = &page_notes.notes[i];
+  const notetype *t = notetype_by_id(n->notetype_id);
+  if (!t || !row_edit[i] || !cd_region_show(&editor, 1)) return;
+  editor_row = (int32_t)i;
+  cd_set_class(row_li[i], CD_LIT("note-row-wrap is-open"));
+  cd_set_text(row_edit[i], CD_LIT("Close"));
+  cd_at(row_li[i], 0);
+  el(CD_LIT("div"), CD_LIT("note-row-editor"));
+  cd_name_open(editor.root);
+  panel_build(n->id, &n->fields, t->fields, t->nfields, &langs);
+  cd_close();
+  cd_region_end(&editor);
+  panel_after();
+}
+
+static void rows_forget(void) {
+  if (editor_row >= 0) {
+    panel_forget();
+    cd_region_hide(&editor);
+    editor_row = -1;
+  }
   for (uint32_t i = 0; i < nrow_chips; i++) chip_forget(row_chips[i]);
   nrow_chips = 0;
   cd_region_hide(&body);
@@ -279,8 +313,10 @@ static void row_build(uint32_t i) {
   char *front = cd_alloc(prompt.len + 1);
   uint32_t flen = strip_html(front, prompt);
 
-  int open = amgi && editing == n->id;
-  el(CD_LIT("li"), open ? CD_LIT("note-row-wrap is-open") : CD_LIT("note-row-wrap"));
+  int open = 0; /* the editor opens after the rows are built: editor_open */
+  el(CD_LIT("li"), CD_LIT("note-row-wrap"));
+  cd_name_open(row_li[i] = cd_id_new());
+  row_edit[i] = 0;
   el(CD_LIT("div"), CD_LIT("note-row"));
   el(CD_LIT("span"), CD_LIT("note-row-target"));
   tmp_text(front, flen);
@@ -315,6 +351,7 @@ static void row_build(uint32_t i) {
     cd_class(CD_LIT("note-row-edit"));
     listen_click(TAG(M_DECK, A_EDIT, i));
     cd_text(open ? CD_LIT("Close") : CD_LIT("Edit"));
+    cd_name(row_edit[i] = cd_id_new());
     cd_close();
   } else {
     el(CD_LIT("span"), CD_LIT("note-row-edit note-row-edit-off"));
@@ -344,11 +381,6 @@ static void row_build(uint32_t i) {
   }
   cd_close();
   cd_close(); /* .note-row */
-  if (open) {
-    el(CD_LIT("div"), CD_LIT("note-row-editor"));
-    panel_build(n->id, &n->fields, t->fields, t->nfields, &langs);
-    cd_close();
-  }
   cd_close();
   cd_free(front);
 }
@@ -376,11 +408,14 @@ static void rows_build(void) {
   } else {
     el(CD_LIT("ol"), CD_LIT("note-rows"));
     cd_name_open(body.root);
+    row_li = cd_realloc(row_li, (page_notes.nnotes + 1) * sizeof *row_li);
+    row_edit = cd_realloc(row_edit, (page_notes.nnotes + 1) * sizeof *row_edit);
     for (uint32_t i = 0; i < page_notes.nnotes; i++) row_build(i);
     cd_close();
   }
   cd_region_end(&body);
-  panel_after();
+  for (uint32_t i = 0; editing >= 0 && notes_known && i < page_notes.nnotes; i++)
+    if (page_notes.notes[i].id == editing) editor_open(i);
 
   uint32_t n = notes_known && notetypes_known ? page_notes.nnotes : 0;
   if (!n || (!page_notes.offset && !page_notes.has_more) || !cd_region_show(&pager, 1)) return;
@@ -531,8 +566,10 @@ void deck_event(const cd_event_rec *e, uint32_t tag) {
     uint32_t i = TAG_INDEX(tag);
     if (i >= page_notes.nnotes) break;
     int64_t id = page_notes.notes[i].id;
-    editing = editing == id ? -1 : id;
-    rows_build();
+    int was = editing == id;
+    editor_close();
+    editing = was ? -1 : id;
+    if (!was) editor_open(i);
     break;
   }
   case A_DELETE: {
