@@ -1,6 +1,9 @@
-// HTTP parity: every /api/anki route and every error shape, over real HTTP, against the server
-// under test (test/parity/servers.mjs: the Node server by default, AMGI_SERVER=<executable> for
-// another), compared with what was recorded from today's Node server in test/parity/expect/http.txt.
+// The HTTP contract: every /api/anki route and every error shape, over real HTTP, against the C
+// server (test/parity/servers.mjs), compared with test/parity/expect/http.txt. The recording was made
+// from the Node server the C one replaced, and is kept as the contract's golden answers; one entry
+// has changed since, by decision: a preflight from another origin is cbase's 403 with no
+// Access-Control-* header (Node answered OPTIONS as a method with no layout, 501), either way no
+// permission for another site's page.
 //
 // What is compared, per request: the status, the headers that are contract (content-type,
 // cache-control, retry-after, location, content-length on a clip, and that there is no
@@ -18,8 +21,6 @@
 // The Gemini routes run against the tests' fake Gemini (plusaudio/test/helpers/fake-gemini.js),
 // each scenario on fresh servers so no rate gate remembers another's limits. The locked case
 // holds the collection open with the real Anki library and skips without it (ANKI_PYTHON_BIN).
-//
-// PARITY_RECORD=1 writes the recording instead of comparing (only from the Node server).
 import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -27,14 +28,13 @@ import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
-import { BRIDGE_PROTOCOL, WIRE_MIME, decode, encode } from '../../ui/server/wire.mjs';
-import { ROOT, SERVER, startFakeGemini, startServer } from './servers.mjs';
+import { BRIDGE_PROTOCOL, WIRE_MIME, decode, encode } from '../../ui/wire/wire.mjs';
+import { ROOT, startFakeGemini, startServer } from './servers.mjs';
 
 const require = createRequire(import.meta.url);
 const { anki, holdCollectionOpen } = require('../../plusaudio/test/collection/helpers/anki-python.js');
 const { controlFake } = require('../../plusaudio/test/helpers/fake-gemini.js');
 
-const RECORD = process.env.PARITY_RECORD === '1';
 const EXPECT = path.join(ROOT, 'test', 'parity', 'expect', 'http.txt');
 const FIXTURES = path.join(ROOT, 'test', 'parity', 'fixtures');
 
@@ -133,20 +133,7 @@ const reencode = (kind, flat) => encode(kind, nest(flat));
 
 const CONTRACT_HEADERS = ['content-type', 'cache-control', 'retry-after', 'location'];
 
-/**
- * Where the C server (AMGI_SERVER=c) answers differently from the recording on purpose, by the
- * request's name: what it answers instead, and why. Nothing else may differ.
- */
-const C_DIFFS = {
-  // cbase answers every preflight itself (net/router.h): from an origin the app does not list (amgi
-  // lists none) it is 403 with no Access-Control-* header, before any handler runs. Node had no CORS
-  // at all and answered OPTIONS as a method with no layout. Both give a page on another site no
-  // permission, which is what the PM's criterion asks.
-  'a preflight': ['< 403 content-type=text/plain; charset=utf-8', '< raw "origin not allowed"'],
-};
-
 let norm;
-const recorded = [];
 let expected = null;
 
 /**
@@ -211,17 +198,10 @@ async function call(ctx, name, method, url, { headers = {}, body, bases = [], ji
     }
     lines.push(`< raw ${show(bytes.toString('latin1'))}`);
   }
-  recorded.push(...lines);
-  if (!RECORD) {
-    const at = expected.indexOf(`== ${name}`);
-    assert.ok(at >= 0, `${name}: recorded (PARITY_RECORD=1 from the Node server)`);
-    if (SERVER === 'c' && C_DIFFS[name]) {
-      assert.deepEqual(lines.slice(2), C_DIFFS[name], `${name}: the C server's own answer (C_DIFFS says why)`);
-      return { status: response.status, decoded, bytes };
-    }
-    const want = expected.slice(at, at + lines.length);
-    assert.deepEqual(lines, want, `${name}: the same answer as recorded`);
-  }
+  const at = expected.indexOf(`== ${name}`);
+  assert.ok(at >= 0, `${name}: recorded`);
+  const want = expected.slice(at, at + lines.length);
+  assert.deepEqual(lines, want, `${name}: the same answer as recorded`);
   return { status: response.status, decoded, bytes };
 }
 
@@ -256,20 +236,10 @@ const ids = (decks) => Object.fromEntries(decks.map((d) => [d.name, d.id]));
 
 before(() => {
   norm = normaliser();
-  if (!RECORD) {
-    assert.ok(fs.existsSync(EXPECT), `${EXPECT} is recorded (PARITY_RECORD=1 from the Node server)`);
-    expected = fs.readFileSync(EXPECT, 'utf8').split('\n');
-  }
+  expected = fs.readFileSync(EXPECT, 'utf8').split('\n');
 });
 
-after(() => {
-  if (RECORD) {
-    fs.mkdirSync(path.dirname(EXPECT), { recursive: true });
-    fs.writeFileSync(EXPECT, `${recorded.join('\n')}\n`);
-  }
-});
-
-describe(`HTTP parity${SERVER ? ` (${path.basename(SERVER)})` : ' (Node)'}`, { concurrency: false }, () => {
+describe('the HTTP contract', { concurrency: false }, () => {
   const ctx = {};
   const stops = [];
   before(async () => {
@@ -536,7 +506,7 @@ describe(`HTTP parity${SERVER ? ` (${path.basename(SERVER)})` : ' (Node)'}`, { c
   });
 });
 
-describe(`HTTP parity: Gemini, against the fake${SERVER ? ` (${path.basename(SERVER)})` : ' (Node)'}`, { concurrency: false }, () => {
+describe('the HTTP contract: Gemini, against the fake', { concurrency: false }, () => {
   test('without a key: the starter deck is offered, and generation says what is missing', async () => {
     const keyless = await startServer({ key: '', base: null });
     try {

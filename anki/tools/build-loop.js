@@ -32,7 +32,7 @@ const HOST = path.join(ROOT, 'anki', 'src', 'anki-loop.js');
 // another, which concatenation already satisfies. Anything else means the
 // shared code has grown a dependency that cannot cross into a card template,
 // and the build should stop rather than emit something subtly broken.
-const INTERNAL_IMPORT = /^import\s+\{[^}]+\}\s+from\s+'\.\/(voiceActivity|reviewLoop)';$/;
+const INTERNAL_IMPORT = /^import\s+\{[^}]+\}\s+from\s+'\.\/(voiceActivity|reviewLoop)\.js';$/;
 
 function toClassicScript(source, file) {
   return source

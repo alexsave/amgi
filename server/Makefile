@@ -1,14 +1,14 @@
 # amgi's native code, on cbase (the submodule at ../cbase) through cbase.mk:
 #   - server/app: the amgi app on cbase serve (build/amgi): the cb_app over server/amgi, its routes,
 #     install, the starter deck, the rate gate and Gemini (server/amgi/amgi.h).
-#   - server/collection and server/json: the collection core (the C port of plusaudio/lib/collection,
+#   - server/collection and server/json: the collection core (the C port of what was plusaudio/lib/collection,
 #     the direct transport and the bridge client) and its Anki JSON quarantine, as one library with
 #     its own flags and its own gates (test/no-json.test.mjs, the random scan, server/test/unit.c).
 #     It is APP_EXTRA_SRC, not a source root, because it carries JavaScript's number semantics
 #     (strtod for JSON numbers and Number()), which cbase's number gate refuses in a product root.
 #   - test/parity/dump.c: the collection-parity dump tool (no cbase in it).
 #
-#   make -C server                    build/amgi, build/collection_cli, build/parity_dump, build/difftest
+#   make -C server                    build/amgi, build/collection_cli, build/app_unit, build/parity_dump
 #   make -C server check-collection   the C collection core's own tests (server/test/unit.c), under ASan
 #   make -C server build/asan/collection_cli   the collection CLI under ASan and UBSan
 #   make -C server check              cbase's whole check, with the amgi app as its product
@@ -47,7 +47,7 @@ APP_EXTRA_SRC := $(COL_SRC) $(BRIDGE_SRC) $(AMGI_SRC)
 APP_EXTRA_CFLAGS = $(WARN) -O2 -g -pthread -I$(CBASE)/core/include -I$(CBASE)/core/src -I$(CBASE)/lib -I../ui/wire \
   $(ICU_CFLAGS) $(SQLITE_CFLAGS) $(OPENSSL_CFLAGS)
 APP_LDLIBS := $(ICU_LDFLAGS) -licui18n -licuuc
-APP_PROGS := collection_cli=collection/cli.c app_unit=test/app_unit.c cards_dump=test/cards_dump.c
+APP_PROGS := collection_cli=collection/cli.c app_unit=test/app_unit.c
 include $(CBASE)/cbase.mk
 
 # The ones not linked with cbase: the dump tool, and the core's own tests, under the sanitizers.
@@ -57,16 +57,11 @@ NATIVE_LIBS = $(ICU_LDFLAGS) $(SQLITE_LDFLAGS) $(OPENSSL_LDFLAGS) \
   $(if $(SQLITE_PREFIX),-Wl$(comma)-rpath$(comma)$(SQLITE_PREFIX)/lib) $(if $(OPENSSL_PREFIX),-Wl$(comma)-rpath$(comma)$(OPENSSL_PREFIX)/lib) \
   -lsqlite3 -licui18n -licuuc -lcrypto -lpthread
 
-all: build/parity_dump build/difftest
+all: build/parity_dump
 
 build/parity_dump: ../test/parity/dump.c
 	@mkdir -p $(@D)
 	$(CC) $(NATIVE_CFLAGS) -O2 -o $@ $< $(NATIVE_LIBS)
-
-# The C side of test/parity/difftest.test.mjs (removed at L4).
-build/difftest: $(COL_SRC) test/difftest.c $(COL_HDR)
-	@mkdir -p $(@D)
-	$(CC) $(NATIVE_CFLAGS) $(NATIVE_SAN) -o $@ $(COL_SRC) test/difftest.c $(NATIVE_LIBS)
 
 # Tests of the C itself (server/test/unit.c).
 build/unit: $(COL_SRC) test/unit.c $(COL_HDR)
