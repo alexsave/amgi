@@ -133,6 +133,18 @@ const reencode = (kind, flat) => encode(kind, nest(flat));
 
 const CONTRACT_HEADERS = ['content-type', 'cache-control', 'retry-after', 'location'];
 
+/**
+ * Where the C server (AMGI_SERVER=c) answers differently from the recording on purpose, by the
+ * request's name: what it answers instead, and why. Nothing else may differ.
+ */
+const C_DIFFS = {
+  // cbase answers every preflight itself (net/router.h): from an origin the app does not list (amgi
+  // lists none) it is 403 with no Access-Control-* header, before any handler runs. Node had no CORS
+  // at all and answered OPTIONS as a method with no layout. Both give a page on another site no
+  // permission, which is what the PM's criterion asks.
+  'a preflight': ['< 403 content-type=text/plain; charset=utf-8', '< raw "origin not allowed"'],
+};
+
 let norm;
 const recorded = [];
 let expected = null;
@@ -203,6 +215,10 @@ async function call(ctx, name, method, url, { headers = {}, body, bases = [], ji
   if (!RECORD) {
     const at = expected.indexOf(`== ${name}`);
     assert.ok(at >= 0, `${name}: recorded (PARITY_RECORD=1 from the Node server)`);
+    if (SERVER === 'c' && C_DIFFS[name]) {
+      assert.deepEqual(lines.slice(2), C_DIFFS[name], `${name}: the C server's own answer (C_DIFFS says why)`);
+      return { status: response.status, decoded, bytes };
+    }
     const want = expected.slice(at, at + lines.length);
     assert.deepEqual(lines, want, `${name}: the same answer as recorded`);
   }
