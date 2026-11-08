@@ -478,3 +478,91 @@
   font-size: 0.78rem;
   color: #e07050;
 }
+
+/* Deleting the deck: last on its page, set apart from everything above it, and red the way the
+   row's own delete is, at rest rather than only on hover. */
+.deck-danger {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1.5rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid rgba(255, 77, 79, 0.3);
+  border-radius: 8px;
+  text-align: left;
+}
+
+.deck-danger h3 {
+  margin: 0 0 0.25rem;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+}
+
+.deck-danger-text p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.deck-danger-btn {
+  font: inherit;
+  font-size: 0.85rem;
+  color: #ff8a8c;
+  background: transparent;
+  border: 1px solid rgba(255, 77, 79, 0.45);
+  border-radius: 8px;
+  padding: 0.45rem 0.95rem;
+  cursor: pointer;
+  flex: none;
+  transition: all 0.2s ease;
+}
+
+.deck-danger-btn:hover:not(:disabled) {
+  border-color: rgba(255, 77, 79, 0.75);
+  background: rgba(255, 77, 79, 0.08);
+}
+
+.deck-danger-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.deck-danger-error {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 0.8rem;
+  color: #e07050;
+}
+
+/* The page of a deck that is gone: what happened, and the way back. */
+.deck-gone {
+  text-align: left;
+  padding: 2rem 0;
+}
+
+.deck-gone h1 {
+  margin: 0 0 0.5rem;
+  padding: 0;
+  font-size: 1.6rem;
+  color: var(--text-primary);
+}
+
+.deck-gone p {
+  margin: 0 0 1.25rem;
+  color: var(--text-secondary);
+}
+
+.deck-gone .back-btn {
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.deck-gone .back-btn:hover {
+  background: var(--dark-surface-hover);
+}

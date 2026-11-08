@@ -56,6 +56,7 @@ Then `ui/tools/drives.sh` runs the drives one at a time, one headless Chrome eac
 - `shoot.mjs`: the deck list, settings, a deck, its language picker, paging through a long deck, the back button, and first-paint timings.
 - `flows.mjs`: first run, install, the create-deck modal, the card-design notice, the starter deck.
 - `edit.mjs`: the card panel (edit, redo, a failed redo), deleting through the confirm dialog, renaming a deck.
+- `deckdelete.mjs`: deleting a deck from the bottom of its page: not offered for Default, the confirmation's counts, Cancel and Escape, a deck with a subdeck, an empty one, Anki holding the file (the failure under the button), a deck deleted underneath the page and a gone deck's address ("This deck no longer exists"), each delete checked in the file with Anki itself.
 - `bulk.mjs`: making cards against the fake Gemini, including a per-minute limit (the countdown), a failure, and a spent daily cap.
 - `states.mjs`: the decks screen in each setup state: ready, card type missing, locked (a real lock, see below) and released again, no profile, no Anki folder.
 
