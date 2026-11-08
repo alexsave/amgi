@@ -217,6 +217,10 @@ const IDLE_CLOSE_MS = 30_000;
 function createChannel(origin: string) {
     let session: http2.ClientHttp2Session | null = null;
     let inFlight = 0;
+    // What each call in flight on a session does if that session fails. The
+    // session has one 'error' listener that runs them all: a listener per
+    // call would pass Node's ten-listener warning at the eleventh.
+    const failing = new WeakMap<http2.ClientHttp2Session, Set<(error: Error) => void>>();
 
     function current(): http2.ClientHttp2Session {
         if (session && !session.closed && !session.destroyed) return session;
@@ -224,9 +228,14 @@ function createChannel(origin: string) {
         const forget = () => {
             if (session === opened) session = null;
         };
-        // Per-request failures are reported on the request's own stream; the
-        // session listener only keeps an unhandled 'error' from crashing.
-        opened.on('error', forget);
+        const calls = new Set<(error: Error) => void>();
+        failing.set(opened, calls);
+        // Most failures arrive on the request's own stream; this one listener
+        // also keeps an unhandled 'error' from crashing the process.
+        opened.on('error', (error: Error) => {
+            forget();
+            for (const fail of [...calls]) fail(error);
+        });
         opened.on('goaway', forget);
         opened.on('close', forget);
         opened.setTimeout(IDLE_CLOSE_MS, () => {
@@ -239,6 +248,7 @@ function createChannel(origin: string) {
     function call(path: string, body: Uint8Array, metadata: Record<string, string>, timeoutMs: number): Promise<UnaryReply> {
         return new Promise((resolve, reject) => {
             const active = current();
+            const calls = failing.get(active)!;
             inFlight += 1;
             active.ref();
             let settled = false;
@@ -247,13 +257,13 @@ function createChannel(origin: string) {
                 if (settled) return;
                 settled = true;
                 clearTimeout(timer);
-                active.off('error', onSessionError);
+                calls.delete(onSessionError);
                 inFlight -= 1;
                 if (inFlight === 0 && !active.destroyed) active.unref();
                 fn();
             };
             const onSessionError = (error: Error) => finish(() => reject(error));
-            active.once('error', onSessionError);
+            calls.add(onSessionError);
 
             let stream: http2.ClientHttp2Stream;
             try {
