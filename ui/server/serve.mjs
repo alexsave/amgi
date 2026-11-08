@@ -4,16 +4,16 @@
 //
 //   node ui/server/serve.mjs            (PORT, default 3142; binds 127.0.0.1)
 //
-// An /api/anki answer crosses in amgi's wire format (ui/wire/wire.h) when the request says
-// "Accept: application/x-amgi-wire", which the app always does, and as JSON otherwise, which is
-// the API skills/amgi documents for LLMs, scripts and the add-ons.
+// Every /api/anki answer and request body crosses in amgi's wire format (ui/wire/wire.h): the
+// handler's answer object is written by the kind ROUTES names, and a body is read into the object
+// the handler's request.json() returns. There is no JSON on this path.
 import './hooks.mjs';
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { ANSWER } from './next-server.mjs';
-import { WIRE_MIME, encoders } from './wire.mjs';
+import { WIRE_MIME, decode, encode } from './wire.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..', '..');
@@ -53,20 +53,46 @@ function matchRoute(parts) {
   return null;
 }
 
-// Which writer a route's success answer goes to; any 4xx or 5xx answer with an error goes to the
-// error writer. A route with none answers 406 to a wire request rather than bytes C cannot read.
-const WIRE_ROUTES = { 'GET status': 'status', 'GET decks': 'decks', 'GET install': 'install', 'GET profiles': 'profiles' };
+// What each route reads and answers: [the request body's kind or null, the answer's kind]. Any
+// 4xx or 5xx answer is the error kind. A route missing here answers 501, never a guess.
+const ROUTES = {
+  'GET status': [null, 'status'],
+  'GET decks': [null, 'decks'],
+  'POST decks': ['q_deck_name', 'deck_created'],
+  'PATCH decks/[id]': ['q_deck_name', 'deck_renamed'],
+  'GET decks/[id]/notes': [null, 'notes'],
+  'GET decks/[id]/notes/field-values': [null, 'field_values'],
+  'GET install': [null, 'install_state'],
+  'POST install': ['q_install', 'installed'],
+  'GET profiles': [null, 'profiles'],
+  'GET notetypes': [null, 'notetypes'],
+  'POST notes': ['q_note', 'note_added'],
+  'POST notes/bulk': ['q_notes', 'notes_added'],
+  'PATCH notes/[id]': ['q_note_update', 'note_changed'],
+  'DELETE notes/[id]': [null, 'note_changed'],
+  'POST card-text': ['q_card_text', 'card_text'],
+  'POST audio': ['q_audio', 'clip'],
+  'GET starter': [null, 'starter_state'],
+  'POST starter': ['q_starter', 'starter_built'],
+  'GET media/[filename]': [null, null], // a clip's own bytes
+};
 
 async function readBody(req) {
   const chunks = [];
   for await (const chunk of req) chunks.push(chunk);
-  return chunks.length ? Buffer.concat(chunks) : undefined;
+  return Buffer.concat(chunks);
 }
+
+// An error answer as the error kind: the install route says what went wrong as `message`.
+const asError = (answer) => (typeof answer?.error === 'string' || typeof answer?.message !== 'string'
+  ? answer : { ...answer, error: answer.message });
 
 async function api(req, res, url) {
   const parts = url.pathname.split('/').filter(Boolean).slice(2); // after /api/anki
   const found = matchRoute(parts);
   if (!found) return send(res, 404, 'text/plain', 'no such route');
+  const shape = ROUTES[`${req.method} ${found.route.segments.join('/')}`];
+  if (!shape) return send(res, 501, 'text/plain', `no wire layout for ${req.method} ${url.pathname}`);
   let mod = modules.get(found.route.file);
   if (!mod) {
     mod = await import(pathToFileURL(found.route.file).href);
@@ -74,13 +100,21 @@ async function api(req, res, url) {
   }
   const handler = mod[req.method];
   if (!handler) return send(res, 405, 'text/plain', 'method not allowed');
+  let body = null;
+  if (shape[0]) {
+    if (!(req.headers['content-type'] || '').startsWith(WIRE_MIME)) {
+      return send(res, 415, WIRE_MIME, encode('error', { error: `send the body as ${WIRE_MIME}` }));
+    }
+    body = decode(shape[0], await readBody(req));
+    if (!body) return send(res, 400, WIRE_MIME, encode('error', { error: 'the body is not a whole message of its kind' }));
+  }
   const request = new Request(url, {
     method: req.method,
     headers: Object.entries(req.headers).flatMap(([k, v]) => (Array.isArray(v) ? v.map((x) => [k, x]) : [[k, v]])),
-    body: req.method === 'GET' || req.method === 'HEAD' ? undefined : await readBody(req),
   });
+  // What the handlers read a body with: the object the wire body decoded to.
+  request.json = async () => body ?? {};
   const response = await handler(request, { params: Promise.resolve(found.params) });
-  const wantsWire = (req.headers.accept || '').includes(WIRE_MIME);
   if (!(ANSWER in response)) {
     // Not an object answer (a clip's bytes from /media): passed through as it is.
     const headers = Object.fromEntries(response.headers);
@@ -88,10 +122,9 @@ async function api(req, res, url) {
     return res.end(Buffer.from(await response.arrayBuffer()));
   }
   const answer = response[ANSWER];
-  if (!wantsWire) return send(res, response.status, 'application/json', JSON.stringify(answer));
-  const kind = response.status >= 400 ? 'error' : WIRE_ROUTES[`${req.method} ${found.route.segments.join('/')}`];
-  if (!kind) return send(res, 406, 'text/plain', `no wire layout for ${req.method} ${url.pathname} yet`);
-  return send(res, response.status, WIRE_MIME, encoders[kind](answer));
+  const headers = Object.fromEntries(response.headers);
+  if (response.status >= 400) return send(res, response.status, WIRE_MIME, encode('error', asError(answer)), headers);
+  return send(res, response.status, WIRE_MIME, encode(shape[1], answer), headers);
 }
 
 // The app's own files. Every page path is the one shell: C routes.
@@ -102,8 +135,8 @@ const FILES = {
 };
 const PUBLIC_TYPES = { '.png': 'image/png', '.svg': 'image/svg+xml', '.ico': 'image/x-icon' };
 
-function send(res, status, type, body) {
-  res.writeHead(status, { 'content-type': type, 'cache-control': 'no-store' });
+function send(res, status, type, body, extra = {}) {
+  res.writeHead(status, { ...extra, 'content-type': type, 'cache-control': 'no-store' });
   res.end(body);
 }
 
