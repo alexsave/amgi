@@ -17,19 +17,10 @@ const nextConfig = {
   // default bundler) still fails to resolve node:sqlite through this same
   // externalized package with "Unsupported external type Url for commonjs
   // reference" (a known class of Turbopack gap for native/Node-only deps as
-  // of Next 16.3, see vercel/next.js#86099 for the same failure mode against
+  // of Next 16.3, see Next.js issue #86099 for the same failure mode against
   // a different package). That is why package.json's dev/build scripts pass
   // `--webpack` - not a style choice, a workaround for this specific bug.
   serverExternalPackages: ['plusaudio'],
-  // Migrated from Create React App: the deployment still holds this under
-  // its REACT_APP_* name, so accept either spelling and expose the
-  // NEXT_PUBLIC_* one the client code reads. amgi has no backend account of
-  // its own any more (no Supabase project, no login) - this is just
-  // anonymous web-vitals reporting.
-  env: {
-    NEXT_PUBLIC_VERCEL_ANALYTICS_ID:
-      process.env.NEXT_PUBLIC_VERCEL_ANALYTICS_ID || process.env.REACT_APP_VERCEL_ANALYTICS_ID || '',
-  },
 };
 
 module.exports = nextConfig;
