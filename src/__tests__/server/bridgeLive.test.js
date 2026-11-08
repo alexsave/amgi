@@ -122,6 +122,14 @@ maybe(`the bridge protocol against the real add-on server and a real collection 
     assert.match(changed.warning, /romanised/, 'the romanisation guard still answers through the wire');
 
     const clip = Buffer.from([0, 1, 2, 255, 0x0a, 0x22, 0x7b, 0, 128]);
+    // KNOWN QUIRK, reported to amgi (2026-11-08): the client escapes a media name in the path
+    // (encodeURIComponent) and the add-on does not decode it, so a stored name that needs escaping
+    // (a space, Korean, '#', '%') reads as not there. Pinned so both clients escape the same way;
+    // when the add-on is fixed, these two assertions flip.
+    const named = await ops.addMedia('클립 #1 & 100%.wav', Buffer.from('escaped'));
+    assert.equal(named, '클립 #1 & 100%.wav');
+    assert.equal(await ops.hasMedia(named), false, 'known quirk: the add-on reads the escaped name as it is');
+    assert.equal(await ops.readMedia(named), null, 'known quirk: the same for its bytes');
     assert.equal(await ops.hasMedia('live-clip.wav'), false);
     const stored = await ops.addMedia('live-clip.wav', clip);
     assert.equal(await ops.hasMedia(stored), true);
@@ -212,6 +220,45 @@ describe(`an add-on in another protocol (${BRIDGE_IMPL})`, () => {
     } finally {
       await newer.close();
     }
+  });
+
+  test('one with no profile open is bridge-no-collection, with its status', async () => {
+    const none = await fakeAddon(200, { 'Content-Type': WIRE_MIME, [PROTOCOL_HEADER]: String(BRIDGE_PROTOCOL) },
+      encode('b_status', { profileOpen: false, profileName: '', collectionOpen: false, ankiVersion: '26.09.4', qtVersion: '6.9' }));
+    try {
+      const result = await resolveTransport(settings(none.url));
+      assert.equal(result.mode, 'bridge-no-collection');
+      assert.equal(result.detail.collectionOpen, false);
+      assert.equal(result.detail.ankiVersion, '26.09.4');
+      assert.equal('schemaVersion' in result.detail, false, 'no schema with no collection');
+    } finally {
+      await none.close();
+    }
+  });
+
+  test('an answer that is not a whole message of its kind is a 502', async () => {
+    const status = encode('b_status', { profileOpen: true, profileName: 'p', collectionOpen: true, schemaVersion: 18, ankiVersion: 'a', qtVersion: 'q' });
+    const server = http.createServer((req, res) => {
+      res.writeHead(200, { 'Content-Type': WIRE_MIME, [PROTOCOL_HEADER]: String(BRIDGE_PROTOCOL) });
+      res.end(req.url === '/status' ? status : status.subarray(0, 7));
+    });
+    await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+    try {
+      const probed = await probeBridge(`http://127.0.0.1:${server.address().port}`, TOKEN);
+      await assert.rejects(probed.ops.listDecks(), (error) => error instanceof BridgeError && error.status === 502
+        && error.message === "the bridge's answer is not a whole b_decks message");
+    } finally {
+      await new Promise((resolve) => server.close(resolve));
+    }
+  });
+
+  test('a bridge that went away: the ops say fetch failed, and the transport falls back to the file', async () => {
+    const gone = await fakeAddon(200, { 'Content-Type': WIRE_MIME, [PROTOCOL_HEADER]: String(BRIDGE_PROTOCOL) },
+      encode('b_status', { profileOpen: true, profileName: 'p', collectionOpen: true, schemaVersion: 18, ankiVersion: 'a', qtVersion: 'q' }));
+    const probed = await probeBridge(gone.url, TOKEN);
+    await gone.close();
+    await assert.rejects(probed.ops.listDecks(), (error) => !(error instanceof BridgeError) && error.message === 'fetch failed');
+    assert.equal((await resolveTransport(settings(gone.url))).mode, 'unconfigured');
   });
 
   test('an old add-on that refuses the token is not called outdated: nothing is known of its version', async () => {
