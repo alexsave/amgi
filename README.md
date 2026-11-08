@@ -51,7 +51,7 @@ One key does everything: Google's Gemini writes each card, speaks it, and checks
 Create the key at [aistudio.google.com/apikey](https://aistudio.google.com/apikey).
 Gemini's voices are what make Japanese and Korean sound native rather than read by an English speaker.
 
-Be aware of the free tier: it allows **10 requests per day per model**, and one card takes roughly six or seven requests (its text, then for each of its two clips a recording, a transcription and sometimes a judging, plus a retry when a clip fails its check).
+Be aware of the free tier: it allows **10 requests per day per model**, and one card takes roughly five to seven requests (its text, then for each of its two clips a recording, a transcription and, for Japanese and Chinese or on a mismatch, a judging; more when a clip fails its check and is retried).
 That is one or two cards a day.
 For real use, enable billing on the key's Google Cloud project (the key page in AI Studio links to it); amgi shows the same advice in the card's row when the day's quota runs out.
 
