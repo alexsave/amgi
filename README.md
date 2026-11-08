@@ -65,8 +65,9 @@ npm run dev
 
 Open <http://localhost:3000>. Until amgi is installed, setting it up is the only screen there is, so there is nothing to go and find: it looks for your Anki while it loads, picks the profile if there is only one, and leaves **Install into Anki** as the single thing to press.
 That copies two add-ons into your Anki data folder, and the card template in alongside them.
-Restart Anki, and it adds the `amgi Listening` note type and its files to your collection on the way up.
-That is the whole install: there is no note type to hand-build and nothing to paste anywhere.
+With Anki closed, amgi also adds the `amgi Listening` note type and its files to your collection right then, so you can make a card straight away.
+With Anki open it cannot touch the collection, so restart Anki instead and the add-on adds them on the way up.
+Either way that is the whole install: there is no note type to hand-build and nothing to paste anywhere.
 
 It is worth knowing what you just installed, because one of the two add-ons is doing something a card normally cannot:
 
