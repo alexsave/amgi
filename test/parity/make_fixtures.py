@@ -6,8 +6,9 @@ list to a copy of each, through the Node collection code and through the C one.
     $ANKI_PYTHON_BIN test/parity/make_fixtures.py test/parity/fixtures
 
 The fixtures are committed, so a parity run needs no Python and every run starts from the same
-bytes. Run this again only when the fixture's content should change; the expectations in
-test/parity/expect/ then change with it, as a decision, and are read line by line.
+bytes. Run this again only when the fixture's content should change, then update
+test/parity/expect/ to match and review every changed line: the recordings are the contract, and
+since L4 there is no recorder (PARITY_RECORD went with the Node side).
 
 What is in it, each piece there because an operation in the list needs it:
   decks       Default; "Existing" with the subdeck "Existing::Child"; "Korean::문장"; "Café"; a
