@@ -1,5 +1,3 @@
-'use strict';
-
 // Parsing the client's Anki settings out of a request header.
 //
 // The browser is the only place that knows which profile a person picked and
@@ -24,7 +22,7 @@ const DEFAULT_SETTINGS = Object.freeze({
 // (encodeURIComponent's form, since a header carries only Latin-1 and a profile path may be
 // Korean). This is what the C app sends: no JSON to write in the browser, and nothing to parse
 // here but the percent escapes. The JSON header stays for the documented API (skills/amgi).
-const PLAIN_HEADERS = Object.freeze({
+export const PLAIN_HEADERS = Object.freeze({
   baseDirOverride: 'x-amgi-base-dir',
   collectionPath: 'x-amgi-collection',
   profileName: 'x-amgi-profile',
@@ -59,7 +57,7 @@ function readPlainSettings(request) {
  * Read and validate the settings off a Request: the plain headers when any is present, else the
  * JSON header, falling back to defaults on anything malformed.
  */
-function readSettings(request) {
+export function readSettings(request) {
   const plain = readPlainSettings(request);
   if (plain) return plain;
   const raw = request.headers.get(HEADER_NAME);
@@ -83,5 +81,3 @@ function readSettings(request) {
     return DEFAULT_SETTINGS;
   }
 }
-
-module.exports = { readSettings, PLAIN_HEADERS };

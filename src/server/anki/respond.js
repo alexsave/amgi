@@ -1,6 +1,4 @@
-'use strict';
-
-const { answer } = require('./answer');
+import { answer } from './answer';
 
 // A shared shape for "the transport isn't in a state to do this right now" -
 // used by every /api/anki/* route except /status itself (which reports these
@@ -21,11 +19,9 @@ const MESSAGES = {
     'Anki is open with the bridge running, but no profile is loaded yet (the profile picker is showing). Pick a profile in Anki.',
 };
 
-function notReadyResponse(mode, extra = {}) {
+export function notReadyResponse(mode, extra = {}) {
   return answer(
     { mode, error: MESSAGES[mode] || `Anki collection is not available (${mode}).`, ...extra },
     { status: 409 },
   );
 }
-
-module.exports = { notReadyResponse };

@@ -4,10 +4,10 @@
 // decided by `outcome(args)`, which answers {stdout, stderr, code} (or
 // throws/rejects with an object carrying them).
 
-const { EventEmitter } = require('node:events');
-const { PassThrough } = require('node:stream');
+import { EventEmitter } from 'node:events';
+import { PassThrough } from 'node:stream';
 
-function fakeFork(args, outcome) {
+export function fakeFork(args, outcome) {
   const child = new EventEmitter();
   child.stdout = new PassThrough();
   child.stderr = new PassThrough();
@@ -25,5 +25,3 @@ function fakeFork(args, outcome) {
     });
   return child;
 }
-
-module.exports = { fakeFork };

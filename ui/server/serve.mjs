@@ -2,7 +2,8 @@
 // inlined, app.wasm, the app's CSS, the icons) and the /api/anki routes (src/server/api), through a
 // small adapter from Node's request to the web Request they take.
 //
-//   node ui/server/serve.mjs            (PORT, default 3142; binds 127.0.0.1)
+//   node ui/server/serve.mjs            (PORT, default 3000, the origin the Anki bridge allows by
+//                                        default; PORT=0 takes a free one; binds 127.0.0.1)
 //
 // Every /api/anki answer and request body crosses in amgi's wire format (ui/wire/wire.h): the
 // handler's answer object is written by the kind ROUTES names, and a body is read into the object
@@ -12,15 +13,14 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import answers from '../../src/server/anki/answer.js';
+import { ANSWER } from '../../src/server/anki/answer.js';
 import { WIRE_MIME, decode, encode } from './wire.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..', '..');
 const out = path.join(root, 'ui', 'out');
 const apiDir = path.join(root, 'src', 'server', 'api', 'anki');
-const { ANSWER } = answers;
-const PORT = Number(process.env.PORT || 3142);
+const PORT = Number(process.env.PORT ?? 3000);
 // What `next dev` and `next start` did for the server: .env.local (GEMINI_API_KEY) into the
 // environment, with a variable already set winning, as Next's does.
 const envFile = path.join(root, '.env.local');
@@ -147,7 +147,7 @@ function serveFile(res, file, type) {
 
 const server = http.createServer(async (req, res) => {
   try {
-    const url = new URL(req.url, `http://${req.headers.host || `127.0.0.1:${PORT}`}`);
+    const url = new URL(req.url, `http://${req.headers.host || '127.0.0.1'}`);
     if (url.pathname.startsWith('/api/anki/')) return await api(req, res, url);
     if (url.pathname === '/') {
       res.writeHead(307, { location: '/decks' });
@@ -165,4 +165,5 @@ const server = http.createServer(async (req, res) => {
     else res.end();
   }
 });
-server.listen(PORT, '127.0.0.1', () => console.log(`amgi on http://127.0.0.1:${PORT}`));
+// The line the drives read to learn the port when they ask for a free one.
+server.listen(PORT, '127.0.0.1', () => console.log(`amgi on http://127.0.0.1:${server.address().port}`));
