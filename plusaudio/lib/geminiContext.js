@@ -30,8 +30,10 @@ const { random: defaultRandom } = require('./random');
  * @param {object} [options.random]          the voice draw's source; ./random.js's process-wide generator by default
  * @param {function} [options.sleep]         how a per-minute rate limit is waited out
  * @param {function} [options.log]           where the policy's own warnings go
+ * @param {string} [options.ttsModel]        the speech model; models.ts's GEMINI_TTS_MODEL unless a dev
+ *                                           script asks for another named one (build-starter-audio.js --model)
  */
-function createGeminiContext({ apiKey, baseUrl, fetch, random = defaultRandom, sleep, log = () => {} } = {}) {
+function createGeminiContext({ apiKey, baseUrl, fetch, random = defaultRandom, sleep, log = () => {}, ttsModel = CARD_MODELS.tts } = {}) {
   const gemini = createGeminiClient({
     apiKey,
     ...(baseUrl ? { baseUrl } : {}),
@@ -40,8 +42,8 @@ function createGeminiContext({ apiKey, baseUrl, fetch, random = defaultRandom, s
   });
   return {
     gemini,
-    models: CARD_MODELS,
-    speech: createGeminiSpeech({ client: gemini, model: CARD_MODELS.tts, voices: GEMINI_TTS_VOICES, random }),
+    models: { ...CARD_MODELS, tts: ttsModel },
+    speech: createGeminiSpeech({ client: gemini, model: ttsModel, voices: GEMINI_TTS_VOICES, random }),
     // Indented because these lines explain the note the CLI just announced.
     log: {
       warn: (message) => log(`  ${message}`),
