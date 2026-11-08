@@ -1,9 +1,8 @@
 'use strict';
 
-// Screenshots amgi's own screens against a fixture Anki collection - there
-// is no login and no seeded Supabase project any more, so this walks: the
-// deck list, a deck's notes, creating a new deck, and adding a note to it
-// (card text and audio generation included). With no GEMINI_API_KEY, that
+// Screenshots amgi's own screens against a fixture Anki collection. It
+// walks the deck list, a deck's notes, creating a new deck, and adding a
+// note to it (card text and audio generation included). With no GEMINI_API_KEY, that
 // last step has to end in the form's own "GEMINI_API_KEY is not set" error
 // and no new note - a card is never made from placeholder text or audio
 // (see src/server/anki/cardText.js and audio.js). With a key it makes one

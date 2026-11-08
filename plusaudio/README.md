@@ -213,10 +213,5 @@ the app's own local generation path (`src/server/anki/audio.js`, by way of `gene
 Anki add-on's bridge run.
 So the clips are made with the same models, the same voice pool and the same
 refusal to keep audio that does not say what the note says.
-Writing new notes into a deck is the next step and is not built yet: it needs a source of terms and a
-place to put the generated sides, not a different generator.
-`../anki/addon/amgi_bridge/README.md`, "What v2 would need", says more about what that step looks like
-now that an add-on can have Anki itself do the writing.
-
-The scripts that produced the owner's original deck are in `archives/plusaudio-2025/`, with a note on
-why they were retired and what is worth mining from them.
+Writing new notes is the app's job: its deck page makes whole cards, text and audio, through
+`generate-card-text.js` and `generate-clip.js` (see `src/server/anki/cardText.js`).
