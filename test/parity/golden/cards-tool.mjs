@@ -1,6 +1,6 @@
 // The C card policy's pure functions through server/test/golden_cards.c, for the golden tests.
-// Builds the tool on first use (make -C server build/golden_cards, with APP_PROGS extended on the
-// command line so the shared Makefile is unchanged), then answers a batch of calls in one run.
+// Builds the tool on first use (make -C server build/golden_cards; npm test's make builds it too),
+// then answers a batch of calls in one run.
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -24,8 +24,7 @@ function build() {
     }
   }
   try {
-    execFileSync('make', ['-s', '-C', path.join(ROOT, 'server'),
-      'APP_PROGS=collection_cli=collection/cli.c app_unit=test/app_unit.c golden_cards=test/golden_cards.c', 'build/golden_cards'],
+    execFileSync('make', ['-s', '-C', path.join(ROOT, 'server'), 'build/golden_cards'],
     { stdio: ['ignore', 'ignore', 'inherit'] });
   } finally {
     fs.rmdirSync(LOCK);
