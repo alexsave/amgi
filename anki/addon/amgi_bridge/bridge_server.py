@@ -112,6 +112,8 @@ ROUTES: list[Route] = [
     ("PATCH", re.compile(r"^/notes/(?P<note_id>\d+)$"), "update_note"),
     ("DELETE", re.compile(r"^/notes/(?P<note_id>\d+)$"), "remove_note"),
     ("PATCH", re.compile(r"^/decks/(?P<deck_id>\d+)$"), "rename_deck"),
+    ("GET", re.compile(r"^/decks/(?P<deck_id>\d+)$"), "deck_summary"),
+    ("DELETE", re.compile(r"^/decks/(?P<deck_id>\d+)$"), "remove_deck"),
     ("POST", re.compile(r"^/media$"), "add_media"),
     ("GET", re.compile(r"^/media/(?P<filename>[^/]+)/data$"), "read_media"),
     ("GET", re.compile(r"^/media/(?P<filename>[^/]+)$"), "has_media"),
@@ -220,8 +222,10 @@ def make_handler_class(
                 except (ValueError, LookupError) as error:
                     # A dispatcher validation error (bad field count, unknown
                     # note type or note id) - the caller's mistake, not a bug
-                    # here, so 400 rather than 500.
-                    self._send_json(400, {"error": str(error)}, origin=auth.origin)
+                    # here, so 400 rather than 500. One that names its own
+                    # status (bridge_ops.DeckNotFound: 404, "already gone")
+                    # answers that instead.
+                    self._send_json(getattr(error, "http_status", 400), {"error": str(error)}, origin=auth.origin)
                 except OSError as error:
                     # Most commonly this socket's own read timeout (see
                     # `timeout` above) firing while still waiting on a body
@@ -368,6 +372,12 @@ def make_handler_class(
 
         def _op_remove_note(self, params: dict, query: dict, body: Optional[dict]) -> dict:
             return dispatcher.remove_note(int(params["note_id"]))
+
+        def _op_deck_summary(self, params: dict, query: dict, body: Optional[dict]) -> dict:
+            return dispatcher.deck_summary(int(params["deck_id"]))
+
+        def _op_remove_deck(self, params: dict, query: dict, body: Optional[dict]) -> dict:
+            return dispatcher.remove_deck(int(params["deck_id"]))
 
         def _op_read_media(self, params: dict, query: dict, body: Optional[dict]) -> dict:
             # base64 in JSON rather than raw bytes with an audio content
