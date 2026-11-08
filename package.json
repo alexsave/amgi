@@ -27,6 +27,7 @@
     "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
-    "test": "jest && node --test \"plusaudio/test/**/*.test.js\" \"anki/test/**/*.test.js\" && python3 -m unittest discover -s anki/addon/amgi_bridge/test -p \"test_*.py\" -v"
+    "test": "jest && ui/build.sh && node --test \"plusaudio/test/**/*.test.js\" \"anki/test/**/*.test.js\" \"ui/test/*.test.mjs\" && python3 -m unittest discover -s anki/addon/amgi_bridge/test -p \"test_*.py\" -v",
+    "ui": "ui/build.sh && node ui/server/serve.mjs"
   }
 }
