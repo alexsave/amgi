@@ -16,7 +16,7 @@ Nothing else needs quitting: the agents' servers on other ports do not matter.
 ## 1. Get the build
 
 In your amgi checkout: `git pull`, then `git submodule update --init --recursive` (a plain pull does not fetch the new `cbase` submodule).
-Check that `.env.local` holds one line, `GEMINI_API_KEY=<your key>`, with nothing after the key (a `# comment` on that line is now read as part of the key).
+Check that `.env.local` holds one line, `GEMINI_API_KEY=<your key>`; a trailing `# comment` after the key is ignored, as the Node server did.
 Run `npm start` and wait for `cbase: listening 127.0.0.1:3000`.
 Open <http://localhost:3000>.
 Your settings (Anki folder, profile, bridge) should still be there, because the origin is the same as before.
