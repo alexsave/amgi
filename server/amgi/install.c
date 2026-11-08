@@ -268,6 +268,13 @@ static str read_text(arena *a, str path, int *ok) {
 }
 
 /* {checked, stale}: 1 when checked. */
+static int collection_drift(arena *a, const amgi_ops *o, str root, strlist *stale);
+int amgi_collection_drift(arena *a, const amgi_ops *o, str root, str **stale, size_t *n) {
+  strlist l = {0};
+  int checked = collection_drift(a, o, root, &l);
+  *stale = l.v, *n = checked ? l.n : 0;
+  return checked;
+}
 static int collection_drift(arena *a, const amgi_ops *o, str root, strlist *stale) {
   if (!o || !source_available(a, root)) return 0;
   col_notetype *nts;
@@ -359,7 +366,12 @@ void amgi_install_get(arena *a, const amgi_settings *s, cb_http_res *res) {
 }
 
 /* installNotetypeDirect: 1 when the note type is now there (made, or already was). */
-static int install_notetype(arena *a, const amgi_ops *o, str root) {
+static int install_notetype_why(arena *a, const amgi_ops *o, str root, col_notetype_made *made_out);
+static int install_notetype(arena *a, const amgi_ops *o, str root) { return install_notetype_why(a, o, root, NULL); }
+int amgi_install_notetype(arena *a, const amgi_ops *o, str root, col_notetype_made *made) {
+  return install_notetype_why(a, o, root, made);
+}
+static int install_notetype_why(arena *a, const amgi_ops *o, str root, col_notetype_made *made_out) {
   if (!o || !ops_is_direct(o)) return 0; /* only the direct transport can write it */
   col_media media[N(COLLECTION_MEDIA)];
   for (size_t m = 0; m < N(COLLECTION_MEDIA); m++) {
@@ -392,7 +404,11 @@ static int install_notetype(arena *a, const amgi_ops *o, str root) {
   spec.nreqs = 2;
   col_notetype_made made;
   col_err e = {0};
-  if (col_create_notetype(a, o->path, &spec, media, N(media), &made, &e)) return 0;
+  if (col_create_notetype(a, o->path, &spec, media, N(media), &made, &e)) {
+    if (made_out) *made_out = (col_notetype_made){0, 0, 0, str_c(e.kind ? e.kind : "error")};
+    return 0;
+  }
+  if (made_out) *made_out = made;
   return made.created || str_eq_c(made.reason, "exists");
 }
 

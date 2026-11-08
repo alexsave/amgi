@@ -117,22 +117,6 @@ const ALLOWED = [
     why: `${ANKI}the C port of notes.js and notetypes.js: col.models (schema 11), and nextPos in col.conf (schema 11) or the config table (schema 18), through the quarantine.`,
   },
   {
-    file: 'plusaudio/lib/collection/decks.js', count: 5, kind: 'anki',
-    why: `${ANKI}a schema 11 collection keeps every deck in one JSON column (col.decks); listing, creating and renaming decks reads and rewrites it as Anki does.`,
-  },
-  {
-    file: 'plusaudio/lib/collection/deck-remove.js', count: 4, kind: 'anki',
-    why: `${ANKI}deleting a deck in a schema 11 collection rewrites col.decks (the deck list) and col.conf (its per-deck keys), both JSON columns, as Anki does.`,
-  },
-  {
-    file: 'plusaudio/lib/collection/notes.js', count: 4, kind: 'anki',
-    why: `${ANKI}the next new-card position is col.conf's nextPos (JSON) in schema 11, and a JSON-encoded number in the config table in schema 18.`,
-  },
-  {
-    file: 'plusaudio/lib/collection/notetypes.js', count: 1, kind: 'anki',
-    why: `${ANKI}a schema 11 collection keeps every note type in one JSON column (col.models).`,
-  },
-  {
     file: 'plusaudio/lib/deck.js', count: 1, kind: 'anki',
     why: `${ANKI}an .apkg of schema 11 keeps its note types in col.models, JSON, which the CLI reads to find the fields.`,
   },
@@ -292,8 +276,8 @@ test('the scan covers the shipped code', () => {
   const files = shippedSources();
   // Canaries: if a root moves or the filter starts dropping one, the scan looks at nothing and passes forever.
   for (const must of [
-    'src/server/anki/bridgeClient.js', 'src/server/api/anki/decks/route.js', 'ui/server/serve.mjs', 'ui/server/wire.mjs',
-    'plusaudio/generate-card-text.js', 'plusaudio/lib/cardGeneration/cardGeneration.ts', `${FOLDER}modelAnswer.js`,
+    'server/amgi/routes.c', 'server/collection/bridge.c', 'server/app/amgi_app.c', 'ui/wire/wire.mjs', 'ui/wire/wire.c',
+    'plusaudio/generate-clip.js', 'plusaudio/lib/cardGeneration/cardGeneration.ts', `${FOLDER}modelAnswer.js`,
     'anki/addon/amgi_bridge/bridge_server.py', 'anki/addon/amgi_bridge/bridge_ops.py', 'anki/media/_amgi-loop.js',
     'anki/notetype/front.html',
   ]) assert.ok(files.includes(must), `${must} is scanned`);

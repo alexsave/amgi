@@ -13,7 +13,7 @@
 // into the machine. A card template that throws mid-review leaves the learner
 // staring at a dead card, so every call out is wrapped.
 
-import { detectSpeechEnd } from './voiceActivity';
+import { detectSpeechEnd } from './voiceActivity.js';
 
 export const PHASE = {
   IDLE: 'idle',

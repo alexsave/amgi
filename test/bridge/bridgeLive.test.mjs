@@ -1,4 +1,4 @@
-// The bridge protocol end to end: the server's bridge client (src/server/anki/bridgeClient.js)
+// The bridge protocol end to end: the server's bridge client (server/collection/bridge.c)
 // against the add-on's real HTTP server (bridge_server.py) and its real operations (bridge_ops.py)
 // on a real Anki collection, every route of it, in amgi's wire format both ways. The one stand-in is
 // the dispatcher: .claude/skills/e2e-ui/scripts/bridge_server_entry.py calls bridge_ops directly,
@@ -8,9 +8,8 @@
 // Then the version check: an add-on in another protocol, and one old enough to speak JSON, are both
 // the bridge-outdated mode, with its "press Install into Anki again" message.
 //
-// Needs the anki library (ANKI_PYTHON_BIN, as the other collection tests); skipped without it.
-// AMGI_COLLECTION_IMPL=<the C core's collection_cli> runs every case against the C bridge client
-// instead (test/parity/bridge-under-test.mjs), against the same real add-on server.
+// Needs the anki library (ANKI_PYTHON_BIN, as the other collection tests); skipped without it. The
+// client is driven through server/build/collection_cli (test/parity/bridge-under-test.mjs).
 import { after, before, describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
@@ -18,18 +17,15 @@ import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
 import { createRequire } from 'node:module';
-import { BridgeError, PROTOCOL_HEADER } from '../../server/anki/bridgeClient';
 import {
-  BRIDGE_IMPL, closeBridgesUnderTest, probeBridgeUnderTest as probeBridge, resolveTransportUnderTest as resolveTransport,
-} from '../../../test/parity/bridge-under-test.mjs';
-import { notReadyResponse } from '../../server/anki/respond';
-import { ANSWER } from '../../server/anki/answer';
-import { BRIDGE_PROTOCOL, WIRE_MIME, decode, encode } from '../../../ui/server/wire.mjs';
+  BridgeError, PROTOCOL_HEADER, closeBridgesUnderTest, probeBridgeUnderTest as probeBridge, resolveTransportUnderTest as resolveTransport,
+} from '../parity/bridge-under-test.mjs';
+import { BRIDGE_PROTOCOL, WIRE_MIME, decode, encode } from '../../ui/wire/wire.mjs';
 
 const require = createRequire(import.meta.url);
-const { anki, buildFixtureCollection, tempDir, withAnkiLibrary } = require('../../../plusaudio/test/collection/helpers/anki-python');
+const { anki, buildFixtureCollection, tempDir, withAnkiLibrary } = require('../../plusaudio/test/collection/helpers/anki-python');
 
-const ROOT = path.resolve(import.meta.dirname, '..', '..', '..');
+const ROOT = path.resolve(import.meta.dirname, '..', '..');
 const ENTRY = path.join(ROOT, '.claude', 'skills', 'e2e-ui', 'scripts', 'bridge_server_entry.py');
 const TOKEN = 'live-bridge-token';
 const maybe = anki ? describe : describe.skip;
@@ -54,7 +50,7 @@ function startBridge(collectionPath) {
 
 after(closeBridgesUnderTest);
 
-maybe(`the bridge protocol against the real add-on server and a real collection (${BRIDGE_IMPL})`, () => {
+maybe(`the bridge protocol against the real add-on server and a real collection`, () => {
   let dir;
   let collectionPath;
   let bridge;
@@ -190,7 +186,7 @@ print(len(col.find_notes("")))
   });
 });
 
-describe(`an add-on in another protocol (${BRIDGE_IMPL})`, () => {
+describe(`an add-on in another protocol`, () => {
   /** A stand-in add-on that answers every request with `status`, `headers` and `body`. */
   async function fakeAddon(status, headers, body) {
     const server = http.createServer((req, res) => {
@@ -202,13 +198,12 @@ describe(`an add-on in another protocol (${BRIDGE_IMPL})`, () => {
   }
   const settings = (url) => ({ baseDirOverride: '', collectionPath: '', profileName: '', bridge: { baseUrl: url, token: TOKEN } });
 
-  test('one old enough to speak JSON is the bridge-outdated mode, with the message to install again', async () => {
+  test('one old enough to speak JSON is the bridge-outdated mode (whose message, to install again, the HTTP contract holds)', async () => {
     const old = await fakeAddon(200, { 'Content-Type': 'application/json' }, '{"collectionOpen":true}');
     try {
       assert.ok((await probeBridge(old.url, TOKEN)).outdated);
       const result = await resolveTransport(settings(old.url));
       assert.equal(result.mode, 'bridge-outdated');
-      assert.match(notReadyResponse(result.mode)[ANSWER].error, /Install into Anki again/);
     } finally {
       await old.close();
     }
@@ -273,7 +268,7 @@ describe(`an add-on in another protocol (${BRIDGE_IMPL})`, () => {
   });
 });
 
-describe(`a slow add-on: reads wait 1500 ms, writes the add-on's 30000 (${BRIDGE_IMPL})`, () => {
+describe(`a slow add-on: reads wait 1500 ms, writes the add-on's 30000`, () => {
   test('a read that takes 2 s is aborted, a write that takes 2 s lands', async () => {
     const headers = { 'Content-Type': WIRE_MIME, [PROTOCOL_HEADER]: String(BRIDGE_PROTOCOL) };
     const server = http.createServer((req, res) => {

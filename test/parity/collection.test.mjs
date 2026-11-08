@@ -3,13 +3,13 @@
 // implementation of the collection core driven over test/parity/protocol.mjs. Every answer goes
 // into a transcript, and the collection afterwards (every row, the schema text, the media folder,
 // the backups) is dumped by server/build/parity_dump (test/parity/dump.c); both, with ids and
-// times normalised, must equal what was recorded from today's Node code in test/parity/expect/.
+// times normalised, must equal test/parity/expect/: the contract's golden answers. They were recorded
+// from the Node code the C core replaced and are now the C core's (test/parity/impl-process.mjs runs
+// server/build/collection_cli): where C answers differently on purpose (PR #30's review fixes: the
+// first field's checksum stripped once, as Anki does; hasMedia refusing what readMedia refuses) its
+// answer is the recording, and the install and starter steps are the server's own C orchestration,
+// run by the CLI in the same session.
 //
-// The implementation is chosen by environment variable, so the same runner checks the C port:
-//   AMGI_COLLECTION_IMPL unset            node test/parity/collection-impl.mjs (the Node code)
-//   AMGI_COLLECTION_IMPL=<executable>     that program, speaking the same protocol (the C CLI)
-// PARITY_RECORD=1 writes the expectations from the implementation under test instead of comparing
-// (do it only from the Node one, and read the diff).
 //
 // The sessions that need the real Anki library (a real lock held by Anki, a change Anki makes
 // between two of ours, and opening each result with Anki) skip when no python with `anki` is
@@ -21,9 +21,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
-import { dec, enc, hex, items, list, noteTokens, strs, unhex } from './protocol.mjs';
-import { collectionDrift, installNotetypeDirect } from '../../src/server/anki/install.js';
-import { buildStarterDeck } from '../../src/server/anki/starterDeck.js';
+import { dec, enc, hex, items, list, noteTokens, strs } from './protocol.mjs';
 
 const require = createRequire(import.meta.url);
 const { anki, holdCollectionOpen, runPython } = require('../../plusaudio/test/collection/helpers/anki-python.js');
@@ -31,92 +29,8 @@ const { anki, holdCollectionOpen, runPython } = require('../../plusaudio/test/co
 const ROOT = path.resolve(import.meta.dirname, '..', '..');
 const HERE = path.join(ROOT, 'test', 'parity');
 const DUMP = path.join(ROOT, 'server', 'build', 'parity_dump');
-const RECORD = process.env.PARITY_RECORD === '1';
-const IMPL = process.env.AMGI_COLLECTION_IMPL;
 
 import { Impl } from './impl-process.mjs';
-import { C_EXPECT, checkDiffs } from './c-diffs.mjs';
-
-/** A thrown answer, shaped as directClient's errors are (kind, or an HTTP status). */
-function errorOf(answer) {
-  const [, kind, message] = answer.split(' ');
-  const error = new Error(dec(message));
-  const k = dec(kind);
-  if (/^\d+$/.test(k)) error.status = Number(k);
-  else if (k !== 'error') error.kind = k;
-  return error;
-}
-
-function okTokens(answer) {
-  if (!answer.startsWith('ok')) throw errorOf(answer);
-  return answer.split('\n')[0].split(' ').slice(1);
-}
-
-/**
- * The ops shape the server's own orchestration takes (src/server/anki/install.js, starterDeck.js),
- * answered by an implementation over the protocol: so the install's collection checks and the
- * starter deck run through the collection core under test, unchanged.
- */
-export function opsOver(impl, log) {
-  const call = async (line, more = []) => {
-    const answer = await impl.cmd(line, more);
-    log(line, more, answer);
-    return answer;
-  };
-  return {
-    async listNotetypes() {
-      const answer = await call('listNotetypes');
-      okTokens(answer);
-      return answer.split('\n').slice(1).map((row) => {
-        const [id, name, kind, sortf, fields, templates] = row.split(' ');
-        return {
-          id: Number(id), name: dec(name), kind: dec(kind), sortFieldIndex: Number(sortf),
-          fieldNames: items(fields).map(dec),
-          templates: items(templates).map((t) => {
-            const [ord, tn, q, a] = dec(t).split(' ');
-            return { ord: Number(ord), name: dec(tn), questionFormat: dec(q), answerFormat: dec(a) };
-          }),
-        };
-      });
-    },
-    async readMedia(name) {
-      return unhex(okTokens(await call(`readMedia ${enc(name)}`))[0]);
-    },
-    async hasMedia(name) {
-      return okTokens(await call(`hasMedia ${enc(name)}`))[0] === '1';
-    },
-    async addMedia(name, data) {
-      return dec(okTokens(await call(`addMedia ${enc(name)} ${hex(data)}`))[0]);
-    },
-    async createDeck(name) {
-      const [id, n, created] = okTokens(await call(`createDeck ${enc(name)}`));
-      return { deck: { id: Number(id), name: dec(n) }, created: created === '1' };
-    },
-    async existingFieldValues(deck, notetype, field) {
-      return items(okTokens(await call(`existingFieldValues ${deck} ${notetype} ${field}`))[0]).map(dec);
-    },
-    async addNote(note) {
-      const [noteId, guid, cardIds, warning] = okTokens(await call(`addNote ${noteTokens(note)}`));
-      const r = { noteId: Number(noteId), guid: dec(guid), cardIds: items(cardIds).map(Number) };
-      if (warning !== '!') r.warning = dec(warning);
-      return r;
-    },
-    async createNotetype(spec, media) {
-      const line = [
-        'createNotetype', enc(spec.name), strs(spec.fields),
-        list(spec.templates.map((t) => enc([enc(t.name), enc(t.front), enc(t.back)].join(' ')))),
-        enc(spec.css),
-        list((spec.requirements || []).map((r) => enc([r.ord, enc(r.kind), list(r.fields.map(String))].join(' ')))),
-        list(Object.entries(media).map(([n, bytes]) => enc(`${enc(n)} ${hex(bytes)}`))),
-      ].join(' ');
-      const [created, id, reason] = okTokens(await call(line));
-      const r = { created: created === '1' };
-      if (id !== '!') r.notetypeId = Number(id);
-      if (reason !== '!') r.reason = dec(reason);
-      return r;
-    },
-  };
-}
 
 /** A copy of a fixture as one profile ("User 1") under a fresh Anki folder. */
 function freshCopy(schema) {
@@ -218,14 +132,6 @@ async function notetypeIds(impl) {
   return ids;
 }
 
-/** A result object as one line, for the transcript (key=value, lists in brackets). */
-function show(value) {
-  if (Array.isArray(value)) return `[${value.map(show).join(', ')}]`;
-  if (value && typeof value === 'object') return `{${Object.entries(value).map(([k, v]) => `${k}=${show(v)}`).join(' ')}}`;
-  if (typeof value === 'string') return `"${value}"`;
-  return String(value);
-}
-
 const note = (deckId, notetypeId, fields, extra = {}) => noteTokens({ deckId, notetypeId, fields, tags: [], ...extra });
 const firstId = (answer) => Number(answer.split(' ')[1]);
 
@@ -286,7 +192,7 @@ async function operations(t, impl, schema) {
   await t.cmd(`addNote ${note(created, basic, ['<b>Hi</b> &amp; <img src="pic.png"> &#x41;&nbsp;x &#66; &bogus; <!-- c --> <audio src=\'a.wav\'>', '<i>b</i>'])}`);
   await t.cmd(`addNote ${note(created, basic, ['<IMG SRC=bare.jpg alt=x>', ''])}`);
   // Still markup-like after one strip: its checksum is where C (stripping once, as Anki) and the
-  // frozen Node (stripping twice) part (test/parity/C_DIFFS.txt).
+  // Node that this replaced (stripping twice) part.
   await t.cmd(`addNote ${note(created, basic, ['<b>&lt;i&gt;</b>', 'csum'])}`);
   await t.cmd(`addNote ${note(created, reversed, ['only front', ''])}`);
   await t.cmd(`addNote ${note(created, reversed, ['both', 'sides'])}`);
@@ -379,19 +285,14 @@ async function operations(t, impl, schema) {
   await t.cmd('listDecks');
 
   // Install's collection checks and the note type the direct install writes, then the starter
-  // deck, both run by the server's own orchestration over the implementation's ops.
-  const ops = opsOver(impl, (line, more, answer) => t.record(line, more, answer));
-  t.note(`drift before install: ${show(await collectionDrift({ ops, root: ROOT }))}`);
-  t.note(`install: ${show(await installNotetypeDirect({ ops, root: ROOT }))}`);
-  t.note(`drift after install: ${show(await collectionDrift({ ops, root: ROOT }))}`);
-  t.note(`install again: ${show(await installNotetypeDirect({ ops, root: ROOT }))}`);
+  // deck: the server's own orchestration (server/amgi/install.c, starter.c), run by the CLI over
+  // this collection in the same session.
+  await t.cmd('installDrift');
+  await t.cmd('installNotetype');
+  await t.cmd('installDrift');
+  await t.cmd('installNotetype');
   for (const [known, learning] of [['en', 'ko'], ['en', 'ko'], ['ko', 'ja']]) {
-    try {
-      const built = await buildStarterDeck({ ops, known, learning, deckName: 'amgi starter' });
-      t.note(`starter ${known}/${learning}: ${show(built)}`);
-    } catch (error) {
-      t.note(`starter ${known}/${learning} failed: ${error.message}`);
-    }
+    await t.cmd(`starter ${enc(known)} ${enc(learning)} ${enc('amgi starter')}`);
   }
 
   // Concurrent writes, as five bulk lanes and a status poll reach one server at once.
@@ -448,29 +349,10 @@ function expectFile(name) {
   return path.join(HERE, 'expect', `${name}.txt`);
 }
 
-/**
- * Compare against the recording (or write it), line by line, so a failure shows where. Under C, a
- * recording's C twin (test/parity/c-diffs.mjs) is the one compared, where there is one;
- * PARITY_RECORD_C=1 writes the twin, and only when C's answer differs from Node's.
- */
+/** Compare against the recording, line by line, so a failure shows where. */
 function check(name, text) {
-  const node = expectFile(name);
-  const twin = path.join(C_EXPECT, `${name}.txt`);
-  if (RECORD) {
-    fs.mkdirSync(path.dirname(node), { recursive: true });
-    fs.writeFileSync(node, text);
-    return;
-  }
-  if (IMPL && process.env.PARITY_RECORD_C === '1') {
-    if (fs.existsSync(node) && fs.readFileSync(node, 'utf8') === text) fs.rmSync(twin, { force: true });
-    else {
-      fs.mkdirSync(C_EXPECT, { recursive: true });
-      fs.writeFileSync(twin, text);
-    }
-    return;
-  }
-  const file = IMPL && fs.existsSync(twin) ? twin : node;
-  assert.ok(fs.existsSync(file), `${file} is recorded (PARITY_RECORD=1 from the Node implementation)`);
+  const file = expectFile(name);
+  assert.ok(fs.existsSync(file), `${file} is recorded`);
   const want = fs.readFileSync(file, 'utf8').split('\n');
   const got = text.split('\n');
   for (let i = 0; i < Math.max(want.length, got.length); i += 1) {
@@ -524,7 +406,7 @@ const NO_DUMP = (() => {
 })();
 
 for (const schema of ['18', '11']) {
-  describe(`collection parity, schema ${schema}${IMPL ? ` (${path.basename(IMPL)})` : ' (Node)'}`, { skip: NO_DUMP ?? false }, () => {
+  describe(`collection parity, schema ${schema}`, { skip: NO_DUMP ?? false }, () => {
     let main;
     test('the operation list: every answer, and every row afterwards', async () => {
       main = await session(schema, (t, impl) => operations(t, impl, schema));
@@ -587,12 +469,7 @@ col.close(downgrade=${schema === '11' ? 'True' : 'False'})
   });
 }
 
-test('the C recordings differ from Node\'s only where test/parity/C_DIFFS.txt names, each case by name', () => {
-  const problems = checkDiffs();
-  assert.deepEqual(problems, [], `\n${problems.join('\n\n')}\n`);
-});
-
-describe(`collection parity: collections that cannot be opened${IMPL ? ` (${path.basename(IMPL)})` : ' (Node)'}`, () => {
+describe('collection parity: collections that cannot be opened', () => {
   test('missing, not a collection, and an unsupported schema', async () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'amgi-parity-bad-'));
     const { DatabaseSync } = await import('node:sqlite');
