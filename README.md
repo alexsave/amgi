@@ -144,6 +144,6 @@ amgi's own JSON lives in one folder, `plusaudio/lib/json/`, behind one named fun
 - `plusaudio/lib/json/cardTextLine.js` (leaving): the line `generate-card-text.js` prints for the server.
 - `plusaudio/lib/json/bridgeBody.js` and the add-on's `anki/addon/amgi_bridge/bridge_server.py` (leaving): the bridge protocol, which moves to a binary layout with a version check.
 - `src/server/anki/plusaudioCli.js` (leaving): the generator scripts' IPC channel, which Node serializes as JSON; it carries the rate gate's messages.
-- `plusaudio/lib/collection/decks.js`, `plusaudio/lib/collection/notes.js`, `plusaudio/lib/collection/notetypes.js`, `plusaudio/lib/deck.js`, `plusaudio/lib/package.js`: Anki's own formats (a schema 11 collection's `col` columns, the config table's values, an older `.apkg`'s media map), read and written as Anki defines them.
+- `plusaudio/lib/collection/decks.js`, `plusaudio/lib/collection/deck-remove.js`, `plusaudio/lib/collection/notes.js`, `plusaudio/lib/collection/notetypes.js`, `plusaudio/lib/deck.js`, `plusaudio/lib/package.js`: Anki's own formats (a schema 11 collection's `col` columns, the config table's values, an older `.apkg`'s media map), read and written as Anki defines them.
 
 See [ROADMAP.md](ROADMAP.md) for what is still open.

@@ -76,6 +76,10 @@ const ALLOWED = [
     why: `${ANKI}a schema 11 collection keeps every deck in one JSON column (col.decks); listing, creating and renaming decks reads and rewrites it as Anki does.`,
   },
   {
+    file: 'plusaudio/lib/collection/deck-remove.js', count: 4, kind: 'anki',
+    why: `${ANKI}deleting a deck in a schema 11 collection rewrites col.decks (the deck list) and col.conf (its per-deck keys), both JSON columns, as Anki does.`,
+  },
+  {
     file: 'plusaudio/lib/collection/notes.js', count: 4, kind: 'anki',
     why: `${ANKI}the next new-card position is col.conf's nextPos (JSON) in schema 11, and a JSON-encoded number in the config table in schema 18.`,
   },
