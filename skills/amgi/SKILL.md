@@ -154,7 +154,7 @@ GEMINI_API_KEY=... node generate-clip.js --text "역이 어디예요?" --languag
 Run `--dry-run` first and show the user the count, because generation costs them money.
 Clip names are hashes of the language and text, so a rerun only makes clips for new or changed text.
 `plusaudio/README.md` lists every option.
-`generate-card-text.js` prints one JSON line, `{front_text, back_text, spoken_reading}`, and `generate-clip.js` writes one WAV.
+`generate-card-text.js` prints the card in a length-prefixed layout, not JSON: the line `amgi-card-text 1`, then `front_text`, `back_text` and `spoken_reading`, each as its name and UTF-8 byte length on one line followed by exactly that many bytes of text and a line break (`plusaudio/lib/cardTextLayout.js`, whose `readCardText` reads it); `generate-clip.js` writes one WAV.
 Both exit 3 when rate limited (stdout then carries `retry-after-ms=<n>`) and 4 when the daily cap is spent.
 
 ## The bridge directly

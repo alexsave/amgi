@@ -55,10 +55,7 @@ const ALLOWED = [
     file: `${FOLDER}modelAnswer.js`, count: 1, kind: 'ours',
     why: `FORCED by Gemini: the API's structured output is JSON text, and parseModelAnswer reads it once; the caller then checks every field against its format. ${ANSWER_FORMAT} records what was measured against function calling and labelled lines.`,
   },
-  {
-    file: `${FOLDER}cardTextLine.js`, count: 2, kind: 'ours', leaving: true,
-    why: 'Ours, leaving: the line plusaudio/generate-card-text.js prints for the app server (src/server/anki/cardText.js reads it). A fixed layout can replace it.',
-  },
+
   {
     file: `${FOLDER}bridgeBody.js`, count: 2, kind: 'ours', leaving: true,
     why: 'Ours, leaving: the amgi_bridge add-on\'s HTTP bodies as the app server writes and reads them. The bridge protocol moves to a binary layout with a version check.',

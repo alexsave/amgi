@@ -21,7 +21,7 @@
 import { generateAndStoreClip } from './audio';
 import { MISSING_KEY_MESSAGE } from 'plusaudio/lib/geminiKey';
 import { runPlusaudio } from './plusaudioCli';
-import { parseCardTextLine } from 'plusaudio/lib/json/cardTextLine';
+import { readCardText } from 'plusaudio/lib/cardTextLayout';
 import { correctSwappedSides, detectInputLanguage } from './sideOrder';
 
 /**
@@ -64,7 +64,7 @@ export async function generateCardTextOnly({
   if (regenerateParts.length > 0) args.push('--regenerate', regenerateParts.join(','));
 
   const stdout = await runPlusaudio('generate-card-text.js', args, 'card text generation failed');
-  return parseCardTextLine(stdout);
+  return readCardText(stdout);
 }
 
 /**

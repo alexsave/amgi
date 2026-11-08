@@ -17,7 +17,7 @@ mock.module('node:child_process', {
     fork: (file, args) => {
       runs.push([file, ...args]);
       return require('../../test-helpers/fakeFork').fakeFork(args, () => ({
-        stdout: '{"front_text":"date","back_text":"날짜","spoken_reading":""}\n',
+        stdout: require('plusaudio/lib/cardTextLayout').writeCardText({ front_text: 'date', back_text: '날짜', spoken_reading: '' }).toString('utf8'),
       }));
     },
   },

@@ -37,7 +37,9 @@
 //                         "front_text", "back_text", or both. Omit for a fresh
 //                         card generated from --input alone.
 //
-//   stdout, on success: one line of JSON - {"front_text":...,"back_text":...,"spoken_reading":...}
+//   stdout, on success: the card in lib/cardTextLayout.js's layout - a header line, then
+//                         front_text, back_text and spoken_reading, each as its name and
+//                         byte length on one line and its bytes on the next
 //   stderr: usage text, the failure message, and cardGeneration.ts's own warnings
 //           (a corrective retry, a model that kept breaking the speakable rule).
 //   exit 0: success. exit 1: could not generate a card - GEMINI_API_KEY is not
@@ -58,7 +60,7 @@
 const path = require('node:path');
 const { createTextGenerator } = require('./lib/textGenerator');
 const { exitForError } = require('./lib/cliExit');
-const { formatCardTextLine } = require('./lib/json/cardTextLine');
+const { writeCardText } = require('./lib/cardTextLayout');
 
 const USAGE =
   'Usage: node generate-card-text.js --known <lang> --learning <lang> ' +
@@ -136,7 +138,7 @@ async function run(options, generate) {
   } catch (error) {
     return exitForError(error);
   }
-  process.stdout.write(formatCardTextLine(card));
+  process.stdout.write(writeCardText(card));
   return 0;
 }
 
