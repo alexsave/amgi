@@ -68,7 +68,6 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const ROOT = path.resolve(__dirname, '..');
-const PHRASES = path.join(ROOT, 'src', 'data', 'starterPhrases.json');
 const OUT_DIR = path.join(ROOT, 'anki', 'starter', 'media');
 const MANIFEST = path.join(ROOT, 'anki', 'starter', 'voices.tsv');
 const CACHE = path.join(ROOT, '.cache', 'starter-audio');
@@ -154,7 +153,9 @@ function toMp3(wavPath, mp3Path) {
 
 async function main() {
   const options = parseArgs(process.argv.slice(2));
-  const { phrases } = JSON.parse(fs.readFileSync(PHRASES, 'utf8'));
+  const { readStarterPhrases } = require('../src/server/anki/starterPhrases.js');
+  const phrases = readStarterPhrases();
+  if (!phrases) throw new Error('src/data/starterPhrases.tsv is missing or not a whole table');
 
   const clips = [];
   for (const [language, list] of Object.entries(phrases)) {
