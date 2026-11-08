@@ -1,5 +1,7 @@
 # amgi: bridge
 
+This add-on is part of amgi and runs inside Anki; it is licensed with the rest of amgi under the GNU Affero General Public License, version 3 or later (see LICENSE at the repository root).
+
 Two things live in this one add-on, both about reaching a live Anki collection while Anki has it open:
 
 1. **Fill missing audio** (`Tools > amgi: Fill missing audio...`) - adds audio straight into your live collection.

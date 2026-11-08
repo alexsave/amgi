@@ -1,0 +1,104 @@
+# Third-party notices
+
+amgi is licensed under the GNU Affero General Public License, version 3 or later (see `LICENSE`).
+The parts below come from elsewhere and keep their own licences.
+Node packages installed by `npm install` are not listed here; each carries its own licence in `node_modules`.
+
+## cdom
+
+The C DOM library the page is built on, included as a git submodule at `cdom/` (https://github.com/alexsave/cdom).
+Copyright 2026 Alex Saveliev.
+Licensed under the MIT License.
+Its repository does not carry a LICENSE file yet; its owner has said one is coming, and the MIT text will be the one in that file.
+
+## Heroicons
+
+The outline icon paths in `ui/src/dom.c` (`ICON_COG`, `ICON_COG_HUB`, `ICON_PLUS`, `ICON_TRASH`, `ICON_X`) are copied from Heroicons (https://github.com/tailwindlabs/heroicons), 24 px outline set.
+Its licence, from https://github.com/tailwindlabs/heroicons/blob/master/LICENSE:
+
+```
+MIT License
+
+Copyright (c) Tailwind Labs, Inc.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+## Anki
+
+`plusaudio/vendor/anki-src/` holds files copied unchanged from Anki (https://github.com/ankitects/anki) at tag 26.09.2, commit bb0dd6d1310afe290dea5e5a440400f851789936, each with a header naming its upstream path.
+Their own headers, where they carry one, are kept: "Copyright: Ankitects Pty Ltd and contributors" and "License: GNU AGPL, version 3 or later".
+A few short fragments of Anki's source are reproduced in `plusaudio/lib/collection/` with a comment naming where they come from (the id allocation expression of `add.sql`, the base-91 alphabet of `rslib/src/notes/mod.rs`), under the same licence.
+Anki's licence statement, from https://github.com/ankitects/anki/blob/bb0dd6d1310afe290dea5e5a440400f851789936/LICENSE:
+
+```
+Anki is licensed under the GNU Affero General Public License, version 3 or
+later, with portions contributed by Anki users licensed under the BSD-3
+license (see CONTRIBUTORS).
+
+The following included source code items use a license other than AGPL3:
+
+In the pylib folder:
+
+ * statsbg.py: CC BY 4.0.
+
+In the qt folder:
+
+ * Anki's translations are a mix of BSD and public domain.
+ * mpv.py: MIT.
+ * winpaths.py: MIT.
+ * MathJax: Apache 2.
+ * jQuery and jQuery-UI: MIT.
+ * plot.js: MIT.
+ * protobuf.js: BSD 3 clause
+
+The above list only covers the source code that is vendored in this
+repository. Binary distributions also include copies of Qt translation
+files (LGPL), and all of the Python, Rust and Javascript libraries
+that this code references.
+
+Anki's logo is copyright Alex Fraser, and is licensed under the AGPL3 like the
+rest of Anki's code.
+
+The logo is also available under a limited alternative license for inclusion
+in books, blogs, videos and so on. If the following conditions are met, you
+may use the logo in your work without the need to license your work under an
+AGPL3-compatible license:
+
+ * The logo must be used to refer to Anki, AnkiWeb, AnkiMobile or AnkiDroid,
+   and a link to https://apps.ankiweb.net must be provided. When your
+   content is focused specifically on AnkiDroid, a link to
+   https://play.google.com/store/apps/details?id=com.ichi2.anki&hl=en
+   may be provided instead of the first link.
+ * The work must make it clear that the text/video/etc you
+   are publishing is your own content and not something originating
+   from the Anki project.
+ * The logo must be used unmodified - no cropping, changing of colours
+   or adding or deleting content is allowed. You may resize the image
+   provided the horizontal and vertical dimensions are resized
+   equally.
+
+Documentation in the docs-site folder is licensed under the CC BY-SA 4.0
+license; other files in that folder remain under the AGPL3.
+```
+
+## To confirm with the owner
+
+- The favicons in `public/` (`favicon.svg`, `favicon.ico`, `favicon-96x96.png`, `apple-touch-icon.png`), added on 2025-03-16. They show "암기" set in Noto Serif KR; `favicon.svg` names the font and does not embed it, and its `svgjs` namespace suggests it came from an online favicon generator. Noto Serif KR is under the SIL Open Font License 1.1, which does not restrict images rendered with it, but the generator and the source of the artwork are not recorded.
+- The starter deck's clips in `anki/starter/media/`, which were generated with Gemini text-to-speech (`anki/starter/voices.tsv` names the model and voice of each); Google's terms for generated output apply to them.
