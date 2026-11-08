@@ -1,0 +1,22 @@
+> status
+ok locked !
+> listDecks
+err locked collection%20is%20locked
+> createDeck While%20locked
+err locked collection%20is%20locked
+> addNote 1 1 [x,y] [] ! !
+err locked collection%20is%20locked
+> removeDeck 2
+err locked collection%20is%20locked
+> hasMedia clip.ogg
+ok 1
+> readMedia clip.ogg
+ok 4f676753206669787475726520636c69700a
+> addMedia locked.wav 7768696c65206c6f636b6564
+ok locked.wav
+> status
+ok ok 18
+> createDeck After%20release
+ok <D1> After%20release 1
+> createDeck After%20release%202
+ok <D2> After%20release%202 1
