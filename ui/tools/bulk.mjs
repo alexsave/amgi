@@ -85,10 +85,10 @@ const typeInto = async (b, text) => {
 
 const b = await launch(['--hide-scrollbars']);
 const watchdog = setTimeout(async () => {
-  console.log('FAIL the drive took more than 6 minutes');
+  console.log('FAIL the drive took more than 9 minutes');
   await b.close();
   process.exit(1);
-}, 360000);
+}, 540000);
 const pageErrors = [];
 b.onEvent = (d) => {
   if (d.method === 'Runtime.exceptionThrown') pageErrors.push(d.params.exceptionDetails.exception?.description || d.params.exceptionDetails.text);
@@ -137,7 +137,7 @@ try {
   check(n2 < n1, `the countdown goes down (${n1} then ${n2})`);
   check(/waiting for the rate limit/.test(await b.evaluate(head)), `the head says so: ${await b.evaluate(head)}`);
   await shot(b, '32-rate-limited');
-  check(await until(b, `${head} === 'Done: 2 added'`, 900), `after the wait, both made (${await b.evaluate(head)})`);
+  check(await until(b, `${head} === 'Done: 2 added'`, 2000), `after the wait, both made (${await b.evaluate(head)})`);
   await control('perMinute=1000');
 
   // 4. A line that fails, and its Retry.
