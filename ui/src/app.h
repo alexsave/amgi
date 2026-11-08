@@ -118,6 +118,7 @@ const notetype *amgi_notetype(void);     /* "amgi Listening", or 0 */
 /* Where each amgi field sits on a note type (-1 absent), by name, case folded (amgiNotetype.js). */
 typedef struct { int32_t cue, cue_audio, target, target_audio, language, notes; } amgi_fields;
 amgi_fields amgi_fields_of(const text *names, uint32_t n);
+extern const char *const AMGI_FIELD_NAMES[6]; /* in that order: Cue, CueAudio, Target, TargetAudio, Language, Notes */
 /* ankiFields.js's guessFields: which field is the text to read and which holds its audio, on any
  * note type (-1: none). sort_field is the note type's sort field, or WIRE_NONE. */
 typedef struct { int32_t text, audio, cue_audio; } field_guess;

@@ -165,18 +165,6 @@ const notetype *amgi_notetype(void) {
     if (same_z(notetypes[i].name.p, notetypes[i].name.len, AMGI_NOTETYPE_NAME)) return &notetypes[i];
   return 0;
 }
-/* amgiNotetype.js's fieldIndexes: by name, case folded, never by position. The names asked for are
- * ASCII, so folding ASCII letters is the whole of toLowerCase's effect on a match. */
-amgi_fields amgi_fields_of(const text *names, uint32_t n) {
-  static const char *const NAMES[] = {"Cue", "CueAudio", "Target", "TargetAudio", "Language", "Notes"};
-  int32_t at[6];
-  for (int f = 0; f < 6; f++) {
-    at[f] = -1;
-    for (uint32_t i = 0; i < n && at[f] < 0; i++)
-      if (same_ascii_nocase(names[i].p, names[i].len, NAMES[f])) at[f] = (int32_t)i;
-  }
-  return (amgi_fields){at[0], at[1], at[2], at[3], at[4], at[5]};
-}
 
 /* ---- the mode badge: src/utils/ankiModeText.js's table ---- */
 static const presentation PRESENT[WIRE_MODES] = {
