@@ -20,12 +20,6 @@ const Settings = () => {
       <div className="settings-content">
         <h3>Anki (local)</h3>
         <AnkiSetupPanel />
-
-        <div className="legal-links">
-          <a href="/eula.html" target="_blank" rel="noopener noreferrer">End User License Agreement</a>
-          <span className="separator">•</span>
-          <a href="/privacy.html" target="_blank" rel="noopener noreferrer">Privacy Policy</a>
-        </div>
       </div>
     </div>
   );
