@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { answer } from '../../../anki/answer';
 import { readSettings } from '../../../../server/anki/settings';
 import { resolveTransport } from '../../../../server/anki/transport';
 import { notReadyResponse } from '../../../../server/anki/respond';
@@ -9,5 +9,5 @@ export async function GET(request) {
   if (!result.ops) return notReadyResponse(result.mode);
 
   const notetypes = await result.ops.listNotetypes();
-  return NextResponse.json({ mode: result.mode, notetypes });
+  return answer({ mode: result.mode, notetypes });
 }

@@ -1,6 +1,6 @@
-// amgi without Next: one plain Node http server that serves the C app (the HTML shell with cdom's
-// shim inlined, app.wasm, the app's CSS, the icons) and mounts the existing /api/anki route
-// handlers unchanged, through a small adapter from Node's request to the web Request they take.
+// amgi's server: one plain Node http server that serves the C app (the HTML shell with cdom's shim
+// inlined, app.wasm, the app's CSS, the icons) and the /api/anki routes (src/server/api), through a
+// small adapter from Node's request to the web Request they take.
 //
 //   node ui/server/serve.mjs            (PORT, default 3142; binds 127.0.0.1)
 //
@@ -12,20 +12,21 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { ANSWER } from './next-server.mjs';
+import answers from '../../src/server/anki/answer.js';
 import { WIRE_MIME, decode, encode } from './wire.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..', '..');
 const out = path.join(root, 'ui', 'out');
-const apiDir = path.join(root, 'src', 'app', 'api', 'anki');
+const apiDir = path.join(root, 'src', 'server', 'api', 'anki');
+const { ANSWER } = answers;
 const PORT = Number(process.env.PORT || 3142);
 // What `next dev` and `next start` did for the server: .env.local (GEMINI_API_KEY) into the
 // environment, with a variable already set winning, as Next's does.
 const envFile = path.join(root, '.env.local');
 if (fs.existsSync(envFile)) process.loadEnvFile(envFile);
 
-// Every route.js under src/app/api/anki, as a pattern: "[id]" segments are parameters.
+// Every route.js under src/server/api/anki, as a pattern: "[id]" segments are parameters.
 function discoverRoutes(dir, segments = []) {
   const routes = [];
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {

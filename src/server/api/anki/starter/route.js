@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { answer } from '../../../anki/answer';
 import { readSettings } from '../../../../server/anki/settings';
 import { resolveTransport } from '../../../../server/anki/transport';
 import { notReadyResponse } from '../../../../server/anki/respond';
@@ -11,7 +11,7 @@ import { buildStarterDeck, starterState } from '../../../../server/anki/starterD
 // transport: this answers "does this build have a starter deck in it", which
 // is true or false before anybody has picked a profile.
 export async function GET() {
-  return NextResponse.json(starterState());
+  return answer(starterState());
 }
 
 export async function POST(request) {
@@ -24,7 +24,7 @@ export async function POST(request) {
   const learning = typeof body?.learning === 'string' ? body.learning : '';
   const name = (body?.name || '').trim();
   if (!known || !learning) {
-    return NextResponse.json({ error: 'known and learning languages are required' }, { status: 400 });
+    return answer({ error: 'known and learning languages are required' }, { status: 400 });
   }
 
   try {
@@ -34,8 +34,8 @@ export async function POST(request) {
       learning,
       deckName: name || 'amgi starter',
     });
-    return NextResponse.json({ mode: result.mode, ...built });
+    return answer({ mode: result.mode, ...built });
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+    return answer({ error: error.message }, { status: 400 });
   }
 }
