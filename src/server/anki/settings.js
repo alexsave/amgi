@@ -20,8 +20,48 @@ const DEFAULT_SETTINGS = Object.freeze({
   bridge: Object.freeze({ baseUrl: '', token: '' }),
 });
 
-/** Read and validate the settings header off a Next.js Request, falling back to defaults on anything malformed. */
+// The same five facts as plain headers, one each, every value percent-encoded UTF-8
+// (encodeURIComponent's form, since a header carries only Latin-1 and a profile path may be
+// Korean). This is what the C app sends: no JSON to write in the browser, and nothing to parse
+// here but the percent escapes. The JSON header stays for the documented API (skills/amgi).
+const PLAIN_HEADERS = Object.freeze({
+  baseDirOverride: 'x-amgi-base-dir',
+  collectionPath: 'x-amgi-collection',
+  profileName: 'x-amgi-profile',
+  bridgeUrl: 'x-amgi-bridge-url',
+  bridgeToken: 'x-amgi-bridge-token',
+});
+
+function plainHeader(request, name) {
+  const raw = request.headers.get(name);
+  if (!raw) return '';
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return '';
+  }
+}
+
+function readPlainSettings(request) {
+  if (!Object.values(PLAIN_HEADERS).some((name) => request.headers.has(name))) return null;
+  return {
+    baseDirOverride: plainHeader(request, PLAIN_HEADERS.baseDirOverride),
+    collectionPath: plainHeader(request, PLAIN_HEADERS.collectionPath),
+    profileName: plainHeader(request, PLAIN_HEADERS.profileName),
+    bridge: {
+      baseUrl: plainHeader(request, PLAIN_HEADERS.bridgeUrl),
+      token: plainHeader(request, PLAIN_HEADERS.bridgeToken),
+    },
+  };
+}
+
+/**
+ * Read and validate the settings off a Request: the plain headers when any is present, else the
+ * JSON header, falling back to defaults on anything malformed.
+ */
 function readSettings(request) {
+  const plain = readPlainSettings(request);
+  if (plain) return plain;
   const raw = request.headers.get(HEADER_NAME);
   if (!raw) return DEFAULT_SETTINGS;
   try {
@@ -44,4 +84,4 @@ function readSettings(request) {
   }
 }
 
-module.exports = { readSettings };
+module.exports = { readSettings, PLAIN_HEADERS };
