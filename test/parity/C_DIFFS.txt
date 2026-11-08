@@ -9,3 +9,15 @@
   > hasMedia ~
 - ok 1
 + ok 0
+
+== The first field's checksum strips HTML once, as Anki does (finding 2): Anki 26.09 stores 2301026615 for <b>&lt;i&gt;</b>, the frozen Node 3661210606. Schema 18.
+@ collection-18-dump
+    id=<N11> guid="<G>" mid=1794170430283 mod=<Ts> usn=-1 tags="" flds="<IMG SRC=bare.jpg alt=x>\x1f" sfld=" bare.jpg " csum=4202047917 flags=0 data=""
+-   id=<N12> guid="<G>" mid=1794170430283 mod=<Ts> usn=-1 tags="" flds="<b>&lt;i&gt;</b>\x1fcsum" sfld="<i>" csum=3661210606 flags=0 data=""
++   id=<N12> guid="<G>" mid=1794170430283 mod=<Ts> usn=-1 tags="" flds="<b>&lt;i&gt;</b>\x1fcsum" sfld="<i>" csum=2301026615 flags=0 data=""
+
+== The first field's checksum strips HTML once, as Anki does (finding 2): Anki 26.09 stores 2301026615 for <b>&lt;i&gt;</b>, the frozen Node 3661210606. Schema 11.
+@ collection-11-dump
+    id=<N11> guid="<G>" mid=1794170430302 mod=<Ts> usn=-1 tags="" flds="<IMG SRC=bare.jpg alt=x>\x1f" sfld=" bare.jpg " csum=4202047917 flags=0 data=""
+-   id=<N12> guid="<G>" mid=1794170430302 mod=<Ts> usn=-1 tags="" flds="<b>&lt;i&gt;</b>\x1fcsum" sfld="<i>" csum=3661210606 flags=0 data=""
++   id=<N12> guid="<G>" mid=1794170430302 mod=<Ts> usn=-1 tags="" flds="<b>&lt;i&gt;</b>\x1fcsum" sfld="<i>" csum=2301026615 flags=0 data=""
