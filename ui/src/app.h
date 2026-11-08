@@ -54,7 +54,10 @@ extern const char ICON_COG[], ICON_COG_HUB[], ICON_PLUS[], ICON_TRASH[], ICON_X[
 
 /* ---- event tags: a module's id in the top byte, its own action and index below ---- */
 enum { M_SHELL = 1, M_DECKS, M_SETTINGS, M_DECK, M_CHIP, M_FORM, M_PANEL, M_BULK, M_MODAL, M_FIRSTRUN, M_STARTER,
-       M_TEMPLATE };
+       M_TEMPLATE, M_COUNT /* not a module: one past the last */ };
+/* A module id is a token's top byte (timers, requests, store calls), and cdom keeps every token from
+ * CD_TOKEN_CDOM (0x80000000) up for itself: so no module id may reach 0x80. */
+_Static_assert(M_COUNT <= 0x80, "a module id past 0x7f makes tokens in cdom's own range");
 #define TAG(module, action, index) ((uint32_t)(module) << 24 | (uint32_t)(action) << 16 | (uint32_t)(index))
 #define TAG_MODULE(t) ((t) >> 24)
 #define TAG_ACTION(t) (((t) >> 16) & 0xff)
