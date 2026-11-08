@@ -37,7 +37,7 @@ after(() => child?.kill());
 async function c(...fields) {
   child.stdin.write(`${fields.map(esc).join(US)}\n`);
   const { value } = await lines.next();
-  return value.replace(/\x1e/g, '\n');
+  return value.split('\x1e').join('\n');
 }
 
 const literals = (file) => {
