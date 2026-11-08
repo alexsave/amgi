@@ -126,7 +126,7 @@ That reasoning no longer applies now that reaching into a live collection with n
 
 ## Local HTTP bridge
 
-amgi is local-first: the React UI is a visual deck builder, and reviewing and editing happen against a local Anki collection instead of a hosted backend.
+amgi is local-first: its web UI is a visual deck builder, and reviewing and editing happen against a local Anki collection instead of a hosted backend.
 When Anki is closed, the UI reaches the collection file directly, through `plusaudio/lib/collection/` (Node, no Anki install required - see that folder's own `index.js`).
 When Anki is open, the collection file is locked in `locking_mode=exclusive` and cannot even be read from outside the Anki process (see `plusaudio/lib/collection/open.js`'s module comment for the experiments that pinned that down), so the only way in is from inside Anki itself.
 That is what this bridge is: a small local HTTP server, run by this add-on, that the UI can talk to instead of the file, picking whichever transport is available and otherwise not caring which one it is using.
