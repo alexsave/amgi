@@ -365,6 +365,15 @@ async function operations(t, impl, schema) {
   await t.cmd(`addNote ${note(created, basic, ['wrong count'])}`);
   await t.cmd(`addNote ${note(created, 4242, ['x', 'y'])}`);
   await t.cmd(`addNote ${note(created, basic, ['', ''])}`);
+  // Field text as Anki stores it (deck.js ankiFields): ASCII control characters but tab and line
+  // feed removed, the field separator 0x1f among them, then NFC.
+  await t.cmd(`addNote ${note(created, basic, ['sep\u001fin field', 'x'])}`);
+  await t.cmd(`addNote ${note(created, basic, ['\u0000nul \u0001\u0008 \u000b\u000c\r\n\t \u001b esc \u007f del', 'cr\r\nlf'])}`);
+  await t.cmd(`addNote ${note(created, basic, ['cafe\u0301 decomposed', '\u1100\u1161 jamo'])}`);
+  await t.cmd(`addNote ${note(created, basic, ['\u0085 next line and \u00a0nbsp stay', '<b>html</b>\u001f'])}`);
+  await t.cmd(`addNote ${note(created, basic, ['\u001f', 'only a separator'])}`);
+  await t.cmd(`addNote ${note(created, reversed, ['\u0001', '\u0002'])}`);
+  await t.cmd(`addNote ${note(created, basic, ['annye\u0001ong', 'x'], { language: 'ko', learningFieldIndex: 0 })}`);
   await t.cmd(`addNote ${note(created, basic, ['emoji 🙂 and 漢字', 'x'], { language: 'zh_cn', learningFieldIndex: 0 })}`);
 
   // A paste: one write, one result per note, a bad one in the middle.
@@ -372,12 +381,15 @@ async function operations(t, impl, schema) {
     note(created, basic, ['bulk 1', 'x']), note(created, basic, ['bulk bad']),
     note(created, basic, ['bulk 3', 'x'], { language: 'ko', learningFieldIndex: 0 }), note(created, cloze, ['{{c2::bulk}}', '']),
   ]);
+  await t.cmd('addNotesBulk 2', [note(created, basic, ['bulk\u001fsep', 'e\u0301']), note(created, basic, ['bulk\u0000nul', '\r'])]);
   await t.cmd(`addNotesBulk 1`, [note(created, 4242, ['x', 'y'])]);
 
   // Edits and deletes.
   await t.cmd(`updateNote ${a} ${strs(['front a2', 'back <b>a2</b>'])} ! !`);
   await t.cmd(`updateNote ${a} ${strs(['romaji', 'x'])} ja 0`);
   await t.cmd(`updateNote ${a} ${strs(['too', 'many', 'fields'])} ! !`);
+  await t.cmd(`updateNote ${a} ${strs(['edited\u001fsep\u0007', 'cafe\u0301\r\n'])} ! !`);
+  await t.cmd(`listNotesInDeck ${created} 0 3`);
   await t.cmd(`updateNote 999 ${strs(['x', 'y'])} ! !`);
   const doomed = firstId(await t.cmd(`addNote ${note(created, reversed, ['to delete', 'both'])}`));
   await t.cmd(`removeNote ${doomed}`);
@@ -431,11 +443,6 @@ async function operations(t, impl, schema) {
   await t.cmd(`removeDeck ${decks.Empty}`);
   const doomed2 = firstId(await t.cmd(`createDeck ${enc('Doomed::Sub')}`));
   await t.cmd(`addNote ${note(doomed2, basic, ['doomed', 'x'])}`);
-  // A field holding Anki's field separator: the Node code writes it as it is, so the note reads
-  // back with one field too many (a known Node bug, kept here so the port matches it until it is
-  // fixed on both sides). In a deck that goes, so the collection Anki checks below stays whole.
-  await t.cmd(`addNote ${note(doomed2, basic, ['sep\u001fin field', 'x'])}`);
-  await t.cmd(`listNotesInDeck ${doomed2} 0 50`);
   await t.cmd(`removeDeck ${(await deckIds(impl)).Doomed}`);
   await t.cmd('listDecks');
 
@@ -562,16 +569,6 @@ for (const schema of ['18', '11']) {
       main = await session(schema, (t, impl) => operations(t, impl, schema));
       check(`collection-${schema}-transcript`, main.transcript);
       check(`collection-${schema}-dump`, main.dump);
-    });
-
-    // KNOWN QUIRK, ABOUT TO CHANGE: a field holding Anki's field separator (\x1f) is written as it
-    // is, so a Basic note reads back with three fields. amgi PM's call (2026-11-08): Node is fixed
-    // first to match real Anki (branch field-separator); this check then fails on purpose when the
-    // recording is updated, and goes, with the port changed to match.
-    test('known quirk, about to change: a field holding \\x1f splits the note into one field too many', () => {
-      const recorded = fs.readFileSync(expectFile(`collection-${schema}-transcript`), 'utf8');
-      assert.ok(recorded.includes('[sep,in%20field,x] []'),
-        'the recording no longer shows the \\x1f quirk: the field-separator fix has landed, so drop this check and match the port to it');
     });
 
     test('one backup for the whole session, however many writes', () => {

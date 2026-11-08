@@ -1,8 +1,8 @@
 schema 18
 made during the run: D x21
 made during the run: M x1
-made during the run: N x51
-made during the run: C x74
+made during the run: N x59
+made during the run: C x82
 made during the run: O x0
 index idx_cards_odid on cards: CREATE INDEX idx_cards_odid ON cards (odid)
 WHERE odid != 0
@@ -140,7 +140,7 @@ table templates on templates: CREATE TABLE templates (
   config blob NOT NULL,
   PRIMARY KEY (ntid, ord)
 ) without rowid
-table cards: 76 rows
+table cards: 85 rows
   id=1794170430294 nid=1794170430293 did=1794170430288 ord=1 mod=1794170430 usn=0 type=0 queue=0 due=5 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
   id=1794170430295 nid=1794170430294 did=1794170430287 ord=1 mod=1794170430 usn=0 type=0 queue=0 due=6 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
   id=1794170430296 nid=1794170430294 did=1794170430287 ord=0 mod=1794170430 usn=0 type=0 queue=0 due=6 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
@@ -162,59 +162,68 @@ table cards: 76 rows
   id=<C21> nid=<N19> did=<D1> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=30 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
   id=<C22> nid=<N20> did=<D1> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=31 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
   id=<C23> nid=<N21> did=<D1> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=32 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C24> nid=<N22> did=<D1> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=33 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C29> nid=<N26> did=<D21> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=38 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C24> nid=<N22> did=<D1> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=33 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C25> nid=<N23> did=<D1> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=34 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C26> nid=<N24> did=<D1> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=35 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C27> nid=<N25> did=<D1> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=36 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C28> nid=<N26> did=<D1> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=37 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C29> nid=<N27> did=<D1> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=38 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
   id=<C2> nid=<N2> did=<D1> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=11 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C30> nid=<N26> did=<D21> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=39 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C31> nid=<N27> did=<D21> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=40 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C32> nid=<N27> did=<D21> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=41 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C33> nid=<N28> did=<D21> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=42 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C34> nid=<N28> did=<D21> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=43 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C35> nid=<N29> did=<D21> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=44 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C36> nid=<N29> did=<D21> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=45 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C37> nid=<N30> did=<D21> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=46 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C38> nid=<N30> did=<D21> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=47 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C39> nid=<N31> did=<D21> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=48 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C30> nid=<N28> did=<D1> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=39 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C31> nid=<N29> did=<D1> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=40 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C32> nid=<N30> did=<D1> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=41 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C33> nid=<N31> did=<D1> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=42 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C37> nid=<N34> did=<D21> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=46 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C38> nid=<N34> did=<D21> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=47 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C39> nid=<N35> did=<D21> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=48 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
   id=<C3> nid=<N3> did=<D1> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=12 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C40> nid=<N31> did=<D21> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=49 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C41> nid=<N32> did=<D21> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=50 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C42> nid=<N32> did=<D21> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=51 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C43> nid=<N33> did=<D21> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=52 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C44> nid=<N33> did=<D21> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=53 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C45> nid=<N34> did=<D21> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=54 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C46> nid=<N34> did=<D21> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=55 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C47> nid=<N35> did=<D21> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=56 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C48> nid=<N35> did=<D21> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=57 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C49> nid=<N36> did=<D21> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=58 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C40> nid=<N35> did=<D21> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=49 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C41> nid=<N36> did=<D21> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=50 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C42> nid=<N36> did=<D21> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=51 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C43> nid=<N37> did=<D21> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=52 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C44> nid=<N37> did=<D21> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=53 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C45> nid=<N38> did=<D21> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=54 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C46> nid=<N38> did=<D21> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=55 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C47> nid=<N39> did=<D21> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=56 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C48> nid=<N39> did=<D21> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=57 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C49> nid=<N40> did=<D21> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=58 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
   id=<C4> nid=<N4> did=<D1> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=13 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C50> nid=<N36> did=<D21> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=59 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C51> nid=<N37> did=<D21> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=60 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C52> nid=<N37> did=<D21> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=61 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C53> nid=<N38> did=<D21> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=62 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C54> nid=<N38> did=<D21> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=63 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C55> nid=<N39> did=<D21> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=64 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C56> nid=<N39> did=<D21> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=65 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C57> nid=<N40> did=<D21> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=66 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C58> nid=<N40> did=<D21> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=67 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C59> nid=<N41> did=<D21> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=68 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C50> nid=<N40> did=<D21> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=59 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C51> nid=<N41> did=<D21> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=60 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C52> nid=<N41> did=<D21> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=61 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C53> nid=<N42> did=<D21> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=62 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C54> nid=<N42> did=<D21> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=63 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C55> nid=<N43> did=<D21> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=64 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C56> nid=<N43> did=<D21> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=65 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C57> nid=<N44> did=<D21> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=66 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C58> nid=<N44> did=<D21> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=67 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C59> nid=<N45> did=<D21> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=68 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
   id=<C5> nid=<N5> did=<D1> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=14 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C60> nid=<N41> did=<D21> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=69 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C61> nid=<N42> did=<D21> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=70 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C62> nid=<N42> did=<D21> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=71 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C63> nid=<N43> did=<D21> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=72 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C64> nid=<N43> did=<D21> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=73 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C65> nid=<N44> did=<D21> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=74 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C66> nid=<N44> did=<D21> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=75 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C67> nid=<N45> did=<D21> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=76 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C68> nid=<N45> did=<D21> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=77 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C69> nid=<N46> did=1794170430287 ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=78 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C60> nid=<N45> did=<D21> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=69 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C61> nid=<N46> did=<D21> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=70 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C62> nid=<N46> did=<D21> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=71 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C63> nid=<N47> did=<D21> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=72 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C64> nid=<N47> did=<D21> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=73 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C65> nid=<N48> did=<D21> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=74 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C66> nid=<N48> did=<D21> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=75 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C67> nid=<N49> did=<D21> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=76 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C68> nid=<N49> did=<D21> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=77 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C69> nid=<N50> did=<D21> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=78 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
   id=<C6> nid=<N6> did=<D1> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=15 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C70> nid=<N47> did=1794170430287 ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=79 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C71> nid=<N48> did=1794170430287 ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=80 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C72> nid=<N49> did=1794170430287 ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=81 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C73> nid=<N50> did=1794170430287 ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=82 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C74> nid=<N51> did=1794170430287 ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=83 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C70> nid=<N50> did=<D21> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=79 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C71> nid=<N51> did=<D21> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=80 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C72> nid=<N51> did=<D21> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=81 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C73> nid=<N52> did=<D21> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=82 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C74> nid=<N52> did=<D21> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=83 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C75> nid=<N53> did=<D21> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=84 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C76> nid=<N53> did=<D21> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=85 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C77> nid=<N54> did=1794170430287 ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=86 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C78> nid=<N55> did=1794170430287 ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=87 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C79> nid=<N56> did=1794170430287 ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=88 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
   id=<C7> nid=<N7> did=<D1> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=16 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C80> nid=<N57> did=1794170430287 ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=89 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C81> nid=<N58> did=1794170430287 ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=90 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C82> nid=<N59> did=1794170430287 ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=91 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
   id=<C8> nid=<N8> did=<D1> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=17 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
   id=<C9> nid=<N9> did=<D1> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=18 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
 table col: 1 rows
@@ -237,7 +246,7 @@ table config: 24 rows
   KEY="estTimes" usn=0 mtime_secs=0 val=json:true
   KEY="localOffset" usn=0 mtime_secs=1794170430 val=json:300
   KEY="newSpread" usn=0 mtime_secs=0 val=json:0
-  KEY="nextPos" usn=-1 mtime_secs=<Ts> val=json:84
+  KEY="nextPos" usn=-1 mtime_secs=<Ts> val=json:92
   KEY="rollover" usn=0 mtime_secs=1794170430 val=json:4
   KEY="sched2021" usn=0 mtime_secs=0 val=json:true
   KEY="schedVer" usn=0 mtime_secs=0 val=json:2
@@ -296,7 +305,7 @@ table fields: 25 rows
   ntid=<M1> ord=3 name="TargetAudio" config={3:"Arial" 4:20 9:<rand>}
   ntid=<M1> ord=4 name="Language" config={3:"Arial" 4:20 9:<rand>}
   ntid=<M1> ord=5 name="Notes" config={3:"Arial" 4:20 9:<rand>}
-table graves: 22 rows
+table graves: 20 rows
   oid=1794170430284 type=2 usn=-1
   oid=1794170430285 type=2 usn=-1
   oid=1794170430289 type=0 usn=-1
@@ -310,16 +319,14 @@ table graves: 22 rows
   oid=1794170430292 type=1 usn=-1
   oid=1794170430293 type=0 usn=-1
   oid=1794170430294 type=2 usn=-1
-  oid=<C25> type=0 usn=-1
-  oid=<C26> type=0 usn=-1
-  oid=<C27> type=0 usn=-1
-  oid=<C28> type=0 usn=-1
+  oid=<C34> type=0 usn=-1
+  oid=<C35> type=0 usn=-1
+  oid=<C36> type=0 usn=-1
   oid=<D19> type=2 usn=-1
   oid=<D20> type=2 usn=-1
-  oid=<N23> type=1 usn=-1
-  oid=<N24> type=1 usn=-1
-  oid=<N25> type=1 usn=-1
-table notes: 53 rows
+  oid=<N32> type=1 usn=-1
+  oid=<N33> type=1 usn=-1
+table notes: 62 rows
   id=1794170430293 guid="tER$zEJuSO" mid=1794170430284 mod=1794170430 usn=0 tags="" flds="split front\x1fsplit back" sfld="split front" csum=918878543 flags=0 data=""
   id=1794170430294 guid="mli5_rZNR9" mid=1794170430287 mod=1794170430 usn=0 tags="" flds="{{c1::안녕}} {{c2::하세요}}\x1f" sfld="{{c1::안녕}} {{c2::하세요}}" csum=3821231659 flags=0 data=""
   id=1794170430295 guid="tmCEy_D~b2" mid=1794170430283 mod=1794170430 usn=0 tags="" flds="역이 어디예요?\x1fwhere is the station" sfld="역이 어디예요?" csum=535652620 flags=0 data=""
@@ -334,40 +341,49 @@ table notes: 53 rows
   id=<N16> guid="<G>" mid=1794170430287 mod=<Ts> usn=-1 tags="" flds="{{c0::zero}} {{c600::big}}\x1f" sfld="{{c0::zero}} {{c600::big}}" csum=3515183281 flags=0 data=""
   id=<N17> guid="<G>" mid=1794170430289 mod=<Ts> usn=-1 tags="" flds="문장\x1f\x1fsort" sfld="문장" csum=4041747348 flags=0 data=""
   id=<N18> guid="<G>" mid=1794170430283 mod=<Ts> usn=-1 tags="" flds="\x1f" sfld="" csum=3661210606 flags=0 data=""
-  id=<N19> guid="<G>" mid=1794170430283 mod=<Ts> usn=-1 tags="" flds="emoji 🙂 and 漢字\x1fx" sfld="emoji 🙂 and 漢字" csum=2767087907 flags=0 data=""
-  id=<N1> guid="<G>" mid=1794170430283 mod=<Ts> usn=-1 tags="" flds="romaji\x1fx" sfld="romaji" csum=2970198525 flags=0 data=""
-  id=<N20> guid="<G>" mid=1794170430283 mod=<Ts> usn=-1 tags="" flds="bulk 1\x1fx" sfld="bulk 1" csum=3298379407 flags=0 data=""
-  id=<N21> guid="<G>" mid=1794170430283 mod=<Ts> usn=-1 tags="" flds="bulk 3\x1fx" sfld="bulk 3" csum=3543587077 flags=0 data=""
-  id=<N22> guid="<G>" mid=1794170430287 mod=<Ts> usn=-1 tags="" flds="{{c2::bulk}}\x1f" sfld="{{c2::bulk}}" csum=3134898701 flags=0 data=""
-  id=<N26> guid="<G>" mid=<M1> mod=<Ts> usn=-1 tags=" amgi-starter " flds="Hello.\x1f<audio src="plusaudio-d2f1108360fa9b7f8371.mp3"></audio>\x1f안녕하세요.\x1f<audio src="plusaudio-304a67503cc47f5e15.mp3"></audio>\x1fko\x1f" sfld="Hello." csum=2606159129 flags=0 data=""
-  id=<N27> guid="<G>" mid=<M1> mod=<Ts> usn=-1 tags=" amgi-starter " flds="Thank you very much.\x1f<audio src="plusaudio-381a7ab7149c1188aeb.mp3"></audio>\x1f정말 감사합니다.\x1f<audio src="plusaudio-548f5e2d5a6c685eeae6.mp3"></audio>\x1fko\x1f" sfld="Thank you very much." csum=2693827459 flags=0 data=""
-  id=<N28> guid="<G>" mid=<M1> mod=<Ts> usn=-1 tags=" amgi-starter " flds="Excuse me, can you help me?\x1f<audio src="plusaudio-70855603d189a9dbfc51.mp3"></audio>\x1f실례지만, 좀 도와주시겠어요?\x1f<audio src="plusaudio-f6e1b2d925703c65c027.mp3"></audio>\x1fko\x1f" sfld="Excuse me, can you help me?" csum=669812586 flags=0 data=""
-  id=<N29> guid="<G>" mid=<M1> mod=<Ts> usn=-1 tags=" amgi-starter " flds="I don't understand.\x1f<audio src="plusaudio-c4560e7b0f58053fdee3.mp3"></audio>\x1f이해가 안 돼요.\x1f<audio src="plusaudio-d6cf9475a3f897a55459.mp3"></audio>\x1fko\x1f" sfld="I don't understand." csum=734964063 flags=0 data=""
+  id=<N19> guid="<G>" mid=1794170430283 mod=<Ts> usn=-1 tags="" flds="sepin field\x1fx" sfld="sepin field" csum=1192866034 flags=0 data=""
+  id=<N1> guid="<G>" mid=1794170430283 mod=<Ts> usn=-1 tags="" flds="editedsep\x1fcafé\n" sfld="editedsep" csum=345241981 flags=0 data=""
+  id=<N20> guid="<G>" mid=1794170430283 mod=<Ts> usn=-1 tags="" flds="nul  \n\x09  esc  del\x1fcr\nlf" sfld="nul  \n\x09  esc  del" csum=1092140423 flags=0 data=""
+  id=<N21> guid="<G>" mid=1794170430283 mod=<Ts> usn=-1 tags="" flds="café decomposed\x1f가 jamo" sfld="café decomposed" csum=3273379856 flags=0 data=""
+  id=<N22> guid="<G>" mid=1794170430283 mod=<Ts> usn=-1 tags="" flds=" next line and  nbsp stay\x1f<b>html</b>" sfld=" next line and  nbsp stay" csum=2495831197 flags=0 data=""
+  id=<N23> guid="<G>" mid=1794170430283 mod=<Ts> usn=-1 tags="" flds="\x1fonly a separator" sfld="" csum=3661210606 flags=0 data=""
+  id=<N24> guid="<G>" mid=1794170430284 mod=<Ts> usn=-1 tags="" flds="\x1f" sfld="" csum=3661210606 flags=0 data=""
+  id=<N25> guid="<G>" mid=1794170430283 mod=<Ts> usn=-1 tags="" flds="annyeong\x1fx" sfld="annyeong" csum=389833775 flags=0 data=""
+  id=<N26> guid="<G>" mid=1794170430283 mod=<Ts> usn=-1 tags="" flds="emoji 🙂 and 漢字\x1fx" sfld="emoji 🙂 and 漢字" csum=2767087907 flags=0 data=""
+  id=<N27> guid="<G>" mid=1794170430283 mod=<Ts> usn=-1 tags="" flds="bulk 1\x1fx" sfld="bulk 1" csum=3298379407 flags=0 data=""
+  id=<N28> guid="<G>" mid=1794170430283 mod=<Ts> usn=-1 tags="" flds="bulk 3\x1fx" sfld="bulk 3" csum=3543587077 flags=0 data=""
+  id=<N29> guid="<G>" mid=1794170430287 mod=<Ts> usn=-1 tags="" flds="{{c2::bulk}}\x1f" sfld="{{c2::bulk}}" csum=3134898701 flags=0 data=""
   id=<N2> guid="<G>" mid=1794170430283 mod=<Ts> usn=-1 tags=" t1 amgi " flds="tagged\x1fb" sfld="tagged" csum=2384380440 flags=0 data=""
-  id=<N30> guid="<G>" mid=<M1> mod=<Ts> usn=-1 tags=" amgi-starter " flds="Could you say that more slowly?\x1f<audio src="plusaudio-e4ae829d7c7cf7424bca.mp3"></audio>\x1f조금 천천히 말씀해 주시겠어요?\x1f<audio src="plusaudio-51b7457fbae901f30bf1.mp3"></audio>\x1fko\x1f" sfld="Could you say that more slowly?" csum=939579042 flags=0 data=""
-  id=<N31> guid="<G>" mid=<M1> mod=<Ts> usn=-1 tags=" amgi-starter " flds="How much does this cost?\x1f<audio src="plusaudio-5dcaba8979a610ac0a52.mp3"></audio>\x1f이거 얼마예요?\x1f<audio src="plusaudio-a59d3c6914f502885cc.mp3"></audio>\x1fko\x1f" sfld="How much does this cost?" csum=1210865744 flags=0 data=""
-  id=<N32> guid="<G>" mid=<M1> mod=<Ts> usn=-1 tags=" amgi-starter " flds="Where is the station?\x1f<audio src="plusaudio-7f505a2e96e3743895e.mp3"></audio>\x1f역이 어디예요?\x1f<audio src="plusaudio-bdad7844cb3ad21843e3.mp3"></audio>\x1fko\x1f" sfld="Where is the station?" csum=1591064700 flags=0 data=""
-  id=<N33> guid="<G>" mid=<M1> mod=<Ts> usn=-1 tags=" amgi-starter " flds="I would like a coffee, please.\x1f<audio src="plusaudio-7cf8ac1be15b7dde1754.mp3"></audio>\x1f커피 한 잔 주세요.\x1f<audio src="plusaudio-25e893602b9cab4f5170.mp3"></audio>\x1fko\x1f" sfld="I would like a coffee, please." csum=2591890432 flags=0 data=""
-  id=<N34> guid="<G>" mid=<M1> mod=<Ts> usn=-1 tags=" amgi-starter " flds="Nice to meet you.\x1f<audio src="plusaudio-11b747fc4397aaee223b.mp3"></audio>\x1f만나서 반갑습니다.\x1f<audio src="plusaudio-92b95c9a78ec10a66d6c.mp3"></audio>\x1fko\x1f" sfld="Nice to meet you." csum=1685404783 flags=0 data=""
-  id=<N35> guid="<G>" mid=<M1> mod=<Ts> usn=-1 tags=" amgi-starter " flds="See you tomorrow.\x1f<audio src="plusaudio-ecc941226eb9195304c0.mp3"></audio>\x1f내일 봐요.\x1f<audio src="plusaudio-85f4ecdf1c14e1b393.mp3"></audio>\x1fko\x1f" sfld="See you tomorrow." csum=3413438770 flags=0 data=""
-  id=<N36> guid="<G>" mid=<M1> mod=<Ts> usn=-1 tags=" amgi-starter " flds="안녕하세요.\x1f<audio src="plusaudio-304a67503cc47f5e15.mp3"></audio>\x1fこんにちは。\x1f<audio src="plusaudio-17069894c1ffba26f7.mp3"></audio>\x1fja\x1f" sfld="안녕하세요." csum=3846071356 flags=0 data=""
-  id=<N37> guid="<G>" mid=<M1> mod=<Ts> usn=-1 tags=" amgi-starter " flds="정말 감사합니다.\x1f<audio src="plusaudio-548f5e2d5a6c685eeae6.mp3"></audio>\x1fどうもありがとうございます。\x1f<audio src="plusaudio-bc9684a51b8a85b58c18.mp3"></audio>\x1fja\x1f" sfld="정말 감사합니다." csum=4051589586 flags=0 data=""
-  id=<N38> guid="<G>" mid=<M1> mod=<Ts> usn=-1 tags=" amgi-starter " flds="실례지만, 좀 도와주시겠어요?\x1f<audio src="plusaudio-f6e1b2d925703c65c027.mp3"></audio>\x1fすみません、ちょっと手伝っていただけますか。\x1f<audio src="plusaudio-ab1062337dd647945730.mp3"></audio>\x1fja\x1f" sfld="실례지만, 좀 도와주시겠어요?" csum=2080687810 flags=0 data=""
-  id=<N39> guid="<G>" mid=<M1> mod=<Ts> usn=-1 tags=" amgi-starter " flds="이해가 안 돼요.\x1f<audio src="plusaudio-d6cf9475a3f897a55459.mp3"></audio>\x1fわかりません。\x1f<audio src="plusaudio-7c925e640bffcf3ea03e.mp3"></audio>\x1fja\x1f" sfld="이해가 안 돼요." csum=621646600 flags=0 data=""
+  id=<N30> guid="<G>" mid=1794170430283 mod=<Ts> usn=-1 tags="" flds="bulksep\x1fé" sfld="bulksep" csum=1087336730 flags=0 data=""
+  id=<N31> guid="<G>" mid=1794170430283 mod=<Ts> usn=-1 tags="" flds="bulknul\x1f" sfld="bulknul" csum=2363742666 flags=0 data=""
+  id=<N34> guid="<G>" mid=<M1> mod=<Ts> usn=-1 tags=" amgi-starter " flds="Hello.\x1f<audio src="plusaudio-d2f1108360fa9b7f8371.mp3"></audio>\x1f안녕하세요.\x1f<audio src="plusaudio-304a67503cc47f5e15.mp3"></audio>\x1fko\x1f" sfld="Hello." csum=2606159129 flags=0 data=""
+  id=<N35> guid="<G>" mid=<M1> mod=<Ts> usn=-1 tags=" amgi-starter " flds="Thank you very much.\x1f<audio src="plusaudio-381a7ab7149c1188aeb.mp3"></audio>\x1f정말 감사합니다.\x1f<audio src="plusaudio-548f5e2d5a6c685eeae6.mp3"></audio>\x1fko\x1f" sfld="Thank you very much." csum=2693827459 flags=0 data=""
+  id=<N36> guid="<G>" mid=<M1> mod=<Ts> usn=-1 tags=" amgi-starter " flds="Excuse me, can you help me?\x1f<audio src="plusaudio-70855603d189a9dbfc51.mp3"></audio>\x1f실례지만, 좀 도와주시겠어요?\x1f<audio src="plusaudio-f6e1b2d925703c65c027.mp3"></audio>\x1fko\x1f" sfld="Excuse me, can you help me?" csum=669812586 flags=0 data=""
+  id=<N37> guid="<G>" mid=<M1> mod=<Ts> usn=-1 tags=" amgi-starter " flds="I don't understand.\x1f<audio src="plusaudio-c4560e7b0f58053fdee3.mp3"></audio>\x1f이해가 안 돼요.\x1f<audio src="plusaudio-d6cf9475a3f897a55459.mp3"></audio>\x1fko\x1f" sfld="I don't understand." csum=734964063 flags=0 data=""
+  id=<N38> guid="<G>" mid=<M1> mod=<Ts> usn=-1 tags=" amgi-starter " flds="Could you say that more slowly?\x1f<audio src="plusaudio-e4ae829d7c7cf7424bca.mp3"></audio>\x1f조금 천천히 말씀해 주시겠어요?\x1f<audio src="plusaudio-51b7457fbae901f30bf1.mp3"></audio>\x1fko\x1f" sfld="Could you say that more slowly?" csum=939579042 flags=0 data=""
+  id=<N39> guid="<G>" mid=<M1> mod=<Ts> usn=-1 tags=" amgi-starter " flds="How much does this cost?\x1f<audio src="plusaudio-5dcaba8979a610ac0a52.mp3"></audio>\x1f이거 얼마예요?\x1f<audio src="plusaudio-a59d3c6914f502885cc.mp3"></audio>\x1fko\x1f" sfld="How much does this cost?" csum=1210865744 flags=0 data=""
   id=<N3> guid="<G>" mid=1794170430283 mod=<Ts> usn=-1 tags="" flds="annyeong\x1fhello" sfld="annyeong" csum=389833775 flags=0 data=""
-  id=<N40> guid="<G>" mid=<M1> mod=<Ts> usn=-1 tags=" amgi-starter " flds="조금 천천히 말씀해 주시겠어요?\x1f<audio src="plusaudio-51b7457fbae901f30bf1.mp3"></audio>\x1fもう少しゆっくり話していただけますか。\x1f<audio src="plusaudio-cfa154e57290f5a96aee.mp3"></audio>\x1fja\x1f" sfld="조금 천천히 말씀해 주시겠어요?" csum=1788551842 flags=0 data=""
-  id=<N41> guid="<G>" mid=<M1> mod=<Ts> usn=-1 tags=" amgi-starter " flds="이거 얼마예요?\x1f<audio src="plusaudio-a59d3c6914f502885cc.mp3"></audio>\x1fこれはいくらですか。\x1f<audio src="plusaudio-a756f1f83c97397ff5cc.mp3"></audio>\x1fja\x1f" sfld="이거 얼마예요?" csum=655501856 flags=0 data=""
-  id=<N42> guid="<G>" mid=<M1> mod=<Ts> usn=-1 tags=" amgi-starter " flds="역이 어디예요?\x1f<audio src="plusaudio-bdad7844cb3ad21843e3.mp3"></audio>\x1f駅はどこですか。\x1f<audio src="plusaudio-239334aefc25794acf4.mp3"></audio>\x1fja\x1f" sfld="역이 어디예요?" csum=535652620 flags=0 data=""
-  id=<N43> guid="<G>" mid=<M1> mod=<Ts> usn=-1 tags=" amgi-starter " flds="커피 한 잔 주세요.\x1f<audio src="plusaudio-25e893602b9cab4f5170.mp3"></audio>\x1fコーヒーを一つお願いします。\x1f<audio src="plusaudio-3856c5c7a32854c6ac5f.mp3"></audio>\x1fja\x1f" sfld="커피 한 잔 주세요." csum=974162137 flags=0 data=""
-  id=<N44> guid="<G>" mid=<M1> mod=<Ts> usn=-1 tags=" amgi-starter " flds="만나서 반갑습니다.\x1f<audio src="plusaudio-92b95c9a78ec10a66d6c.mp3"></audio>\x1fはじめまして。\x1f<audio src="plusaudio-d64a8b90d82c607a3aa7.mp3"></audio>\x1fja\x1f" sfld="만나서 반갑습니다." csum=1300175037 flags=0 data=""
-  id=<N45> guid="<G>" mid=<M1> mod=<Ts> usn=-1 tags=" amgi-starter " flds="내일 봐요.\x1f<audio src="plusaudio-85f4ecdf1c14e1b393.mp3"></audio>\x1fまた明日。\x1f<audio src="plusaudio-5befbed15b7909931f8e.mp3"></audio>\x1fja\x1f" sfld="내일 봐요." csum=2631665728 flags=0 data=""
-  id=<N46> guid="<G>" mid=1794170430283 mod=<Ts> usn=-1 tags="" flds="parallel 0\x1fx" sfld="parallel 0" csum=2658823064 flags=0 data=""
-  id=<N47> guid="<G>" mid=1794170430283 mod=<Ts> usn=-1 tags="" flds="parallel 1\x1fx" sfld="parallel 1" csum=836943767 flags=0 data=""
-  id=<N48> guid="<G>" mid=1794170430283 mod=<Ts> usn=-1 tags="" flds="parallel 2\x1fx" sfld="parallel 2" csum=3907656502 flags=0 data=""
-  id=<N49> guid="<G>" mid=1794170430283 mod=<Ts> usn=-1 tags="" flds="parallel 3\x1fx" sfld="parallel 3" csum=463858920 flags=0 data=""
+  id=<N40> guid="<G>" mid=<M1> mod=<Ts> usn=-1 tags=" amgi-starter " flds="Where is the station?\x1f<audio src="plusaudio-7f505a2e96e3743895e.mp3"></audio>\x1f역이 어디예요?\x1f<audio src="plusaudio-bdad7844cb3ad21843e3.mp3"></audio>\x1fko\x1f" sfld="Where is the station?" csum=1591064700 flags=0 data=""
+  id=<N41> guid="<G>" mid=<M1> mod=<Ts> usn=-1 tags=" amgi-starter " flds="I would like a coffee, please.\x1f<audio src="plusaudio-7cf8ac1be15b7dde1754.mp3"></audio>\x1f커피 한 잔 주세요.\x1f<audio src="plusaudio-25e893602b9cab4f5170.mp3"></audio>\x1fko\x1f" sfld="I would like a coffee, please." csum=2591890432 flags=0 data=""
+  id=<N42> guid="<G>" mid=<M1> mod=<Ts> usn=-1 tags=" amgi-starter " flds="Nice to meet you.\x1f<audio src="plusaudio-11b747fc4397aaee223b.mp3"></audio>\x1f만나서 반갑습니다.\x1f<audio src="plusaudio-92b95c9a78ec10a66d6c.mp3"></audio>\x1fko\x1f" sfld="Nice to meet you." csum=1685404783 flags=0 data=""
+  id=<N43> guid="<G>" mid=<M1> mod=<Ts> usn=-1 tags=" amgi-starter " flds="See you tomorrow.\x1f<audio src="plusaudio-ecc941226eb9195304c0.mp3"></audio>\x1f내일 봐요.\x1f<audio src="plusaudio-85f4ecdf1c14e1b393.mp3"></audio>\x1fko\x1f" sfld="See you tomorrow." csum=3413438770 flags=0 data=""
+  id=<N44> guid="<G>" mid=<M1> mod=<Ts> usn=-1 tags=" amgi-starter " flds="안녕하세요.\x1f<audio src="plusaudio-304a67503cc47f5e15.mp3"></audio>\x1fこんにちは。\x1f<audio src="plusaudio-17069894c1ffba26f7.mp3"></audio>\x1fja\x1f" sfld="안녕하세요." csum=3846071356 flags=0 data=""
+  id=<N45> guid="<G>" mid=<M1> mod=<Ts> usn=-1 tags=" amgi-starter " flds="정말 감사합니다.\x1f<audio src="plusaudio-548f5e2d5a6c685eeae6.mp3"></audio>\x1fどうもありがとうございます。\x1f<audio src="plusaudio-bc9684a51b8a85b58c18.mp3"></audio>\x1fja\x1f" sfld="정말 감사합니다." csum=4051589586 flags=0 data=""
+  id=<N46> guid="<G>" mid=<M1> mod=<Ts> usn=-1 tags=" amgi-starter " flds="실례지만, 좀 도와주시겠어요?\x1f<audio src="plusaudio-f6e1b2d925703c65c027.mp3"></audio>\x1fすみません、ちょっと手伝っていただけますか。\x1f<audio src="plusaudio-ab1062337dd647945730.mp3"></audio>\x1fja\x1f" sfld="실례지만, 좀 도와주시겠어요?" csum=2080687810 flags=0 data=""
+  id=<N47> guid="<G>" mid=<M1> mod=<Ts> usn=-1 tags=" amgi-starter " flds="이해가 안 돼요.\x1f<audio src="plusaudio-d6cf9475a3f897a55459.mp3"></audio>\x1fわかりません。\x1f<audio src="plusaudio-7c925e640bffcf3ea03e.mp3"></audio>\x1fja\x1f" sfld="이해가 안 돼요." csum=621646600 flags=0 data=""
+  id=<N48> guid="<G>" mid=<M1> mod=<Ts> usn=-1 tags=" amgi-starter " flds="조금 천천히 말씀해 주시겠어요?\x1f<audio src="plusaudio-51b7457fbae901f30bf1.mp3"></audio>\x1fもう少しゆっくり話していただけますか。\x1f<audio src="plusaudio-cfa154e57290f5a96aee.mp3"></audio>\x1fja\x1f" sfld="조금 천천히 말씀해 주시겠어요?" csum=1788551842 flags=0 data=""
+  id=<N49> guid="<G>" mid=<M1> mod=<Ts> usn=-1 tags=" amgi-starter " flds="이거 얼마예요?\x1f<audio src="plusaudio-a59d3c6914f502885cc.mp3"></audio>\x1fこれはいくらですか。\x1f<audio src="plusaudio-a756f1f83c97397ff5cc.mp3"></audio>\x1fja\x1f" sfld="이거 얼마예요?" csum=655501856 flags=0 data=""
   id=<N4> guid="<G>" mid=1794170430283 mod=<Ts> usn=-1 tags="" flds="안녕\x1fhello" sfld="안녕" csum=1257927167 flags=0 data=""
-  id=<N50> guid="<G>" mid=1794170430283 mod=<Ts> usn=-1 tags="" flds="parallel 4\x1fx" sfld="parallel 4" csum=244000925 flags=0 data=""
-  id=<N51> guid="<G>" mid=1794170430283 mod=<Ts> usn=-1 tags="" flds="parallel 5\x1fx" sfld="parallel 5" csum=2161797666 flags=0 data=""
+  id=<N50> guid="<G>" mid=<M1> mod=<Ts> usn=-1 tags=" amgi-starter " flds="역이 어디예요?\x1f<audio src="plusaudio-bdad7844cb3ad21843e3.mp3"></audio>\x1f駅はどこですか。\x1f<audio src="plusaudio-239334aefc25794acf4.mp3"></audio>\x1fja\x1f" sfld="역이 어디예요?" csum=535652620 flags=0 data=""
+  id=<N51> guid="<G>" mid=<M1> mod=<Ts> usn=-1 tags=" amgi-starter " flds="커피 한 잔 주세요.\x1f<audio src="plusaudio-25e893602b9cab4f5170.mp3"></audio>\x1fコーヒーを一つお願いします。\x1f<audio src="plusaudio-3856c5c7a32854c6ac5f.mp3"></audio>\x1fja\x1f" sfld="커피 한 잔 주세요." csum=974162137 flags=0 data=""
+  id=<N52> guid="<G>" mid=<M1> mod=<Ts> usn=-1 tags=" amgi-starter " flds="만나서 반갑습니다.\x1f<audio src="plusaudio-92b95c9a78ec10a66d6c.mp3"></audio>\x1fはじめまして。\x1f<audio src="plusaudio-d64a8b90d82c607a3aa7.mp3"></audio>\x1fja\x1f" sfld="만나서 반갑습니다." csum=1300175037 flags=0 data=""
+  id=<N53> guid="<G>" mid=<M1> mod=<Ts> usn=-1 tags=" amgi-starter " flds="내일 봐요.\x1f<audio src="plusaudio-85f4ecdf1c14e1b393.mp3"></audio>\x1fまた明日。\x1f<audio src="plusaudio-5befbed15b7909931f8e.mp3"></audio>\x1fja\x1f" sfld="내일 봐요." csum=2631665728 flags=0 data=""
+  id=<N54> guid="<G>" mid=1794170430283 mod=<Ts> usn=-1 tags="" flds="parallel 0\x1fx" sfld="parallel 0" csum=2658823064 flags=0 data=""
+  id=<N55> guid="<G>" mid=1794170430283 mod=<Ts> usn=-1 tags="" flds="parallel 1\x1fx" sfld="parallel 1" csum=836943767 flags=0 data=""
+  id=<N56> guid="<G>" mid=1794170430283 mod=<Ts> usn=-1 tags="" flds="parallel 2\x1fx" sfld="parallel 2" csum=3907656502 flags=0 data=""
+  id=<N57> guid="<G>" mid=1794170430283 mod=<Ts> usn=-1 tags="" flds="parallel 3\x1fx" sfld="parallel 3" csum=463858920 flags=0 data=""
+  id=<N58> guid="<G>" mid=1794170430283 mod=<Ts> usn=-1 tags="" flds="parallel 4\x1fx" sfld="parallel 4" csum=244000925 flags=0 data=""
+  id=<N59> guid="<G>" mid=1794170430283 mod=<Ts> usn=-1 tags="" flds="parallel 5\x1fx" sfld="parallel 5" csum=2161797666 flags=0 data=""
   id=<N5> guid="<G>" mid=1794170430283 mod=<Ts> usn=-1 tags="" flds="konnichiwa\x1fx" sfld="konnichiwa" csum=752806350 flags=0 data=""
   id=<N6> guid="<G>" mid=1794170430283 mod=<Ts> usn=-1 tags="" flds="hola\x1fx" sfld="hola" csum=2575305605 flags=0 data=""
   id=<N7> guid="<G>" mid=1794170430283 mod=<Ts> usn=-1 tags="" flds="x\x1fprivet" sfld="x" csum=301378958 flags=0 data=""
