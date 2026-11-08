@@ -1,4 +1,4 @@
-import { answer } from '../../../../anki/answer';
+import { answer, bodyOf } from '../../../../anki/answer';
 import { readSettings } from '../../../../../server/anki/settings';
 import { resolveTransport } from '../../../../../server/anki/transport';
 import { notReadyResponse } from '../../../../../server/anki/respond';
@@ -16,7 +16,7 @@ export async function PATCH(request, { params }) {
   const result = await resolveTransport(settings);
   if (!result.ops) return notReadyResponse(result.mode);
 
-  const body = await request.json().catch(() => ({}));
+  const body = bodyOf(request);
   const name = typeof body.name === 'string' ? body.name.trim() : '';
   if (!name) return answer({ error: 'name is required' }, { status: 400 });
 

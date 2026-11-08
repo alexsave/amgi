@@ -5,7 +5,7 @@
 
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ANSWER } from '../../server/anki/answer';
+import { ANSWER, withBody } from '../../server/anki/answer';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
@@ -23,11 +23,7 @@ const maybe = anki ? test : test.skip;
 
 function post(settings, body = {}) {
   return POST(
-    new Request('http://localhost/api/anki/install', {
-      method: 'POST',
-      headers: { ...settingsHeaders(settings), 'content-type': 'application/json' },
-      body: JSON.stringify(body),
-    }),
+    withBody(new Request('http://localhost/api/anki/install', { method: 'POST', headers: settingsHeaders(settings) }), body),
   );
 }
 

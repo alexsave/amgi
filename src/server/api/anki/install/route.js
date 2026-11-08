@@ -1,4 +1,4 @@
-import { answer } from '../../../anki/answer';
+import { answer, bodyOf } from '../../../anki/answer';
 import { readSettings } from '../../../../server/anki/settings';
 import { INSTALLED_MESSAGE, collectionDrift, installAddons, installNotetypeDirect, installState } from '../../../../server/anki/install';
 import { discoverProfiles, resolveTransport } from '../../../../server/anki/transport';
@@ -14,7 +14,7 @@ export async function POST(request) {
   // reading only the saved value silently installs somewhere other than the
   // folder the person is looking at - which is how add-ons end up written
   // into a real Anki profile by accident.
-  const body = await request.json().catch(() => ({}));
+  const body = bodyOf(request);
   const override = typeof body.baseDirOverride === 'string' && body.baseDirOverride.trim()
     ? body.baseDirOverride.trim()
     : settings.baseDirOverride;

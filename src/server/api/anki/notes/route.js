@@ -1,4 +1,4 @@
-import { answer } from '../../../anki/answer';
+import { answer, bodyOf } from '../../../anki/answer';
 import { readSettings } from '../../../../server/anki/settings';
 import { resolveTransport } from '../../../../server/anki/transport';
 import { notReadyResponse } from '../../../../server/anki/respond';
@@ -8,7 +8,7 @@ export async function POST(request) {
   const result = await resolveTransport(settings);
   if (!result.ops) return notReadyResponse(result.mode);
 
-  const body = await request.json();
+  const body = bodyOf(request);
   const { deckId, notetypeId, fields, tags = [], language, learningFieldIndex } = body || {};
   if (!deckId || !notetypeId || !Array.isArray(fields)) {
     return answer({ error: 'deckId, notetypeId and fields are required' }, { status: 400 });
