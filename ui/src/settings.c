@@ -49,7 +49,7 @@ static void settings_read(const uint8_t *p, uint32_t len) {
 }
 
 void settings_load(void) {
-  cd_store_get(STORE_TOKEN(M_SETTINGS, 1), STORE_KEY, sizeof STORE_KEY - 1, CD_STORE_DEADLINE_MS);
+  cd_store_get(STORE_TOKEN(STORE_SETTINGS, 1), STORE_KEY, sizeof STORE_KEY - 1, CD_STORE_DEADLINE_MS);
 }
 void settings_got(const uint8_t *p, int32_t len) {
   if (settings_loaded) return;
@@ -65,12 +65,11 @@ void settings_save(void) {
   settings_stored = 1;
   char *block = cd_alloc(settings_room(settings));
   uint32_t n = settings_block(block, settings);
-  cd_store_put(STORE_TOKEN(M_SETTINGS, 2), STORE_KEY, sizeof STORE_KEY - 1, block, n);
+  cd_store_put(STORE_TOKEN(STORE_SETTINGS, 2), STORE_KEY, sizeof STORE_KEY - 1, block, n);
   cd_free(block);
 }
 
 /* ---- the screen ---- */
-enum { TIMER_SAVED = 1 };
 
 static text draft[S_FIELDS];      /* what the screen shows: the saved settings, then the picks */
 typedef struct { text name, path; } profile;
@@ -296,6 +295,12 @@ void settings_after(void) {
   scan();
 }
 
+static void saved_gone(void *ctx) {
+  (void)ctx;
+  saved_shown = 0;
+  saved_view();
+}
+
 static void save(void) {
   char buf[2048];
   text_set(&draft[S_BASE_DIR], buf, cd_input_value(base_input, buf, sizeof buf));
@@ -305,7 +310,7 @@ static void save(void) {
   settings_save();
   saved_shown = 1;
   saved_view();
-  timer_start(M_SETTINGS, 2000, TIMER_SAVED);
+  cd_timer_cb(2000, saved_gone, 0);
   poll_status();
   refresh_decks();
 }
@@ -326,12 +331,6 @@ ON_EVENT(scan_pressed) {
 ON_EVENT(save_pressed) { save(); }
 ON_EVENT(install_pressed) {
   if (!install_running) install();
-}
-
-void settings_timer(uint32_t token) {
-  if (token != TIMER_SAVED) return;
-  saved_shown = 0;
-  saved_view();
 }
 
 static holder h_answer;

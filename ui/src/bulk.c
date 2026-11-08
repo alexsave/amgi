@@ -7,7 +7,6 @@
 #include "app.h"
 
 enum { QUEUED, MAKING, WAITING, DONE, SKIPPED, BROKEN };
-enum { TM_WAIT = 1, TM_TICK, TM_FLUSH };
 #define CONCURRENCY 5
 #define FLUSH_SIZE 10
 #define FLUSH_MS 3000
@@ -15,6 +14,7 @@ enum { TM_WAIT = 1, TM_TICK, TM_FLUSH };
 typedef struct {
   text line, cue, target, cue_clip, target_clip, cue_ref, target_ref, error;
   uint32_t status, wait_left, budget_ms;
+  uint32_t wait_timer;               /* the wait before asking again (cd_timer_cb's token, 0: none yet) */
   int same_both, retrying;
   int64_t note_id;
   cd_region view;
@@ -31,16 +31,16 @@ static int running, shown, keys_left;
 static text daily_cap;               /* the day's cap message, once hit */
 static text *keys;                   /* the deck's dedupe keys */
 static uint32_t nkeys;
-static uint32_t next_pending, active, counting;
+static uint32_t next_pending, active;
+static uint32_t tick_timer, flush_timer; /* the countdown's next second, the write of what is buffered (0: none) */
 static uint32_t *buffered, nbuffered;   /* rows finished and not written yet */
 static uint32_t **batches, *batch_n, nbatches, batch_head; /* written one at a time, in order */
-static int writing, flush_armed;
+static int writing;
 static cd_id list, head;
 static cd_region view = {0}, head_view = {0};
 static holder h;
 static void (*finished)(void);
 
-static uint32_t token(uint32_t kind, uint32_t i) { return (run & 0xf) << 20 | kind << 16 | (i & 0xffff); }
 /* A request's ctx: the run that asked and the row or batch it is for. A request cannot be taken
  * back, so an answer for a run that is over (a later run, or the view gone) is dropped by its run. */
 static void *asked(uint32_t i) { return CTX_OF((run & 0xffff) << 16 | (i & 0xffff)); }
@@ -193,14 +193,16 @@ static void flush(void) {
   nbuffered = 0;
   write_next();
 }
+static void flush_due(void *ctx) {
+  (void)ctx;
+  flush_timer = 0;
+  flush();
+}
 static void queue_write(uint32_t i) {
   buffered = cd_realloc(buffered, (nbuffered + 1) * sizeof *buffered);
   buffered[nbuffered++] = i;
   if (nbuffered >= FLUSH_SIZE) flush();
-  else if (!flush_armed) {
-    flush_armed = 1;
-    timer_start(M_BULK, FLUSH_MS, token(TM_FLUSH, 0));
-  }
+  else if (!flush_timer) flush_timer = cd_timer_cb(FLUSH_MS, flush_due, 0);
 }
 static void write_next(void) {
   if (writing || batch_head >= nbatches) return;
@@ -292,10 +294,40 @@ static void stop_for_daily_cap(uint32_t i, const char *m, uint32_t n) {
   head_draw();
 }
 
+/* The countdown on waiting rows, a second at a time: a display of the wait each row was given. */
+static void tick(void *ctx);
 static void tick_start(void) {
-  if (counting) return;
-  counting = 1;
-  timer_start(M_BULK, 1000, token(TM_TICK, 0));
+  if (!tick_timer) tick_timer = cd_timer_cb(1000, tick, 0);
+}
+static void tick(void *ctx) {
+  (void)ctx;
+  tick_timer = 0;
+  int any = 0;
+  for (uint32_t k = 0; k < nrows; k++) {
+    if (rows[k].wait_left > 0) {
+      rows[k].wait_left--;
+      row_draw(k);
+      any |= rows[k].wait_left > 0;
+    }
+  }
+  head_draw();
+  if (any) tick_start();
+}
+
+/* ctx: the row; its wait is over */
+static void wait_over(void *ctx) {
+  uint32_t i = CTX_INDEX(ctx);
+  if (i >= nrows) return;
+  rows[i].wait_timer = 0;
+  if (daily_cap.len) { /* the day ran out while this line waited */
+    rows[i].status = BROKEN;
+    rows[i].wait_left = 0;
+    text_set(&rows[i].error, daily_cap.p, daily_cap.len);
+    changed(i);
+    line_ended(i);
+    return;
+  }
+  line_ask(i);
 }
 
 static void wait_then_ask(uint32_t i, uint32_t ms, uint32_t status) {
@@ -304,7 +336,7 @@ static void wait_then_ask(uint32_t i, uint32_t ms, uint32_t status) {
   r->wait_left = seconds(ms);
   changed(i);
   tick_start();
-  timer_start(M_BULK, ms, token(TM_WAIT, i));
+  r->wait_timer = cd_timer_cb(ms, wait_over, CTX_OF(i));
 }
 
 ON_ANSWER(line_answered) {
@@ -444,9 +476,11 @@ ON_ANSWER(keys_answered) {
   begin();
 }
 
+/* The run's state goes, its timers stopped with it. */
 static void clear_run(void) {
   for (uint32_t i = 0; i < nrows; i++) {
     row *r = &rows[i];
+    cd_timer_stop(r->wait_timer);
     for (int s = 0; s < 2; s++) chip_forget(r->chips[s]);
     cd_region_hide(&r->view);
     text *ts[] = {&r->line, &r->cue, &r->target, &r->cue_clip, &r->target_clip, &r->cue_ref, &r->target_ref, &r->error};
@@ -463,6 +497,9 @@ static void clear_run(void) {
   buffered = 0;
   nbuffered = 0;
   writing = active = 0;
+  cd_timer_stop(tick_timer);
+  cd_timer_stop(flush_timer);
+  tick_timer = flush_timer = 0;
   text_free(&daily_cap);
   cd_region_hide(&head_view);
   cd_region_hide(&view);
@@ -530,38 +567,6 @@ void bulk_forget(void) {
   clear_run();
   shown = 0;
   run++;
-}
-
-void bulk_timer(uint32_t t) {
-  if (!shown || (t >> 20) != (run & 0xf)) return;
-  uint32_t kind = (t >> 16) & 0xf, i = t & 0xffff;
-  if (kind == TM_WAIT && i < nrows) {
-    if (daily_cap.len) { /* the day ran out while this line waited */
-      rows[i].status = BROKEN;
-      rows[i].wait_left = 0;
-      text_set(&rows[i].error, daily_cap.p, daily_cap.len);
-      changed(i);
-      line_ended(i);
-      return;
-    }
-    line_ask(i);
-  } else if (kind == TM_FLUSH) {
-    flush_armed = 0;
-    flush();
-  } else if (kind == TM_TICK) {
-    /* the countdown on waiting rows: a display of the wait each row was given */
-    counting = 0;
-    int any = 0;
-    for (uint32_t k = 0; k < nrows; k++) {
-      if (rows[k].wait_left > 0) {
-        rows[k].wait_left--;
-        row_draw(k);
-        any |= rows[k].wait_left > 0;
-      }
-    }
-    head_draw();
-    if (any) tick_start();
-  }
 }
 
 /* ctx: the row */
