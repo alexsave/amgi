@@ -1,0 +1,181 @@
+file	language	model	voice	attempts	text
+plusaudio-d2f1108360fa9b7f8371.mp3	en	gemini-3.8-flash-lite-tts	Autonoe	1	Hello.
+plusaudio-381a7ab7149c01188aeb.mp3	en	gemini-3.8-flash-lite-tts	Achird	1	Thank you very much.
+plusaudio-70855603d189a9dbfc51.mp3	en	gemini-3.8-flash-lite-tts	Zephyr	1	Excuse me, can you help me?
+plusaudio-c4560e7b0f58053fdee3.mp3	en	gemini-3.8-flash-lite-tts	Charon	1	I don't understand.
+plusaudio-e4ae829d7c7cf7424bca.mp3	en	gemini-3.8-flash-lite-tts	Despina	1	Could you say that more slowly?
+plusaudio-5dcaba8979a610ac0a52.mp3	en	gemini-3.8-flash-lite-tts	Leda	1	How much does this cost?
+plusaudio-7f0505a2e96e3743895e.mp3	en	gemini-3.8-flash-lite-tts	Charon	1	Where is the station?
+plusaudio-7cf8ac1be15b7dde1754.mp3	en	gemini-3.8-flash-lite-tts	Enceladus	1	I would like a coffee, please.
+plusaudio-11b747fc4397aaee223b.mp3	en	gemini-3.8-flash-lite-tts	Fenrir	1	Nice to meet you.
+plusaudio-ecc941226eb9195304c0.mp3	en	gemini-3.8-flash-lite-tts	Aoede	1	See you tomorrow.
+plusaudio-97e87289474a0eec676b.mp3	zh_cn	gemini-3.8-flash-lite-tts	Iapetus	1	你好。
+plusaudio-27614c05f95c264b4cb0.mp3	zh_cn	gemini-3.8-flash-lite-tts	Kore	1	非常感谢。
+plusaudio-2366bfc4cb93e88c00b8.mp3	zh_cn	gemini-3.8-flash-lite-tts	Rasalgethi	1	不好意思，能帮我一下吗？
+plusaudio-5a185406c7b707ce958d.mp3	zh_cn	gemini-3.8-flash-lite-tts	Fenrir	1	我不明白。
+plusaudio-2c980549b8674bc56ad3.mp3	zh_cn	gemini-3.8-flash-lite-tts	Algieba	1	您能说慢一点吗？
+plusaudio-9a039435e7058f925141.mp3	zh_cn	gemini-3.8-flash-lite-tts	Kore	1	这个多少钱？
+plusaudio-9bce4c5066b554806ae0.mp3	zh_cn	gemini-3.8-flash-lite-tts	Gacrux	1	车站在哪里？
+plusaudio-b65d07b9e1c4cf3a816b.mp3	zh_cn	gemini-3.8-flash-lite-tts	Iapetus	1	我要一杯咖啡，谢谢。
+plusaudio-cda256e6c8fc24647fbc.mp3	zh_cn	gemini-3.8-flash-lite-tts	Zubenelgenubi	1	很高兴认识你。
+plusaudio-e54c5d519bba02e307b8.mp3	zh_cn	gemini-3.8-flash-lite-tts	Achernar	1	明天见。
+plusaudio-78fb7446e16b2e97e9fb.mp3	es	gemini-3.8-flash-lite-tts	Rasalgethi	1	Hola.
+plusaudio-ce5860d1c1c4cf79e74f.mp3	es	gemini-3.8-flash-lite-tts	Enceladus	1	Muchas gracias.
+plusaudio-d358655ee6ad8f4121ee.mp3	es	gemini-3.8-flash-lite-tts	Umbriel	1	Perdone, ¿me puede ayudar?
+plusaudio-39f489ac4cd5b4a2f92f.mp3	es	gemini-3.8-flash-lite-tts	Puck	1	No entiendo.
+plusaudio-b5cbb7b750f20b2d4198.mp3	es	gemini-3.8-flash-lite-tts	Algenib	1	¿Podría hablar más despacio?
+plusaudio-823a3fe2d62d2d4d3bf4.mp3	es	gemini-3.8-flash-lite-tts	Leda	1	¿Cuánto cuesta esto?
+plusaudio-2b6e0c67882fca913dc4.mp3	es	gemini-3.8-flash-lite-tts	Despina	1	¿Dónde está la estación?
+plusaudio-bad9f1198d3ad9fce0ce.mp3	es	gemini-3.8-flash-lite-tts	Algenib	1	Un café, por favor.
+plusaudio-c98531b31109353b8bd4.mp3	es	gemini-3.8-flash-lite-tts	Zubenelgenubi	1	Mucho gusto.
+plusaudio-64a2a93cc9cd29ddecd1.mp3	es	gemini-3.8-flash-lite-tts	Orus	1	Hasta mañana.
+plusaudio-5d406419f0d124be87a4.mp3	fr	gemini-3.8-flash-lite-tts	Fenrir	1	Bonjour.
+plusaudio-19215e191a0e229f797c.mp3	fr	gemini-3.8-flash-lite-tts	Umbriel	1	Merci beaucoup.
+plusaudio-97950d20466131c13383.mp3	fr	gemini-3.8-flash-lite-tts	Rasalgethi	1	Excusez-moi, pouvez-vous m'aider ?
+plusaudio-0bdf8bdeb70016446fc0.mp3	fr	gemini-3.8-flash-lite-tts	Gacrux	1	Je ne comprends pas.
+plusaudio-353b1259b12223baad4b.mp3	fr	gemini-3.8-flash-lite-tts	Enceladus	1	Pourriez-vous parler plus lentement ?
+plusaudio-bfb4d8f33e5b3c7d7b47.mp3	fr	gemini-3.8-flash-lite-tts	Autonoe	1	Combien ça coûte ?
+plusaudio-c1673c9d0d4b021383bd.mp3	fr	gemini-3.8-flash-lite-tts	Kore	1	Où est la gare ?
+plusaudio-38aa2ca6c1897ec6814d.mp3	fr	gemini-3.8-flash-lite-tts	Laomedeia	1	Je voudrais un café, s'il vous plaît.
+plusaudio-5b0750112892e312af02.mp3	fr	gemini-3.8-flash-lite-tts	Leda	1	Enchanté.
+plusaudio-aa797bd2e2cb678bebbc.mp3	fr	gemini-3.8-flash-lite-tts	Rasalgethi	1	À demain.
+plusaudio-0b3bf4963f12e2e6aaac.mp3	pt	gemini-3.8-flash-lite-tts	Umbriel	1	Olá.
+plusaudio-71e81c98ebd49c01782e.mp3	pt	gemini-3.8-flash-lite-tts	Algieba	2	Muito obrigado.
+plusaudio-fb2af7f1043156fd424a.mp3	pt	gemini-3.8-flash-lite-tts	Umbriel	1	Desculpe, pode ajudar-me?
+plusaudio-5a9ba86ede6c26a645cb.mp3	pt	gemini-3.8-flash-lite-tts	Achernar	1	Não entendo.
+plusaudio-9e305ef9bf518fbef4b9.mp3	pt	gemini-3.8-flash-lite-tts	Achernar	1	Pode falar mais devagar?
+plusaudio-8b714204b175a06eef63.mp3	pt	gemini-3.8-flash-lite-tts	Despina	1	Quanto custa isto?
+plusaudio-04b8ab67e7f03ac38bd2.mp3	pt	gemini-3.8-flash-lite-tts	Puck	1	Onde fica a estação?
+plusaudio-138ae020ab96ac5e9d86.mp3	pt	gemini-3.8-flash-lite-tts	Enceladus	1	Queria um café, por favor.
+plusaudio-52b4fd88b32ca2003255.mp3	pt	gemini-3.8-flash-lite-tts	Achernar	1	Muito prazer.
+plusaudio-57776216e2e43b419d79.mp3	pt	gemini-3.8-flash-lite-tts	Autonoe	1	Até amanhã.
+plusaudio-ae983c6876585b7ccd37.mp3	ru	gemini-3.8-flash-lite-tts	Achernar	1	Здравствуйте.
+plusaudio-edfcd9605d511635c3db.mp3	ru	gemini-3.8-flash-lite-tts	Leda	1	Большое спасибо.
+plusaudio-9383ce3dc0865c5180eb.mp3	ru	gemini-3.8-flash-lite-tts	Zubenelgenubi	1	Извините, вы можете мне помочь?
+plusaudio-d3604b1954972079ca7d.mp3	ru	gemini-3.8-flash-lite-tts	Despina	1	Я не понимаю.
+plusaudio-da0ee3dbfbe42ebcb6ec.mp3	ru	gemini-3.8-flash-lite-tts	Enceladus	1	Вы можете говорить помедленнее?
+plusaudio-ea4ad5df650f7a14b895.mp3	ru	gemini-3.8-flash-lite-tts	Leda	1	Сколько это стоит?
+plusaudio-7d861c4719e929fa26b6.mp3	ru	gemini-3.8-flash-lite-tts	Pulcherrima	1	Где вокзал?
+plusaudio-6ed66ce8f8f4a97e0b4c.mp3	ru	gemini-3.8-flash-lite-tts	Schedar	1	Мне, пожалуйста, кофе.
+plusaudio-66b7bf6e55864218b2c4.mp3	ru	gemini-3.8-flash-lite-tts	Algieba	1	Очень приятно.
+plusaudio-80698c25b0960f11dbbf.mp3	ru	gemini-3.8-flash-lite-tts	Orus	1	До завтра.
+plusaudio-c7ba453af2975b12699d.mp3	id	gemini-3.8-flash-lite-tts	Zubenelgenubi	1	Halo.
+plusaudio-3eea0b4c8b8cc07e449c.mp3	id	gemini-3.8-flash-lite-tts	Achird	1	Terima kasih banyak.
+plusaudio-6613d9f2fbe43e2ba964.mp3	id	gemini-3.8-flash-lite-tts	Zubenelgenubi	1	Permisi, bisa bantu saya?
+plusaudio-3e73c27b631c2bf88633.mp3	id	gemini-3.8-flash-lite-tts	Orus	1	Saya tidak mengerti.
+plusaudio-f32e459dc217095d5927.mp3	id	gemini-3.8-flash-lite-tts	Despina	1	Bisa bicara lebih pelan?
+plusaudio-92998559babd9cdbf9f3.mp3	id	gemini-3.8-flash-lite-tts	Rasalgethi	1	Ini harganya berapa?
+plusaudio-06c3c9aaf2054684d9d4.mp3	id	gemini-3.8-flash-lite-tts	Autonoe	1	Stasiunnya di mana?
+plusaudio-6d06f2c7101ed8ddf3a5.mp3	id	gemini-3.8-flash-lite-tts	Callirrhoe	1	Saya mau pesan kopi, ya.
+plusaudio-a877b7a64e8b3eab0d29.mp3	id	gemini-3.8-flash-lite-tts	Fenrir	1	Senang bertemu dengan Anda.
+plusaudio-23cb0aae4c2b60939f86.mp3	id	gemini-3.8-flash-lite-tts	Enceladus	1	Sampai besok.
+plusaudio-d77703d3e99ceeb2a473.mp3	de	gemini-3.8-flash-lite-tts	Gacrux	1	Hallo.
+plusaudio-be688a7e0317264e0c02.mp3	de	gemini-3.8-flash-lite-tts	Gacrux	1	Vielen Dank.
+plusaudio-5512deec5f81bf28b1d8.mp3	de	gemini-3.8-flash-lite-tts	Zephyr	1	Entschuldigung, können Sie mir helfen?
+plusaudio-43924ed03c297bef3453.mp3	de	gemini-3.8-flash-lite-tts	Despina	1	Ich verstehe nicht.
+plusaudio-04d5fade52e695f30697.mp3	de	gemini-3.8-flash-lite-tts	Algieba	1	Können Sie das bitte langsamer sagen?
+plusaudio-bdfb1301a2c5e28d805f.mp3	de	gemini-3.8-flash-lite-tts	Laomedeia	1	Was kostet das?
+plusaudio-10f149ac3433fb004d6b.mp3	de	gemini-3.8-flash-lite-tts	Erinome	1	Wo ist der Bahnhof?
+plusaudio-8ac3c9ecdfcf46e0707a.mp3	de	gemini-3.8-flash-lite-tts	Algieba	1	Einen Kaffee, bitte.
+plusaudio-9dfbbae696b42a8a5b5c.mp3	de	gemini-3.8-flash-lite-tts	Kore	1	Freut mich.
+plusaudio-481cb5e66fc06a66609e.mp3	de	gemini-3.8-flash-lite-tts	Umbriel	1	Bis morgen.
+plusaudio-017069894c01ffba26f7.mp3	ja	gemini-3.8-flash-lite-tts	Orus	1	こんにちは。
+plusaudio-bc9684a51b8a85b58c18.mp3	ja	gemini-3.8-flash-lite-tts	Zubenelgenubi	1	どうもありがとうございます。
+plusaudio-ab1062337dd647945730.mp3	ja	gemini-3.8-flash-lite-tts	Algieba	1	すみません、ちょっと手伝っていただけますか。
+plusaudio-7c925e640bffcf3ea03e.mp3	ja	gemini-3.8-flash-lite-tts	Laomedeia	1	わかりません。
+plusaudio-cfa154e57290f5a96aee.mp3	ja	gemini-3.8-flash-lite-tts	Gacrux	1	もう少しゆっくり話していただけますか。
+plusaudio-a756f1f83c97397ff5cc.mp3	ja	gemini-3.8-flash-lite-tts	Umbriel	1	これはいくらですか。
+plusaudio-0239334aefc25794acf4.mp3	ja	gemini-3.8-flash-lite-tts	Algenib	1	駅はどこですか。
+plusaudio-3856c5c7a32854c6ac5f.mp3	ja	gemini-3.8-flash-lite-tts	Achernar	1	コーヒーを一つお願いします。
+plusaudio-d64a8b90d82c607a3aa7.mp3	ja	gemini-3.8-flash-lite-tts	Algenib	1	はじめまして。
+plusaudio-5befbed15b7909931f8e.mp3	ja	gemini-3.8-flash-lite-tts	Laomedeia	1	また明日。
+plusaudio-808cd47d4022d8a0567b.mp3	tr	gemini-3.8-flash-lite-tts	Charon	1	Merhaba.
+plusaudio-824ea4413cd991e01ced.mp3	tr	gemini-3.8-flash-lite-tts	Schedar	1	Çok teşekkür ederim.
+plusaudio-a7f7579242011fb47a82.mp3	tr	gemini-3.8-flash-lite-tts	Pulcherrima	1	Affedersiniz, bana yardım edebilir misiniz?
+plusaudio-7b882441ae7225a763e1.mp3	tr	gemini-3.8-flash-lite-tts	Puck	1	Anlamıyorum.
+plusaudio-8b4d256dccd9d9ff4530.mp3	tr	gemini-3.8-flash-lite-tts	Orus	1	Biraz daha yavaş konuşabilir misiniz?
+plusaudio-ac8d91090da0028937e1.mp3	tr	gemini-3.8-flash-lite-tts	Alnilam	1	Bu ne kadar?
+plusaudio-8633da68ff7c2f5b0c0c.mp3	tr	gemini-3.8-flash-lite-tts	Callirrhoe	1	İstasyon nerede?
+plusaudio-187c3ab31a1b672a90f6.mp3	tr	gemini-3.8-flash-lite-tts	Leda	1	Bir kahve alabilir miyim, lütfen?
+plusaudio-b93f32752e7ede806b34.mp3	tr	gemini-3.8-flash-lite-tts	Erinome	1	Memnun oldum.
+plusaudio-502fe857932322a54816.mp3	tr	gemini-3.8-flash-lite-tts	Achernar	1	Yarın görüşürüz.
+plusaudio-8b36990aa9511567a6ae.mp3	zh_hk	gemini-3.8-flash-lite-tts	Orus	1	你好。
+plusaudio-569c9fec561d432fdea2.mp3	zh_hk	gemini-3.8-flash-lite-tts	Callirrhoe	1	唔該晒。
+plusaudio-c9c270ccdde9f4037380.mp3	zh_hk	gemini-3.8-flash-lite-tts	Zubenelgenubi	1	唔好意思，可唔可以幫下我？
+plusaudio-308c8d25b8070043267e.mp3	zh_hk	gemini-3.8-flash-lite-tts	Zubenelgenubi	1	我唔明。
+plusaudio-6160c93d66f02b2063a2.mp3	zh_hk	gemini-3.8-flash-lite-tts	Despina	1	你可唔可以講慢啲？
+plusaudio-b2167891b9a5b78df1a4.mp3	zh_hk	gemini-3.8-flash-lite-tts	Rasalgethi	2	呢個幾錢？
+plusaudio-928a64241fbb92994d7c.mp3	zh_hk	gemini-3.8-flash-lite-tts	Despina	1	車站喺邊度？
+plusaudio-72759dbb89a1c1df8f6a.mp3	zh_hk	gemini-3.8-flash-lite-tts	Erinome	1	唔該，我要杯咖啡。
+plusaudio-c2596aff77a267950a92.mp3	zh_hk	gemini-3.8-flash-lite-tts	Fenrir	1	好高興認識你。
+plusaudio-fc56302eb7fb810a0ce1.mp3	zh_hk	gemini-3.8-flash-lite-tts	Fenrir	1	聽日見。
+plusaudio-1d21451124742fff7441.mp3	vi	gemini-3.8-flash-lite-tts	Gacrux	1	Xin chào.
+plusaudio-af3281fd91cdd691d3a6.mp3	vi	gemini-3.8-flash-lite-tts	Autonoe	1	Cảm ơn rất nhiều.
+plusaudio-6ac62843f7f8006f2da3.mp3	vi	gemini-3.8-flash-lite-tts	Algieba	1	Xin lỗi, bạn có thể giúp tôi không?
+plusaudio-4bfb112aac07530830bc.mp3	vi	gemini-3.8-flash-lite-tts	Algieba	1	Tôi không hiểu.
+plusaudio-86b485372f87daf249c7.mp3	vi	gemini-3.8-flash-lite-tts	Schedar	1	Bạn nói chậm hơn được không?
+plusaudio-a5287f4df2e1b90addfd.mp3	vi	gemini-3.8-flash-lite-tts	Alnilam	1	Cái này bao nhiêu tiền?
+plusaudio-8da93666196d047300fd.mp3	vi	gemini-3.8-flash-lite-tts	Pulcherrima	1	Nhà ga ở đâu?
+plusaudio-485bdccf9c695bcabfac.mp3	vi	gemini-3.8-flash-lite-tts	Zephyr	1	Cho tôi một ly cà phê.
+plusaudio-ec45d888702eb53c1f51.mp3	vi	gemini-3.8-flash-lite-tts	Laomedeia	1	Rất vui được gặp bạn.
+plusaudio-35906c595089dbc92878.mp3	vi	gemini-3.8-flash-lite-tts	Schedar	1	Hẹn gặp lại ngày mai.
+plusaudio-304a67503cc0047f5e15.mp3	ko	gemini-3.8-flash-lite-tts	Achernar	1	안녕하세요.
+plusaudio-548f5e2d5a6c685eeae6.mp3	ko	gemini-3.8-flash-lite-tts	Despina	1	정말 감사합니다.
+plusaudio-f6e1b2d925703c65c027.mp3	ko	gemini-3.8-flash-lite-tts	Iapetus	1	실례지만, 좀 도와주시겠어요?
+plusaudio-d6cf9475a3f897a55459.mp3	ko	gemini-3.8-flash-lite-tts	Alnilam	1	이해가 안 돼요.
+plusaudio-51b7457fbae901f30bf1.mp3	ko	gemini-3.8-flash-lite-tts	Rasalgethi	1	조금 천천히 말씀해 주시겠어요?
+plusaudio-a59d3c6914f0502885cc.mp3	ko	gemini-3.8-flash-lite-tts	Callirrhoe	1	이거 얼마예요?
+plusaudio-bdad7844cb3ad21843e3.mp3	ko	gemini-3.8-flash-lite-tts	Gacrux	1	역이 어디예요?
+plusaudio-25e893602b9cab4f5170.mp3	ko	gemini-3.8-flash-lite-tts	Charon	1	커피 한 잔 주세요.
+plusaudio-92b95c9a78ec10a66d6c.mp3	ko	gemini-3.8-flash-lite-tts	Umbriel	1	만나서 반갑습니다.
+plusaudio-0085f4ecdf1c14e1b393.mp3	ko	gemini-3.8-flash-lite-tts	Aoede	1	내일 봐요.
+plusaudio-acb3989fe5632823f56a.mp3	it	gemini-3.8-flash-lite-tts	Alnilam	1	Buongiorno.
+plusaudio-89ab0f9b181055adbd17.mp3	it	gemini-3.8-flash-lite-tts	Pulcherrima	1	Grazie mille.
+plusaudio-a3c42de20f13ca988689.mp3	it	gemini-3.8-flash-lite-tts	Leda	1	Mi scusi, può aiutarmi?
+plusaudio-e7a69d402abf41c32dd0.mp3	it	gemini-3.8-flash-lite-tts	Schedar	1	Non capisco.
+plusaudio-a63ffecfd813685e69f6.mp3	it	gemini-3.8-flash-lite-tts	Despina	1	Può parlare più lentamente?
+plusaudio-dcc8706fd5267eab61bd.mp3	it	gemini-3.8-flash-lite-tts	Achird	1	Quanto costa questo?
+plusaudio-c8140e21ba1a204be396.mp3	it	gemini-3.8-flash-lite-tts	Autonoe	1	Dov'è la stazione?
+plusaudio-a275793957b4229edcf4.mp3	it	gemini-3.8-flash-lite-tts	Puck	1	Vorrei un caffè, per favore.
+plusaudio-4b93978cbb5620e61c11.mp3	it	gemini-3.8-flash-lite-tts	Achernar	1	Piacere di conoscerla.
+plusaudio-3b09cae28b8006ee6564.mp3	it	gemini-3.8-flash-lite-tts	Rasalgethi	1	A domani.
+plusaudio-b7aa9473f51a9fade2ec.mp3	th	gemini-3.8-flash-lite-tts	Schedar	1	สวัสดีครับ
+plusaudio-d7b963ea9af5414c2178.mp3	th	gemini-3.8-flash-lite-tts	Iapetus	1	ขอบคุณมากครับ
+plusaudio-b8702bf23aa45609a2a6.mp3	th	gemini-3.8-flash-lite-tts	Puck	1	ขอโทษครับ ช่วยผมหน่อยได้ไหมครับ
+plusaudio-7f983ac2fad204a40f70.mp3	th	gemini-3.8-flash-lite-tts	Rasalgethi	1	ผมไม่เข้าใจครับ
+plusaudio-7102e68cb9d5ed7cdd63.mp3	th	gemini-3.8-flash-lite-tts	Iapetus	1	พูดช้าลงหน่อยได้ไหมครับ
+plusaudio-d52c9a5739d2bb6bb853.mp3	th	gemini-3.8-flash-lite-tts	Laomedeia	1	อันนี้ราคาเท่าไหร่ครับ
+plusaudio-e27f1b1857fcb9bf7400.mp3	th	gemini-3.8-flash-lite-tts	Zephyr	1	สถานีอยู่ที่ไหนครับ
+plusaudio-016c0e83ec346ccda47e.mp3	th	gemini-3.8-flash-lite-tts	Despina	1	ขอกาแฟหนึ่งแก้วครับ
+plusaudio-3a43e1b4449cd432e945.mp3	th	gemini-3.8-flash-lite-tts	Autonoe	1	ยินดีที่ได้รู้จักครับ
+plusaudio-0240034e5a5af06aae52.mp3	th	gemini-3.8-flash-lite-tts	Kore	1	พรุ่งนี้เจอกันครับ
+plusaudio-fb39dcf8aa57aa59a394.mp3	hi	gemini-3.8-flash-lite-tts	Rasalgethi	1	नमस्ते।
+plusaudio-ffe258013a02c421a1f7.mp3	hi	gemini-3.8-flash-lite-tts	Gacrux	1	बहुत बहुत धन्यवाद।
+plusaudio-3109324b7cdf55c0048f.mp3	hi	gemini-3.8-flash-lite-tts	Gacrux	1	माफ़ कीजिए, क्या आप मेरी मदद कर सकते हैं?
+plusaudio-17252abcaa9e9a384a96.mp3	hi	gemini-3.8-flash-lite-tts	Puck	1	मुझे समझ नहीं आया।
+plusaudio-c59d4f08b694310d2023.mp3	hi	gemini-3.8-flash-lite-tts	Gacrux	1	क्या आप थोड़ा धीरे बोल सकते हैं?
+plusaudio-ab956aa002e633f4eeb4.mp3	hi	gemini-3.8-flash-lite-tts	Despina	1	यह कितने का है?
+plusaudio-2b792995c9e80784b309.mp3	hi	gemini-3.8-flash-lite-tts	Zubenelgenubi	1	स्टेशन कहाँ है?
+plusaudio-ae8d2fb7a7a986ffa7ec.mp3	hi	gemini-3.8-flash-lite-tts	Schedar	1	मुझे एक कॉफ़ी चाहिए।
+plusaudio-936104e63eca56f59c0f.mp3	hi	gemini-3.8-flash-lite-tts	Autonoe	1	आपसे मिलकर ख़ुशी हुई।
+plusaudio-acd68f15377c8d770f7b.mp3	hi	gemini-3.8-flash-lite-tts	Alnilam	1	कल मिलते हैं।
+plusaudio-b09c736ffe5358f5946b.mp3	ur	gemini-3.8-flash-lite-tts	Rasalgethi	1	السلام علیکم۔
+plusaudio-32075b1ea95cc6ca8334.mp3	ur	gemini-3.8-flash-lite-tts	Rasalgethi	1	بہت بہت شکریہ۔
+plusaudio-53903def468c91b71ca0.mp3	ur	gemini-3.8-flash-lite-tts	Puck	1	معاف کیجیے، کیا آپ میری مدد کر سکتے ہیں؟
+plusaudio-6e63dddf275f2bfc556f.mp3	ur	gemini-3.8-flash-lite-tts	Fenrir	1	میں نہیں سمجھا۔
+plusaudio-f36212fd04eaa7049208.mp3	ur	gemini-3.8-flash-lite-tts	Achird	1	کیا آپ ذرا آہستہ بول سکتے ہیں؟
+plusaudio-a78282473ac20235a2af.mp3	ur	gemini-3.8-flash-lite-tts	Laomedeia	1	یہ کتنے کا ہے؟
+plusaudio-ed67dcd7e205f4f9a32f.mp3	ur	gemini-3.8-flash-lite-tts	Achird	1	اسٹیشن کہاں ہے؟
+plusaudio-b43f3fa5501574a31466.mp3	ur	gemini-3.8-flash-lite-tts	Autonoe	1	مجھے ایک کافی چاہیے۔
+plusaudio-11e88a36492d4666f97b.mp3	ur	gemini-3.8-flash-lite-tts	Zephyr	1	آپ سے مل کر خوشی ہوئی۔
+plusaudio-8b658d166578702d592d.mp3	ur	gemini-3.8-flash-lite-tts	Erinome	1	کل ملتے ہیں۔
+plusaudio-d09409b10898b8954a4c.mp3	ar	gemini-3.8-flash-lite-tts	Kore	1	مرحباً.
+plusaudio-996f45369d6d58469468.mp3	ar	gemini-3.8-flash-lite-tts	Aoede	1	شكراً جزيلاً.
+plusaudio-625ae8b6f017c73f4916.mp3	ar	gemini-3.8-flash-lite-tts	Despina	1	من فضلك، هل يمكنك مساعدتي؟
+plusaudio-55a7abfb31ff068a03b9.mp3	ar	gemini-3.8-flash-lite-tts	Fenrir	1	لا أفهم.
+plusaudio-65f7e02519ff6baebd6d.mp3	ar	gemini-3.8-flash-lite-tts	Algieba	1	هل يمكنك التحدث ببطء أكثر؟
+plusaudio-ddfb1e5cb8593f8dd838.mp3	ar	gemini-3.8-flash-lite-tts	Achernar	1	كم سعر هذا؟
+plusaudio-625da8d86d50863c0583.mp3	ar	gemini-3.8-flash-lite-tts	Callirrhoe	1	أين المحطة؟
+plusaudio-61d9d1ba1916a8aa580e.mp3	ar	gemini-3.8-flash-lite-tts	Iapetus	1	أريد قهوة من فضلك.
+plusaudio-6db67507c69223c0fe0e.mp3	ar	gemini-3.8-flash-lite-tts	Fenrir	1	تشرفت بمعرفتك.
+plusaudio-f268772f8806451118c1.mp3	ar	gemini-3.8-flash-lite-tts	Alnilam	1	أراك غداً.
