@@ -14,3 +14,7 @@ uint8_t *wire_grow(uint8_t *p, uint32_t len, uint32_t cap) {
   }
   return q;
 }
+
+/* A body's length as a wire message's u32 count can hold it, or 0. cbase bounds a response at
+ * CB_HTTPS_MAX_BODY (32 MiB), so this never fails today; it is the one place the cast is checked. */
+int wire_length_fits(size_t n) { return n <= 0xffffffffu; }

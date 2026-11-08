@@ -15,6 +15,12 @@
 
 #include "../collection/core.h"
 #include "../collection/rng.h"
+#include "wire.h"
+
+int media_exists(cx *c, str dir, str name);
+int media_read(cx *c, str dir, str name, str *out);
+int wire_length_fits(size_t n);
+#define AJ_MAX_DEPTH_TESTED 256
 
 static int failures, checks;
 #define CHECK(cond, ...)                         \
@@ -30,6 +36,7 @@ static int failures, checks;
 #define CHECK_STR(got, want) CHECK(str_eq((got), str_c(want)), "got \"%.*s\", want \"%s\"", (int)(got).n, (got).p, (want))
 
 static const char *root;
+static char scratch[4096]; /* this run's temporary folder */
 
 /* ---- the format rules ---- */
 static void json_rules(void) {
@@ -144,8 +151,68 @@ static void pb_rules(void) {
   ar_free(&a);
 }
 
+/* ---- JSON nesting: refused past the limit, and the limit parsed on a small thread stack ---- */
+typedef struct { int depth; int parsed; } nest_case;
+static void *parse_nested(void *arg) {
+  nest_case *k = arg;
+  arena a = {0};
+  buf b = {0};
+  for (int i = 0; i < k->depth; i++) buf_ch(&b, '[');
+  for (int i = 0; i < k->depth; i++) buf_ch(&b, ']');
+  const char *why = NULL;
+  k->parsed = anki_json_parse(&a, (str){b.p, b.n}, &why) != NULL;
+  buf_free(&b);
+  ar_free(&a);
+  return NULL;
+}
+static void json_depth(void) {
+  /* A server thread's stack is the platform's default, 512 KiB on macOS; half of it here. */
+  pthread_attr_t attr;
+  pthread_attr_init(&attr);
+  pthread_attr_setstacksize(&attr, 256 * 1024);
+  struct { int depth, want; } cases[] = {{AJ_MAX_DEPTH_TESTED, 1}, {AJ_MAX_DEPTH_TESTED + 1, 0}, {100000, 0}};
+  for (size_t i = 0; i < sizeof cases / sizeof *cases; i++) {
+    nest_case k = {cases[i].depth, -1};
+    pthread_t t;
+    pthread_create(&t, &attr, parse_nested, &k);
+    pthread_join(t, NULL);
+    CHECK(k.parsed == cases[i].want, "JSON nested %d deep %s on a 256 KiB stack", cases[i].depth, cases[i].want ? "parses" : "is refused");
+  }
+  pthread_attr_destroy(&attr);
+  CHECK(wire_length_fits(0xffffffffu) && !wire_length_fits((size_t)0xffffffffu + 1), "a wire message's length must fit its u32");
+}
+
+/* ---- the media folder: no symlink followed, nothing but a regular file read, hostile names refused ---- */
+static void media_files(void) {
+  arena a = {0};
+  char dir[4096], outside[4096], link[4096], fifo[4096], plain[4096];
+  snprintf(dir, sizeof dir, "%s/media-test.media", scratch);
+  mkdir(dir, 0777);
+  snprintf(outside, sizeof outside, "%s/secret.txt", scratch);
+  FILE *f = fopen(outside, "w");
+  fputs("outside the media folder", f);
+  fclose(f);
+  snprintf(plain, sizeof plain, "%s/clip.wav", dir);
+  f = fopen(plain, "w");
+  fputs("a clip", f);
+  fclose(f);
+  snprintf(link, sizeof link, "%s/link.wav", dir);
+  if (symlink(outside, link) != 0) perror("symlink");
+  snprintf(fifo, sizeof fifo, "%s/fifo.wav", dir);
+  if (mkfifo(fifo, 0600) != 0) perror("mkfifo");
+  cx c = {&a, NULL, {0}};
+  str d = str_c(dir), out;
+  CHECK(media_read(&c, d, S("clip.wav"), &out) && str_eq_c(out, "a clip"), "a clip is read");
+  CHECK(!media_read(&c, d, S("link.wav"), &out), "a symlink out of the folder is not followed");
+  CHECK(!media_read(&c, d, S("fifo.wav"), &out), "a FIFO is not read (and does not hang)");
+  CHECK(media_exists(&c, d, S("clip.wav")), "hasMedia finds a clip");
+  const char *hostile[] = {"../collection.anki2", "a/b", "a\\b", "..", ".", ""};
+  for (size_t i = 0; i < sizeof hostile / sizeof *hostile; i++)
+    CHECK(!media_exists(&c, d, str_c(hostile[i])), "hasMedia refuses \"%s\"", hostile[i]);
+  ar_free(&a);
+}
+
 /* ---- the core on a fixture copy ---- */
-static char scratch[4096];
 
 static void copy_file(const char *from, const char *to) {
   FILE *in = fopen(from, "rb"), *out = fopen(to, "wb");
@@ -268,6 +335,8 @@ int main(int argc, char **argv) {
   pb_rules();
   text_rules();
   core_state();
+  json_depth();
+  media_files();
   char cmd[4200];
   snprintf(cmd, sizeof cmd, "rm -rf '%s'", scratch);
   if (system(cmd) != 0) fprintf(stderr, "could not remove %s\n", scratch);
