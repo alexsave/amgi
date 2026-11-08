@@ -86,7 +86,27 @@ function splitFields(flds) {
   return flds.split(FIELD_SEPARATOR);
 }
 
+/**
+ * A note's field values as Anki stores them, from text a person or a model wrote: what Anki's own
+ * add_note and update_note do to every field first (rslib, notes/mod.rs, prepare_for_update),
+ * checked against the anki library itself (test/collection/fieldText.test.js):
+ *   - every ASCII control character is removed, but a tab and a line break: the field separator
+ *     0x1f among them, which would otherwise split the field in two, and a carriage return;
+ *   - the text is put in Unicode NFC form. (Anki skips this only when a collection's hidden
+ *     normalize_note_text setting is off; amgi always does it.)
+ * The one place a field's text is made fit to store: every writer that takes outside text calls it
+ * before it derives anything (the sort field, the checksum) from the fields.
+ */
+function ankiFields(fields) {
+  return fields.map((field) => [...String(field)].filter((c) => !invalidInField(c.charCodeAt(0))).join('').normalize('NFC'));
+}
+// Rust's is_ascii_control(), but a tab or a line break: 0x00-0x1f and 0x7f.
+const invalidInField = (code) => (code < 0x20 && code !== 0x09 && code !== 0x0a) || code === 0x7f;
+
+/** The flds column. A field holding the separator would read back as two: refused, never written. */
 function joinFields(fields) {
+  const bad = fields.findIndex((field) => field.includes(FIELD_SEPARATOR));
+  if (bad >= 0) throw new Error(`field ${bad} holds Anki's field separator (0x1f); pass the fields through ankiFields first`);
   return fields.join(FIELD_SEPARATOR);
 }
 
@@ -271,6 +291,7 @@ module.exports = {
   audioReferences,
   decodeEntities,
   fieldChecksum,
+  ankiFields,
   joinFields,
   readNotetypes,
   renderAudioReference,
