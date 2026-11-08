@@ -73,9 +73,15 @@ build/backup_unit: $(COL_SRC) test/backup_unit.c $(COL_HDR)
 	@mkdir -p $(@D)
 	$(CC) $(NATIVE_CFLAGS) $(NATIVE_SAN) -o $@ $(filter-out collection/backup.c,$(COL_SRC)) test/backup_unit.c $(NATIVE_LIBS)
 
-check-collection: build/unit build/backup_unit
+# The media folder's own tests (server/test/media_unit.c), media.c built with its fault seam.
+build/media_unit: $(COL_SRC) test/media_unit.c $(COL_HDR)
+	@mkdir -p $(@D)
+	$(CC) $(NATIVE_CFLAGS) $(NATIVE_SAN) -DMEDIA_FAULTS -o $@ $(COL_SRC) test/media_unit.c $(NATIVE_LIBS)
+
+check-collection: build/unit build/backup_unit build/media_unit
 	build/unit $(CURDIR)/..
 	build/backup_unit $(CURDIR)/..
+	build/media_unit
 
 # The collection CLI under ASan and UBSan, linked with cbase's sanitized build.
 $(call prog,build/asan,build/obj/asan,build/obj/asan-extra,collection_cli,collection/cli.c,ASAN_CB_CFLAGS)
