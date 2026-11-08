@@ -26,6 +26,14 @@
 
 const { sharedGate } = require('./rateGate');
 
+// The channel's format: Node's IPC channel serializes every message as JSON
+// unless the parent forks with serialization 'advanced' (V8's structured
+// clone, binary), and the child takes the parent's choice. Every fork of a
+// script that asks a gate spreads FORK_IPC_OPTIONS into its options, so a
+// gate message never travels as JSON (test/no-json.test.mjs flags a fork
+// without it).
+const FORK_IPC_OPTIONS = Object.freeze({ serialization: 'advanced' });
+
 const REPLY_TIMEOUT_MS = 2000;
 const FAIL_OPEN_WAIT_MS = 1000;
 const TAG = 'amgiGate';
@@ -106,4 +114,4 @@ function gateForThisProcess() {
   return typeof process.send === 'function' && process.connected ? createIpcGate(process) : sharedGate();
 }
 
-module.exports = { FAIL_OPEN_WAIT_MS, createIpcGate, gateForThisProcess, serveGate };
+module.exports = { FAIL_OPEN_WAIT_MS, FORK_IPC_OPTIONS, createIpcGate, gateForThisProcess, serveGate };
