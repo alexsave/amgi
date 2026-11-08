@@ -15,6 +15,7 @@ import path from 'node:path';
 
 import { POST } from '../../server/api/anki/install/route';
 import { INSTALLED_MESSAGE, RESTART_MESSAGE } from '../../server/anki/install';
+import { settingsHeaders } from '../../server/anki/settings';
 
 const { anki, buildFixtureCollection, holdCollectionOpen } = require('../../../plusaudio/test/collection/helpers/anki-python');
 
@@ -24,7 +25,7 @@ function post(settings, body = {}) {
   return POST(
     new Request('http://localhost/api/anki/install', {
       method: 'POST',
-      headers: { 'x-amgi-anki-settings': JSON.stringify(settings), 'content-type': 'application/json' },
+      headers: { ...settingsHeaders(settings), 'content-type': 'application/json' },
       body: JSON.stringify(body),
     }),
   );
