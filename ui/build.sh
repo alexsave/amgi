@@ -43,7 +43,8 @@ css=(src/index.css src/App.css
   src/components/Setup/FirstRun.css src/components/Setup/StarterDeck.css
   src/components/Settings/Settings.css
   src/components/Card/AudioChip.css src/components/Card/BulkRun.css src/components/Card/CardForm.css
-  src/components/Card/CardPanel.css src/components/Card/CardList.css)
+  src/components/Card/CardPanel.css src/components/Card/CardList.css
+  ui/src/confirm.css)
 : > "$out/app.css"
 for f in "${css[@]}"; do cat "$root/$f" >> "$out/app.css"; printf '\n' >> "$out/app.css"; done
 

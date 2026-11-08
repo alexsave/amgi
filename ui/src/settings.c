@@ -320,7 +320,7 @@ static void install(void) {
 }
 
 void settings_event(const cd_event_rec *e, uint32_t tag) {
-  (void)e;
+  if (e->type != (TAG_ACTION(tag) == A_PROFILE ? CD_EV_CHANGE : CD_EV_CLICK)) return; /* see deck_event */
   switch (TAG_ACTION(tag)) {
   case A_BACK: cd_url_step(-1); break;
   case A_SCAN: if (!scan_loading) scan(); break;
