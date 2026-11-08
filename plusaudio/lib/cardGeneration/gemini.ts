@@ -82,15 +82,39 @@ export class GeminiUnavailableError extends Error {
 export const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com';
 export { GEMINI_KEY_PAGE, MISSING_KEY_MESSAGE };
 
-/** The message a spent daily quota surfaces as, word for word, in the add-card row. */
-export function dailyQuotaMessage(model: string): string {
-    return `Gemini's free tier allows 10 requests per day per model, and today's are used up for ${model}. ` +
-        `Enable billing for your Gemini API key's project in Google AI Studio (${GEMINI_KEY_PAGE}) to lift the limit, or try again tomorrow.`;
+/** What a per-day 429 says about the limit it hit. */
+export interface DailyQuota {
+    /** quotaId ends in "-FreeTier" (an unbilled project) rather than naming a paid tier. */
+    freeTier: boolean;
+    /** The day's request limit (QuotaFailure's quotaValue), when Google says. */
+    limit?: number;
+    /** How long until it resets (RetryInfo's retryDelay), when Google says. */
+    resetsInMs?: number;
+}
+
+/**
+ * The message a spent daily quota surfaces as, word for word, in the
+ * add-card row. Built from what the 429 itself says, because the two cases
+ * need different advice: an unbilled project's free tier (10 requests per
+ * day per model) is lifted by enabling billing, while a billed project has a
+ * daily cap of its own (100 per day per model on Tier 1 for
+ * gemini-3.8-flash-tts, seen live 2026-11-08) that only time or a higher
+ * usage tier lifts - telling that person to "enable billing" would be wrong.
+ */
+export function dailyQuotaMessage(model: string, quota: DailyQuota = { freeTier: true }): string {
+    if (quota.freeTier) {
+        return `Gemini's free tier allows ${quota.limit ?? 10} requests per day per model, and today's are used up for ${model}. ` +
+            `Enable billing for your Gemini API key's project in Google AI Studio (${GEMINI_KEY_PAGE}) to lift the limit, or try again tomorrow.`;
+    }
+    const resets = quota.resetsInMs !== undefined ? ` It resets in about ${Math.max(1, Math.round(quota.resetsInMs / 3_600_000))} hour(s).` : '';
+    const limit = quota.limit !== undefined ? ` of ${quota.limit} requests` : '';
+    return `Your Gemini project's daily limit${limit} for ${model} is used up.${resets} ` +
+        `A higher usage tier raises it (Google AI Studio, ${GEMINI_KEY_PAGE}).`;
 }
 
 interface GoogleErrorDetail {
     '@type'?: string;
-    violations?: Array<{ quotaId?: string; quotaMetric?: string }>;
+    violations?: Array<{ quotaId?: string; quotaMetric?: string; quotaValue?: string }>;
     retryDelay?: string;
 }
 
@@ -112,10 +136,22 @@ function parseRetryDelay(value: string | undefined): number | null {
     return match ? Math.ceil(Number(match[1]) * 1000) : null;
 }
 
-/** A per-day limit cannot be waited out; anything else (per minute, unlabelled) can, briefly. */
-function isDailyQuota(details: GoogleErrorDetail[]): boolean {
-    return details.some((detail) => (detail.violations || []).some((violation) =>
-        /PerDay/i.test(violation.quotaId || '') || /per_day|PerDay/i.test(violation.quotaMetric || '')));
+/**
+ * The per-day limit a 429 reports, or null when it is some other limit (per
+ * minute, unlabelled) that can be waited out briefly.
+ */
+function dailyQuotaOf(details: GoogleErrorDetail[]): DailyQuota | null {
+    const violation = details.flatMap((detail) => detail.violations || []).find((v) =>
+        /PerDay/i.test(v.quotaId || '') || /per_day|PerDay/i.test(v.quotaMetric || ''));
+    if (!violation) return null;
+    const limit = Number(violation.quotaValue);
+    const retryInfo = details.find((detail) => detail.retryDelay !== undefined);
+    const resetsInMs = parseRetryDelay(retryInfo?.retryDelay);
+    return {
+        freeTier: /FreeTier/i.test(violation.quotaId || ''),
+        ...(Number.isFinite(limit) && limit > 0 ? { limit } : {}),
+        ...(resetsInMs !== null ? { resetsInMs } : {}),
+    };
 }
 
 /** Used when a 429 carries no RetryInfo of its own. */
@@ -151,7 +187,8 @@ export function createGeminiClient(options: GeminiClientOptions): GeminiClient {
             if (response.status === 429) {
                 const error = parseErrorBody(text).error ?? {};
                 const details = error.details ?? [];
-                if (isDailyQuota(details)) throw new GeminiUnavailableError(dailyQuotaMessage(model));
+                const daily = dailyQuotaOf(details);
+                if (daily) throw new GeminiUnavailableError(dailyQuotaMessage(model, daily));
                 const retryInfo = details.find((detail) => detail.retryDelay !== undefined);
                 const delayMs = parseRetryDelay(retryInfo?.retryDelay) ?? DEFAULT_RATE_LIMIT_DELAY_MS;
                 if (waitedMs + delayMs > maxRateLimitWaitMs) {
