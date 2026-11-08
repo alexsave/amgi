@@ -52,10 +52,16 @@ void state_timer(uint32_t token) {
   cd_timer_start(POLL_MS, TIMER_POLL);
 }
 
+/* The decks screen follows the state: setup while amgi is not set up, the list once it is. */
+static void decks_follow(void) {
+  if (route == R_DECKS && decks_known && decks_setup_shown() != decks_setup_wanted()) page_show();
+}
+
 static void set_mode(uint32_t m) {
   if (m == mode) return;
   mode = m;
   badges_update();
+  decks_follow();
   template_mode_changed(); /* whether Anki is open decides what the notice may do */
 }
 
@@ -119,8 +125,7 @@ void state_answer(uint32_t token, uint32_t status, const uint8_t *p, uint32_t le
     installed = a.ok ? s.installed : 1; /* an answer that is not one counts as installed, as DeckContext's catch did */
     if (installed == was) return;
     badges_update();
-    /* not installed is the setup screen: only a change across that redraws the screen */
-    if (route == R_DECKS && (installed == 0) != (was == 0)) page_show();
+    decks_follow();
     break;
   }
   case T_NOTETYPES: {
