@@ -84,12 +84,20 @@ const shot = async (b, file) => {
 };
 // A real click: the pointer pressed and released at the element's centre.
 async function click(b, selector) {
-  const box = await b.evaluate(`(() => { const r = document.querySelector(${JSON.stringify(selector)})?.getBoundingClientRect();
+  // into view first: a press outside the viewport reaches nothing
+  const box = await b.evaluate(`(() => { const e = document.querySelector(${JSON.stringify(selector)});
+    e?.scrollIntoView({ block: 'center', behavior: 'instant' }); const r = e?.getBoundingClientRect();
     return r ? [r.left + r.width / 2, r.top + r.height / 2] : null; })()`);
   if (!box) throw new Error(`nothing to click at ${selector}`);
   for (const type of ['mouseMoved', 'mousePressed', 'mouseReleased']) {
     await b.send('Input.dispatchMouseEvent', { type, x: box[0], y: box[1], button: 'left', clickCount: 1 });
   }
+}
+// The deck row whose name is name.
+async function clickDeck(b, name) {
+  const i = await b.evaluate(`[...document.querySelectorAll('.deck-item h3')].findIndex(h => h.textContent === ${JSON.stringify(name)})`);
+  if (i < 0) throw new Error(`no deck row ${name}`);
+  await click(b, `.deck-item:nth-child(${i + 1})`);
 }
 async function back(b) {
   const { result } = await b.send('Page.getNavigationHistory');
@@ -98,6 +106,12 @@ async function back(b) {
 const settled = `document.querySelectorAll('.deck-item').length > 0 && document.querySelector('nav.navbar span[title]')?.textContent === 'Anki connected' ? document.querySelectorAll('.deck-item').length : 0`;
 
 const b = await launch(['--hide-scrollbars']);
+// One bound on the whole drive: a step that never answers ends the run, and the Chrome it started.
+const watchdog = setTimeout(async () => {
+  console.log('FAIL the drive took more than 4 minutes');
+  await b.close();
+  process.exit(1);
+}, 240000);
 const pageErrors = [];
 b.onEvent = (d) => {
   if (d.method === 'Runtime.exceptionThrown') pageErrors.push(d.params.exceptionDetails.exception?.description || d.params.exceptionDetails.text);
@@ -110,7 +124,7 @@ try {
 
   await goto(b, `${base}/decks`);
   const decks = await until(b, settled);
-  check(decks === 6, `deck list shows 6 decks (saw ${decks})`);
+  check(decks === 7, `deck list shows 7 decks (saw ${decks})`);
   const names = await b.evaluate(`[...document.querySelectorAll('.deck-item h3')].map(h => h.textContent).join(' | ')`);
   check(names.includes('한국어::일상 표현'), `Korean deck names arrive intact: ${names}`);
   await sleep(400);
@@ -123,14 +137,14 @@ try {
   await shot(b, '02-settings');
 
   await back(b);
-  const backed = await until(b, `location.pathname === '/decks' && (${settled}) === 6 && !document.querySelector('.settings-page')`);
+  const backed = await until(b, `location.pathname === '/decks' && (${settled}) === 7 && !document.querySelector('.settings-page')`);
   check(backed, 'the back button returns to /decks and its list');
   await sleep(400);
   await shot(b, '03-back');
 
-  await click(b, '.deck-item:nth-child(5)');
+  await clickDeck(b, '한국어');
   const atDeck = await until(b, `/^\\/deck\\/\\d+$/.test(location.pathname) && document.querySelector('.deck-name-button')?.textContent === '한국어' && document.querySelectorAll('.note-rows > li').length === 4`);
-  check(atDeck, `the fifth deck row goes to /deck/<its id>, 한국어, its four notes listed (at ${await b.evaluate('location.pathname')})`);
+  check(atDeck, `the 한국어 row goes to /deck/<its id>, its four notes listed (at ${await b.evaluate('location.pathname')})`);
   const rowsText = await b.evaluate(`[...document.querySelectorAll('.note-row')].map(r => [r.querySelector('.note-row-target').textContent, r.querySelector('.note-row-cue').textContent, r.querySelectorAll('.audio-chip').length].join('/')).join(' | ')`);
   check(rowsText === '역이 어디예요?/Basic not an amgi card/0 | 감사합니다/Basic not an amgi card/0 | 안녕하세요/Hello/2 | 고맙습니다/Thank you/2', `the rows: ${rowsText}`);
   await sleep(600);
@@ -154,10 +168,27 @@ try {
   await shot(b, '04b-langs');
   await click(b, '.deck-langs button');
   check(await until(b, `!document.querySelector('.deck-langs select')`), 'Done closes them');
+
   await back(b);
-  check(await until(b, `location.pathname === '/decks' && (${settled}) === 6`), 'back again lands on the list');
+  check(await until(b, `location.pathname === '/decks' && (${settled}) === 7`), 'back again lands on the list');
   await sleep(400);
   await shot(b, '05-back-again');
+
+  // A deck longer than a page, then loaded straight at its address (no list before it), its pager.
+  await clickDeck(b, 'Long');
+  check(await until(b, `document.querySelector('.deck-name-button')?.textContent === 'Long' && document.querySelectorAll('.note-rows > li').length === 20`), 'the long deck shows its first 20');
+  const longPath = await b.evaluate('location.pathname');
+  await goto(b, `${base}${longPath}`);
+  check(await until(b, `document.querySelectorAll('.note-rows > li').length === 20 && !!document.querySelector('.card-list-pager')`), 'loaded at its address: 20 notes and the pager');
+  await sleep(500);
+  await shot(b, '06-long-direct');
+  await click(b, '.card-list-pager button:last-child');
+  check(await until(b, `document.querySelectorAll('.note-rows > li').length === 5 && document.querySelector('.card-list-pager small')?.textContent === '21–25'`),
+    `Next shows 21-25 (rows ${await b.evaluate("document.querySelectorAll('.note-rows > li').length")}, ${await b.evaluate("document.querySelector('.card-list-pager small')?.textContent")})`);
+  await sleep(300);
+  await shot(b, '07-long-page2');
+  await goto(b, `${base}/decks`);
+  check(await until(b, `(${settled}) === 7`), 'the list again, loaded at /decks');
 
   check(!pageErrors.length, `no page errors${pageErrors.length ? `: ${pageErrors.join(' / ')}` : ''}`);
 
@@ -190,6 +221,7 @@ try {
     console.log(`  every load: ${rows.map((r) => `${r.fcp.toFixed(0)}/${r.decks.toFixed(0)}`).join(' ')}`);
   }
 } finally {
+  clearTimeout(watchdog);
   await b.close();
 }
 if (failures.length) {
