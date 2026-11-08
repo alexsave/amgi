@@ -8,6 +8,12 @@
 #include <string.h>
 #include <strings.h>
 #include <time.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <netdb.h>
+#include <poll.h>
+#include <sys/socket.h>
+#include <unistd.h>
 
 #include "core.h"
 #include "net/https.h"
@@ -107,6 +113,12 @@ static str header_value(cx *c, const cb_buf *head, const char *name) {
   return S("");
 }
 
+static int64_t mono_ms(void) {
+  struct timespec t;
+  clock_gettime(CLOCK_MONOTONIC, &t);
+  return (int64_t)t.tv_sec * 1000 + t.tv_nsec / 1000000;
+}
+
 /* Decode bytes of kind into out, or 0 when they are not one whole message of it. Strings point
  * into the arena's copy of the bytes. */
 int wire_length_fits(size_t n);
@@ -158,6 +170,100 @@ static str header_bytes(cx *c, str value) {
   return trimmed;
 }
 
+/* ---- a write's one exchange ----
+ * cbase's plain client keeps a connection alive per host and port and, when a request on a reused
+ * one fails before any byte of the answer, sends it again on a fresh one. For a read that is fine.
+ * For a write it is not: the add-on runs a write the moment it has read it, so a second copy is a
+ * second note or a second rename, whatever happened to the first answer (Node's fetch never resends
+ * one). So a write goes on a connection of its own, opened for it, asked to close after it
+ * ("Connection: close"), and never retried; its answer is read by cbase's own response parser
+ * (cb_https_parse_response). test/parity/bridge-resend.test.mjs holds the rule: an add-on that
+ * reads a write on a kept-alive connection and closes without answering sees it once. A bridge on
+ * https:// (none is: the add-on serves loopback HTTP) still goes through cb_https_request. */
+static int write_once(const char *host, int port, const char *method, const char *path, const char *headers,
+                      const void *body, size_t body_len, int timeout_ms, cb_https_response *out) {
+  int64_t deadline = mono_ms() + timeout_ms;
+  char portstr[16];
+  snprintf(portstr, sizeof portstr, "%d", port);
+  struct addrinfo hints = {0}, *ai = NULL;
+  hints.ai_socktype = SOCK_STREAM;
+  if (getaddrinfo(host, portstr, &hints, &ai) != 0 || !ai) return CB_E_IO;
+  int fd = -1;
+  for (struct addrinfo *at = ai; at && fd < 0; at = at->ai_next) {
+    fd = socket(at->ai_family, at->ai_socktype, at->ai_protocol);
+    if (fd < 0) continue;
+    fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK);
+    if (connect(fd, at->ai_addr, at->ai_addrlen) != 0 && errno != EINPROGRESS) {
+      close(fd);
+      fd = -1;
+      continue;
+    }
+    struct pollfd pw = {fd, POLLOUT, 0};
+    int64_t left = deadline - mono_ms();
+    int soerr = 0;
+    socklen_t sl = sizeof soerr;
+    if (left <= 0 || poll(&pw, 1, (int)left) != 1 || getsockopt(fd, SOL_SOCKET, SO_ERROR, &soerr, &sl) != 0 || soerr) {
+      close(fd);
+      fd = -1;
+    }
+  }
+  freeaddrinfo(ai);
+  if (fd < 0) return CB_E_IO;
+#ifdef SO_NOSIGPIPE
+  int one = 1;
+  setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &one, sizeof one);
+#endif
+  cb_buf req;
+  cb_buf_init(&req);
+  cb_buf_printf(&req, "%s %s HTTP/1.1\r\nHost: %s:%d\r\nConnection: close\r\n%sContent-Length: %zu\r\n\r\n", method,
+                path, host, port, headers ? headers : "", body_len);
+  if (body_len) cb_buf_append(&req, body, body_len);
+  int rc = CB_E_IO;
+  size_t sent = 0;
+  while (sent < req.len) {
+    ssize_t w = send(fd, req.p + sent, req.len - sent, 0
+#ifdef MSG_NOSIGNAL
+                     | MSG_NOSIGNAL
+#endif
+    );
+    if (w > 0) {
+      sent += (size_t)w;
+      continue;
+    }
+    if (w < 0 && (errno == EAGAIN || errno == EINTR)) {
+      struct pollfd pw = {fd, POLLOUT, 0};
+      int64_t left = deadline - mono_ms();
+      if (left > 0 && poll(&pw, 1, (int)left) == 1) continue;
+    }
+    goto done;
+  }
+  cb_buf in;
+  cb_buf_init(&in);
+  for (;;) {
+    bool ka = false;
+    int eof = 0;
+    char chunk[1 << 14];
+    struct pollfd pr = {fd, POLLIN, 0};
+    int64_t left = deadline - mono_ms();
+    if (left <= 0 || poll(&pr, 1, (int)left) != 1) break;
+    ssize_t r = recv(fd, chunk, sizeof chunk, 0);
+    if (r < 0 && (errno == EAGAIN || errno == EINTR)) continue;
+    if (r <= 0) eof = 1;
+    else cb_buf_append(&in, chunk, (size_t)r);
+    int k = cb_https_parse_response(in.p, in.len, strcmp(method, "HEAD") == 0, eof, out, &ka);
+    if (k > 0) {
+      rc = CB_OK;
+      break;
+    }
+    if (k < 0 || eof) break;
+  }
+  cb_buf_free(&in);
+done:
+  cb_buf_free(&req);
+  close(fd);
+  return rc;
+}
+
 /* bridgeFetch. */
 static void fetch(cx *c, call *k) {
   int tls, port;
@@ -173,20 +279,23 @@ static void fetch(cx *c, call *k) {
     buf_c(&headers, "Content-Type: " WIRE_MIME "\r\n");
     wire_encode(&body, k->send_kind, k->send);
   }
-  /* A write (POST, PATCH, DELETE) is never sent twice: cbase's client resends only a GET, HEAD or
-   * OPTIONS whose reused connection failed before any answer (net/https.h). The add-on runs a write
-   * the moment it has read it, so a second copy would be a second note. */
   cb_https_response r = {0};
+  int64_t started = mono_ms();
+  int write = strcmp(k->method, "GET") != 0 && strcmp(k->method, "HEAD") != 0;
   int rc = tls ? cb_https_request(host, port, k->method, path, headers.p, body.p, body.len, k->timeout_ms, &r)
-               : cb_http_plain_request(CB_HTTPS_OTHER, host, port, k->method, path, headers.p, body.p, body.len,
-                                       k->timeout_ms, &r);
+         : write ? write_once(host, port, k->method, path, headers.p, body.p, body.len, k->timeout_ms, &r)
+                 : cb_http_plain_request(CB_HTTPS_OTHER, host, port, k->method, path, headers.p, body.p, body.len,
+                                         k->timeout_ms, &r);
+  int64_t took = mono_ms() - started;
   buf_free(&headers);
   free(body.p);
   if (rc != CB_OK) {
-    int timed_out = r.fail == CB_HTTPS_FAIL_TIMEOUT;
     cb_https_response_free(&r);
-    /* fetch's two failures: the AbortController's timer fired, or there was no answer at all. */
-    cx_throw(c, NULL, 0, timed_out ? "This operation was aborted" : "fetch failed");
+    /* fetch's two failures: the AbortController's timer fired, or there was no answer at all.
+     * cbase's client says CB_E_IO for both, so the deadline is told by the clock (within 50 ms of
+     * it, as the client's own deadline is measured apart from this one). Asked of cbase's
+     * amgi-http lane: a result of its own for a timeout, and then this goes. */
+    cx_throw(c, NULL, 0, took + 50 >= k->timeout_ms ? "This operation was aborted" : "fetch failed");
   }
   int status = r.status;
   str theirs = header_value(c, &r.headers, PROTOCOL_HEADER);
