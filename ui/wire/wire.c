@@ -2,7 +2,8 @@
 #include "wire.h"
 
 static const char *const MODE_NAMES[WIRE_MODES] = {
-  "direct", "bridge", "locked", "not-found", "unsupported-schema", "bridge-no-collection", "unconfigured", "",
+  "direct", "bridge", "locked", "not-found", "unsupported-schema", "bridge-no-collection", "unconfigured",
+  "bridge-outdated", "",
 };
 
 const char *wire_mode_name(uint32_t mode) { return mode < WIRE_MODES ? MODE_NAMES[mode] : ""; }
@@ -123,6 +124,50 @@ SCHEMA(s_q_audio, wire_q_audio,
   F(wire_q_audio, "text", WT_STR, text), F(wire_q_audio, "language", WT_STR, language),
   F(wire_q_audio, "fresh", WT_BOOL, fresh));
 
+SCHEMA(s_b_error, wire_b_error, F(wire_b_error, "error", WT_STR, error));
+SCHEMA(s_b_status, wire_b_status,
+  F(wire_b_status, "profileOpen", WT_BOOL, profile_open), F(wire_b_status, "profileName", WT_STR, profile_name),
+  F(wire_b_status, "collectionOpen", WT_BOOL, collection_open),
+  F(wire_b_status, "schemaVersion", WT_OPT, schema_version), F(wire_b_status, "ankiVersion", WT_STR, anki_version),
+  F(wire_b_status, "qtVersion", WT_STR, qt_version));
+SCHEMA(s_b_deck, wire_b_deck, F(wire_b_deck, "id", WT_I64, id), F(wire_b_deck, "name", WT_STR, name));
+SCHEMA(s_b_decks, wire_b_decks, LIST(wire_b_decks, "decks", decks, ndecks, s_b_deck));
+SCHEMA(s_b_template, wire_b_template,
+  F(wire_b_template, "ord", WT_U32, ord), F(wire_b_template, "name", WT_STR, name),
+  F(wire_b_template, "questionFormat", WT_STR, question_format),
+  F(wire_b_template, "answerFormat", WT_STR, answer_format));
+SCHEMA(s_b_notetype, wire_b_notetype,
+  F(wire_b_notetype, "id", WT_I64, id), F(wire_b_notetype, "name", WT_STR, name),
+  F(wire_b_notetype, "kind", WT_STR, kind), F(wire_b_notetype, "sortFieldIndex", WT_U32, sort_field_index),
+  F(wire_b_notetype, "fieldNames", WT_STRS, field_names),
+  LIST(wire_b_notetype, "templates", templates, ntemplates, s_b_template));
+SCHEMA(s_b_notetypes, wire_b_notetypes, LIST(wire_b_notetypes, "notetypes", notetypes, nnotetypes, s_b_notetype));
+SCHEMA(s_b_notes, wire_b_notes,
+  LIST(wire_b_notes, "notes", notes, nnotes, s_note), F(wire_b_notes, "total", WT_U32, total),
+  F(wire_b_notes, "offset", WT_U32, offset), F(wire_b_notes, "limit", WT_U32, limit));
+SCHEMA(s_b_values, wire_b_values, F(wire_b_values, "values", WT_STRS, values));
+SCHEMA(s_b_deck_created, wire_b_deck_created,
+  F(wire_b_deck_created, "deck.id", WT_I64, id), F(wire_b_deck_created, "deck.name", WT_STR, name),
+  F(wire_b_deck_created, "created", WT_BOOL, created));
+SCHEMA(s_b_note, wire_b_note, F(wire_b_note, "noteId", WT_I64, note_id), F(wire_b_note, "warning", WT_STR, warning));
+SCHEMA(s_b_notes_added, wire_b_notes_added, LIST(wire_b_notes_added, "results", results, nresults, s_note_result));
+SCHEMA(s_b_note_removed, wire_b_note_removed,
+  F(wire_b_note_removed, "noteId", WT_I64, note_id), F(wire_b_note_removed, "cardsRemoved", WT_U32, cards_removed));
+SCHEMA(s_b_deck_summary, wire_b_deck_summary,
+  F(wire_b_deck_summary, "id", WT_I64, id), F(wire_b_deck_summary, "name", WT_STR, name),
+  F(wire_b_deck_summary, "subdecks", WT_U32, subdecks), F(wire_b_deck_summary, "cards", WT_U32, cards),
+  F(wire_b_deck_summary, "notes", WT_U32, notes));
+SCHEMA(s_b_deck_removed, wire_b_deck_removed,
+  F(wire_b_deck_removed, "id", WT_I64, id), F(wire_b_deck_removed, "name", WT_STR, name),
+  F(wire_b_deck_removed, "decks", WT_U32, decks), F(wire_b_deck_removed, "cards", WT_U32, cards),
+  F(wire_b_deck_removed, "notes", WT_U32, notes));
+SCHEMA(s_b_media_exists, wire_b_media_exists, F(wire_b_media_exists, "exists", WT_BOOL, exists));
+SCHEMA(s_b_media_data, wire_b_media_data,
+  F(wire_b_media_data, "found", WT_BOOL, found), F(wire_b_media_data, "data", WT_BYTES, data));
+SCHEMA(s_b_media_added, wire_b_media_added, F(wire_b_media_added, "filename", WT_STR, filename));
+SCHEMA(s_b_q_media, wire_b_q_media,
+  F(wire_b_q_media, "filename", WT_STR, filename), F(wire_b_q_media, "data", WT_BYTES, data));
+
 static const struct { const char *name; const wire_schema *schema; } KINDS[WK_KINDS] = {
   [WK_ERROR] = {"error", &s_error}, [WK_STATUS] = {"status", &s_status}, [WK_DECKS] = {"decks", &s_decks},
   [WK_INSTALL_STATE] = {"install_state", &s_install_state}, [WK_PROFILES] = {"profiles", &s_profiles},
@@ -138,6 +183,17 @@ static const struct { const char *name; const wire_schema *schema; } KINDS[WK_KI
   [WK_Q_STARTER] = {"q_starter", &s_q_starter}, [WK_Q_NOTE] = {"q_note", &s_q_note},
   [WK_Q_NOTES] = {"q_notes", &s_q_notes}, [WK_Q_NOTE_UPDATE] = {"q_note_update", &s_q_note_update},
   [WK_Q_CARD_TEXT] = {"q_card_text", &s_q_card_text}, [WK_Q_AUDIO] = {"q_audio", &s_q_audio},
+  [WK_B_ERROR] = {"b_error", &s_b_error}, [WK_B_STATUS] = {"b_status", &s_b_status},
+  [WK_B_DECKS] = {"b_decks", &s_b_decks}, [WK_B_NOTETYPES] = {"b_notetypes", &s_b_notetypes},
+  [WK_B_NOTES] = {"b_notes", &s_b_notes}, [WK_B_VALUES] = {"b_values", &s_b_values},
+  [WK_B_DECK_CREATED] = {"b_deck_created", &s_b_deck_created}, [WK_B_DECK] = {"b_deck", &s_b_deck},
+  [WK_B_NOTE] = {"b_note", &s_b_note}, [WK_B_NOTES_ADDED] = {"b_notes_added", &s_b_notes_added},
+  [WK_B_NOTE_REMOVED] = {"b_note_removed", &s_b_note_removed},
+  [WK_B_DECK_SUMMARY] = {"b_deck_summary", &s_b_deck_summary},
+  [WK_B_DECK_REMOVED] = {"b_deck_removed", &s_b_deck_removed},
+  [WK_B_MEDIA_EXISTS] = {"b_media_exists", &s_b_media_exists},
+  [WK_B_MEDIA_DATA] = {"b_media_data", &s_b_media_data}, [WK_B_MEDIA_ADDED] = {"b_media_added", &s_b_media_added},
+  [WK_B_Q_MEDIA] = {"b_q_media", &s_b_q_media},
 };
 const char *wire_kind_name(uint32_t kind) { return kind < WK_KINDS ? KINDS[kind].name : 0; }
 const wire_schema *wire_schema_of(uint32_t kind) { return kind < WK_KINDS ? KINDS[kind].schema : 0; }
@@ -210,7 +266,7 @@ static void walk_field(wire_in *in, const wire_field *f, uint8_t *out, room *r) 
     if (at) __builtin_memcpy(at, &v, sizeof v);
     break;
   }
-  case WT_STR: {
+  case WT_STR: case WT_BYTES: {
     wire_str v = wire_r_str(in);
     if (at) *(wire_str *)at = v;
     break;
@@ -309,7 +365,7 @@ static void walk_write(wire_buf *b, const wire_schema *s, const uint8_t *in) {
       wire_i64(b, v);
       break;
     }
-    case WT_STR: {
+    case WT_STR: case WT_BYTES: {
       const wire_str *v = (const wire_str *)at;
       wire_bytes(b, v->p, v->len);
       break;
