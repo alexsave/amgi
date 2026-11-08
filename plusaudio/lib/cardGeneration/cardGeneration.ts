@@ -28,6 +28,7 @@
 // the module free of npm: specifiers is what lets Node require it directly,
 // with no build step and so no artifact that can drift from its source.
 
+import { parseModelAnswer } from "../json/modelAnswer.js";
 import {
     assembleCard,
     composeKnownSide,
@@ -209,12 +210,9 @@ export type ReadStructured<T> = { ok: true; fields: T } | { ok: false; detail: s
  */
 export function readStructured<T>(text: string, format: StructuredResponseFormat): ReadStructured<T> {
     if (!text) return { ok: false, detail: "no answer" };
-    let parsed: unknown;
-    try {
-        parsed = JSON.parse(text);
-    } catch {
-        return { ok: false, detail: `not JSON: "${text.slice(0, 80)}"` };
-    }
+    const read = parseModelAnswer(text);
+    if (!read.ok) return { ok: false, detail: read.detail };
+    const parsed: unknown = read.value;
     if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
         return { ok: false, detail: `not an object: ${Array.isArray(parsed) ? "a list" : parsed === null ? "null" : `a ${typeof parsed}`}` };
     }
