@@ -116,6 +116,15 @@ export function isRateLimited(error: unknown): error is { rateLimited: true; ret
     return (error as { rateLimited?: boolean })?.rateLimited === true;
 }
 
+/** A per-day cap: fatal like any GeminiUnavailableError, and marked so a bulk run can stop its whole queue at once. */
+export class GeminiDailyCapError extends GeminiUnavailableError {
+    readonly dailyCap = true;
+    constructor(message: string) {
+        super(message);
+        this.name = 'GeminiDailyCapError';
+    }
+}
+
 export const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com';
 export { GEMINI_KEY_PAGE, MISSING_KEY_MESSAGE };
 
@@ -238,7 +247,7 @@ export function createGeminiClient(options: GeminiClientOptions): GeminiClient {
                 const error = parseErrorBody(text).error ?? {};
                 const details = error.details ?? [];
                 const daily = dailyQuotaOf(details);
-                if (daily) throw new GeminiUnavailableError(dailyQuotaMessage(model, daily));
+                if (daily) throw new GeminiDailyCapError(dailyQuotaMessage(model, daily));
                 // A per-minute refusal is news for every request sharing
                 // this key: the gate learns from it (block, doubling, a
                 // lower cap) and the next acquire above says how long.

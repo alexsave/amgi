@@ -43,6 +43,9 @@
 //   exit 0: success. exit 1: could not generate a card - GEMINI_API_KEY is not
 //           set, or a network/API error (the last stderr line says which, in
 //           one line meant to be shown as is). exit 2: usage error.
+//   exit 3: rate limited; stdout carries `retry-after-ms=<n>` instead of a card.
+//   exit 4: a daily cap is spent. (lib/cliExit.js owns exits 3 and 4; as in
+//           generate-clip.js, a forked run asks the parent's rate gate.)
 //
 // ENVIRONMENT: GEMINI_API_KEY, from the environment or plusaudio/.env;
 // GEMINI_API_BASE overrides Gemini's endpoint for tests and the e2e fake server.
@@ -54,6 +57,7 @@
 
 const path = require('node:path');
 const { createTextGenerator } = require('./lib/textGenerator');
+const { exitForError } = require('./lib/cliExit');
 
 const USAGE =
   'Usage: node generate-card-text.js --known <lang> --learning <lang> ' +
@@ -129,8 +133,7 @@ async function run(options, generate) {
       regenerateParts,
     });
   } catch (error) {
-    process.stderr.write(`${error.message}\n`);
-    return 1;
+    return exitForError(error);
   }
   process.stdout.write(`${JSON.stringify(card)}\n`);
   return 0;
