@@ -13,8 +13,8 @@
  *   cards.c     the card generation flow (cardGeneration.ts, cardPrompts.ts, cardText.ts, sideOrder.js,
  *               audio.js, cardText.js)
  *
- * Every string a person reads has one owner here, and messages.h holds the ones Node still has a
- * copy of until L4 (test/parity/messages.test.mjs checks the two are equal). */
+ * Every string a person reads has one owner here (messages.h). The JavaScript named in each file's
+ * header is what it was ported from, removed at L4. */
 #ifndef AMGI_APP_H
 #define AMGI_APP_H
 #include <stddef.h>
