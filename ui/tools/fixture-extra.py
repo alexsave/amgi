@@ -1,5 +1,5 @@
 # Adds to a fixture collection what the UI's screens need beyond the e2e-ui skill's own fixture: a
-# Korean deck with a subdeck, plain Basic notes in it, and two "amgi Listening" notes with real
+# Korean deck with a subdeck, plain Basic notes in it, a deck longer than a page, and two "amgi Listening" notes with real
 # clips (a WAV and an MP3, made by ffmpeg) so the deck page shows its audio chips.
 #   <python with anki> ui/tools/fixture-extra.py <dir>/collection.anki2
 import os
@@ -17,6 +17,13 @@ for front, back in [("역이 어디예요?", "Where is the station?"), ("감사�
     note = col.new_note(basic)
     note["Front"], note["Back"] = front, back
     col.add_note(note, child)
+
+# A deck longer than a page (20), for the pager.
+long_deck = col.decks.id("Long")
+for i in range(1, 26):
+    note = col.new_note(basic)
+    note["Front"], note["Back"] = f"phrase {i:02d}", f"meaning {i:02d}"
+    col.add_note(note, long_deck)
 
 amgi = col.models.by_name("amgi Listening")
 if amgi is None:
