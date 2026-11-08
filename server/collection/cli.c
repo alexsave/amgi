@@ -11,6 +11,7 @@
 #include <string.h>
 
 #include "bridge.h"
+#include "../amgi/amgi.h"
 
 static str g_path; /* the collection "open" named; owned by g_arena */
 static arena g_arena;
@@ -342,6 +343,39 @@ static void run(arena *a, str line, str *more, size_t nmore, buf *b) {
   col_err e = {0};
   if (g_bridge && run_bridge(a, verb, t, n, more, nmore, b)) return;
 #define ARG(i) ((i) < n ? t[i] : S(""))
+  /* The server's own orchestration over this collection (server/amgi): install's collection checks,
+   * the note type the direct install writes, and the starter deck. */
+  col_transport direct = {.mode = "direct", .ops = 1};
+  amgi_ops ops = {&direct, g_path};
+  if (str_eq_c(verb, "installDrift")) {
+    str *stale;
+    size_t ns;
+    int checked = amgi_collection_drift(a, &ops, amgi_root(a), &stale, &ns);
+    buf_fmt(b, "ok %d ", checked);
+    put_strs(b, stale, ns);
+    return;
+  }
+  if (str_eq_c(verb, "installNotetype")) {
+    col_notetype_made made = {0};
+    int ready = amgi_install_notetype(a, &ops, amgi_root(a), &made);
+    buf_fmt(b, "ok %d %d ", ready, made.created ? 1 : 0);
+    if (made.reason.p) enc(b, made.reason);
+    else buf_ch(b, '!');
+    return;
+  }
+  if (str_eq_c(verb, "starter")) {
+    amgi_starter_built r;
+    str message;
+    if (amgi_starter_build(a, &ops, dec(a, ARG(0)), dec(a, ARG(1)), dec(a, ARG(2)), &r, &message)) {
+      buf_c(b, "err error ");
+      enc(b, message);
+      return;
+    }
+    buf_fmt(b, "ok %lld ", (long long)r.deck_id);
+    enc(b, r.deck_name);
+    buf_fmt(b, " %u %u", r.added, r.already_there);
+    return;
+  }
   if (str_eq_c(verb, "status")) {
     col_state s;
     if (col_status(a, g_path, &s, &e)) return put_err(b, &e);

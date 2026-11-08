@@ -53,10 +53,11 @@ test('the server\'s own names are answered', async () => {
   }
 });
 
-// The platform's own routes are not amgi's: a loopback app answers its own 404 on them, as the Node
-// server did, since cbase serves /health, /ready and /admin only for an app that declares them.
-test('the platform\'s /health, /ready and /admin are not served', async () => {
-  for (const p of ['/health', '/ready', '/admin', '/admin/', '/admin/api/overview']) {
+// The platform's own routes are not amgi's: amgi's port carries exactly amgi's routes, and answers its
+// own 404 on cbase's, which cbase serves only for an app that declares them (health, ready, the
+// admin console, the account routes).
+test('the platform\'s /health, /ready, /admin and /v1/auth are not served', async () => {
+  for (const p of ['/health', '/ready', '/admin', '/admin/', '/admin/api/overview', '/v1/auth/signup', '/v1/auth/signin', '/v1/auth/refresh']) {
     assert.equal(await get(p, `127.0.0.1:${port}`), 404, p);
   }
 });

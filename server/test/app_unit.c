@@ -256,6 +256,21 @@ static void test_gemini(void) {
         "no type");
   CHECK(gem_audio_to_wav(&a, S("audio/wavy"), pcm, &wav, &err) < 0, "audio/wavy is not audio/wav");
 
+  /* the 429 log line: the fields, and never the key */
+  setenv("GEMINI_API_KEY", "AIza-secret-test-key", 1);
+  char line[400];
+  gem_quota_line(line, sizeof line, "gemini-3.8-flash-tts", "GenerateRequestsPerMinutePerProjectPerModel", 0, 1, 41000, 8);
+  CHECK(!strcmp(line, "429 from gemini-3.8-flash-tts: per-minute quota (GenerateRequestsPerMinutePerProjectPerModel), "
+                      "retryDelay 41000 ms, learned cap 8 a minute"),
+        "the per-minute line: %s", line);
+  CHECK(!strstr(line, "AIza-secret-test-key") && !strstr(line, "x-goog-api-key"), "never the key or a header: %s", line);
+  gem_quota_line(line, sizeof line, "gemini-3.8-flash", "GenerateRequestsPerDayPerProjectPerModel-FreeTier", 1, 0, 0,
+                 GATE_NO_CAP);
+  CHECK(!strcmp(line, "429 from gemini-3.8-flash: daily quota (GenerateRequestsPerDayPerProjectPerModel-FreeTier), "
+                      "retryDelay none, learned cap none yet"),
+        "the daily line: %s", line);
+  CHECK(!strstr(line, "AIza-secret-test-key"), "never the key: %s", line);
+
   /* the request's bytes for a speech call */
   gem_request q = {0};
   q.parts[0].text = S("hi");
