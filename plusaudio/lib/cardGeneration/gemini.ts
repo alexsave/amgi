@@ -21,6 +21,7 @@
 //   quotaId names the window (…PerDay… or …PerMinute…) and a RetryInfo.
 
 import { GEMINI_KEY_PAGE, MISSING_KEY_MESSAGE } from "../geminiKey.js";
+import { createRateGate } from "../rateGate.js";
 
 type FetchLike = (url: string, init: {
     method: string;
@@ -62,6 +63,19 @@ export interface GeminiClientOptions {
     /** The most a per-minute rate limit may make one request wait, in total. */
     maxRateLimitWaitMs?: number;
     requestTimeoutMs?: number;
+    /**
+     * The rate gate every request passes (plusaudio/lib/rateGate.js, or its
+     * parent-owned form, ipcGate.js). Asked before each request how long to
+     * wait, and told after each answer whether it was refused. Defaults to a
+     * gate of this client's own; the app and the CLIs pass the process's.
+     */
+    gate?: RateGate;
+}
+
+/** What the client needs from a rate gate; acquire may answer asynchronously (over IPC). */
+export interface RateGate {
+    acquire(model: string): number | Promise<number>;
+    record(model: string, outcome: 'ok' | 'rateLimited', retryDelayMs?: number | null): void;
 }
 
 /**
@@ -177,9 +191,6 @@ function dailyQuotaOf(details: GoogleErrorDetail[]): DailyQuota | null {
     };
 }
 
-/** Used when a 429 carries no RetryInfo of its own. */
-const DEFAULT_RATE_LIMIT_DELAY_MS = 5000;
-
 export function createGeminiClient(options: GeminiClientOptions): GeminiClient {
     const {
         apiKey,
@@ -188,6 +199,7 @@ export function createGeminiClient(options: GeminiClientOptions): GeminiClient {
         sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)),
         maxRateLimitWaitMs = 30_000,
         requestTimeoutMs = 60_000,
+        gate = createRateGate(),
     } = options;
 
     if (!apiKey) throw new GeminiUnavailableError(MISSING_KEY_MESSAGE);
@@ -199,6 +211,21 @@ export function createGeminiClient(options: GeminiClientOptions): GeminiClient {
         let waitedMs = 0;
 
         for (;;) {
+            // The gate decides when this request may go: at once, after a
+            // block from an earlier 429 (this card's or any other's), or once
+            // the learned per-minute window has room. A short wait is cheaper
+            // to sit through here than to hand back; a long one is handed
+            // back, typed and carrying the gate's own jittered wait, so
+            // nothing holds a request (and, in the app, a generator
+            // subprocess) open for a minute.
+            const waitMs = await gate.acquire(model);
+            if (waitMs > 0) {
+                if (waitedMs + waitMs > maxRateLimitWaitMs) throw new GeminiRateLimitError(model, waitMs);
+                await sleep(waitMs);
+                waitedMs += waitMs;
+                continue;
+            }
+
             const response = await fetchImpl(url, {
                 method: 'POST',
                 headers: { 'content-type': 'application/json', 'x-goog-api-key': apiKey },
@@ -212,15 +239,11 @@ export function createGeminiClient(options: GeminiClientOptions): GeminiClient {
                 const details = error.details ?? [];
                 const daily = dailyQuotaOf(details);
                 if (daily) throw new GeminiUnavailableError(dailyQuotaMessage(model, daily));
+                // A per-minute refusal is news for every request sharing
+                // this key: the gate learns from it (block, doubling, a
+                // lower cap) and the next acquire above says how long.
                 const retryInfo = details.find((detail) => detail.retryDelay !== undefined);
-                const delayMs = parseRetryDelay(retryInfo?.retryDelay) ?? DEFAULT_RATE_LIMIT_DELAY_MS;
-                // A short wait is cheaper to sit through here than to hand
-                // back; a long one is handed back, typed, so nothing holds a
-                // request (and, in the app, a generator subprocess) open for
-                // a minute.
-                if (waitedMs + delayMs > maxRateLimitWaitMs) throw new GeminiRateLimitError(model, delayMs);
-                await sleep(delayMs);
-                waitedMs += delayMs;
+                gate.record(model, 'rateLimited', parseRetryDelay(retryInfo?.retryDelay));
                 continue;
             }
 
@@ -239,6 +262,7 @@ export function createGeminiClient(options: GeminiClientOptions): GeminiClient {
             } catch {
                 throw new Error(`Gemini (${model}) returned a response that is not JSON`);
             }
+            gate.record(model, 'ok');
             const blockReason = data.promptFeedback?.blockReason;
             if (blockReason) throw new GeminiUnavailableError(`Gemini refused this request (${blockReason}).`);
             return data;
