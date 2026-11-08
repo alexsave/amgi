@@ -68,15 +68,16 @@ export const GEMINI_TTS_VOICES = [
 ] as const;
 
 // Thinking level for the text, transcription and judge calls
-// (generationConfig.thinkingConfig.thinkingLevel). Filling a short
-// structured template, writing down what a clip says, and a yes/no verdict
-// do not need deliberation, and thinking tokens bill as output. "low" is the
-// lowest gemini-3.8-flash accepts: "minimal" is answered with HTTP 400
-// ("Thinking level MINIMAL is not supported for this model"), verified live
-// 2026-11-08; the model's own default is "medium". A live card-text call at
-// "low" spent 0 thinking tokens. Switching to a model that supports
-// "minimal" (gemini-3.5-flash-lite does) is a change to this line too.
-export const GEMINI_THINKING_LEVEL = "low";
+// (generationConfig.thinkingConfig.thinkingLevel, the ThinkingLevel enum's
+// name as geminiWire.ts sends it). Filling a short structured template,
+// writing down what a clip says, and a yes/no verdict do not need
+// deliberation, and thinking tokens bill as output. LOW is the lowest
+// gemini-3.8-flash accepts: MINIMAL is refused (INVALID_ARGUMENT, "Thinking
+// level MINIMAL is not supported for this model"), verified live 2026-11-08;
+// the model's own default is MEDIUM. A live card-text call at LOW spent 0
+// thinking tokens. Switching to a model that supports MINIMAL
+// (gemini-3.5-flash-lite does) is a change to this line too.
+export const GEMINI_THINKING_LEVEL = "LOW";
 
 /** The models card generation needs, injected rather than imported by it. */
 export interface CardModels {

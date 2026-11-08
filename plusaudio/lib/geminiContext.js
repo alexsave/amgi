@@ -1,7 +1,7 @@
 'use strict';
 
 // The one place a Gemini API key becomes the context cardGeneration.ts runs
-// in: the HTTP client (cardGeneration/gemini.ts), the speech synthesiser
+// in: the gRPC client (cardGeneration/gemini.ts), the speech synthesiser
 // (cardGeneration/geminiSpeech.ts) and the model roster (models.ts).
 // lib/generator.js (audio) and lib/textGenerator.js (card text) both build
 // their context here, so the CLI entry points, the app (through them) and the
@@ -26,8 +26,8 @@ const { gateForThisProcess } = require('./ipcGate');
  *
  * @param {object} options
  * @param {string} options.apiKey            GEMINI_API_KEY
- * @param {string} [options.baseUrl]         Gemini's endpoint; set only by tests and the e2e fake server (GEMINI_API_BASE)
- * @param {function} [options.fetch]         what the client calls; global fetch by default
+ * @param {string} [options.baseUrl]         Gemini's gRPC endpoint; set only by tests and the e2e fake server
+ *                                           (GEMINI_API_BASE, e.g. http://127.0.0.1:8799 for cleartext HTTP/2)
  * @param {object} [options.random]          the voice draw's source; ./random.js's process-wide generator by default
  * @param {function} [options.sleep]         how a per-minute rate limit is waited out
  * @param {function} [options.log]           where the policy's own warnings go
@@ -37,12 +37,11 @@ const { gateForThisProcess } = require('./ipcGate');
  * @param {string} [options.ttsModel]        the speech model; models.ts's GEMINI_TTS_MODEL unless a dev
  *                                           script asks for another named one (build-starter-audio.js --model)
  */
-function createGeminiContext({ apiKey, baseUrl, fetch, random = defaultRandom, sleep, log = () => {}, ttsModel = CARD_MODELS.tts, gate = gateForThisProcess() } = {}) {
+function createGeminiContext({ apiKey, baseUrl, random = defaultRandom, sleep, log = () => {}, ttsModel = CARD_MODELS.tts, gate = gateForThisProcess() } = {}) {
   const gemini = createGeminiClient({
     apiKey,
     gate,
     ...(baseUrl ? { baseUrl } : {}),
-    ...(fetch ? { fetch } : {}),
     ...(sleep ? { sleep } : {}),
   });
   return {
