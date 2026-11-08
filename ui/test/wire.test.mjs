@@ -23,7 +23,7 @@ function refusesCutShort(bytes) {
 
 test('every kind in the schema is one the server can name', () => {
   assert.deepEqual(Object.keys(KIND).slice(0, 3), ['error', 'status', 'decks']);
-  assert.equal(Object.keys(KIND).length, 26);
+  assert.equal(Object.keys(KIND).length, 28);
 });
 
 test('decks: ids past 2^32, UTF-8 names, counts; the app writes back the same bytes', () => {
@@ -62,6 +62,15 @@ test('a list that claims more items than its bytes could hold is refused at once
   const r = spawnSync(dump, { input: bytes, timeout: 5000 });
   assert.equal(r.stdout.toString(), 'bad\n');
   assert.equal(decode('q_note_update', Buffer.concat([Buffer.from([0x41, 0x4d, 0x57, 0x32, KIND.q_note_update, 0xff, 0xff, 0xff, 0x7f])])), null);
+});
+
+test('deck summary and deck removed: what deleting a deck takes, and what it took', () => {
+  const summary = encode('deck_summary', { mode: 'bridge', id: 1794149693370, name: '한국어', subdecks: 1, cards: 6, notes: 4 });
+  assert.equal(read(summary), 'kind=deck_summary\nmode=bridge\nid=1794149693370\nname=한국어\nsubdecks=1\ncards=6\nnotes=4\nrewritten=same\n');
+  refusesCutShort(summary);
+  const removed = encode('deck_removed', { mode: 'direct', id: 1794149693370, name: '한국어', decks: 2, cards: 6, notes: 4 });
+  assert.equal(read(removed), 'kind=deck_removed\nmode=direct\nid=1794149693370\nname=한국어\ndecks=2\ncards=6\nnotes=4\nrewritten=same\n');
+  refusesCutShort(removed);
 });
 
 test('card text: nested keys (audio.reference)', () => {
