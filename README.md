@@ -146,7 +146,8 @@ amgi's own boundaries are binary layouts, the Anki bridge's included; JSON stays
 amgi's own JSON lives in one folder, `plusaudio/lib/json/`, behind one named function per use.
 
 - `plusaudio/lib/json/modelAnswer.js`: Gemini's structured answers are JSON text, and nothing else is offered ([plusaudio/ANSWER_FORMAT.md](plusaudio/ANSWER_FORMAT.md) says what was measured against the alternatives).
-- `server/json/anki_json.c`, `server/json/anki_json.h`, `server/collection/decks.c`, `server/collection/notes.c`: the collection core in C, which reads and writes the same Anki formats; its one JSON reader and writer is quarantined in `server/json/` behind two named functions, and the scan fails on JSON parsed or formatted anywhere else in C.
+- `server/json/model_answer.c`, `server/json/model_answer.h`, `server/amgi/cards.c`: the same answers read by the C server, through `model_answer_parse` in the C quarantine (the quarantine's one parser under its own name), called once by `cards.c`'s port of `readStructured`.
+- `server/json/anki_json.c`, `server/json/anki_json.h`, `server/collection/decks.c`, `server/collection/notes.c`: the collection core in C, which reads and writes the same Anki formats; its one JSON reader and writer is quarantined in `server/json/` behind named functions, and the scan fails on JSON parsed or formatted anywhere else in C.
 - `plusaudio/lib/collection/decks.js`, `plusaudio/lib/collection/deck-remove.js`, `plusaudio/lib/collection/notes.js`, `plusaudio/lib/collection/notetypes.js`, `plusaudio/lib/deck.js`, `plusaudio/lib/package.js`: Anki's own formats (a schema 11 collection's `col` columns, the config table's values, an older `.apkg`'s media map), read and written as Anki defines them.
 
 See [ROADMAP.md](ROADMAP.md) for what is still open.

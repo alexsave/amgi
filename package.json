@@ -20,7 +20,7 @@
     "start": "ui/build.sh && node ui/server/serve.mjs",
     "dev": "ui/build.sh && node ui/server/serve.mjs",
     "lint": "eslint",
-    "test": "ui/build.sh && make -s -j2 -C server all check-collection && node --import ./ui/server/hooks.mjs --experimental-test-module-mocks --test \"src/__tests__/**/*.test.js\" \"plusaudio/test/**/*.test.js\" \"anki/test/**/*.test.js\" \"ui/test/*.test.mjs\" \"test/*.test.mjs\" \"test/parity/*.test.mjs\" && \"${ANKI_PYTHON_BIN:-python3}\" -m unittest discover -s anki/addon/amgi_bridge/test -p \"test_*.py\" -v",
+    "test": "ui/build.sh && make -s -j2 -C server all check-collection check-app && node --import ./ui/server/hooks.mjs --experimental-test-module-mocks --test \"src/__tests__/**/*.test.js\" \"plusaudio/test/**/*.test.js\" \"anki/test/**/*.test.js\" \"ui/test/*.test.mjs\" \"test/*.test.mjs\" \"test/parity/*.test.mjs\" && AMGI_SERVER=c node --import ./ui/server/hooks.mjs --test test/parity/http.test.mjs test/parity/bridge-resend.test.mjs && \"${ANKI_PYTHON_BIN:-python3}\" -m unittest discover -s anki/addon/amgi_bridge/test -p \"test_*.py\" -v",
     "e2e": "ui/build.sh && ui/tools/e2e.sh"
   }
 }
