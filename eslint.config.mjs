@@ -10,7 +10,7 @@ const clean = (source) =>
 
 const config = [
   {
-    ignores: ['node_modules/**', 'ui/out/**', 'cdom/**', '.e2e/**', '.next/**', 'plusaudio/vendor/**', 'archives/**'],
+    ignores: ['node_modules/**', 'ui/out/**', 'cdom/**', 'cbase/**', '.e2e/**', '.next/**', 'plusaudio/vendor/**', 'archives/**'],
   },
   js.configs.recommended,
   {

@@ -10,10 +10,13 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "collection.h"
+#include "bridge.h"
 
 static str g_path; /* the collection "open" named; owned by g_arena */
 static arena g_arena;
+/* After "probe" or "transport" picked the bridge: the commands go to it, as the bridge's ops. */
+static int g_bridge;
+static col_bridge g_br;
 
 /* ---- tokens ---- */
 static int safe(unsigned char c) { return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-' || c == '_' || c == '.'; }
@@ -156,6 +159,180 @@ static str unhex(arena *a, str t) {
   return (str){p, t.n / 2};
 }
 
+static void put_notetypes(buf *b, const col_notetype *nts, size_t nn) {
+  buf_fmt(b, "ok %zu", nn);
+  for (size_t i = 0; i < nn; i++) {
+    buf_fmt(b, "\n%lld ", (long long)nts[i].id);
+    enc(b, nts[i].name);
+    buf_ch(b, ' ');
+    enc(b, nts[i].cloze ? S("cloze") : S("normal"));
+    buf_fmt(b, " %lld ", (long long)nts[i].sort_field);
+    put_strs(b, nts[i].fields, nts[i].nfields);
+    buf_c(b, " [");
+    for (size_t j = 0; j < nts[i].ntemplates; j++) {
+      buf rec = {0};
+      buf_fmt(&rec, "%lld ", (long long)nts[i].templates[j].ord);
+      enc(&rec, nts[i].templates[j].name);
+      buf_ch(&rec, ' ');
+      enc(&rec, nts[i].templates[j].question);
+      buf_ch(&rec, ' ');
+      enc(&rec, nts[i].templates[j].answer);
+      if (j) buf_ch(b, ',');
+      enc(b, (str){rec.p, rec.n});
+      buf_free(&rec);
+    }
+    buf_ch(b, ']');
+  }
+}
+
+static void put_page(buf *b, const col_page *p, int with_total, int64_t total) {
+  buf_c(b, "ok ");
+  put_num(b, p->offset);
+  buf_ch(b, ' ');
+  put_num(b, p->limit);
+  buf_fmt(b, " %d %zu", p->has_more ? 1 : 0, p->n);
+  if (with_total) buf_fmt(b, " %lld", (long long)total);
+  for (size_t i = 0; i < p->n; i++) {
+    buf_fmt(b, "\n%lld %lld ", (long long)p->notes[i].id, (long long)p->notes[i].notetype_id);
+    put_strs(b, p->notes[i].fields, p->notes[i].nfields);
+    buf_ch(b, ' ');
+    put_strs(b, p->notes[i].tags, p->notes[i].ntags);
+  }
+}
+
+static void put_status(buf *b, const col_bridge_status *st) {
+  buf_fmt(b, " %d ", st->profile_open ? 1 : 0);
+  enc(b, st->profile_name);
+  buf_fmt(b, " %d ", st->collection_open ? 1 : 0);
+  if (st->has_schema) buf_fmt(b, "%u ", st->schema);
+  else buf_c(b, "! ");
+  enc(b, st->anki_version);
+  buf_ch(b, ' ');
+  enc(b, st->qt_version);
+}
+
+/* The same commands through the bridge's ops: the answers have the direct ones' shapes, with what
+ * the bridge does not say left out ("!" for a guid, "[]" for card ids, "!" for children renamed)
+ * and listNotesInDeck's total after its count. */
+static int run_bridge(arena *a, str verb, str *t, size_t n, str *more, size_t nmore, buf *b) {
+  col_err e = {0};
+  const col_bridge *br = &g_br;
+#define ARG(i) ((i) < n ? t[i] : S(""))
+  if (str_eq_c(verb, "listDecks")) {
+    col_deck *d;
+    size_t nd;
+    if (col_bridge_list_decks(a, br, &d, &nd, &e)) return put_err(b, &e), 1;
+    buf_fmt(b, "ok %zu", nd);
+    for (size_t i = 0; i < nd; i++) {
+      buf_fmt(b, "\n%lld ", (long long)d[i].id);
+      enc(b, d[i].name);
+    }
+  } else if (str_eq_c(verb, "countNotesInDeck")) {
+    int64_t count;
+    if (col_bridge_count_notes(a, br, num(ARG(0)), &count, &e)) return put_err(b, &e), 1;
+    buf_fmt(b, "ok %lld", (long long)count);
+  } else if (str_eq_c(verb, "listNotetypes")) {
+    col_notetype *nts;
+    size_t nn;
+    if (col_bridge_list_notetypes(a, br, &nts, &nn, &e)) return put_err(b, &e), 1;
+    put_notetypes(b, nts, nn);
+  } else if (str_eq_c(verb, "listNotesInDeck")) {
+    col_page p;
+    int64_t total = 0;
+    if (col_bridge_list_notes(a, br, num(ARG(0)), num(ARG(1)), num(ARG(2)), &p, &total, &e)) return put_err(b, &e), 1;
+    put_page(b, &p, 1, total);
+  } else if (str_eq_c(verb, "existingFieldValues")) {
+    str *v;
+    size_t nv;
+    if (col_bridge_field_values(a, br, num(ARG(0)), num(ARG(1)), num(ARG(2)), &v, &nv, &e)) return put_err(b, &e), 1;
+    buf_c(b, "ok ");
+    put_strs(b, v, nv);
+  } else if (str_eq_c(verb, "createDeck")) {
+    col_deck_made d;
+    if (col_bridge_create_deck(a, br, dec(a, ARG(0)), &d, &e)) return put_err(b, &e), 1;
+    buf_fmt(b, "ok %lld ", (long long)d.id);
+    enc(b, d.name);
+    buf_fmt(b, " %d", d.created ? 1 : 0);
+  } else if (str_eq_c(verb, "renameDeck")) {
+    col_deck r;
+    if (col_bridge_rename_deck(a, br, num(ARG(0)), dec(a, ARG(1)), &r, &e)) return put_err(b, &e), 1;
+    buf_fmt(b, "ok %lld ", (long long)r.id);
+    enc(b, r.name);
+    buf_c(b, " !");
+  } else if (str_eq_c(verb, "deckRemovalSummary") || str_eq_c(verb, "removeDeck")) {
+    col_removal r;
+    int summary = str_eq_c(verb, "deckRemovalSummary");
+    if ((summary ? col_bridge_removal_summary : col_bridge_remove_deck)(a, br, num(ARG(0)), &r, &e)) return put_err(b, &e), 1;
+    buf_fmt(b, "ok %lld ", (long long)r.id);
+    enc(b, r.name);
+    buf_fmt(b, " %lld %lld %lld", (long long)(summary ? r.subdecks : r.decks), (long long)r.cards, (long long)r.notes);
+  } else if (str_eq_c(verb, "addNote")) {
+    col_new_note note = note_of(a, t, n);
+    col_added r;
+    if (col_bridge_add_note(a, br, &note, &r, &e)) return put_err(b, &e), 1;
+    buf_c(b, "ok ");
+    put_added(b, &r);
+  } else if (str_eq_c(verb, "addNotesBulk")) {
+    col_new_note *notes = ar_alloc(a, (nmore + 1) * sizeof *notes);
+    for (size_t i = 0; i < nmore; i++) {
+      size_t nt;
+      str *tt = split(a, more[i], ' ', &nt);
+      notes[i] = note_of(a, tt, nt);
+    }
+    col_added *r = ar_alloc(a, (nmore + 1) * sizeof *r);
+    size_t nr;
+    if (col_bridge_add_notes(a, br, notes, nmore, r, &nr, &e)) return put_err(b, &e), 1;
+    buf_fmt(b, "ok %zu", nr);
+    for (size_t i = 0; i < nr; i++) {
+      buf_ch(b, '\n');
+      if (r[i].ok) {
+        buf_c(b, "ok ");
+        put_added(b, &r[i]);
+      } else {
+        buf_c(b, "err ");
+        enc(b, r[i].error);
+      }
+    }
+  } else if (str_eq_c(verb, "updateNote")) {
+    size_t nf;
+    str *fields = strs_of(a, ARG(1), &nf);
+    str lang = dec(a, ARG(2));
+    int has_lfi = !(ARG(3).n == 1 && ARG(3).p[0] == '!');
+    int has_w;
+    int64_t id;
+    str w;
+    if (col_bridge_update_note(a, br, num(ARG(0)), fields, nf, lang.p != NULL, lang.p ? lang : S(""), has_lfi, num(ARG(3)), &id,
+                               &has_w, &w, &e))
+      return put_err(b, &e), 1;
+    buf_c(b, "ok ");
+    enc(b, has_w ? w : (str){NULL, 0});
+  } else if (str_eq_c(verb, "removeNote")) {
+    int64_t id, removed;
+    if (col_bridge_remove_note(a, br, num(ARG(0)), &id, &removed, &e)) return put_err(b, &e), 1;
+    buf_fmt(b, "ok %lld %lld", (long long)id, (long long)removed);
+  } else if (str_eq_c(verb, "hasMedia")) {
+    int has;
+    if (col_bridge_has_media(a, br, dec(a, ARG(0)), &has, &e)) return put_err(b, &e), 1;
+    buf_fmt(b, "ok %d", has ? 1 : 0);
+  } else if (str_eq_c(verb, "readMedia")) {
+    int found;
+    str bytes = {0};
+    if (col_bridge_read_media(a, br, dec(a, ARG(0)), &found, &bytes, &e)) return put_err(b, &e), 1;
+    buf_c(b, "ok ");
+    if (found) hexbytes(b, bytes);
+    else buf_ch(b, '!');
+  } else if (str_eq_c(verb, "addMedia")) {
+    str data = unhex(a, ARG(1)), stored;
+    if (col_bridge_add_media(a, br, dec(a, ARG(0)), data.p, data.n, &stored, &e)) return put_err(b, &e), 1;
+    buf_c(b, "ok ");
+    enc(b, stored);
+  } else {
+    return 0;
+  }
+#undef ARG
+  return 1;
+}
+
 /* ---- one command: its answer (every line of it) into b ---- */
 static void run(arena *a, str line, str *more, size_t nmore, buf *b) {
   size_t n;
@@ -163,6 +340,7 @@ static void run(arena *a, str line, str *more, size_t nmore, buf *b) {
   str verb = t[0];
   t++, n--;
   col_err e = {0};
+  if (g_bridge && run_bridge(a, verb, t, n, more, nmore, b)) return;
 #define ARG(i) ((i) < n ? t[i] : S(""))
   if (str_eq_c(verb, "status")) {
     col_state s;
@@ -188,43 +366,11 @@ static void run(arena *a, str line, str *more, size_t nmore, buf *b) {
     col_notetype *nts;
     size_t nn;
     if (col_list_notetypes(a, g_path, &nts, &nn, &e)) return put_err(b, &e);
-    buf_fmt(b, "ok %zu", nn);
-    for (size_t i = 0; i < nn; i++) {
-      buf_fmt(b, "\n%lld ", (long long)nts[i].id);
-      enc(b, nts[i].name);
-      buf_ch(b, ' ');
-      enc(b, nts[i].cloze ? S("cloze") : S("normal"));
-      buf_fmt(b, " %lld ", (long long)nts[i].sort_field);
-      put_strs(b, nts[i].fields, nts[i].nfields);
-      buf_c(b, " [");
-      for (size_t j = 0; j < nts[i].ntemplates; j++) {
-        buf rec = {0};
-        buf_fmt(&rec, "%lld ", (long long)nts[i].templates[j].ord);
-        enc(&rec, nts[i].templates[j].name);
-        buf_ch(&rec, ' ');
-        enc(&rec, nts[i].templates[j].question);
-        buf_ch(&rec, ' ');
-        enc(&rec, nts[i].templates[j].answer);
-        if (j) buf_ch(b, ',');
-        enc(b, (str){rec.p, rec.n});
-        buf_free(&rec);
-      }
-      buf_ch(b, ']');
-    }
+    put_notetypes(b, nts, nn);
   } else if (str_eq_c(verb, "listNotesInDeck")) {
     col_page p;
     if (col_list_notes(a, g_path, num(ARG(0)), num(ARG(1)), num(ARG(2)), &p, &e)) return put_err(b, &e);
-    buf_c(b, "ok ");
-    put_num(b, p.offset);
-    buf_ch(b, ' ');
-    put_num(b, p.limit);
-    buf_fmt(b, " %d %zu", p.has_more ? 1 : 0, p.n);
-    for (size_t i = 0; i < p.n; i++) {
-      buf_fmt(b, "\n%lld %lld ", (long long)p.notes[i].id, (long long)p.notes[i].notetype_id);
-      put_strs(b, p.notes[i].fields, p.notes[i].nfields);
-      buf_ch(b, ' ');
-      put_strs(b, p.notes[i].tags, p.notes[i].ntags);
-    }
+    put_page(b, &p, 0, 0);
   } else if (str_eq_c(verb, "existingFieldValues")) {
     str *v;
     size_t nv;
@@ -395,7 +541,48 @@ int main(void) {
     if (str_eq_c(t[0], "open")) {
       ar_free(&g_arena);
       g_path = dec(&g_arena, n > 1 ? t[1] : S("~"));
+      g_bridge = 0;
       buf_c(&out, "ok");
+    } else if (str_eq_c(t[0], "probe")) {
+      /* probe <url> <token>: probeBridge; answered, the commands that follow go to the bridge. */
+      ar_free(&g_arena);
+      g_br = (col_bridge){dec(&g_arena, n > 1 ? t[1] : S("~")), dec(&g_arena, n > 2 ? t[2] : S("~"))};
+      col_bridge_status st;
+      col_err why;
+      int probed = col_bridge_probe(&a, &g_br, &st, &why);
+      g_bridge = probed == BRIDGE_ANSWERED;
+      if (probed == BRIDGE_ANSWERED) {
+        buf_c(&out, "ok answered");
+        put_status(&out, &st);
+      } else if (probed == BRIDGE_OUTDATED) {
+        buf_c(&out, "ok outdated ");
+        enc(&out, why.message);
+      } else {
+        buf_c(&out, "ok none");
+      }
+    } else if (str_eq_c(t[0], "transport")) {
+      /* transport <collection> <url> <token> ("!" for one not set): resolveTransport; the commands
+       * that follow go to whichever transport answered. */
+      ar_free(&g_arena);
+      col_settings set;
+      str coll = dec(&g_arena, n > 1 ? t[1] : S("!")), url = dec(&g_arena, n > 2 ? t[2] : S("!")), tok = dec(&g_arena, n > 3 ? t[3] : S("!"));
+      set.collection_path = coll.p ? coll : S("");
+      set.bridge_url = url.p ? url : S("");
+      set.bridge_token = tok.p ? tok : S("");
+      col_transport tr;
+      col_err e;
+      if (col_resolve_transport(&a, &set, &tr, &e) < 0) {
+        put_err(&out, &e);
+      } else {
+        g_path = set.collection_path;
+        g_bridge = tr.ops && !strcmp(tr.mode, "bridge");
+        if (g_bridge) g_br = (col_bridge){set.bridge_url, set.bridge_token};
+        buf_c(&out, "ok ");
+        enc(&out, str_c(tr.mode));
+        if (tr.has_schema) buf_fmt(&out, " %d", tr.schema);
+        else buf_c(&out, " !");
+        if (tr.has_detail) put_status(&out, &tr.detail);
+      }
     } else if (str_eq_c(t[0], "addNotesBulk") || str_eq_c(t[0], "parallel")) {
       size_t count = (size_t)num(n > 1 ? t[1] : S("0"));
       str *more = ar_alloc(&a, (count + 1) * sizeof *more);

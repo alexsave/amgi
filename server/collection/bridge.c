@@ -105,8 +105,6 @@ static int64_t mono_ms(void) {
   return (int64_t)t.tv_sec * 1000 + t.tv_nsec / 1000000;
 }
 
-uint8_t *wire_host_grow(uint8_t *p, uint32_t len, uint32_t cap);
-
 /* Decode bytes of kind into out, or 0 when they are not one whole message of it. Strings point
  * into the arena's copy of the bytes. */
 static int decode(cx *c, uint32_t kind, const cb_buf *body, void *out) {
@@ -142,8 +140,11 @@ static void fetch(cx *c, call *k) {
   free(body.p);
   if (rc != CB_OK) {
     cb_https_response_free(&r);
-    /* fetch's two failures: the AbortController's timer fired, or there was no answer at all. */
-    cx_throw(c, NULL, 0, took >= k->timeout_ms ? "This operation was aborted" : "fetch failed");
+    /* fetch's two failures: the AbortController's timer fired, or there was no answer at all.
+     * cbase's client says CB_E_IO for both, so the deadline is told by the clock (within 50 ms of
+     * it, as the client's own deadline is measured apart from this one). Asked of cbase's
+     * amgi-http lane: a result of its own for a timeout, and then this goes. */
+    cx_throw(c, NULL, 0, took + 50 >= k->timeout_ms ? "This operation was aborted" : "fetch failed");
   }
   int status = r.status;
   str theirs = header_value(c, &r.headers, PROTOCOL_HEADER);
@@ -190,7 +191,6 @@ static str *from_wss(cx *c, wire_strs v, size_t *n) {
 }
 
 /* Run one call under a cx, catching what it throws into *err. */
-typedef struct { void (*fn)(cx *, void *); void *arg; } run_args;
 static int run(arena *a, void (*fn)(cx *, void *), void *arg, col_err *err) {
   cx c = {a, NULL, {0}};
   if (cx_try(&c, fn, arg) < 0) {
@@ -211,27 +211,19 @@ static void bridge_status_of(cx *c, const wire_b_status *s, col_bridge_status *o
   out->anki_version = ws(c, s->anki_version);
   out->qt_version = ws(c, s->qt_version);
 }
+static void probe_fetch(cx *c, void *arg) { fetch(c, arg); }
 static void probe_body(cx *c, void *arg) {
   probe_args *p = arg;
   wire_b_status s;
+  /* The call lives here, outside the frame cx_try's setjmp is in, so what fetch set in it before
+   * throwing (outdated) is still there after: a local changed between a setjmp and its longjmp is
+   * indeterminate in the frame that called setjmp (C11 7.13.2.1). */
   call k = {p->b, "GET", S("/status"), WK_B_STATUS, 0, 0, NULL, DEFAULT_TIMEOUT_MS, &s, 0};
-  cx inner = {c->a, NULL, {0}};
-  typedef struct { call *k; } fa;
-  (void)inner;
-  jmp_buf jb, *outer = c->jb;
-  c->jb = &jb;
-  if (setjmp(jb)) {
-    c->jb = outer;
-    if (k.outdated) {
-      p->result = BRIDGE_OUTDATED;
-      p->outdated = c->err;
-    } else {
-      p->result = BRIDGE_NONE;
-    }
+  if (cx_try(c, probe_fetch, &k) < 0) {
+    p->result = k.outdated ? BRIDGE_OUTDATED : BRIDGE_NONE;
+    if (k.outdated) p->outdated = c->err;
     return;
   }
-  fetch(c, &k);
-  c->jb = outer;
   bridge_status_of(c, &s, p->status);
   p->result = BRIDGE_ANSWERED;
 }
