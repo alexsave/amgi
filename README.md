@@ -2,16 +2,6 @@
 
 https://github.com/user-attachments/assets/731cb0b9-276a-4f10-89d0-6e3fdefa2896
 
-
-
-<p align="center">
-  <a href="docs/showcase.mp4">
-    <img src="docs/showcase.gif" alt="amgi showcase: type a phrase, get a card with native audio, then speak the answer back in Anki" width="760">
-  </a>
-  <br>
-  <sub>One minute: install into Anki, make a card from a phrase, then review it by speaking. <a href="docs/showcase.mp4">Watch it with sound</a>.</sub>
-</p>
-
 Flashcards that make you **speak**, built on top of Anki instead of next to it.
 
 amgi used to be its own web app: its own account, its own Postgres database, its own spaced-repetition scheduler, its own hands-free review loop running in the browser.
