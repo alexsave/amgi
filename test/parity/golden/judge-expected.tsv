@@ -1,0 +1,30 @@
+ko	역이 어디예요?	여기 어디예요		역이 어디예요?	여기어디에요	여기어디에요	0	accept
+ko	역이 어디예요?	역이 어디에요		역이 어디예요?	여기어디에요	여기어디에요	0	accept
+ko	감사합니다.	감사합니다		감사합니다.	감사함니다	감사함니다	0	accept
+ko	맛있어요!	마시써요		맛있어요!	마시써요	마시써요	0	accept
+ko	같이 가요	가치 가요		같이 가요	가치가요	가치가요	0	accept
+ko	천천히 말해 주세요.	천천히 말해주세요		천천히 말해 주세요.	천천히말해주세요	천천히말해주세요	0	accept
+ja	行った	いった	いった	行った	いった	行った	1	judge
+ja	行った	行った	いった	行った	行った	行った	1	judge
+ja	行った	行った		行った	行った	行った	1	accept
+ja	駅はどこですか？	駅はどこですか	えきはどこですか	駅はどこですか？	駅はどこですか	駅はどこですか	1	judge
+ja	駅はどこですか？	えきはどこですか		駅はどこですか？	えきはどこですか	駅はどこですか	1	judge
+ja	すみません	すみません	 	すみません	すみません	すみません	1	accept
+zh_cn	你好。	你好	ㄋㄧˇ ㄏㄠˇ	你好。	你好	你好	1	judge
+zh_cn	你好。	你好		你好。	你好	你好	1	accept
+zh_cn	银行在哪里？	银行在哪儿	ㄧㄣˊ ㄏㄤˊ ㄗㄞˋ ㄋㄚˇ ㄌㄧˇ	银行在哪里？	银行在哪儿	银行在哪里	1	judge
+zh_hk	多謝。	多謝		多謝。	多謝	多謝	1	accept
+zh_hk	多謝。	多谢	ㄉㄨㄛ ㄒㄧㄝˋ	多謝。	多谢	多謝	1	judge
+en	Where is the station?	where is the station		Where is the station?	whereisthestation	whereisthestation	0	accept
+en	Hello, World!	hello world		Hello, World!	helloworld	helloworld	0	accept
+en	date (calendar day)	date		date	date	date	0	accept
+es	¿Dónde está la estación?	donde esta la estacion		¿Dónde está la estación?	dondeestalaestacion	dóndeestálaestación	0	judge
+es	¿Dónde está la estación?	Dónde está la estación		¿Dónde está la estación?	dóndeestálaestación	dóndeestálaestación	0	accept
+fr	Ça va ?	ça va		Ça va?	çava	çava	0	accept
+de	Ｆｒｅｕｎｄ	freund		Ｆｒｅｕｎｄ	freund	freund	0	accept
+de	Grüße	grüsse		Grüße	grüsse	grüße	0	judge
+ru	Спасибо!	спасибо		Спасибо!	спасибо	спасибо	0	accept
+ar	شكرا.	شكرا		شكرا.	شكرا	شكرا	0	accept
+th	ขอบคุณครับ	ขอบคุณ ครับ		ขอบคุณครับ	ขอบคุณครับ	ขอบคุณครับ	0	accept
+hi	धन्यवाद।	धन्यवाद		धन्यवाद।	धन्यवाद	धन्यवाद	0	accept
+ko_KR	좋아요	조아요		좋아요	조아요	조아요	0	accept
