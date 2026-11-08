@@ -47,12 +47,18 @@ function withNormalizedPaging(ops) {
  *   { mode: 'not-found' }                                    chosen collection file is gone
  *   { mode: 'unsupported-schema', schemaVersion }
  *   { mode: 'locked' }                                        Anki has the file open and no bridge answered
+ *   { mode: 'bridge-outdated' }                               the add-on answered in another bridge protocol
  *   { mode: 'bridge', ops, detail }                           the add-on's HTTP bridge answered
  *   { mode: 'direct', ops }                                   read the closed file straight off disk
  */
 export async function resolveTransport(settings) {
   if (settings.bridge?.baseUrl && settings.bridge.token) {
     const probed = await probeBridge(settings.bridge.baseUrl, settings.bridge.token);
+    if (probed?.outdated) {
+      // Anki is open with an amgi add-on from another amgi: it cannot be talked to until it is
+      // replaced, and the file it holds is locked, so there is nothing to fall back to.
+      return { mode: 'bridge-outdated' };
+    }
     if (probed) {
       if (!probed.status.collectionOpen) {
         return { mode: 'bridge-no-collection', detail: probed.status };

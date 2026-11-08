@@ -12,7 +12,7 @@
 //
 // amgi's own JSON lives in one folder, plusaudio/lib/json, behind one named function per use; the
 // only JSON outside it is Anki's own (its collection and package formats, which amgi reads and
-// writes as Anki defines them) and the add-on's Python side of the bridge protocol (leaving).
+// writes as Anki defines them). The Anki add-on's Python is scanned too.
 //
 // README.md's "JSON that remains and why" names the same files; the last test holds the two
 // together.
@@ -62,9 +62,8 @@ const notShipped = (file) => {
 const ANSWER_FORMAT = 'plusaudio/ANSWER_FORMAT.md';
 const ANKI = 'FORCED by Anki: ';
 /**
- * kind: 'ours' (amgi's own JSON, which must live in FOLDER), 'anki' (Anki's own formats, read and
- * written where the collection code is), or 'addon'
- * (the add-on's Python).
+ * kind: 'ours' (amgi's own JSON, which must live in FOLDER), or 'anki' (Anki's own formats, read
+ * and written where the collection code is).
  */
 const ALLOWED = [
   {
@@ -72,15 +71,9 @@ const ALLOWED = [
     why: `FORCED by Gemini: the API's structured output is JSON text, and parseModelAnswer reads it once; the caller then checks every field against its format. ${ANSWER_FORMAT} records what was measured against function calling and labelled lines.`,
   },
 
-  {
-    file: `${FOLDER}bridgeBody.js`, count: 2, kind: 'ours', leaving: true,
-    why: 'Ours, leaving: the amgi_bridge add-on\'s HTTP bodies as the app server writes and reads them. The bridge protocol moves to a binary layout with a version check.',
-  },
 
-  {
-    file: 'anki/addon/amgi_bridge/bridge_server.py', count: 3, kind: 'addon', leaving: true,
-    why: 'Ours, leaving: the add-on side of the bridge protocol, the request body read (json.loads) and the answer written (json.dumps). It goes with bridgeBody.js.',
-  },
+
+
   {
     file: 'plusaudio/lib/collection/decks.js', count: 5, kind: 'anki',
     why: `${ANKI}a schema 11 collection keeps every deck in one JSON column (col.decks); listing, creating and renaming decks reads and rewrites it as Anki does.`,
@@ -276,7 +269,7 @@ test('amgi\'s own JSON lives in the one folder, and every entry says why', () =>
   for (const a of ALLOWED) {
     assert.ok(a.why.length > 40, `${a.file}: a reason, not a label`);
     if (a.kind === 'ours') assert.ok(a.file.startsWith(FOLDER), `${a.file}: our own JSON belongs in ${FOLDER}`);
-    else assert.ok(['anki', 'addon'].includes(a.kind), `${a.file}: kind ${a.kind}`);
+    else assert.equal(a.kind, 'anki', `${a.file}: kind ${a.kind}`);
   }
   assert.ok(ALLOWED.find((a) => a.file === `${FOLDER}modelAnswer.js`).why.includes(ANSWER_FORMAT));
 });
