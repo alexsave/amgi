@@ -9,7 +9,7 @@ cd "$root"
 if [ ! -d cdom/src ] || [ ! -f cbase/cbase.mk ]; then
   if [ -d .git ] || [ -f .git ]; then
     echo "amgi: checking out the submodules (cdom, cbase): git submodule update --init --recursive" >&2
-    git submodule update --init --recursive
+    git submodule update --init --recursive --quiet
   else
     echo "amgi: cdom/ and cbase/ are missing, and this is not a git checkout: clone with --recurse-submodules" >&2
     exit 1
