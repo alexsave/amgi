@@ -30,10 +30,10 @@ You need two things, neither of which this repo can vendor:
 ```bash
 export ANKI_PYTHON_BIN=/path/to/venv/bin/python
 export ANKI_FIXTURE_APKG=/path/to/SomeDeck.apkg
-node --test plusaudio/test/collection/open-lock.test.js   # confirms both actually work together
+node --test plusaudio/test/collection/fieldText.test.js   # confirms both actually work together (make -C server first)
 ```
 
-That test is not part of this skill - it is `plusaudio`'s own proof that its collection reader agrees with the real Anki library - but it exercises exactly the same `ANKI_PYTHON_BIN`/`ANKI_FIXTURE_APKG` machinery this skill's scripts reuse (`scripts/fixture.js` wraps `plusaudio/test/collection/helpers/anki-python.js` rather than re-implementing it), so a green run here means the fixture-building and lock-holding steps below will work too.
+That test is not part of this skill - it is the proof that the C collection core writes what the real Anki library writes - but it exercises exactly the same `ANKI_PYTHON_BIN`/`ANKI_FIXTURE_APKG` machinery this skill's scripts reuse (`scripts/fixture.js` wraps `plusaudio/test/collection/helpers/anki-python.js` rather than re-implementing it), so a green run here means the fixture-building and lock-holding steps below will work too.
 
 `npm test` needs only `ANKI_PYTHON_BIN`: the collection tests that import a shared deck build their own small one with Anki (`buildSharedDeckPackage` in that helper), so no test depends on what is in your package.
 `ANKI_FIXTURE_APKG` is for the browser drives: `ui/tools/fixture.sh` imports it into the UI fixture every drive copies (its decks are the list the screens show), and `states.mjs` builds its "before amgi" collection the same way (`scripts/fixture.js`).
@@ -53,8 +53,7 @@ Wipes and rebuilds `.e2e/fixture` (gitignored) every run, from nothing, with the
 ui/build.sh && ui/tools/e2e.sh          # or: npm run e2e
 ```
 
-`ui/tools/e2e.sh` starts what the drives need, each on a free port, and stops it all on exit: the fake Gemini and three app servers (`ui/server/serve.mjs`) that differ only in their key - any key (the screens), none (the starter deck is offered), and one pointed at the fake.
-`AMGI_SERVER=c` runs the drives against the C server (`server/build/amgi serve`, build it with `make -C server build/amgi`; it is started with `CBASE_LISTEN=127.0.0.1:0` and its `cbase: listening <host>:<port>` line is read for the port), and `AMGI_SERVER=<executable>` against any other (from the repo root, `PORT=0`, printing the same `amgi on <url>` line).
+`ui/tools/e2e.sh` starts what the drives need, each on a free port, and stops it all on exit: the fake Gemini and three app servers (`server/build/amgi serve`, started with `CBASE_LISTEN=127.0.0.1:0`, their `cbase: listening <host>:<port>` line read for the port) that differ only in their key - any key (the screens), none (the starter deck is offered), and one pointed at the fake.
 Then `ui/tools/drives.sh` runs the drives one at a time, one headless Chrome each, every one on a fresh copy of the fixture, and prints each drive's `ok` count and every `FAIL` line:
 
 - `shoot.mjs`: the deck list, settings, a deck, its language picker, paging through a long deck, the back button, and first-paint timings.

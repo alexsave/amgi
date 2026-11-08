@@ -227,27 +227,11 @@ so a clip made through either entry point is made to the same standard.
 It does not create cards.
 It adds audio to notes that already exist, using amgi's own generator:
 `lib/generator.js` is a thin adapter over `lib/cardGeneration/cardGeneration.ts`, the same module
-the app's own local generation path (`src/server/anki/audio.js`, by way of `generate-clip.js`) and the
-Anki add-on's bridge run.
+the Anki add-on's fill-audio runs (by way of `generate-clip.js`); the app's server holds its own C port
+of the same policy (server/amgi/cards.c).
 So the clips are made with the same models, the same voice pool and the same
 refusal to keep audio that does not say what the note says.
-Writing new notes is the app's job: its deck page makes whole cards, text and audio, through
-`generate-card-text.js` and `generate-clip.js` (see `src/server/anki/cardText.js`).
-
-`generate-card-text.js` prints the card in the layout `lib/cardTextLayout.js` owns, not JSON: a
-header line, `amgi-card-text 1`, then `front_text`, `back_text` and `spoken_reading`, each as its
-name and UTF-8 byte length on one line and its text on the next:
-
-```
-amgi-card-text 1
-front_text 21
-Where is the station?
-back_text 20
-역이 어디예요?
-spoken_reading 0
-
-```
-
-Every value is copied as is, newlines included, so read a field by its byte length, not by lines
-(`readCardText` does). It exits 3 when rate limited (stdout is then `retry-after-ms=<n>`) and 4
-when a daily cap is spent.
+Writing new notes is the app's job: its deck page makes whole cards, text and audio, through the
+server's `POST /api/anki/card-text`.
+`generate-clip.js` exits 3 when rate limited (stdout is then `retry-after-ms=<n>`) and 4 when a
+daily cap is spent.
