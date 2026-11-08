@@ -50,7 +50,7 @@ Wipes and rebuilds `.e2e/fixture` (gitignored) every run, from nothing, with the
 ## Running every drive
 
 ```bash
-ui/build.sh && ui/tools/e2e.sh          # or: npm run e2e
+make build && ui/tools/e2e.sh           # or: npm run e2e
 ```
 
 `ui/tools/e2e.sh` starts what the drives need, each on a free port, and stops it all on exit: the fake Gemini and three app servers (`server/build/amgi serve`, started with `CBASE_LISTEN=127.0.0.1:0`, their `cbase: listening <host>:<port>` line read for the port) that differ only in their key - any key (the screens), none (the starter deck is offered), and one pointed at the fake.
