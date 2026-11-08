@@ -1,5 +1,5 @@
 /* The server's two walkers over the schema, built with wire.c as ui/out/wire.wasm for
- * ui/server/wire.mjs. They never see a JS object: they ask the binding for each field by the
+ * ui/wire/wire.mjs. They never see a JS object: they ask the binding for each field by the
  * schema's key name (imports js_*), so the binding knows no layout.
  *
  * Writing an answer: the binding holds the handler's object; w_encode(kind) walks the schema and

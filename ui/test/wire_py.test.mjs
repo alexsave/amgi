@@ -1,5 +1,5 @@
 // The Anki bridge add-on's Python side of the wire format (anki/addon/amgi_bridge/bridge_wire.py)
-// against the server's (ui/server/wire.mjs, over wire.wasm): one schema, two walkers, the same bytes.
+// against the server's (ui/wire/wire.mjs, over wire.wasm): one schema, two walkers, the same bytes.
 //   - the add-on's wire_schema.py is exactly what ui/wire/wire_py.c writes from wire.c, so the
 //     Python never holds a layout of its own;
 //   - every message the server writes, the add-on reads and writes back byte for byte, for every
