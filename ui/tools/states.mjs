@@ -119,6 +119,7 @@ try {
   const locked = folder('state-locked', 'all');
   const collection = path.join(locked, 'User 1', 'collection.anki2');
   const holder = holdCollectionOpen(collection);
+  let released = false;
   await holder.held;
   try {
     b = await open({ base: locked, collection });
@@ -128,10 +129,15 @@ try {
     check(/Anki is open and the bridge is not reachable/.test(why || ''), `locked: the list's place says why (${why})`);
     await sleep(300);
     await shot(b, '42-locked');
+    // Anki quits: the next status poll (every 4 s) finds the file free again.
+    await holder.release();
+    released = true;
+    check(await until(b, `${badge} === 'Anki connected'`, 150), 'locked: once Anki lets go, the badge says connected again');
+    check(await until(b, `document.querySelectorAll('.deck-item').length > 0`, 100), 'locked: and the list comes back');
     await b.close();
     b = null;
   } finally {
-    await holder.release();
+    if (!released) await holder.release();
   }
 
   // 4. An Anki folder with no profile in it.
