@@ -22,6 +22,7 @@
 from __future__ import annotations
 
 import re
+import urllib.parse
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any, Optional
@@ -132,6 +133,22 @@ ROUTES: list[Route] = [
     ("GET", re.compile(r"^/media/(?P<filename>[^/]+)/data$"), "read_media", None, "b_media_data"),
     ("GET", re.compile(r"^/media/(?P<filename>[^/]+)$"), "has_media", None, "b_media_exists"),
 ]
+
+
+_ESCAPE_OK = re.compile(r"(?:[^%]|%[0-9A-Fa-f]{2})*")
+
+
+def _path_name(raw: str) -> str:
+    """A media name as the request path carries it: percent-encoded once, by the server's bridge
+    client (encodeURIComponent), and decoded once here, so a name with a space, Korean, '#' or a
+    literal '%' reaches the media folder as it is stored. An escape that is not two hex digits, or
+    bytes that are not UTF-8, are not a name."""
+    if not _ESCAPE_OK.fullmatch(raw):
+        raise BridgeBadRequest("the clip name is not a valid name")
+    try:
+        return urllib.parse.unquote_to_bytes(raw).decode("utf-8")
+    except UnicodeDecodeError as error:
+        raise BridgeBadRequest("the clip name is not a valid name") from error
 
 
 def _parse_query(path: str) -> tuple[str, dict[str, str]]:
@@ -359,7 +376,7 @@ def make_handler_class(
             return dispatcher.add_media(filename, data)
 
         def _op_has_media(self, params: dict, query: dict, body: Optional[dict]) -> dict:
-            return {"exists": dispatcher.has_media(params["filename"])}
+            return {"exists": dispatcher.has_media(_path_name(params["filename"]))}
 
         def _op_rename_deck(self, params: dict, query: dict, body: Optional[dict]) -> dict:
             name = (body or {}).get("name") or ""
@@ -378,7 +395,7 @@ def make_handler_class(
 
         def _op_read_media(self, params: dict, query: dict, body: Optional[dict]) -> dict:
             # The clip's own bytes, in the one answer shape every route has.
-            data = dispatcher.read_media(params["filename"])
+            data = dispatcher.read_media(_path_name(params["filename"]))
             if data is None:
                 return {"found": False}
             return {"found": True, "data": data}

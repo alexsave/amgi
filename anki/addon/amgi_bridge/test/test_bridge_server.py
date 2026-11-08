@@ -505,6 +505,26 @@ class RoutingTests(BridgeServerTestCase):
         self.assertEqual(status, 400)
         self.assertIn("data", body["error"])
 
+    def test_a_media_name_is_decoded_once_from_the_path(self):
+        # The server's bridge client writes the name with encodeURIComponent; a space, Korean, '#'
+        # and a '%' that is part of the stored name all reach the dispatcher as they are stored.
+        import urllib.parse
+
+        name = "a b 한국어 #1 100%.wav"
+        path = urllib.parse.quote(name, safe="")
+        status, _headers, _body = self._request("GET", f"/media/{path}", headers=self._auth_headers(), answer="b_media_exists")
+        self.assertEqual(status, 200)
+        self._request("GET", f"/media/{path}/data", headers=self._auth_headers(), answer="b_media_data")
+        self.assertEqual(self.dispatcher.calls, [("has_media", (name,), {}), ("read_media", (name,), {})])
+
+    def test_a_media_name_that_is_not_a_valid_escape_is_a_bad_request(self):
+        for raw in ("%E0%A4%A", "a%zz.wav", "%", "%FF.wav"):
+            for suffix in ("", "/data"):
+                status, _headers, body = self._request("GET", f"/media/{raw}{suffix}", headers=self._auth_headers())
+                self.assertEqual(status, 400, raw + suffix)
+                self.assertEqual(body["error"], "the clip name is not a valid name")
+        self.assertEqual(self.dispatcher.calls, [], "the dispatcher is never asked")
+
     def test_read_media_answers_the_clip_s_own_bytes(self):
         status, _headers, body = self._request("GET", "/media/clip.mp3/data", headers=self._auth_headers(), answer="b_media_data")
         self.assertEqual(status, 200)

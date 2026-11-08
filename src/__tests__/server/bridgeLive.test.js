@@ -122,6 +122,13 @@ maybe('the bridge protocol against the real add-on server and a real collection'
     assert.deepEqual(await ops.readMedia(stored), clip, 'a clip comes back byte for byte');
     assert.equal(await ops.readMedia('not-there.wav'), null);
 
+    // A stored name that needs escaping in the path (a space, Korean, '#', a literal '%'): the
+    // client encodes it once and the add-on decodes it once, so it is found, bytes and all.
+    const odd = await ops.addMedia('a b 한국어 #1 100%.wav', clip);
+    assert.match(odd, / /, `the stored name keeps what needs escaping: ${odd}`);
+    assert.equal(await ops.hasMedia(odd), true, odd);
+    assert.deepEqual(await ops.readMedia(odd), clip, odd);
+
     assert.deepEqual(await ops.renameDeck(made.deck.id, '한국어::여행 2'), { id: made.deck.id, name: '한국어::여행 2' });
 
     const removed = await ops.removeNote(bulk[0].noteId);
