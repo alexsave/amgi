@@ -188,7 +188,7 @@ int has_audio_ref(wire_str f) {
   return 0;
 }
 
-/* lyricsParse.js's TRAILING_PUNCTUATION_RE's class: \s and these. */
+/* The class of what was lyricsParse.js's TRAILING_PUNCTUATION_RE: \s and these. */
 static int trailing_punct(uint32_t c) {
   static const uint32_t SET[] = {',', '.', '!', '?', ';', ':', 0x3001, 0x3002, 0xff01, 0xff1f, 0xff0c, 0xff1b, 0xff1a,
                                  0x2026, '"', '\'', 0x201c, 0x201d, 0x2018, 0x2019};
@@ -209,7 +209,7 @@ uint32_t dedupe_key(char *dst, wire_str s) {
   return end ? end : n;
 }
 
-/* lyricsParse.js's parseLyricsPaste(s, { skipSectionMarkers: true }): the lines a paste makes cards
+/* What lyricsParse.js's parseLyricsPaste(s, { skipSectionMarkers: true }) was: the lines a paste makes cards
  * of, in order, each trimmed, without blank lines, without lines that are one [bracketed] marker,
  * and without a line whose dedupe key an earlier line had. Writes at most cap lines to out (they
  * point into s); returns how many there are in all. keys needs room for len bytes. */
