@@ -17,19 +17,16 @@ You need:
 
 - **Anki** (desktop), from [apps.ankiweb.net](https://apps.ankiweb.net).
   Open it once so it creates a profile, then quit it.
-- **Node** 24.12, 25.1, or 26 and later (`node --version`).
-  25.0.x does not work.
 - **LLVM's clang**, for the page, which is C built to WebAssembly (`brew install llvm`; Apple's clang has no WebAssembly target).
   `brew install binaryen brotli` is optional: a smaller build, and its sizes in the build's last line.
 - **The server's C libraries**: sqlite, ICU 78 and OpenSSL from Homebrew (`brew install sqlite icu4c@78 openssl@3`).
-  The server is C, on [cbase](https://github.com/alexsave/cbase), and `npm start` builds it with Xcode's command line tools (`xcode-select --install`).
-- Node is for the build and the tests: the server itself has none.
+  The server is C, on [cbase](https://github.com/alexsave/cbase), and `make start` builds it with Xcode's command line tools (`xcode-select --install`).
+- No Node: building and starting amgi is make, clang and the shell. Node (24.12, 25.1 or 26 and later) is for the tests and the linter only.
 - **A Gemini API key** from [aistudio.google.com/apikey](https://aistudio.google.com/apikey).
   The free tier allows 10 requests per day per model, and a card needs five to seven, so enable billing on the key's project for real use.
 
 ```bash
 git clone --recurse-submodules https://github.com/alexsave/amgi.git && cd amgi
-npm install
 ```
 
 Put the key in a file called `.env.local` at the top of the repo:
@@ -39,11 +36,11 @@ GEMINI_API_KEY=...
 ```
 
 The server reads it strictly (`KEY=VALUE`, no blank around the `=`, a value in quotes loses them), and says which line it could not read.
-Updating an existing clone: `git pull` and then `npm start` as before; `npm start` checks out any submodule a pull added (the server's `cbase/`), and `git submodule update --init --recursive` does the same by hand.
+Updating an existing clone: `git pull` and then `make start`; it checks out any submodule a pull added (the server's `cbase/`), and `git submodule update --init --recursive` does the same by hand.
 Then build it and start it:
 
 ```bash
-npm start
+make start
 ```
 
 1. Open <http://localhost:3000> and press **Install into Anki**.
@@ -98,7 +95,9 @@ See [plusaudio/README.md](plusaudio/README.md) for the options.
 ## Development
 
 ```bash
-npm start       # builds ui/out and server/build/amgi, then serves http://127.0.0.1:3000 (CBASE_LISTEN or PORT to move it)
+make start      # builds ui/out and server/build/amgi, then serves http://127.0.0.1:3000 (CBASE_LISTEN or PORT to move it)
+make build      # the same, not started
+npm install     # once, for the tests and the linter (dev only)
 npm run lint
 npm test        # builds, then the C unit tests (ASan, UBSan), the node:test suites (the server's contract, plusaudio, anki, ui) and the add-on's Python tests
 npm run e2e     # builds, then every browser drive against fresh servers (see .claude/skills/e2e-ui)
@@ -107,7 +106,7 @@ make -C server check   # cbase's whole check with amgi as its product (its gates
 
 The page is C, compiled to WebAssembly by `ui/build.sh`, on [cdom](https://github.com/alexsave/cdom) (the submodule at `cdom/`): the C owns the DOM, one call per change, and there is no JavaScript framework.
 The server is C: `server/build/amgi`, the amgi app (`server/app/`, `server/amgi/`) on [cbase](https://github.com/alexsave/cbase)'s `serve` (the submodule at `cbase/`), with the Anki collection code (`server/collection/`), the rate gate and the Gemini client (gRPC over HTTP/2, cbase's) in the same process, and no Node.
-`npm start` starts it (`server/tools/start.sh`): it listens on `CBASE_LISTEN` (`127.0.0.1:3000` by default, or `PORT`), says `cbase: listening <host>:<port>` on stdout, answers only a `Host` of `127.0.0.1`, `localhost` or `[::1]` at that port (against DNS rebinding), sends no CORS headers, and reads `.env.local` through cbase's `CBASE_ENV_FILE`.
+`make start` starts it (`server/tools/start.sh`): it listens on `CBASE_LISTEN` (`127.0.0.1:3000` by default, or `PORT`), says `cbase: listening <host>:<port>` on stdout, answers only a `Host` of `127.0.0.1`, `localhost` or `[::1]` at that port (against DNS rebinding), sends no CORS headers, and reads `.env.local` through cbase's `CBASE_ENV_FILE`.
 `.claude/skills/e2e-ui/` and `ui/tools/` drive the app in headless Chrome against a fixture Anki collection.
 `anki/test/harness/drive.js` does the same for the card template.
 `test/parity/` holds the server's contract: an HTTP suite over every route and error shape, compared byte for byte with a recording (made from the Node server the C one replaced), and a collection runner that applies one operation list to schema 11 and 18 fixtures through the C core and compares every row afterwards.
