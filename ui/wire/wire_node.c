@@ -18,6 +18,7 @@ IMPORT("num") double js_num(const char *key, uint32_t klen);           /* a numb
 IMPORT("tri") uint32_t js_tri(const char *key, uint32_t klen);         /* true 1, false 0, else 2 */
 IMPORT("str_len") uint32_t js_str_len(const char *key, uint32_t klen); /* a string's UTF-8 bytes (it is kept) */
 IMPORT("str_copy") void js_str_copy(uint8_t *dst);                     /* the kept string's bytes */
+IMPORT("bytes_len") uint32_t js_bytes_len(const char *key, uint32_t klen); /* a Uint8Array's length (it is kept for str_copy) */
 IMPORT("count") uint32_t js_count(const char *key, uint32_t klen);     /* an array's length; 0 if none */
 IMPORT("enter") void js_enter(const char *key, uint32_t klen, uint32_t i); /* the array's item i becomes current */
 IMPORT("leave") void js_leave(void);
@@ -25,6 +26,7 @@ IMPORT("leave") void js_leave(void);
 IMPORT("set_num") void js_set_num(const char *key, uint32_t klen, double v);
 IMPORT("set_bool") void js_set_bool(const char *key, uint32_t klen, uint32_t v);
 IMPORT("set_str") void js_set_str(const char *key, uint32_t klen, const uint8_t *p, uint32_t len);
+IMPORT("set_bytes") void js_set_bytes(const char *key, uint32_t klen, const uint8_t *p, uint32_t len); /* a copy, as a Buffer */
 IMPORT("set_list") void js_set_list(const char *key, uint32_t klen); /* an empty array; items are pushed into it */
 IMPORT("push_str") void js_push_str(const uint8_t *p, uint32_t len);   /* onto the array just made */
 IMPORT("push_obj") void js_push_obj(void);  /* a new object onto it, which becomes current until js_leave */
@@ -85,6 +87,13 @@ static void encode_js(const wire_schema *s) {
     case WT_I64: {
       double v = js_num(k, kl);
       wire_i64(&out, v != v ? 0 : (int64_t)v);
+      break;
+    }
+    case WT_BYTES: {
+      uint32_t n = js_bytes_len(k, kl);
+      uint8_t *p = arena(n ? n : 1);
+      js_str_copy(p);
+      wire_bytes(&out, p, n);
       break;
     }
     case WT_STR: case WT_MODE: {
@@ -159,6 +168,11 @@ static void decode_js(wire_in *in, const wire_schema *s) {
       js_set_str(k, kl, (const uint8_t *)v.p, v.len);
       break;
     }
+    case WT_BYTES: {
+      wire_str v = wire_r_str(in);
+      js_set_bytes(k, kl, (const uint8_t *)v.p, v.len);
+      break;
+    }
     case WT_STRS: case WT_LIST: {
       uint32_t n = wire_r_u32(in); /* a count past the bytes stops at the first read past the end */
       js_set_list(k, kl);
@@ -189,3 +203,4 @@ EXPORT("w_decode") int w_decode(uint32_t kind, const uint8_t *p, uint32_t len) {
   return !in.bad && in.p == in.end;
 }
 EXPORT("w_kind_name") const char *w_kind_name(uint32_t kind) { return wire_kind_name(kind); }
+EXPORT("w_bridge_protocol") uint32_t w_bridge_protocol(void) { return WIRE_BRIDGE_PROTOCOL; }

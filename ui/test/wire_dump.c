@@ -33,6 +33,13 @@ static void print(const wire_schema *s, const uint8_t *in, const char *prefix) {
       printf("%.*s\n", (int)v->len, v->p);
       break;
     }
+    case WT_BYTES: {
+      const wire_str *v = (const wire_str *)at;
+      printf("0x");
+      for (uint32_t k = 0; k < v->len; k++) printf("%02x", (unsigned char)v->p[k]);
+      printf("\n");
+      break;
+    }
     case WT_STRS: {
       const wire_strs *v = (const wire_strs *)at;
       printf("[");

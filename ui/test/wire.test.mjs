@@ -23,7 +23,15 @@ function refusesCutShort(bytes) {
 
 test('every kind in the schema is one the server can name', () => {
   assert.deepEqual(Object.keys(KIND).slice(0, 3), ['error', 'status', 'decks']);
-  assert.equal(Object.keys(KIND).length, 28);
+  assert.equal(Object.keys(KIND).length, 45);
+});
+
+test('bytes (the bridge\'s media): any octets, as the app reads them, and back the same', () => {
+  const bytes = encode('b_media_data', { found: true, data: Buffer.from([0, 1, 255, 10, 0x22]) });
+  assert.equal(read(bytes), 'kind=b_media_data\nfound=1\ndata=0x0001ff0a22\nrewritten=same\n');
+  assert.deepEqual(decode('b_media_data', bytes), { found: true, data: Buffer.from([0, 1, 255, 10, 0x22]) });
+  assert.match(read(encode('b_media_data', { found: false })), /^kind=b_media_data\nfound=0\ndata=0x\n/, 'missing bytes are none');
+  refusesCutShort(bytes);
 });
 
 test('decks: ids past 2^32, UTF-8 names, counts; the app writes back the same bytes', () => {

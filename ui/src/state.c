@@ -201,6 +201,9 @@ static const presentation PRESENT[WIRE_MODES] = {
   [WIRE_MODE_UNSUPPORTED_SCHEMA] = {"Anki: unsupported", "#e07050",
                                     "This collection uses a schema version amgi does not support yet."},
   [WIRE_MODE_UNCONFIGURED] = {"Anki: not set up yet", "#808080", "amgi has not been installed into Anki on this machine yet."},
+  [WIRE_MODE_BRIDGE_OUTDATED] = {"Anki: update amgi", "#e07050",
+                                 "The amgi add-on running in Anki is from a different amgi than this one. Press "
+                                 "Install into Anki again (Settings), then restart Anki."},
   [WIRE_MODE_OTHER] = {"Anki: not set up yet", "#808080", "amgi has not been installed into Anki on this machine yet."},
 };
 const presentation *present(uint32_t m) { return &PRESENT[m < WIRE_MODES ? m : WIRE_MODE_OTHER]; }
