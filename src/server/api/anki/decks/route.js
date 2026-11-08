@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { answer } from '../../../anki/answer';
 import { readSettings } from '../../../../server/anki/settings';
 import { resolveTransport } from '../../../../server/anki/transport';
 import { notReadyResponse } from '../../../../server/anki/respond';
@@ -16,7 +16,7 @@ export async function GET(request) {
   const withCounts = await Promise.all(
     decks.map(async (deck) => ({ ...deck, noteCount: await result.ops.countNotesInDeck(deck.id) })),
   );
-  return NextResponse.json({ mode: result.mode, decks: withCounts });
+  return answer({ mode: result.mode, decks: withCounts });
 }
 
 export async function POST(request) {
@@ -26,12 +26,12 @@ export async function POST(request) {
 
   const body = await request.json();
   const name = (body?.name || '').trim();
-  if (!name) return NextResponse.json({ error: 'a deck name is required' }, { status: 400 });
+  if (!name) return answer({ error: 'a deck name is required' }, { status: 400 });
 
   try {
     const created = await result.ops.createDeck(name);
-    return NextResponse.json({ mode: result.mode, ...created });
+    return answer({ mode: result.mode, ...created });
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+    return answer({ error: error.message }, { status: 400 });
   }
 }

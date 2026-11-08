@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { answer } from '../../../anki/answer';
 import { readSettings } from '../../../../server/anki/settings';
 import { INSTALLED_MESSAGE, collectionDrift, installAddons, installNotetypeDirect, installState } from '../../../../server/anki/install';
 import { discoverProfiles, resolveTransport } from '../../../../server/anki/transport';
@@ -20,13 +20,13 @@ export async function POST(request) {
     : settings.baseDirOverride;
   const { baseDir } = discoverProfiles(override);
   const result = installAddons({ baseDir });
-  if (!result.ok) return NextResponse.json(result, { status: 409 });
+  if (!result.ok) return answer(result, { status: 409 });
 
   // Whichever transport is live right now: only the direct one can write.
   const transport = await resolveTransport(settings);
   const notetype = await installNotetypeDirect({ ops: transport.ops });
   const ready = notetype.created || notetype.existed === true;
-  return NextResponse.json(
+  return answer(
     { ...result, notetypeCreated: notetype.created, needsRestart: !ready, message: ready ? INSTALLED_MESSAGE : result.message },
     { status: 200 },
   );
@@ -49,7 +49,7 @@ export async function GET(request) {
 
   const transport = await resolveTransport(settings);
   const collection = await collectionDrift({ ops: transport.ops });
-  return NextResponse.json({
+  return answer({
     ...state,
     collectionChecked: collection.checked,
     collectionStale: collection.stale,

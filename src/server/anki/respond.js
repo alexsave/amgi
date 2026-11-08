@@ -1,6 +1,6 @@
 'use strict';
 
-const { NextResponse } = require('next/server');
+const { answer } = require('./answer');
 
 // A shared shape for "the transport isn't in a state to do this right now" -
 // used by every /api/anki/* route except /status itself (which reports these
@@ -22,9 +22,7 @@ const MESSAGES = {
 };
 
 function notReadyResponse(mode, extra = {}) {
-  // NextResponse rather than the global Response: the plain Node server (ui/server/serve.mjs) keeps
-  // the answer as an object there and chooses its encoding, JSON or amgi's wire format.
-  return NextResponse.json(
+  return answer(
     { mode, error: MESSAGES[mode] || `Anki collection is not available (${mode}).`, ...extra },
     { status: 409 },
   );

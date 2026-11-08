@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { answer } from '../../../../../../anki/answer';
 import { readSettings } from '../../../../../../../server/anki/settings';
 import { resolveTransport } from '../../../../../../../server/anki/transport';
 import { notReadyResponse } from '../../../../../../../server/anki/respond';
@@ -20,9 +20,9 @@ export async function GET(request, { params }) {
   const notetypeId = Number(url.searchParams.get('notetypeId'));
   const fieldIndex = Number(url.searchParams.get('fieldIndex'));
   if (!Number.isInteger(notetypeId) || !Number.isInteger(fieldIndex)) {
-    return NextResponse.json({ error: 'notetypeId and fieldIndex are required' }, { status: 400 });
+    return answer({ error: 'notetypeId and fieldIndex are required' }, { status: 400 });
   }
 
   const values = await result.ops.existingFieldValues(Number(id), notetypeId, fieldIndex);
-  return NextResponse.json({ mode: result.mode, values });
+  return answer({ mode: result.mode, values });
 }

@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { answer } from '../../../anki/answer';
 import { readSettings } from '../../../../server/anki/settings';
 import { resolveTransport } from '../../../../server/anki/transport';
 import { notReadyResponse } from '../../../../server/anki/respond';
@@ -19,7 +19,7 @@ export async function POST(request) {
   const learningLanguage = body?.learningLanguage;
   const includeCueAudio = body?.includeCueAudio === true;
   if (!userInput || !knownLanguage || !learningLanguage) {
-    return NextResponse.json(
+    return answer(
       { error: 'userInput, knownLanguage and learningLanguage are required' },
       { status: 400 },
     );
@@ -38,8 +38,8 @@ export async function POST(request) {
       includeCueAudio,
       ops: result.ops,
     });
-    return NextResponse.json({ mode: result.mode, ...card });
+    return answer({ mode: result.mode, ...card });
   } catch (error) {
-    return limitResponse(error) || NextResponse.json({ error: error.message }, { status: 500 });
+    return limitResponse(error) || answer({ error: error.message }, { status: 500 });
   }
 }
