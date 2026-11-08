@@ -373,15 +373,16 @@ void settings_answer(uint32_t token, uint32_t status, const uint8_t *p, uint32_t
     wire_installed in;
     answer a = take(&h_answer, WK_INSTALLED, status, p, len, &in);
     install_running = 0;
-    char m[1024];
+    char m[2048];
     uint32_t n;
     if (a.ok) {
+      /* "<message> (<add-ons folder>)" */
       install_ok = 1;
-      n = in.message.len < 900 ? in.message.len : 900;
+      n = in.message.len < 1500 ? in.message.len : 1500;
       __builtin_memcpy(m, in.message.p, n);
       m[n++] = ' ';
       m[n++] = '(';
-      uint32_t d = in.addons_dir.len < 100 ? in.addons_dir.len : 100;
+      uint32_t d = in.addons_dir.len < 500 ? in.addons_dir.len : 500;
       __builtin_memcpy(m + n, in.addons_dir.p, d);
       n += d;
       m[n++] = ')';

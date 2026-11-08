@@ -47,6 +47,7 @@ void listen_click(uint32_t tag);                  /* the last node listens for c
 cd_id listen_as(uint32_t ev, uint32_t tag);       /* the last node listens for ev as tag; its id */
 /* heroicons 24/outline as @heroicons/react renders them: one or two paths, an optional style. */
 void icon(const char *d1, const char *d2, cd_str style);
+void icon_with(const char *d1, const char *d2, cd_str style, cd_str cls); /* with a class (className="icon") */
 extern const char ICON_COG[], ICON_COG_HUB[], ICON_PLUS[], ICON_TRASH[], ICON_X[];
 
 /* ---- event tags: a module's id in the top byte, its own action and index below ---- */
@@ -148,6 +149,7 @@ extern cd_id app_content;
 void go(const char *path, uint32_t len);
 void go_deck(int64_t id);
 void page_show(void);                     /* the screen for route, built again */
+cd_id page_root(void);                    /* the screen's root element, or 0 */
 
 /* ---- the screens and parts: each module's hooks ---- */
 void decks_build(void);                   /* DeckList, under page.root */
@@ -155,6 +157,7 @@ void decks_rows(void);                    /* its rows, when decks change */
 void decks_forget(void);
 void decks_click(uint32_t tag);
 void decks_event(const cd_event_rec *e, uint32_t tag);
+void decks_answer(uint32_t token, uint32_t status, const uint8_t *p, uint32_t len);
 
 void settings_build(void);
 void settings_after(void);                /* after the page region closed */
@@ -178,6 +181,7 @@ enum { TONE_CUE, TONE_TARGET };
 /* Builds a chip (nothing when filename is empty) and returns its slot, or -1. */
 int32_t chip_build(const char *filename, uint32_t flen, const char *label, uint32_t tone);
 void chip_forget(int32_t slot);           /* its node went with a region */
+cd_id chip_node(int32_t slot);
 void chip_event(uint32_t tag);
 void chip_answer(uint32_t token, uint32_t status, const uint8_t *p, uint32_t len);
 void chips_audio_loaded(uint32_t token, uint32_t clip);
@@ -188,6 +192,38 @@ void form_forget(void);
 void form_event(const cd_event_rec *e, uint32_t tag);
 void form_notetypes_known(void);
 void form_langs_changed(const lang_pair *langs);
+
+/* FirstRun (firstrun.c), shown as all of parent's children. */
+void firstrun_show(cd_id parent);
+void firstrun_forget(void);
+void firstrun_event(uint32_t tag);
+void firstrun_answer(uint32_t token, uint32_t status, const uint8_t *p, uint32_t len);
+
+/* CardPanel (panel.c), in the open row of the deck page. */
+void panel_build(int64_t id, const wire_strs *fields, const text *names, uint32_t nnames, const lang_pair *langs);
+void panel_after(void);
+void panel_forget(void);
+void panel_event(const cd_event_rec *e, uint32_t tag);
+void panel_answer(uint32_t token, uint32_t status, const uint8_t *p, uint32_t len);
+void deck_note_removed(int64_t id);       /* the panel deleted its note */
+
+/* StarterDeck (starter.c), last in parent; TemplateUpdate (template.c), first in .app-content. */
+void starter_show(cd_id parent);
+void starter_forget(void);
+void starter_event(uint32_t tag);
+void starter_answer(uint32_t token, uint32_t status, const uint8_t *p, uint32_t len);
+void template_mode_changed(void);
+void template_event(uint32_t tag);
+void template_answer(uint32_t token, uint32_t status, const uint8_t *p, uint32_t len);
+
+/* A confirmation in the page (modal.c), in place of window.confirm. */
+void confirm_ask(const char *title, const char *body, uint32_t blen, const char *note, const char *yes,
+                 void (*then)(void *), void *ctx);
+void confirm_close(void);
+void modal_event(const cd_event_rec *e, uint32_t tag);
+
+/* After the next decks answer, open deck id (a deck just made: the list must know it first). */
+void open_after_refresh(int64_t id);
 
 /* Store tokens: each module's top byte, as event tags. */
 #define STORE_TOKEN(module, n) ((uint32_t)(module) << 24 | (uint32_t)(n))
