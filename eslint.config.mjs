@@ -1,4 +1,4 @@
-import next from 'eslint-config-next/core-web-vitals';
+import js from '@eslint/js';
 import globals from 'globals';
 
 // The `globals` package ships one key with a trailing space
@@ -10,25 +10,21 @@ const clean = (source) =>
 
 const config = [
   {
-    ignores: ['.next/**', 'node_modules/**'],
+    ignores: ['node_modules/**', 'ui/out/**', 'cdom/**', '.e2e/**', '.next/**', 'plusaudio/vendor/**', 'archives/**'],
   },
-  ...next,
+  js.configs.recommended,
   {
-    // no-undef, which next/core-web-vitals leaves off.
-    //
-    // It was off because that preset is built for projects where TypeScript
-    // does this job, and this one is plain JavaScript, so nothing was doing
-    // it at all. A component was shipped using a `presetText` prop it had
-    // never destructured: lint passed, `next build` compiled it happily, and
-    // it threw "Can't find variable: presetText" the first time anyone
-    // pasted more than one line. A typo in an identifier is exactly the bug
-    // a linter should be catching before a person does.
-    files: ['src/**/*.js', 'src/**/*.jsx'],
+    // no-undef is the rule that matters most in plain JavaScript: nothing else catches a typo in an
+    // identifier before a person does.
+    files: ['**/*.js', '**/*.mjs', '**/*.cjs'],
     languageOptions: {
-      globals: { ...clean(globals.browser), ...clean(globals.node), ...clean(globals.jest), React: 'readonly' },
+      ecmaVersion: 'latest',
+      sourceType: 'module',
+      globals: { ...clean(globals.browser), ...clean(globals.node) },
     },
     rules: {
       'no-undef': 'error',
+      'no-unused-vars': ['error', { args: 'none', caughtErrors: 'none' }],
     },
   },
 ];
