@@ -7,7 +7,7 @@ Two things live in this one add-on, both about reaching a live Anki collection w
 1. **Fill missing audio** (`Tools > amgi: Fill missing audio...`) - adds audio straight into your live collection.
    No exporting a `.apkg`, running a script, and importing the result back.
    Pick a deck, tell it which field to read and which field to write the clip into, and it fills in whatever is missing.
-2. **A local HTTP bridge** (`Tools > amgi: Bridge status...`) - lets the amgi web UI read and write this same collection while Anki is running, the same way it reads and writes a closed collection's file directly (`plusaudio/lib/collection/`) when Anki is closed.
+2. **A local HTTP bridge** (`Tools > amgi: Bridge status...`) - lets the amgi web UI read and write this same collection while Anki is running, the same way it reads and writes a closed collection's file directly (the server's `server/collection/`) when Anki is closed.
    Off by default; see "Local HTTP bridge" below for what it does and its security model.
 
 This add-on used to be called `amgi_audio` and only did the first of these.
