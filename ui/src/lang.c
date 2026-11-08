@@ -33,7 +33,8 @@ void deck_langs_load(int64_t deck_id) {
   char key[64];
   loading_deck = deck_id;
   loading_seq = (loading_seq + 1) & 0xffff;
-  cd_store_get(STORE_TOKEN(M_DECK, LANG_TOKEN << 16 | loading_seq), key, key_for(key, deck_id), CD_STORE_DEADLINE_MS);
+  cd_store_get(STORE_TOKEN(STORE_DECK_LANGS, LANG_TOKEN << 16 | loading_seq), key, key_for(key, deck_id),
+               CD_STORE_DEADLINE_MS);
 }
 
 static int copy_code(char *dst, const char *p, uint32_t n) {
@@ -43,7 +44,7 @@ static int copy_code(char *dst, const char *p, uint32_t n) {
   return 1;
 }
 
-/* cd_on_store for M_DECK (shell.c routes it here). */
+/* cd_on_store for STORE_DECK_LANGS (shell.c routes it here). */
 void deck_langs_got(uint32_t token, const uint8_t *p, int32_t len) {
   if ((token & 0xffff) != loading_seq || loading_deck < 0) return;
   lang_pair pair = {"en", "ko"};
@@ -66,5 +67,5 @@ void deck_langs_save(int64_t deck_id, const lang_pair *p) {
   __builtin_memcpy(value, p->known, k);
   value[k] = ' ';
   __builtin_memcpy(value + k + 1, p->learning, l);
-  cd_store_put(STORE_TOKEN(M_DECK, 2 << 16), key, key_for(key, deck_id), value, k + 1 + l);
+  cd_store_put(STORE_TOKEN(STORE_DECK_LANGS, 2 << 16), key, key_for(key, deck_id), value, k + 1 + l);
 }
