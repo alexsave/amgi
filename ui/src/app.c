@@ -559,8 +559,7 @@ static void settings_build(void) {
 static void settings_scan_view(void) {
   if (!page.shown || route != R_SETTINGS) return;
   cd_set_text(scan_text, scan_loading ? CD_LIT("Scanning…") : CD_LIT("Scan for profiles"));
-  /* React also disables the button while it scans; cdom cannot take an attribute away (a gap), so
-   * the click is ignored instead (cd_on_event). */
+  cd_set_bool(scan_button, CD_LIT("disabled"), scan_loading);
   cd_region_hide(&scan_out);
   if (scan_loading) return;
   int none = scan_exists == 1 && !nprofiles, missing = scan_exists == 0;
