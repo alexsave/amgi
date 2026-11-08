@@ -15,12 +15,14 @@
 // otherwise has none.
 //
 // What is in here: prompts (via cardPrompts.ts), schemas, assembly (via
-// cardText.ts), the corrective retry for unspeakable text, the TTS voice
-// instructions, and the transcribe-then-judge validation loop.
+// cardText.ts), the corrective retry for unspeakable text, and the
+// synthesise-transcribe-judge validation loop. The synthesiser itself is
+// Gemini's (geminiSpeech.ts), injected like the OpenAI client.
 //
 // What is NOT in here, and must stay out: authentication, quota, storage,
 // the database, environment variables, and any runtime-specific API. The
-// OpenAI client and the model ids are injected (see CardGenerationContext)
+// OpenAI client, the speech synthesiser and the model ids are injected (see
+// CardGenerationContext)
 // so a test can drive the whole policy without a key or a network. Keeping
 // the module free of npm: specifiers is what lets Node require it directly,
 // with no build step and so no artifact that can drift from its source.
@@ -46,6 +48,7 @@ import {
     buildUnspeakableRetryPrompt,
 } from "./cardPrompts.ts";
 import type { CardModels } from "./models.ts";
+import type { SpeechSynthesizer } from "./geminiSpeech.ts";
 
 // ========================
 // THE INJECTED CLIENT
@@ -53,7 +56,8 @@ import type { CardModels } from "./models.ts";
 //
 // Structural types rather than the SDK's own: the retired edge function ran
 // npm:openai@6, the CLI runs the Node package, and a test passes neither.
-// Only the four calls this module makes are described.
+// Only the three calls this module makes are described. Speech synthesis is
+// not one of them: it is Gemini's, behind SpeechSynthesizer.
 
 interface ChatToolCall {
     type?: string;
@@ -84,9 +88,6 @@ export interface OpenAIClientLike {
         };
     };
     audio: {
-        speech: {
-            create(body: RequestBody): Promise<{ arrayBuffer(): Promise<ArrayBuffer> }>;
-        };
         transcriptions: {
             create(body: RequestBody): Promise<{ text?: string }>;
         };
@@ -107,6 +108,8 @@ const CONSOLE_LOG: GenerationLog = {
 export interface CardGenerationContext {
     openai: OpenAIClientLike;
     models: CardModels;
+    /** Needed only by generateCardAudio; card text never touches it. */
+    speech?: SpeechSynthesizer;
     log?: GenerationLog;
 }
 
@@ -117,91 +120,6 @@ function logOf(ctx: CardGenerationContext): GenerationLog {
 /** Thrown values are not always Errors, and the failure text is user-visible. */
 function messageOf(error: unknown): string {
     return error instanceof Error ? error.message : String(error);
-}
-
-// ========================
-// TTS INSTRUCTIONS
-// ========================
-// The card text prompts live in ./cardPrompts.ts; what is here is how the
-// voice should read what those prompts produce. The two are coupled:
-// LANGUAGE_VARIETIES in cardText.ts promises the learner the same variety
-// these instructions ask the voice for.
-
-/**
- * Utility function to replace placeholders in template strings
- * @param template The template string with {placeholders}
- * @param values Object containing placeholder:value pairs
- * @returns String with all placeholders replaced with their values
- */
-function replacePlaceholders(template: string, values: Record<string, string>): string {
-    return Object.entries(values).reduce(
-        (result, [key, value]) => result.replace(new RegExp(`\\{${key}\\}`, 'g'), value || ''),
-        template
-    );
-}
-
-// Base TTS instruction template
-const TTS_INSTRUCTIONS_TEMPLATE = `Speak like a native speaker of {language}. Use proper pronunciation and intonation for language learning purposes.`;
-
-// Language-specific TTS instruction templates
-const LANGUAGE_TTS_INSTRUCTIONS: Record<string, string> = {
-    // Romance languages
-    es: `Habla como un nativo del español con pronunciación clara. Usa patrones de entonación y ritmo castellanos adecuados. Enfatiza el sonido de la 'r' vibrante donde corresponda y mantén los patrones de acentuación correctos en las sílabas.`,
-
-    fr: `Parlez comme un locuteur natif français avec une prononciation authentique. Faites particulièrement attention aux voyelles nasales, à la liaison entre les mots, et aux modèles corrects de rythme et d'intonation. Utilisez les sons 'r' français appropriés et maintenez la qualité musicale de la parole française.`,
-
-    pt: `Fale como um nativo de português com pronúncia adequada. Use entonação apropriada para perguntas e afirmações. Preste atenção aos sons nasais e ao ritmo adequado do português europeu.`,
-
-    it: `Parla come un madrelingua italiano con intonazione melodica. Enfatizza le consonanti doppie (geminazione) dove appropriato, e usa la qualità musicale e il ritmo propri del discorso italiano autentico. Articola chiaramente con i corretti schemi di accentuazione.`,
-
-    // Germanic languages
-    en: `Speak in clear, standard English with proper pronunciation. Use natural intonation patterns and rhythm with appropriate stress on syllables. Articulate clearly without exaggeration.`,
-
-    de: `Sprechen Sie wie ein deutscher Muttersprachler mit korrekter Aussprache. Achten Sie besonders auf Umlaute, den 'ch'-Laut und den richtigen Rhythmus der deutschen Sprache. Verwenden Sie angemessene Intonation für Fragen und Aussagen.`,
-
-    // Slavic languages
-    ru: `Говорите как носитель русского языка с правильным произношением. Обратите особое внимание на мягкие и твердые согласные, правильные модели ударения, которые могут изменять значение слов, и редуцированные гласные звуки. Поддерживайте соответствующий ритм и интонацию русской речи.`,
-
-    // East Asian languages
-    zh_cn: `请像母语为普通话的人一样发音，正确表达四声。特别注意能改变词义的声调质量。使用自然的普通话语言节奏和适当的停顿。`,
-
-    zh_hk: `請像以廣東話為母語的人一樣發音，正確表達六聲。請特別注意聲調質量和正確的廣東話發音。使用自然的廣東話語言節奏和適當的口語表達方式。`,
-
-    ja: `日本語のネイティブスピーカーのように、適切なピッチアクセントで話してください。モーラ拍のリズムに注意し、適切なイントネーションパターンを維持してください。母音を明確に発音し、適切な日本語の音声を使用してください。`,
-
-    ko: `한국어 원어민처럼 정확한 발음으로 말하세요. 받침(종성), 모음 길이, 적절한 억양 패턴에 특히 주의하세요. 한국어 발화의 자연스러운 리듬을 유지하세요.`,
-
-    // Southeast Asian languages
-    vi: `Hãy nói như một người bản xứ tiếng Việt với cách phát âm chính xác của sáu thanh điệu. Đặc biệt chú ý đến chất lượng thanh điệu có thể thay đổi ý nghĩa của từ. Sử dụng nhịp điệu tự nhiên của tiếng Việt với các khoảng dừng thích hợp.`,
-
-    th: `พูดเหมือนคนไทยที่มีการออกเสียงที่ถูกต้องของเสียงวรรณยุกต์ทั้งห้า ให้ความสนใจเป็นพิเศษกับคุณภาพเสียงวรรณยุกต์ ความยาวของสระ และพยัญชนะไทยที่เป็นเอกลักษณ์ รักษาจังหวะการพูดภาษาไทยที่เป็นธรรมชาติด้วยการหยุดที่เหมาะสม`,
-
-    id: `Berbicaralah seperti penutur asli bahasa Indonesia dengan pengucapan yang tepat. Perhatikan khusus pada bunyi vokal dan pertahankan pola tekanan yang relatif merata yang menjadi ciri khas bahasa Indonesia. Gunakan intonasi alami untuk pernyataan dan pertanyaan.`,
-
-    // South Asian languages
-    hi: `हिंदी के मूल वक्ता की तरह सही उच्चारण के साथ बोलें। मूर्धन्य ध्वनियों, महाप्राण व्यंजनों और दंत्य और मूर्धन्य व्यंजनों के बीच के अंतर पर विशेष ध्यान दें। हिंदी भाषा के स्वाभाविक लय और स्वरोत्तार को बनाए रखें।`,
-
-    ur: `اردو کے مقامی خطیب کی طرح صحیح تلفظ کے ساتھ بولیں۔ گٹکی آوازوں، سانس والے متخرجوں، اور مناسب دباؤ کے پیٹرن پر خصوصی توجہ دیں۔ اردو تقریر کی قدرتی لے اور آہنگ کو برقرار رکھیں۔`,
-
-    // Middle Eastern languages
-    ar: `تحدث مثل متحدث اللغة العربية الفصحى الحديثة مع النطق الصحيح. انتبه بشكل خاص إلى الأصوات الحلقية والمفخمة، وطول الحركات المناسب، وأنماط النبر المناسبة. حافظ على إيقاع وتنغيم الكلام العربي الطبيعي.`,
-
-    tr: `Doğru telaffuzla bir Türk anadili konuşmacısı gibi konuşun. Özellikle ünlü uyumuna, genellikle son hecede olan doğru vurguya ve Türkçe'ye özgü seslere dikkat edin. Doğal Türkçe konuşma ritmi ve tonlamasını koruyun.`
-};
-
-/**
- * Gets the appropriate TTS instructions for a specific language
- * @param language Language code (e.g., 'en', 'es', 'fr')
- * @returns Specialized instructions if available, or generic instructions with the language name
- */
-export function getTtsInstructions(language: string): string {
-    const languageCode = language.toLowerCase().replace(/-/g, '_');
-
-    if (LANGUAGE_TTS_INSTRUCTIONS[languageCode]) {
-        return LANGUAGE_TTS_INSTRUCTIONS[languageCode];
-    }
-
-    return replacePlaceholders(TTS_INSTRUCTIONS_TEMPLATE, { language });
 }
 
 // ========================
@@ -216,8 +134,7 @@ export function getTtsInstructions(language: string): string {
 // Language codes are not asked for any more. They are decided by the request -
 // the front is the deck's known language and the back its learning language,
 // by construction - so asking the model invited a "Korean" or "ko-KR" that
-// would have silently degraded the TTS instructions and the transcription
-// language hint.
+// would have silently degraded the transcription language hint.
 //
 // Written as JSON Schema rather than built from zod, because zod would be an
 // npm: import and this module has to load in Node too. These objects are
@@ -436,7 +353,8 @@ async function judgeAudio(
                 role: "user",
                 content: [
                     { type: "text", text: `Expected phrase (language: ${language}): "${text}"${readingLine}\nJudge this audio:` },
-                    { type: "input_audio", input_audio: { data: arrayBufferToBase64(audioBuffer), format: "mp3" } }
+                    // Every clip is WAV (geminiSpeech.ts guarantees it).
+                    { type: "input_audio", input_audio: { data: arrayBufferToBase64(audioBuffer), format: "wav" } }
                 ]
             }
         ],
@@ -456,10 +374,6 @@ async function judgeAudio(
         reason: String(verdict.reason ?? '')
     };
 }
-
-// Retrying with the same voice tends to repeat a systematic mispronunciation;
-// rotating voices lets retries actually explore.
-const TTS_VOICES = ["alloy", "nova", "echo"] as const;
 
 export interface CardAudioRequest {
     /** Card text as the learner sees it; annotations are stripped before synthesis. */
@@ -491,26 +405,38 @@ export interface CardAudioRequest {
  * audio to be right about. So for those languages the transcript is not
  * allowed to be the last word: when generation gave us the intended reading,
  * the clip always goes to the audio judge, which is told the reading and
- * listens for it. Two honest gaps remain, and neither is silent:
+ * listens for it. (The reading never reaches the synthesiser: Gemini TTS
+ * has no instructions field, and text added to the input is read aloud.)
+ * Two honest gaps remain, and neither is silent:
  *   - Audio regenerated for an existing card (the modal's audio button, the
  *     starter-deck backfill, every clip plusaudio adds to a deck it did not
  *     write) carries no reading, because no card column stores one. Those
  *     fall back to the transcript check and are logged.
- *   - The judge is a model from the same vendor as the synthesiser, so a
- *     systematic mispronunciation both share would pass.
+ *
+ * Each attempt draws a voice from the synthesiser's pool, never the voice of
+ * the attempt before it: the same voice tends to repeat the same
+ * mispronunciation.
  *
  * Fails closed: if no attempt produces audio that passes validation, throws.
+ * A failure no retry can fix (SpeechUnavailableError: the day's Gemini quota
+ * is spent, the key is refused) is thrown at once, with its own message, so
+ * the person sees what to do instead of "failed after 3 attempts".
+ *
+ * Returns a complete WAV file.
  */
 export async function generateCardAudio(
     ctx: CardGenerationContext,
     { text, language, reading = '', maxAttempts = 3 }: CardAudioRequest,
 ): Promise<ArrayBuffer> {
     const log = logOf(ctx);
+    const speech = ctx.speech;
+    if (!speech) throw new Error('generateCardAudio needs a speech synthesiser in its context');
     const spoken = spokenForm(text);
     // A reading is only meaningful where the script hides one.
     const expectedReading = readingIsAmbiguous(language) ? reading.trim() : '';
     const readingMustBeHeard = expectedReading.length > 0;
     let lastFailure = '';
+    let voice: string | null = null;
 
     if (!readingMustBeHeard && readingIsAmbiguous(language)) {
         log.warn(`No expected reading for "${spoken}" (${language}); the transcript check cannot tell which reading was spoken`);
@@ -518,23 +444,14 @@ export async function generateCardAudio(
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
         try {
-            const audioMp3 = await ctx.openai.audio.speech.create({
-                model: ctx.models.tts,
-                voice: TTS_VOICES[(attempt - 1) % TTS_VOICES.length],
-                input: spoken,
-                // Steering the synthesiser with the reading is cheaper than
-                // catching it afterwards, and it helps on exactly the words
-                // where the check below is weakest.
-                instructions: readingMustBeHeard
-                    ? `${getTtsInstructions(language)}\n\nRead the text with exactly this pronunciation: ${expectedReading}`
-                    : getTtsInstructions(language)
-            });
-
-            const audioBuffer = await audioMp3.arrayBuffer();
+            voice = speech.pickVoice(voice);
+            // The verbatim spoken text and nothing else: anything added to
+            // it (a style note, the reading) is read aloud by the model.
+            const audioBuffer = await speech.synthesize({ text: spoken, language, voice });
 
             const transcription = await ctx.openai.audio.transcriptions.create({
                 model: ctx.models.transcribe,
-                file: new File([audioBuffer], 'audio.mp3', { type: 'audio/mpeg' }),
+                file: new File([audioBuffer], 'audio.wav', { type: 'audio/wav' }),
                 // gpt-transcribe replaces the singular `language` field
                 // gpt-4o-mini-transcribe took with a `languages` array (see
                 // models.ts) - confirmed against OpenAI's speech-to-text
@@ -542,7 +459,9 @@ export async function generateCardAudio(
                 languages: [transcriptionLanguage(language)],
             });
             const transcript = transcription.text ?? '';
-            const transcriptMatches = normalizeForComparison(transcript) === normalizeForComparison(spoken);
+            // By pronunciation for Korean, where liaison makes different
+            // spellings sound the same (see normalizeForComparison).
+            const transcriptMatches = normalizeForComparison(transcript, language) === normalizeForComparison(spoken, language);
 
             if (transcriptMatches && !readingMustBeHeard) {
                 return audioBuffer;
@@ -578,8 +497,9 @@ export async function generateCardAudio(
             }
 
             lastFailure = `judge heard: "${verdict.heard}"; transcript: "${transcript}"; reason: ${verdict.reason}`;
-            log.warn(`Audio validation attempt ${attempt}/${maxAttempts} failed for "${spoken}" (${language}); ${lastFailure}`);
+            log.warn(`Audio validation attempt ${attempt}/${maxAttempts} (voice ${voice}) failed for "${spoken}" (${language}); ${lastFailure}`);
         } catch (audioError) {
+            if ((audioError as { fatal?: boolean })?.fatal === true) throw audioError;
             lastFailure = messageOf(audioError);
             log.error(`Audio generation attempt ${attempt}/${maxAttempts} failed: ${lastFailure}`);
         }
