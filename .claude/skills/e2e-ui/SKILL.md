@@ -54,7 +54,7 @@ ui/build.sh && ui/tools/e2e.sh          # or: npm run e2e
 ```
 
 `ui/tools/e2e.sh` starts what the drives need, each on a free port, and stops it all on exit: the fake Gemini and three app servers (`ui/server/serve.mjs`) that differ only in their key - any key (the screens), none (the starter deck is offered), and one pointed at the fake.
-`AMGI_SERVER=<executable>` runs the drives against another server instead (from the repo root, `PORT=0`, printing the same `amgi on <url>` line).
+`AMGI_SERVER=c` runs the drives against the C server (`server/build/amgi serve`, build it with `make -C server build/amgi`; it is started with `CBASE_LISTEN=127.0.0.1:0` and its `cbase: listening <host>:<port>` line is read for the port), and `AMGI_SERVER=<executable>` against any other (from the repo root, `PORT=0`, printing the same `amgi on <url>` line).
 Then `ui/tools/drives.sh` runs the drives one at a time, one headless Chrome each, every one on a fresh copy of the fixture, and prints each drive's `ok` count and every `FAIL` line:
 
 - `shoot.mjs`: the deck list, settings, a deck, its language picker, paging through a long deck, the back button, and first-paint timings.
