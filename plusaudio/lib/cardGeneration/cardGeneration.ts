@@ -197,14 +197,50 @@ function structuredRequest(
     };
 }
 
-/** Parses a structured answer, or says which format the model failed to fill. */
-function parseStructured<T>(text: string, format: StructuredResponseFormat): T {
-    if (!text) throw new Error(`Failed to parse ${format.name} from model response`);
+export type ReadStructured<T> = { ok: true; fields: T } | { ok: false; detail: string };
+
+/**
+ * A structured answer checked against its format, or what is wrong with it.
+ * The service is asked for the schema, but what comes back is still the
+ * model's text, so nothing is trusted until it is checked here: every
+ * declared field present (null counts as missing), of the declared type, and
+ * inside its enum when it has one. An undeclared extra is dropped. Strings
+ * are kept as written (assembleCard owns their shape).
+ */
+export function readStructured<T>(text: string, format: StructuredResponseFormat): ReadStructured<T> {
+    if (!text) return { ok: false, detail: "no answer" };
+    let parsed: unknown;
     try {
-        return JSON.parse(text) as T;
+        parsed = JSON.parse(text);
     } catch {
-        throw new Error(`Failed to parse ${format.name} from model response`);
+        return { ok: false, detail: `not JSON: "${text.slice(0, 80)}"` };
     }
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+        return { ok: false, detail: `not an object: ${Array.isArray(parsed) ? "a list" : parsed === null ? "null" : `a ${typeof parsed}`}` };
+    }
+    const answer = parsed as Record<string, unknown>;
+    const properties = format.schema.properties as Record<string, { type: string; enum?: readonly string[] }>;
+    const fields: Record<string, unknown> = {};
+    for (const [key, field] of Object.entries(properties)) {
+        // Own keys only: an inherited "toString" is not a field the model sent.
+        const value = Object.hasOwn(answer, key) ? answer[key] : undefined;
+        if (value === undefined || value === null) return { ok: false, detail: `${key} is missing` };
+        if (typeof value !== field.type) {
+            return { ok: false, detail: `${key} is ${Array.isArray(value) ? "a list" : `a ${typeof value}`}, not a ${field.type}` };
+        }
+        if (field.enum && !field.enum.includes(value as string)) {
+            return { ok: false, detail: `${key} is "${String(value).slice(0, 40)}", not one of ${field.enum.join(", ")}` };
+        }
+        fields[key] = value;
+    }
+    return { ok: true, fields: fields as T };
+}
+
+/** A checked structured answer, or an error naming the format and what was wrong. */
+function parseStructured<T>(text: string, format: StructuredResponseFormat): T {
+    const read = readStructured<T>(text, format);
+    if (!read.ok) throw new Error(`Failed to parse ${format.name} from model response: ${read.detail}`);
+    return read.fields;
 }
 
 /**

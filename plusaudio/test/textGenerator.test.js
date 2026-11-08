@@ -79,6 +79,15 @@ test('an answer that is not JSON fails with the format named, not a parse trace'
   );
 });
 
+test('an answer outside the schema fails with the format and the field named, and makes no card', async () => {
+  const gemini = await fakeGemini({ text: { known_text: 'date', learning_text: '날짜', sense_tag: '', register: 'neutral', spoken_reading: '' } });
+
+  await assert.rejects(
+    generatorWith(gemini)({ userInput: 'date', knownLanguage: 'en', learningLanguage: 'ko' }),
+    { message: /^Failed to parse flashcard_generation from model response: register is "neutral", not one of casual, polite, formal$/ },
+  );
+});
+
 test('thought parts are not mistaken for the answer', async () => {
   const gemini = await fakeGemini({ text: answer({ candidates: [{ content: { parts: [
     { text: 'Let me think about register...', thought: true },
