@@ -306,3 +306,57 @@ describe(`a slow add-on: reads wait 1500 ms, writes the add-on's 30000 (${BRIDGE
   });
 });
 
+describe(`the token on the wire, as fetch sends it (${BRIDGE_IMPL})`, () => {
+  /** A stand-in add-on that answers only the token `wanted`, and remembers every token it got. */
+  async function tokenAddon(wanted) {
+    const seen = [];
+    const server = http.createServer((req, res) => {
+      seen.push(req.headers['x-amgi-bridge-token']);
+      const ok = req.headers['x-amgi-bridge-token'] === wanted;
+      res.writeHead(ok ? 200 : 401, { 'Content-Type': WIRE_MIME, [PROTOCOL_HEADER]: String(BRIDGE_PROTOCOL) });
+      res.end(ok ? encode('b_status', { profileOpen: true, profileName: 'p', collectionOpen: true, schemaVersion: 18, ankiVersion: 'a', qtVersion: 'q' })
+        : encode('b_error', { error: 'invalid token' }));
+    });
+    await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+    return { url: `http://127.0.0.1:${server.address().port}`, seen, close: () => new Promise((resolve) => server.close(resolve)) };
+  }
+
+  test('a token with CR, LF or NUL, or past U+00FF, is refused before anything is sent: no header is injected', async () => {
+    const addon = await tokenAddon('tok');
+    try {
+      for (const token of ['tok\r\nX-Evil: 1', 'a\nb', 'a\0b', 'ㄱ', 'tokㄱ']) {
+        assert.equal(await probeBridge(addon.url, token), null, JSON.stringify(token));
+      }
+      assert.deepEqual(addon.seen, [], 'the add-on saw no request at all');
+    } finally {
+      await addon.close();
+    }
+  });
+
+  test('a URL loses its tabs and line breaks before it is used, as the URL parser drops them', async () => {
+    const addon = await tokenAddon('tok');
+    try {
+      const url = addon.url.replace('127.0.0.1', '127.0.\r\n0.1');
+      assert.ok((await probeBridge(`${url}/\t`, 'tok'))?.ops, 'the cleaned URL answers');
+      assert.deepEqual(addon.seen, ['tok'], 'one request, nothing injected');
+    } finally {
+      await addon.close();
+    }
+  });
+
+  test('a token is trimmed of HTTP whitespace and sent as Latin-1 bytes', async () => {
+    const plain = await tokenAddon('tok');
+    const latin = await tokenAddon('é');
+    try {
+      assert.ok((await probeBridge(plain.url, ' \ttok\r\n'))?.ops, 'the trimmed token answers');
+      assert.ok((await probeBridge(plain.url, '\r\ntok'))?.ops, 'a line break at the start is trimmed, not refused');
+      assert.deepEqual(plain.seen, ['tok', 'tok']);
+      assert.ok((await probeBridge(latin.url, 'é'))?.ops, 'é goes as the one byte 0xE9');
+      assert.deepEqual(latin.seen, ['é']);
+    } finally {
+      await plain.close();
+      await latin.close();
+    }
+  });
+});
+
