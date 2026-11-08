@@ -123,6 +123,36 @@ static void with_collection(cx *c, str path, conn_fn fn, void *arg) {
   if (failed) cx_rethrow(c);
 }
 
+/* A write: withCollection, in one BEGIN IMMEDIATE ... COMMIT, rolled back on any error, so a note,
+ * its cards, nextPos and col.mod land together or not at all (the PR #30 review, finding 3: the
+ * JavaScript wrote them as separate autocommit statements). The one owner of a write transaction:
+ * no body begins or commits its own. A collection Anki takes in the meantime is "locked", as the
+ * statements would have been. */
+typedef struct { conn *k; conn_fn fn; void *arg; } write_args;
+static void write_body(cx *c, void *arg) {
+  write_args *w = arg;
+  conn_exec(c, w->k, "BEGIN IMMEDIATE");
+  w->fn(c, w->k, w->arg);
+  conn_exec(c, w->k, "COMMIT");
+}
+static void with_write(cx *c, str path, conn_fn fn, void *arg) {
+  conn k;
+  int schema;
+  int open = conn_open(c, path, &k, &schema);
+  if (open != OPEN_OK) not_ready(c, open);
+  k.schema = schema;
+  write_args w = {&k, fn, arg};
+  int failed = cx_try(c, write_body, &w);
+  if (failed) {
+    col_err saved = c->err;
+    /* A rollback that fails itself loses nothing: closing the connection rolls back too. */
+    sqlite3_exec(k.db, "ROLLBACK", NULL, NULL, NULL);
+    c->err = saved;
+  }
+  conn_close(&k);
+  if (failed) cx_rethrow(c);
+}
+
 /* _withBackup: probe (a lock is returned as it is, never copied), back up if this change needs a
  * fresh copy, then the change, and the ledger told how the file looks after it whatever happened. */
 typedef void (*path_fn)(cx *, str, void *);
@@ -245,7 +275,7 @@ static void nt_create_conn(cx *c, conn *k, void *arg) {
 static void nt_create_path(cx *c, str path, void *arg) {
   nt_create_args *n = arg;
   spec_validate(c, n->spec);
-  with_collection(c, path, nt_create_conn, arg);
+  with_write(c, path, nt_create_conn, arg);
   /* The note type's own media, after the rows, and only when it really was made. */
   if (n->out->created) {
     str dir = media_dir_for(c, path);
@@ -265,7 +295,7 @@ static void create_conn(cx *c, conn *k, void *arg) {
   create_args *cr = arg;
   deck_create(c, k, cr->name, cr->out);
 }
-static void create_path(cx *c, str path, void *arg) { with_collection(c, path, create_conn, arg); }
+static void create_path(cx *c, str path, void *arg) { with_write(c, path, create_conn, arg); }
 static void create_fn(cx *c, str path, void *arg) { with_backup(c, path, create_path, arg); }
 int col_create_deck(arena *a, str path, str name, col_deck_made *out, col_err *err) {
   memset(out, 0, sizeof *out);
@@ -295,16 +325,20 @@ static void add_conn(cx *c, conn *k, void *arg) {
       note_insert(c, k, nts, nnt, &ad->notes[i], &ad->out[i]);
       continue;
     }
-    /* One bad note is reported in its own slot; the rest go on. */
+    /* One bad note is reported in its own slot; the rest go on. Each note is its own savepoint, so
+     * one that fails part way (its note in, a card refused) leaves nothing of itself. */
     one_args o = {k, nts, nnt, &ad->notes[i], &ad->out[i]};
+    conn_exec(c, k, "SAVEPOINT amgi_note");
     if (cx_try(c, one_body, &o) < 0) {
       memset(&ad->out[i], 0, sizeof ad->out[i]);
       ad->out[i].error = c->err.message;
+      conn_exec(c, k, "ROLLBACK TO amgi_note");
     }
+    conn_exec(c, k, "RELEASE amgi_note");
   }
   touch(c, k);
 }
-static void add_path(cx *c, str path, void *arg) { with_collection(c, path, add_conn, arg); }
+static void add_path(cx *c, str path, void *arg) { with_write(c, path, add_conn, arg); }
 static void add_fn(cx *c, str path, void *arg) { with_backup(c, path, add_path, arg); }
 int col_add_note(arena *a, str path, const col_new_note *note, col_added *out, col_err *err) {
   add_args ad = {note, 1, out, 0};
@@ -320,7 +354,7 @@ static void rename_conn(cx *c, conn *k, void *arg) {
   rename_args2 *r = arg;
   deck_rename(c, k, r->deck, r->name, r->out);
 }
-static void rename_path(cx *c, str path, void *arg) { with_collection(c, path, rename_conn, arg); }
+static void rename_path(cx *c, str path, void *arg) { with_write(c, path, rename_conn, arg); }
 static void rename_fn(cx *c, str path, void *arg) { with_backup(c, path, rename_path, arg); }
 int col_rename_deck(arena *a, str path, double deck, str name, col_renamed *out, col_err *err) {
   memset(out, 0, sizeof *out);
@@ -347,7 +381,7 @@ static void remove_conn(cx *c, conn *k, void *arg) {
 static void remove_path(cx *c, str path, void *arg) {
   removal_args *r = arg;
   if (r->deck == 1) cx_throw(c, NULL, 400, "The Default deck cannot be deleted: Anki keeps it, and would only empty it.");
-  with_collection(c, path, remove_conn, arg);
+  with_write(c, path, remove_conn, arg);
 }
 static void remove_fn(cx *c, str path, void *arg) { with_backup(c, path, remove_path, arg); }
 int col_remove_deck(arena *a, str path, double deck, col_removal *out, col_err *err) {
@@ -361,7 +395,7 @@ static void rm_note_conn(cx *c, conn *k, void *arg) {
   rm_note_args *r = arg;
   note_remove(c, k, r->note, r->id, r->removed);
 }
-static void rm_note_path(cx *c, str path, void *arg) { with_collection(c, path, rm_note_conn, arg); }
+static void rm_note_path(cx *c, str path, void *arg) { with_write(c, path, rm_note_conn, arg); }
 static void rm_note_fn(cx *c, str path, void *arg) { with_backup(c, path, rm_note_path, arg); }
 int col_remove_note(arena *a, str path, double note, int64_t *note_id, int64_t *cards_removed, col_err *err) {
   rm_note_args r = {note, note_id, cards_removed};
@@ -383,7 +417,7 @@ static void update_conn(cx *c, conn *k, void *arg) {
   update_args *u = arg;
   note_update(c, k, u->note, u->fields, u->nfields, u->has_language, u->language, u->has_lfi, u->lfi, u->has_warning, u->warning);
 }
-static void update_path(cx *c, str path, void *arg) { with_collection(c, path, update_conn, arg); }
+static void update_path(cx *c, str path, void *arg) { with_write(c, path, update_conn, arg); }
 static void update_fn(cx *c, str path, void *arg) { with_backup(c, path, update_path, arg); }
 int col_update_note(arena *a, str path, double note, const str *fields, size_t nfields, int has_language, str language,
                     int has_learning_field, double learning_field, int *has_warning, str *warning, col_err *err) {
