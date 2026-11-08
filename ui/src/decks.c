@@ -16,7 +16,7 @@ void decks_build(void) {
   el(CD_LIT("div"), CD_LIT("deck-management"));
   /* Setup is the whole screen (FirstRun), not an empty state inside the list: "Decks" and a New
    * Deck button over a machine that cannot make one yet is chrome for a thing that does not exist. */
-  setup = installed == 0 || mode == WIRE_MODE_UNCONFIGURED;
+  setup = decks_setup_wanted();
   rows.parent = 0;
   if (setup) return;
   el(CD_LIT("div"), CD_LIT("deck-header"));
@@ -41,6 +41,12 @@ static void modal_close(void) {
   text_free(&modal_error);
   creating = 0;
 }
+
+/* Setup is the screen while amgi is not installed or no profile is picked; once both hold, the
+ * list. Asked whenever the mode or the install state changes (state.c): a first run that picked a
+ * profile, or finished its install, gives way to the decks as DeckList's render did. */
+int decks_setup_wanted(void) { return installed == 0 || mode == WIRE_MODE_UNCONFIGURED; }
+int decks_setup_shown(void) { return shown && setup; }
 
 void decks_forget(void) {
   if (!shown) return;
