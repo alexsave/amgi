@@ -296,8 +296,8 @@ static void test_gemini(void) {
   ar_free(&a);
 }
 
-/* ---- cards.c: the parts the fake Gemini cannot show (the rest is compared with cardText.ts by
- * test/parity/prompts.test.mjs) ---- */
+/* ---- cards.c: the parts the fake Gemini cannot show (the rest is held by the golden files under
+ * test/parity/golden and the fake-Gemini drives) ---- */
 static void test_cards(void) {
   arena a = {0};
   card_text t = {S("안녕"), S("hello"), S("r")};
