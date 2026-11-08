@@ -1,7 +1,7 @@
 # The collection operations the HTTP bridge exposes, expressed purely in
 # terms of anki.collection.Collection - no aqt, no HTTP, no threading.
 #
-# This is the in-process mirror of plusaudio/lib/collection/index.js's
+# This is the in-process mirror of server/collection/direct.c (was server/collection/index.js)'s
 # Collection class: same capabilities (status, list decks, list note types,
 # list notes in a deck paginated, create a deck with `::` nesting, add a
 # note, update a note's fields, add a media file), same vocabulary in the
@@ -11,7 +11,7 @@
 #
 # The one rule every function here follows, and the whole reason this file
 # is short: never compute anything Anki's own Collection already computes.
-# plusaudio/lib/collection/ hand-rolls usn, mod, sfld and csum because it is
+# server/collection/ hand-rolls usn, mod, sfld and csum because it is
 # talking to a *closed* collection file with nothing else to do the
 # bookkeeping. In-process, `col` already has the pen - `col.decks.id`,
 # `col.add_note`, `col.update_note`, `col.media.write_data` - so every
@@ -83,7 +83,7 @@ def status(col: Optional["Collection"], *, profile_name: Optional[str], anki_ver
 
 
 def list_decks(col: "Collection") -> list[dict]:
-    # include_filtered=True (the default): plusaudio/lib/collection/decks.js's
+    # include_filtered=True (the default): server/collection/decks.c's
     # listDecks is a plain, unfiltered `SELECT id, name FROM decks`, and this
     # matches it rather than diverging to hide filtered decks.
     return [{"id": d.id, "name": d.name} for d in col.decks.all_names_and_ids()]
@@ -107,7 +107,7 @@ def list_notetypes(col: "Collection") -> list[dict]:
                     # missing: it is half of what "is this card design current"
                     # means, and a change that only touches the back template
                     # was invisible to every caller (see
-                    # src/server/anki/install.js's collectionDrift).
+                    # server/amgi/install.c's collectionDrift).
                     {"ord": t["ord"], "name": t["name"], "questionFormat": t["qfmt"], "answerFormat": t["afmt"]}
                     for t in notetype["tmpls"]
                 ],
@@ -120,7 +120,7 @@ def list_notes_in_deck(col: "Collection", deck_id: int, *, offset: int = 0, limi
     """Notes with at least one card in `deck_id` or a subdeck of it, oldest
     id first, paginated at the SQL layer (LIMIT/OFFSET on an indexed join)
     so a 20k-note deck costs one small query per page, not one big load: the
-    same shape plusaudio/lib/collection/notes.js's listNotesInDeck uses,
+    same shape server/collection/notes.c's listNotesInDeck uses,
     reusing Anki's own `col.db` rather than a second SQLite connection.
 
     Field/tag splitting is left to `col.get_note()` (real Note objects, one
@@ -252,7 +252,7 @@ def add_notes_bulk(col: "Collection", notes: Sequence[dict]) -> OpResult:
 def create_deck(col: "Collection", human_name: str) -> OpResult:
     """Find-or-create `human_name`, creating any missing `::` ancestors,
     the same contract as Anki's own "Create Deck" dialog and as
-    plusaudio/lib/collection/decks.js's resolveOrCreateDeck: a name that
+    server/collection/decks.c's resolveOrCreateDeck: a name that
     already exists (matched with Anki's real collation, not an ASCII
     approximation of it - see decks.js's own module comment for the gap this
     closes) is returned rather than duplicated.
@@ -304,7 +304,7 @@ def create_deck(col: "Collection", human_name: str) -> OpResult:
 def _romanization_warning(
     field_names: Sequence[str], fields: Sequence[str], language: Optional[str], learning_field_index: Optional[int]
 ) -> Optional[str]:
-    """Port of plusaudio/lib/collection/notes.js's romanizationWarning - see
+    """Port of server/collection/notes.c's romanizationWarning - see
     cardText.ts's looksRomanized (mirrored here by deck_text.looks_romanized)
     for the policy. Both `language` and `learning_field_index` are optional
     and caller-supplied (a bridge client typing a note by hand can send
@@ -380,7 +380,7 @@ def update_note(
     learning_field_index: Optional[int] = None,
 ) -> OpResult:
     """Replace a note's field contents in place. Like
-    plusaudio/lib/collection/notes.js's updateNoteFields, this never touches
+    server/collection/notes.c's updateNoteFields, this never touches
     tags or regenerates cards - a card's existence was decided once, at add
     time, from the note type's templates, and changing field text doesn't
     retroactively add or remove cards in real Anki either.
@@ -410,7 +410,7 @@ def rename_deck(col: "Collection", deck_id: int, human_name: str) -> OpResult:
     than a string update: a subdeck is a deck whose NAME carries its parent's
     as a prefix, so every descendant has to be rewritten too, and renaming
     INTO a subdeck needs the parent deck to exist. Doing it here means the
-    Node side's hand-rolled version (plusaudio/lib/collection/decks.js) and
+    Node side's hand-rolled version (server/collection/decks.c) and
     this one cannot disagree about either, because this one is the reference.
 
     An OpResult like every other write here: bridge_dispatch's CollectionOp
@@ -458,7 +458,7 @@ def _removal(col: "Collection", deck_id: int) -> dict:
     card in a normal deck of the tree, or whose home deck is one (a card
     borrowed by a filtered deck anywhere); every note left with no card; a
     filtered deck's other cards are sent home, not deleted. The same counts
-    plusaudio/lib/collection/deck-remove.js reports for a closed collection."""
+    server/collection/decks.c reports for a closed collection."""
     deck = col.decks.get(int(deck_id), default=False)
     if deck is None:
         raise DeckNotFound(f"no deck with id {deck_id} in this collection")
@@ -544,7 +544,7 @@ def add_media(col: "Collection", desired_name: str, data: bytes) -> dict:
     """Write `data` into the collection's media folder under (close to)
     `desired_name`, returning the filename Anki actually used - `col.media`
     is Anki's own media manager, so the same content-hash-on-collision
-    dedup plusaudio/lib/collection/media.js re-implements for a closed
+    dedup server/collection/media.c re-implements for a closed
     collection happens here for free, and this function's whole job is
     reduced to "call it and hand back what it says".
     """

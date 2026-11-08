@@ -1,4 +1,4 @@
-/* The free starter deck: src/server/anki/starterDeck.js and starterPhrases.js in C. starterDeck.js's
+/* The free starter deck: the port of what were src/server/anki/starterDeck.js and starterPhrases.js. starterDeck.js's
  * header says what it is: ten parallel phrases in every language amgi supports
  * (src/data/starterPhrases.tsv) with clips that ship in anki/starter/media, named as amgi's own
  * generator would name them (audio-store.js starterClipName), written as ordinary notes on the

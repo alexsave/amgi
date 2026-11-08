@@ -2,7 +2,7 @@
 
 // What a person is told about the one API key amgi needs. Plain JavaScript so
 // both sides can import it: plusaudio's TypeScript policy
-// (cardGeneration/gemini.ts) and the app's server (src/server/anki/audio.js,
+// (cardGeneration/gemini.ts) and the app's server (server/amgi/gen.c,
 // cardText.js), which cannot load TypeScript.
 
 const GEMINI_KEY_PAGE = 'https://aistudio.google.com/apikey';

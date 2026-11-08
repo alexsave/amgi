@@ -8,14 +8,14 @@
 # this tool already does unattended.
 #
 # There are two writers of this note type, and what each covers is recorded
-# here and in src/server/anki/install.js so the two are not collapsed:
+# here and in server/amgi/install.c so the two are not collapsed:
 #
 #   - THIS module is the one that runs inside Anki, through Anki's own Python
 #     API, which is correct by construction across every schema version Anki
 #     supports. It covers a collection that is open (the Node side cannot
 #     write a file Anki has locked), and it is the only thing that REFRESHES an
 #     existing note type: drifted templates and css, missing fields, media.
-#   - plusaudio/lib/collection/notetype-write.js covers a CLOSED collection,
+#   - server/collection/notes.c covers a CLOSED collection,
 #     writing the same rows from Node so a first install needs no restart. It
 #     only ever creates a missing note type and never updates one.
 #

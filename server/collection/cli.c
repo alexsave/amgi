@@ -1,9 +1,9 @@
 /* collection_cli: the C collection core behind the collection-parity runner's line protocol
- * (test/parity/protocol.mjs has the protocol; test/parity/collection-impl.mjs is the Node side of
- * it). One process is one server session: the backup ledger and the path locks live as long as it
- * does, and "parallel" runs its commands on threads, as concurrent requests reach a server.
+ * (test/parity/protocol.mjs has the protocol). One process is one server session: the backup ledger
+ * and the path locks live as long as it does, and "parallel" runs its commands on threads, as
+ * concurrent requests reach a server.
  *
- *   AMGI_COLLECTION_IMPL=server/build/collection_cli node --test test/parity/collection.test.mjs */
+ *   node --test test/parity/collection.test.mjs */
 #include <math.h>
 #include <pthread.h>
 #include <stdio.h>

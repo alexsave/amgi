@@ -1,10 +1,10 @@
-/* The sentences the amgi server says, each written once here. Until L4 deletes the Node server,
- * the same sentences also live in its JavaScript (the file named beside each), and
- * test/parity/messages.test.mjs (removed at L4) reads both and fails when they differ. */
+/* The sentences the amgi server says, each written once here. The file named beside each is the
+ * JavaScript it was ported from; MISSING_KEY_MESSAGE and GEMINI_KEY_PAGE are also said by
+ * plusaudio/generate-clip.js (plusaudio/lib/geminiKey.js), which the Anki add-on runs. */
 #ifndef AMGI_MESSAGES_H
 #define AMGI_MESSAGES_H
 
-/* src/server/anki/respond.js MESSAGES, by mode */
+/* by mode (were src/server/anki/respond.js's MESSAGES) */
 #define MSG_UNCONFIGURED "No Anki profile is selected yet. Open Settings to pick one."
 #define MSG_NOT_FOUND "No collection.anki2 was found at the selected profile. Open Settings to pick a different one."
 #define MSG_UNSUPPORTED_SCHEMA "This collection uses a schema version amgi does not support yet."
@@ -25,7 +25,7 @@
   "GEMINI_API_KEY is not set, so nothing was generated: get a key at " GEMINI_KEY_PAGE ", add it to " \
   ".env.local and restart amgi."
 
-/* src/server/anki/install.js */
+/* were src/server/anki/install.js's */
 #define RESTART_MESSAGE                                                                          \
   "Installed. Restart Anki - it will add the \"amgi Listening\" note type and its files to your " \
   "collection on the way up."

@@ -1,7 +1,7 @@
 // The collection-parity runner's command protocol: how test/parity/collection.test.mjs drives an
-// implementation of the collection core over its stdin and stdout, one line per command. The
-// Node implementation (test/parity/collection-impl.mjs, over src/server/anki/directClient.js) and
-// the C one (server/build/collection_cli) both speak it, so one operation list runs through either.
+// implementation of the collection core over its stdin and stdout, one line per command: the C
+// core's server/build/collection_cli speaks it (the Node implementation it was first written for
+// was removed at L4).
 //
 // A line is tokens separated by one space. A token is:
 //   text     percent-encoded UTF-8 (every byte but A-Z a-z 0-9 - _ .), "~" for the empty string

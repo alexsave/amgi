@@ -3,14 +3,15 @@
  * their types and their JS key names; four walkers read it:
  *   - the app (ui/src) reads an answer into the C struct below (wire_decode) and writes a request
  *     from one (wire_encode);
- *   - the Node server, through the same file built as ui/out/wire.wasm (wire_node.c and
- *     ui/server/wire.mjs), writes an answer from the JS object a route handler returns and reads a
- *     request body into a JS object for the handler, finding fields by the schema's key names.
+ *   - the server (server/amgi) writes an answer from its C struct and reads a request into one, as
+ *     the app does;
+ *   - the tests and tools, through the same file built as ui/out/wire.wasm (wire_node.c and
+ *     ui/wire/wire.mjs), write and read a message from a JS object, finding fields by the schema's
+ *     key names.
  * So a field's order, width and name are written down once, in wire.c's table.
  *
  * The same format, and the same table, carry the Anki bridge add-on's protocol (the b_* kinds below):
- * the server's bridge client (src/server/anki/bridgeClient.js) writes and reads them through
- * wire.wasm, and the add-on's Python (anki/addon/amgi_bridge/bridge_wire.py) through
+ * the server's bridge client (server/collection/bridge.c) writes and reads them natively, and the add-on's Python (anki/addon/amgi_bridge/bridge_wire.py) through
  * anki/addon/amgi_bridge/wire_schema.py, which ui/wire/wire_py.c writes from this table at every
  * build. WIRE_BRIDGE_PROTOCOL names the protocol's version; both ends send it on every request and
  * answer (X-Amgi-Bridge-Protocol), and a mismatch is answered, not guessed at.
@@ -50,7 +51,7 @@ enum {
 #define WIRE_NONE 0xffffffffu
 #define WIRE_ABSENT INT32_MIN
 
-/* The transport modes of src/server/anki/transport.js. A name the table does not know (a newer
+/* The transport modes (server/collection/transport.c). A name the table does not know (a newer
  * server) is WIRE_MODE_OTHER, which reads back as "". */
 enum { WIRE_MODE_DIRECT, WIRE_MODE_BRIDGE, WIRE_MODE_LOCKED, WIRE_MODE_NOT_FOUND, WIRE_MODE_UNSUPPORTED_SCHEMA,
        WIRE_MODE_BRIDGE_NO_COLLECTION, WIRE_MODE_UNCONFIGURED, WIRE_MODE_BRIDGE_OUTDATED, WIRE_MODE_OTHER,

@@ -9,14 +9,12 @@
 // it again. With it, the first 429 teaches the gate roughly what the limit
 // is, and from then on requests are paced under it instead of refused.
 //
-// WHERE IT LIVES. One instance per process (sharedGate below). In the app
-// that process is the Next server: the generator subprocesses that make the
-// actual Gemini calls (plusaudio/generate-card-text.js, generate-clip.js,
-// one per card) ask the server's gate over Node's IPC channel (see
-// ipcGate.js and src/server/anki/plusaudioCli.js), because a gate inside a
-// per-card subprocess would die with the card and share nothing. A script
-// run on its own (the starter re-record, add-audio.js, the Anki add-on's
-// subprocess) has only itself to coordinate, and uses its own instance.
+// WHERE IT LIVES. One instance per process (sharedGate below). The app's
+// server has its own port of this gate in C (server/amgi/gate.c), shared by
+// every card in it. A script run on its own (generate-clip.js, the starter
+// re-record, add-audio.js, the Anki add-on's subprocess) has only itself to
+// coordinate, and uses its own instance; ipcGate.js lets a parent process
+// share one with scripts it forks.
 //
 // WHAT IT KNOWS, per model:
 //   blockedUntil    no request before this moment (after a 429)
@@ -147,8 +145,8 @@ function createRateGate({ now = () => Date.now(), random = defaultRandom } = {})
     /**
      * How long until new work may start: the longest jittered wait any
      * model this gate knows would give, or 0 when none is blocked or full.
-     * Asked by the app before it starts a new card (src/server/anki/
-     * rateLimit.js), so a card that would only be refused is never begun
+     * Asked before a new card starts (the app's server does the same in
+     * server/amgi/gen.c), so a card that would only be refused is never begun
      * and its text call never spent. Records no start; one draw per call,
      * like acquire.
      */

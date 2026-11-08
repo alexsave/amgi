@@ -2,8 +2,8 @@
 
 // Hides plusaudio/.env for the duration of a test that wants to prove "no
 // GEMINI_API_KEY anywhere" behaviour, then restores it - used by both
-// generate-clip.test.js and generate-card-text.test.js, whose main()
-// functions each fall back to this same real, gitignored file. `node --test`
+// generate-clip.test.js, whose main() falls back to this same real,
+// gitignored file. `node --test`
 // runs separate test files as separate processes, potentially concurrently,
 // so two files racing to rename the same real file is a real hazard, not a
 // hypothetical one; a lock file (created with the exclusive 'wx' flag, which
