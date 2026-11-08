@@ -83,11 +83,6 @@ class BridgeHTTPError(Exception):
         self.status = status
 
 
-class BridgeNotFound(BridgeHTTPError):
-    def __init__(self, message: str) -> None:
-        super().__init__(404, message)
-
-
 class BridgeBadRequest(BridgeHTTPError):
     def __init__(self, message: str) -> None:
         super().__init__(400, message)

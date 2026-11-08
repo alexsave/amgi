@@ -151,18 +151,6 @@ export const REGISTER_POLICIES: Record<string, RegisterPolicy> = {
     },
 };
 
-/**
- * Whether the learning language grammatically encodes politeness, and so
- * whether a register label on the known side carries any information.
- */
-export function marksRegister(language: string): boolean {
-    return Boolean(REGISTER_POLICIES[normalizeLanguageCode(language)]);
-}
-
-export function defaultRegisterLevel(language: string): RegisterLevel | null {
-    return REGISTER_POLICIES[normalizeLanguageCode(language)]?.defaultLevel ?? null;
-}
-
 export function registerGuidance(language: string): string {
     const policy = REGISTER_POLICIES[normalizeLanguageCode(language)];
     if (policy) return policy.guidance;

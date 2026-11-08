@@ -60,4 +60,4 @@ function listProfiles(baseDir = defaultBaseDir()) {
   return profiles.sort((a, b) => a.name.localeCompare(b.name));
 }
 
-module.exports = { COLLECTION_FILENAME, defaultBaseDir, listProfiles };
+module.exports = { defaultBaseDir, listProfiles };
