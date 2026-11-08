@@ -94,6 +94,7 @@ See [plusaudio/README.md](plusaudio/README.md) for the options.
 
 ```bash
 npm start       # builds ui/out, then serves http://localhost:3000 (PORT=0 takes a free port)
+npm run start:c # the same app on the C server (server/build/amgi on cbase serve; CBASE_LISTEN or PORT)
 npm run lint
 npm test        # builds, then the node:test suites (server, plusaudio, anki, ui, the parity suites) and the add-on's Python tests
 npm run e2e     # builds, then every browser drive against fresh servers (see .claude/skills/e2e-ui)
@@ -101,11 +102,13 @@ npm run e2e     # builds, then every browser drive against fresh servers (see .c
 
 The page is C, compiled to WebAssembly by `ui/build.sh`, on [cdom](https://github.com/alexsave/cdom) (the submodule at `cdom/`): the C owns the DOM, one call per change, and there is no JavaScript framework.
 The server is one plain Node HTTP server, `ui/server/serve.mjs`, that serves the page and runs the `/api/anki` routes.
+Its replacement is in C and answers the same: `server/build/amgi`, the amgi app (`server/app/`, `server/amgi/`) on [cbase](https://github.com/alexsave/cbase)'s `serve` (the submodule at `cbase/`), with the Anki collection code (`server/collection/`), the rate gate and the Gemini client in the same process and no Node.
+`npm run start:c` starts it (`server/tools/start.sh`): it listens on `CBASE_LISTEN` (`127.0.0.1:3000` by default, or `PORT`), says `cbase: listening <host>:<port>` on stdout, and reads `.env.local` through cbase's `CBASE_ENV_FILE`, whose format is strict: `KEY=VALUE` with no blank around the `=`.
 `.claude/skills/e2e-ui/` and `ui/tools/` drive the app in headless Chrome against a fixture Anki collection.
 `anki/test/harness/drive.js` does the same for the card template.
 `test/parity/` pins what the server does so a second implementation can be held to it: an HTTP suite over every route and error shape, compared byte for byte with a recording from the Node server, and a collection runner that applies one operation list to schema 11 and 18 fixtures and compares every row afterwards.
 The collection runner's dump tool is C (`make -C server`: a C compiler, sqlite and ICU); where it cannot build, those sessions skip with a sentence saying why, and `AMGI_REQUIRE_NATIVE=1` makes that a failure.
-Both suites, and `npm run e2e`, take the server under test from `AMGI_SERVER` (and the collection core from `AMGI_COLLECTION_IMPL`); unset, they run today's Node code.
+Both suites, and `npm run e2e`, take the server under test from `AMGI_SERVER` (and the collection core from `AMGI_COLLECTION_IMPL`); unset, they run today's Node code, and `AMGI_SERVER=c` runs the C server (`npm test` runs the HTTP suite against both).
 
 ```
 ui/src/          The page, in C: decks, deck view, card form and panel, bulk run, settings, first run
@@ -115,7 +118,7 @@ ui/server/       The HTTP server
 ui/tools/        Browser drives and their fixture
 ui/test/         Tests of the C against what it must agree with
 test/parity/     The parity suites, their fixtures and recordings (each suite's header says how it compares)
-server/          Native code: the parity dump tool today (make -C server)
+server/          The C server (make -C server): the amgi app on cbase (app/, amgi/), the collection core (collection/, json/), their tests (test/)
 src/server/      The /api/anki routes and the server-only transport, resolved on every request
 src/utils/       The review loop and voice-activity detection the card template shares
 plusaudio/       CLI for .apkg files and the card generation policy (lib/cardGeneration/)
