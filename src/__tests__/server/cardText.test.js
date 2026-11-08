@@ -10,16 +10,14 @@
 
 const runs = [];
 
-jest.mock('node:child_process', () => {
-  const execFile = () => {
-    throw new Error('cardText.js must call execFile through promisify');
-  };
-  execFile[require('node:util').promisify.custom] = (file, args) => {
-    runs.push(args);
-    return Promise.resolve({ stdout: '{"front_text":"date","back_text":"날짜","spoken_reading":""}\n', stderr: '' });
-  };
-  return { execFile };
-});
+jest.mock('node:child_process', () => ({
+  fork: (file, args) => {
+    runs.push([file, ...args]);
+    return require('../../test-helpers/fakeFork').fakeFork(args, () => ({
+      stdout: '{"front_text":"date","back_text":"날짜","spoken_reading":""}\n',
+    }));
+  },
+}));
 
 import { generateCardTextOnly } from '../../server/anki/cardText';
 

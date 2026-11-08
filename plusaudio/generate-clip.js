@@ -60,6 +60,15 @@
 // GEMINI_API_BASE overrides Gemini's endpoint; it exists for tests and the e2e fake server.
 //   exit 2: usage error - a missing, unknown or valueless argument. Nothing was
 //           attempted; --out, if it already existed, is untouched.
+//   exit 3: rate limited - Gemini's per-minute allowance asked for a longer wait than the
+//           client sits through. stdout carries one line `retry-after-ms=<n>`: how long the
+//           rate gate says to wait before trying again. --out was not written.
+//   exit 4: a daily cap is spent (fatal until it resets). --out was not written.
+//   (lib/cliExit.js owns exits 3 and 4.)
+//
+// RATE GATE: forked with an IPC channel (as the app does), every Gemini request first asks
+// the parent's rate gate and reports back to it (lib/ipcGate.js); run directly, the script
+// uses a gate of its own.
 //
 // This file is argument handling and file I/O only. It has no generation policy of its
 // own: it hands text and language straight to lib/generator.js's createGenerator, the
@@ -68,6 +77,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { createGenerator } = require('./lib/generator');
+const { exitForError } = require('./lib/cliExit');
 
 const USAGE = 'Usage: node generate-clip.js --text <text> --language <code> --out <path.wav> [--reading <text>]\n';
 
@@ -116,8 +126,7 @@ async function run(options, generate) {
     audio = await generate({ text: options.text, language: options.language, reading: options.reading || '' });
   } catch (error) {
     removeStaleOutput(options.out);
-    process.stderr.write(`${error.message}\n`);
-    return 1;
+    return exitForError(error);
   }
   fs.writeFileSync(options.out, audio);
   return 0;

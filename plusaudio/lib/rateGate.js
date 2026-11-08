@@ -44,6 +44,9 @@
 //   record(model, 'ok') on success: the 429 streak ends, and after each
 //                   full clean minute the cap grows by one (the additive
 //                   increase), so a raised limit gets used.
+//   admissionWait() -> how long until NEW work may start: the longest wait
+//                   any known model would give (jittered), 0 when none is
+//                   blocked or full. A card about to begin asks this first.
 //   A daily cap never reaches the gate: it is fatal and immediate
 //   (cardGeneration/gemini.ts), and waiting a minute would not help.
 //
@@ -133,6 +136,22 @@ function createRateGate({ now = () => Date.now(), random = defaultRandom } = {})
         if (Number.isFinite(state.cap)) state.cap += 1;
         state.cleanSince = at;
       }
+    },
+
+    /**
+     * How long until new work may start: the longest jittered wait any
+     * model this gate knows would give, or 0 when none is blocked or full.
+     * Asked by the app before it starts a new card (src/server/anki/
+     * rateLimit.js), so a card that would only be refused is never begun
+     * and its text call never spent. Records no start; one draw per call,
+     * like acquire.
+     */
+    admissionWait() {
+      const at = now();
+      let longest = 0;
+      for (const state of models.values()) longest = Math.max(longest, waitFor(state, at));
+      const u = random.int(1_000_000) / 1_000_000;
+      return longest === 0 ? 0 : Math.ceil(longest * (1 + u * JITTER));
     },
 
     /** What the gate believes about `model`, for tests and logs. */

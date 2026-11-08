@@ -140,6 +140,18 @@ test('a 429 with too few requests seen to learn from blocks, but learns no cap',
   assert.equal(more.gate.inspect(M).cap, Math.floor(3 * 0.8), 'three is enough to learn from');
 });
 
+test('admission: new work waits while any known model is blocked, and records nothing', () => {
+  const { gate, clock } = gateAt();
+  assert.equal(gate.admissionWait(), 0, 'nothing known, nothing blocked');
+  gate.acquire('gemini-3.8-flash');
+  gate.record(M, 'rateLimited', 30_000);
+  const wait = gate.admissionWait();
+  assert.ok(wait >= 30_000 && wait < 30_000 * (1 + JITTER), `${wait}`);
+  assert.equal(gate.inspect('gemini-3.8-flash').inWindow, 1, 'asking admitted nothing');
+  clock.t += 30_000;
+  assert.equal(gate.admissionWait(), 0, 'open again once the block has passed');
+});
+
 test('models are gated separately: a busy speech model does not hold back text', () => {
   const { gate } = gateAt();
   gate.record(M, 'rateLimited', 50_000);

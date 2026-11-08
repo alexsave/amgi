@@ -35,17 +35,23 @@ function createIpcGate(channel = process, { timeoutMs = REPLY_TIMEOUT_MS, setTim
   let nextId = 1;
   const pending = new Map();
 
-  const onMessage = (message) => {
-    if (!message || message[TAG] !== 'reply') return;
-    const entry = pending.get(message.id);
+  // The channel must not keep a finished script alive, but must keep it
+  // alive while a question is waiting for its answer.
+  const holdOpen = () => channel.channel?.ref?.();
+  const letGo = () => { if (pending.size === 0) channel.channel?.unref?.(); };
+  const settle = (id, value) => {
+    const entry = pending.get(id);
     if (!entry) return;
-    pending.delete(message.id);
+    pending.delete(id);
     clearTimer(entry.timer);
-    entry.resolve(Number(message.value) || 0);
+    letGo();
+    entry.resolve(value);
   };
-  channel.on('message', onMessage);
-  // The channel must not keep a finished script alive.
-  channel.channel?.unref?.();
+
+  channel.on('message', (message) => {
+    if (message && message[TAG] === 'reply') settle(message.id, Number(message.value) || 0);
+  });
+  letGo();
 
   const failOpen = () => FAIL_OPEN_WAIT_MS;
 
@@ -55,22 +61,15 @@ function createIpcGate(channel = process, { timeoutMs = REPLY_TIMEOUT_MS, setTim
       const id = nextId;
       nextId += 1;
       return new Promise((resolve) => {
-        const timer = setTimer(() => {
-          pending.delete(id);
-          resolve(failOpen());
-        }, timeoutMs);
-        pending.set(id, { resolve, timer });
+        pending.set(id, { resolve, timer: null });
+        holdOpen();
+        pending.get(id).timer = setTimer(() => settle(id, failOpen()), timeoutMs);
         try {
           channel.send({ [TAG]: 'acquire', id, model }, (error) => {
-            if (error && pending.delete(id)) {
-              clearTimer(timer);
-              resolve(failOpen());
-            }
+            if (error) settle(id, failOpen());
           });
         } catch {
-          pending.delete(id);
-          clearTimer(timer);
-          resolve(failOpen());
+          settle(id, failOpen());
         }
       });
     },
