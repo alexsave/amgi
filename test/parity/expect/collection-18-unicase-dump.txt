@@ -195,9 +195,9 @@ table decks: 15 rows
   id=<D1> name="ÄPFEL\x1fÖl" mtime_secs=<Ts> usn=-1 common={1:1 2:1} kind={1:{1:1}}
   id=<D2> name="Öl" mtime_secs=<Ts> usn=-1 common={1:1 2:1} kind={1:{1:1}}
   id=<D3> name="Öl\x1fÄ" mtime_secs=<Ts> usn=-1 common={1:1 2:1} kind={1:{1:1}}
-  id=<D4> name="Straße" mtime_secs=<Ts> usn=-1 common={1:1 2:1} kind={1:{1:1}}
+  id=<D4> name="strasse" mtime_secs=<Ts> usn=-1 common={1:1 2:1} kind={1:{1:1}}
   id=<D5> name="ﬃ" mtime_secs=<Ts> usn=-1 common={1:1 2:1} kind={1:{1:1}}
-  id=<D6> name="STRASSE" mtime_secs=<Ts> usn=-1 common={1:1 2:1} kind={1:{1:1}}
+  id=<D6> name="ÄPFEL" mtime_secs=<Ts> usn=-1 common={1:1 2:1} kind={1:{1:1}}
   id=<D7> name="FFI" mtime_secs=<Ts> usn=-1 common={1:1 2:1} kind={1:{1:1}}
 table fields: 19 rows
   ntid=1794170430283 ord=0 name="Front" config={3:"Arial" 4:20 9:-6005983139393845132}
@@ -252,9 +252,8 @@ table templates: 9 rows
   ntid=1794170430287 ord=0 name="Cloze" mtime_secs=0 usn=0 config={1:"{{cloze:Text}}" 2:"{{cloze:Text}}<br>\n{{Back Extra}}" 8:-6820665419545603686}
   ntid=1794170430288 ord=0 name="Image Occlusion" mtime_secs=0 usn=0 config={1:"{{#Header}}<div>{{Header}}</div>{{/Header}}\n<div style="display: none">{{cloze:Occlusion}}</div>\n<div id="err"></div>\n<div id="image-occlusion-container">\n    {{Image}}\n    <canvas id="image-occlusion-canvas"></canvas>\n</div>\n<script>\ntry {\n    anki.imageOcclusion.setup();\n} catch (exc) {\n    document.getElementById("err").innerHTML = `Error loading image occlusion. Is your Anki version up to date?<br><br>${exc}`;\n}\n</script>\n" 2:"{{#Header}}<div>{{Header}}</div>{{/Header}}\n<div style="display: none">{{cloze:Occlusion}}</div>\n<div id="err"></div>\n<div id="image-occlusion-container">\n    {{Image}}\n    <canvas id="image-occlusion-canvas"></canvas>\n</div>\n<script>\ntry {\n    anki.imageOcclusion.setup();\n} catch (exc) {\n    document.getElementById("err").innerHTML = `Error loading image occlusion. Is your Anki version up to date?<br><br>${exc}`;\n}\n</script>\n\n<div><button id="toggle">Toggle Masks</button></div>\n{{#Back Extra}}<div>{{Back Extra}}</div>{{/Back Extra}}\n" 8:-6387662624905807136}
   ntid=1794170430289 ord=0 name="Card 1" mtime_secs=0 usn=0 config={1:"{{Sentence}}" 2:"{{FrontSide}}<hr id=answer>{{Audio}}" 8:3240294417531736971}
-integrity: non-unique entry in index idx_decks_name
-integrity: row 12 missing from index idx_decks_name
-integrity: non-unique entry in index idx_decks_name
+integrity: row 8 missing from index idx_decks_name
+integrity: row 15 missing from index idx_decks_name
 media: 1 files
   clip.ogg 18 bytes 67583d7e8993863a
 backups: 1

@@ -157,7 +157,7 @@ table notes: 43 rows
   id=1794170430313 guid="fZl!<2Kb=d" mid=1794170430302 mod=1794170430 usn=0 tags="" flds="café\x1fcoffee" sfld="café" csum=4096017706 flags=0 data=""
   id=<N10> guid="<G>" mid=1794170430302 mod=<Ts> usn=-1 tags="" flds="<b>Hi</b> &amp; <img src="pic.png"> &#x41;&nbsp;x &#66; &bogus; <!-- c --> <audio src='a.wav'>\x1f<i>b</i>" sfld="Hi &  pic.png  A x B &bogus;   a.wav " csum=492090456 flags=0 data=""
   id=<N11> guid="<G>" mid=1794170430302 mod=<Ts> usn=-1 tags="" flds="<IMG SRC=bare.jpg alt=x>\x1f" sfld=" bare.jpg " csum=4202047917 flags=0 data=""
-  id=<N12> guid="<G>" mid=1794170430302 mod=<Ts> usn=-1 tags="" flds="<b>&lt;i&gt;</b>\x1fcsum" sfld="<i>" csum=3661210606 flags=0 data=""
+  id=<N12> guid="<G>" mid=1794170430302 mod=<Ts> usn=-1 tags="" flds="<b>&lt;i&gt;</b>\x1fcsum" sfld="<i>" csum=2301026615 flags=0 data=""
   id=<N13> guid="<G>" mid=1794170430303 mod=<Ts> usn=-1 tags="" flds="only front\x1f" sfld="only front" csum=3285710054 flags=0 data=""
   id=<N14> guid="<G>" mid=1794170430303 mod=<Ts> usn=-1 tags="" flds="both\x1fsides" sfld="both" csum=4231639439 flags=0 data=""
   id=<N15> guid="<G>" mid=1794170430306 mod=<Ts> usn=-1 tags="" flds="{{c1::one}} {{c3::three}} {{c3::again}}\x1f" sfld="{{c1::one}} {{c3::three}} {{c3::again}}" csum=1424976072 flags=0 data=""

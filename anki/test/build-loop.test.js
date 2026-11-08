@@ -59,7 +59,7 @@ test('the build refuses a dependency a card template could not load', () => {
   assert.throws(() => toClassicScript('export default 1;\n', 'fake.js'), /unsupported export/);
   // The one import the bundle can satisfy by concatenation is allowed through.
   assert.equal(
-    toClassicScript("import { detectSpeechEnd } from './voiceActivity';\nconst a = 1;\n", 'fake.js'),
+    toClassicScript("import { detectSpeechEnd } from './voiceActivity.js';\nconst a = 1;\n", 'fake.js'),
     'const a = 1;'
   );
 });
