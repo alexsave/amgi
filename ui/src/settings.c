@@ -304,7 +304,7 @@ static void save(void) {
   settings_save();
   saved_shown = 1;
   saved_view();
-  cd_timer_start(2000, (uint32_t)M_SETTINGS << 24 | TIMER_SAVED);
+  timer_start(M_SETTINGS, 2000, TIMER_SAVED);
   poll_status();
   refresh_decks();
 }

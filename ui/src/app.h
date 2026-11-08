@@ -59,6 +59,13 @@ enum { M_SHELL = 1, M_DECKS, M_SETTINGS, M_DECK, M_CHIP, M_FORM, M_PANEL, M_BULK
 #define TAG_MODULE(t) ((t) >> 24)
 #define TAG_ACTION(t) (((t) >> 16) & 0xff)
 #define TAG_INDEX(t) ((t) & 0xffff)
+/* A timer: cd_on_timer(module << 24 | token) after ms, which shell.c hands to that module. The only
+ * way to start one, so no timer can go out without the module that is waiting for it: cdom's own
+ * call is poisoned below, and a direct use of it does not compile. */
+static inline void timer_start(uint32_t module, uint32_t ms, uint32_t token) {
+  cd_timer_start(ms, module << 24 | (token & 0xffffff));
+}
+#pragma GCC poison cd_timer_start
 
 /* ---- requests (net.c) ---- */
 /* The answer a request brings: the HTTP status and the message, read into the kind's struct the

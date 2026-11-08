@@ -189,7 +189,7 @@ static void queue_write(uint32_t i) {
   if (nbuffered >= FLUSH_SIZE) flush();
   else if (!flush_armed) {
     flush_armed = 1;
-    cd_timer_start(FLUSH_MS, (uint32_t)M_BULK << 24 | token(TM_FLUSH, 0));
+    timer_start(M_BULK, FLUSH_MS, token(TM_FLUSH, 0));
   }
 }
 static void write_next(void) {
@@ -285,7 +285,7 @@ static void stop_for_daily_cap(uint32_t i, const char *m, uint32_t n) {
 static void tick_start(void) {
   if (counting) return;
   counting = 1;
-  cd_timer_start(1000, (uint32_t)M_BULK << 24 | token(TM_TICK, 0));
+  timer_start(M_BULK, 1000, token(TM_TICK, 0));
 }
 
 static void wait_then_ask(uint32_t i, uint32_t ms, uint32_t status) {
@@ -294,7 +294,7 @@ static void wait_then_ask(uint32_t i, uint32_t ms, uint32_t status) {
   r->wait_left = seconds(ms);
   changed(i);
   tick_start();
-  cd_timer_start(ms, (uint32_t)M_BULK << 24 | token(TM_WAIT, i));
+  timer_start(M_BULK, ms, token(TM_WAIT, i));
 }
 
 static void line_answer(uint32_t i, uint32_t status, const uint8_t *p, uint32_t len) {

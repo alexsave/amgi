@@ -44,12 +44,12 @@ void state_start(void) {
   template_mode_changed();
   poll_status();
   refresh_decks();
-  cd_timer_start(POLL_MS, TIMER_POLL);
+  timer_start(M_SHELL, POLL_MS, TIMER_POLL);
 }
 void state_timer(uint32_t token) {
   if (token != TIMER_POLL) return;
   poll_status();
-  cd_timer_start(POLL_MS, TIMER_POLL);
+  timer_start(M_SHELL, POLL_MS, TIMER_POLL);
 }
 
 /* The decks screen follows the state: setup while amgi is not set up, the list once it is. */
