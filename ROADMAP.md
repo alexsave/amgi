@@ -8,7 +8,7 @@ Items from the retired hosted service (accounts, Supabase, the in-app scheduler 
 - Model names live in `plusaudio/lib/cardGeneration/models.ts`.
   Never hardcode a model string anywhere else.
 - How a card is written and how its audio is validated live in `plusaudio/lib/cardGeneration/cardGeneration.ts`.
-  The app and the `amgi_bridge` add-on reach it by running `plusaudio/generate-card-text.js` and `plusaudio/generate-clip.js`, never by bundling it.
+  The `amgi_bridge` add-on reaches it by running `plusaudio/generate-clip.js`, never by bundling it; the app's server holds its port in C (`server/amgi/cards.c`).
   It imports nothing from npm, so Node can load it with type stripping and no build step.
   Keep it that way, or every caller grows a second, worse generator.
 - Run `npm run lint`, `npm test` and `npm run build` before committing, and keep all three green.
@@ -22,7 +22,7 @@ So a reading line has to be furigana or kana for Japanese, zhuyin for Chinese, a
 
 Groundwork exists for a different purpose.
 `plusaudio/lib/cardGeneration/cardText.ts` (`readingIsAmbiguous`, the `spoken_reading` field) asks the model for a reading of reading-ambiguous languages (`ja`, `zh_cn`, `zh_hk`) in the language's own script, but only to steer and validate the audio, and no learner ever sees it.
-Shipping this needs a `Reading` field on the `amgi Listening` note type (see `anki/addon/amgi_bridge/notetype.py` and `src/server/anki/install.js`), filled from that same response, and a place for it on the card template.
+Shipping this needs a `Reading` field on the `amgi Listening` note type (see `anki/addon/amgi_bridge/notetype.py` and `server/amgi/install.c`), filled from that same response, and a place for it on the card template.
 
 ## Bulk topic generation
 

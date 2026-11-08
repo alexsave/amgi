@@ -129,8 +129,8 @@ That reasoning no longer applies now that reaching into a live collection with n
 ## Local HTTP bridge
 
 amgi is local-first: its web UI is a visual deck builder, and reviewing and editing happen against a local Anki collection instead of a hosted backend.
-When Anki is closed, the UI reaches the collection file directly, through `plusaudio/lib/collection/` (Node, no Anki install required - see that folder's own `index.js`).
-When Anki is open, the collection file is locked in `locking_mode=exclusive` and cannot even be read from outside the Anki process (see `plusaudio/lib/collection/open.js`'s module comment for the experiments that pinned that down), so the only way in is from inside Anki itself.
+When Anki is closed, the UI reaches the collection file directly, through the server's collection code (`server/collection/`, C, no Anki install required).
+When Anki is open, the collection file is locked in `locking_mode=exclusive` and cannot even be read from outside the Anki process (`server/collection/db.c` reads that lock), so the only way in is from inside Anki itself.
 That is what this bridge is: a small local HTTP server, run by this add-on, that the UI can talk to instead of the file, picking whichever transport is available and otherwise not caring which one it is using.
 
 ### What it exposes
@@ -140,9 +140,9 @@ The bodies are not JSON: every request body and every answer is a message in amg
 The shapes below are its fields, by name; the layouts themselves are written down once, in `ui/wire/wire.c`'s schema table (the `b_*` kinds and the request kinds `q_deck_name`, `q_note`, `q_notes`, `q_note_update`).
 `ui/build.sh` writes that table into this add-on as `wire_schema.py`, and `bridge_wire.py` reads and writes messages with it, so the add-on holds no layout of its own.
 
-| Method & path | Node equivalent (`plusaudio/lib/collection/index.js`) | Notes |
+| Method & path | Direct equivalent (`server/collection/collection.h`) | Notes |
 
-| Method & path | Node equivalent (`plusaudio/lib/collection/index.js`) | Notes |
+| Method & path | Direct equivalent (`server/collection/collection.h`) | Notes |
 | --- | --- | --- |
 | `GET /status` | `Collection.status()` | Works even with no collection open (`collectionOpen: false`) - the whole point of a status endpoint. Also reports the Anki and Qt versions and the open profile's name, which Node's file-based `status()` has no way to know. |
 | `GET /decks` | `Collection.listDecks()` | |
@@ -172,7 +172,7 @@ The server treats an answer in another protocol the same way, and an add-on old 
 A refused token or origin from such an old add-on says nothing about its version and is not called outdated.
 
 The one deliberate behavioural difference worth calling out beyond the table: **every mutation here goes through Anki's own API** (`col.decks.id_for_name`/`add_deck_legacy`, `col.add_note`, `col.update_note`, `col.media.write_data`) rather than hand-rolled SQL.
-`plusaudio/lib/collection/` computes `usn`, `mod`, `sfld` and `csum` itself because it is talking to a *closed* file with nothing else to do that bookkeeping.
+`server/collection/` computes `usn`, `mod`, `sfld` and `csum` itself because it is talking to a *closed* file with nothing else to do that bookkeeping.
 In-process, Anki already holds the pen, so `bridge_ops.py` never touches a byte Anki's own engine didn't write.
 See `bridge_ops.py`'s module docstring and each function's own docstring for the specifics.
 
