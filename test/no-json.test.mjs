@@ -4,15 +4,17 @@
 // fixed binary layouts (the page and its server: ui/wire), and JSON is kept only where something
 // outside amgi forces it. This test keeps it that way. It scans every tracked source file that
 // ships (not a test, a tool, a script, a fixture or a document) for the calls that parse or
-// format JSON, in JavaScript and in the Anki add-on's Python. Every hit must be in ALLOWED below,
+// format JSON, in JavaScript, in C and in the Anki add-on's Python. Every hit must be in ALLOWED below,
 // at exactly the count stated, with the reason it stays. A new hit fails. A second hit in an
 // allowed file fails. An allowed hit that is gone fails too, so the list cannot outlive what it
 // excuses, except for an entry marked `leaving`: work in flight removes those, and they may have
 // fewer hits than stated, or none.
 //
-// amgi's own JSON lives in one folder, plusaudio/lib/json, behind one named function per use; the
-// only JSON outside it is Anki's own (its collection and package formats, which amgi reads and
-// writes as Anki defines them). The Anki add-on's Python is scanned too.
+// amgi's own JavaScript JSON lives in one folder, plusaudio/lib/json, behind one named function per
+// use, and its C JSON in one quarantine, server/json, behind three. Outside them there is only
+// Anki's own JSON (its collection and package formats, which amgi reads and writes as Anki defines
+// them) and the Gemini model's answer, read through the quarantine. The Anki add-on's Python
+// is scanned too.
 //
 // README.md's "JSON that remains and why" names the same files; the last test holds the two
 // together.
@@ -84,10 +86,6 @@ const ALLOWED = [
     file: `${FOLDER}modelAnswer.js`, count: 1, kind: 'ours',
     why: `FORCED by Gemini: the API's structured output is JSON text, and parseModelAnswer reads it once; the caller then checks every field against its format. ${ANSWER_FORMAT} records what was measured against function calling and labelled lines.`,
   },
-
-
-
-
   {
     file: `${C_FOLDER}anki_json.c`, count: 2, kind: 'anki',
     why: `${ANKI}the C collection core's one JSON reader and writer (anki_json_parse and anki_json_stringify, defined here), for Anki's JSON columns, written to give the bytes JSON.parse and JSON.stringify gave.`,
