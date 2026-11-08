@@ -113,3 +113,17 @@ test('a token or an address with a line break in it writes no header into the re
     if (what !== 'address') assert.deepEqual(addon.seen, [], `${what}: a refused token sends nothing at all`);
   }
 });
+
+// HTTP whitespace around a token is not part of it: fetch trims a header value's leading and trailing
+// tabs and spaces, so a token pasted with a stray tab or space still reaches the add-on, as itself.
+test('a token with a trailing tab or a leading space is sent, trimmed', async () => {
+  for (const token of ['tok\t', ' tok', '\ttok \t']) {
+    addon.seen.length = 0;
+    addon.heads.length = 0;
+    const headers = { 'x-amgi-bridge-url': encodeURIComponent(addon.url), 'x-amgi-bridge-token': encodeURIComponent(token) };
+    const response = await fetch(new URL('/api/anki/status', app.url), { headers });
+    await response.arrayBuffer();
+    assert.deepEqual(addon.seen, ['GET /status'], `${JSON.stringify(token)}: the probe goes out`);
+    assert.match(addon.heads[0], /\r\nX-Amgi-Bridge-Token: tok\r\n/i, `${JSON.stringify(token)}: as the token alone`);
+  }
+});
