@@ -77,8 +77,14 @@ function spokenText(html) {
     .trim();
 }
 
-function fieldChecksum(fieldText) {
-  const digest = crypto.createHash('sha1').update(stripHtmlPreservingMedia(fieldText), 'utf8').digest('hex');
+/**
+ * notes.csum: the first 8 hex digits of the SHA-1 of the first field's text, stripped once
+ * (rslib, notes/mod.rs: field_checksum(&strip_html_preserving_media_filenames(field))). It hashes
+ * what it is given: the caller passes stripHtmlPreservingMedia's result. Stripping again here would
+ * decode an entity twice ("&amp;lt;" to "<"), and the checksum would not be Anki's.
+ */
+function fieldChecksum(strippedText) {
+  const digest = crypto.createHash('sha1').update(strippedText, 'utf8').digest('hex');
   return Number.parseInt(digest.slice(0, 8), 16);
 }
 

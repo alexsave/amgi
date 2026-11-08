@@ -21,6 +21,10 @@ const INPUTS = [
   ['\x00nul \x01 \x08 \x0b \x0c \x1b esc \x1e \x7f del', 'x'],
   ['é decomposed', '한국어 가'],
   ['plain', '<b>html</b> \x1f'],
+  // Text that is still markup-like after one strip: Anki strips once before it takes the checksum.
+  ['<b>&lt;i&gt;</b>', 'x'],
+  ['x &amp;amp; y', 'x'],
+  ['a &amp;lt;b&amp;gt; c', 'x'],
 ];
 
 // A JS string as a Python literal, every code point escaped.

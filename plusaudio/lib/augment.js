@@ -190,7 +190,7 @@ async function augmentPackage(options) {
       // touched; anything else keeps the value Anki itself wrote.
       const sfld =
         audioIndex === notetype.sortFieldIndex ? stripHtmlPreservingMedia(fields[audioIndex]) : note.sfld;
-      const csum = audioIndex === 0 ? fieldChecksum(fields[0]) : note.csum;
+      const csum = audioIndex === 0 ? fieldChecksum(stripHtmlPreservingMedia(fields[0])) : note.csum;
 
       updateNote.run(flds, now, sfld, csum, note.id);
       summary.notesChanged += 1;

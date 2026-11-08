@@ -47,7 +47,7 @@ describe('field text', () => {
   for (const testCase of ANKI_CASES) {
     it(`matches Anki for ${JSON.stringify(testCase.field).slice(0, 40)}`, () => {
       assert.equal(stripHtmlPreservingMedia(testCase.field), testCase.stripped);
-      assert.equal(fieldChecksum(testCase.field), testCase.csum);
+      assert.equal(fieldChecksum(stripHtmlPreservingMedia(testCase.field)), testCase.csum);
     });
   }
 
