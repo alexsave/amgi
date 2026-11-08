@@ -4,7 +4,6 @@ import '../App.css';
 export const metadata = {
   title: 'AMGI',
   description: 'Study languages with AMGI',
-  manifest: '/site.webmanifest',
   icons: {
     icon: [
       { url: '/favicon-96x96.png', type: 'image/png', sizes: '96x96' },
