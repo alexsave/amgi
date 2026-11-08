@@ -53,4 +53,4 @@ AnkiWeb sync is incremental, using `usn`. Some changes force a **full sync**, wh
 
 ## Backups
 
-Anki makes rolling backups only while it is open, plus one when a profile closes ([rslib/src/collection/backup.rs](https://github.com/ankitects/anki/blob/main/rslib/src/collection/backup.rs)). Edits with Anki closed happen outside that, so amgi's direct transport copies `collection.anki2` into `amgi-collection-backups/` next to it before writing (`plusaudio/lib/collection/backup.js`).
+Anki makes rolling backups only while it is open, plus one when a profile closes ([rslib/src/collection/backup.rs](https://github.com/ankitects/anki/blob/main/rslib/src/collection/backup.rs)). Edits with Anki closed happen outside that, so amgi's direct transport copies `collection.anki2` into `amgi-collection-backups/` next to it before writing (`server/collection/backup.c`).
