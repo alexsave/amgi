@@ -204,6 +204,7 @@ static int write_once(const char *host, int port, const char *method, const char
     if (r < 0 && (errno == EAGAIN || errno == EINTR)) continue;
     if (r <= 0) eof = 1;
     else cb_buf_append(&in, chunk, (size_t)r);
+    if (in.len > CB_HTTPS_MAX_BODY + 65536) break; /* cbase's client's own cap on an answer */
     int k = cb_https_parse_response(in.p, in.len, strcmp(method, "HEAD") == 0, eof, out, &ka);
     if (k > 0) {
       rc = CB_OK;
@@ -218,11 +219,22 @@ done:
   return rc;
 }
 
+static int has_control(str s) {
+  for (size_t i = 0; i < s.n; i++)
+    if ((unsigned char)s.p[i] < 0x20 || (unsigned char)s.p[i] == 0x7f) return 1;
+  return 0;
+}
+
 /* bridgeFetch. */
 static void fetch(cx *c, call *k) {
   int tls, port;
   const char *host, *path;
-  if (split_url(c, k->b->url, k->path, &tls, &host, &port, &path) < 0) cx_throw(c, NULL, 0, "fetch failed");
+  /* The token and the address are the person's settings, percent-decoded from a header: a control
+   * character in either (a CR or an LF above all) would write a header of its own into the request.
+   * Refused before anything is sent, as fetch refuses such a header: the bridge did not answer. */
+  if (has_control(k->b->token) || has_control(k->b->url) ||
+      split_url(c, k->b->url, k->path, &tls, &host, &port, &path) < 0)
+    cx_throw(c, NULL, 0, "fetch failed");
   buf headers = {0};
   buf_fmt(&headers, "X-Amgi-Bridge-Token: %.*s\r\n%s: %u\r\n", (int)k->b->token.n, k->b->token.p, PROTOCOL_HEADER,
           (unsigned)WIRE_BRIDGE_PROTOCOL);
