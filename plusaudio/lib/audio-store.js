@@ -33,8 +33,8 @@ const LEGACY_OWNED_NAME = /_gpt4o\.mp3$/;
 
 /**
  * The name a clip of `text` in `language` is stored under. `extension` is
- * only ever passed to find a clip recorded before the switch to WAV (the
- * shipped starter clips are mp3 - see src/server/anki/starterDeck.js).
+ * only ever passed for the shipped starter clips, which are mp3 (see
+ * starterClipName below).
  */
 function mediaName(text, language, extension = CLIP_EXTENSION) {
   const digest = crypto
@@ -42,6 +42,17 @@ function mediaName(text, language, extension = CLIP_EXTENSION) {
     .update(`${AUDIO_PROFILE}\n${language}\n${text}`, 'utf8')
     .digest('hex');
   return `plusaudio-${digest.slice(0, 20)}.${extension}`;
+}
+
+// The starter deck's clips (anki/starter/media/) are the one set amgi ships
+// rather than makes, and they are mp3: recorded through the same pipeline as
+// any clip, then compressed by scripts/build-starter-audio.js so the repo
+// does not carry ~48 KB per second of WAV. Same hash as mediaName, so a
+// starter sentence and the same sentence generated later name the same text.
+const STARTER_EXTENSION = 'mp3';
+
+function starterClipName(text, language) {
+  return mediaName(text, language, STARTER_EXTENSION);
 }
 
 function isOwnedMediaName(filename) {
@@ -73,4 +84,4 @@ class AudioCache {
   }
 }
 
-module.exports = { AUDIO_PROFILE, AudioCache, CLIP_EXTENSION, isOwnedMediaName, mediaName };
+module.exports = { AUDIO_PROFILE, AudioCache, CLIP_EXTENSION, STARTER_EXTENSION, isOwnedMediaName, mediaName, starterClipName };

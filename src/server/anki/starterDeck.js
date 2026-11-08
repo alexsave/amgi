@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { CLIP_EXTENSION, mediaName } from 'plusaudio/lib/audio-store';
+import { starterClipName } from 'plusaudio/lib/audio-store';
 import { renderAudioReference } from 'plusaudio/lib/deck';
 import { AMGI_NOTETYPE_NAME, fieldIndexes } from '../../utils/amgiNotetype';
 import { existingKeySet, normalizeForDedupe } from '../../utils/lyricsParse';
@@ -73,18 +73,10 @@ export function generationAvailable() {
   return Boolean(process.env.GEMINI_API_KEY);
 }
 
-/**
- * The shipped clip for `text`, or null. The clips committed so far were
- * recorded as mp3 by OpenAI's TTS, before speech moved to Gemini; any
- * recorded since (scripts/build-starter-audio.js) are wav. Both are named
- * by mediaName's hash, so the same sentence finds its clip either way.
- */
+/** The shipped clip for `text`, or null when this build has none (see audio-store.js's starterClipName). */
 function shippedClipName(text, language) {
-  for (const extension of [CLIP_EXTENSION, 'mp3']) {
-    const name = mediaName(text, language, extension);
-    if (fs.existsSync(path.join(MEDIA_DIR, name))) return name;
-  }
-  return null;
+  const name = starterClipName(text, language);
+  return fs.existsSync(path.join(MEDIA_DIR, name)) ? name : null;
 }
 
 /**
