@@ -38,8 +38,8 @@ It does not create notes, does not touch any field but the one you pointed it at
 
 ## Install
 
-This add-on generates audio on your own machine, with your own OpenAI key.
-There is no amgi account, no hosted service, and no quota but your own OpenAI account's - see
+This add-on generates audio on your own machine, with your own Gemini key.
+There is no amgi account, no hosted service, and no quota but your own Gemini account's - see
 "Generation: local, not the edge function" below for why, and for what this used to depend on that
 it no longer does.
 
@@ -50,12 +50,12 @@ That does mean it needs a few things a purely-installed add-on would not:
   [nodejs.org](https://nodejs.org) first.
 - **A checkout of [this repo](https://github.com/alexsave/amgi)**, so `plusaudio/generate-clip.js`
   and the shared generation policy it runs exist on disk somewhere.
-- **An OpenAI API key**, in the environment, in `plusaudio/.env`, or pasted into this add-on's own
-  config (see below).
+- **A Gemini API key** (https://aistudio.google.com/apikey), in the environment, in
+  `plusaudio/.env`, or pasted into this add-on's own config (see below).
 
 1. Copy the `amgi_bridge` folder into your Anki add-ons folder (Tools > Add-ons > View Files puts you in the right place), then restart Anki.
 2. Tools > Add-ons, select amgi_bridge, click Config, and set `plusaudio_dir` to the `plusaudio` folder of your checkout.
-   Set `node_path` too if `node` is not on the `PATH` Anki itself runs with, and `gemini_api_key` / `openai_api_key` if you are not already setting `GEMINI_API_KEY` / `OPENAI_API_KEY` some other way.
+   Set `node_path` too if `node` is not on the `PATH` Anki itself runs with, and `gemini_api_key` if you are not already setting `GEMINI_API_KEY` some other way.
    See `config.md` (shown next to the config editor) for all three, in the order they are checked.
 3. Tools > amgi: Fill missing audio...
 
@@ -117,8 +117,8 @@ That contract is the seam `core.apply_fill` depends on: it takes any `fetch_audi
 
 This add-on used to call a deployed `cards` edge function over HTTPS instead, signed in with an amgi account's email and password stored in this add-on's own config.
 That is gone.
-Generating locally, against your own OpenAI key, removes a real liability - an amgi account's password sitting in plaintext in an Anki add-on's config file - and removes the amgi account, the hosted quota, and the network dependency on Supabase entirely.
-The only network call this add-on makes now is the one `plusaudio/generate-clip.js` makes to OpenAI, from your own machine, with your own key.
+Generating locally, against your own key, removes a real liability - an amgi account's password sitting in plaintext in an Anki add-on's config file - and removes the amgi account, the hosted quota, and the network dependency on Supabase entirely.
+The only network calls this add-on makes now are the ones `plusaudio/generate-clip.js` makes to Google's Gemini API, from your own machine, with your own key.
 
 The tradeoff is Node and a repo checkout become real requirements, not optional ones - see "Install" above.
 That was the whole reason the edge-function version existed in the first place: everyone who could already use the amgi web app had what it needed and nothing else.
@@ -227,8 +227,8 @@ See that file's own module docstring for the full reasoning, and "Testing" below
 
 - `test_deck_text.py` checks `deck_text.py` against `plusaudio/lib/deck.js` and `audio-store.js` themselves, by shelling out to Node on the same inputs and asserting equality - not against a second, hand-written idea of what those functions do.
 - `test_generator.py` checks the subprocess seam - the command built, the environment passed through, exit-code and stderr handling, temp-file cleanup, and the actionable errors for a missing Node, a missing repo checkout, and a missing API key - by mocking `subprocess.run`.
-  There is no OpenAI API key available to these tests, and live calls are not authorised; mocking at the transport boundary is what "keep the seam narrow enough to mock" (see the top of `generator.py`) means in practice.
-  `../../plusaudio/test/generate-clip.test.js` checks the other side of the same contract from Node, with a stubbed generator - also never a real OpenAI client.
+  There is no API key available to these tests, and live calls are not authorised; mocking at the transport boundary is what "keep the seam narrow enough to mock" (see the top of `generator.py`) means in practice.
+  `../../plusaudio/test/generate-clip.test.js` checks the other side of the same contract from Node, with a stubbed generator - also never a real client.
 - `test_core_config.py` checks `AudioFillConfig`'s own validation.
 - `test_bridge_auth.py` checks the token and Origin logic (`bridge_auth.py`) as plain functions: valid token and allowed origin succeeds; a missing or wrong token fails; a foreign origin fails, even with the right token; a "simple" request shaped so a browser would never preflight it still fails, because it cannot carry the token header without losing its "simple" status.
 - `test_bridge_server.py` proves the same claims again, against a real listening socket and a real `http.client` connection, plus routing (every endpoint in the table above), request/response JSON shapes, and error-status mapping (`ValueError` to 400, `BridgeBusy` to 503, anything else to 500) - all against a fake dispatcher, so none of it needs Anki or Qt.
@@ -286,9 +286,9 @@ To check it:
    This was written against the operations API's documented shape as of Anki 2.1.45+, but its exact keyword arguments (`.with_progress(label=...)` in particular) have not been checked against the installed Anki version's `aqt/operations/__init__.py`.
    If the dialog or the run raises a `TypeError` about an unexpected keyword, that file is the first place to look.
 
-5. **`generate-clip.js` against real Gemini and OpenAI keys.**
+5. **`generate-clip.js` against a real Gemini key.**
    `test_generator.py` proves the command this add-on builds and the way it handles the result are correct; `generate-clip.test.js` proves the Node side of the same contract. Neither proves a real account accepts the request.
-   To check: set `GEMINI_API_KEY` and `OPENAI_API_KEY` (or `plusaudio/.env`), configure `plusaudio_dir` in this add-on, run it on a small test deck, and confirm a clip comes back and plays.
+   To check: set `GEMINI_API_KEY` (or `plusaudio/.env`), configure `plusaudio_dir` in this add-on, run it on a small test deck, and confirm a clip comes back and plays.
 
 6. **The bridge actually starts, stops, and is reachable from a browser.**
    `bridge_server.py` and `bridge_ops.py` are proven directly (see "Testing" above); what is not proven without Qt is the wiring around them in `__init__.py` and `bridge_dispatch.py`.

@@ -5,7 +5,7 @@ import { notReadyResponse } from '../../../../server/anki/respond';
 import { buildStarterDeck, starterState } from '../../../../server/anki/starterDeck';
 
 // The free sample deck - see src/server/anki/starterDeck.js for what it is
-// and why it can exist without an OpenAI key.
+// and why it can exist without a Gemini key.
 
 // Whether to offer it, and in which languages. Deliberately needs no Anki
 // transport: this answers "does this build have a starter deck in it", which

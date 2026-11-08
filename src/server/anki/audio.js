@@ -15,6 +15,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { CLIP_EXTENSION, mediaName } from 'plusaudio/lib/audio-store';
 import { renderAudioReference } from 'plusaudio/lib/deck';
+import { MISSING_KEY_MESSAGE } from 'plusaudio/lib/geminiKey';
 import { runPlusaudio } from './plusaudioCli';
 
 /**
@@ -38,8 +39,8 @@ import { runPlusaudio } from './plusaudioCli';
  * generateCardTextAndAudio) - no Anki field stores one, so there is nowhere
  * else it could come from.
  *
- * Speech is Gemini's (GEMINI_API_KEY) and the check that the clip says the
- * right thing is OpenAI's (OPENAI_API_KEY), so both are needed. Whatever
+ * Speech and the check that the clip says the right thing are both Gemini's,
+ * with one key (GEMINI_API_KEY). Whatever
  * stops a clip - a missing key, the Gemini free tier's daily limit, a clip
  * that never passed validation - arrives as one line meant to be shown as-is
  * (see plusaudioCli.js), and the add-card row shows exactly that.
@@ -49,14 +50,7 @@ import { runPlusaudio } from './plusaudioCli';
 export async function generateClip({ text, language, reading = '' }) {
   // Checked here as well as in generate-clip.js so a missing key costs
   // nothing, not even a subprocess.
-  if (!process.env.GEMINI_API_KEY) {
-    throw new Error(
-      'GEMINI_API_KEY is not set, so no audio was made: get a key at https://aistudio.google.com/apikey, add it to .env.local and restart amgi.',
-    );
-  }
-  if (!process.env.OPENAI_API_KEY) {
-    throw new Error('OPENAI_API_KEY is not set; audio was not generated.');
-  }
+  if (!process.env.GEMINI_API_KEY) throw new Error(MISSING_KEY_MESSAGE);
 
   // A directory of its own, so no random name has to be invented for the
   // file (mkdtemp picks the unique suffix).

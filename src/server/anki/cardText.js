@@ -19,6 +19,7 @@
 // check that cannot tell one reading of a homograph from another.
 
 import { generateAndStoreClip } from './audio';
+import { MISSING_KEY_MESSAGE } from 'plusaudio/lib/geminiKey';
 import { runPlusaudio } from './plusaudioCli';
 import { correctSwappedSides, detectInputLanguage } from './sideOrder';
 
@@ -27,7 +28,7 @@ import { correctSwappedSides, detectInputLanguage } from './sideOrder';
  * caller that only wants to look at the text (no audio field mapped yet)
  * never pays for a clip it would not use.
  *
- * There is no placeholder when OPENAI_API_KEY is unset: a placeholder
+ * There is no placeholder when GEMINI_API_KEY is unset: a placeholder
  * translation would look like real content in a note field. This throws
  * instead, and the caller surfaces the message as an error rather than a
  * quietly-wrong card. Audio follows the same rule (see audio.js).
@@ -41,11 +42,7 @@ export async function generateCardTextOnly({
   currentCard = null,
   regenerateParts = [],
 }) {
-  if (!process.env.OPENAI_API_KEY) {
-    throw new Error(
-      'OPENAI_API_KEY is not set; card text was not generated.',
-    );
-  }
+  if (!process.env.GEMINI_API_KEY) throw new Error(MISSING_KEY_MESSAGE);
 
   const args = [
     '--known', knownLanguage,

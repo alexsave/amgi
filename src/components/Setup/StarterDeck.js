@@ -8,7 +8,7 @@ import './StarterDeck.css';
 
 // The offer of a free sample deck, on a machine that cannot make its own.
 //
-// Everything amgi builds costs an OpenAI call, so without a key the app is a
+// Everything amgi builds costs a Gemini call, so without a key the app is a
 // working tool with nothing in it and no way to see what a finished card
 // even looks like - which is the worst possible first impression, because
 // the thing being judged is the card. Ten ready-made phrases with real
@@ -79,9 +79,9 @@ const StarterDeck = () => {
 
   return (
     <div className="starter-deck">
-      <h3 className="starter-deck-title">Try it without an OpenAI key</h3>
+      <h3 className="starter-deck-title">Try it without a Gemini key</h3>
       <p className="starter-deck-lead">
-        amgi writes and records cards with OpenAI, and there is no key set here, so it cannot
+        amgi writes and records cards with Google Gemini, and there is no key set here, so it cannot
         make one yet. This deck is {state.phraseCount} everyday phrases that came with amgi,
         already recorded in both languages - a real deck you can review, edit and delete.
       </p>
@@ -116,8 +116,8 @@ const StarterDeck = () => {
 
       {error && <p className="starter-deck-error">{error}</p>}
       <p className="starter-deck-note">
-        To make your own cards, put <code>GEMINI_API_KEY=…</code> (speech) and{' '}
-        <code>OPENAI_API_KEY=…</code> (card text) in <code>.env.local</code> and restart amgi.
+        To make your own cards, put <code>GEMINI_API_KEY=…</code> in <code>.env.local</code> and
+        restart amgi (get a key at aistudio.google.com/apikey).
       </p>
     </div>
   );
