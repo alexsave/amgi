@@ -1,6 +1,6 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readSettings, PLAIN_HEADERS } from '../../server/anki/settings';
+import { readSettings, settingsHeaders, PLAIN_HEADERS } from '../../server/anki/settings';
 
 const request = (headers) => new Request('http://127.0.0.1/api/anki/status', { headers });
 
@@ -19,19 +19,13 @@ describe('readSettings', () => {
     });
   });
 
-  test('prefers the plain headers over the JSON header', () => {
-    const settings = readSettings(request({
-      [PLAIN_HEADERS.baseDirOverride]: '%2Ftmp%2Fa',
-      'x-amgi-anki-settings': JSON.stringify({ baseDirOverride: '/tmp/b' }),
-    }));
-    assert.equal(settings.baseDirOverride, '/tmp/a');
+  test('reads every setting as empty when no header carries it', () => {
+    assert.deepEqual(readSettings(request({})), { baseDirOverride: '', collectionPath: '', profileName: '', bridge: { baseUrl: '', token: '' } });
   });
 
-  test('still reads the JSON header the documented API sends', () => {
-    const settings = readSettings(request({
-      'x-amgi-anki-settings': JSON.stringify({ collectionPath: '/c', bridge: { baseUrl: 'http://x', token: 't' } }),
-    }));
-    assert.deepEqual(settings, { baseDirOverride: '', collectionPath: '/c', profileName: '', bridge: { baseUrl: 'http://x', token: 't' } });
+  test('settingsHeaders writes what readSettings reads back', () => {
+    const settings = { baseDirOverride: '/tmp/한국어 a', collectionPath: '/c%d', profileName: 'User 1', bridge: { baseUrl: 'http://127.0.0.1:8798', token: 't&k' } };
+    assert.deepEqual(readSettings(request(settingsHeaders(settings))), settings);
   });
 
   test('reads a malformed escape as empty, not as a thrown request', () => {
