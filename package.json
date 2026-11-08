@@ -1,4 +1,5 @@
 {
+  "name": "amgi",
   "private": true,
   "workspaces": [
     "plusaudio"
