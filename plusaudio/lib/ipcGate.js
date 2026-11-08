@@ -2,10 +2,9 @@
 
 // How a generator subprocess reaches the rate gate its parent owns.
 //
-// The app makes Gemini calls from per-card subprocesses (generate-card-text.js,
-// generate-clip.js), started by the Next server with child_process.fork
-// (src/server/anki/plusaudioCli.js), which gives each one Node's built-in
-// IPC channel to the parent. The gate's state - blockedUntil, the window,
+// A parent that makes Gemini calls from subprocesses it starts with
+// child_process.fork (as the Node server did before the C one, which keeps its
+// gate in process) gives each one Node's built-in IPC channel to the parent. The gate's state - blockedUntil, the window,
 // the learned cap, the 429 streak - lives only in the parent (rateGate.js's
 // one per-process instance). A subprocess holds none of it: before every
 // Gemini request it asks the parent "how long must I wait?" (acquire), and

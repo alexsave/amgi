@@ -5,7 +5,7 @@
 // Everything about how a clip is made - the Gemini model and voice pool, and
 // the refusal to keep a clip that does not say what the card
 // says - lives in ./cardGeneration/cardGeneration.ts, which is the same module
-// amgi's own local generation path (src/server/anki/audio.js, by way of
+// amgi's own local generation path (server/amgi/gen.c, by way of
 // generate-clip.js) and the Anki add-on's bridge run. A deck built here is
 // therefore built to the standard the app already holds itself to, and there is
 // only one place to improve when that standard moves.
@@ -40,7 +40,7 @@ function createGenerator(options = {}) {
   // write carries no romanisation of its own text, so for Japanese and
   // Chinese the clip is validated by transcript alone and cardGeneration
   // says so in the log. A caller that just generated the text itself - see
-  // textGenerator.js and src/server/anki/cardText.js - has a spoken_reading
+  // the app's server, server/amgi/gen.c - has a spoken_reading
   // to pass here, and it goes to the audio judge, never to the synthesiser.
   // That reading is not stored anywhere else.
   //

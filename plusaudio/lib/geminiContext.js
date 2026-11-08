@@ -3,10 +3,9 @@
 // The one place a Gemini API key becomes the context cardGeneration.ts runs
 // in: the gRPC client (cardGeneration/gemini.ts), the speech synthesiser
 // (cardGeneration/geminiSpeech.ts) and the model roster (models.ts).
-// lib/generator.js (audio) and lib/textGenerator.js (card text) both build
-// their context here, so the CLI entry points, the app (through them) and the
-// Anki add-on (through generate-clip.js) all generate with the same client
-// and the same models.
+// lib/generator.js builds its context here, so the CLI entry points and the
+// Anki add-on (through generate-clip.js) generate with the same client and
+// the same models (the app's server has its own C port, server/amgi/gemini.c).
 //
 // Requiring the TypeScript modules directly (Node strips the types) is
 // deliberate: no build step means no generated copy that can drift from its
