@@ -12,20 +12,28 @@ import { AMGI_NOTETYPE_NAME } from '../../utils/amgiNotetype';
 // a six-field note type and paste three files into it. That is strictly
 // harder than what the tool already does by itself.
 //
-// This file does the half of that which is honestly the website's job:
-// copying two add-on folders onto disk. It deliberately does NOT try to write
-// the note type. A schema-18 collection keeps note types in three tables
-// whose config columns are protobuf messages, and hand-encoding those from
-// Node would mean guessing field numbers for messages this repo has no
-// vendored copy of. Anki's own Python API is correct by construction and is
-// already running inside Anki, so the note type is created there instead -
-// see anki/addon/amgi_bridge/notetype.py, which this installer feeds by
-// dropping the templates into the add-on's own cardtype/ folder.
+// Two writers make the note type, and which one runs depends on whether Anki
+// is open, so what each covers is written down here:
 //
-// The division is therefore: the website puts the files where Anki will find
-// them, and Anki does the collection surgery the next time it starts. That
-// also means this never needs the collection to be closed, and never needs
-// to care which transport is live.
+//   - Anki CLOSED (the direct transport): installNotetypeDirect() below writes
+//     the note type and its two media files itself, through
+//     plusaudio/lib/collection/notetype-write.js. The add-card form works the
+//     moment the install finishes. That module's header has the story of why
+//     this used to be refused (hand-encoded protobuf nobody could validate)
+//     and what validates it now.
+//   - Anki OPEN, or any collection amgi cannot write: this installer only
+//     copies the add-on folders onto disk, and the add-on creates the note
+//     type through Anki's own Python API at the next profile open
+//     (anki/addon/amgi_bridge/notetype.py, fed by the cardtype/ folder
+//     copied below). It is also the only thing that REFRESHES an existing
+//     note type whose templates or css have drifted.
+//
+// They are deliberately not merged: the add-on is correct by construction
+// across Anki versions and is the path for everything that already exists,
+// while the Node writer exists only so a first install into a closed
+// collection needs no restart. The add-on treats a note type the Node writer
+// made as current (an equivalence test enforces that it changes nothing).
+// Either way the files go to disk first, so a later Anki start has everything.
 
 // Everything Anki should not see inside an add-on folder: Python's own
 // caches, and this repo's test suites, which would otherwise be shipped into
@@ -33,6 +41,14 @@ import { AMGI_NOTETYPE_NAME } from '../../utils/amgiNotetype';
 const SKIP_ENTRIES = new Set(['__pycache__', 'test', '.pytest_cache', '.DS_Store']);
 
 const ADDONS = ['amgi_mic', 'amgi_bridge'];
+
+// What installAddons says on its own: it only copies files, so the note type
+// still has to be made by the add-on when Anki next starts. The route replaces
+// this once installNotetypeDirect has made it itself.
+export const RESTART_MESSAGE =
+  'Installed. Restart Anki - it will add the "amgi Listening" note type and its files to your collection on the way up.';
+export const INSTALLED_MESSAGE =
+  'Installed. The "amgi Listening" card type is already in your collection, so you can add cards now. Anki picks the add-ons up the next time it starts.';
 
 // The card type, copied into amgi_bridge/cardtype/ so the add-on is
 // self-contained once installed: it reads these at profile open and needs no
@@ -212,10 +228,10 @@ export function installState({ baseDir, root = repoRoot() } = {}) {
  * current. Checking files on disk answers "did we do our part", which is not
  * the question anyone is asking.
  *
- * Reads only. Nothing here writes to the collection, because writing a note
- * type from Node is precisely what this repo refuses to do (see this file's
- * own header, and notetype.py's) - the fix for drift is still, and only,
- * opening Anki.
+ * Reads only. Nothing here writes to the collection. Drift in an EXISTING
+ * note type is fixed by the add-on at the next Anki start, not by the Node
+ * writer, which only ever creates a missing note type (see this file's
+ * header for the split).
  *
  * The stylesheet is not checked: listNotetypes does not carry a note type's
  * css, so there is no honest way to compare it from here. Templates and media
@@ -256,6 +272,54 @@ export async function collectionDrift({ ops, root = repoRoot() }) {
   }
 
   return { checked: true, stale };
+}
+
+// The note type, as the Node writer needs it. Field and template order, the
+// names and the legacy requirement list must equal what notetype.py builds;
+// notetype-write.test.js compares the two decoded, so editing one side only
+// fails a test instead of shipping two different note types.
+const NOTETYPE_FIELDS = ['Cue', 'CueAudio', 'Target', 'TargetAudio', 'Language', 'Notes'];
+// Legacy "which fields must be non-empty for this card to exist": the forward
+// card needs CueAudio (ord 1), the reverse card TargetAudio (ord 3).
+const NOTETYPE_REQUIREMENTS = [
+  { ord: 0, kind: 'any', fields: [1] },
+  { ord: 1, kind: 'any', fields: [3] },
+];
+
+/** The amgi note type as plusaudio's createNotetype takes it, read from the shipped card files. */
+export function amgiNotetypeSpec(root = repoRoot()) {
+  const read = (rel) => fs.readFileSync(path.join(root, rel), 'utf8');
+  return {
+    name: AMGI_NOTETYPE_NAME,
+    fields: NOTETYPE_FIELDS,
+    templates: COLLECTION_TEMPLATES.map((t) => ({ name: t.name, front: read(t.front), back: read(t.back) })),
+    css: read('anki/notetype/styling.css'),
+    requirements: NOTETYPE_REQUIREMENTS,
+  };
+}
+
+/**
+ * Create the note type now, if the collection can be written from here.
+ *
+ * Only a transport that offers createNotetype can (the direct one, Anki
+ * closed); the bridge cannot, because with Anki open the add-on does it.
+ * Never throws: whatever goes wrong here, the add-on path is still there and
+ * the install itself has already succeeded, so a failure is reported and the
+ * caller falls back to "restart Anki".
+ *
+ * @returns {Promise<{created: boolean, existed?: boolean, reason?: string}>}
+ */
+export async function installNotetypeDirect({ ops, root = repoRoot() }) {
+  if (!ops || typeof ops.createNotetype !== 'function') return { created: false, reason: 'transport' };
+  try {
+    const media = {};
+    for (const name of COLLECTION_MEDIA) media[name] = fs.readFileSync(path.join(root, 'anki', 'media', name));
+    const result = await ops.createNotetype(amgiNotetypeSpec(root), media);
+    if (result.created) return { created: true };
+    return { created: false, existed: result.reason === 'exists', reason: result.reason };
+  } catch (error) {
+    return { created: false, reason: error.kind || 'error' };
+  }
 }
 
 /**
@@ -338,7 +402,6 @@ export function installAddons({ baseDir, root = repoRoot() } = {}) {
     addonsDir,
     installed,
     cardType,
-    message:
-      'Installed. Restart Anki - it will add the "amgi Listening" note type and its files to your collection on the way up.',
+    message: RESTART_MESSAGE,
   };
 }
