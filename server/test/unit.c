@@ -113,6 +113,11 @@ static void text_rules(void) {
   for (int i = 0; i < 4; i++) differ |= rng_next(&r1) != rng_next(&r2);
   CHECK(differ, "an OS seed of 16 bytes draws differently when only its last byte differs");
   CHECK_STR(path_join(&a, S("/m/collection.media"), S("../clip.ogg")), "/m/clip.ogg");
+  /* A bare file name's folder is ".", one byte (a collection opened by a relative name puts its
+   * backups beside it). */
+  CHECK_STR(path_dirname(&a, S("collection.anki2")), ".");
+  CHECK_STR(path_dirname(&a, S("/collection.anki2")), "/");
+  CHECK_STR(path_join(&a, path_dirname(&a, S("collection.anki2")), S("amgi-collection-backups")), "amgi-collection-backups");
   CHECK_STR(path_extname(S("a.b.")), ".");
   CHECK_STR(path_extname(S(".hidden")), "");
   ar_free(&a);

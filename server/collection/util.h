@@ -18,7 +18,9 @@ void ar_free(arena *a);
 
 /* ---- text: UTF-8 bytes, not NUL-terminated in general (a field may hold a NUL) ---- */
 typedef struct { const char *p; size_t n; } str;
-#define S(lit) ((str){(lit), sizeof(lit) - 1})
+/* A string literal as a str. Only a literal: "" lit "" does not compile for anything else, so a
+ * pointer (whose sizeof is 8) can never pass for a 7-byte string. */
+#define S(lit) ((str){(lit), sizeof("" lit "") - 1})
 str str_c(const char *s);
 int str_eq(str a, str b);
 int str_eq_c(str a, const char *s);
@@ -47,6 +49,7 @@ str utf8_clean(arena *a, str s);    /* s with every invalid sequence replaced, a
 
 /* JavaScript's whitespace (String.prototype.trim, the regexp \s): WhiteSpace and LineTerminator. */
 int js_space(uint32_t cp);
+int unicode_space(uint32_t cp); /* Unicode White_Space, as Rust's trim */
 str js_trim(str s);
 /* String.prototype.toLowerCase (locale-independent, full mappings, final sigma) and normalize('NFC'). */
 str js_lower(arena *a, str s);
