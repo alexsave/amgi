@@ -18,6 +18,7 @@ const {
 } = require('../lib/cardGeneration/geminiSpeech.ts');
 const { GeminiRateLimitError, GeminiUnavailableError, createGeminiClient, dailyQuotaMessage, isRateLimited } = require('../lib/cardGeneration/gemini.ts');
 const { createRandom } = require('../lib/random');
+const { JITTER, createRateGate } = require('../lib/rateGate');
 
 const MODEL = 'gemini-3.8-flash-tts';
 const VOICES = ['Kore', 'Aoede', 'Charon'];
@@ -58,12 +59,18 @@ function scriptedFetch(responses) {
 function speechWith(responses, overrides = {}) {
   const scripted = scriptedFetch(responses);
   const sleeps = [];
+  // One fake clock for both the client's sleep and the rate gate, so a
+  // sleep moves the gate's time on exactly as a real wait would.
+  const clock = { t: 1_000_000 };
+  const gate = createRateGate({ now: () => clock.t, random: createRandom(3) });
   const client = createGeminiClient({
     apiKey: 'test-key',
     fetch: scripted.fetch,
     baseUrl: 'http://fake.invalid',
+    gate,
     sleep: async (ms) => {
       sleeps.push(ms);
+      clock.t += ms;
     },
   });
   const speech = createGeminiSpeech({
@@ -73,7 +80,7 @@ function speechWith(responses, overrides = {}) {
     random: createRandom(7),
     ...overrides,
   });
-  return { speech, calls: scripted.calls, sleeps };
+  return { speech, calls: scripted.calls, sleeps, gate, clock };
 }
 
 const REQUEST = { text: '역이 어디예요?', language: 'ko', voice: 'Kore' };
@@ -191,7 +198,7 @@ test('a free-tier daily cap names the limit Google reports', async () => {
   assert.match(error.message, /Enable billing/);
 });
 
-test('a per-minute limit is waited out for as long as Gemini asks, then retried with the same request', async () => {
+test("a per-minute limit is waited out through the gate: Google's delay as the floor, doubling on a second refusal", async () => {
   const wav = wavBytes();
   const { speech, calls, sleeps } = speechWith([
     quota429('GenerateRequestsPerMinutePerProjectPerModel-FreeTier', '2.5s'),
@@ -202,12 +209,14 @@ test('a per-minute limit is waited out for as long as Gemini asks, then retried 
   const audio = Buffer.from(await speech.synthesize(REQUEST));
 
   assert.deepEqual(audio, wav);
-  assert.deepEqual(sleeps, [2500, 3000]);
+  assert.equal(sleeps.length, 2);
+  assert.ok(sleeps[0] >= 2500 && sleeps[0] < 2500 * (1 + JITTER), `first wait ${sleeps[0]}: retryDelay 2.5 s, jittered`);
+  assert.ok(sleeps[1] >= 4000 && sleeps[1] < 4000 * (1 + JITTER), `second wait ${sleeps[1]}: doubled past the 3 s retryDelay`);
   assert.equal(calls.length, 3);
   assert.deepEqual(calls[2].body, calls[0].body);
 });
 
-test('a per-minute limit that would wait past the cap is handed back typed, with how long to wait', async () => {
+test("a per-minute limit that would wait past the cap is handed back typed, with the gate's own wait", async () => {
   const { speech, sleeps, calls } = speechWith([
     quota429('GenerateRequestsPerMinutePerProjectPerModel-FreeTier', '20s'),
     quota429('GenerateRequestsPerMinutePerProjectPerModel-FreeTier', '20s'),
@@ -219,10 +228,10 @@ test('a per-minute limit that would wait past the cap is handed back typed, with
   assert.ok(!(error instanceof GeminiUnavailableError), 'not fatal: it passes');
   assert.notEqual(error.fatal, true);
   assert.equal(error.rateLimited, true);
-  assert.equal(error.retryAfterMs, 20000);
   assert.ok(isRateLimited(error));
-  assert.equal(error.message, `Gemini is limiting how many requests ${MODEL} takes per minute and asked to wait 20s.`);
-  assert.deepEqual(sleeps, [20000], 'the first wait fits in 30 s, the second would not');
+  assert.ok(error.retryAfterMs >= 20000 && error.retryAfterMs < 20000 * (1 + JITTER), `${error.retryAfterMs}`);
+  assert.equal(error.message, `Gemini is limiting how many requests ${MODEL} takes per minute and asked to wait ${Math.ceil(error.retryAfterMs / 1000)}s.`);
+  assert.equal(sleeps.length, 1, 'the first wait fits in 30 s, the second would not');
   assert.equal(calls.length, 2);
 });
 
@@ -232,7 +241,7 @@ test('a single long per-minute wait (49 s, as the TTS model asked live) is hande
   const error = await speech.synthesize(REQUEST).then(() => null, (e) => e);
 
   assert.ok(error instanceof GeminiRateLimitError);
-  assert.equal(error.retryAfterMs, 49200);
+  assert.ok(error.retryAfterMs >= 49200 && error.retryAfterMs < 49200 * (1 + JITTER), `${error.retryAfterMs}`);
   assert.deepEqual(sleeps, []);
   assert.equal(calls.length, 1);
 });
@@ -249,10 +258,11 @@ test('the daily cap is still fatal and immediate, never a rate limit to wait out
   assert.deepEqual(sleeps, []);
 });
 
-test('a 429 with no details is treated as a short rate limit', async () => {
+test("a 429 with no details blocks for the gate's base wait", async () => {
   const { speech, sleeps } = speechWith([{ status: 429, body: 'Too many requests' }, audioResponse('audio/wav', wavBytes())]);
   await speech.synthesize(REQUEST);
-  assert.deepEqual(sleeps, [5000]);
+  assert.equal(sleeps.length, 1);
+  assert.ok(sleeps[0] >= 2000 && sleeps[0] < 2000 * (1 + JITTER), `${sleeps[0]}`);
 });
 
 test('an answer with no inlineData is an ordinary, retryable failure', async () => {

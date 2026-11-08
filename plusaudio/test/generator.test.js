@@ -16,17 +16,24 @@ const { createGenerator } = require('../lib/generator');
 const { CARD_MODELS, GEMINI_TTS_VOICES } = require('../lib/cardGeneration/models.ts');
 const { dailyQuotaMessage } = require('../lib/cardGeneration/gemini.ts');
 const { createRandom } = require('../lib/random');
+const { JITTER, createRateGate } = require('../lib/rateGate');
 const { WAV, dailyQuota429, fakeGemini } = require('./helpers/fake-gemini');
 
 const voiceOf = (request) => request.body.generationConfig.speechConfig.voiceConfig.prebuiltVoiceConfig.voiceName;
 
 function generatorWith(gemini, { seed = 1, log } = {}) {
+  // A gate of the test's own on a fake clock that the injected sleep moves:
+  // never the process-wide one, which would carry one test's 429 into the next.
+  const clock = { t: 1_000_000 };
   return createGenerator({
     apiKey: 'test-key',
     baseUrl: 'http://fake.invalid',
     fetch: gemini.fetch,
     random: createRandom(seed),
-    sleep: async () => {},
+    gate: createRateGate({ now: () => clock.t, random: createRandom(seed) }),
+    sleep: async (ms) => {
+      clock.t += ms;
+    },
     log,
   });
 }
@@ -150,7 +157,7 @@ test('a long per-minute limit leaves the clip at once, typed with its wait, spen
   const error = await generatorWith(gemini)({ text: '배고파요?', language: 'ko' }).then(() => null, (e) => e);
 
   assert.equal(error.rateLimited, true);
-  assert.equal(error.retryAfterMs, 49000);
+  assert.ok(error.retryAfterMs >= 49000 && error.retryAfterMs < 49000 * (1 + JITTER), `${error.retryAfterMs}`);
   assert.equal(gemini.of('speech').length, 1, 'no second voice tried into the same limit');
 });
 
@@ -168,7 +175,7 @@ test('a long per-minute limit on the judge is handed back too, not judged from t
   const error = await generatorWith(gemini)({ text: '배고파요?', language: 'ko' }).then(() => null, (e) => e);
 
   assert.equal(error.rateLimited, true);
-  assert.equal(error.retryAfterMs, 40000);
+  assert.ok(error.retryAfterMs >= 40000 && error.retryAfterMs < 40000 * (1 + JITTER), `${error.retryAfterMs}`);
   assert.equal(gemini.of('transcriptJudge').length, 0);
 });
 

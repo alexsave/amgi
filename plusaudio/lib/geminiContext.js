@@ -17,6 +17,7 @@ const { MISSING_KEY_MESSAGE } = require('./geminiKey');
 const { createGeminiSpeech } = require('./cardGeneration/geminiSpeech.ts');
 const { CARD_MODELS, GEMINI_TTS_VOICES } = require('./cardGeneration/models.ts');
 const { random: defaultRandom } = require('./random');
+const { gateForThisProcess } = require('./ipcGate');
 
 /**
  * Build the context cardGeneration.ts's generateCardText and
@@ -30,12 +31,16 @@ const { random: defaultRandom } = require('./random');
  * @param {object} [options.random]          the voice draw's source; ./random.js's process-wide generator by default
  * @param {function} [options.sleep]         how a per-minute rate limit is waited out
  * @param {function} [options.log]           where the policy's own warnings go
+ * @param {object} [options.gate]            the rate gate every request passes; by default the
+ *                                           parent server's over IPC when this process was forked
+ *                                           with one, else this process's own (ipcGate.js)
  * @param {string} [options.ttsModel]        the speech model; models.ts's GEMINI_TTS_MODEL unless a dev
  *                                           script asks for another named one (build-starter-audio.js --model)
  */
-function createGeminiContext({ apiKey, baseUrl, fetch, random = defaultRandom, sleep, log = () => {}, ttsModel = CARD_MODELS.tts } = {}) {
+function createGeminiContext({ apiKey, baseUrl, fetch, random = defaultRandom, sleep, log = () => {}, ttsModel = CARD_MODELS.tts, gate = gateForThisProcess() } = {}) {
   const gemini = createGeminiClient({
     apiKey,
+    gate,
     ...(baseUrl ? { baseUrl } : {}),
     ...(fetch ? { fetch } : {}),
     ...(sleep ? { sleep } : {}),
