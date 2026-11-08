@@ -10,6 +10,7 @@ const { defaultBaseDir, listProfiles } = require('./paths');
 const { openCollection } = require('./open');
 const { ensureBackupBeforeChange, noteCollectionWritten, readCollectionMark } = require('./backup');
 const { listDecks, renameDeck, resolveOrCreateDeck } = require('./decks');
+const { deckRemovalSummary, removeDeck } = require('./deck-remove');
 const { readNotetypes } = require('./notetypes');
 const { createNotetype } = require('./notetype-write');
 const {
@@ -119,6 +120,16 @@ class Collection {
   /** Rename a deck and everything under it. */
   renameDeck(deckId, humanName) {
     return this._withBackup(() => renameDeck(this.path, deckId, humanName));
+  }
+
+  /** What deleting a deck would take (its subdecks, cards, notes), changing nothing - see deck-remove.js. */
+  deckRemovalSummary(deckId) {
+    return deckRemovalSummary(this.path, deckId);
+  }
+
+  /** Delete a deck and everything under it as Anki does, leaving graves so a sync propagates it - see deck-remove.js. */
+  removeDeck(deckId) {
+    return this._withBackup(() => removeDeck(this.path, deckId));
   }
 
   /** Delete a note and its cards, leaving graves so a sync propagates it. */
