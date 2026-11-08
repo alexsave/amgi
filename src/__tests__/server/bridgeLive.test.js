@@ -145,9 +145,11 @@ maybe(`the bridge protocol against the real add-on server and a real collection 
     assert.deepEqual(summary, { id: existing.id, name: 'Existing', subdecks: 1, cards: 1, notes: 1 });
     const gone = await ops.removeDeck(existing.id);
     assert.deepEqual(gone, { id: existing.id, name: 'Existing', decks: 2, cards: 1, notes: 1 });
-    await assert.rejects(ops.deckRemovalSummary(existing.id), (error) => error instanceof BridgeError && error.status === 404);
-    await assert.rejects(ops.addNote({ deckId: made.deck.id, notetypeId: basic.id, fields: ['only one'], tags: [] }),
-      (error) => error instanceof BridgeError && error.status === 400);
+    // A refusal carries the add-on's own sentence (its b_error), not just its status.
+    const said = (status) => (error) => error instanceof BridgeError && error.status === status
+      && error.message.length > 0 && error.message !== `bridge responded ${status}`;
+    await assert.rejects(ops.deckRemovalSummary(existing.id), said(404));
+    await assert.rejects(ops.addNote({ deckId: made.deck.id, notetypeId: basic.id, fields: ['only one'], tags: [] }), said(400));
   });
 
   test('what the bridge wrote is in the collection, as Anki reads it', async () => {
