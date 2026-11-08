@@ -3,7 +3,7 @@
 // Every job this is used for is network-bound and several seconds long (see
 // BulkRun.js, where one job is a card's text plus two clip pipelines), so
 // the point of the pool is not throughput of CPU work - it is that a lane
-// waiting on OpenAI is a lane doing nothing, and there is no reason for the
+// waiting on Gemini is a lane doing nothing, and there is no reason for the
 // next line to wait for it.
 
 /**

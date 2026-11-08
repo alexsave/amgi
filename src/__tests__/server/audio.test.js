@@ -13,7 +13,7 @@
 // stderr, which was a Node module-type warning rather than the error.
 //
 // The subprocess is faked at node:child_process, the boundary audio.js
-// crosses, so no test here starts a generator or reaches OpenAI.
+// crosses, so no test here starts a generator or reaches Gemini.
 
 import fs from 'node:fs';
 
@@ -66,12 +66,11 @@ function fakeOps(existing = []) {
 const CLIP = { text: '화이팅', language: 'ko' };
 // The first bytes of a WAV file, which is all a Gemini clip ever is.
 const WAV = (tail) => Buffer.concat([Buffer.from('RIFF\x24\x00\x00\x00WAVE'), Buffer.from(tail)]);
-const KEYS = ['OPENAI_API_KEY', 'GEMINI_API_KEY'];
+const KEYS = ['GEMINI_API_KEY'];
 const originalKeys = Object.fromEntries(KEYS.map((name) => [name, process.env[name]]));
 
 beforeEach(() => {
   runs.length = 0;
-  process.env.OPENAI_API_KEY = 'test-key';
   process.env.GEMINI_API_KEY = 'test-gemini-key';
   jest.spyOn(console, 'error').mockImplementation(() => {});
 });
@@ -95,30 +94,20 @@ test('a failed generation stores nothing and says why, not what Node warned abou
   expect(console.error).toHaveBeenCalledWith(expect.stringContaining('MODULE_TYPELESS_PACKAGE_JSON'));
 });
 
-test('with no OpenAI key, nothing is generated and nothing is stored', async () => {
-  delete process.env.OPENAI_API_KEY;
-  nextRun = succeedWith(Buffer.from('should never be asked for'));
-  const ops = fakeOps();
-
-  await expect(generateAndStoreClip({ ...CLIP, ops })).rejects.toThrow(/OPENAI_API_KEY is not set/);
-  expect(runs).toHaveLength(0);
-  expect(ops.media.size).toBe(0);
-});
-
 test('with no Gemini key, nothing is generated, and the error says where to get one', async () => {
   delete process.env.GEMINI_API_KEY;
   nextRun = succeedWith(WAV('should never be asked for'));
   const ops = fakeOps();
 
   await expect(generateAndStoreClip({ ...CLIP, ops })).rejects.toThrow(
-    /^GEMINI_API_KEY is not set, so no audio was made: get a key at https:\/\/aistudio\.google\.com\/apikey/,
+    /^GEMINI_API_KEY is not set, so nothing was generated: get a key at https:\/\/aistudio\.google\.com\/apikey/,
   );
   expect(runs).toHaveLength(0);
   expect(ops.media.size).toBe(0);
 });
 
 test('the daily quota message from the CLI is what the caller gets, word for word', async () => {
-  const quota = "Gemini's free tier allows 10 speech requests per day per model, and today's are used up for gemini-3.8-flash-tts. Enable billing for your Gemini API key's project in Google AI Studio (https://aistudio.google.com/apikey) to lift the limit, or try again tomorrow.";
+  const quota = "Gemini's free tier allows 10 requests per day per model, and today's are used up for gemini-3.8-flash-tts. Enable billing for your Gemini API key's project in Google AI Studio (https://aistudio.google.com/apikey) to lift the limit, or try again tomorrow.";
   nextRun = failWith(`${NODE_WARNING}\n${quota}\n`);
   const ops = fakeOps();
 
