@@ -1,6 +1,7 @@
-# The local HTTP bridge itself: routing, request/response JSON, and the
-# auth/origin checks from bridge_auth.py, wired to a `dispatcher` object that
-# does the actual work.
+# The local HTTP bridge itself: routing, the bodies in amgi's wire format
+# (bridge_wire.py, over the schema generated from ui/wire/wire.c), the
+# protocol version check, and the auth/origin checks from bridge_auth.py,
+# wired to a `dispatcher` object that does the actual work.
 #
 # This file has no aqt import and no anki import. It knows nothing about
 # CollectionOp, mw, or even that it is running inside Anki - `dispatcher`
@@ -20,9 +21,6 @@
 
 from __future__ import annotations
 
-import base64
-import binascii
-import json
 import re
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -31,21 +29,35 @@ from typing import Any, Optional
 try:
     # The normal case: Anki has this add-on's directory on sys.path and
     # imports this as part of the amgi_bridge package.
+    from . import bridge_wire, wire_schema
     from .bridge_auth import TOKEN_HEADER, check_preflight, check_request
 except ImportError:
     # test/ imports this module directly, with the add-on's own directory on
     # sys.path (see test/test_bridge_server.py) - the same dual-import
     # tolerance core.py uses for deck_text.py.
+    import bridge_wire  # type: ignore[no-redef]
+    import wire_schema  # type: ignore[no-redef]
     from bridge_auth import TOKEN_HEADER, check_preflight, check_request
 
 BIND_HOST = "127.0.0.1"
 
 ALLOWED_METHODS = "GET, POST, PATCH, DELETE, OPTIONS"
-ALLOWED_HEADERS = f"Content-Type, {TOKEN_HEADER}"
+# Every request and every answer names the bridge protocol it speaks (wire.h, WIRE_BRIDGE_PROTOCOL).
+# A request in another one is refused with PROTOCOL_MISMATCH before it is routed: its bodies would
+# not be the layouts this add-on reads. The app's server reads this header on every answer, and an
+# add-on old enough to send none spoke JSON.
+PROTOCOL_HEADER = "X-Amgi-Bridge-Protocol"
+PROTOCOL = wire_schema.BRIDGE_PROTOCOL
+PROTOCOL_MISMATCH = (
+    "this amgi add-on speaks bridge protocol {mine}, and amgi's server speaks {theirs}: "
+    "press Install into Anki again (amgi's Settings), then restart Anki"
+)
+
+ALLOWED_HEADERS = f"Content-Type, {TOKEN_HEADER}, {PROTOCOL_HEADER}"
 
 # A request body bigger than this is refused outright, before a single byte
 # of it is read off the socket. Every real body this bridge ever receives is
-# a JSON-encoded note or two (or a base64 media file, /media's own concern -
+# a note or two in the wire format (or a media file, /media's own concern -
 # see add_media's much larger allowance below); 25MB is generous headroom
 # over even a large bulk-paste of a few thousand lines, while still ruling
 # out a caller (malicious, or just a badly configured proxy) claiming a
@@ -54,13 +66,13 @@ ALLOWED_HEADERS = f"Content-Type, {TOKEN_HEADER}"
 # having `rfile.read()` return at all until BODY_READ_TIMEOUT_SECONDS below
 # gives up on it.
 MAX_BODY_BYTES = 25 * 1024 * 1024
-# /media's body is a note's clip re-encoded as base64 (~1.33x its raw size);
-# a generous allowance for a single audio clip, well past anything a real
-# TTS clip needs, but still bounded rather than open-ended.
+# /media's body is a note's clip, as its own bytes; a generous allowance for a
+# single audio clip, well past anything a real TTS clip needs, but still
+# bounded rather than open-ended.
 MAX_MEDIA_BODY_BYTES = 50 * 1024 * 1024
 
 # How long a connection may sit idle mid-request - specifically, how long
-# `_read_json_body`'s `self.rfile.read(length)` will block waiting for bytes
+# `_read_body`'s `self.rfile.read(length)` will block waiting for bytes
 # that were promised by Content-Length but never arrive (a stalled network,
 # a proxy that miscounts, or a request built by hand with a wrong header) -
 # before this thread gives up rather than blocking forever. BaseHTTPRequestHandler
@@ -98,25 +110,27 @@ class BridgeBusy(BridgeHTTPError):
         super().__init__(503, message)
 
 
-Route = tuple[str, re.Pattern, str]
+# (method, path, handler, the request body's kind or None, the answer's kind): the kinds are names
+# in ui/wire/wire.c's table, the one place their layouts are written down.
+Route = tuple[str, re.Pattern, str, Optional[str], str]
 
 ROUTES: list[Route] = [
-    ("GET", re.compile(r"^/status$"), "get_status"),
-    ("GET", re.compile(r"^/decks$"), "list_decks"),
-    ("GET", re.compile(r"^/notetypes$"), "list_notetypes"),
-    ("GET", re.compile(r"^/decks/(?P<deck_id>\d+)/notes$"), "list_notes"),
-    ("GET", re.compile(r"^/decks/(?P<deck_id>\d+)/notes/field-values$"), "list_field_values"),
-    ("POST", re.compile(r"^/decks$"), "create_deck"),
-    ("POST", re.compile(r"^/notes$"), "add_note"),
-    ("POST", re.compile(r"^/notes/bulk$"), "add_notes_bulk"),
-    ("PATCH", re.compile(r"^/notes/(?P<note_id>\d+)$"), "update_note"),
-    ("DELETE", re.compile(r"^/notes/(?P<note_id>\d+)$"), "remove_note"),
-    ("PATCH", re.compile(r"^/decks/(?P<deck_id>\d+)$"), "rename_deck"),
-    ("GET", re.compile(r"^/decks/(?P<deck_id>\d+)$"), "deck_summary"),
-    ("DELETE", re.compile(r"^/decks/(?P<deck_id>\d+)$"), "remove_deck"),
-    ("POST", re.compile(r"^/media$"), "add_media"),
-    ("GET", re.compile(r"^/media/(?P<filename>[^/]+)/data$"), "read_media"),
-    ("GET", re.compile(r"^/media/(?P<filename>[^/]+)$"), "has_media"),
+    ("GET", re.compile(r"^/status$"), "get_status", None, "b_status"),
+    ("GET", re.compile(r"^/decks$"), "list_decks", None, "b_decks"),
+    ("GET", re.compile(r"^/notetypes$"), "list_notetypes", None, "b_notetypes"),
+    ("GET", re.compile(r"^/decks/(?P<deck_id>\d+)/notes$"), "list_notes", None, "b_notes"),
+    ("GET", re.compile(r"^/decks/(?P<deck_id>\d+)/notes/field-values$"), "list_field_values", None, "b_values"),
+    ("POST", re.compile(r"^/decks$"), "create_deck", "q_deck_name", "b_deck_created"),
+    ("POST", re.compile(r"^/notes$"), "add_note", "q_note", "b_note"),
+    ("POST", re.compile(r"^/notes/bulk$"), "add_notes_bulk", "q_notes", "b_notes_added"),
+    ("PATCH", re.compile(r"^/notes/(?P<note_id>\d+)$"), "update_note", "q_note_update", "b_note"),
+    ("DELETE", re.compile(r"^/notes/(?P<note_id>\d+)$"), "remove_note", None, "b_note_removed"),
+    ("PATCH", re.compile(r"^/decks/(?P<deck_id>\d+)$"), "rename_deck", "q_deck_name", "b_deck"),
+    ("GET", re.compile(r"^/decks/(?P<deck_id>\d+)$"), "deck_summary", None, "b_deck_summary"),
+    ("DELETE", re.compile(r"^/decks/(?P<deck_id>\d+)$"), "remove_deck", None, "b_deck_removed"),
+    ("POST", re.compile(r"^/media$"), "add_media", "b_q_media", "b_media_added"),
+    ("GET", re.compile(r"^/media/(?P<filename>[^/]+)/data$"), "read_media", None, "b_media_data"),
+    ("GET", re.compile(r"^/media/(?P<filename>[^/]+)$"), "has_media", None, "b_media_exists"),
 ]
 
 
@@ -131,6 +145,18 @@ def _parse_query(path: str) -> tuple[str, dict[str, str]]:
         key, _, value = part.partition("=")
         params[key] = value
     return base, params
+
+
+def _note_args(entry: dict) -> dict:
+    """A q_note message's fields as bridge_dispatch's add_note takes them."""
+    return {
+        "deck_id": int(entry.get("deckId", 0)),
+        "notetype_id": int(entry.get("notetypeId", 0)),
+        "fields": list(entry.get("fields", [])),
+        "tags": list(entry.get("tags", [])),
+        "language": entry.get("language") or None,
+        "learning_field_index": entry.get("learningFieldIndex"),
+    }
 
 
 def make_handler_class(
@@ -157,7 +183,7 @@ def make_handler_class(
         # connection's socket before every request is handled - see
         # BODY_READ_TIMEOUT_SECONDS above for what this closes off. Any
         # blocking socket read that outlives this (most importantly
-        # `self.rfile.read()` in _read_json_body) raises a timeout error
+        # `self.rfile.read()` in _read_body) raises a timeout error
         # instead of hanging the thread forever.
         timeout = body_read_timeout
 
@@ -172,7 +198,7 @@ def make_handler_class(
         def do_OPTIONS(self) -> None:  # noqa: N802 - stdlib method name
             result = check_preflight(self.headers, allowed_origins)
             if not result.ok:
-                self._send_json(result.status, {"error": result.reason})
+                self._send_error(result.status, {"error": result.reason})
                 return
             self.send_response(204)
             self._send_cors_headers(result.origin)
@@ -203,29 +229,35 @@ def make_handler_class(
         def _handle(self, method: str) -> None:
             auth = check_request(self.headers, token=token, allowed_origins=allowed_origins)
             if not auth.ok:
-                self._send_json(auth.status, {"error": auth.reason}, origin=auth.origin)
+                self._send_error(auth.status, {"error": auth.reason}, origin=auth.origin)
+                return
+
+            theirs = self.headers.get(PROTOCOL_HEADER, "")
+            if theirs != str(PROTOCOL):
+                message = PROTOCOL_MISMATCH.format(mine=PROTOCOL, theirs=theirs or "none (an older one)")
+                self._send_error(409, {"error": message}, origin=auth.origin)
                 return
 
             path, query = _parse_query(self.path)
-            for route_method, pattern, handler_name in ROUTES:
+            for route_method, pattern, handler_name, request_kind, answer_kind in ROUTES:
                 if route_method != method:
                     continue
                 match = pattern.match(path)
                 if not match:
                     continue
                 try:
-                    body = self._read_json_body(path) if method in ("POST", "PATCH") else None
+                    body = self._read_body(path, request_kind) if request_kind else None
                     result = getattr(self, f"_op_{handler_name}")(match.groupdict(), query, body)
-                    self._send_json(200, result, origin=auth.origin)
+                    self._send(200, answer_kind, result, origin=auth.origin)
                 except BridgeHTTPError as error:
-                    self._send_json(error.status, {"error": str(error)}, origin=auth.origin)
+                    self._send_error(error.status, {"error": str(error)}, origin=auth.origin)
                 except (ValueError, LookupError) as error:
                     # A dispatcher validation error (bad field count, unknown
                     # note type or note id) - the caller's mistake, not a bug
                     # here, so 400 rather than 500. One that names its own
                     # status (bridge_ops.DeckNotFound: 404, "already gone")
                     # answers that instead.
-                    self._send_json(getattr(error, "http_status", 400), {"error": str(error)}, origin=auth.origin)
+                    self._send_error(getattr(error, "http_status", 400), {"error": str(error)}, origin=auth.origin)
                 except OSError as error:
                     # Most commonly this socket's own read timeout (see
                     # `timeout` above) firing while still waiting on a body
@@ -235,18 +267,18 @@ def make_handler_class(
                     # best-effort courtesy, not a guarantee - but the
                     # important effect is this thread returning at all
                     # instead of blocking on `rfile.read()` forever.
-                    self._send_json(408, {"error": f"timed out reading the request: {error}"}, origin=auth.origin)
+                    self._send_error(408, {"error": f"timed out reading the request: {error}"}, origin=auth.origin)
                 except Exception as error:  # noqa: BLE001 - reported to the caller, not crashed on
-                    self._send_json(500, {"error": str(error)}, origin=auth.origin)
+                    self._send_error(500, {"error": str(error)}, origin=auth.origin)
                 return
 
-            self._send_json(404, {"error": f"no route for {method} {path}"}, origin=auth.origin)
+            self._send_error(404, {"error": f"no route for {method} {path}"}, origin=auth.origin)
 
-        def _read_json_body(self, path: str) -> dict:
+        def _read_body(self, path: str, kind: str) -> dict:
             length = int(self.headers.get("Content-Length", "0") or "0")
             if length < 0:
                 raise BridgeBadRequest("Content-Length must not be negative")
-            # /media carries a base64-encoded audio clip, which is bigger
+            # /media carries an audio clip, which is bigger
             # than every other body this bridge accepts; every other route
             # gets the tighter cap - see MAX_BODY_BYTES/MAX_MEDIA_BODY_BYTES
             # above for why either exists at all (rejecting a claimed huge
@@ -255,24 +287,25 @@ def make_handler_class(
             limit = MAX_MEDIA_BODY_BYTES if path == "/media" else MAX_BODY_BYTES
             if length > limit:
                 raise BridgePayloadTooLarge(f"request body of {length} bytes exceeds the {limit}-byte limit")
-            if length == 0:
-                return {}
+            content_type = self.headers.get("Content-Type", "")
+            if not content_type.startswith(wire_schema.MIME):
+                raise BridgeBadRequest(f"send the body as {wire_schema.MIME}")
             raw = self.rfile.read(length)
             try:
-                return json.loads(raw)
-            except json.JSONDecodeError as error:
-                raise BridgeBadRequest(f"invalid JSON body: {error}") from error
+                return bridge_wire.decode(kind, raw)
+            except bridge_wire.WireError as error:
+                raise BridgeBadRequest(f"the body is not a whole {kind} message: {error}") from error
 
         # -- one method per route, name matched to ROUTES above -----------
 
         def _op_get_status(self, params: dict, query: dict, body: Optional[dict]) -> dict:
             return dispatcher.get_status()
 
-        def _op_list_decks(self, params: dict, query: dict, body: Optional[dict]) -> list:
-            return dispatcher.list_decks()
+        def _op_list_decks(self, params: dict, query: dict, body: Optional[dict]) -> dict:
+            return {"decks": dispatcher.list_decks()}
 
-        def _op_list_notetypes(self, params: dict, query: dict, body: Optional[dict]) -> list:
-            return dispatcher.list_notetypes()
+        def _op_list_notetypes(self, params: dict, query: dict, body: Optional[dict]) -> dict:
+            return {"notetypes": dispatcher.list_notetypes()}
 
         def _op_list_notes(self, params: dict, query: dict, body: Optional[dict]) -> dict:
             offset = int(query.get("offset", "0"))
@@ -289,84 +322,48 @@ def make_handler_class(
 
         def _op_create_deck(self, params: dict, query: dict, body: Optional[dict]) -> dict:
             name = (body or {}).get("name")
-            if not name or not isinstance(name, str):
+            if not name:
                 raise BridgeBadRequest('"name" is required')
             return dispatcher.create_deck(name)
 
         def _op_add_note(self, params: dict, query: dict, body: Optional[dict]) -> dict:
-            body = body or {}
-            for key in ("deckId", "notetypeId", "fields"):
-                if key not in body:
-                    raise BridgeBadRequest(f'"{key}" is required')
-            # language/learningFieldIndex are optional: they only feed the
-            # romanisation guard (bridge_ops._romanization_warning). Omitting
-            # either is exactly what every client did before that guard
-            # existed, and still means nothing is checked.
-            learning_field_index = body.get("learningFieldIndex")
-            return dispatcher.add_note(
-                deck_id=int(body["deckId"]),
-                notetype_id=int(body["notetypeId"]),
-                fields=list(body["fields"]),
-                tags=list(body.get("tags", [])),
-                language=body.get("language"),
-                learning_field_index=int(learning_field_index) if learning_field_index is not None else None,
-            )
+            # language and learningFieldIndex only feed the romanisation guard
+            # (bridge_ops._romanization_warning): an empty language and an
+            # absent index (the wire's ABSENT, left out of the dict) mean
+            # nothing is checked.
+            return dispatcher.add_note(**_note_args(body or {}))
 
         def _op_add_notes_bulk(self, params: dict, query: dict, body: Optional[dict]) -> dict:
-            body = body or {}
-            raw_notes = body.get("notes")
-            if not isinstance(raw_notes, list) or not raw_notes:
-                raise BridgeBadRequest('"notes" must be a non-empty array')
-            notes = []
-            for entry in raw_notes:
-                for key in ("deckId", "notetypeId", "fields"):
-                    if key not in entry:
-                        raise BridgeBadRequest(f'each note requires "{key}"')
-                learning_field_index = entry.get("learningFieldIndex")
-                notes.append(
-                    {
-                        "deck_id": int(entry["deckId"]),
-                        "notetype_id": int(entry["notetypeId"]),
-                        "fields": list(entry["fields"]),
-                        "tags": list(entry.get("tags", [])),
-                        "language": entry.get("language"),
-                        "learning_field_index": int(learning_field_index) if learning_field_index is not None else None,
-                    }
-                )
-            return dispatcher.add_notes_bulk(notes)
+            raw_notes = (body or {}).get("notes") or []
+            if not raw_notes:
+                raise BridgeBadRequest('"notes" must not be empty')
+            return dispatcher.add_notes_bulk([_note_args(entry) for entry in raw_notes])
 
         def _op_update_note(self, params: dict, query: dict, body: Optional[dict]) -> dict:
             body = body or {}
-            if "fields" not in body:
-                raise BridgeBadRequest('"fields" is required')
-            learning_field_index = body.get("learningFieldIndex")
             return dispatcher.update_note(
                 int(params["note_id"]),
-                list(body["fields"]),
-                language=body.get("language"),
-                learning_field_index=int(learning_field_index) if learning_field_index is not None else None,
+                list(body.get("fields", [])),
+                language=body.get("language") or None,
+                learning_field_index=body.get("learningFieldIndex"),
             )
 
         def _op_add_media(self, params: dict, query: dict, body: Optional[dict]) -> dict:
             body = body or {}
             filename = body.get("filename")
-            data_b64 = body.get("dataBase64")
-            if not filename or not isinstance(filename, str):
+            data = body.get("data")
+            if not filename:
                 raise BridgeBadRequest('"filename" is required')
-            if not data_b64 or not isinstance(data_b64, str):
-                raise BridgeBadRequest('"dataBase64" is required')
-            try:
-                data = base64.b64decode(data_b64, validate=True)
-            except (ValueError, binascii.Error) as error:
-                raise BridgeBadRequest(f"invalid base64 in dataBase64: {error}") from error
+            if not data:
+                raise BridgeBadRequest('"data" must not be empty')
             return dispatcher.add_media(filename, data)
 
         def _op_has_media(self, params: dict, query: dict, body: Optional[dict]) -> dict:
             return {"exists": dispatcher.has_media(params["filename"])}
 
         def _op_rename_deck(self, params: dict, query: dict, body: Optional[dict]) -> dict:
-            name = (body or {}).get("name")
-            if not isinstance(name, str) or not name.strip():
+            name = (body or {}).get("name") or ""
+            if not name.strip():
                 raise BridgeBadRequest("name is required")
             return dispatcher.rename_deck(int(params["deck_id"]), name.strip())
 
@@ -380,26 +377,26 @@ def make_handler_class(
             return dispatcher.remove_deck(int(params["deck_id"]))
 
         def _op_read_media(self, params: dict, query: dict, body: Optional[dict]) -> dict:
-            # base64 in JSON rather than raw bytes with an audio content
-            # type, to keep every bridge response one shape: the dispatcher
-            # contract, the auth wrapper and the error envelope all assume
-            # JSON, and a clip is small enough that the 1.33x is not worth a
-            # second response path.
+            # The clip's own bytes, in the one answer shape every route has.
             data = dispatcher.read_media(params["filename"])
             if data is None:
                 return {"found": False}
-            return {"found": True, "dataBase64": base64.b64encode(data).decode("ascii")}
+            return {"found": True, "data": data}
 
         # -- output -----------------------------------------------------
 
-        def _send_json(self, status: int, payload: Any, *, origin: Optional[str] = None) -> None:
-            body = json.dumps(payload).encode("utf-8")
+        def _send(self, status: int, kind: str, payload: Any, *, origin: Optional[str] = None) -> None:
+            body = bridge_wire.encode(kind, payload)
             self.send_response(status)
-            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Type", wire_schema.MIME)
             self.send_header("Content-Length", str(len(body)))
+            self.send_header(PROTOCOL_HEADER, str(PROTOCOL))
             self._send_cors_headers(origin)
             self.end_headers()
             self.wfile.write(body)
+
+        def _send_error(self, status: int, payload: dict, *, origin: Optional[str] = None) -> None:
+            self._send(status, "b_error", payload, origin=origin)
 
     return BridgeRequestHandler
 

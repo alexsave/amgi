@@ -7,17 +7,19 @@
 
 from __future__ import annotations
 
-import base64
 import http.client
-import json
 import os
 import sys
 import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+import bridge_wire  # noqa: E402
+import wire_schema  # noqa: E402
 from bridge_auth import TOKEN_HEADER  # noqa: E402
-from bridge_server import BridgeBusy, BridgeServer  # noqa: E402
+from bridge_server import PROTOCOL_HEADER, BridgeBusy, BridgeServer  # noqa: E402
+
+PROTOCOL = str(wire_schema.BRIDGE_PROTOCOL)
 
 TOKEN = "test-token-0123456789"
 ALLOWED_ORIGIN = "http://localhost:3000"
@@ -26,7 +28,7 @@ ALLOWED = frozenset({ALLOWED_ORIGIN})
 
 
 class FakeDispatcher:
-    """Records every call and returns canned, JSON-serializable data - the
+    """Records every call and returns canned data - the
     same shapes bridge_dispatch.AqtBridgeDispatcher's real methods produce,
     without needing Anki to build them."""
 
@@ -88,6 +90,10 @@ class FakeDispatcher:
         self._record("has_media", filename)
         return filename == "already-there.mp3"
 
+    def read_media(self, filename):
+        self._record("read_media", filename)
+        return b"\x00ID3\xff" if filename == "clip.mp3" else None
+
     def deck_summary(self, deck_id):
         self._record("deck_summary", deck_id)
         if deck_id == 404:
@@ -131,13 +137,25 @@ class BridgeServerTestCase(unittest.TestCase):
     def _connection(self) -> http.client.HTTPConnection:
         return http.client.HTTPConnection("127.0.0.1", self.server.port, timeout=5)
 
-    def _request(self, method, path, *, headers=None, body=None):
+    def _request(self, method, path, *, headers=None, body=None, send=None, answer=None, protocol=PROTOCOL):
+        """One request. `send` is (kind, dict): the body as that wire message; `body` raw bytes
+        instead. The answer comes back decoded: as `answer`'s kind when it is a 2xx, as b_error
+        otherwise. Every request names the bridge protocol unless `protocol` is None."""
+        headers = dict(headers or {})
+        if protocol is not None:
+            headers.setdefault(PROTOCOL_HEADER, protocol)
+        if send is not None:
+            body = bridge_wire.encode(*send)
+            headers.setdefault("Content-Type", wire_schema.MIME)
         conn = self._connection()
-        conn.request(method, path, body=body, headers=headers or {})
+        conn.request(method, path, body=body, headers=headers)
         response = conn.getresponse()
         raw = response.read()
         conn.close()
-        parsed = json.loads(raw) if raw else None
+        parsed = None
+        if raw:
+            kind = answer if 200 <= response.status < 300 else "b_error"
+            parsed = bridge_wire.decode(kind, raw) if kind else raw
         return response.status, dict(response.getheaders()), parsed
 
 
@@ -152,10 +170,14 @@ class BindingTests(BridgeServerTestCase):
 class AuthAndOriginTests(BridgeServerTestCase):
     def test_valid_token_and_allowed_origin_succeeds(self):
         status, headers, body = self._request(
-            "GET", "/status", headers={TOKEN_HEADER: TOKEN, "Origin": ALLOWED_ORIGIN}
+            "GET", "/status", headers={TOKEN_HEADER: TOKEN, "Origin": ALLOWED_ORIGIN}, answer="b_status"
         )
         self.assertEqual(status, 200)
-        self.assertEqual(body, {"collectionOpen": True, "profileName": "User 1"})
+        self.assertEqual(body["collectionOpen"], True)
+        self.assertEqual(body["profileName"], "User 1")
+        self.assertNotIn("schemaVersion", body, "no schema version is no field")
+        self.assertEqual(headers.get("Content-Type"), wire_schema.MIME)
+        self.assertEqual(headers.get(PROTOCOL_HEADER), PROTOCOL)
         self.assertEqual(headers.get("Access-Control-Allow-Origin"), ALLOWED_ORIGIN)
 
     def test_valid_token_with_no_origin_header_succeeds(self):
@@ -192,7 +214,7 @@ class AuthAndOriginTests(BridgeServerTestCase):
             "POST",
             "/decks",
             headers={"Origin": FOREIGN_ORIGIN, "Content-Type": "text/plain"},
-            body=json.dumps({"name": "Hijacked"}),
+            body=b"Hijacked",
         )
         self.assertEqual(status, 403)
         self.assertEqual(self.dispatcher.calls, [])
@@ -206,7 +228,7 @@ class AuthAndOriginTests(BridgeServerTestCase):
             "POST",
             "/decks",
             headers={"Origin": ALLOWED_ORIGIN, "Content-Type": "text/plain"},
-            body=json.dumps({"name": "No token"}),
+            body=b"No token",
         )
         self.assertEqual(status, 401)
         self.assertEqual(self.dispatcher.calls, [])
@@ -222,6 +244,7 @@ class AuthAndOriginTests(BridgeServerTestCase):
         self.assertEqual(headers.get("Access-Control-Allow-Origin"), ALLOWED_ORIGIN)
         self.assertIn("POST", headers.get("Access-Control-Allow-Methods", ""))
         self.assertIn(TOKEN_HEADER, headers.get("Access-Control-Allow-Headers", ""))
+        self.assertIn(PROTOCOL_HEADER, headers.get("Access-Control-Allow-Headers", ""))
 
     def test_preflight_from_a_foreign_origin_is_rejected(self):
         conn = self._connection()
@@ -232,6 +255,37 @@ class AuthAndOriginTests(BridgeServerTestCase):
         self.assertEqual(response.status, 403)
 
 
+class ProtocolTests(BridgeServerTestCase):
+    def test_a_request_in_another_protocol_is_refused_before_it_is_routed(self):
+        for theirs in (None, "0", str(wire_schema.BRIDGE_PROTOCOL + 1)):
+            status, headers, body = self._request(
+                "POST", "/decks", headers={TOKEN_HEADER: TOKEN}, send=("q_deck_name", {"name": "x"}), protocol=theirs
+            )
+            self.assertEqual(status, 409, theirs)
+            self.assertIn("press Install into Anki again", body["error"])
+            self.assertEqual(headers.get(PROTOCOL_HEADER), PROTOCOL, "and the answer names this add-on's protocol")
+        self.assertEqual(self.dispatcher.calls, [], "the dispatcher is never reached")
+
+    def test_even_a_refused_token_names_the_protocol(self):
+        status, headers, _body = self._request("GET", "/status", headers={TOKEN_HEADER: "wrong"})
+        self.assertEqual(status, 401)
+        self.assertEqual(headers.get(PROTOCOL_HEADER), PROTOCOL)
+
+    def test_a_body_that_is_not_its_kind_whole_is_a_bad_request(self):
+        whole = bridge_wire.encode("q_deck_name", {"name": "Korean"})
+        headers = {TOKEN_HEADER: TOKEN, "Content-Type": wire_schema.MIME}
+        for body in (whole[:-1], whole + b"\0", bridge_wire.encode("q_install", {"baseDirOverride": "x"})):
+            status, _headers, answer = self._request("POST", "/decks", headers=headers, body=body)
+            self.assertEqual(status, 400)
+            self.assertIn("q_deck_name", answer["error"])
+        status, _headers, answer = self._request(
+            "POST", "/decks", headers={TOKEN_HEADER: TOKEN, "Content-Type": "application/json"}, body=b'{"name": "x"}'
+        )
+        self.assertEqual(status, 400)
+        self.assertIn(wire_schema.MIME, answer["error"])
+        self.assertEqual(self.dispatcher.calls, [])
+
+
 class RoutingTests(BridgeServerTestCase):
     def _auth_headers(self, extra=None):
         headers = {TOKEN_HEADER: TOKEN, "Origin": ALLOWED_ORIGIN}
@@ -239,18 +293,19 @@ class RoutingTests(BridgeServerTestCase):
         return headers
 
     def test_get_decks(self):
-        status, _headers, body = self._request("GET", "/decks", headers=self._auth_headers())
+        status, _headers, body = self._request("GET", "/decks", headers=self._auth_headers(), answer="b_decks")
         self.assertEqual(status, 200)
-        self.assertEqual(body, [{"id": 1, "name": "Default"}])
+        self.assertEqual(body, {"decks": [{"id": 1, "name": "Default"}]})
 
     def test_get_notetypes(self):
-        status, _headers, body = self._request("GET", "/notetypes", headers=self._auth_headers())
+        status, _headers, body = self._request("GET", "/notetypes", headers=self._auth_headers(), answer="b_notetypes")
         self.assertEqual(status, 200)
-        self.assertEqual(body[0]["name"], "Basic")
+        self.assertEqual(body["notetypes"][0]["name"], "Basic")
+        self.assertEqual(body["notetypes"][0]["fieldNames"], ["Front", "Back"])
 
     def test_list_notes_in_deck_parses_pagination_query_params(self):
         status, _headers, body = self._request(
-            "GET", "/decks/9/notes?offset=40&limit=20", headers=self._auth_headers()
+            "GET", "/decks/9/notes?offset=40&limit=20", headers=self._auth_headers(), answer="b_notes"
         )
         self.assertEqual(status, 200)
         self.assertEqual(body, {"notes": [], "total": 0, "offset": 40, "limit": 20})
@@ -262,19 +317,19 @@ class RoutingTests(BridgeServerTestCase):
 
     def test_create_deck(self):
         status, _headers, body = self._request(
-            "POST", "/decks", headers=self._auth_headers(), body=json.dumps({"name": "Korean::Verbs"})
+            "POST", "/decks", headers=self._auth_headers(), send=("q_deck_name", {"name": "Korean::Verbs"}), answer="b_deck_created"
         )
         self.assertEqual(status, 200)
-        self.assertEqual(body, {"deck": {"id": 42, "name": "Korean::Verbs"}, "created": True})
+        self.assertEqual(body, {"deck.id": 42, "deck.name": "Korean::Verbs", "created": True})
 
     def test_deck_summary(self):
-        status, _headers, body = self._request("GET", "/decks/9", headers=self._auth_headers())
+        status, _headers, body = self._request("GET", "/decks/9", headers=self._auth_headers(), answer="b_deck_summary")
         self.assertEqual(status, 200)
         self.assertEqual(body, {"id": 9, "name": "Korean", "subdecks": 1, "cards": 6, "notes": 4})
         self.assertEqual(self.dispatcher.calls, [("deck_summary", (9,), {})])
 
     def test_remove_deck(self):
-        status, _headers, body = self._request("DELETE", "/decks/9", headers=self._auth_headers())
+        status, _headers, body = self._request("DELETE", "/decks/9", headers=self._auth_headers(), answer="b_deck_removed")
         self.assertEqual(status, 200)
         self.assertEqual(body, {"id": 9, "name": "Korean", "decks": 2, "cards": 6, "notes": 4})
         self.assertEqual(self.dispatcher.calls, [("remove_deck", (9,), {})])
@@ -289,17 +344,17 @@ class RoutingTests(BridgeServerTestCase):
         self.assertIn("Default deck", body["error"])
 
     def test_create_deck_without_a_name_is_a_bad_request(self):
-        status, _headers, body = self._request("POST", "/decks", headers=self._auth_headers(), body="{}")
+        status, _headers, body = self._request("POST", "/decks", headers=self._auth_headers(), send=("q_deck_name", {}))
         self.assertEqual(status, 400)
         self.assertIn("name", body["error"])
 
     def test_add_note(self):
         payload = {"deckId": 1, "notetypeId": 1, "fields": ["front", "back"], "tags": ["x"]}
         status, _headers, body = self._request(
-            "POST", "/notes", headers=self._auth_headers(), body=json.dumps(payload)
+            "POST", "/notes", headers=self._auth_headers(), send=("q_note", payload), answer="b_note"
         )
         self.assertEqual(status, 200)
-        self.assertEqual(body, {"noteId": 7, "guid": "abc123", "cardIds": [8]})
+        self.assertEqual(body, {"noteId": 7, "warning": ""})
         self.assertEqual(
             self.dispatcher.calls,
             [
@@ -327,26 +382,18 @@ class RoutingTests(BridgeServerTestCase):
             "language": "ko",
             "learningFieldIndex": 1,
         }
-        self._request("POST", "/notes", headers=self._auth_headers(), body=json.dumps(payload))
+        self._request("POST", "/notes", headers=self._auth_headers(), send=("q_note", payload))
         self.assertEqual(self.dispatcher.calls[0][2]["language"], "ko")
         self.assertEqual(self.dispatcher.calls[0][2]["learning_field_index"], 1)
 
     def test_add_note_defaults_tags_to_empty(self):
         payload = {"deckId": 1, "notetypeId": 1, "fields": ["a", "b"]}
-        self._request("POST", "/notes", headers=self._auth_headers(), body=json.dumps(payload))
+        self._request("POST", "/notes", headers=self._auth_headers(), send=("q_note", payload))
         self.assertEqual(self.dispatcher.calls[0][2]["tags"], [])
-
-    def test_add_note_missing_a_required_field_is_a_bad_request(self):
-        payload = {"deckId": 1, "fields": ["a", "b"]}
-        status, _headers, body = self._request(
-            "POST", "/notes", headers=self._auth_headers(), body=json.dumps(payload)
-        )
-        self.assertEqual(status, 400)
-        self.assertIn("notetypeId", body["error"])
 
     def test_list_field_values(self):
         status, _headers, body = self._request(
-            "GET", "/decks/9/notes/field-values?notetypeId=3&fieldIndex=1", headers=self._auth_headers()
+            "GET", "/decks/9/notes/field-values?notetypeId=3&fieldIndex=1", headers=self._auth_headers(), answer="b_values"
         )
         self.assertEqual(status, 200)
         self.assertEqual(body, {"values": ["one", "two"]})
@@ -367,7 +414,7 @@ class RoutingTests(BridgeServerTestCase):
             ]
         }
         status, _headers, body = self._request(
-            "POST", "/notes/bulk", headers=self._auth_headers(), body=json.dumps(payload)
+            "POST", "/notes/bulk", headers=self._auth_headers(), send=("q_notes", payload), answer="b_notes_added"
         )
         self.assertEqual(status, 200)
         self.assertEqual(len(body["results"]), 2)
@@ -381,39 +428,31 @@ class RoutingTests(BridgeServerTestCase):
 
     def test_add_notes_bulk_requires_a_non_empty_notes_array(self):
         status, _headers, body = self._request(
-            "POST", "/notes/bulk", headers=self._auth_headers(), body=json.dumps({"notes": []})
+            "POST", "/notes/bulk", headers=self._auth_headers(), send=("q_notes", {"notes": []})
         )
         self.assertEqual(status, 400)
         self.assertIn("notes", body["error"])
 
-    def test_add_notes_bulk_missing_a_required_field_is_a_bad_request(self):
-        payload = {"notes": [{"deckId": 1, "fields": ["a", "b"]}]}
-        status, _headers, body = self._request(
-            "POST", "/notes/bulk", headers=self._auth_headers(), body=json.dumps(payload)
-        )
-        self.assertEqual(status, 400)
-        self.assertIn("notetypeId", body["error"])
-
     def test_has_media(self):
         status, _headers, body = self._request(
-            "GET", "/media/already-there.mp3", headers=self._auth_headers()
+            "GET", "/media/already-there.mp3", headers=self._auth_headers(), answer="b_media_exists"
         )
         self.assertEqual(status, 200)
         self.assertEqual(body, {"exists": True})
 
     def test_has_media_false_for_a_name_not_present(self):
         status, _headers, body = self._request(
-            "GET", "/media/missing.mp3", headers=self._auth_headers()
+            "GET", "/media/missing.mp3", headers=self._auth_headers(), answer="b_media_exists"
         )
         self.assertEqual(status, 200)
         self.assertEqual(body, {"exists": False})
 
     def test_update_note(self):
         status, _headers, body = self._request(
-            "PATCH", "/notes/55", headers=self._auth_headers(), body=json.dumps({"fields": ["x", "y"]})
+            "PATCH", "/notes/55", headers=self._auth_headers(), send=("q_note_update", {"fields": ["x", "y"]}), answer="b_note"
         )
         self.assertEqual(status, 200)
-        self.assertEqual(body, {"noteId": 55})
+        self.assertEqual(body, {"noteId": 55, "warning": ""})
         self.assertEqual(
             self.dispatcher.calls,
             [("update_note", (55, ["x", "y"]), {"language": None, "learning_field_index": None})],
@@ -421,15 +460,14 @@ class RoutingTests(BridgeServerTestCase):
 
     def test_update_note_passes_through_the_optional_romanisation_guard_fields(self):
         payload = {"fields": ["x", "y"], "language": "ja", "learningFieldIndex": 0}
-        self._request("PATCH", "/notes/55", headers=self._auth_headers(), body=json.dumps(payload))
+        self._request("PATCH", "/notes/55", headers=self._auth_headers(), send=("q_note_update", payload))
         self.assertEqual(self.dispatcher.calls[0][2]["language"], "ja")
         self.assertEqual(self.dispatcher.calls[0][2]["learning_field_index"], 0)
 
-    def test_add_media_decodes_base64(self):
-        data = b"not really audio"
-        payload = {"filename": "clip.mp3", "dataBase64": base64.b64encode(data).decode("ascii")}
+    def test_add_media_takes_the_clip_as_its_own_bytes(self):
+        data = bytes([0, 1, 2, 255, 10, 34, 123, 0])
         status, _headers, body = self._request(
-            "POST", "/media", headers=self._auth_headers(), body=json.dumps(payload)
+            "POST", "/media", headers=self._auth_headers(), send=("b_q_media", {"filename": "clip.mp3", "data": data}), answer="b_media_added"
         )
         self.assertEqual(status, 200)
         self.assertEqual(body, {"filename": "clip.mp3"})
@@ -437,18 +475,19 @@ class RoutingTests(BridgeServerTestCase):
         self.assertEqual(name, "add_media")
         self.assertEqual(args, ("clip.mp3", data))
 
-    def test_add_media_rejects_invalid_base64(self):
-        payload = {"filename": "clip.mp3", "dataBase64": "not-valid-base64!!"}
+    def test_add_media_without_bytes_is_a_bad_request(self):
         status, _headers, body = self._request(
-            "POST", "/media", headers=self._auth_headers(), body=json.dumps(payload)
+            "POST", "/media", headers=self._auth_headers(), send=("b_q_media", {"filename": "clip.mp3"})
         )
         self.assertEqual(status, 400)
+        self.assertIn("data", body["error"])
 
-    def test_invalid_json_body_is_a_bad_request(self):
-        status, _headers, body = self._request(
-            "POST", "/decks", headers=self._auth_headers(), body="{not json"
-        )
-        self.assertEqual(status, 400)
+    def test_read_media_answers_the_clip_s_own_bytes(self):
+        status, _headers, body = self._request("GET", "/media/clip.mp3/data", headers=self._auth_headers(), answer="b_media_data")
+        self.assertEqual(status, 200)
+        self.assertEqual(body, {"found": True, "data": b"\x00ID3\xff"})
+        status, _headers, body = self._request("GET", "/media/gone.mp3/data", headers=self._auth_headers(), answer="b_media_data")
+        self.assertEqual(body, {"found": False, "data": b""})
 
     def test_unknown_route_is_404(self):
         status, _headers, _body = self._request("GET", "/nope", headers=self._auth_headers())
@@ -467,12 +506,13 @@ class RoutingTests(BridgeServerTestCase):
         conn = self._connection()
         conn.putrequest("POST", "/decks")
         conn.putheader(TOKEN_HEADER, TOKEN)
+        conn.putheader(PROTOCOL_HEADER, PROTOCOL)
         conn.putheader("Origin", ALLOWED_ORIGIN)
         conn.putheader("Content-Length", str(MAX_BODY_BYTES + 1))
         conn.endheaders()
         response = conn.getresponse()
         status = response.status
-        body = json.loads(response.read())
+        body = bridge_wire.decode("b_error", response.read())
         conn.close()
         self.assertEqual(status, 413)
         self.assertIn("bytes", body["error"])
@@ -486,6 +526,7 @@ class RoutingTests(BridgeServerTestCase):
         conn = self._connection()
         conn.putrequest("POST", "/decks")
         conn.putheader(TOKEN_HEADER, TOKEN)
+        conn.putheader(PROTOCOL_HEADER, PROTOCOL)
         conn.putheader("Origin", ALLOWED_ORIGIN)
         # Comfortably over the ordinary limit but under the media one - only
         # meaningful because /decks is NOT the media route, so it must still
@@ -525,6 +566,8 @@ class SlowClientTests(BridgeServerTestCase):
             f"POST /decks HTTP/1.1\r\n"
             f"Host: 127.0.0.1\r\n"
             f"{TOKEN_HEADER}: {TOKEN}\r\n"
+            f"{PROTOCOL_HEADER}: {PROTOCOL}\r\n"
+            f"Content-Type: {wire_schema.MIME}\r\n"
             f"Origin: {ALLOWED_ORIGIN}\r\n"
             f"Content-Length: 1000\r\n"
             f"\r\n"
@@ -552,7 +595,7 @@ class ConcurrencyTests(BridgeServerTestCase):
 
         def one_request(i):
             status, _headers, body = self._request(
-                "GET", f"/decks/{i}/notes?offset={i}&limit=5", headers={TOKEN_HEADER: TOKEN}
+                "GET", f"/decks/{i}/notes?offset={i}&limit=5", headers={TOKEN_HEADER: TOKEN}, answer="b_notes"
             )
             return i, status, body
 
