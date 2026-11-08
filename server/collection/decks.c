@@ -79,7 +79,11 @@ static str join_with(cx *c, const str *parts, size_t n, str sep) {
   return out;
 }
 
-str fold_key(cx *c, str name) { return js_nfc(c->a, js_lower(c->a, name)); }
+/* foldKey, as unicase folds: the names Anki's collation calls equal fold the same, so a find, a
+ * rename's "taken" check and the subdeck prefix agree with the unique index on decks.name. (The
+ * JavaScript lower-cased, which misses "ß" against "SS" and the ligatures; the PR #30 review,
+ * finding 1, once the collation is real.) */
+str fold_key(cx *c, str name) { return case_fold(c->a, js_nfc(c->a, name)); }
 
 /* "\x1f" (schema 18's separator) as "::", and back. */
 static str replace_all(cx *c, str s, str from, str to) {
@@ -277,8 +281,6 @@ static void insert_decks(cx *c, conn *k, void *arg) {
   }
 }
 
-static const char *const DECKS_TABLE[] = {"decks"};
-
 static void create_legacy(cx *c, conn *k, str human, double now, col_deck_made *out) {
   aj *decks = read_col_value(c, k, "decks");
   size_t nv;
@@ -370,7 +372,7 @@ static void create_18(cx *c, conn *k, str human, double now, col_deck_made *out)
     return;
   }
   insert_args ia = {list, nl, now};
-  with_relaxed(c, k, DECKS_TABLE, 1, insert_decks, &ia);
+  insert_decks(c, k, &ia);
   st = q_prep(c, k, "UPDATE col SET mod = ? WHERE id = 1");
   q_int(st, 1, now_ms());
   q_run(c, k, st);
@@ -401,17 +403,8 @@ typedef struct {
 
 static void rename_rows(cx *c, conn *k, void *arg) {
   rename_args *r = arg;
-  sqlite3_stmt *ins = q_prep(c, k, "INSERT INTO decks (id, name, mtime_secs, usn, common, kind) VALUES (?, ?, ?, -1, ?, ?)");
-  for (size_t i = 0; i < r->nanc; i++) {
-    double id = alloc_id(r->ids, (double)now_ms());
-    ids_add(c, r->ids, id);
-    q_num(ins, 1, id);
-    q_text(ins, 2, r->ancestors[i]);
-    q_num(ins, 3, r->now);
-    q_blob(ins, 4, DEFAULT_COMMON_BLOB, sizeof DEFAULT_COMMON_BLOB);
-    q_blob(ins, 5, DEFAULT_KIND_BLOB, sizeof DEFAULT_KIND_BLOB);
-    q_run(c, k, ins);
-  }
+  /* The renamed decks move first, then the missing parents are made: a parent spelled like the
+   * deck's old name ("BIRNE" for "Birne") is the same name to the unique index until it moves. */
   sqlite3_stmt *up = q_prep(c, k, "UPDATE decks SET name = ?, mtime_secs = ?, usn = -1 WHERE id = ?");
   q_text(up, 1, r->native);
   q_num(up, 2, r->now);
@@ -422,6 +415,17 @@ static void rename_rows(cx *c, conn *k, void *arg) {
     q_num(up, 2, r->now);
     q_int(up, 3, r->children[i]);
     q_run(c, k, up);
+  }
+  sqlite3_stmt *ins = q_prep(c, k, "INSERT INTO decks (id, name, mtime_secs, usn, common, kind) VALUES (?, ?, ?, -1, ?, ?)");
+  for (size_t i = 0; i < r->nanc; i++) {
+    double id = alloc_id(r->ids, (double)now_ms());
+    ids_add(c, r->ids, id);
+    q_num(ins, 1, id);
+    q_text(ins, 2, r->ancestors[i]);
+    q_num(ins, 3, r->now);
+    q_blob(ins, 4, DEFAULT_COMMON_BLOB, sizeof DEFAULT_COMMON_BLOB);
+    q_blob(ins, 5, DEFAULT_KIND_BLOB, sizeof DEFAULT_KIND_BLOB);
+    q_run(c, k, ins);
   }
 }
 
@@ -473,8 +477,11 @@ static void rename_18(cx *c, conn *k, double deck_id, str human, double now, col
     str anc = join_with(c, comp, len, S("\x1f"));
     str af = fold_key(c, anc);
     int found = 0;
+    /* The deck being renamed and its subdecks are moving: none of them is the new name's parent
+     * (renaming "Birne" to "BIRNE::Öl" needs a new "BIRNE", as Anki makes one; the JavaScript
+     * counted the deck as its own parent and left the new name with none). */
     for (size_t i = 0; i < nr; i++)
-      if (str_eq(fold_key(c, rname[i]), af)) found = 1;
+      if (i != (size_t)cur && !str_starts(rname[i], old_prefix) && str_eq(fold_key(c, rname[i]), af)) found = 1;
     if (!found) r.ancestors[r.nanc++] = anc;
   }
   r.ids = &ids;
@@ -482,7 +489,7 @@ static void rename_18(cx *c, conn *k, double deck_id, str human, double now, col
   r.native = native;
   r.current = rid[cur];
   r.current_name = rname[cur];
-  with_relaxed(c, k, DECKS_TABLE, 1, rename_rows, &r);
+  rename_rows(c, k, &r);
   st = q_prep(c, k, "UPDATE col SET mod = ? WHERE id = 1");
   q_int(st, 1, now_ms());
   q_run(c, k, st);
@@ -819,7 +826,7 @@ static void remove_18(cx *c, conn *k, plan_t *p, double now) {
     r.index[r.nindex++] = q_col_text(c, ix, 0);
   }
   q_done(ix);
-  with_relaxed(c, k, DECKS_TABLE, 1, remove_decks_18, &r);
+  remove_decks_18(c, k, &r);
 }
 
 static void remove_legacy(cx *c, conn *k, plan_t *p, double now) {

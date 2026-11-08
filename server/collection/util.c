@@ -11,6 +11,7 @@
 #include <unicode/ucol.h>
 #include <unicode/unorm2.h>
 #include <unicode/ustring.h>
+#include <unicode/utf16.h>
 #include <unistd.h>
 
 static void oom(void) {
@@ -262,6 +263,56 @@ str js_lower(arena *a, str s) {
   e = U_ZERO_ERROR;
   u_strToLower(out, m + 1, u, n, "", &e);
   return to8(a, out, m);
+}
+
+/* unicase's fold, one code point at a time: ICU's full case folding (CaseFolding.txt C and F, which
+ * the unicase crate's table is), except that a fold to three code points comes out as the crate
+ * Anki is built with yields it, third first: U+FB03 (ffi) folds to "iff", U+0390 to (U+0301, U+03B9,
+ * U+0308). Measured against Anki 26.09's own collation; matching it exactly is what keeps the name
+ * indexes Anki builds valid when C writes them. */
+size_t unicase_fold32(arena *a, str s, uint32_t **out) {
+  size_t cap = s.n + 8, n = 0;
+  uint32_t *f = ar_alloc(a, cap * sizeof *f);
+  for (size_t at = 0; at < s.n;) {
+    uint32_t cp = utf8_next(s, &at);
+    UChar in[2], fold[8];
+    int32_t len = 0, m;
+    U16_APPEND_UNSAFE(in, len, cp);
+    UErrorCode e = U_ZERO_ERROR;
+    m = u_strFoldCase(fold, 8, in, len, U_FOLD_CASE_DEFAULT, &e);
+    uint32_t cps[4];
+    int k = 0;
+    for (int32_t i = 0; i < m && k < 4;) {
+      UChar32 c;
+      U16_NEXT(fold, i, m, c);
+      cps[k++] = (uint32_t)c;
+    }
+    if (n + 4 > cap) {
+      uint32_t *more = ar_alloc(a, cap * 2 * sizeof *more);
+      memcpy(more, f, n * sizeof *f);
+      f = more;
+      cap *= 2;
+    }
+    if (k == 3) {
+      f[n++] = cps[2];
+      f[n++] = cps[0];
+      f[n++] = cps[1];
+    } else {
+      for (int i = 0; i < k; i++) f[n++] = cps[i];
+    }
+  }
+  *out = f;
+  return n;
+}
+
+str case_fold(arena *a, str s) {
+  uint32_t *f;
+  size_t n = unicase_fold32(a, s, &f);
+  buf b = {0};
+  for (size_t i = 0; i < n; i++) utf8_put(&b, f[i]);
+  str out = buf_str(a, &b);
+  buf_free(&b);
+  return out;
 }
 
 str js_nfc(arena *a, str s) {

@@ -1,5 +1,5 @@
 schema 18
-made during the run: D x21
+made during the run: D x20
 made during the run: M x1
 made during the run: N x60
 made during the run: C x83
@@ -174,50 +174,50 @@ table cards: 86 rows
   id=<C32> nid=<N30> did=<D1> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=41 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
   id=<C33> nid=<N31> did=<D1> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=42 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
   id=<C34> nid=<N32> did=<D1> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=43 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C38> nid=<N35> did=<D21> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=47 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C39> nid=<N35> did=<D21> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=48 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C38> nid=<N35> did=<D20> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=47 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C39> nid=<N35> did=<D20> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=48 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
   id=<C3> nid=<N3> did=<D1> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=12 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C40> nid=<N36> did=<D21> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=49 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C41> nid=<N36> did=<D21> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=50 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C42> nid=<N37> did=<D21> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=51 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C43> nid=<N37> did=<D21> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=52 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C44> nid=<N38> did=<D21> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=53 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C45> nid=<N38> did=<D21> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=54 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C46> nid=<N39> did=<D21> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=55 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C47> nid=<N39> did=<D21> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=56 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C48> nid=<N40> did=<D21> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=57 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C49> nid=<N40> did=<D21> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=58 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C40> nid=<N36> did=<D20> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=49 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C41> nid=<N36> did=<D20> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=50 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C42> nid=<N37> did=<D20> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=51 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C43> nid=<N37> did=<D20> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=52 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C44> nid=<N38> did=<D20> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=53 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C45> nid=<N38> did=<D20> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=54 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C46> nid=<N39> did=<D20> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=55 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C47> nid=<N39> did=<D20> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=56 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C48> nid=<N40> did=<D20> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=57 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C49> nid=<N40> did=<D20> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=58 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
   id=<C4> nid=<N4> did=<D1> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=13 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C50> nid=<N41> did=<D21> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=59 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C51> nid=<N41> did=<D21> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=60 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C52> nid=<N42> did=<D21> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=61 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C53> nid=<N42> did=<D21> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=62 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C54> nid=<N43> did=<D21> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=63 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C55> nid=<N43> did=<D21> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=64 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C56> nid=<N44> did=<D21> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=65 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C57> nid=<N44> did=<D21> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=66 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C58> nid=<N45> did=<D21> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=67 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C59> nid=<N45> did=<D21> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=68 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C50> nid=<N41> did=<D20> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=59 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C51> nid=<N41> did=<D20> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=60 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C52> nid=<N42> did=<D20> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=61 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C53> nid=<N42> did=<D20> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=62 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C54> nid=<N43> did=<D20> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=63 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C55> nid=<N43> did=<D20> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=64 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C56> nid=<N44> did=<D20> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=65 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C57> nid=<N44> did=<D20> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=66 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C58> nid=<N45> did=<D20> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=67 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C59> nid=<N45> did=<D20> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=68 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
   id=<C5> nid=<N5> did=<D1> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=14 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C60> nid=<N46> did=<D21> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=69 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C61> nid=<N46> did=<D21> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=70 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C62> nid=<N47> did=<D21> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=71 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C63> nid=<N47> did=<D21> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=72 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C64> nid=<N48> did=<D21> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=73 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C65> nid=<N48> did=<D21> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=74 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C66> nid=<N49> did=<D21> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=75 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C67> nid=<N49> did=<D21> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=76 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C68> nid=<N50> did=<D21> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=77 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C69> nid=<N50> did=<D21> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=78 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C60> nid=<N46> did=<D20> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=69 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C61> nid=<N46> did=<D20> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=70 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C62> nid=<N47> did=<D20> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=71 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C63> nid=<N47> did=<D20> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=72 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C64> nid=<N48> did=<D20> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=73 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C65> nid=<N48> did=<D20> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=74 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C66> nid=<N49> did=<D20> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=75 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C67> nid=<N49> did=<D20> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=76 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C68> nid=<N50> did=<D20> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=77 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C69> nid=<N50> did=<D20> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=78 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
   id=<C6> nid=<N6> did=<D1> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=15 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C70> nid=<N51> did=<D21> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=79 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C71> nid=<N51> did=<D21> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=80 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C72> nid=<N52> did=<D21> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=81 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C73> nid=<N52> did=<D21> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=82 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C74> nid=<N53> did=<D21> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=83 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C75> nid=<N53> did=<D21> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=84 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C76> nid=<N54> did=<D21> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=85 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
-  id=<C77> nid=<N54> did=<D21> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=86 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C70> nid=<N51> did=<D20> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=79 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C71> nid=<N51> did=<D20> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=80 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C72> nid=<N52> did=<D20> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=81 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C73> nid=<N52> did=<D20> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=82 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C74> nid=<N53> did=<D20> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=83 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C75> nid=<N53> did=<D20> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=84 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C76> nid=<N54> did=<D20> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=85 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
+  id=<C77> nid=<N54> did=<D20> ord=1 mod=<Ts> usn=-1 type=0 queue=0 due=86 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
   id=<C78> nid=<N55> did=1794170430287 ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=87 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
   id=<C79> nid=<N56> did=1794170430287 ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=88 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
   id=<C7> nid=<N7> did=<D1> ord=0 mod=<Ts> usn=-1 type=0 queue=0 due=16 ivl=0 factor=0 reps=0 lapses=0 left=0 odue=0 odid=0 flags=0 data="{}"
@@ -256,22 +256,21 @@ table config: 24 rows
   KEY="timeLim" usn=0 mtime_secs=0 val=json:0
 table deck_config: 1 rows
   id=1 name="Default" mtime_secs=0 usn=0 config={1:0x0000803f00002041 2:0x00002041 4:0x0000803f0000803f0000803f0000803f0000803f0000803f0000803f 9:20 10:200 11:f32=00002040 12:f32=6666a63f 13:f32=9a99993f 15:f32=0000803f 16:36500 17:1 18:1 19:4 21:1 22:8 24:60 37:f32=6666663f 40:f32=6666663f 44:1}
-table decks: 23 rows
+table decks: 22 rows
   id=1 name="Default" mtime_secs=0 usn=0 common={1:1 2:1} kind={1:{1:1}}
   id=1794170430286 name="한국어" mtime_secs=<Ts> usn=-1 common={1:1 2:1} kind={1:{1:1}}
   id=1794170430287 name="한국어\x1f문장" mtime_secs=<Ts> usn=-1 common={1:1 2:1} kind={1:{1:1}}
   id=1794170430288 name="Café" mtime_secs=1794170430 usn=0 common={1:1 2:1} kind={1:{1:1}}
   id=<D10> name="Sub\x1fDeep\x1fStraße" mtime_secs=<Ts> usn=-1 common={1:1 2:1} kind={1:{1:1}}
-  id=<D11> name="STRASSE" mtime_secs=<Ts> usn=-1 common={1:1 2:1} kind={1:{1:1}}
-  id=<D12> name="CtlChar" mtime_secs=<Ts> usn=-1 common={1:1 2:1} kind={1:{1:1}}
-  id=<D13> name="Café decomposed" mtime_secs=<Ts> usn=-1 common={1:1 2:1} kind={1:{1:1}}
-  id=<D14> name="blank" mtime_secs=<Ts> usn=-1 common={1:1 2:1} kind={1:{1:1}}
-  id=<D15> name="blank\x1fblank" mtime_secs=<Ts> usn=-1 common={1:1 2:1} kind={1:{1:1}}
-  id=<D16> name="Moved" mtime_secs=<Ts> usn=-1 common={1:1 2:1} kind={1:{1:1}}
-  id=<D17> name="Sub" mtime_secs=<Ts> usn=-1 common={1:1 2:1} kind={1:{1:1}}
-  id=<D18> name="Sub\x1fDeep" mtime_secs=<Ts> usn=-1 common={1:1 2:1} kind={1:{1:1}}
+  id=<D11> name="CtlChar" mtime_secs=<Ts> usn=-1 common={1:1 2:1} kind={1:{1:1}}
+  id=<D12> name="Café decomposed" mtime_secs=<Ts> usn=-1 common={1:1 2:1} kind={1:{1:1}}
+  id=<D13> name="blank" mtime_secs=<Ts> usn=-1 common={1:1 2:1} kind={1:{1:1}}
+  id=<D14> name="blank\x1fblank" mtime_secs=<Ts> usn=-1 common={1:1 2:1} kind={1:{1:1}}
+  id=<D15> name="Moved" mtime_secs=<Ts> usn=-1 common={1:1 2:1} kind={1:{1:1}}
+  id=<D16> name="Sub" mtime_secs=<Ts> usn=-1 common={1:1 2:1} kind={1:{1:1}}
+  id=<D17> name="Sub\x1fDeep" mtime_secs=<Ts> usn=-1 common={1:1 2:1} kind={1:{1:1}}
   id=<D1> name="renamed" mtime_secs=<Ts> usn=-1 common={1:1 2:1} kind={1:{1:1}}
-  id=<D21> name="amgi starter" mtime_secs=<Ts> usn=-1 common={1:1 2:1} kind={1:{1:1}}
+  id=<D20> name="amgi starter" mtime_secs=<Ts> usn=-1 common={1:1 2:1} kind={1:{1:1}}
   id=<D2> name="Moved\x1fParent" mtime_secs=<Ts> usn=-1 common={1:1 2:1} kind={1:{1:1}}
   id=<D3> name="Moved\x1fParent\x1fChild" mtime_secs=<Ts> usn=-1 common={1:1 2:1} kind={1:{1:1}}
   id=<D4> name="Moved\x1fParent\x1fChild\x1fGrand" mtime_secs=<Ts> usn=-1 common={1:1 2:1} kind={1:{1:1}}
@@ -323,8 +322,8 @@ table graves: 20 rows
   oid=<C35> type=0 usn=-1
   oid=<C36> type=0 usn=-1
   oid=<C37> type=0 usn=-1
+  oid=<D18> type=2 usn=-1
   oid=<D19> type=2 usn=-1
-  oid=<D20> type=2 usn=-1
   oid=<N33> type=1 usn=-1
   oid=<N34> type=1 usn=-1
 table notes: 63 rows

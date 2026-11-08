@@ -82,16 +82,14 @@ ok <D5> A%3A%3Ablank%3A%3AB 1
 ok 1794170430307 Caf%C3%A9 0
 > createDeck Stra%C3%9Fe
 ok <D6> Stra%C3%9Fe 1
-> createDeck STRASSE
-ok <D7> STRASSE 1
 > createDeck Ctl%01Char%7F
-ok <D8> CtlChar 1
+ok <D7> CtlChar 1
 > createDeck Korean%3A%3A%EB%AC%B8%EC%9E%A5
 ok 1794170430306 Korean%3A%3A%EB%AC%B8%EC%9E%A5 0
 > createDeck Cafe%CC%81%20decomposed
-ok <D9> Caf%C3%A9%20decomposed 1
+ok <D8> Caf%C3%A9%20decomposed 1
 > createDeck %3A%3A
-ok <D10> blank%3A%3Ablank 1
+ok <D9> blank%3A%3Ablank 1
 > addNote <D1> 1794170430302 [front%20a,back%20a] [] ! !
 ok <N1> <guid> [<C1>] !
 > addNote <D1> 1794170430302 [tagged,b] [t1,amgi] ! !
@@ -197,8 +195,8 @@ err error no%20note%20with%20id%20999%20in%20this%20collection
 ok <D1> Renamed 0
 > renameDeck <D1> renamed
 ok <D1> renamed 0
-> renameDeck <D11> Moved%3A%3AParent
-ok <D11> Moved%3A%3AParent 2
+> renameDeck <D10> Moved%3A%3AParent
+ok <D10> Moved%3A%3AParent 2
 > renameDeck <D1> Existing
 err error a%20deck%20called%20%22Existing%22%20already%20exists
 > renameDeck <D1> EXISTING%3A%3Achild
@@ -210,7 +208,7 @@ ok <D6> Sub%3A%3ADeep%3A%3AStra%C3%9Fe 0
 > renameDeck 1794170430305 %ED%95%9C%EA%B5%AD%EC%96%B4
 ok 1794170430305 %ED%95%9C%EA%B5%AD%EC%96%B4 1
 > listDecks
-ok 26
+ok 25
 1 Default
 1794170430305 %ED%95%9C%EA%B5%AD%EC%96%B4
 1794170430306 %ED%95%9C%EA%B5%AD%EC%96%B4%3A%3A%EB%AC%B8%EC%9E%A5
@@ -220,23 +218,22 @@ ok 26
 1794170430307 Caf%C3%A9
 1794170430304 Existing%3A%3AChild
 <D1> renamed
-<D11> Moved%3A%3AParent
+<D10> Moved%3A%3AParent
 <D3> Moved%3A%3AParent%3A%3AChild
 <D2> Moved%3A%3AParent%3A%3AChild%3A%3AGrand
-<D12> Trim%20me
+<D11> Trim%20me
 <D4> Trim%20me%3A%3Ainner
-<D13> A
-<D14> A%3A%3Ablank
+<D12> A
+<D13> A%3A%3Ablank
 <D5> A%3A%3Ablank%3A%3AB
 <D6> Sub%3A%3ADeep%3A%3AStra%C3%9Fe
-<D7> STRASSE
-<D8> CtlChar
-<D9> Caf%C3%A9%20decomposed
-<D15> blank
-<D10> blank%3A%3Ablank
-<D16> Moved
-<D17> Sub
-<D18> Sub%3A%3ADeep
+<D7> CtlChar
+<D8> Caf%C3%A9%20decomposed
+<D14> blank
+<D9> blank%3A%3Ablank
+<D15> Moved
+<D16> Sub
+<D17> Sub%3A%3ADeep
 > addMedia clip.wav 66697273742074616b65
 ok clip.wav
 > addMedia clip.wav 66697273742074616b65
@@ -324,35 +321,34 @@ err 404 no%20deck%20with%20id%20999%20in%20this%20collection
 > removeDeck 1794170430308
 ok 1794170430308 Empty 1 0 0
 > createDeck Doomed%3A%3ASub
-ok <D19> Doomed%3A%3ASub 1
-> addNote <D19> 1794170430302 [doomed,x] [] ! !
+ok <D18> Doomed%3A%3ASub 1
+> addNote <D18> 1794170430302 [doomed,x] [] ! !
 ok <N34> <guid> [<C37>] !
-> removeDeck <D20>
-ok <D20> Doomed 2 1 1
+> removeDeck <D19>
+ok <D19> Doomed 2 1 1
 > listDecks
-ok 22
+ok 21
 1 Default
 1794170430305 %ED%95%9C%EA%B5%AD%EC%96%B4
 1794170430306 %ED%95%9C%EA%B5%AD%EC%96%B4%3A%3A%EB%AC%B8%EC%9E%A5
 1794170430307 Caf%C3%A9
 <D1> renamed
-<D11> Moved%3A%3AParent
+<D10> Moved%3A%3AParent
 <D3> Moved%3A%3AParent%3A%3AChild
 <D2> Moved%3A%3AParent%3A%3AChild%3A%3AGrand
-<D12> Trim%20me
+<D11> Trim%20me
 <D4> Trim%20me%3A%3Ainner
-<D13> A
-<D14> A%3A%3Ablank
+<D12> A
+<D13> A%3A%3Ablank
 <D5> A%3A%3Ablank%3A%3AB
 <D6> Sub%3A%3ADeep%3A%3AStra%C3%9Fe
-<D7> STRASSE
-<D8> CtlChar
-<D9> Caf%C3%A9%20decomposed
-<D15> blank
-<D10> blank%3A%3Ablank
-<D16> Moved
-<D17> Sub
-<D18> Sub%3A%3ADeep
+<D7> CtlChar
+<D8> Caf%C3%A9%20decomposed
+<D14> blank
+<D9> blank%3A%3Ablank
+<D15> Moved
+<D16> Sub
+<D17> Sub%3A%3ADeep
 > listNotetypes
 ok 7
 1794170430302 Basic normal 0 [Front,Back] [0%20Card%25201%20%257B%257BFront%257D%257D%20%257B%257BFrontSide%257D%257D%250A%250A%253Chr%2520id%253Danswer%253E%250A%250A%257B%257BBack%257D%257D]

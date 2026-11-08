@@ -261,6 +261,21 @@ static size_t count_backups(const char *collection) {
   return n;
 }
 
+typedef struct { str path; int n, ok, done; } lister;
+static void *list_again(void *arg) {
+  lister *l = arg;
+  for (int i = 0; i < l->n; i++) {
+    arena a = {0};
+    col_notetype *nts;
+    size_t n;
+    col_err e;
+    if (col_list_notetypes(&a, l->path, &nts, &n, &e) == 0) l->ok++;
+    ar_free(&a);
+  }
+  __atomic_store_n(&l->done, 1, __ATOMIC_RELEASE);
+  return NULL;
+}
+
 typedef struct { str path; int ok; col_err err; } adder;
 static void *add_one(void *arg) {
   adder *ad = arg;
@@ -330,6 +345,89 @@ static void core_state(void) {
   CHECK(col_create_deck(&a, led, S("Ours 4"), &made, &e) == 0, "and after ours");
   CHECK(count_backups(led.p) == 2, "a second backup, and only one (%zu)", count_backups(led.p));
   CHECK(col_remove_deck(&a, led, 1, &(col_removal){0}, &e) < 0 && e.status == 400, "the Default deck is refused, 400");
+
+  /* The schema is never touched: a read writes nothing (another connection sees no change), and
+   * after every deck and note-type operation the schema text is what Anki wrote. */
+  str s18 = fixture(&a, "18", "schema");
+  sqlite3 *watch;
+  sqlite3_open(s18.p, &watch);
+  sqlite3_create_collation(watch, "unicase", SQLITE_UTF8, NULL, unicase_cmp);
+  const char *schema_sql = "SELECT group_concat(name || ':' || coalesce(sql, ''), char(10)) FROM sqlite_master";
+  char *before = NULL;
+  {
+    sqlite3_stmt *q;
+    sqlite3_prepare_v2(watch, schema_sql, -1, &q, NULL);
+    sqlite3_step(q);
+    before = strdup((const char *)sqlite3_column_text(q, 0));
+    sqlite3_finalize(q);
+  }
+  /* While a thread lists note types over and over, another connection keeps reading the schema:
+   * a relax (schema rewritten to COLLATE NOCASE and back) commits, so the watcher would see it. */
+  lister ls = {s18, 300, 0, 0};
+  pthread_t lt;
+  pthread_create(&lt, NULL, list_again, &ls);
+  int relaxed_seen = 0, reads = 0;
+  while (!__atomic_load_n(&ls.done, __ATOMIC_ACQUIRE)) {
+    sqlite3_stmt *q;
+    if (sqlite3_prepare_v2(watch, schema_sql, -1, &q, NULL) == SQLITE_OK && sqlite3_step(q) == SQLITE_ROW) {
+      reads++;
+      if (strstr((const char *)sqlite3_column_text(q, 0), "COLLATE NOCASE")) relaxed_seen++;
+    }
+    sqlite3_finalize(q);
+  }
+  pthread_join(lt, NULL);
+  CHECK(ls.ok == 300 && reads > 0 && relaxed_seen == 0, "listing note types never rewrites the schema (%d of 300 listed, %d reads, %d saw it relaxed)", ls.ok, reads, relaxed_seen);
+  col_notetype *nts;
+  size_t nnt;
+  col_deck_made dm;
+  col_renamed rn;
+  col_removal rm;
+  str fields[] = {S("Front"), S("Back")};
+  col_spec_template tmpl = {S("Card 1"), S("{{Front}}"), S("{{Back}}")};
+  col_spec spec = {S("Ünicase type"), fields, 2, &tmpl, 1, S(".card {}"), NULL, 0};
+  col_notetype_made ntm;
+  struct { const char *what; int ok; } steps[5];
+  steps[0] = (typeof(steps[0])){"create Äpfel::Öl", col_create_deck(&a, s18, S("Äpfel::Öl"), &dm, &e) == 0};
+  int64_t made_id = dm.id;
+  steps[1] = (typeof(steps[0])){"rename it to äpfel::ÖL 2", col_rename_deck(&a, s18, (double)made_id, S("äpfel::ÖL 2"), &rn, &e) == 0};
+  steps[2] = (typeof(steps[0])){"create a note type", col_create_notetype(&a, s18, &spec, NULL, 0, &ntm, &e) == 0};
+  steps[3] = (typeof(steps[0])){"remove the deck", col_remove_deck(&a, s18, (double)made_id, &rm, &e) == 0};
+  steps[4] = (typeof(steps[0])){"list note types", col_list_notetypes(&a, s18, &nts, &nnt, &e) == 0};
+  for (int i = 0; i < 5; i++) {
+    sqlite3_stmt *q;
+    sqlite3_prepare_v2(watch, schema_sql, -1, &q, NULL);
+    sqlite3_step(q);
+    CHECK(steps[i].ok && !strcmp(before, (const char *)sqlite3_column_text(q, 0)), "after \"%s\" the schema text is Anki's", steps[i].what);
+    sqlite3_finalize(q);
+  }
+  free(before);
+  sqlite3_close(watch);
+
+  /* Names that differ only by case, as unicase (Anki's collation) folds them: the same deck, never a
+   * second row the unique index would refuse. */
+  str uc = fixture(&a, "18", "unicase");
+  col_deck_made d1, d2;
+  struct { const char *first, *second; } same[] = {{"Straße", "STRASSE"}, {"Äpfel", "äPFEL"}, {"ǅ", "ǆ"}, {"ﬁ", "FI"}};
+  for (size_t i = 0; i < sizeof same / sizeof *same; i++) {
+    int ok1 = col_create_deck(&a, uc, str_c(same[i].first), &d1, &e) == 0;
+    int ok2 = col_create_deck(&a, uc, str_c(same[i].second), &d2, &e) == 0;
+    CHECK(ok1 && ok2 && d1.created && !d2.created && d1.id == d2.id, "\"%s\" finds \"%s\" as Anki does (%.*s)", same[i].second,
+          same[i].first, ok2 ? 2 : (int)e.message.n, ok2 ? "ok" : e.message.p);
+  }
+  /* A deck renamed under a parent spelled like its own old name: the parent is made, as Anki makes
+   * it (the deck being renamed is not its own parent). */
+  col_deck_made ap;
+  col_renamed apr;
+  col_deck *dl;
+  size_t ndl;
+  int parent = 0;
+  if (col_create_deck(&a, uc, S("Birne"), &ap, &e) == 0 && col_rename_deck(&a, uc, (double)ap.id, S("BIRNE::Öl"), &apr, &e) == 0 &&
+      col_list_decks(&a, uc, &dl, &ndl, &e) == 0)
+    for (size_t i = 0; i < ndl; i++) parent |= str_eq_c(dl[i].name, "BIRNE");
+  CHECK(parent, "renaming Birne to BIRNE::Öl makes its parent BIRNE");
+  /* And the one Anki's collation does not call equal: its fold of U+FB03 is "iff", not "ffi". */
+  int lig = col_create_deck(&a, uc, S("ﬃ"), &d1, &e) == 0, ffi = col_create_deck(&a, uc, S("FFI"), &d2, &e) == 0;
+  CHECK(lig && ffi && d1.created && d2.created && d1.id != d2.id, "\"FFI\" is not \"ﬃ\", as Anki says");
   ar_free(&a);
 }
 

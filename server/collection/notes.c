@@ -192,8 +192,6 @@ static void read_fields_and_templates(cx *c, conn *k, void *arg) {
   }
 }
 
-static const char *const FIELD_TABLES[] = {"fields", "templates"};
-
 col_notetype *read_notetypes(cx *c, conn *k, size_t *n) {
   if (k->schema == 11) return read_legacy(c, k, n);
   sqlite3_stmt *st = q_prep(c, k, "SELECT id, name, config FROM notetypes");
@@ -223,7 +221,7 @@ col_notetype *read_notetypes(cx *c, conn *k, size_t *n) {
   }
   q_done(st);
   fields_args fa = {out, *n};
-  with_relaxed(c, k, FIELD_TABLES, 2, read_fields_and_templates, &fa);
+  read_fields_and_templates(c, k, &fa);
   return out;
 }
 
@@ -664,8 +662,6 @@ static void create_rows(cx *c, conn *k, void *arg) {
   c->jb = outer;
 }
 
-static const char *const NOTETYPE_TABLES[] = {"notetypes", "fields", "templates"};
-
 void notetype_create(cx *c, conn *k, const col_spec *spec, col_notetype_made *out) {
   memset(out, 0, sizeof *out);
   if (k->schema == 11) {
@@ -685,7 +681,7 @@ void notetype_create(cx *c, conn *k, const col_spec *spec, col_notetype_made *ou
   }
   q_done(st);
   nt_args na = {spec, now_ms(), 0};
-  with_relaxed(c, k, NOTETYPE_TABLES, 3, create_rows, &na);
+  create_rows(c, k, &na);
   out->created = 1;
   out->has_id = 1;
   out->notetype_id = na.id;

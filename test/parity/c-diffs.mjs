@@ -91,6 +91,13 @@ export function checkDiffs(entries = readDiffs()) {
   const used = new Set();
   for (const twin of twins) {
     const name = twin.replace(/\.txt$/, '');
+    if (!fs.existsSync(path.join(EXPECT, twin))) {
+      // A C-only recording (Node has no stable answer there): it must be named, with no hunks.
+      if (!entries.some((e) => e.files.includes(name) && e.hunks.length === 0)) {
+        problems.push(`${name}: a C-only recording that C_DIFFS.txt does not name as one (an entry with no hunks)`);
+      }
+      continue;
+    }
     const node = fs.readFileSync(path.join(EXPECT, twin), 'utf8').split('\n');
     const c = fs.readFileSync(path.join(C_EXPECT, twin), 'utf8').split('\n');
     const named = entries.filter((e) => e.files.includes(name)).flatMap((e) => e.hunks.map((h) => ({ e, h })));
