@@ -70,7 +70,8 @@ It first installs amgi's add-ons and the `amgi Listening` note type the way the 
 `next dev` reads `.env.local`, so start it with `GEMINI_API_KEY=` (set but empty) to stay offline.
 With no key, "Make the card" must end in a failed row saying "GEMINI_API_KEY is not set" and no new note - the app never makes a card from placeholder text or audio (see `src/server/anki/audio.js`), and the script fails if a row appears anyway.
 With a key it makes one real card: real Gemini calls for the text, the speech and the checks (roughly five to seven), which on the free tier spend most of the day's 10 requests per model.
-To exercise the whole pipeline without spending that quota, point `GEMINI_API_BASE` at a local fake server that answers `POST /v1beta/models/<model>:generateContent`: an `inlineData` WAV (or `audio/l16` PCM) part for a speech request, plain text for a transcription (audio in, no schema), and JSON text for a structured request (card text, the judge's verdict); `plusaudio/test/helpers/fake-gemini.js` tells the four kinds apart the same way.
+To exercise the whole pipeline without spending that quota, run `node plusaudio/test/helpers/fake-gemini.js 8799` and point `GEMINI_API_BASE` at the address it prints (`http://127.0.0.1:8799`).
+It is the tests' own fake: a gRPC server for `GenerativeService/GenerateContent` over cleartext HTTP/2, which answers a speech request with a WAV `inlineData` part, a transcription (audio in, no schema) with text, and a structured request (card text, the judge's verdict) with a passing answer, telling the four kinds apart the way the tests do.
 Clips are stored as `.wav` (24 kHz mono, about 48 KB per second); older notes may still point at `.mp3` clips, and both play.
 
 Prints every console error, failed request and 4xx/5xx it saw at the end.

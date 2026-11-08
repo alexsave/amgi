@@ -113,6 +113,7 @@ Make cards one after another; parallel calls only queue on the same gate.
 
 `plusaudio/` has three Node scripts.
 They read `GEMINI_API_KEY` from the environment only, not from `.env.local`.
+They reach Gemini over gRPC (HTTP/2 to `generativelanguage.googleapis.com:443`), so a network that only lets HTTP/1.1 through a proxy blocks them.
 
 ```bash
 cd plusaudio

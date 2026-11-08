@@ -302,11 +302,18 @@ function encodeSingle(field: Field, value: unknown, where: string): Buffer {
  * otherwise only show up as a model ignoring a setting.
  */
 export function encode(descriptor: Descriptor, value: Message, where = descriptor.name): Buffer {
-    const out: Buffer[] = [];
+    const present: Array<[string, Field, unknown]> = [];
     for (const [key, item] of Object.entries(value)) {
         if (item === undefined) continue;
         const field = descriptor.fields[key];
         if (!field) throw new Error(`${where}.${key} is not a field amgi sends (add it to geminiWire.ts's ${descriptor.name})`);
+        present.push([key, field, item]);
+    }
+    // In field-number order, as protobuf's own serializers write: the same
+    // message is the same bytes whatever order its keys were set in.
+    present.sort((a, b) => a[1].n - b[1].n);
+    const out: Buffer[] = [];
+    for (const [key, field, item] of present) {
         const at = `${where}.${key}`;
         if (!field.repeated) {
             out.push(encodeSingle(field, item, at));

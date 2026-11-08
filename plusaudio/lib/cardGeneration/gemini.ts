@@ -271,7 +271,7 @@ function createChannel(origin: string) {
             }
             timer = setTimeout(() => {
                 stream.close(http2.constants.NGHTTP2_CANCEL);
-                finish(() => reject(new Error(`no answer within ${Math.round(timeoutMs / 1000)}s`)));
+                finish(() => reject(new Error(`no answer within ${timeoutMs} ms`)));
             }, timeoutMs);
 
             const chunks: Buffer[] = [];
@@ -296,12 +296,16 @@ function createChannel(origin: string) {
                     reject(new Error(`the stream closed without an answer (HTTP/2 code ${stream.rstCode})`));
                     return;
                 }
+                // Without a grpc-status the body is not gRPC (a proxy's error
+                // page, say), and only the HTTP status is worth reading.
                 let messages: Uint8Array[] = [];
-                try {
-                    messages = unframe(Buffer.concat(chunks));
-                } catch (error) {
-                    reject(error);
-                    return;
+                if (status !== undefined) {
+                    try {
+                        messages = unframe(Buffer.concat(chunks));
+                    } catch (error) {
+                        reject(error);
+                        return;
+                    }
                 }
                 const detailsBin = all['grpc-status-details-bin'];
                 resolve({
