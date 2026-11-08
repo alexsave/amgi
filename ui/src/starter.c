@@ -3,7 +3,6 @@
  * exists. */
 #include "app.h"
 
-enum { T_STATE = 1, T_BUILD };
 
 static cd_region view = {0};
 static cd_id parent_node, known_sel, learning_sel;
@@ -33,6 +32,9 @@ static void option(uint32_t i, uint32_t selected) {
 
 ON_EVENT(language_picked);
 ON_EVENT(build_pressed);
+
+ON_ANSWER(state_answered);
+ON_ANSWER(built);
 
 static void draw(void) {
   if (!shown) return;
@@ -96,7 +98,7 @@ void starter_show(cd_id parent) {
   loaded = 0;
   busy = 0;
   text_free(&error);
-  ask(M_STARTER, T_STATE, "GET", "/starter", WIRE_NONE, 0);
+  ask(state_answered, 0, "GET", "/starter", WIRE_NONE, 0);
 }
 void starter_forget(void) {
   if (!shown) return;
@@ -128,45 +130,44 @@ ON_EVENT(build_pressed) {
   wire_q_starter q = {{LANGUAGES[known].code, zlen(LANGUAGES[known].code)},
                       {LANGUAGES[learning].code, zlen(LANGUAGES[learning].code)},
                       {name, (uint32_t)sizeof P - 1 + l}};
-  ask(M_STARTER, T_BUILD, "POST", "/starter", WK_Q_STARTER, &q);
+  ask(built, 0, "POST", "/starter", WK_Q_STARTER, &q);
 }
 
-void starter_answer(uint32_t token, uint32_t status, const uint8_t *p, uint32_t len) {
-  if (token == T_STATE) {
-    wire_starter_state s;
-    answer a = take(&h, WK_STARTER_STATE, status, p, len, &s);
-    loaded = 1;
-    offered = a.ok && s.offered;
-    if (offered) {
-      phrase_count = s.phrase_count;
-      offered_langs = 0;
-      for (uint32_t i = 0; i < s.languages.n; i++) {
-        uint32_t k = index_of(s.languages.v[i].p, s.languages.v[i].len);
-        if (k < NLANGUAGES) offered_langs |= 1u << k;
-      }
-      known = index_of("en", 2);
-      /* pre-picked, so the common case is one press: the first offered language that is not English */
-      learning = NLANGUAGES;
-      for (uint32_t i = 0; i < NLANGUAGES && learning == NLANGUAGES; i++)
-        if (offered_langs >> i & 1 && i != known) learning = i;
+ON_ANSWER(state_answered) {
+  wire_starter_state s;
+  answer a = take(&h, WK_STARTER_STATE, status, p, len, &s);
+  loaded = 1;
+  offered = a.ok && s.offered;
+  if (offered) {
+    phrase_count = s.phrase_count;
+    offered_langs = 0;
+    for (uint32_t i = 0; i < s.languages.n; i++) {
+      uint32_t k = index_of(s.languages.v[i].p, s.languages.v[i].len);
+      if (k < NLANGUAGES) offered_langs |= 1u << k;
     }
-    draw();
-  } else if (token == T_BUILD) {
-    wire_starter_built b;
-    answer a = take(&h, WK_STARTER_BUILT, status, p, len, &b);
-    if (a.ok) {
-      /* the pair the deck was built from: nothing in Anki records it */
-      lang_pair pair;
-      uint32_t k = zlen(LANGUAGES[known].code), l = zlen(LANGUAGES[learning].code);
-      __builtin_memcpy(pair.known, LANGUAGES[known].code, k + 1);
-      __builtin_memcpy(pair.learning, LANGUAGES[learning].code, l + 1);
-      deck_langs_save(b.deck_id, &pair);
-      open_after_refresh(b.deck_id);
-      return;
-    }
-    busy = 0;
-    char m[600];
-    text_set(&error, m, answer_message(&a, m, sizeof m));
-    draw();
+    known = index_of("en", 2);
+    /* pre-picked, so the common case is one press: the first offered language that is not English */
+    learning = NLANGUAGES;
+    for (uint32_t i = 0; i < NLANGUAGES && learning == NLANGUAGES; i++)
+      if (offered_langs >> i & 1 && i != known) learning = i;
   }
+  draw();
+}
+ON_ANSWER(built) {
+  wire_starter_built b;
+  answer a = take(&h, WK_STARTER_BUILT, status, p, len, &b);
+  if (a.ok) {
+    /* the pair the deck was built from: nothing in Anki records it */
+    lang_pair pair;
+    uint32_t k = zlen(LANGUAGES[known].code), l = zlen(LANGUAGES[learning].code);
+    __builtin_memcpy(pair.known, LANGUAGES[known].code, k + 1);
+    __builtin_memcpy(pair.learning, LANGUAGES[learning].code, l + 1);
+    deck_langs_save(b.deck_id, &pair);
+    open_after_refresh(b.deck_id);
+    return;
+  }
+  busy = 0;
+  char m[600];
+  text_set(&error, m, answer_message(&a, m, sizeof m));
+  draw();
 }

@@ -70,7 +70,6 @@ void settings_save(void) {
 }
 
 /* ---- the screen ---- */
-enum { T_PROFILES = 1, T_INSTALL };
 enum { TIMER_SAVED = 1 };
 
 static text draft[S_FIELDS];      /* what the screen shows: the saved settings, then the picks */
@@ -247,6 +246,9 @@ static void scan_view(void) {
   cd_region_end(&scan_out);
 }
 
+ON_ANSWER(profiles_answered);
+ON_ANSWER(installed_answered);
+
 static void scan(void) {
   scan_loading = 1;
   text_free(&scan_error);
@@ -256,7 +258,7 @@ static void scan(void) {
   for (int f = 0; f < S_FIELDS; f++) probe[f] = settings[f];
   char buf[1024];
   probe[S_BASE_DIR] = (text){buf, cd_input_value(base_input, buf, sizeof buf)};
-  ask_as(probe, M_SETTINGS, T_PROFILES, "GET", "/profiles", WIRE_NONE, 0);
+  ask_as(probe, profiles_answered, 0, "GET", "/profiles", WIRE_NONE, 0);
 }
 
 static void saved_view(void) {
@@ -315,7 +317,7 @@ static void install(void) {
   install_view();
   char buf[1024];
   wire_q_install q = {{buf, cd_input_value(base_input, buf, sizeof buf)}};
-  ask(M_SETTINGS, T_INSTALL, "POST", "/install", WK_Q_INSTALL, &q);
+  ask(installed_answered, 0, "POST", "/install", WK_Q_INSTALL, &q);
 }
 
 ON_EVENT(scan_pressed) {
@@ -333,54 +335,53 @@ void settings_timer(uint32_t token) {
 }
 
 static holder h_answer;
-void settings_answer(uint32_t token, uint32_t status, const uint8_t *p, uint32_t len) {
-  if (token == T_PROFILES) {
-    wire_profiles pr;
-    answer a = take(&h_answer, WK_PROFILES, status, p, len, &pr);
-    scan_loading = 0;
-    for (uint32_t i = 0; i < nprofiles; i++) {
-      text_free(&profiles[i].name);
-      text_free(&profiles[i].path);
-    }
-    nprofiles = 0;
-    if (a.ok) {
-      text_set(&scan_base, pr.base_dir.p, pr.base_dir.len);
-      scan_exists = pr.base_dir_exists;
-      profiles = cd_realloc(profiles, (pr.nprofiles ? pr.nprofiles : 1) * sizeof *profiles);
-      for (uint32_t i = 0; i < pr.nprofiles; i++) {
-        profiles[i] = (profile){{0, 0}, {0, 0}};
-        text_set(&profiles[i].name, pr.profiles[i].name.p, pr.profiles[i].name.len);
-        text_set(&profiles[i].path, pr.profiles[i].collection_path.p, pr.profiles[i].collection_path.len);
-      }
-      nprofiles = pr.nprofiles;
-    } else {
-      char m[512];
-      text_set(&scan_error, m, answer_message(&a, m, sizeof m));
-    }
-    scan_view();
-  } else if (token == T_INSTALL) {
-    wire_installed in;
-    answer a = take(&h_answer, WK_INSTALLED, status, p, len, &in);
-    install_running = 0;
-    char m[2048];
-    uint32_t n;
-    if (a.ok) {
-      /* "<message> (<add-ons folder>)" */
-      install_ok = 1;
-      n = in.message.len < 1500 ? in.message.len : 1500;
-      __builtin_memcpy(m, in.message.p, n);
-      m[n++] = ' ';
-      m[n++] = '(';
-      uint32_t d = in.addons_dir.len < 500 ? in.addons_dir.len : 500;
-      __builtin_memcpy(m + n, in.addons_dir.p, d);
-      n += d;
-      m[n++] = ')';
-    } else {
-      install_ok = 0;
-      n = answer_message(&a, m, sizeof m);
-    }
-    text_set(&install_message, m, n);
-    install_view();
-    refresh_decks();
+ON_ANSWER(profiles_answered) {
+  wire_profiles pr;
+  answer a = take(&h_answer, WK_PROFILES, status, p, len, &pr);
+  scan_loading = 0;
+  for (uint32_t i = 0; i < nprofiles; i++) {
+    text_free(&profiles[i].name);
+    text_free(&profiles[i].path);
   }
+  nprofiles = 0;
+  if (a.ok) {
+    text_set(&scan_base, pr.base_dir.p, pr.base_dir.len);
+    scan_exists = pr.base_dir_exists;
+    profiles = cd_realloc(profiles, (pr.nprofiles ? pr.nprofiles : 1) * sizeof *profiles);
+    for (uint32_t i = 0; i < pr.nprofiles; i++) {
+      profiles[i] = (profile){{0, 0}, {0, 0}};
+      text_set(&profiles[i].name, pr.profiles[i].name.p, pr.profiles[i].name.len);
+      text_set(&profiles[i].path, pr.profiles[i].collection_path.p, pr.profiles[i].collection_path.len);
+    }
+    nprofiles = pr.nprofiles;
+  } else {
+    char m[512];
+    text_set(&scan_error, m, answer_message(&a, m, sizeof m));
+  }
+  scan_view();
+}
+ON_ANSWER(installed_answered) {
+  wire_installed in;
+  answer a = take(&h_answer, WK_INSTALLED, status, p, len, &in);
+  install_running = 0;
+  char m[2048];
+  uint32_t n;
+  if (a.ok) {
+    /* "<message> (<add-ons folder>)" */
+    install_ok = 1;
+    n = in.message.len < 1500 ? in.message.len : 1500;
+    __builtin_memcpy(m, in.message.p, n);
+    m[n++] = ' ';
+    m[n++] = '(';
+    uint32_t d = in.addons_dir.len < 500 ? in.addons_dir.len : 500;
+    __builtin_memcpy(m + n, in.addons_dir.p, d);
+    n += d;
+    m[n++] = ')';
+  } else {
+    install_ok = 0;
+    n = answer_message(&a, m, sizeof m);
+  }
+  text_set(&install_message, m, n);
+  install_view();
+  refresh_decks();
 }

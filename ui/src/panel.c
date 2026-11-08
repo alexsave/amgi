@@ -3,7 +3,6 @@
  * in its field now; Delete asks first, in the page. */
 #include "app.h"
 
-enum { T_SAVE = 1, T_CLIP, T_DELETE };
 enum { K_TARGET, K_CUE, K_NOTES, KEYS };
 
 static int open_;
@@ -67,6 +66,9 @@ static wire_str clip_of(int32_t i) {
   return audio_src((wire_str){fields[i].p, fields[i].len});
 }
 
+ON_ANSWER(saved);
+ON_ANSWER(clip_answered);
+ON_ANSWER(deleted);
 ON_EVENT(field_left);
 ON_EVENT(field_key);
 ON_EVENT(redo_target);
@@ -173,7 +175,7 @@ static void save(void) {
   wire_q_note_update q = {{v, nfields}, {langs.learning, zlen(langs.learning)}, idx.target >= 0 ? idx.target : WIRE_ABSENT};
   char path[48] = "/notes/";
   path[7 + id_dec(path + 7, note_id)] = 0;
-  ask(M_PANEL, T_SAVE, "PATCH", path, WK_Q_NOTE_UPDATE, &q);
+  ask(saved, 0, "PATCH", path, WK_Q_NOTE_UPDATE, &q);
   cd_free(v);
 }
 
@@ -202,7 +204,7 @@ static void redo(int side) {
   labels_view();
   const char *lang = side ? langs.known : langs.learning;
   wire_q_audio q = {{t, n}, {lang, zlen(lang)}, 1};
-  ask(M_PANEL, T_CLIP | (uint32_t)side << 8, "POST", "/audio", WK_Q_AUDIO, &q);
+  ask(clip_answered, CTX_OF(side), "POST", "/audio", WK_Q_AUDIO, &q);
   cd_free(t);
 }
 
@@ -212,7 +214,7 @@ static void removed(void *ctx) {
   labels_view();
   char path[48] = "/notes/";
   path[7 + id_dec(path + 7, note_id)] = 0;
-  ask(M_PANEL, T_DELETE, "DELETE", path, WIRE_NONE, 0);
+  ask(deleted, 0, "DELETE", path, WIRE_NONE, 0);
 }
 
 /* ctx: the field's key (K_*) */
@@ -238,52 +240,48 @@ ON_EVENT(delete_pressed) {
   cd_free(t);
 }
 
-void panel_answer(uint32_t token, uint32_t status, const uint8_t *p, uint32_t len) {
+ON_ANSWER(saved) {
   if (!open_) return;
-  switch (token & 0xff) {
-  case T_SAVE: {
-    wire_note_changed c;
-    answer a = take(&h, WK_NOTE_CHANGED, status, p, len, &c);
-    if (!a.ok) set_error(&a);
-    break;
-  }
-  case T_CLIP: {
-    int side = (int)(token >> 8);
-    wire_clip c;
-    answer a = take(&h, WK_CLIP, status, p, len, &c);
-    busy = 0;
-    if (a.ok) {
-      int32_t ai = side ? idx.cue_audio : idx.target_audio;
-      if (ai >= 0 && (uint32_t)ai < nfields) {
-        text_set(&fields[ai], c.reference.p, c.reference.len);
-        save();
-        /* the chip plays the new take: built again in its place (React's kept the old clip's bytes) */
-        int32_t s = side ? 0 : 1;
-        cd_id old = chips[s] >= 0 ? chip_node(chips[s]) : 0;
-        cd_id before = s == 0 && chips[1] >= 0 ? chip_node(chips[1]) : redo_btn[0];
-        chip_forget(chips[s]);
-        if (old) cd_remove(old);
-        cd_at(clips_box, before);
-        chips[s] = chip_build(c.filename.p, c.filename.len, name_of(side ? langs.known : langs.learning),
-                              side ? TONE_CUE : TONE_TARGET);
-      }
-    } else {
-      set_error(&a);
+  wire_note_changed c;
+  answer a = take(&h, WK_NOTE_CHANGED, status, p, len, &c);
+  if (!a.ok) set_error(&a);
+}
+/* ctx: the side recorded again, 0 the target, 1 the cue */
+ON_ANSWER(clip_answered) {
+  if (!open_) return;
+  int side = (int)CTX_INDEX(ctx);
+  wire_clip c;
+  answer a = take(&h, WK_CLIP, status, p, len, &c);
+  busy = 0;
+  if (a.ok) {
+    int32_t ai = side ? idx.cue_audio : idx.target_audio;
+    if (ai >= 0 && (uint32_t)ai < nfields) {
+      text_set(&fields[ai], c.reference.p, c.reference.len);
+      save();
+      /* the chip plays the new take: built again in its place (React's kept the old clip's bytes) */
+      int32_t s = side ? 0 : 1;
+      cd_id old = chips[s] >= 0 ? chip_node(chips[s]) : 0;
+      cd_id before = s == 0 && chips[1] >= 0 ? chip_node(chips[1]) : redo_btn[0];
+      chip_forget(chips[s]);
+      if (old) cd_remove(old);
+      cd_at(clips_box, before);
+      chips[s] = chip_build(c.filename.p, c.filename.len, name_of(side ? langs.known : langs.learning),
+                            side ? TONE_CUE : TONE_TARGET);
     }
+  } else {
+    set_error(&a);
+  }
+  labels_view();
+}
+ON_ANSWER(deleted) {
+  if (!open_) return;
+  wire_note_changed c;
+  answer a = take(&h, WK_NOTE_CHANGED, status, p, len, &c);
+  if (a.ok) {
+    deck_note_removed(note_id);
+  } else {
+    deleting = 0;
+    set_error(&a);
     labels_view();
-    break;
-  }
-  case T_DELETE: {
-    wire_note_changed c;
-    answer a = take(&h, WK_NOTE_CHANGED, status, p, len, &c);
-    if (a.ok) {
-      deck_note_removed(note_id);
-    } else {
-      deleting = 0;
-      set_error(&a);
-      labels_view();
-    }
-    break;
-  }
   }
 }

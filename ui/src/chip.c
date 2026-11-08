@@ -66,6 +66,7 @@ static void set_state(chip *c, uint32_t state) {
 }
 
 ON_EVENT(pressed);
+ON_ANSWER(media_answered);
 
 int32_t chip_build(const char *filename, uint32_t flen, const char *label, uint32_t tone) {
   if (!flen) return -1;
@@ -144,7 +145,7 @@ ON_EVENT(pressed) {
     return;
   }
   set_state(c, LOADING);
-  ask_media(c->gen << 12 | slot, c->filename.p, c->filename.len);
+  ask_media(media_answered, CTX_OF(c->gen << 12 | slot), c->filename.p, c->filename.len);
 }
 
 static chip *chip_of(uint32_t token) {
@@ -153,7 +154,9 @@ static chip *chip_of(uint32_t token) {
   return c && c->used && c->gen == (token >> 12) ? c : 0;
 }
 
-void chip_answer(uint32_t token, uint32_t status, const uint8_t *p, uint32_t len) {
+/* ctx: the chip's slot and generation, which the clip's decoding carries on as its token */
+ON_ANSWER(media_answered) {
+  uint32_t token = CTX_INDEX(ctx);
   chip *c = chip_of(token);
   if (!c) return;
   if (status != 200 || !len) {

@@ -1,5 +1,5 @@
 /* Requests to /api/anki in amgi's wire format, the settings as the five plain headers, and the
- * answer routed back to the module that asked (its id in the token's top byte). */
+ * answer handed to the asker's own callback (cd_http_cb). */
 #include "app.h"
 
 #define DEADLINE_MS 15000
@@ -15,8 +15,8 @@ uint8_t *wire_grow(uint8_t *p, uint32_t len, uint32_t cap) {
 
 static wire_buf body_buf;
 
-static void request(uint32_t token, const char *method, const char *path, uint32_t plen, int has_body, uint32_t deadline,
-                    const text *with) {
+static void request(cd_http_fn fn, void *ctx, const char *method, const char *path, uint32_t plen, int has_body,
+                    uint32_t deadline, const text *with) {
   uint32_t ulen = (uint32_t)sizeof PREFIX - 1 + plen;
   char *url = cd_alloc(ulen);
   __builtin_memcpy(url, PREFIX, sizeof PREFIX - 1);
@@ -31,30 +31,29 @@ static void request(uint32_t token, const char *method, const char *path, uint32
   }
   if (with) h += settings_block(headers + h, with);
   else if (settings_stored) h += settings_block(headers + h, settings);
-  cd_http(token, method, zlen(method), url, ulen, headers, h, has_body ? body_buf.p : 0, has_body ? body_buf.len : 0,
-          deadline);
+  cd_http_cb(fn, ctx, method, zlen(method), url, ulen, headers, h, has_body ? body_buf.p : 0,
+             has_body ? body_buf.len : 0, deadline);
   cd_free(headers);
   cd_free(url);
 }
 
-void ask_as(const text *with, uint32_t module, uint32_t token, const char *method, const char *path, uint32_t qkind,
+void ask_as(const text *with, cd_http_fn fn, void *ctx, const char *method, const char *path, uint32_t qkind,
             const void *body) {
   int has_body = qkind != WIRE_NONE;
   if (has_body) wire_encode(&body_buf, qkind, body);
   int slow = qkind == WK_Q_CARD_TEXT || qkind == WK_Q_AUDIO || qkind == WK_Q_NOTES || qkind == WK_Q_STARTER;
-  request(module << 24 | (token & 0xffffff), method, path, zlen(path), has_body, slow ? SLOW_DEADLINE_MS : DEADLINE_MS,
-          with);
+  request(fn, ctx, method, path, zlen(path), has_body, slow ? SLOW_DEADLINE_MS : DEADLINE_MS, with);
 }
-void ask(uint32_t module, uint32_t token, const char *method, const char *path, uint32_t qkind, const void *body) {
-  ask_as(0, module, token, method, path, qkind, body);
+void ask(cd_http_fn fn, void *ctx, const char *method, const char *path, uint32_t qkind, const void *body) {
+  ask_as(0, fn, ctx, method, path, qkind, body);
 }
 
-void ask_media(uint32_t token, const char *name, uint32_t len) {
+void ask_media(cd_http_fn fn, void *ctx, const char *name, uint32_t len) {
   static const char MEDIA[] = "/media/";
   char *path = cd_alloc((uint32_t)sizeof MEDIA + 3 * len);
   __builtin_memcpy(path, MEDIA, sizeof MEDIA - 1);
   uint32_t n = (uint32_t)sizeof MEDIA - 1 + cd_url_encode(path + sizeof MEDIA - 1, name, len);
-  request((uint32_t)M_CHIP << 24 | (token & 0xffffff), "GET", path, n, 0, DEADLINE_MS, 0);
+  request(fn, ctx, "GET", path, n, 0, DEADLINE_MS, 0);
   cd_free(path);
 }
 
@@ -96,20 +95,4 @@ uint32_t answer_message(const answer *a, char *dst, uint32_t cap) {
   if (n > cap) n = cap;
   __builtin_memcpy(dst, m, n);
   return n;
-}
-
-void cd_on_http(uint32_t token, uint32_t status, const uint8_t *p, uint32_t len) {
-  uint32_t t = token & 0xffffff;
-  switch (token >> 24) {
-  case M_SHELL: state_answer(t, status, p, len); break; /* the state's own requests (state.c) */
-  case M_SETTINGS: settings_answer(t, status, p, len); break;
-  case M_DECK: deck_answer(t, status, p, len); break;
-  case M_CHIP: chip_answer(t, status, p, len); break;
-  case M_FIRSTRUN: firstrun_answer(t, status, p, len); break;
-  case M_DECKS: decks_answer(t, status, p, len); break;
-  case M_PANEL: panel_answer(t, status, p, len); break;
-  case M_BULK: bulk_answer(t, status, p, len); break;
-  case M_STARTER: starter_answer(t, status, p, len); break;
-  case M_TEMPLATE: template_answer(t, status, p, len); break;
-  }
 }

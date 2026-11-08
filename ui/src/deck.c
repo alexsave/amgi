@@ -2,7 +2,6 @@
  * card form, and the notes a page at a time, each row with its clips. */
 #include "app.h"
 
-enum { T_NOTES = 1, T_DELETE, T_RENAME, T_DECK_SUMMARY, T_DECK_DELETE };
 #define PAGE_SIZE 20
 
 static int shown, langs_known, notes_loading, notes_known;
@@ -41,6 +40,11 @@ static int danger_state;
 static text danger_error;
 
 ON_EVENT(back) { go("/decks", 6); }
+ON_ANSWER(notes_answered);
+ON_ANSWER(renamed);
+ON_ANSWER(note_deleted);
+ON_ANSWER(summary_answered);
+ON_ANSWER(deck_removed);
 ON_EVENT(langs_open_pressed);
 ON_EVENT(langs_done_pressed);
 ON_EVENT(language_changed);
@@ -71,7 +75,7 @@ static void ask_notes(uint32_t offset) {
   path[n] = 0;
   want_offset = offset;
   notes_loading = 1;
-  ask(M_DECK, T_NOTES, "GET", path, WIRE_NONE, 0);
+  ask(notes_answered, 0, "GET", path, WIRE_NONE, 0);
 }
 
 void deck_reload(void) {
@@ -199,7 +203,7 @@ static void rename_commit(void) {
   wire_q_deck_name q = {typed};
   char path[48] = "/decks/";
   path[7 + id_dec(path + 7, deck_id)] = 0;
-  ask(M_DECK, T_RENAME, "PATCH", path, WK_Q_DECK_NAME, &q);
+  ask(renamed, 0, "PATCH", path, WK_Q_DECK_NAME, &q);
 }
 
 void deck_build(void) {
@@ -561,7 +565,7 @@ static void delete_now(void *ctx) {
   rows_build(); /* the row's button says … while it goes */
   char path[48] = "/notes/";
   path[7 + id_dec(path + 7, deleting)] = 0;
-  ask(M_DECK, T_DELETE, "DELETE", path, WIRE_NONE, 0);
+  ask(note_deleted, 0, "DELETE", path, WIRE_NONE, 0);
 }
 
 /* A note went (its row's delete, or its panel's): its editor closes, the page and the counts follow. */
@@ -597,7 +601,7 @@ static void deck_delete_now(void *ctx) {
   danger_view();
   char path[48] = "/decks/";
   path[7 + id_dec(path + 7, deck_id)] = 0;
-  ask(M_DECK, T_DECK_DELETE, "DELETE", path, WIRE_NONE, 0);
+  ask(deck_removed, 0, "DELETE", path, WIRE_NONE, 0);
 }
 
 /* The confirmation names the deck and says what goes with it, from the server's own count of what
@@ -643,74 +647,72 @@ static void deck_delete_ask(const wire_deck_summary *s) {
   cd_free(body.p);
 }
 
-void deck_answer(uint32_t token, uint32_t status, const uint8_t *p, uint32_t len) {
-  if (token == T_DECK_DELETE) {
-    /* answered even when the page went meanwhile: the deck list must not keep a deck that went */
-    wire_deck_removed r;
-    answer a = take(&h_write, WK_DECK_REMOVED, status, p, len, &r);
-    int here = shown && route == R_DECK && route_deck == deck_id;
-    danger_state = DANGER_IDLE;
-    if (a.ok) {
-      decks_drop_tree(r.id);
-      refresh_decks();
-      /* replace, not push: Back must not come back to a deck that is gone */
-      if (here) go_replace("/decks", 6);
-    } else if (a.status == 404) {
-      refresh_decks(); /* gone already: the page becomes "this deck no longer exists" */
-    } else if (here) {
-      char m[600];
-      text_set(&danger_error, m, answer_message(&a, m, sizeof m));
-      danger_view();
-    }
-    return;
-  }
-  if (!shown) return;
-  if (token == T_DECK_SUMMARY) {
-    wire_deck_summary s;
-    answer a = take(&h_write, WK_DECK_SUMMARY, status, p, len, &s);
-    danger_state = DANGER_IDLE;
-    if (a.ok) {
-      danger_view();
-      deck_delete_ask(&s);
-    } else if (a.status == 404) {
-      refresh_decks();
-    } else {
-      char m[600];
-      text_set(&danger_error, m, answer_message(&a, m, sizeof m));
-      danger_view();
-    }
-    return;
-  }
-  if (token == T_DELETE) {
-    wire_note_changed c;
-    answer a = take(&h_write, WK_NOTE_CHANGED, status, p, len, &c);
-    int64_t id = deleting;
-    if (a.ok) {
-      deck_note_removed(id);
-    } else {
-      /* window.alert(err.message) in React: here the same dialog, with OK alone */
-      char m[600];
-      uint32_t n = answer_message(&a, m, sizeof m);
-      deleting = -1;
-      rows_build();
-      confirm_ask("Could not delete the card", m, n, 0, "OK", 0, 0);
-    }
-    return;
-  }
-  if (token == T_RENAME) {
-    wire_deck_renamed r;
-    answer a = take(&h_write, WK_DECK_RENAMED, status, p, len, &r);
-    rename_saving = 0;
-    if (!a.ok) {
-      /* Anki refuses a name another deck has, and so do we: say which, keep the old name */
-      char m[600];
-      text_set(&rename_error, m, answer_message(&a, m, sizeof m));
-    }
-    name_view();
+/* answered even when the page went meanwhile: the deck list must not keep a deck that went */
+ON_ANSWER(deck_removed) {
+  wire_deck_removed r;
+  answer a = take(&h_write, WK_DECK_REMOVED, status, p, len, &r);
+  int here = shown && route == R_DECK && route_deck == deck_id;
+  danger_state = DANGER_IDLE;
+  if (a.ok) {
+    decks_drop_tree(r.id);
     refresh_decks();
-    return;
+    /* replace, not push: Back must not come back to a deck that is gone */
+    if (here) go_replace("/decks", 6);
+  } else if (a.status == 404) {
+    refresh_decks(); /* gone already: the page becomes "this deck no longer exists" */
+  } else if (here) {
+    char m[600];
+    text_set(&danger_error, m, answer_message(&a, m, sizeof m));
+    danger_view();
   }
-  if (token != T_NOTES) return;
+}
+ON_ANSWER(summary_answered) {
+  if (!shown) return;
+  wire_deck_summary s;
+  answer a = take(&h_write, WK_DECK_SUMMARY, status, p, len, &s);
+  danger_state = DANGER_IDLE;
+  if (a.ok) {
+    danger_view();
+    deck_delete_ask(&s);
+  } else if (a.status == 404) {
+    refresh_decks();
+  } else {
+    char m[600];
+    text_set(&danger_error, m, answer_message(&a, m, sizeof m));
+    danger_view();
+  }
+}
+ON_ANSWER(note_deleted) {
+  if (!shown) return;
+  wire_note_changed c;
+  answer a = take(&h_write, WK_NOTE_CHANGED, status, p, len, &c);
+  int64_t id = deleting;
+  if (a.ok) {
+    deck_note_removed(id);
+  } else {
+    /* window.alert(err.message) in React: here the same dialog, with OK alone */
+    char m[600];
+    uint32_t n = answer_message(&a, m, sizeof m);
+    deleting = -1;
+    rows_build();
+    confirm_ask("Could not delete the card", m, n, 0, "OK", 0, 0);
+  }
+}
+ON_ANSWER(renamed) {
+  if (!shown) return;
+  wire_deck_renamed r;
+  answer a = take(&h_write, WK_DECK_RENAMED, status, p, len, &r);
+  rename_saving = 0;
+  if (!a.ok) {
+    /* Anki refuses a name another deck has, and so do we: say which, keep the old name */
+    char m[600];
+    text_set(&rename_error, m, answer_message(&a, m, sizeof m));
+  }
+  name_view();
+  refresh_decks();
+}
+ON_ANSWER(notes_answered) {
+  if (!shown) return;
   /* Read into a page of its own first: the one on screen stays whole until this one replaces it. */
   static holder h_next;
   wire_notes next = {0};
@@ -788,7 +790,7 @@ ON_EVENT(deck_delete_pressed) {
   danger_view();
   char path[48] = "/decks/";
   path[7 + id_dec(path + 7, deck_id)] = 0;
-  ask(M_DECK, T_DECK_SUMMARY, "GET", path, WIRE_NONE, 0);
+  ask(summary_answered, 0, "GET", path, WIRE_NONE, 0);
 }
 ON_EVENT(rename_pressed) {
   renaming = 1;

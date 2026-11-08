@@ -4,7 +4,6 @@
 #include "app.h"
 
 enum { P_CHECKING, P_IDLE, P_OFFERED, P_UPDATING, P_BEHIND, P_FAILED };
-enum { T_STATE = 1, T_INSTALL, T_RECHECK };
 
 static uint32_t phase = P_CHECKING;
 static int running, dismissed, force;
@@ -71,12 +70,16 @@ static void draw(void) {
   cd_region_end(&view);
 }
 
+/* ctx: 0 the check, 1 the check again after an install (which never installs) */
+ON_ANSWER(state_answered);
+ON_ANSWER(install_answered);
+
 /* The check, from the top: only one at a time (two would copy the same files over each other). */
 static void check(int forced) {
   if (running) return;
   running = 1;
   force = forced;
-  ask(M_TEMPLATE, T_STATE, "GET", "/install", WIRE_NONE, 0);
+  ask(state_answered, CTX_OF(0), "GET", "/install", WIRE_NONE, 0);
 }
 
 void template_mode_changed(void) { check(0); }
@@ -89,35 +92,35 @@ static void fail(const answer *a) {
   draw();
 }
 
-void template_answer(uint32_t token, uint32_t status, const uint8_t *p, uint32_t len) {
-  if (token == T_STATE || token == T_RECHECK) {
-    wire_install_state s;
-    answer a = take(&h, WK_INSTALL_STATE, status, p, len, &s);
-    if (!a.ok) return fail(&a);
-    if (!s.installed) {
-      phase = P_IDLE;
-    } else if (token == T_STATE && s.up_to_date == 0) {
-      /* never while Anki is open, unless the person says so */
-      if (anki_open() && !force) {
-        phase = P_OFFERED;
-      } else {
-        phase = P_UPDATING;
-        draw();
-        wire_q_install q = {{settings[S_BASE_DIR].p ? settings[S_BASE_DIR].p : "", settings[S_BASE_DIR].len}};
-        ask(M_TEMPLATE, T_INSTALL, "POST", "/install", WK_Q_INSTALL, &q);
-        return;
-      }
+ON_ANSWER(state_answered) {
+  int recheck = CTX_INDEX(ctx) == 1;
+  wire_install_state s;
+  answer a = take(&h, WK_INSTALL_STATE, status, p, len, &s);
+  if (!a.ok) return fail(&a);
+  if (!s.installed) {
+    phase = P_IDLE;
+  } else if (!recheck && s.up_to_date == 0) {
+    /* never while Anki is open, unless the person says so */
+    if (anki_open() && !force) {
+      phase = P_OFFERED;
     } else {
-      phase = s.collection_checked && s.stale.n ? P_BEHIND : P_IDLE;
+      phase = P_UPDATING;
+      draw();
+      wire_q_install q = {{settings[S_BASE_DIR].p ? settings[S_BASE_DIR].p : "", settings[S_BASE_DIR].len}};
+      ask(install_answered, 0, "POST", "/install", WK_Q_INSTALL, &q);
+      return;
     }
-    running = 0;
-    draw();
-  } else if (token == T_INSTALL) {
-    wire_installed in;
-    answer a = take(&h, WK_INSTALLED, status, p, len, &in);
-    if (!a.ok) return fail(&a);
-    ask(M_TEMPLATE, T_RECHECK, "GET", "/install", WIRE_NONE, 0);
+  } else {
+    phase = s.collection_checked && s.stale.n ? P_BEHIND : P_IDLE;
   }
+  running = 0;
+  draw();
+}
+ON_ANSWER(install_answered) {
+  wire_installed in;
+  answer a = take(&h, WK_INSTALLED, status, p, len, &in);
+  if (!a.ok) return fail(&a);
+  ask(state_answered, CTX_OF(1), "GET", "/install", WIRE_NONE, 0);
 }
 
 ON_EVENT(install_now) { check(1); }
