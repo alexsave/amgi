@@ -1,7 +1,7 @@
 // Golden file: the install (server/amgi/install.c) and the starter deck (server/amgi/starter.c)
 // through the C server's HTTP surface, as the page drives them, on a fresh Anki folder with Anki
 // closed. test/parity/golden/install-starter-expected.txt was recorded once from the Node server
-// (make-golden-install-starter.mjs, scaffolding) and is the contract: the install's collection
+// (by a generator removed at L4) and is the contract: the install's collection
 // checks before and after, the note type the direct install writes (its fields and sort field), the
 // starter's offer with no key, the deck built in en->ko, the same press again (every phrase already
 // there, nothing added), a second pair, the decks and their counts, the starter notes' fields, and
