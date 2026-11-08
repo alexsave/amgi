@@ -84,4 +84,4 @@ class AudioCache {
   }
 }
 
-module.exports = { AUDIO_PROFILE, AudioCache, CLIP_EXTENSION, STARTER_EXTENSION, isOwnedMediaName, mediaName, starterClipName };
+module.exports = { AudioCache, CLIP_EXTENSION, STARTER_EXTENSION, isOwnedMediaName, mediaName, starterClipName };

@@ -47,7 +47,7 @@ import { runPlusaudio } from './plusaudioCli';
  *
  * @returns {Promise<Buffer>} the clip's bytes: a WAV file
  */
-export async function generateClip({ text, language, reading = '' }) {
+async function generateClip({ text, language, reading = '' }) {
   // Checked here as well as in generate-clip.js so a missing key costs
   // nothing, not even a subprocess.
   if (!process.env.GEMINI_API_KEY) throw new Error(MISSING_KEY_MESSAGE);

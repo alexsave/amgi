@@ -331,13 +331,10 @@ function resetBackupLedger() {
 }
 
 module.exports = {
-  BACKUP_DIRNAME,
   BACKUP_KEEP_COUNT,
   BACKUP_MAX_AGE_MS,
   backupCollectionFile,
-  backupDirFor,
   ensureBackupBeforeChange,
-  listBackups,
   noteCollectionWritten,
   pruneBackups,
   readCollectionMark,

@@ -179,8 +179,8 @@ def is_owned_media_name(filename: str) -> bool:
     return bool(_OWNED_NAME.match(filename) or _LEGACY_OWNED_NAME.search(filename))
 
 
-# Port of plusaudio/lib/cardGeneration/cardText.ts's looksRomanized/
-# usesNonLatinScript - see that file's docstring for the policy (a soft
+# Port of plusaudio/lib/cardGeneration/cardText.ts's looksRomanized
+# - see that file's docstring for the policy (a soft
 # warning on hand-authored text, never a hard rule, and never applied to
 # LLM-generated text, which the generation prompt already forbids
 # romanising). Ranges chosen to match \p{Script=...} for the same scripts in
@@ -203,10 +203,6 @@ _LATIN_LETTER = re.compile(r"[A-Za-z]")
 
 def _normalize_language_code(language: str) -> str:
     return (language or "").lower().replace("-", "_").strip()
-
-
-def uses_non_latin_script(language: str) -> bool:
-    return _normalize_language_code(language) in _NATIVE_SCRIPT_RANGES
 
 
 def looks_romanized(text: str, language: str) -> bool:

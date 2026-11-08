@@ -41,4 +41,4 @@ function exitForError(error, { stdout = process.stdout, stderr = process.stderr 
   return 1;
 }
 
-module.exports = { DAILY_CAP_EXIT, RATE_LIMITED_EXIT, exitForError, parseRetryAfter, retryAfterLine };
+module.exports = { DAILY_CAP_EXIT, RATE_LIMITED_EXIT, exitForError, parseRetryAfter };

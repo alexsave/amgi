@@ -161,4 +161,4 @@ function readMediaFile(mediaDir, filename) {
   }
 }
 
-module.exports = { addMediaFile, mediaDirFor, mediaFileExists, normalizeFilename, readMediaFile, writeFixedNameMedia };
+module.exports = { addMediaFile, mediaDirFor, mediaFileExists, readMediaFile, writeFixedNameMedia };

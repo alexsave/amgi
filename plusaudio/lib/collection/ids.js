@@ -52,4 +52,4 @@ function randomGuid(source = random) {
   return out;
 }
 
-module.exports = { BASE91_ALPHABET, idAllocationExpr, randomGuid };
+module.exports = { idAllocationExpr, randomGuid };

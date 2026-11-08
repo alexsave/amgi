@@ -44,4 +44,4 @@ function readSettings(request) {
   }
 }
 
-module.exports = { DEFAULT_SETTINGS, HEADER_NAME, readSettings };
+module.exports = { readSettings };

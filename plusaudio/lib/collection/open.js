@@ -120,4 +120,4 @@ function withCollection(collectionPath, fn) {
   }
 }
 
-module.exports = { SUPPORTED_SCHEMAS, isLockedError, openCollection, withCollection };
+module.exports = { openCollection, withCollection };

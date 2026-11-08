@@ -205,10 +205,7 @@ function ordinalsForNewNote({ kind, templates, fieldNames, fieldValues, tags }) 
 
 module.exports = {
   clozeNumbersInFields,
-  nodesRenderNonEmpty,
   nonemptyFieldsFor,
   ordinalsForNewNote,
-  parse,
   templateRendersNonEmpty,
-  tokenize,
 };

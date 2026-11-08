@@ -221,4 +221,4 @@ function createNotetype(collectionPath, spec, { now = Date.now, drawBytes = (cou
   });
 }
 
-module.exports = { DEFAULT_LATEX_POST, DEFAULT_LATEX_PRE, createNotetype, encodeNotetypeConfig };
+module.exports = { createNotetype };
