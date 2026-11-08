@@ -128,12 +128,32 @@ try {
   await sleep(400);
   await shot(b, '03-back');
 
-  const deckId = await b.evaluate(`fetch('/api/anki/decks', { headers: { 'x-amgi-anki-settings': ${JSON.stringify(JSON.stringify({ collectionPath: path.resolve(collection) }))} } }).then(r => r.json()).then(j => String(j.decks.find(d => d.name === '한국어').id))`);
   await click(b, '.deck-item:nth-child(5)');
-  const atDeck = await until(b, `location.pathname === '/deck/${deckId}'`);
-  check(atDeck, `a deck row goes to /deck/${deckId}`);
+  const atDeck = await until(b, `/^\\/deck\\/\\d+$/.test(location.pathname) && document.querySelector('.deck-name-button')?.textContent === '한국어' && document.querySelectorAll('.note-rows > li').length === 4`);
+  check(atDeck, `the fifth deck row goes to /deck/<its id>, 한국어, its four notes listed (at ${await b.evaluate('location.pathname')})`);
+  const rowsText = await b.evaluate(`[...document.querySelectorAll('.note-row')].map(r => [r.querySelector('.note-row-target').textContent, r.querySelector('.note-row-cue').textContent, r.querySelectorAll('.audio-chip').length].join('/')).join(' | ')`);
+  check(rowsText === '역이 어디예요?/Basic not an amgi card/0 | 감사합니다/Basic not an amgi card/0 | 안녕하세요/Hello/2 | 고맙습니다/Thank you/2', `the rows: ${rowsText}`);
   await sleep(600);
   await shot(b, '04-deck');
+
+  // A clip plays (an MP3), its chip marked while it does; the next chip pressed takes over (in the
+  // C app; React's chips overlap, so this is checked there only).
+  await click(b, '.note-rows > li:nth-child(3) .audio-chip-target');
+  check(await until(b, `!!document.querySelector('.note-rows > li:nth-child(3) .audio-chip-target.is-playing')`, 50), 'a target chip plays its MP3');
+  if (!react) {
+    await click(b, '.note-rows > li:nth-child(4) .audio-chip-cue');
+    const one = await until(b, `document.querySelector('.note-rows > li:nth-child(4) .audio-chip-cue.is-playing') && !document.querySelector('.note-rows > li:nth-child(3) .audio-chip-target.is-playing')`, 50);
+    check(one, 'pressing another chip stops the first: one voice at a time');
+  }
+  check(await until(b, `!document.querySelector('.audio-chip.is-playing')`, 50), 'the chips go idle when their clips end');
+
+  // The deck's languages: Change opens the two selects.
+  await click(b, '.deck-langs button');
+  check(await until(b, `document.querySelectorAll('.deck-langs select').length === 2`), 'Change opens the language selects');
+  await sleep(300);
+  await shot(b, '04b-langs');
+  await click(b, '.deck-langs button');
+  check(await until(b, `!document.querySelector('.deck-langs select')`), 'Done closes them');
   await back(b);
   check(await until(b, `location.pathname === '/decks' && (${settled}) === 6`), 'back again lands on the list');
   await sleep(400);
