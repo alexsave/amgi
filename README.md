@@ -13,10 +13,10 @@ Reviewing happens inside Anki, using a card template this repo ships, which stil
 
 <p align="center">
   <a href="docs/showcase.mp4">
-    <img src="docs/showcase.png" alt="amgi showcase: type a phrase, get a card with native audio, then speak the answer back in Anki" width="760">
+    <img src="docs/showcase.gif" alt="amgi showcase: type a phrase, get a card with native audio, then speak the answer back in Anki" width="760">
   </a>
   <br>
-  <sub>One minute: install into Anki, make a card from a phrase, then review it by speaking. <a href="docs/showcase.mp4">Watch the video</a>.</sub>
+  <sub>One minute: install into Anki, make a card from a phrase, then review it by speaking. <a href="docs/showcase.mp4">Watch it with sound</a>.</sub>
 </p>
 
 ## Zero to your first card
