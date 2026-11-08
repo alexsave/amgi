@@ -1,7 +1,3 @@
-/**
- * @jest-environment node
- */
-
 // The note type amgi's installer creates itself when Anki is closed, checked
 // against the REAL Anki library and against the add-on's own writer.
 //
@@ -14,6 +10,11 @@
 // Skipped, like the plusaudio suites, when there is no python with the anki
 // library (ANKI_PYTHON_BIN).
 
+import { describe, test } from 'node:test';
+import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
+
+const require = createRequire(import.meta.url);
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -23,8 +24,8 @@ import { createDirectOps } from '../../server/anki/directClient';
 const helpers = require('../../../plusaudio/test/collection/helpers/anki-python');
 
 const { anki, buildFixtureCollection, holdCollectionOpen, runPython, tempDir } = helpers;
-const REPO_ROOT = path.resolve(__dirname, '..', '..', '..');
-const maybe = anki ? it : it.skip;
+const REPO_ROOT = path.resolve(import.meta.dirname, '..', '..', '..');
+const maybe = anki ? test : test.skip;
 
 function freshCollection() {
   const dir = tempDir('amgi-notetype-');
@@ -45,39 +46,39 @@ function assetsDir() {
 }
 
 describe('amgiNotetypeSpec', () => {
-  it('is read from the shipped card files, in the add-on’s field and template order', () => {
+  test('is read from the shipped card files, in the add-on’s field and template order', () => {
     const spec = amgiNotetypeSpec(REPO_ROOT);
-    expect(spec.name).toBe('amgi Listening');
-    expect(spec.fields).toEqual(['Cue', 'CueAudio', 'Target', 'TargetAudio', 'Language', 'Notes']);
-    expect(spec.templates.map((t) => t.name)).toEqual(['Listening', 'Listening reversed']);
-    expect(spec.templates[0].front).toBe(fs.readFileSync(path.join(REPO_ROOT, 'anki/notetype/front.html'), 'utf8'));
-    expect(spec.css).toBe(fs.readFileSync(path.join(REPO_ROOT, 'anki/notetype/styling.css'), 'utf8'));
+    assert.equal(spec.name, 'amgi Listening');
+    assert.deepEqual(spec.fields, ['Cue', 'CueAudio', 'Target', 'TargetAudio', 'Language', 'Notes']);
+    assert.deepEqual(spec.templates.map((t) => t.name), ['Listening', 'Listening reversed']);
+    assert.equal(spec.templates[0].front, fs.readFileSync(path.join(REPO_ROOT, 'anki/notetype/front.html'), 'utf8'));
+    assert.equal(spec.css, fs.readFileSync(path.join(REPO_ROOT, 'anki/notetype/styling.css'), 'utf8'));
   });
 });
 
 describe('installNotetypeDirect', () => {
-  it('does nothing on a transport that cannot write (the bridge: the add-on does it there)', async () => {
-    expect(await installNotetypeDirect({ ops: { listNotetypes: async () => [] }, root: REPO_ROOT })).toEqual({
+  test('does nothing on a transport that cannot write (the bridge: the add-on does it there)', async () => {
+    assert.deepEqual(await installNotetypeDirect({ ops: { listNotetypes: async () => [] }, root: REPO_ROOT }), {
       created: false,
       reason: 'transport',
     });
-    expect(await installNotetypeDirect({ ops: undefined, root: REPO_ROOT })).toEqual({ created: false, reason: 'transport' });
+    assert.deepEqual(await installNotetypeDirect({ ops: undefined, root: REPO_ROOT }), { created: false, reason: 'transport' });
   });
 
   maybe('creates the note type and its media in a closed collection, once', async () => {
     const { dir, collectionPath } = freshCollection();
     const ops = createDirectOps(collectionPath);
-    expect(await installNotetypeDirect({ ops, root: REPO_ROOT })).toEqual({ created: true });
+    assert.deepEqual(await installNotetypeDirect({ ops, root: REPO_ROOT }), { created: true });
 
     const made = (await ops.listNotetypes()).find((nt) => nt.name === 'amgi Listening');
-    expect(made.fieldNames).toEqual(['Cue', 'CueAudio', 'Target', 'TargetAudio', 'Language', 'Notes']);
+    assert.deepEqual(made.fieldNames, ['Cue', 'CueAudio', 'Target', 'TargetAudio', 'Language', 'Notes']);
     for (const name of ['_amgi-loop.js', '_amgi-loop.css']) {
-      expect(Buffer.compare(await ops.readMedia(name), fs.readFileSync(path.join(REPO_ROOT, 'anki', 'media', name)))).toBe(0);
+      assert.equal(Buffer.compare(await ops.readMedia(name), fs.readFileSync(path.join(REPO_ROOT, 'anki', 'media', name))), 0);
     }
 
     const again = await installNotetypeDirect({ ops, root: REPO_ROOT });
-    expect(again).toMatchObject({ created: false, existed: true });
-    expect((await ops.listNotetypes()).filter((nt) => nt.name === 'amgi Listening')).toHaveLength(1);
+    assert.partialDeepStrictEqual(again, { created: false, existed: true });
+    assert.equal(((await ops.listNotetypes()).filter((nt) => nt.name === 'amgi Listening')).length, 1);
     fs.rmSync(dir, { recursive: true, force: true });
   });
 
@@ -87,7 +88,7 @@ describe('installNotetypeDirect', () => {
     await holder.held;
     try {
       const result = await installNotetypeDirect({ ops: createDirectOps(collectionPath), root: REPO_ROOT });
-      expect(result).toEqual({ created: false, reason: 'locked' });
+      assert.deepEqual(result, { created: false, reason: 'locked' });
     } finally {
       await holder.release();
     }
@@ -101,7 +102,7 @@ describe('installNotetypeDirect', () => {
     const node = freshCollection();
     const addon = freshCollection();
     const assets = assetsDir();
-    expect(await installNotetypeDirect({ ops: createDirectOps(node.collectionPath), root: REPO_ROOT })).toEqual({ created: true });
+    assert.deepEqual(await installNotetypeDirect({ ops: createDirectOps(node.collectionPath), root: REPO_ROOT }), { created: true });
 
     const script = `
 import importlib.util, sqlite3, sys
@@ -162,11 +163,11 @@ for key in a:
       assets,
       path.join(REPO_ROOT, 'anki', 'addon', 'amgi_bridge', 'notetype.py'),
     ]);
-    expect(report).toMatch(/CHANGED: False \| amgi Listening is already up to date/);
-    expect(report).toMatch(/MOD UNTOUCHED: True/);
-    expect(report).toMatch(/CARDS: 2/);
-    expect(report).toMatch(/INTEGRITY:.*rebuilt and optimized/i);
-    for (const key of ['name', 'usn', 'config', 'fields', 'templates']) expect(report).toContain(`SAME ${key} True`);
+    assert.match(report, /CHANGED: False \| amgi Listening is already up to date/);
+    assert.match(report, /MOD UNTOUCHED: True/);
+    assert.match(report, /CARDS: 2/);
+    assert.match(report, /INTEGRITY:.*rebuilt and optimized/i);
+    for (const key of ['name', 'usn', 'config', 'fields', 'templates']) assert.ok((report).includes(`SAME ${key} True`));
 
     for (const d of [node.dir, addon.dir, assets]) fs.rmSync(d, { recursive: true, force: true });
   });

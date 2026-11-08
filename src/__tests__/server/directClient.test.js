@@ -1,7 +1,3 @@
-/**
- * @jest-environment node
- */
-
 // The direct transport's per-collection serialization, which exists so that
 // two calls from this process can never have the collection file open at the
 // same instant and report each other as 'locked' (see directClient.js's own
@@ -12,12 +8,18 @@
 // queue, not about SQLite, and the real module would want a real collection
 // file on disk to open.
 
+import { beforeEach, describe, mock, test } from 'node:test';
+import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
+
+const require = createRequire(import.meta.url);
 import path from 'node:path';
 
 const started = [];
 const deferreds = [];
 
-jest.mock('plusaudio/lib/collection', () => ({
+// plusaudio/lib/collection, faked (run with --experimental-test-module-mocks).
+mock.module('plusaudio/lib/collection', { namedExports: {
   Collection: class FakeCollection {
     constructor(collectionPath) {
       this.path = collectionPath;
@@ -33,7 +35,7 @@ jest.mock('plusaudio/lib/collection', () => ({
       });
     }
   },
-}));
+} });
 
 /** Let every already-queued microtask run, so "has it started yet" is a fair question. */
 const settle = () => new Promise((resolve) => setImmediate(resolve));
@@ -45,10 +47,11 @@ const TWO = path.join('/tmp', 'amgi-profile-two', 'collection.anki2');
 // - otherwise one test's unfinished call leaves the next one queued behind it,
 // and a single real failure cascades into failures that mean nothing.
 let createDirectOps;
+let fresh = 0;
 
-beforeEach(() => {
-  jest.resetModules();
-  ({ createDirectOps } = require('../../server/anki/directClient'));
+beforeEach(async () => {
+  // a module instance of its own: the query makes it a new module, as jest.resetModules did
+  ({ createDirectOps } = await import(`../../server/anki/directClient.js?test=${(fresh += 1)}`));
   started.length = 0;
   deferreds.length = 0;
 });
@@ -60,11 +63,11 @@ describe('createDirectOps serialization', () => {
     const second = createDirectOps(ONE).status();
     await settle();
 
-    expect(started).toEqual([ONE]);
+    assert.deepEqual(started, [ONE]);
     deferreds.shift().finish();
     await first;
     await settle();
-    expect(started).toEqual([ONE, ONE]);
+    assert.deepEqual(started, [ONE, ONE]);
 
     deferreds.shift().finish();
     await second;
@@ -77,20 +80,20 @@ describe('createDirectOps serialization', () => {
     // the queue exists to prevent.
     // Built by hand rather than with path.join, which would normalize it away.
     const noisy = `${path.dirname(ONE)}/../${path.basename(path.dirname(ONE))}/./${path.basename(ONE)}`;
-    expect(noisy).not.toEqual(ONE);
-    expect(path.resolve(noisy)).toEqual(ONE);
+    assert.notDeepEqual(noisy, ONE);
+    assert.deepEqual(path.resolve(noisy), ONE);
 
     const first = createDirectOps(ONE).status();
     await settle();
     const second = createDirectOps(noisy).status();
     await settle();
 
-    expect(started).toEqual([ONE]); // the second caller waits its turn
+    assert.deepEqual(started, [ONE]); // the second caller waits its turn
 
     deferreds.shift().finish();
     await first;
     await settle();
-    expect(started).toEqual([ONE, noisy]);
+    assert.deepEqual(started, [ONE, noisy]);
 
     deferreds.shift().finish();
     await second;
@@ -104,7 +107,7 @@ describe('createDirectOps serialization', () => {
     const second = createDirectOps(TWO).status();
     await settle();
 
-    expect(started.sort()).toEqual([ONE, TWO].sort());
+    assert.deepEqual(started.sort(), [ONE, TWO].sort());
 
     deferreds.shift().finish();
     deferreds.shift().finish();
@@ -117,11 +120,11 @@ describe('createDirectOps serialization', () => {
     const next = createDirectOps(ONE).status();
 
     deferreds.shift().fail();
-    await expect(failing).rejects.toThrow('collection blew up');
+    await assert.rejects(failing, { message: new RegExp('collection blew up'.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')) });
     await settle();
 
-    expect(started).toEqual([ONE, ONE]);
+    assert.deepEqual(started, [ONE, ONE]);
     deferreds.shift().finish();
-    await expect(next).resolves.toEqual({ status: 'ok', schemaVersion: 18 });
+    assert.deepEqual(await next, { status: 'ok', schemaVersion: 18 });
   });
 });
