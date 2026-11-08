@@ -19,6 +19,7 @@ const STATUS = encode('b_status', { profileOpen: true, profileName: 'User 1', co
 /** The stand-in: every request it read, by method and path. */
 async function silentWriter() {
   const seen = [];
+  const heads = [];
   const sockets = new Set();
   const server = net.createServer((socket) => {
     sockets.add(socket);
@@ -36,6 +37,7 @@ async function silentWriter() {
         pending = pending.subarray(end + 4 + length);
         const [method, path] = head.split(' ');
         seen.push(`${method} ${path}`);
+        heads.push(head);
         if (method === 'GET') {
           socket.write(`HTTP/1.1 200 OK\r\nContent-Type: ${WIRE_MIME}\r\nX-Amgi-Bridge-Protocol: ${BRIDGE_PROTOCOL}\r\n`
             + `Content-Length: ${STATUS.length}\r\nConnection: keep-alive\r\n\r\n`);
@@ -51,6 +53,7 @@ async function silentWriter() {
   return {
     url: `http://127.0.0.1:${server.address().port}`,
     seen,
+    heads,
     close: () => new Promise((resolve) => {
       for (const s of sockets) s.destroy();
       server.close(resolve);
@@ -86,3 +89,27 @@ for (const [method, path, kind, body] of [
     assert.ok(response.status >= 400, `answered as the failure it is (${response.status})`);
   });
 }
+
+// A bridge token or address is the person's setting, percent-decoded from a header, so it can hold
+// a line break. Formatted into the request to the add-on, that would be a header of the sender's
+// choosing. The client takes them as fetch did (server/collection/bridge.c): a token with a CR, LF
+// or NUL is refused before anything is sent, and an address loses its tabs and line breaks as the
+// URL parser drops them. Either way no header of the setting's making reaches the add-on.
+test('a token or an address with a line break in it writes no header into the request to the add-on', async () => {
+  for (const [what, url, token] of [
+    ['token', addon.url, 'tok\r\nX-Injected: 1'],
+    ['token, a bare LF', addon.url, 'tok\nX-Injected: 1'],
+    ['address', `${addon.url}/x\r\nX-Injected: 1`, 'tok'],
+  ]) {
+    addon.seen.length = 0;
+    addon.heads.length = 0;
+    for (const [method, path, kind, body] of [['GET', '/api/anki/status'], ['POST', '/api/anki/decks', 'q_deck_name', { name: 'x' }]]) {
+      const headers = { 'x-amgi-bridge-url': encodeURIComponent(url), 'x-amgi-bridge-token': encodeURIComponent(token) };
+      if (kind) headers['content-type'] = WIRE_MIME;
+      const response = await fetch(new URL(path, app.url), { method, headers, body: kind ? encode(kind, body) : undefined });
+      await response.arrayBuffer();
+    }
+    assert.deepEqual(addon.heads.filter((h) => /\r\nx-injected/i.test(h)), [], `${what}: no header of the setting's making`);
+    if (what !== 'address') assert.deepEqual(addon.seen, [], `${what}: a refused token sends nothing at all`);
+  }
+});
