@@ -127,6 +127,14 @@ export function createDirectOps(collectionPath) {
     async renameDeck(deckId, name) {
       return locked(() => unwrap(col.renameDeck(deckId, name)));
     },
+    /** What deleting the deck would take; throws an error with status 404 when it is not there. */
+    async deckRemovalSummary(deckId) {
+      return locked(() => unwrap(col.deckRemovalSummary(deckId)));
+    },
+    /** Delete the deck and everything under it, as Anki does - see plusaudio/lib/collection/deck-remove.js. */
+    async removeDeck(deckId) {
+      return locked(() => unwrap(col.removeDeck(deckId)));
+    },
     async removeNote(noteId) {
       return locked(() => unwrap(col.removeNote(noteId)));
     },

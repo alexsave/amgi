@@ -61,6 +61,8 @@ const ROUTES = {
   'GET decks': [null, 'decks'],
   'POST decks': ['q_deck_name', 'deck_created'],
   'PATCH decks/[id]': ['q_deck_name', 'deck_renamed'],
+  'GET decks/[id]': [null, 'deck_summary'],
+  'DELETE decks/[id]': [null, 'deck_removed'],
   'GET decks/[id]/notes': [null, 'notes'],
   'GET decks/[id]/notes/field-values': [null, 'field_values'],
   'GET install': [null, 'install_state'],
