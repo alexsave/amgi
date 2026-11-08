@@ -1,5 +1,9 @@
 # amgi
 
+https://github.com/user-attachments/assets/731cb0b9-276a-4f10-89d0-6e3fdefa2896
+
+
+
 <p align="center">
   <a href="docs/showcase.mp4">
     <img src="docs/showcase.gif" alt="amgi showcase: type a phrase, get a card with native audio, then speak the answer back in Anki" width="760">
