@@ -1,7 +1,5 @@
 import { afterEach, beforeEach, describe, test } from 'node:test';
 import assert from 'node:assert/strict';
-import fs from 'fs';
-import path from 'path';
 import { LANGUAGES } from '../../constants/languages';
 import {
   buildStarterDeck,
@@ -9,6 +7,7 @@ import {
   starterLanguages,
   starterState,
 } from '../../server/anki/starterDeck';
+import { readStarterPhrases } from '../../server/anki/starterPhrases';
 
 // The deck somebody gets when they have no Gemini key.
 //
@@ -19,8 +18,8 @@ import {
 // move it up") breaks silently, producing decks whose two sides say
 // unrelated things.
 
-const ROOT = path.resolve(import.meta.dirname, '..', '..', '..');
-const DATA = JSON.parse(fs.readFileSync(path.join(ROOT, 'src', 'data', 'starterPhrases.json'), 'utf8'));
+const PHRASES = readStarterPhrases();
+const CONCEPTS = PHRASES.en.length;
 
 function fakeOps({ existingMedia = new Set(), existingTargets = [] } = {}) {
   const added = { media: [], notes: [], decks: [] };
@@ -46,26 +45,26 @@ function fakeOps({ existingMedia = new Set(), existingTargets = [] } = {}) {
 
 describe('the starter phrase data', () => {
   test('has every language amgi offers in its dropdown', () => {
-    assert.deepEqual(Object.keys(DATA.phrases).sort(), Object.keys(LANGUAGES).sort());
+    assert.deepEqual(Object.keys(PHRASES).sort(), Object.keys(LANGUAGES).sort());
   });
 
   test('is parallel: the same number of phrases in every language', () => {
-    const lengths = new Set(Object.values(DATA.phrases).map((list) => list.length));
-    assert.deepEqual([...lengths], [DATA.concepts.length]);
+    const lengths = new Set(Object.values(PHRASES).map((list) => list.length));
+    assert.deepEqual([...lengths], [CONCEPTS]);
   });
 
   test('has no romanisation in the languages that do not use latin script', () => {
     // Romanisation is not allowed anywhere in amgi - a learner who reads a
     // transliteration instead of the script is not learning the language.
     for (const code of ['zh_cn', 'zh_hk', 'ja', 'ko', 'ru', 'th', 'hi', 'ur', 'ar']) {
-      for (const phrase of DATA.phrases[code]) {
+      for (const phrase of PHRASES[code]) {
         assert.doesNotMatch(phrase, /[A-Za-z]/);
       }
     }
   });
 
   test('has no blank or untrimmed phrases', () => {
-    for (const list of Object.values(DATA.phrases)) {
+    for (const list of Object.values(PHRASES)) {
       for (const phrase of list) {
         assert.equal(phrase, phrase.trim());
         assert.ok((phrase.length) > 0);
@@ -131,13 +130,13 @@ describe('building one', () => {
     const ops = fakeOps();
     const built = await buildStarterDeck({ ops, known, learning, deckName: 'amgi starter' });
 
-    assert.equal(built.added, DATA.concepts.length);
+    assert.equal(built.added, CONCEPTS);
     assert.deepEqual(ops.added.decks, ['amgi starter']);
-    assert.equal((ops.added.notes).length, DATA.concepts.length);
+    assert.equal((ops.added.notes).length, CONCEPTS);
 
     const [cue, cueAudio, target, targetAudio, language] = ops.added.notes[0].fields;
-    assert.equal(cue, DATA.phrases[known][0]);
-    assert.equal(target, DATA.phrases[learning][0]);
+    assert.equal(cue, PHRASES[known][0]);
+    assert.equal(target, PHRASES[learning][0]);
     assert.equal(language, learning);
     // The template reads <audio src>, never [sound:] - see audio.js.
     assert.match(cueAudio, /^<audio[^>]+src="plusaudio-[0-9a-f]+\.mp3"/);
@@ -173,19 +172,19 @@ describe('building one', () => {
     if (!learning) return;
     // createDeck finds-or-creates, so pressing the button twice lands in the
     // same deck. A free sample deck is exactly what somebody presses twice.
-    const ops = fakeOps({ existingTargets: DATA.phrases[learning] });
+    const ops = fakeOps({ existingTargets: PHRASES[learning] });
     const built = await buildStarterDeck({ ops, known, learning, deckName: 'amgi starter' });
     assert.equal(built.added, 0);
-    assert.equal(built.alreadyThere, DATA.concepts.length);
+    assert.equal(built.alreadyThere, CONCEPTS);
     assert.deepEqual(ops.added.notes, []);
   });
 
   test('still adds the phrases a partly-built deck is missing', async () => {
     const { known, learning } = pair();
     if (!learning) return;
-    const ops = fakeOps({ existingTargets: DATA.phrases[learning].slice(0, 4) });
+    const ops = fakeOps({ existingTargets: PHRASES[learning].slice(0, 4) });
     const built = await buildStarterDeck({ ops, known, learning, deckName: 'amgi starter' });
-    assert.equal(built.added, DATA.concepts.length - 4);
+    assert.equal(built.added, CONCEPTS - 4);
     assert.equal(built.alreadyThere, 4);
   });
 
@@ -195,7 +194,7 @@ describe('building one', () => {
     const ops = fakeOps();
     ops.existingFieldValues = async () => { throw new Error('bridge says no'); };
     const built = await buildStarterDeck({ ops, known, learning, deckName: 'amgi starter' });
-    assert.equal(built.added, DATA.concepts.length);
+    assert.equal(built.added, CONCEPTS);
   });
 
   test('refuses a deck whose two sides are the same language', async () => {
