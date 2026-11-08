@@ -22,7 +22,7 @@ const FirstRun = () => {
   const { refreshAnkiDecks } = useDecks();
   const [scan, setScan] = useState({ loading: true, baseDir: '', baseDirExists: null, profiles: [], error: '' });
   const [chosen, setChosen] = useState(() => loadAnkiSettings().collectionPath);
-  const [install, setInstall] = useState({ running: false, done: false, message: '', ok: null });
+  const [install, setInstall] = useState({ running: false, done: false, message: '', ok: null, needsRestart: true });
 
   const choose = useCallback((profile) => {
     const next = { ...loadAnkiSettings(), collectionPath: profile.collectionPath, profileName: profile.name };
@@ -47,13 +47,13 @@ const FirstRun = () => {
   }, [choose]);
 
   const runInstall = async () => {
-    setInstall({ running: true, done: false, message: '', ok: null });
+    setInstall({ running: true, done: false, message: '', ok: null, needsRestart: true });
     try {
       const result = await ankiApi.install(loadAnkiSettings().baseDirOverride);
-      setInstall({ running: false, done: true, message: result.message, ok: true });
+      setInstall({ running: false, done: true, message: result.message, ok: true, needsRestart: result.needsRestart !== false });
       refreshAnkiDecks();
     } catch (error) {
-      setInstall({ running: false, done: false, message: error.message, ok: false });
+      setInstall({ running: false, done: false, message: error.message, ok: false, needsRestart: true });
     }
   };
 
@@ -117,7 +117,9 @@ const FirstRun = () => {
               : 'Install the add-ons and the card type'}
         </Step>
         <Step state={install.done ? 'now' : 'next'} mark="3">
-          Restart Anki, and amgi notices by itself
+          {install.done && !install.needsRestart
+            ? 'The card type is already in your collection - add cards now'
+            : 'Restart Anki, and amgi notices by itself'}
         </Step>
       </ol>
     </div>

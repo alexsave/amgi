@@ -126,8 +126,9 @@ const CardForm = ({ deckId, languages, onLanguagesChange }) => {
     return <div className="card-form-container"><p className="card-form-hint">Loading…</p></div>;
   }
 
-  // The note type is created by the add-on when Anki starts, so its absence
-  // has exactly one cause and exactly one fix.
+  // With Anki closed the installer creates the note type itself, so it is only
+  // missing when Anki was open during the install (the add-on makes it at the
+  // next start) or the note type was deleted: one fix either way.
   if (!notetype) {
     return (
       <div className="card-form-container">

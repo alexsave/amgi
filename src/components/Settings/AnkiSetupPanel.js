@@ -58,10 +58,10 @@ const AnkiSetupPanel = () => {
     setTimeout(() => setSaved(false), 2000);
   };
 
-  // Copies both add-ons and the card type into Anki's data folder. Everything
-  // that needs Anki's own API - creating the note type, writing its media into
-  // the collection - happens inside the add-on on the next profile open, which
-  // is why the only thing to report here is "restart Anki".
+  // Copies both add-ons and the card type into Anki's data folder, and, with
+  // Anki closed, creates the note type in the collection too (the server says
+  // which in the message it returns). With Anki open the add-on does that on
+  // the next profile open, so the message says to restart Anki.
   const runInstall = async () => {
     setInstall({ running: true, message: '', ok: null });
     try {
