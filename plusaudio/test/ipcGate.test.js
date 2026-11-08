@@ -11,7 +11,7 @@ const { EventEmitter } = require('node:events');
 const path = require('node:path');
 const { test } = require('node:test');
 
-const { FAIL_OPEN_WAIT_MS, createIpcGate, serveGate } = require('../lib/ipcGate');
+const { FAIL_OPEN_WAIT_MS, FORK_IPC_OPTIONS, createIpcGate, serveGate } = require('../lib/ipcGate');
 const { createRateGate } = require('../lib/rateGate');
 const { createRandom } = require('../lib/random');
 
@@ -91,13 +91,16 @@ test('two real forked children share one gate in the parent: the second sees the
   const { gate } = fakeGate();
   const script = path.join(__dirname, 'helpers', 'gate-child.js');
   const run = (...args) => new Promise((resolve, reject) => {
-    const child = fork(script, args, { stdio: ['ignore', 'ignore', 'inherit', 'ipc'] });
+    const child = fork(script, args, { stdio: ['ignore', 'ignore', 'inherit', 'ipc'], ...FORK_IPC_OPTIONS });
     serveGate(child, gate);
-    child.on('message', (message) => { if (message && message.result !== undefined) resolve(message.result); });
+    child.on('message', (message) => { if (message && message.result !== undefined) resolve(message); });
     child.on('error', reject);
   });
 
-  assert.equal(await run('acquire-then-429'), 0, 'the first child went at once, then was refused');
+  const first = await run('acquire-then-429');
+  assert.equal(first.result, 0, 'the first child went at once, then was refused');
   const second = await run('acquire');
-  assert.ok(second >= 45_000, `the second child is told to wait for the first one's block, got ${second}`);
+  assert.ok(second.result >= 45_000, `the second child is told to wait for the first one's block, got ${second.result}`);
+  // The gate's messages cross as V8's binary clone, not as Node's default JSON.
+  assert.ok(first.probe instanceof Map && first.probe.get('format') === 'advanced', 'a Map came through whole');
 });

@@ -28,10 +28,26 @@ import path from 'node:path';
 const ROOT = path.resolve(import.meta.dirname, '..');
 const FOLDER = 'plusaudio/lib/json/';
 
-/** JavaScript: JSON.x, .json() (Response.json, NextResponse.json, request.json), and fork(), whose IPC channel Node serializes as JSON by default. */
+/**
+ * JavaScript: JSON.x, .json() (Response.json, NextResponse.json, request.json), and fork(), whose
+ * IPC channel Node serializes as JSON unless the call asks for 'advanced' (see BINARY_IPC).
+ */
 const JS_JSON = /\bJSON\s*\.\s*[A-Za-z_]+|\.json\s*\(|\bfork\s*\(/g;
 /** Python: the json module imported, or any of its four calls. */
 const PY_JSON = /^\s*import\s+json\b|^\s*from\s+json\s+import\b|\bjson\s*\.\s*(?:loads|dumps|load|dump)\s*\(/g;
+
+/** A fork() call whose options choose V8's binary clone for the channel: plusaudio/lib/ipcGate.js's FORK_IPC_OPTIONS, or the option written out. */
+const BINARY_IPC = /\bFORK_IPC_OPTIONS\b|\bserialization\s*:\s*['"]advanced['"]/;
+
+/** The text of the call whose "(" is at `open`, through its matching ")" (or to the end). */
+function callAt(src, open) {
+  let depth = 0;
+  for (let i = open; i < src.length; i++) {
+    if (src[i] === '(') depth++;
+    else if (src[i] === ')' && --depth === 0) return src.slice(open, i + 1);
+  }
+  return src.slice(open);
+}
 
 const SOURCE = /\.(?:js|mjs|cjs|ts|html|py)$/;
 /** Not shipped: a directory of this name anywhere in the path. */
@@ -47,7 +63,7 @@ const ANSWER_FORMAT = 'plusaudio/ANSWER_FORMAT.md';
 const ANKI = 'FORCED by Anki: ';
 /**
  * kind: 'ours' (amgi's own JSON, which must live in FOLDER), 'anki' (Anki's own formats, read and
- * written where the collection code is), 'ipc' (a child process's Node IPC channel), or 'addon'
+ * written where the collection code is), or 'addon'
  * (the add-on's Python).
  */
 const ALLOWED = [
@@ -60,10 +76,7 @@ const ALLOWED = [
     file: `${FOLDER}bridgeBody.js`, count: 2, kind: 'ours', leaving: true,
     why: 'Ours, leaving: the amgi_bridge add-on\'s HTTP bodies as the app server writes and reads them. The bridge protocol moves to a binary layout with a version check.',
   },
-  {
-    file: 'src/server/anki/plusaudioCli.js', count: 1, kind: 'ipc', leaving: true,
-    why: 'Ours, leaving: fork() gives the generator scripts an IPC channel that Node serializes as JSON; it carries the rate gate\'s acquire, record and reply messages (plusaudio/lib/ipcGate.js).',
-  },
+
   {
     file: 'anki/addon/amgi_bridge/bridge_server.py', count: 3, kind: 'addon', leaving: true,
     why: 'Ours, leaving: the add-on side of the bridge protocol, the request body read (json.loads) and the answer written (json.dumps). It goes with bridgeBody.js.',
@@ -152,11 +165,24 @@ function stripPyComments(src) {
 /** Every JSON use in a file's source, as "line: text". */
 export function jsonUses(src, file) {
   const py = file.endsWith('.py');
+  const code = py ? stripPyComments(src) : stripJsComments(src);
   const hits = [];
-  (py ? stripPyComments(src) : stripJsComments(src)).split('\n').forEach((line, n) => {
-    for (const m of line.matchAll(py ? PY_JSON : JS_JSON)) hits.push(`${n + 1}: ${m[0].trim()}`);
+  code.split('\n').forEach((line, n) => {
+    for (const m of line.matchAll(py ? PY_JSON : JS_JSON)) hits.push({ line: n + 1, text: m[0].trim() });
   });
-  return hits;
+  if (!py) {
+    // A fork that asks for the binary channel is not a JSON use: drop it, looking at the whole call.
+    const lineStarts = [0];
+    for (let i = 0; i < code.length; i++) if (code[i] === '\n') lineStarts.push(i + 1);
+    const binary = new Set();
+    for (const m of code.matchAll(/\bfork\s*\(/g)) {
+      if (BINARY_IPC.test(callAt(code, m.index + m[0].length - 1))) {
+        binary.add(lineStarts.findLastIndex((start) => start <= m.index) + 1);
+      }
+    }
+    return hits.filter((h) => !(h.text.startsWith('fork') && binary.has(h.line))).map((h) => `${h.line}: ${h.text}`);
+  }
+  return hits.map((h) => `${h.line}: ${h.text}`);
 }
 
 function shippedSources() {
@@ -194,6 +220,8 @@ test('the scan reads code and not comments, in each language', () => {
   assert.deepEqual(jsonUses('const a = JSON.parse(x);\nconst b = await res.json();\nfork(script, args);\n', 'a.js'),
     ['1: JSON.parse', '2: .json(', '3: fork(']);
   assert.deepEqual(jsonUses('return NextResponse.json({ ok: true })', 'a.js'), ['1: .json(']);
+  assert.deepEqual(jsonUses('fork(a, b, {\n  stdio: [],\n  ...FORK_IPC_OPTIONS,\n});\nfork(a, b, { serialization: "advanced" });\nfork(a, b, { stdio: [] });\n', 'a.js'),
+    ['6: fork('], 'a fork that asks for the binary channel is not a use; one that does not is');
   assert.deepEqual(jsonUses('// it used to JSON.stringify(x)\n/* JSON.parse(a)\n   res.json() */\nconst u = "https://x/y.json"; // .json()\n', 'a.js'), [],
     'a mention in a comment, or a .json file name, is not a use');
   assert.deepEqual(jsonUses('const u = "http://a//b"; JSON.stringify(u)', 'a.js'), ['1: JSON.stringify'], 'a // in a string hides nothing');
@@ -248,7 +276,7 @@ test('amgi\'s own JSON lives in the one folder, and every entry says why', () =>
   for (const a of ALLOWED) {
     assert.ok(a.why.length > 40, `${a.file}: a reason, not a label`);
     if (a.kind === 'ours') assert.ok(a.file.startsWith(FOLDER), `${a.file}: our own JSON belongs in ${FOLDER}`);
-    else assert.ok(['anki', 'ipc', 'addon'].includes(a.kind), `${a.file}: kind ${a.kind}`);
+    else assert.ok(['anki', 'addon'].includes(a.kind), `${a.file}: kind ${a.kind}`);
   }
   assert.ok(ALLOWED.find((a) => a.file === `${FOLDER}modelAnswer.js`).why.includes(ANSWER_FORMAT));
 });
