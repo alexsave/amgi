@@ -53,10 +53,10 @@ str q_col_text(cx *c, sqlite3_stmt *st, int i);
 str q_col_blob(cx *c, sqlite3_stmt *st, int i);
 int64_t now_ms(void);
 
-/* relaxed-read.js and decks.js: COLLATE unicase relaxed to NOCASE on these tables for fn. */
-void with_relaxed(cx *c, conn *k, const char *const *tables, size_t n, void (*fn)(cx *, conn *, void *), void *arg);
-
-/* The unicase collation (the unicase crate Anki uses: full case folding, then code point order). */
+/* The unicase collation (the unicase crate Anki uses: full case folding, then code point order),
+ * registered on every connection, so the name columns' indexes are read and written as Anki's own
+ * are. (The JavaScript could not register a collation, so it rewrote the schema to COLLATE NOCASE
+ * around every such statement; C never touches the schema: the PR #30 review, finding 1.) */
 int unicase_cmp(void *ctx, int na, const void *a, int nb, const void *b);
 
 /* backup.js */
