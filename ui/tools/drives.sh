@@ -24,7 +24,7 @@ cd "$root"
 fresh() { # fresh <folder> [installed]: the fixture as one profile, "User 1", amgi installed or not
   local dir
   dir=$(ui/tools/flows.sh .e2e/fixture "$work/$1")
-  if [ "${2:-}" = installed ]; then node --import ./ui/server/hooks.mjs ui/tools/fixture-install.mjs "$dir" > /dev/null; fi
+  if [ "${2:-}" = installed ]; then node ui/tools/fixture-install.mjs "$dir" > /dev/null; fi
   echo "$dir"
 }
 failed=0

@@ -32,15 +32,6 @@ const ALLOWED = [
     file: 'plusaudio/lib/package.js', count: 1,
     why: 'the .apkg tool\'s own temporary database (openPackage\'s mkdtemp copy), never a live collection',
   },
-  {
-    // TEMPORARY. openCollection checkpoints on every open, which is the incident's sequence. The
-    // owner decided on 2026-11-08 that the Node server gets no fix: it is stopped (not run) until
-    // the switch to the C server, and the switch deletes it, this file with it. REMOVE THIS ENTRY
-    // WITH THE FILE: once open.js is gone the entry has nothing left to excuse, and the exact-count
-    // rule fails ("allowed 1 checkpoint(s) but has none - delete its entry").
-    file: 'plusaudio/lib/collection/open.js', count: 1,
-    why: 'temporary: the Node server, stopped and deleted at the switch (owner decision 2026-11-08); remove with the file',
-  },
 ];
 
 /** Every checkpoint asked for in a file's code, as "line: text". */

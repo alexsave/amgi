@@ -76,8 +76,8 @@
 < raw "no wire layout for POST /api/anki/profiles"
 == a preflight
 > OPTIONS /api/anki/decks
-< 501 content-type=text/plain cache-control=no-store
-< raw "no wire layout for OPTIONS /api/anki/decks"
+< 403 content-type=text/plain; charset=utf-8
+< raw "origin not allowed"
 == body as text/plain
 > POST /api/anki/decks
 < 415 content-type=application/x-amgi-wire cache-control=no-store

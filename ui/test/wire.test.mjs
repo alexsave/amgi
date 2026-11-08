@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { KIND, decode, encode } from '../server/wire.mjs';
+import { KIND, decode, encode } from '../wire/wire.mjs';
 
 const dump = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'out', 'wire_dump');
 const read = (bytes) => execFileSync(dump, { input: bytes }).toString();
