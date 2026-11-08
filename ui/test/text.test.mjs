@@ -1,11 +1,11 @@
-// ui/src/text.c and fields.c against the JS they stand for (src/utils), on the same inputs: the
-// C must answer exactly what the JS does. Run ui/build.sh first (it builds ui/out/text_dump).
+// ui/src/text.c and fields.c against what the JS they replaced answered: lyricsParse.js, which the
+// server still uses, live; ankiFields.js, gone with the React app, as text-expected.mjs froze it. Run ui/build.sh first (it builds ui/out/text_dump).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { stripHtmlForPreview, hasAudioReference, guessFields } from '../../src/utils/ankiFields.js';
+import { GUESSES, HAS_AUDIO, STRIP_HTML } from './text-expected.mjs';
 import { normalizeForDedupe, parseLyricsPaste } from '../../src/utils/lyricsParse.js';
 
 const dump = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'out', 'text_dump');
@@ -44,12 +44,12 @@ const SAMPLES = [
 
 test('trim, strip_html, strip_tags, audio_src, has_audio_ref and dedupe_key answer what the JS does', () => {
   const fns = [
-    [0, (s) => s.trim()], [1, stripHtmlForPreview], [2, stripTags], [3, audioSrc],
-    [4, (s) => (hasAudioReference(s) ? '1' : '0')], [5, normalizeForDedupe],
+    [0, (s) => s.trim()], [1, (s, i) => STRIP_HTML[i]], [2, stripTags], [3, audioSrc],
+    [4, (s, i) => String(HAS_AUDIO[i])], [5, normalizeForDedupe],
   ];
   const calls = fns.flatMap(([fn]) => SAMPLES.map((s) => [fn, s]));
   const got = c(calls);
-  const want = fns.flatMap(([, f]) => SAMPLES.map((s) => f(s)));
+  const want = fns.flatMap(([, f]) => SAMPLES.map((s, i) => f(s, i)));
   calls.forEach(([fn, s], i) => assert.equal(got[i], want[i], `function ${fn} on ${JSON.stringify(s)}`));
 });
 
@@ -69,10 +69,7 @@ test('guess_fields picks the fields guessFields does', () => {
   ];
   const calls = types.map((t) => [6, t.fieldNames.join('\x1f') + (t.sortFieldIndex === undefined ? '' : `\x1e${t.sortFieldIndex}`)]);
   const got = c(calls);
-  types.forEach((t, i) => {
-    const g = guessFields(t);
-    assert.equal(got[i], [g.textIndex ?? -1, g.audioIndex ?? -1, g.cueAudioIndex ?? -1].join(','), JSON.stringify(t));
-  });
+  types.forEach((t, i) => assert.equal(got[i], GUESSES[i], t.fieldNames.join(', ')));
 });
 
 test('paste_lines makes the lines parseLyricsPaste does', () => {
