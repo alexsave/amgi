@@ -6,7 +6,7 @@ Source links point at `ankitects/anki` `main`.
 ## Template syntax traps
 
 - **Fields are substituted inside HTML comments.** `<!-- shows {{Back}} -->` puts the answer into the page source, where a template's JavaScript or the user's browser devtools can read it. `<!-- {{FrontSide}} -->` on the back pastes the whole front template, scripts included, into the comment. Never name a field in a comment.
-- **A note gets a card only if that card's front template renders something.** A normal note type creates one card per template whose front is non-empty for that note's fields. A cloze note type creates one card per distinct `{{cN::...}}` number. If a front template renders empty for every template, Anki still creates the first card, and that blank card is a bug report waiting to happen. Check with `anki_tool.py cards NOTE_ID`.
+- **A note gets a card only if that card's front template renders something.** A normal note type creates one card per template whose front is non-empty for that note's fields. A cloze note type creates one card per distinct `{{cN::...}}` number. If a front template renders empty for every template, Anki still creates the first card, and that blank card is a bug report waiting to happen. Preview the note in Anki's Browse window to check.
 - **`{{FrontSide}}` re-includes the front's scripts.** If the front template has `<script>`, the back side runs it again. Guard initialisation so a second run is harmless, or have the back render its own markup instead of `{{FrontSide}}`.
 - **Hiding the answer with CSS is not hiding it.** If text must not be readable before the reveal, it must not be on the front side at all.
 
@@ -20,7 +20,7 @@ Source links point at `ankitects/anki` `main`.
 
 Use `[sound:]` for ordinary decks. Use `<audio src>` only when a template's JavaScript needs to sequence playback or detect when a clip ends. Then the template is responsible for playing it, and the deck option "Don't play audio automatically" no longer applies.
 
-To convert existing notes inside Anki: Browse, select the notes, Notes > Find and Replace, tick "treat input as regular expression", limit it to the audio field, and replace `\[sound:(.+?)\]` with `<audio src="${1}"></audio>`. `anki_tool.py fill-audio --form html` converts only the clips it generated itself.
+To convert existing notes inside Anki: Browse, select the notes, Notes > Find and Replace, tick "treat input as regular expression", limit it to the audio field, and replace `\[sound:(.+?)\]` with `<audio src="${1}"></audio>`. amgi's `add-audio.js --audio-tag html` and the add-on's Fill missing audio convert only the clips amgi generated itself.
 
 ## Shared JavaScript and CSS files
 
@@ -28,7 +28,6 @@ To convert existing notes inside Anki: Browse, select the notes, Notes > Find an
 - Reference them with a **literal, quoted filename** in the template, `<script src="_mydeck.js"></script>` or `@import url("_mydeck.css");`. The exporter finds them with a regex over the template text (`UNDERSCORED_REFERENCES` and `UNDERSCORED_CSS_IMPORTS` in text.rs), so a filename built in JavaScript is never exported.
 - **Classic scripts only, not `type="module"`.** The reviewer re-runs `<script>` tags by cloning them into the page on every render ([ts/reviewer/index.ts](https://github.com/ankitects/anki/blob/main/ts/reviewer/index.ts), `setInnerHTML`), and a module that has already been imported will not run again. Bundle into a classic script, for example as an IIFE.
 - **The desktop reviewer is one long-lived page.** Globals, listeners and timers from the last card are still there on the next one. Make startup idempotent and tear down per-card state, such as clearing timers and stopping streams, before you start new work.
-- Uploading with `anki_tool.py add-media _mydeck.js` stores it under exactly that name.
 
 ## Keyboard
 

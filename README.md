@@ -111,6 +111,7 @@ src/server/anki/ Server-only transport, resolved on every request
 src/utils/       API client, shared review loop and voice-activity detection
 plusaudio/       CLI for .apkg files and the card generation policy (lib/cardGeneration/)
 anki/            Card template plus the mic and bridge add-ons
+skills/amgi/     Agent skill: how an LLM runs and drives amgi
 ```
 
 See [ROADMAP.md](ROADMAP.md) for what is still open.
