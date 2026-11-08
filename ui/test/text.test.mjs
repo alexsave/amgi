@@ -1,12 +1,12 @@
-// ui/src/text.c and fields.c against what the JS they replaced answered: lyricsParse.js, which the
-// server still uses, live; ankiFields.js, gone with the React app, as text-expected.mjs froze it. Run ui/build.sh first (it builds ui/out/text_dump).
+// ui/src/text.c and fields.c against what the JS they replaced answered, as text-expected.mjs froze it:
+// ankiFields.js, gone with the React app, and lyricsParse.js, gone once C served every caller. Run
+// ui/build.sh first (it builds ui/out/text_dump).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { GUESSES, HAS_AUDIO, STRIP_HTML } from './text-expected.mjs';
-import { normalizeForDedupe, parseLyricsPaste } from '../../src/utils/lyricsParse.js';
+import { DEDUPE, GUESSES, HAS_AUDIO, PASTE_LINES, STRIP_HTML } from './text-expected.mjs';
 
 const dump = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'out', 'text_dump');
 const enc = new TextEncoder(), dec = new TextDecoder();
@@ -42,11 +42,12 @@ const SAMPLES = [
   '<audio\tsrc="tab.wav">', '<div><audio src="first.wav"></audio><audio src="second.wav"></audio></div>',
 ];
 
-test('trim, strip_html, strip_tags, audio_src, has_audio_ref and dedupe_key answer what the JS does', () => {
+test('trim, strip_html, strip_tags, audio_src, has_audio_ref and dedupe_key answer what the JS did', () => {
   const fns = [
     [0, (s) => s.trim()], [1, (s, i) => STRIP_HTML[i]], [2, stripTags], [3, audioSrc],
-    [4, (s, i) => String(HAS_AUDIO[i])], [5, normalizeForDedupe],
+    [4, (s, i) => String(HAS_AUDIO[i])], [5, (s, i) => DEDUPE[i]],
   ];
+  assert.equal(DEDUPE.length, SAMPLES.length, 'a frozen answer for every sample');
   const calls = fns.flatMap(([fn]) => SAMPLES.map((s) => [fn, s]));
   const got = c(calls);
   const want = fns.flatMap(([, f]) => SAMPLES.map((s, i) => f(s, i)));
@@ -72,14 +73,18 @@ test('guess_fields picks the fields guessFields does', () => {
   types.forEach((t, i) => assert.equal(got[i], GUESSES[i], t.fieldNames.join(', ')));
 });
 
-test('paste_lines makes the lines parseLyricsPaste does', () => {
+test('paste_lines makes the lines parseLyricsPaste made', () => {
   const pastes = [
     '', 'one line', 'a\nb\r\nc\rd', '  spaced  \n\n\t\n', '[Chorus]\nla la\n[Verse 2]\nla la.\nLa la',
     'I said [laughs] okay\n[a]b]\n[]\n[ ]', '역이 어디예요?\n역이 어디예요\n역이  어디예요?!', '...\n!!!\n...',
     'trailing\n', '\r\n\r\n', 'Hello, world\nhello, world\nHello world', '「引用」。\n「引用」',
+    '  first line  \n\n  second line\n   \n', 'same line\nother line\nsame line\nsame line',
+    'chorus line\nchorus line,\nchorus line.', 'Love\nlove', '[Verse 1]\nfirst line\n[Chorus]\nsecond line', 'c\na\nb\na',
+    '[Verse 1]\n오늘도 걷는다 나는\n아무 말 없이\n\n[Chorus]\n사랑해요 사랑해요\n사랑해요 사랑해요,\n[Chorus]\n사랑해요 사랑해요',
   ];
+  assert.equal(PASTE_LINES.length, pastes.length, 'a frozen answer for every paste');
   const got = c(pastes.map((p) => [7, p]));
   pastes.forEach((p, i) => {
-    assert.equal(got[i], parseLyricsPaste(p, { skipSectionMarkers: true }).lines.map((l) => l.text).join('\x1f'), JSON.stringify(p));
+    assert.equal(got[i], PASTE_LINES[i], JSON.stringify(p));
   });
 });
