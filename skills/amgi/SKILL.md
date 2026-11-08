@@ -161,7 +161,7 @@ A card's text, and rewriting one side of a card, is the app's own (`POST /api/an
 ## The bridge directly
 
 With Anki open and the bridge on, the add-on serves the collection calls at `http://127.0.0.1:8798`, without the `/api/anki` prefix: status, decks, notetypes, notes, field values and media.
-Every request needs `X-Amgi-Bridge-Token: <token>` and `X-Amgi-Bridge-Protocol: 1`, and every body both ways is amgi's wire format (the `b_*` kinds in `ui/wire/wire.c`, read and written with `ui/server/wire.mjs` as for the app's API).
+Every request needs `X-Amgi-Bridge-Token: <token>` and `X-Amgi-Bridge-Protocol: 1`, and every body both ways is amgi's wire format (the `b_*` kinds in `ui/wire/wire.c`, read and written with `ui/wire/wire.mjs` as for the app's API).
 It has no profiles, install, starter or Gemini endpoints, so making cards still goes through the app.
 `anki/addon/amgi_bridge/README.md` has the request and reply shapes and the security model.
 
