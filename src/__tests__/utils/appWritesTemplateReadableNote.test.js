@@ -10,6 +10,11 @@
 // against the real template files' own field names and reference format,
 // not against another copy of the same assumption.
 
+import { describe, test } from 'node:test';
+import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
+
+const require = createRequire(import.meta.url);
 import fs from 'node:fs';
 import path from 'node:path';
 import { guessFields, guessKnownFieldIndex } from '../../utils/ankiFields';
@@ -17,7 +22,7 @@ import { guessFields, guessKnownFieldIndex } from '../../utils/ankiFields';
 const { audioReferences, renderAudioReference } = require('../../../plusaudio/lib/deck');
 const { mediaName } = require('../../../plusaudio/lib/audio-store');
 
-const ANKI_DIR = path.join(__dirname, '..', '..', '..', 'anki');
+const ANKI_DIR = path.join(import.meta.dirname, '..', '..', '..', 'anki');
 
 /** Every {{Field}} (and {{#Field}}) the template's own markup reads. */
 function fieldsReferencedBy(templateFile) {
@@ -44,17 +49,17 @@ describe('a note the app builds for the amgi Listening note type', () => {
     // The front side renders only CueAudio (see front.html's own comment on
     // why the answer text may never appear there) - guessFields' cueAudioIndex
     // has to point at that exact field, or the front side stays silent.
-    expect(frontFields).toEqual(new Set(['CueAudio']));
-    expect(AMGI_NOTETYPE.fieldNames[guess.cueAudioIndex]).toBe('CueAudio');
-    expect(frontFields.has(AMGI_NOTETYPE.fieldNames[guess.cueAudioIndex])).toBe(true);
+    assert.deepEqual(frontFields, new Set(['CueAudio']));
+    assert.equal(AMGI_NOTETYPE.fieldNames[guess.cueAudioIndex], 'CueAudio');
+    assert.equal(frontFields.has(AMGI_NOTETYPE.fieldNames[guess.cueAudioIndex]), true);
 
     // The back side renders both audio fields plus the two text fields.
-    expect(backFields.has(AMGI_NOTETYPE.fieldNames[guess.audioIndex])).toBe(true);
-    expect(AMGI_NOTETYPE.fieldNames[guess.audioIndex]).toBe('TargetAudio');
-    expect(backFields.has(AMGI_NOTETYPE.fieldNames[guess.textIndex])).toBe(true);
-    expect(AMGI_NOTETYPE.fieldNames[guess.textIndex]).toBe('Target');
-    expect(backFields.has(AMGI_NOTETYPE.fieldNames[knownFieldIndex])).toBe(true);
-    expect(AMGI_NOTETYPE.fieldNames[knownFieldIndex]).toBe('Cue');
+    assert.equal(backFields.has(AMGI_NOTETYPE.fieldNames[guess.audioIndex]), true);
+    assert.equal(AMGI_NOTETYPE.fieldNames[guess.audioIndex], 'TargetAudio');
+    assert.equal(backFields.has(AMGI_NOTETYPE.fieldNames[guess.textIndex]), true);
+    assert.equal(AMGI_NOTETYPE.fieldNames[guess.textIndex], 'Target');
+    assert.equal(backFields.has(AMGI_NOTETYPE.fieldNames[knownFieldIndex]), true);
+    assert.equal(AMGI_NOTETYPE.fieldNames[knownFieldIndex], 'Cue');
   });
 
   test('CueAudio gets the known-language clip and TargetAudio gets the learning-language clip - never swapped', () => {
@@ -78,27 +83,27 @@ describe('a note the app builds for the amgi Listening note type', () => {
     const cueRefs = audioReferences(fields[guess.cueAudioIndex]);
     const targetRefs = audioReferences(fields[guess.audioIndex]);
 
-    expect(cueRefs).toHaveLength(1);
-    expect(targetRefs).toHaveLength(1);
+    assert.equal((cueRefs).length, 1);
+    assert.equal((targetRefs).length, 1);
 
     // Reference form: html, never [sound:...] - the anki/ card template
     // cannot see a sound tag at all (Anki strips it before any template
     // JavaScript runs), so a regression back to that form would look fine in
     // the note editor and play nothing on the card.
-    expect(cueRefs[0].form).toBe('html');
-    expect(targetRefs[0].form).toBe('html');
-    expect(fields[guess.cueAudioIndex]).not.toMatch(/\[sound:/);
-    expect(fields[guess.audioIndex]).not.toMatch(/\[sound:/);
+    assert.equal(cueRefs[0].form, 'html');
+    assert.equal(targetRefs[0].form, 'html');
+    assert.doesNotMatch(fields[guess.cueAudioIndex], /\[sound:/);
+    assert.doesNotMatch(fields[guess.audioIndex], /\[sound:/);
 
     // The actual regression this guards: which language's clip landed in
     // which field. A filename is a hash of (text, language), so the only way
     // these two match what they are supposed to is if the known-language
     // text was actually spoken in the known language, and likewise for the
     // learning side.
-    expect(cueRefs[0].name).toBe(mediaName(knownText, knownLanguage));
-    expect(targetRefs[0].name).toBe(mediaName(learningText, learningLanguage));
-    expect(cueRefs[0].name).not.toBe(mediaName(learningText, learningLanguage));
-    expect(targetRefs[0].name).not.toBe(mediaName(knownText, knownLanguage));
-    expect(cueRefs[0].name).not.toBe(targetRefs[0].name);
+    assert.equal(cueRefs[0].name, mediaName(knownText, knownLanguage));
+    assert.equal(targetRefs[0].name, mediaName(learningText, learningLanguage));
+    assert.notEqual(cueRefs[0].name, mediaName(learningText, learningLanguage));
+    assert.notEqual(targetRefs[0].name, mediaName(knownText, knownLanguage));
+    assert.notEqual(cueRefs[0].name, targetRefs[0].name);
   });
 });

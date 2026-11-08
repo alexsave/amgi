@@ -1,7 +1,3 @@
-/**
- * @jest-environment node
- */
-
 // What a clip generation leaves in the collection when it fails: nothing.
 //
 // It used to leave a few lines of text saying "not playable audio" under the
@@ -15,20 +11,28 @@
 // The subprocess is faked at node:child_process, the boundary audio.js
 // crosses, so no test here starts a generator or reaches Gemini.
 
+import { afterEach, beforeEach, mock, test } from 'node:test';
+import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
+
+const require = createRequire(import.meta.url);
+import { isDeepStrictEqual } from 'node:util';
 import fs from 'node:fs';
 
 const runs = [];
 let nextRun;
 
-jest.mock('node:child_process', () => ({
-  fork: (file, args) => {
-    runs.push(args);
-    return require('../../test-helpers/fakeFork').fakeFork(args, nextRun);
+// The subprocess boundary, faked (run with --experimental-test-module-mocks).
+mock.module('node:child_process', {
+  namedExports: {
+    fork: (file, args) => {
+      runs.push(args);
+      return require('../../test-helpers/fakeFork').fakeFork(args, nextRun);
+    },
   },
-}));
-
-import { generateAndStoreClip } from '../../server/anki/audio';
-import { DailyCapError, RateLimitedError } from '../../server/anki/plusaudioCli';
+});
+const { generateAndStoreClip } = await import('../../server/anki/audio');
+const { DailyCapError, RateLimitedError } = await import('../../server/anki/plusaudioCli');
 
 const NODE_WARNING = [
   '(node:21698) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///plusaudio/lib/cardGeneration/cardText.ts is not specified and it doesn\'t parse as CommonJS.',
@@ -69,11 +73,11 @@ const originalKeys = Object.fromEntries(KEYS.map((name) => [name, process.env[na
 beforeEach(() => {
   runs.length = 0;
   process.env.GEMINI_API_KEY = 'test-gemini-key';
-  jest.spyOn(console, 'error').mockImplementation(() => {});
+  mock.method(console, 'error', () => {});
 });
 
 afterEach(() => {
-  console.error.mockRestore();
+  console.error.mock.restore();
   for (const name of KEYS) {
     if (originalKeys[name] === undefined) delete process.env[name];
     else process.env[name] = originalKeys[name];
@@ -84,11 +88,9 @@ test('a failed generation stores nothing and says why, not what Node warned abou
   nextRun = failWith(`${NODE_WARNING}\ngenerated audio did not match the text after 3 attempts\n`);
   const ops = fakeOps();
 
-  await expect(generateAndStoreClip({ ...CLIP, ops })).rejects.toThrow(
-    /^generated audio did not match the text after 3 attempts$/,
-  );
-  expect(ops.media.size).toBe(0);
-  expect(console.error).toHaveBeenCalledWith(expect.stringContaining('MODULE_TYPELESS_PACKAGE_JSON'));
+  await assert.rejects(generateAndStoreClip({ ...CLIP, ops }), { message: /^generated audio did not match the text after 3 attempts$/ });
+  assert.equal(ops.media.size, 0);
+  assert.ok(console.error.mock.calls.some((call) => String(call.arguments[0]).includes('MODULE_TYPELESS_PACKAGE_JSON')));
 });
 
 test('with no Gemini key, nothing is generated, and the error says where to get one', async () => {
@@ -96,11 +98,10 @@ test('with no Gemini key, nothing is generated, and the error says where to get 
   nextRun = succeedWith(WAV('should never be asked for'));
   const ops = fakeOps();
 
-  await expect(generateAndStoreClip({ ...CLIP, ops })).rejects.toThrow(
-    /^GEMINI_API_KEY is not set, so nothing was generated: get a key at https:\/\/aistudio\.google\.com\/apikey/,
-  );
-  expect(runs).toHaveLength(0);
-  expect(ops.media.size).toBe(0);
+  await assert.rejects(generateAndStoreClip({ ...CLIP, ops }), 
+    { message: /^GEMINI_API_KEY is not set, so nothing was generated: get a key at https:\/\/aistudio\.google\.com\/apikey/ });
+  assert.equal((runs).length, 0);
+  assert.equal(ops.media.size, 0);
 });
 
 test('the daily quota message from the CLI is what the caller gets, word for word', async () => {
@@ -108,8 +109,8 @@ test('the daily quota message from the CLI is what the caller gets, word for wor
   nextRun = failWith(`${NODE_WARNING}\n${quota}\n`);
   const ops = fakeOps();
 
-  await expect(generateAndStoreClip({ ...CLIP, ops })).rejects.toThrow(quota);
-  expect(ops.media.size).toBe(0);
+  await assert.rejects(generateAndStoreClip({ ...CLIP, ops }), { message: quota });
+  assert.equal(ops.media.size, 0);
 });
 
 test('a rate-limited run (exit 3) comes back typed, with the wait the gate gave it, and stores nothing', async () => {
@@ -118,11 +119,11 @@ test('a rate-limited run (exit 3) comes back typed, with the wait the gate gave 
 
   const error = await generateAndStoreClip({ ...CLIP, ops }).then(() => null, (e) => e);
 
-  expect(error).toBeInstanceOf(RateLimitedError);
-  expect(error.rateLimited).toBe(true);
-  expect(error.retryAfterMs).toBe(51234);
-  expect(error.message).toBe('Gemini is limiting how many requests gemini-3.8-flash-tts takes per minute and asked to wait 52s.');
-  expect(ops.media.size).toBe(0);
+  assert.ok(((error) instanceof RateLimitedError));
+  assert.equal(error.rateLimited, true);
+  assert.equal(error.retryAfterMs, 51234);
+  assert.equal(error.message, 'Gemini is limiting how many requests gemini-3.8-flash-tts takes per minute and asked to wait 52s.');
+  assert.equal(ops.media.size, 0);
 });
 
 test('a spent daily cap (exit 4) comes back typed as one', async () => {
@@ -130,8 +131,8 @@ test('a spent daily cap (exit 4) comes back typed as one', async () => {
 
   const error = await generateAndStoreClip({ ...CLIP, ops: fakeOps() }).then(() => null, (e) => e);
 
-  expect(error).toBeInstanceOf(DailyCapError);
-  expect(error.dailyCap).toBe(true);
+  assert.ok(((error) instanceof DailyCapError));
+  assert.equal(error.dailyCap, true);
 });
 
 test('a successful generation stores the clip under its content-hashed .wav name', async () => {
@@ -141,10 +142,10 @@ test('a successful generation stores the clip under its content-hashed .wav name
 
   const clip = await generateAndStoreClip({ ...CLIP, ops });
 
-  expect(clip.filename).toMatch(/^plusaudio-[0-9a-f]{20}\.wav$/);
-  expect(runs[0][runs[0].indexOf('--out') + 1]).toMatch(/\.wav$/);
-  expect(clip.reference).toBe(`<audio src="${clip.filename}"></audio>`);
-  expect(ops.media.get(clip.filename)).toEqual(bytes);
+  assert.match(clip.filename, /^plusaudio-[0-9a-f]{20}\.wav$/);
+  assert.match(runs[0][runs[0].indexOf('--out') + 1], /\.wav$/);
+  assert.equal(clip.reference, `<audio src="${clip.filename}"></audio>`);
+  assert.deepEqual(ops.media.get(clip.filename), bytes);
 });
 
 test('an mp3 of the same text from before Gemini is left alone, and the new card gets a wav take', async () => {
@@ -155,10 +156,10 @@ test('an mp3 of the same text from before Gemini is left alone, and the new card
 
   const clip = await generateAndStoreClip({ ...CLIP, ops });
 
-  expect(clip.reused).toBeUndefined();
-  expect(clip.filename).toBe(first.filename);
-  expect(ops.media.get(legacyMp3)).toEqual(Buffer.from('an earlier take'));
-  expect(ops.media.get(clip.filename)).toEqual(WAV('a Gemini take'));
+  assert.equal(clip.reused, undefined);
+  assert.equal(clip.filename, first.filename);
+  assert.deepEqual(ops.media.get(legacyMp3), Buffer.from('an earlier take'));
+  assert.deepEqual(ops.media.get(clip.filename), WAV('a Gemini take'));
 });
 
 test('an existing clip is reused, but a re-record makes a new take', async () => {
@@ -167,11 +168,11 @@ test('an existing clip is reused, but a re-record makes a new take', async () =>
   const ops = fakeOps([first.filename]);
 
   const reused = await generateAndStoreClip({ ...CLIP, ops });
-  expect(reused).toMatchObject({ filename: first.filename, reused: true });
-  expect(runs).toHaveLength(1);
+  assert.partialDeepStrictEqual(reused, { filename: first.filename, reused: true });
+  assert.equal((runs).length, 1);
 
   const retake = await generateAndStoreClip({ ...CLIP, fresh: true, ops });
-  expect(runs).toHaveLength(2);
-  expect(retake.filename).not.toBe(first.filename);
-  expect(ops.media.get(retake.filename)).toEqual(WAV('a new take'));
+  assert.equal((runs).length, 2);
+  assert.notEqual(retake.filename, first.filename);
+  assert.deepEqual(ops.media.get(retake.filename), WAV('a new take'));
 });

@@ -1,22 +1,24 @@
-/**
- * @jest-environment node
- */
-
 // POST /api/anki/install end to end: what the one button actually answers,
 // against a real collection file. The note type is made by the route itself
 // only when the collection can be written from here (Anki closed); otherwise
 // the files still land and the answer says Anki has to be restarted.
 
+import { describe, test } from 'node:test';
+import assert from 'node:assert/strict';
+import { ANSWER } from '../../server/anki/answer';
+import { createRequire } from 'node:module';
+
+const require = createRequire(import.meta.url);
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-import { POST } from '../../app/api/anki/install/route';
+import { POST } from '../../server/api/anki/install/route';
 import { INSTALLED_MESSAGE, RESTART_MESSAGE } from '../../server/anki/install';
 
 const { anki, buildFixtureCollection, holdCollectionOpen, tempDir } = require('../../../plusaudio/test/collection/helpers/anki-python');
 
-const maybe = anki ? it : it.skip;
+const maybe = anki ? test : test.skip;
 
 function post(settings, body = {}) {
   return POST(
@@ -36,13 +38,13 @@ function ankiBase() {
 }
 
 describe('POST /api/anki/install', () => {
-  it('installs the files and says to restart Anki when no collection is chosen', async () => {
+  test('installs the files and says to restart Anki when no collection is chosen', async () => {
     const { base } = ankiBase();
     const response = await post({ baseDirOverride: base });
-    const data = await response.json();
-    expect(response.status).toBe(200);
-    expect(fs.existsSync(path.join(base, 'addons21', 'amgi_bridge', '__init__.py'))).toBe(true);
-    expect(data).toMatchObject({ ok: true, notetypeCreated: false, needsRestart: true, message: RESTART_MESSAGE });
+    const data = response[ANSWER];
+    assert.equal(response.status, 200);
+    assert.equal(fs.existsSync(path.join(base, 'addons21', 'amgi_bridge', '__init__.py')), true);
+    assert.partialDeepStrictEqual(data, { ok: true, notetypeCreated: false, needsRestart: true, message: RESTART_MESSAGE });
     fs.rmSync(base, { recursive: true, force: true });
   });
 
@@ -50,13 +52,13 @@ describe('POST /api/anki/install', () => {
     const { base, collectionPath } = ankiBase();
     buildFixtureCollection(collectionPath);
     const response = await post({ baseDirOverride: base, collectionPath });
-    const data = await response.json();
-    expect(data).toMatchObject({ ok: true, notetypeCreated: true, needsRestart: false, message: INSTALLED_MESSAGE });
-    expect(fs.existsSync(path.join(base, 'User 1', 'collection.media', '_amgi-loop.js'))).toBe(true);
+    const data = response[ANSWER];
+    assert.partialDeepStrictEqual(data, { ok: true, notetypeCreated: true, needsRestart: false, message: INSTALLED_MESSAGE });
+    assert.equal(fs.existsSync(path.join(base, 'User 1', 'collection.media', '_amgi-loop.js')), true);
 
     // Pressing it again is harmless: the note type is already there.
-    const again = await (await post({ baseDirOverride: base, collectionPath })).json();
-    expect(again).toMatchObject({ ok: true, notetypeCreated: false, needsRestart: false });
+    const again = (await post({ baseDirOverride: base, collectionPath }))[ANSWER];
+    assert.partialDeepStrictEqual(again, { ok: true, notetypeCreated: false, needsRestart: false });
     fs.rmSync(base, { recursive: true, force: true });
   });
 
@@ -66,9 +68,9 @@ describe('POST /api/anki/install', () => {
     const holder = holdCollectionOpen(collectionPath);
     await holder.held;
     try {
-      const data = await (await post({ baseDirOverride: base, collectionPath })).json();
-      expect(data).toMatchObject({ ok: true, notetypeCreated: false, needsRestart: true, message: RESTART_MESSAGE });
-      expect(fs.existsSync(path.join(base, 'addons21', 'amgi_mic', '__init__.py'))).toBe(true);
+      const data = (await post({ baseDirOverride: base, collectionPath }))[ANSWER];
+      assert.partialDeepStrictEqual(data, { ok: true, notetypeCreated: false, needsRestart: true, message: RESTART_MESSAGE });
+      assert.equal(fs.existsSync(path.join(base, 'addons21', 'amgi_mic', '__init__.py')), true);
     } finally {
       await holder.release();
     }
