@@ -1,0 +1,163 @@
+// What the decks screen shows in each state amgi's setup can be in, against folders of their own
+// (each built fresh here): as React's DeckList and FirstRun decided it.
+//   ready, no profile picked yet: the profile is picked, and the list shows at /decks, no setup
+//   installed, the card type not in the collection: the list, the notice to restart Anki, and on a
+//     deck the form's hint that Anki adds the card type at its next start
+//   Anki locked (a real lock, held by the anki library): the list's place says why, the badge too
+//   an Anki folder with no profile: the setup screen, "Could not find an Anki profile"
+//   no Anki folder: the setup screen says so, and Install is off
+// Needs ANKI_PYTHON_BIN and ANKI_FIXTURE_APKG (the e2e-ui skill). APP=react drives React.
+//   node ui/tools/states.mjs <base url> <name> <work dir> [out dir]
+import fs from 'node:fs';
+import path from 'node:path';
+import { execFileSync } from 'node:child_process';
+import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
+
+const here = path.dirname(fileURLToPath(import.meta.url));
+const root = path.join(here, '..', '..');
+const cdom = process.env.CDOM || path.join(root, 'cdom');
+const { launch, sleep } = await import(path.join(cdom, 'tools', 'cdp.mjs'));
+const { holdCollectionOpen } = createRequire(import.meta.url)('../../plusaudio/test/collection/helpers/anki-python.js');
+const [base, name, work, outArg] = process.argv.slice(2);
+const out = outArg || path.join(here, '..', 'out', 'shots');
+fs.mkdirSync(out, { recursive: true });
+const react = process.env.APP === 'react';
+const failures = [];
+const check = (ok, what) => {
+  console.log(`${ok ? 'ok  ' : 'FAIL'} ${what}`);
+  if (!ok) failures.push(what);
+};
+const sh = (cmd, args) => execFileSync(cmd, args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+// A folder as one profile, "User 1", from the UI fixture; installed fully, add-ons only, or not at all.
+function folder(dirName, install) {
+  const dir = sh(path.join(here, 'flows.sh'), [path.join(root, '.e2e', 'fixture'), path.join(work, dirName)]);
+  if (install) sh(process.execPath, ['--import', './ui/server/hooks.mjs', 'ui/tools/fixture-install.mjs', dir, ...(install === 'addons' ? ['--addons-only'] : [])]);
+  return dir;
+}
+// The base fixture, before amgi touched it: no card type in the collection.
+function bareFolder(dirName) {
+  const dir = path.join(work, dirName);
+  fs.rmSync(dir, { recursive: true, force: true });
+  fs.mkdirSync(path.join(dir, 'User 1'), { recursive: true });
+  sh(process.execPath, ['.claude/skills/e2e-ui/scripts/fixture.js', path.join(dir, 'User 1')]);
+  return dir;
+}
+
+async function until(b, expr, tries = 100) {
+  let v;
+  for (let i = 0; i < tries; i++) {
+    v = await b.evaluate(expr);
+    if (v) return v;
+    await sleep(100);
+  }
+  return v;
+}
+async function goto(b, url) {
+  await b.send('Page.navigate', { url });
+  await until(b, `document.readyState === 'complete'`);
+}
+// A new browser profile for each state: nothing remembered but what is seeded.
+async function open(settings) {
+  const b = await launch(['--hide-scrollbars']);
+  await b.send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 900, deviceScaleFactor: 2, mobile: false });
+  await goto(b, `${base}/__seed__`);
+  if (react) {
+    const s = { baseDirOverride: settings.base, collectionPath: settings.collection || '', profileName: '', bridge: { baseUrl: 'http://127.0.0.1:8798', token: '' } };
+    await b.evaluate(`localStorage.setItem('amgi:anki-settings', ${JSON.stringify(JSON.stringify(s))})`);
+  } else {
+    const block = `X-Amgi-Base-Dir: ${encodeURIComponent(settings.base)}\nX-Amgi-Collection: ${encodeURIComponent(settings.collection || '')}\n`;
+    await b.evaluate(`new Promise((resolve) => { const o = indexedDB.open('cdom', 1); o.onupgradeneeded = () => o.result.createObjectStore('kv');
+      o.onsuccess = () => { const t = o.result.transaction('kv', 'readwrite'); t.objectStore('kv').put(new TextEncoder().encode(${JSON.stringify(block)}), 'amgi:anki-settings:1');
+      t.oncomplete = () => { o.result.close(); resolve(true); }; }; })`);
+  }
+  return b;
+}
+const shot = async (b, file) => {
+  const { result } = await b.send('Page.captureScreenshot', { format: 'png' });
+  fs.writeFileSync(path.join(out, `${name}-${file}.png`), Buffer.from(result.data, 'base64'));
+};
+const badge = `document.querySelector('nav.navbar span[title]')?.textContent`;
+const steps = `[...document.querySelectorAll('.first-run-step-text')].map(s => s.textContent).join(' | ')`;
+
+const watchdog = setTimeout(() => {
+  console.log('FAIL the drive took more than 5 minutes');
+  process.exit(1);
+}, 300000);
+let b;
+try {
+  // 1. Ready, no profile picked yet: picked, and straight to the list.
+  const ready = folder('state-ready', 'all');
+  b = await open({ base: ready });
+  await goto(b, `${base}/`);
+  check(await until(b, `document.querySelectorAll('.deck-item').length === 7 && !document.querySelector('.first-run') && location.pathname === '/decks'`, 150),
+    `ready: the profile is picked and the list shows at /decks (${await b.evaluate('location.pathname')}, ${await b.evaluate(steps)})`);
+  check(await b.evaluate(badge) === 'Anki connected', 'ready: the badge says connected');
+  await sleep(300);
+  await shot(b, '40-ready');
+  await b.close();
+
+  // 2. Installed, the card type not in the collection yet.
+  const behind = bareFolder('state-behind');
+  sh(process.execPath, ['--import', './ui/server/hooks.mjs', 'ui/tools/fixture-install.mjs', behind, '--addons-only']);
+  b = await open({ base: behind, collection: path.join(behind, 'User 1', 'collection.anki2') });
+  await goto(b, `${base}/decks`);
+  check(await until(b, `document.querySelectorAll('.deck-item').length > 0 && document.querySelector('.template-update.is-behind strong')?.textContent === 'restart Anki'`, 150),
+    'card type missing: the list, and the notice to restart Anki');
+  await sleep(300);
+  await shot(b, '41-card-type-missing');
+  const i = await b.evaluate(`[...document.querySelectorAll('.deck-item h3')].findIndex(h => h.textContent === 'Existing')`);
+  await b.evaluate(`document.querySelectorAll('.deck-item')[${i}].click()`);
+  await until(b, `/Restart Anki once/.test(document.querySelector('.card-form-hint')?.textContent || '')`, 150);
+  const hint = await b.evaluate(`document.querySelector('.card-form-hint')?.textContent`);
+  check(/Restart Anki once and it will add the “amgi Listening” card type/.test(hint || ''), `card type missing: the deck's form says Anki adds it (${hint})`);
+  await b.close();
+
+  // 3. Anki locked: a real lock on the collection.
+  const locked = folder('state-locked', 'all');
+  const collection = path.join(locked, 'User 1', 'collection.anki2');
+  const holder = holdCollectionOpen(collection);
+  await holder.held;
+  try {
+    b = await open({ base: locked, collection });
+    await goto(b, `${base}/decks`);
+    check(await until(b, `${badge} === 'Anki locked'`, 150), 'locked: the badge says so');
+    const why = await until(b, `document.querySelector('.empty-deck-state p')?.textContent`, 100);
+    check(/Anki is open and the bridge is not reachable/.test(why || ''), `locked: the list's place says why (${why})`);
+    await sleep(300);
+    await shot(b, '42-locked');
+    await b.close();
+  } finally {
+    await holder.release();
+  }
+
+  // 4. An Anki folder with no profile in it.
+  const empty = path.join(work, 'state-empty');
+  fs.rmSync(empty, { recursive: true, force: true });
+  fs.mkdirSync(empty, { recursive: true });
+  b = await open({ base: empty });
+  await goto(b, `${base}/decks`);
+  check(await until(b, `/Could not find an Anki profile/.test(${steps})`, 150), 'no profile: the setup screen says it found none');
+  check(await b.evaluate(`!document.querySelector('.first-run-cta').disabled`), 'no profile: Install is still on');
+  await sleep(300);
+  await shot(b, '43-no-profile');
+  await b.close();
+
+  // 5. No Anki folder at all.
+  b = await open({ base: path.join(work, 'state-nowhere') });
+  fs.rmSync(path.join(work, 'state-nowhere'), { recursive: true, force: true });
+  await goto(b, `${base}/decks`);
+  check(await until(b, `/No Anki data folder on this machine/.test(document.querySelector('.first-run-error')?.textContent || '')`, 150), 'no folder: the setup screen says so');
+  check(await b.evaluate(`document.querySelector('.first-run-cta').disabled`), 'no folder: Install is off');
+  await sleep(300);
+  await shot(b, '44-no-folder');
+  await b.close();
+  b = null;
+} finally {
+  clearTimeout(watchdog);
+  if (b) await b.close();
+}
+if (failures.length) {
+  console.log(`${failures.length} check(s) failed`);
+  process.exitCode = 1;
+}
