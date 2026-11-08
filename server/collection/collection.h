@@ -119,9 +119,6 @@ int col_add_media(arena *a, str path, str name, const void *data, size_t len, st
  * at a name is always whole and no lock is needed to read it. */
 int col_media_path(arena *a, str path, str name, int *found, str *file, col_err *err);
 
-/* The collection's media folder: collection.media beside collection.anki2 (media.js). */
-str col_media_dir(arena *a, str collection_path);
-
 /* paths.js: the default Anki folder for this platform, and the profiles in a folder (sorted as
  * localeCompare sorts). */
 str col_default_base_dir(arena *a);
