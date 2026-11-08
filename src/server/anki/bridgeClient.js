@@ -8,6 +8,8 @@
 // origin failure by design (a same-machine CLI caller, which this is). The
 // shared-secret token is therefore the only credential these requests need.
 
+
+import { formatBridgeBody, parseBridgeBody } from 'plusaudio/lib/json/bridgeBody';
 // The short timeout is for "is a bridge there, and is it answering": the
 // probe below, and the fixed-size reads whose cost does not depend on the
 // collection. Failing those fast is the point - the caller falls back to the
@@ -53,11 +55,11 @@ async function bridgeFetch(baseUrl, token, path, { method = 'GET', body, timeout
         'X-Amgi-Bridge-Token': token,
         ...(body ? { 'Content-Type': 'application/json' } : {}),
       },
-      body: body ? JSON.stringify(body) : undefined,
+      body: body ? formatBridgeBody(body) : undefined,
       signal: controller.signal,
     });
     const text = await response.text();
-    const data = text ? JSON.parse(text) : null;
+    const data = parseBridgeBody(text);
     if (!response.ok) {
       throw new BridgeError(data?.error || `bridge responded ${response.status}`, response.status);
     }

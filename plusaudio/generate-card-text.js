@@ -58,6 +58,7 @@
 const path = require('node:path');
 const { createTextGenerator } = require('./lib/textGenerator');
 const { exitForError } = require('./lib/cliExit');
+const { formatCardTextLine } = require('./lib/json/cardTextLine');
 
 const USAGE =
   'Usage: node generate-card-text.js --known <lang> --learning <lang> ' +
@@ -135,7 +136,7 @@ async function run(options, generate) {
   } catch (error) {
     return exitForError(error);
   }
-  process.stdout.write(`${JSON.stringify(card)}\n`);
+  process.stdout.write(formatCardTextLine(card));
   return 0;
 }
 
