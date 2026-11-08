@@ -3,12 +3,12 @@
 // Screenshots amgi's own screens against a fixture Anki collection - there
 // is no login and no seeded Supabase project any more, so this walks: the
 // deck list, a deck's notes, creating a new deck, and adding a note to it
-// (card text and audio generation included). With no OPENAI_API_KEY, that
-// last step has to end in the form's own "OPENAI_API_KEY is not set" error
+// (card text and audio generation included). With no GEMINI_API_KEY, that
+// last step has to end in the form's own "GEMINI_API_KEY is not set" error
 // and no new note - a card is never made from placeholder text or audio
 // (see src/server/anki/cardText.js and audio.js). With a key it makes one
-// real card: paid OpenAI calls for the text and its check, and Gemini TTS
-// calls for the speech (GEMINI_API_BASE can point those at a fake server).
+// real card: Gemini calls for the text, the speech and the checks
+// (GEMINI_API_BASE can point those at a fake server).
 //
 //   node .claude/skills/e2e-ui/scripts/fixture.js .e2e/fixture
 //   npx next dev --webpack -p 3111 &

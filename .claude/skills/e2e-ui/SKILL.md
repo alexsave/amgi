@@ -66,10 +66,10 @@ ANKI_COLLECTION=.e2e/fixture/collection.anki2 node .claude/skills/e2e-ui/scripts
 ```
 
 Screenshots, in order: the deck list, a deck's notes, the create-deck modal filled in, the new (empty) deck it lands on, the card form filled in, and the result of "Make the card".
-`next dev` reads `.env.local`, so start it with `OPENAI_API_KEY=` and `GEMINI_API_KEY=` (set but empty) to stay offline.
-With no OpenAI key, "Make the card" must end in the form's "OPENAI_API_KEY is not set" error with no new note - the app never makes a card from placeholder text or audio (see `src/server/anki/audio.js`), and the script fails if a row appears anyway.
-With both keys it makes one real card: real, paid OpenAI calls for the text and the check, and real Gemini TTS calls for the speech, which on the free tier spend some of the 10 requests per model per day.
-To exercise speech without spending that quota, point `GEMINI_API_BASE` at a local fake server that answers `POST /v1beta/models/<model>:generateContent` with an `inlineData` WAV (or `audio/l16` PCM) part; `geminiSpeech.ts` is the only thing that reads its answer.
+`next dev` reads `.env.local`, so start it with `GEMINI_API_KEY=` (set but empty) to stay offline.
+With no key, "Make the card" must end in the form's "GEMINI_API_KEY is not set" error with no new note - the app never makes a card from placeholder text or audio (see `src/server/anki/audio.js`), and the script fails if a row appears anyway.
+With a key it makes one real card: real Gemini calls for the text, the speech and the checks (roughly six or seven), which on the free tier spend most of the day's 10 requests per model.
+To exercise the whole pipeline without spending that quota, point `GEMINI_API_BASE` at a local fake server that answers `POST /v1beta/models/<model>:generateContent`: an `inlineData` WAV (or `audio/l16` PCM) part for a speech request, plain text for a transcription (audio in, no schema), and JSON text for a structured request (card text, the judge's verdict); `plusaudio/test/helpers/fake-gemini.js` tells the four kinds apart the same way.
 Clips are stored as `.wav` (24 kHz mono, about 48 KB per second); older notes may still point at `.mp3` clips, and both play.
 
 Prints every console error, failed request and 4xx/5xx it saw at the end.

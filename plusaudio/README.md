@@ -48,8 +48,8 @@ node add-audio.js <deck.apkg> [options]
 ```
 
 `--dry-run` needs no API key.
-Generating audio needs `GEMINI_API_KEY` (Gemini TTS speaks every clip; get one at https://aistudio.google.com/apikey) and `OPENAI_API_KEY` (transcription and the audio judge check it).
-Gemini's free tier allows 10 speech requests per day per model, so a whole deck needs billing enabled on the key's project.
+Generating audio needs `GEMINI_API_KEY` (Gemini speaks every clip, transcribes it and judges it; get one at https://aistudio.google.com/apikey).
+Gemini's free tier allows 10 requests per day per model, so a whole deck needs billing enabled on the key's project.
 Clips are WAV, 24 kHz mono, about 48 KB per second.
 
 This tool works on a `.apkg` file: export, run it, import the result back.
@@ -142,13 +142,7 @@ Export, generate, import.
 Node 24.12, 25.1 or 26 and later, which is what `engines` says.
 The floor is `node:sqlite`'s `enableDefensive`, needed to read a modern collection's `unicase` collation, and type stripping, which runs the shared generator's TypeScript with no build step.
 `enableDefensive` landed in 25.1.0 and was backported to 24.12.0, so 25.0.x is out while 24.12 and later is in - hence the three ranges rather than one `>=`.
-No native builds, and the only runtime dependency is the `openai` SDK, which is loaded lazily so `--dry-run` and the tests need neither it nor a key.
-
-The `openai` package here and the one the app's own server code (`src/server/anki/audio.js`, by
-way of `generate-clip.js`) uses are free to differ, and did while a Deno edge function was a third
-runtime too (it imported `npm:openai@6`; that edge function is retired - see
-`archives/supabase-2026/`): the shared module never imports the SDK, it is handed a client, so
-each runtime brings its own.
+No native builds and no runtime dependencies at all: every model call goes to Google's Gemini API over Node's own `fetch`, through `lib/cardGeneration/gemini.ts`, so `--dry-run` and the tests need no key and no package.
 
 ## Tests
 
