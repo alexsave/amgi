@@ -1,3 +1,5 @@
+import { afterEach, beforeEach, describe, test } from 'node:test';
+import assert from 'node:assert/strict';
 import fs from 'fs';
 import path from 'path';
 import { LANGUAGES } from '../../constants/languages';
@@ -17,7 +19,7 @@ import {
 // move it up") breaks silently, producing decks whose two sides say
 // unrelated things.
 
-const ROOT = path.resolve(__dirname, '..', '..', '..');
+const ROOT = path.resolve(import.meta.dirname, '..', '..', '..');
 const DATA = JSON.parse(fs.readFileSync(path.join(ROOT, 'src', 'data', 'starterPhrases.json'), 'utf8'));
 
 function fakeOps({ existingMedia = new Set(), existingTargets = [] } = {}) {
@@ -43,30 +45,30 @@ function fakeOps({ existingMedia = new Set(), existingTargets = [] } = {}) {
 }
 
 describe('the starter phrase data', () => {
-  it('has every language amgi offers in its dropdown', () => {
-    expect(Object.keys(DATA.phrases).sort()).toEqual(Object.keys(LANGUAGES).sort());
+  test('has every language amgi offers in its dropdown', () => {
+    assert.deepEqual(Object.keys(DATA.phrases).sort(), Object.keys(LANGUAGES).sort());
   });
 
-  it('is parallel: the same number of phrases in every language', () => {
+  test('is parallel: the same number of phrases in every language', () => {
     const lengths = new Set(Object.values(DATA.phrases).map((list) => list.length));
-    expect([...lengths]).toEqual([DATA.concepts.length]);
+    assert.deepEqual([...lengths], [DATA.concepts.length]);
   });
 
-  it('has no romanisation in the languages that do not use latin script', () => {
+  test('has no romanisation in the languages that do not use latin script', () => {
     // Romanisation is not allowed anywhere in amgi - a learner who reads a
     // transliteration instead of the script is not learning the language.
     for (const code of ['zh_cn', 'zh_hk', 'ja', 'ko', 'ru', 'th', 'hi', 'ur', 'ar']) {
       for (const phrase of DATA.phrases[code]) {
-        expect(phrase).not.toMatch(/[A-Za-z]/);
+        assert.doesNotMatch(phrase, /[A-Za-z]/);
       }
     }
   });
 
-  it('has no blank or untrimmed phrases', () => {
+  test('has no blank or untrimmed phrases', () => {
     for (const list of Object.values(DATA.phrases)) {
       for (const phrase of list) {
-        expect(phrase).toBe(phrase.trim());
-        expect(phrase.length).toBeGreaterThan(0);
+        assert.equal(phrase, phrase.trim());
+        assert.ok((phrase.length) > 0);
       }
     }
   });
@@ -79,34 +81,34 @@ describe('what the app is told about the key', () => {
     else process.env.GEMINI_API_KEY = saved;
   });
 
-  it('reports only whether the key exists, never anything derived from it', () => {
+  test('reports only whether the key exists, never anything derived from it', () => {
     process.env.GEMINI_API_KEY = 'gemini-something-secret';
-    expect(generationAvailable()).toBe(true);
-    expect(JSON.stringify(starterState())).not.toContain('secret');
+    assert.equal(generationAvailable(), true);
+    assert.ok(!(JSON.stringify(starterState())).includes('secret'));
   });
 
-  it('does not offer the starter deck when the key is configured', () => {
+  test('does not offer the starter deck when the key is configured', () => {
     process.env.GEMINI_API_KEY = 'gemini-something';
-    expect(starterState().offered).toBe(false);
+    assert.equal(starterState().offered, false);
   });
 
-  it('an old OpenAI key alone makes no cards: Gemini is the one key now', () => {
+  test('an old OpenAI key alone makes no cards: Gemini is the one key now', () => {
     delete process.env.GEMINI_API_KEY;
     const savedOpenAI = process.env.OPENAI_API_KEY;
     process.env.OPENAI_API_KEY = 'sk-old';
     try {
-      expect(generationAvailable()).toBe(false);
+      assert.equal(generationAvailable(), false);
     } finally {
       if (savedOpenAI === undefined) delete process.env.OPENAI_API_KEY;
       else process.env.OPENAI_API_KEY = savedOpenAI;
     }
   });
 
-  it('offers it when there is no key', () => {
+  test('offers it when there is no key', () => {
     delete process.env.GEMINI_API_KEY;
     // Guarded on the clips actually being present, so this test says
     // something about the offer rather than about a half-built checkout.
-    if (starterLanguages().length > 1) expect(starterState().offered).toBe(true);
+    if (starterLanguages().length > 1) assert.equal(starterState().offered, true);
   });
 });
 
@@ -123,97 +125,95 @@ describe('building one', () => {
     return { known: available[0], learning: available.find((c) => c !== available[0]) };
   };
 
-  it('writes one ordinary note per phrase, both sides filled', async () => {
+  test('writes one ordinary note per phrase, both sides filled', async () => {
     const { known, learning } = pair();
     if (!learning) return;
     const ops = fakeOps();
     const built = await buildStarterDeck({ ops, known, learning, deckName: 'amgi starter' });
 
-    expect(built.added).toBe(DATA.concepts.length);
-    expect(ops.added.decks).toEqual(['amgi starter']);
-    expect(ops.added.notes).toHaveLength(DATA.concepts.length);
+    assert.equal(built.added, DATA.concepts.length);
+    assert.deepEqual(ops.added.decks, ['amgi starter']);
+    assert.equal((ops.added.notes).length, DATA.concepts.length);
 
     const [cue, cueAudio, target, targetAudio, language] = ops.added.notes[0].fields;
-    expect(cue).toBe(DATA.phrases[known][0]);
-    expect(target).toBe(DATA.phrases[learning][0]);
-    expect(language).toBe(learning);
+    assert.equal(cue, DATA.phrases[known][0]);
+    assert.equal(target, DATA.phrases[learning][0]);
+    assert.equal(language, learning);
     // The template reads <audio src>, never [sound:] - see audio.js.
-    expect(cueAudio).toMatch(/^<audio[^>]+src="plusaudio-[0-9a-f]+\.mp3"/);
-    expect(targetAudio).toMatch(/^<audio[^>]+src="plusaudio-[0-9a-f]+\.mp3"/);
+    assert.match(cueAudio, /^<audio[^>]+src="plusaudio-[0-9a-f]+\.mp3"/);
+    assert.match(targetAudio, /^<audio[^>]+src="plusaudio-[0-9a-f]+\.mp3"/);
   });
 
-  it('uses the same note type as every other card, and tags what it made', async () => {
+  test('uses the same note type as every other card, and tags what it made', async () => {
     const { known, learning } = pair();
     if (!learning) return;
     const ops = fakeOps();
     await buildStarterDeck({ ops, known, learning, deckName: 'amgi starter' });
-    expect(ops.added.notes.every((n) => n.notetypeId === 42)).toBe(true);
-    expect(ops.added.notes[0].tags).toEqual(['amgi-starter']);
+    assert.equal(ops.added.notes.every((n) => n.notetypeId === 42), true);
+    assert.deepEqual(ops.added.notes[0].tags, ['amgi-starter']);
   });
 
-  it('never writes a clip the collection already has', async () => {
+  test('never writes a clip the collection already has', async () => {
     const { known, learning } = pair();
     if (!learning) return;
     const first = fakeOps();
     await buildStarterDeck({ ops: first, known, learning, deckName: 'a' });
-    expect(first.added.media.length).toBeGreaterThan(0);
+    assert.ok((first.added.media.length) > 0);
 
     // The names are content hashes, so a second deck over the same languages
     // finds every clip already there - which is the point of hashing them.
     const names = new Set(first.added.media.map((m) => m.name));
     const second = fakeOps({ existingMedia: names });
     await buildStarterDeck({ ops: second, known, learning, deckName: 'b' });
-    expect(second.added.media).toEqual([]);
+    assert.deepEqual(second.added.media, []);
   });
 
-  it('adds nothing the deck already has, so a second press is not a duplicate', async () => {
+  test('adds nothing the deck already has, so a second press is not a duplicate', async () => {
     const { known, learning } = pair();
     if (!learning) return;
     // createDeck finds-or-creates, so pressing the button twice lands in the
     // same deck. A free sample deck is exactly what somebody presses twice.
     const ops = fakeOps({ existingTargets: DATA.phrases[learning] });
     const built = await buildStarterDeck({ ops, known, learning, deckName: 'amgi starter' });
-    expect(built.added).toBe(0);
-    expect(built.alreadyThere).toBe(DATA.concepts.length);
-    expect(ops.added.notes).toEqual([]);
+    assert.equal(built.added, 0);
+    assert.equal(built.alreadyThere, DATA.concepts.length);
+    assert.deepEqual(ops.added.notes, []);
   });
 
-  it('still adds the phrases a partly-built deck is missing', async () => {
+  test('still adds the phrases a partly-built deck is missing', async () => {
     const { known, learning } = pair();
     if (!learning) return;
     const ops = fakeOps({ existingTargets: DATA.phrases[learning].slice(0, 4) });
     const built = await buildStarterDeck({ ops, known, learning, deckName: 'amgi starter' });
-    expect(built.added).toBe(DATA.concepts.length - 4);
-    expect(built.alreadyThere).toBe(4);
+    assert.equal(built.added, DATA.concepts.length - 4);
+    assert.equal(built.alreadyThere, 4);
   });
 
-  it('builds the deck anyway when the duplicate check cannot run', async () => {
+  test('builds the deck anyway when the duplicate check cannot run', async () => {
     const { known, learning } = pair();
     if (!learning) return;
     const ops = fakeOps();
     ops.existingFieldValues = async () => { throw new Error('bridge says no'); };
     const built = await buildStarterDeck({ ops, known, learning, deckName: 'amgi starter' });
-    expect(built.added).toBe(DATA.concepts.length);
+    assert.equal(built.added, DATA.concepts.length);
   });
 
-  it('refuses a deck whose two sides are the same language', async () => {
-    await expect(buildStarterDeck({ ops: fakeOps(), known: 'en', learning: 'en', deckName: 'x' }))
-      .rejects.toThrow(/different languages/);
+  test('refuses a deck whose two sides are the same language', async () => {
+    await assert.rejects(buildStarterDeck({ ops: fakeOps(), known: 'en', learning: 'en', deckName: 'x' }), { message: /different languages/ });
   });
 
-  it('puts every note in the deck it just created', async () => {
+  test('puts every note in the deck it just created', async () => {
     const { known, learning } = pair();
     if (!learning) return;
     const ops = fakeOps();
     const built = await buildStarterDeck({ ops, known, learning, deckName: 'amgi starter' });
-    expect(built.deckId).toBe(7);
-    expect(ops.added.notes.every((n) => n.deckId === 7)).toBe(true);
+    assert.equal(built.deckId, 7);
+    assert.equal(ops.added.notes.every((n) => n.deckId === 7), true);
   });
 
-  it('says what to do when the note type is not installed yet', async () => {
+  test('says what to do when the note type is not installed yet', async () => {
     const ops = fakeOps();
     ops.listNotetypes = async () => [{ id: 1, name: 'Basic', fieldNames: ['Front', 'Back'] }];
-    await expect(buildStarterDeck({ ops, known: 'en', learning: 'ko', deckName: 'x' }))
-      .rejects.toThrow(/Restart Anki/);
+    await assert.rejects(buildStarterDeck({ ops, known: 'en', learning: 'ko', deckName: 'x' }), { message: /Restart Anki/ });
   });
 });

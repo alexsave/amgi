@@ -1,3 +1,6 @@
+import { describe, mock, test } from 'node:test';
+import assert from 'node:assert/strict';
+import { isDeepStrictEqual } from 'node:util';
 import { createReviewLoop, PHASE } from '../../utils/reviewLoop';
 
 // The loop's own timing comes entirely from the host's promises and from the
@@ -24,7 +27,7 @@ const makeHost = (overrides = {}) => {
     reveal: record('reveal'),
     playNative: record('playNative'),
     onAnswerReady: record('onAnswerReady'),
-    onMicUnavailable: jest.fn(),
+    onMicUnavailable: mock.fn(),
     detect: ({ onEnd }) => {
       calls.push('detect');
       endDetection = onEnd;
@@ -52,13 +55,13 @@ describe('createReviewLoop', () => {
     const run = loop.start();
     await settle();
 
-    expect(host.phases).toEqual([PHASE.PROMPT, PHASE.REQUESTING_MIC, PHASE.LISTENING]);
-    expect(loop.phase).toBe(PHASE.LISTENING);
+    assert.deepEqual(host.phases, [PHASE.PROMPT, PHASE.REQUESTING_MIC, PHASE.LISTENING]);
+    assert.equal(loop.phase, PHASE.LISTENING);
 
     host.endDetection('speech');
     await run;
 
-    expect(host.calls).toEqual([
+    assert.deepEqual(host.calls, [
       'playPrompt',
       'openMic',
       'detect',
@@ -68,7 +71,7 @@ describe('createReviewLoop', () => {
       'playNative',
       'onAnswerReady',
     ]);
-    expect(host.phases).toContain(PHASE.ANSWER);
+    assert.ok((host.phases).includes(PHASE.ANSWER));
   });
 
   test('the recording reaches the answer, except when nobody spoke', async () => {
@@ -86,7 +89,7 @@ describe('createReviewLoop', () => {
     host.endDetection('no-speech');
     await second;
 
-    expect(seen).toEqual([
+    assert.deepEqual(seen, [
       { reason: 'speech', recording: 'recording-blob' },
       { reason: 'no-speech', recording: null },
     ]);
@@ -99,13 +102,13 @@ describe('createReviewLoop', () => {
     const run = loop.start();
     await settle();
 
-    expect(loop.endTurn('manual')).toBe(true);
+    assert.equal(loop.endTurn('manual'), true);
     await run;
 
-    expect(host.calls).toContain('stopDetect');
-    expect(host.calls.indexOf('stopDetect')).toBeLessThan(host.calls.indexOf('closeMic'));
+    assert.ok((host.calls).includes('stopDetect'));
+    assert.ok((host.calls.indexOf('stopDetect')) < host.calls.indexOf('closeMic'));
     // Nothing left to end once the answer is up.
-    expect(loop.endTurn('manual')).toBe(false);
+    assert.equal(loop.endTurn('manual'), false);
   });
 
   test('without a microphone it waits for the host instead of listening', async () => {
@@ -123,19 +126,19 @@ describe('createReviewLoop', () => {
 
     await loop.start();
 
-    expect(host.onMicUnavailable).toHaveBeenCalledWith(failure);
-    expect(host.phases).toEqual([PHASE.PROMPT, PHASE.REQUESTING_MIC, PHASE.WAITING, PHASE.ANSWER]);
+    assert.ok((host.onMicUnavailable).mock.calls.some((call) => isDeepStrictEqual(call.arguments, [failure])));
+    assert.deepEqual(host.phases, [PHASE.PROMPT, PHASE.REQUESTING_MIC, PHASE.WAITING, PHASE.ANSWER]);
     // No stream was opened, so there is nothing to close and nothing to replay.
-    expect(host.calls).toEqual(['playPrompt', 'reveal', 'playNative', 'onAnswerReady']);
+    assert.deepEqual(host.calls, ['playPrompt', 'reveal', 'playNative', 'onAnswerReady']);
 
     // A refusal is remembered: the second card does not ask again, and never
     // shows the "asking for the microphone" phase at all - there is nothing
     // to ask for.
     const phasesBeforeSecondCard = host.phases.length;
     await loop.start();
-    expect(host.onMicUnavailable).toHaveBeenCalledTimes(1);
-    expect(loop.micUnavailable).toBe(true);
-    expect(host.phases.slice(phasesBeforeSecondCard)).not.toContain(PHASE.REQUESTING_MIC);
+    assert.equal((host.onMicUnavailable).mock.callCount(), 1);
+    assert.equal(loop.micUnavailable, true);
+    assert.ok(!(host.phases.slice(phasesBeforeSecondCard)).includes(PHASE.REQUESTING_MIC));
   });
 
   test('a microphone request that never settles falls back once micTimeoutMs elapses', async () => {
@@ -155,10 +158,10 @@ describe('createReviewLoop', () => {
 
     await loop.start();
 
-    expect(host.onMicUnavailable).toHaveBeenCalledTimes(1);
-    expect(host.phases).toEqual([PHASE.PROMPT, PHASE.REQUESTING_MIC, PHASE.WAITING, PHASE.ANSWER]);
+    assert.equal((host.onMicUnavailable).mock.callCount(), 1);
+    assert.deepEqual(host.phases, [PHASE.PROMPT, PHASE.REQUESTING_MIC, PHASE.WAITING, PHASE.ANSWER]);
     // No stream was ever opened, so there is nothing to close and nothing to replay.
-    expect(host.calls).toEqual(['playPrompt', 'reveal', 'playNative', 'onAnswerReady']);
+    assert.deepEqual(host.calls, ['playPrompt', 'reveal', 'playNative', 'onAnswerReady']);
   });
 
   test('a cancelled card does not reveal anything', async () => {
@@ -172,8 +175,8 @@ describe('createReviewLoop', () => {
     await run;
     await settle();
 
-    expect(host.calls).not.toContain('reveal');
-    expect(loop.phase).toBe(PHASE.IDLE);
+    assert.ok(!(host.calls).includes('reveal'));
+    assert.equal(loop.phase, PHASE.IDLE);
   });
 
   test('resumeAtAnswer picks up where a page reload left off', async () => {
@@ -182,8 +185,8 @@ describe('createReviewLoop', () => {
 
     await loop.resumeAtAnswer({ recording: null });
 
-    expect(host.calls).toEqual(['playNative', 'onAnswerReady']);
-    expect(loop.phase).toBe(PHASE.ANSWER);
+    assert.deepEqual(host.calls, ['playNative', 'onAnswerReady']);
+    assert.equal(loop.phase, PHASE.ANSWER);
   });
 
   test('a host callback that throws does not strand the card', async () => {
@@ -202,7 +205,7 @@ describe('createReviewLoop', () => {
     host.endDetection('speech');
     await run;
 
-    expect(host.calls).toContain('onAnswerReady');
-    expect(loop.phase).toBe(PHASE.ANSWER);
+    assert.ok((host.calls).includes('onAnswerReady'));
+    assert.equal(loop.phase, PHASE.ANSWER);
   });
 });
