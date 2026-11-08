@@ -2,8 +2,9 @@
  * card form, and the notes a page at a time, each row with its clips. */
 #include "app.h"
 
-enum { A_BACK = 1, A_PREV, A_NEXT, A_LANGS_OPEN, A_LANGS_DONE, A_KNOWN, A_LEARNING, A_EDIT, A_DELETE, A_RENAME };
-enum { T_NOTES = 1, T_DELETE, T_RENAME };
+enum { A_BACK = 1, A_PREV, A_NEXT, A_LANGS_OPEN, A_LANGS_DONE, A_KNOWN, A_LEARNING, A_EDIT, A_DELETE, A_RENAME,
+       A_DECK_DELETE };
+enum { T_NOTES = 1, T_DELETE, T_RENAME, T_DECK_SUMMARY, T_DECK_DELETE };
 enum { A_NAME_BLUR = 20 };
 #define PAGE_SIZE 20
 
@@ -32,6 +33,11 @@ static cd_region pager = {0};
 static cd_id known_select, learning_select;
 static int32_t *row_chips;        /* the chips in the rows, forgotten with them */
 static uint32_t nrow_chips;
+/* Deleting the deck, last on the page: the section's contents, what it is doing, why it failed. */
+static cd_region danger = {0};
+enum { DANGER_IDLE, DANGER_CHECKING, DANGER_DELETING };
+static int danger_state;
+static text danger_error;
 
 static const char *lang_label(const char *code) {
   const char *n = language_name(code, zlen(code));
@@ -223,6 +229,15 @@ void deck_build(void) {
   cd_close();
   cd_close();
   cd_close();
+  /* Not for the Default deck (id 1): Anki never removes it. Its remove_decks empties Default and
+   * resets its name instead (rslib/src/decks/remove.rs), so "delete" would only empty it, and the
+   * server refuses it on both transports. */
+  if (deck_id != 1) {
+    el(CD_LIT("section"), CD_LIT("deck-danger"));
+    cd_attr(CD_LIT("aria-label"), CD_LIT("Delete this deck"));
+    cd_name_open(danger.parent = cd_id_new());
+    cd_close();
+  }
   cd_close();
 }
 
@@ -275,6 +290,10 @@ void deck_forget(void) {
   renaming = rename_saving = 0;
   text_free(&rename_error);
   form_forget();
+  cd_region_hide(&danger);
+  danger.parent = 0;
+  danger_state = DANGER_IDLE;
+  text_free(&danger_error);
   langs_open = 0;
   if (route != R_DECK || route_deck != deck_id) {
     editing = deleting = -1;
@@ -443,10 +462,38 @@ static void rows_build(void) {
   cd_region_end(&pager);
 }
 
+/* The danger section's contents: what deleting means, the button (what it is doing, while it is),
+ * and why the last try failed. */
+static void danger_view(void) {
+  cd_region_hide(&danger);
+  if (!shown || !danger.parent || !cd_region_show(&danger, 1)) return;
+  cd_at(danger.parent, 0);
+  el(CD_LIT("div"), CD_LIT("deck-danger-text"));
+  el_text(CD_LIT("h3"), 0, CD_LIT("Delete this deck"));
+  el_text(CD_LIT("p"), 0, CD_LIT("The deck, its subdecks and every card in them, on every device you sync with."));
+  cd_close();
+  el(CD_LIT("button"), CD_LIT("deck-danger-btn"));
+  cd_attr(CD_LIT("type"), CD_LIT("button"));
+  if (danger_state != DANGER_IDLE) cd_attr(CD_LIT("disabled"), CD_LIT(""));
+  listen_click(TAG(M_DECK, A_DECK_DELETE, 0));
+  cd_text(danger_state == DANGER_CHECKING   ? CD_LIT("Checking…")
+          : danger_state == DANGER_DELETING ? CD_LIT("Deleting…")
+                                            : CD_LIT("Delete deck"));
+  cd_close();
+  if (danger_error.len) {
+    el(CD_LIT("p"), CD_LIT("deck-danger-error"));
+    cd_attr(CD_LIT("role"), CD_LIT("alert"));
+    tmp_text(danger_error.p, danger_error.len);
+    cd_close();
+  }
+  cd_region_end(&danger);
+}
+
 void deck_after(void) {
   if (!langs_known) return;
   name_view();
   sub_build();
+  danger_view();
   ensure_notetypes();
   if (!notes_known || page_notes.offset != want_offset) ask_notes(0);
   rows_build();
@@ -484,8 +531,115 @@ void deck_note_removed(int64_t id) {
   refresh_decks();
 }
 
+/* ---- deleting the deck ---- */
+typedef struct { char *p; uint32_t len, cap; } line;
+static void put(line *l, const char *p, uint32_t n) {
+  if (l->len + n + 1 > l->cap) {
+    l->cap = (l->len + n + 1) * 2;
+    l->p = cd_realloc(l->p, l->cap);
+  }
+  __builtin_memcpy(l->p + l->len, p, n);
+  l->len += n;
+  l->p[l->len] = 0;
+}
+static void putz(line *l, const char *z) { put(l, z, zlen(z)); }
+static void put_count(line *l, uint32_t n, const char *one, const char *many) {
+  char d[12];
+  put(l, d, cd_fmt(d, (int32_t)n, 0, CD_UNIT_NONE));
+  putz(l, n == 1 ? one : many);
+}
+
+static void deck_delete_now(void *ctx) {
+  (void)ctx;
+  danger_state = DANGER_DELETING;
+  text_free(&danger_error);
+  danger_view();
+  char path[48] = "/decks/";
+  path[7 + id_dec(path + 7, deck_id)] = 0;
+  ask(M_DECK, T_DECK_DELETE, "DELETE", path, WIRE_NONE, 0);
+}
+
+/* The confirmation names the deck and says what goes with it, from the server's own count of what
+ * Anki's remove takes: its subdecks, the cards in them (and cards of theirs a filtered deck had
+ * borrowed), the notes left with no card. */
+static void deck_delete_ask(const wire_deck_summary *s) {
+  line title = {0, 0, 0}, body = {0, 0, 0};
+  putz(&title, "Delete “");
+  put(&title, s->name.p, s->name.len);
+  putz(&title, "”?");
+  putz(&body, "This deletes “");
+  put(&body, s->name.p, s->name.len);
+  putz(&body, "”");
+  if (s->subdecks == 1) putz(&body, " and its subdeck");
+  else if (s->subdecks) {
+    putz(&body, " and its ");
+    put_count(&body, s->subdecks, " subdeck", " subdecks");
+  }
+  if (!s->cards) {
+    putz(&body, s->subdecks ? ". There are no cards in them." : ". There are no cards in it.");
+  } else {
+    /* "with 1 card in it and the note it belongs to", "with the 6 cards in them and the 4 notes
+     * they belong to" */
+    putz(&body, ", with ");
+    if (s->cards == 1) putz(&body, "1 card");
+    else {
+      putz(&body, "the ");
+      put_count(&body, s->cards, " card", " cards");
+    }
+    putz(&body, s->subdecks ? " in them" : " in it");
+    if (s->notes) {
+      putz(&body, " and the ");
+      if (s->notes > 1) put_count(&body, s->notes, " note", " notes");
+      else putz(&body, "note");
+      putz(&body, s->cards == 1 ? " it belongs to" : " they belong to");
+    }
+    putz(&body, ".");
+  }
+  confirm_ask(title.p, body.p, body.len,
+              s->cards ? "Their review history goes too, on every device you sync with." : "It goes on every device you sync with.",
+              "Delete", deck_delete_now, 0);
+  cd_free(title.p);
+  cd_free(body.p);
+}
+
 void deck_answer(uint32_t token, uint32_t status, const uint8_t *p, uint32_t len) {
+  if (token == T_DECK_DELETE) {
+    /* answered even when the page went meanwhile: the deck list must not keep a deck that went */
+    wire_deck_removed r;
+    answer a = take(&h_write, WK_DECK_REMOVED, status, p, len, &r);
+    int here = shown && route == R_DECK && route_deck == deck_id;
+    danger_state = DANGER_IDLE;
+    if (a.ok) {
+      decks_drop_tree(r.id);
+      refresh_decks();
+      /* replace, not push: Back must not come back to a deck that is gone */
+      if (here) go_replace("/decks", 6);
+    } else if (a.status == 404) {
+      refresh_decks(); /* gone already: the page becomes "this deck no longer exists" */
+    } else if (here) {
+      char m[600];
+      text_set(&danger_error, m, answer_message(&a, m, sizeof m));
+      danger_view();
+    }
+    return;
+  }
   if (!shown) return;
+  if (token == T_DECK_SUMMARY) {
+    wire_deck_summary s;
+    answer a = take(&h_write, WK_DECK_SUMMARY, status, p, len, &s);
+    danger_state = DANGER_IDLE;
+    if (a.ok) {
+      danger_view();
+      deck_delete_ask(&s);
+    } else if (a.status == 404) {
+      refresh_decks();
+    } else {
+      char m[600];
+      text_set(&danger_error, m, answer_message(&a, m, sizeof m));
+      danger_view();
+    }
+    return;
+  }
   if (token == T_DELETE) {
     wire_note_changed c;
     answer a = take(&h_write, WK_NOTE_CHANGED, status, p, len, &c);
@@ -588,6 +742,17 @@ void deck_event(const cd_event_rec *e, uint32_t tag) {
     pending_delete = n->id;
     break;
   }
+  case A_DECK_DELETE: {
+    if (danger_state != DANGER_IDLE) break;
+    /* first what it would take, so the confirmation can say it exactly */
+    danger_state = DANGER_CHECKING;
+    text_free(&danger_error);
+    danger_view();
+    char path[48] = "/decks/";
+    path[7 + id_dec(path + 7, deck_id)] = 0;
+    ask(M_DECK, T_DECK_SUMMARY, "GET", path, WIRE_NONE, 0);
+    break;
+  }
   case A_RENAME:
     renaming = 1;
     rename_cancelled = 0;
@@ -619,4 +784,20 @@ void deck_event(const cd_event_rec *e, uint32_t tag) {
     break;
   }
   }
+}
+
+/* A deck page for a deck that is not in the list while the collection answers: deleted here, in
+ * Anki, or on another device and synced. Said, with the way back, rather than an empty page or a
+ * silent jump. Built as deck_build is, under page.root (div.deck-cards left open). */
+void deck_gone_build(void) {
+  el(CD_LIT("div"), CD_LIT("deck-cards"));
+  el(CD_LIT("div"), CD_LIT("deck-gone"));
+  el_text(CD_LIT("h1"), 0, CD_LIT("This deck no longer exists"));
+  el_text(CD_LIT("p"), 0, CD_LIT("It was deleted, here, in Anki, or on another device you sync with."));
+  el(CD_LIT("button"), CD_LIT("back-btn"));
+  cd_attr(CD_LIT("type"), CD_LIT("button"));
+  listen_click(TAG(M_DECK, A_BACK, 0));
+  cd_text(CD_LIT("← Decks"));
+  cd_close();
+  cd_close();
 }

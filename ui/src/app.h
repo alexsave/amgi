@@ -113,6 +113,7 @@ extern int installed;           /* -1 unknown, 0 no, 1 yes */
 int ready(void);                /* direct or bridge */
 const deck *deck_by_id(int64_t id);
 void refresh_decks(void);
+void decks_drop_tree(int64_t id);  /* a deck that was deleted, and its subdecks, out of the list now */
 void poll_status(void);
 void state_answer(uint32_t token, uint32_t status, const uint8_t *p, uint32_t len);
 void state_start(void);   /* the settings are loaded: poll, fetch, and keep polling */
@@ -161,6 +162,7 @@ extern int64_t route_deck;
 extern cd_id app_content;
 void go(const char *path, uint32_t len);
 void go_deck(int64_t id);
+void go_replace(const char *path, uint32_t len); /* as go, in place of the current history entry */
 void page_show(void);                     /* the screen for route, built again */
 cd_id page_root(void);                    /* the screen's root element, or 0 */
 
@@ -189,6 +191,7 @@ void deck_answer(uint32_t token, uint32_t status, const uint8_t *p, uint32_t len
 void deck_reload(void);                   /* the open page of notes, asked again */
 void deck_decks_changed(void);            /* the deck list changed (a rename, a count) */
 void deck_notetypes_known(void);
+void deck_gone_build(void);               /* the page of a deck that is not there (any more) */
 
 /* AudioChip: a chip is a button; chips are kept in a table by id so one plays at a time. */
 typedef struct { cd_id node; text filename; uint32_t tone; } chip_spec;
