@@ -126,6 +126,31 @@ try {
   check(msg && msg.endsWith(`(${path.join(ankiDir, 'addons21')})`), `Settings' install says where it went: ${msg}`);
   await sleep(300);
   await shot(b, '15-settings-installed');
+  // The card's pixels: the profile radio in the theme's red (not the browser's blue) and on the
+  // labels' left edge, and the "Installs into" path broken only after a slash, never inside a name.
+  const looks = await b.evaluate(`(() => {
+    const radio = document.querySelector('.settings-page input[type=radio]');
+    const profile = [...document.querySelectorAll('.preference-item > label')].find(l => l.textContent === 'Profile');
+    const probe = document.body.appendChild(document.createElement('i'));
+    probe.style.color = 'var(--flame-orange)';
+    const red = getComputedStyle(probe).color;
+    probe.remove();
+    const code = document.querySelector('.install-block code');
+    const text = code.textContent, breaks = [];
+    let walker = document.createTreeWalker(code, NodeFilter.SHOW_TEXT), top = null, prev = '';
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+      for (let i = 0; i < n.length; i++) {
+        const r = document.createRange(); r.setStart(n, i); r.setEnd(n, i + 1);
+        const t = Math.round(r.getBoundingClientRect().top);
+        if (top !== null && t > top) breaks.push(prev);
+        top = t; prev = n.data[i];
+      }
+    }
+    return { accent: getComputedStyle(radio).accentColor, red, radio: radio.getBoundingClientRect().left, label: profile.getBoundingClientRect().left, text, breaks };
+  })()`);
+  check(looks.accent === looks.red, `the profile radio is the theme's red (${looks.accent}, the theme ${looks.red})`);
+  check(Math.abs(looks.radio - looks.label) < 0.5, `the profile radio starts on the labels' left edge (${looks.radio} vs ${looks.label})`);
+  check(looks.breaks.every((c) => c === '/'), `the folder path breaks only after a slash (${looks.breaks.length} breaks, after ${JSON.stringify(looks.breaks.join(''))}: ${looks.text})`);
 
   // 5. The starter deck, on a server with no key: offered below the list, built, opened.
   if (keyless) {
