@@ -82,37 +82,37 @@
 > POST /api/anki/decks
 < 415 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="send the body as application/x-amgi-wire" notStarted=false dailyCap=false}
-< bytes 414d573200082800000073656e642074686520626f6479206173206170706c69636174696f6e2f782d616d67692d77697265ffffffff0000ffffffff
+< bytes 414d573200092800000073656e642074686520626f6479206173206170706c69636174696f6e2f782d616d67692d77697265ffffffff0000ffffffff
 == body with no type
 > POST /api/anki/decks
 < 415 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="send the body as application/x-amgi-wire" notStarted=false dailyCap=false}
-< bytes 414d573200082800000073656e642074686520626f6479206173206170706c69636174696f6e2f782d616d67692d77697265ffffffff0000ffffffff
+< bytes 414d573200092800000073656e642074686520626f6479206173206170706c69636174696f6e2f782d616d67692d77697265ffffffff0000ffffffff
 == body not wire
 > POST /api/anki/decks
 < 400 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="the body is not a whole message of its kind" notStarted=false dailyCap=false}
-< bytes 414d573200082b00000074686520626f6479206973206e6f7420612077686f6c65206d657373616765206f6620697473206b696e64ffffffff0000ffffffff
+< bytes 414d573200092b00000074686520626f6479206973206e6f7420612077686f6c65206d657373616765206f6620697473206b696e64ffffffff0000ffffffff
 == body of another kind
 > POST /api/anki/decks
 < 400 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="the body is not a whole message of its kind" notStarted=false dailyCap=false}
-< bytes 414d573200082b00000074686520626f6479206973206e6f7420612077686f6c65206d657373616765206f6620697473206b696e64ffffffff0000ffffffff
+< bytes 414d573200092b00000074686520626f6479206973206e6f7420612077686f6c65206d657373616765206f6620697473206b696e64ffffffff0000ffffffff
 == body with bytes after it
 > POST /api/anki/decks
 < 400 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="the body is not a whole message of its kind" notStarted=false dailyCap=false}
-< bytes 414d573200082b00000074686520626f6479206973206e6f7420612077686f6c65206d657373616765206f6620697473206b696e64ffffffff0000ffffffff
+< bytes 414d573200092b00000074686520626f6479206973206e6f7420612077686f6c65206d657373616765206f6620697473206b696e64ffffffff0000ffffffff
 == body cut short
 > POST /api/anki/decks
 < 400 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="the body is not a whole message of its kind" notStarted=false dailyCap=false}
-< bytes 414d573200082b00000074686520626f6479206973206e6f7420612077686f6c65206d657373616765206f6620697473206b696e64ffffffff0000ffffffff
+< bytes 414d573200092b00000074686520626f6479206973206e6f7420612077686f6c65206d657373616765206f6620697473206b696e64ffffffff0000ffffffff
 == empty body
 > POST /api/anki/decks
 < 400 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="the body is not a whole message of its kind" notStarted=false dailyCap=false}
-< bytes 414d573200082b00000074686520626f6479206973206e6f7420612077686f6c65206d657373616765206f6620697473206b696e64ffffffff0000ffffffff
+< bytes 414d573200092b00000074686520626f6479206973206e6f7420612077686f6c65206d657373616765206f6620697473206b696e64ffffffff0000ffffffff
 == wire type with parameters
 > POST /api/anki/decks
 < 200 content-type=application/x-amgi-wire cache-control=no-store
@@ -122,7 +122,7 @@
 > GET /api/anki/media/%E0%A4%A
 < 400 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="the clip name is not a valid name" notStarted=false dailyCap=false}
-< bytes 414d573200082100000074686520636c6970206e616d65206973206e6f7420612076616c6964206e616d65ffffffff0000ffffffff
+< bytes 414d573200092100000074686520636c6970206e616d65206973206e6f7420612076616c6964206e616d65ffffffff0000ffffffff
 == cross-origin GET
 > GET /api/anki/decks
 < 200 content-type=application/x-amgi-wire cache-control=no-store
@@ -377,6 +377,166 @@
 < 409 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="unsupported-schema" error="This collection uses a schema version amgi does not support yet." notStarted=false dailyCap=false}
 < bytes 414d57320004400000005468697320636f6c6c656374696f6e2075736573206120736368656d612076657273696f6e20616d676920646f6573206e6f7420737570706f7274207965742effffffff0000ffffffff
+== damaged: GET /api/anki/status
+> GET /api/anki/status
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< status {mode="damaged" schemaVersion=0 detail=""}
+< bytes 414d573201080000000000000000
+== damaged: GET /api/anki/decks
+> GET /api/anki/decks
+< 409 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="damaged" error="The collection file is damaged; amgi did not open it. Anki can restore it from one of its backups." notStarted=false dailyCap=false}
+< bytes 414d573200086200000054686520636f6c6c656374696f6e2066696c652069732064616d616765643b20616d676920646964206e6f74206f70656e2069742e20416e6b692063616e20726573746f72652069742066726f6d206f6e65206f6620697473206261636b7570732effffffff0000ffffffff
+== damaged: POST /api/anki/decks
+> POST /api/anki/decks
+< 409 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="damaged" error="The collection file is damaged; amgi did not open it. Anki can restore it from one of its backups." notStarted=false dailyCap=false}
+< bytes 414d573200086200000054686520636f6c6c656374696f6e2066696c652069732064616d616765643b20616d676920646964206e6f74206f70656e2069742e20416e6b692063616e20726573746f72652069742066726f6d206f6e65206f6620697473206261636b7570732effffffff0000ffffffff
+== damaged: GET /api/anki/decks/1
+> GET /api/anki/decks/1
+< 409 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="damaged" error="The collection file is damaged; amgi did not open it. Anki can restore it from one of its backups." notStarted=false dailyCap=false}
+< bytes 414d573200086200000054686520636f6c6c656374696f6e2066696c652069732064616d616765643b20616d676920646964206e6f74206f70656e2069742e20416e6b692063616e20726573746f72652069742066726f6d206f6e65206f6620697473206261636b7570732effffffff0000ffffffff
+== damaged: DELETE /api/anki/decks/2
+> DELETE /api/anki/decks/2
+< 409 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="damaged" error="The collection file is damaged; amgi did not open it. Anki can restore it from one of its backups." notStarted=false dailyCap=false}
+< bytes 414d573200086200000054686520636f6c6c656374696f6e2066696c652069732064616d616765643b20616d676920646964206e6f74206f70656e2069742e20416e6b692063616e20726573746f72652069742066726f6d206f6e65206f6620697473206261636b7570732effffffff0000ffffffff
+== damaged: GET /api/anki/notetypes
+> GET /api/anki/notetypes
+< 409 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="damaged" error="The collection file is damaged; amgi did not open it. Anki can restore it from one of its backups." notStarted=false dailyCap=false}
+< bytes 414d573200086200000054686520636f6c6c656374696f6e2066696c652069732064616d616765643b20616d676920646964206e6f74206f70656e2069742e20416e6b692063616e20726573746f72652069742066726f6d206f6e65206f6620697473206261636b7570732effffffff0000ffffffff
+== damaged: GET /api/anki/decks/1/notes
+> GET /api/anki/decks/1/notes
+< 409 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="damaged" error="The collection file is damaged; amgi did not open it. Anki can restore it from one of its backups." notStarted=false dailyCap=false}
+< bytes 414d573200086200000054686520636f6c6c656374696f6e2066696c652069732064616d616765643b20616d676920646964206e6f74206f70656e2069742e20416e6b692063616e20726573746f72652069742066726f6d206f6e65206f6620697473206261636b7570732effffffff0000ffffffff
+== damaged: GET /api/anki/decks/1/notes/field-values?notetypeId=1&fieldIndex=0
+> GET /api/anki/decks/1/notes/field-values?notetypeId=1&fieldIndex=0
+< 409 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="damaged" error="The collection file is damaged; amgi did not open it. Anki can restore it from one of its backups." notStarted=false dailyCap=false}
+< bytes 414d573200086200000054686520636f6c6c656374696f6e2066696c652069732064616d616765643b20616d676920646964206e6f74206f70656e2069742e20416e6b692063616e20726573746f72652069742066726f6d206f6e65206f6620697473206261636b7570732effffffff0000ffffffff
+== damaged: POST /api/anki/notes
+> POST /api/anki/notes
+< 409 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="damaged" error="The collection file is damaged; amgi did not open it. Anki can restore it from one of its backups." notStarted=false dailyCap=false}
+< bytes 414d573200086200000054686520636f6c6c656374696f6e2066696c652069732064616d616765643b20616d676920646964206e6f74206f70656e2069742e20416e6b692063616e20726573746f72652069742066726f6d206f6e65206f6620697473206261636b7570732effffffff0000ffffffff
+== damaged: POST /api/anki/notes/bulk
+> POST /api/anki/notes/bulk
+< 409 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="damaged" error="The collection file is damaged; amgi did not open it. Anki can restore it from one of its backups." notStarted=false dailyCap=false}
+< bytes 414d573200086200000054686520636f6c6c656374696f6e2066696c652069732064616d616765643b20616d676920646964206e6f74206f70656e2069742e20416e6b692063616e20726573746f72652069742066726f6d206f6e65206f6620697473206261636b7570732effffffff0000ffffffff
+== damaged: PATCH /api/anki/notes/1
+> PATCH /api/anki/notes/1
+< 409 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="damaged" error="The collection file is damaged; amgi did not open it. Anki can restore it from one of its backups." notStarted=false dailyCap=false}
+< bytes 414d573200086200000054686520636f6c6c656374696f6e2066696c652069732064616d616765643b20616d676920646964206e6f74206f70656e2069742e20416e6b692063616e20726573746f72652069742066726f6d206f6e65206f6620697473206261636b7570732effffffff0000ffffffff
+== damaged: DELETE /api/anki/notes/1
+> DELETE /api/anki/notes/1
+< 409 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="damaged" error="The collection file is damaged; amgi did not open it. Anki can restore it from one of its backups." notStarted=false dailyCap=false}
+< bytes 414d573200086200000054686520636f6c6c656374696f6e2066696c652069732064616d616765643b20616d676920646964206e6f74206f70656e2069742e20416e6b692063616e20726573746f72652069742066726f6d206f6e65206f6620697473206261636b7570732effffffff0000ffffffff
+== damaged: GET /api/anki/media/clip.ogg
+> GET /api/anki/media/clip.ogg
+< 409 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="damaged" error="The collection file is damaged; amgi did not open it. Anki can restore it from one of its backups." notStarted=false dailyCap=false}
+< bytes 414d573200086200000054686520636f6c6c656374696f6e2066696c652069732064616d616765643b20616d676920646964206e6f74206f70656e2069742e20416e6b692063616e20726573746f72652069742066726f6d206f6e65206f6620697473206261636b7570732effffffff0000ffffffff
+== damaged: POST /api/anki/card-text
+> POST /api/anki/card-text
+< 409 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="damaged" error="The collection file is damaged; amgi did not open it. Anki can restore it from one of its backups." notStarted=false dailyCap=false}
+< bytes 414d573200086200000054686520636f6c6c656374696f6e2066696c652069732064616d616765643b20616d676920646964206e6f74206f70656e2069742e20416e6b692063616e20726573746f72652069742066726f6d206f6e65206f6620697473206261636b7570732effffffff0000ffffffff
+== damaged: POST /api/anki/audio
+> POST /api/anki/audio
+< 409 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="damaged" error="The collection file is damaged; amgi did not open it. Anki can restore it from one of its backups." notStarted=false dailyCap=false}
+< bytes 414d573200086200000054686520636f6c6c656374696f6e2066696c652069732064616d616765643b20616d676920646964206e6f74206f70656e2069742e20416e6b692063616e20726573746f72652069742066726f6d206f6e65206f6620697473206261636b7570732effffffff0000ffffffff
+== damaged: POST /api/anki/starter
+> POST /api/anki/starter
+< 409 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="damaged" error="The collection file is damaged; amgi did not open it. Anki can restore it from one of its backups." notStarted=false dailyCap=false}
+< bytes 414d573200086200000054686520636f6c6c656374696f6e2066696c652069732064616d616765643b20616d676920646964206e6f74206f70656e2069742e20416e6b692063616e20726573746f72652069742066726f6d206f6e65206f6620697473206261636b7570732effffffff0000ffffffff
+== locked (a -wal beside it): GET /api/anki/status
+> GET /api/anki/status
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< status {mode="locked" schemaVersion=0 detail=""}
+< bytes 414d573201020000000000000000
+== locked (a -wal beside it): GET /api/anki/decks
+> GET /api/anki/decks
+< 409 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="locked" error="Anki is open on this collection and the local bridge is not reachable. Either close Anki, or turn on the bridge in Anki (Tools > amgi: Bridge status...) and paste its token into Settings." notStarted=false dailyCap=false}
+< bytes 414d57320002bb000000416e6b69206973206f70656e206f6e207468697320636f6c6c656374696f6e20616e6420746865206c6f63616c20627269646765206973206e6f7420726561636861626c652e2045697468657220636c6f736520416e6b692c206f72207475726e206f6e207468652062726964676520696e20416e6b692028546f6f6c73203e20616d67693a20427269646765207374617475732e2e2e2920616e642070617374652069747320746f6b656e20696e746f2053657474696e67732effffffff0000ffffffff
+== locked (a -wal beside it): POST /api/anki/decks
+> POST /api/anki/decks
+< 409 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="locked" error="Anki is open on this collection and the local bridge is not reachable. Either close Anki, or turn on the bridge in Anki (Tools > amgi: Bridge status...) and paste its token into Settings." notStarted=false dailyCap=false}
+< bytes 414d57320002bb000000416e6b69206973206f70656e206f6e207468697320636f6c6c656374696f6e20616e6420746865206c6f63616c20627269646765206973206e6f7420726561636861626c652e2045697468657220636c6f736520416e6b692c206f72207475726e206f6e207468652062726964676520696e20416e6b692028546f6f6c73203e20616d67693a20427269646765207374617475732e2e2e2920616e642070617374652069747320746f6b656e20696e746f2053657474696e67732effffffff0000ffffffff
+== locked (a -wal beside it): GET /api/anki/decks/1
+> GET /api/anki/decks/1
+< 409 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="locked" error="Anki is open on this collection and the local bridge is not reachable. Either close Anki, or turn on the bridge in Anki (Tools > amgi: Bridge status...) and paste its token into Settings." notStarted=false dailyCap=false}
+< bytes 414d57320002bb000000416e6b69206973206f70656e206f6e207468697320636f6c6c656374696f6e20616e6420746865206c6f63616c20627269646765206973206e6f7420726561636861626c652e2045697468657220636c6f736520416e6b692c206f72207475726e206f6e207468652062726964676520696e20416e6b692028546f6f6c73203e20616d67693a20427269646765207374617475732e2e2e2920616e642070617374652069747320746f6b656e20696e746f2053657474696e67732effffffff0000ffffffff
+== locked (a -wal beside it): DELETE /api/anki/decks/2
+> DELETE /api/anki/decks/2
+< 409 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="locked" error="Anki is open on this collection and the local bridge is not reachable. Either close Anki, or turn on the bridge in Anki (Tools > amgi: Bridge status...) and paste its token into Settings." notStarted=false dailyCap=false}
+< bytes 414d57320002bb000000416e6b69206973206f70656e206f6e207468697320636f6c6c656374696f6e20616e6420746865206c6f63616c20627269646765206973206e6f7420726561636861626c652e2045697468657220636c6f736520416e6b692c206f72207475726e206f6e207468652062726964676520696e20416e6b692028546f6f6c73203e20616d67693a20427269646765207374617475732e2e2e2920616e642070617374652069747320746f6b656e20696e746f2053657474696e67732effffffff0000ffffffff
+== locked (a -wal beside it): GET /api/anki/notetypes
+> GET /api/anki/notetypes
+< 409 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="locked" error="Anki is open on this collection and the local bridge is not reachable. Either close Anki, or turn on the bridge in Anki (Tools > amgi: Bridge status...) and paste its token into Settings." notStarted=false dailyCap=false}
+< bytes 414d57320002bb000000416e6b69206973206f70656e206f6e207468697320636f6c6c656374696f6e20616e6420746865206c6f63616c20627269646765206973206e6f7420726561636861626c652e2045697468657220636c6f736520416e6b692c206f72207475726e206f6e207468652062726964676520696e20416e6b692028546f6f6c73203e20616d67693a20427269646765207374617475732e2e2e2920616e642070617374652069747320746f6b656e20696e746f2053657474696e67732effffffff0000ffffffff
+== locked (a -wal beside it): GET /api/anki/decks/1/notes
+> GET /api/anki/decks/1/notes
+< 409 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="locked" error="Anki is open on this collection and the local bridge is not reachable. Either close Anki, or turn on the bridge in Anki (Tools > amgi: Bridge status...) and paste its token into Settings." notStarted=false dailyCap=false}
+< bytes 414d57320002bb000000416e6b69206973206f70656e206f6e207468697320636f6c6c656374696f6e20616e6420746865206c6f63616c20627269646765206973206e6f7420726561636861626c652e2045697468657220636c6f736520416e6b692c206f72207475726e206f6e207468652062726964676520696e20416e6b692028546f6f6c73203e20616d67693a20427269646765207374617475732e2e2e2920616e642070617374652069747320746f6b656e20696e746f2053657474696e67732effffffff0000ffffffff
+== locked (a -wal beside it): GET /api/anki/decks/1/notes/field-values?notetypeId=1&fieldIndex=0
+> GET /api/anki/decks/1/notes/field-values?notetypeId=1&fieldIndex=0
+< 409 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="locked" error="Anki is open on this collection and the local bridge is not reachable. Either close Anki, or turn on the bridge in Anki (Tools > amgi: Bridge status...) and paste its token into Settings." notStarted=false dailyCap=false}
+< bytes 414d57320002bb000000416e6b69206973206f70656e206f6e207468697320636f6c6c656374696f6e20616e6420746865206c6f63616c20627269646765206973206e6f7420726561636861626c652e2045697468657220636c6f736520416e6b692c206f72207475726e206f6e207468652062726964676520696e20416e6b692028546f6f6c73203e20616d67693a20427269646765207374617475732e2e2e2920616e642070617374652069747320746f6b656e20696e746f2053657474696e67732effffffff0000ffffffff
+== locked (a -wal beside it): POST /api/anki/notes
+> POST /api/anki/notes
+< 409 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="locked" error="Anki is open on this collection and the local bridge is not reachable. Either close Anki, or turn on the bridge in Anki (Tools > amgi: Bridge status...) and paste its token into Settings." notStarted=false dailyCap=false}
+< bytes 414d57320002bb000000416e6b69206973206f70656e206f6e207468697320636f6c6c656374696f6e20616e6420746865206c6f63616c20627269646765206973206e6f7420726561636861626c652e2045697468657220636c6f736520416e6b692c206f72207475726e206f6e207468652062726964676520696e20416e6b692028546f6f6c73203e20616d67693a20427269646765207374617475732e2e2e2920616e642070617374652069747320746f6b656e20696e746f2053657474696e67732effffffff0000ffffffff
+== locked (a -wal beside it): POST /api/anki/notes/bulk
+> POST /api/anki/notes/bulk
+< 409 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="locked" error="Anki is open on this collection and the local bridge is not reachable. Either close Anki, or turn on the bridge in Anki (Tools > amgi: Bridge status...) and paste its token into Settings." notStarted=false dailyCap=false}
+< bytes 414d57320002bb000000416e6b69206973206f70656e206f6e207468697320636f6c6c656374696f6e20616e6420746865206c6f63616c20627269646765206973206e6f7420726561636861626c652e2045697468657220636c6f736520416e6b692c206f72207475726e206f6e207468652062726964676520696e20416e6b692028546f6f6c73203e20616d67693a20427269646765207374617475732e2e2e2920616e642070617374652069747320746f6b656e20696e746f2053657474696e67732effffffff0000ffffffff
+== locked (a -wal beside it): PATCH /api/anki/notes/1
+> PATCH /api/anki/notes/1
+< 409 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="locked" error="Anki is open on this collection and the local bridge is not reachable. Either close Anki, or turn on the bridge in Anki (Tools > amgi: Bridge status...) and paste its token into Settings." notStarted=false dailyCap=false}
+< bytes 414d57320002bb000000416e6b69206973206f70656e206f6e207468697320636f6c6c656374696f6e20616e6420746865206c6f63616c20627269646765206973206e6f7420726561636861626c652e2045697468657220636c6f736520416e6b692c206f72207475726e206f6e207468652062726964676520696e20416e6b692028546f6f6c73203e20616d67693a20427269646765207374617475732e2e2e2920616e642070617374652069747320746f6b656e20696e746f2053657474696e67732effffffff0000ffffffff
+== locked (a -wal beside it): DELETE /api/anki/notes/1
+> DELETE /api/anki/notes/1
+< 409 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="locked" error="Anki is open on this collection and the local bridge is not reachable. Either close Anki, or turn on the bridge in Anki (Tools > amgi: Bridge status...) and paste its token into Settings." notStarted=false dailyCap=false}
+< bytes 414d57320002bb000000416e6b69206973206f70656e206f6e207468697320636f6c6c656374696f6e20616e6420746865206c6f63616c20627269646765206973206e6f7420726561636861626c652e2045697468657220636c6f736520416e6b692c206f72207475726e206f6e207468652062726964676520696e20416e6b692028546f6f6c73203e20616d67693a20427269646765207374617475732e2e2e2920616e642070617374652069747320746f6b656e20696e746f2053657474696e67732effffffff0000ffffffff
+== locked (a -wal beside it): GET /api/anki/media/clip.ogg
+> GET /api/anki/media/clip.ogg
+< 409 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="locked" error="Anki is open on this collection and the local bridge is not reachable. Either close Anki, or turn on the bridge in Anki (Tools > amgi: Bridge status...) and paste its token into Settings." notStarted=false dailyCap=false}
+< bytes 414d57320002bb000000416e6b69206973206f70656e206f6e207468697320636f6c6c656374696f6e20616e6420746865206c6f63616c20627269646765206973206e6f7420726561636861626c652e2045697468657220636c6f736520416e6b692c206f72207475726e206f6e207468652062726964676520696e20416e6b692028546f6f6c73203e20616d67693a20427269646765207374617475732e2e2e2920616e642070617374652069747320746f6b656e20696e746f2053657474696e67732effffffff0000ffffffff
+== locked (a -wal beside it): POST /api/anki/card-text
+> POST /api/anki/card-text
+< 409 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="locked" error="Anki is open on this collection and the local bridge is not reachable. Either close Anki, or turn on the bridge in Anki (Tools > amgi: Bridge status...) and paste its token into Settings." notStarted=false dailyCap=false}
+< bytes 414d57320002bb000000416e6b69206973206f70656e206f6e207468697320636f6c6c656374696f6e20616e6420746865206c6f63616c20627269646765206973206e6f7420726561636861626c652e2045697468657220636c6f736520416e6b692c206f72207475726e206f6e207468652062726964676520696e20416e6b692028546f6f6c73203e20616d67693a20427269646765207374617475732e2e2e2920616e642070617374652069747320746f6b656e20696e746f2053657474696e67732effffffff0000ffffffff
+== locked (a -wal beside it): POST /api/anki/audio
+> POST /api/anki/audio
+< 409 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="locked" error="Anki is open on this collection and the local bridge is not reachable. Either close Anki, or turn on the bridge in Anki (Tools > amgi: Bridge status...) and paste its token into Settings." notStarted=false dailyCap=false}
+< bytes 414d57320002bb000000416e6b69206973206f70656e206f6e207468697320636f6c6c656374696f6e20616e6420746865206c6f63616c20627269646765206973206e6f7420726561636861626c652e2045697468657220636c6f736520416e6b692c206f72207475726e206f6e207468652062726964676520696e20416e6b692028546f6f6c73203e20616d67693a20427269646765207374617475732e2e2e2920616e642070617374652069747320746f6b656e20696e746f2053657474696e67732effffffff0000ffffffff
+== locked (a -wal beside it): POST /api/anki/starter
+> POST /api/anki/starter
+< 409 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="locked" error="Anki is open on this collection and the local bridge is not reachable. Either close Anki, or turn on the bridge in Anki (Tools > amgi: Bridge status...) and paste its token into Settings." notStarted=false dailyCap=false}
+< bytes 414d57320002bb000000416e6b69206973206f70656e206f6e207468697320636f6c6c656374696f6e20616e6420746865206c6f63616c20627269646765206973206e6f7420726561636861626c652e2045697468657220636c6f736520416e6b692c206f72207475726e206f6e207468652062726964676520696e20416e6b692028546f6f6c73203e20616d67693a20427269646765207374617475732e2e2e2920616e642070617374652069747320746f6b656e20696e746f2053657474696e67732effffffff0000ffffffff
 == malformed escape: GET /api/anki/status
 > GET /api/anki/status
 < 200 content-type=application/x-amgi-wire cache-control=no-store
@@ -595,22 +755,22 @@
 > GET /api/anki/decks/1794170430284/notes/field-values
 < 400 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="notetypeId and fieldIndex must be given, as a whole number" notStarted=false dailyCap=false}
-< bytes 414d573200083a0000006e6f746574797065496420616e64206669656c64496e646578206d75737420626520676976656e2c20617320612077686f6c65206e756d626572ffffffff0000ffffffff
+< bytes 414d573200093a0000006e6f746574797065496420616e64206669656c64496e646578206d75737420626520676976656e2c20617320612077686f6c65206e756d626572ffffffff0000ffffffff
 == s18 field values ?notetypeId=abc&fieldIndex=0
 > GET /api/anki/decks/1794170430284/notes/field-values?notetypeId=abc&fieldIndex=0
 < 400 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="notetypeId must be given, as a whole number" notStarted=false dailyCap=false}
-< bytes 414d573200082b0000006e6f7465747970654964206d75737420626520676976656e2c20617320612077686f6c65206e756d626572ffffffff0000ffffffff
+< bytes 414d573200092b0000006e6f7465747970654964206d75737420626520676976656e2c20617320612077686f6c65206e756d626572ffffffff0000ffffffff
 == s18 field values ?notetypeId=Basic&fieldIndex=1.5
 > GET /api/anki/decks/1794170430284/notes/field-values?notetypeId=1794170430283&fieldIndex=1.5
 < 400 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="fieldIndex must be given, as a whole number" notStarted=false dailyCap=false}
-< bytes 414d573200082b0000006669656c64496e646578206d75737420626520676976656e2c20617320612077686f6c65206e756d626572ffffffff0000ffffffff
+< bytes 414d573200092b0000006669656c64496e646578206d75737420626520676976656e2c20617320612077686f6c65206e756d626572ffffffff0000ffffffff
 == s18 field values ?notetypeId=Basic
 > GET /api/anki/decks/1794170430284/notes/field-values?notetypeId=1794170430283
 < 400 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="fieldIndex must be given, as a whole number" notStarted=false dailyCap=false}
-< bytes 414d573200082b0000006669656c64496e646578206d75737420626520676976656e2c20617320612077686f6c65206e756d626572ffffffff0000ffffffff
+< bytes 414d573200092b0000006669656c64496e646578206d75737420626520676976656e2c20617320612077686f6c65206e756d626572ffffffff0000ffffffff
 == s18 field values ?notetypeId=Basic&fieldIndex=9
 > GET /api/anki/decks/1794170430284/notes/field-values?notetypeId=1794170430283&fieldIndex=9
 < 200 content-type=application/x-amgi-wire cache-control=no-store
@@ -630,12 +790,12 @@
 > POST /api/anki/decks
 < 400 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="a deck name is required" notStarted=false dailyCap=false}
-< bytes 414d573200081700000061206465636b206e616d65206973207265717569726564ffffffff0000ffffffff
+< bytes 414d573200091700000061206465636b206e616d65206973207265717569726564ffffffff0000ffffffff
 == s18 create deck, no name
 > POST /api/anki/decks
 < 400 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="a deck name is required" notStarted=false dailyCap=false}
-< bytes 414d573200081700000061206465636b206e616d65206973207265717569726564ffffffff0000ffffffff
+< bytes 414d573200091700000061206465636b206e616d65206973207265717569726564ffffffff0000ffffffff
 == s18 rename deck
 > PATCH /api/anki/decks/10000003
 < 200 content-type=application/x-amgi-wire cache-control=no-store
@@ -645,17 +805,17 @@
 > PATCH /api/anki/decks/10000003
 < 400 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="a deck called \"Existing\" already exists" notStarted=false dailyCap=false}
-< bytes 414d573200082700000061206465636b2063616c6c656420224578697374696e672220616c726561647920657869737473ffffffff0000ffffffff
+< bytes 414d573200092700000061206465636b2063616c6c656420224578697374696e672220616c726561647920657869737473ffffffff0000ffffffff
 == s18 rename deck, blank name
 > PATCH /api/anki/decks/10000003
 < 400 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="name is required" notStarted=false dailyCap=false}
-< bytes 414d57320008100000006e616d65206973207265717569726564ffffffff0000ffffffff
+< bytes 414d57320009100000006e616d65206973207265717569726564ffffffff0000ffffffff
 == s18 rename a deck not there
 > PATCH /api/anki/decks/999
 < 400 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="no deck with id 999 in this collection" notStarted=false dailyCap=false}
-< bytes 414d57320008260000006e6f206465636b20776974682069642039393920696e207468697320636f6c6c656374696f6effffffff0000ffffffff
+< bytes 414d57320009260000006e6f206465636b20776974682069642039393920696e207468697320636f6c6c656374696f6effffffff0000ffffffff
 == s18 add note
 > POST /api/anki/notes
 < 200 content-type=application/x-amgi-wire cache-control=no-store
@@ -670,22 +830,22 @@
 > POST /api/anki/notes
 < 400 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="deckId, notetypeId and fields are required" notStarted=false dailyCap=false}
-< bytes 414d573200082a0000006465636b49642c206e6f746574797065496420616e64206669656c647320617265207265717569726564ffffffff0000ffffffff
+< bytes 414d573200092a0000006465636b49642c206e6f746574797065496420616e64206669656c647320617265207265717569726564ffffffff0000ffffffff
 == s18 add note, no note type
 > POST /api/anki/notes
 < 400 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="deckId, notetypeId and fields are required" notStarted=false dailyCap=false}
-< bytes 414d573200082a0000006465636b49642c206e6f746574797065496420616e64206669656c647320617265207265717569726564ffffffff0000ffffffff
+< bytes 414d573200092a0000006465636b49642c206e6f746574797065496420616e64206669656c647320617265207265717569726564ffffffff0000ffffffff
 == s18 add note, no fields
 > POST /api/anki/notes
 < 400 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="note type \"Basic\" has 2 fields, got 0" notStarted=false dailyCap=false}
-< bytes 414d57320008250000006e6f746520747970652022426173696322206861732032206669656c64732c20676f742030ffffffff0000ffffffff
+< bytes 414d57320009250000006e6f746520747970652022426173696322206861732032206669656c64732c20676f742030ffffffff0000ffffffff
 == s18 add note, unknown note type
 > POST /api/anki/notes
 < 400 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="no note type with id 42 in this collection" notStarted=false dailyCap=false}
-< bytes 414d573200082a0000006e6f206e6f74652074797065207769746820696420343220696e207468697320636f6c6c656374696f6effffffff0000ffffffff
+< bytes 414d573200092a0000006e6f206e6f74652074797065207769746820696420343220696e207468697320636f6c6c656374696f6effffffff0000ffffffff
 == s18 bulk add
 > POST /api/anki/notes/bulk
 < 200 content-type=application/x-amgi-wire cache-control=no-store
@@ -695,12 +855,12 @@
 > POST /api/anki/notes/bulk
 < 400 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="notes must be a non-empty array" notStarted=false dailyCap=false}
-< bytes 414d573200081f0000006e6f746573206d7573742062652061206e6f6e2d656d707479206172726179ffffffff0000ffffffff
+< bytes 414d573200091f0000006e6f746573206d7573742062652061206e6f6e2d656d707479206172726179ffffffff0000ffffffff
 == s18 bulk add, a note with no deck
 > POST /api/anki/notes/bulk
 < 400 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="each note requires deckId, notetypeId and fields" notStarted=false dailyCap=false}
-< bytes 414d573200083000000065616368206e6f7465207265717569726573206465636b49642c206e6f746574797065496420616e64206669656c6473ffffffff0000ffffffff
+< bytes 414d573200093000000065616368206e6f7465207265717569726573206465636b49642c206e6f746574797065496420616e64206669656c6473ffffffff0000ffffffff
 == s18 edit note
 > PATCH /api/anki/notes/30000001
 < 200 content-type=application/x-amgi-wire cache-control=no-store
@@ -715,12 +875,12 @@
 > PATCH /api/anki/notes/30000001
 < 400 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="note type \"Basic\" has 2 fields, got 1" notStarted=false dailyCap=false}
-< bytes 414d57320008250000006e6f746520747970652022426173696322206861732032206669656c64732c20676f742031ffffffff0000ffffffff
+< bytes 414d57320009250000006e6f746520747970652022426173696322206861732032206669656c64732c20676f742031ffffffff0000ffffffff
 == s18 edit a note not there
 > PATCH /api/anki/notes/999
 < 400 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="no note with id 999 in this collection" notStarted=false dailyCap=false}
-< bytes 414d57320008260000006e6f206e6f746520776974682069642039393920696e207468697320636f6c6c656374696f6effffffff0000ffffffff
+< bytes 414d57320009260000006e6f206e6f746520776974682069642039393920696e207468697320636f6c6c656374696f6effffffff0000ffffffff
 == s18 notes after the edits
 > GET /api/anki/decks/10000003/notes
 < 200 content-type=application/x-amgi-wire cache-control=no-store
@@ -735,7 +895,7 @@
 > DELETE /api/anki/notes/30000001
 < 400 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="no note with id 30000001 in this collection" notStarted=false dailyCap=false}
-< bytes 414d573200082b0000006e6f206e6f7465207769746820696420333030303030303120696e207468697320636f6c6c656374696f6effffffff0000ffffffff
+< bytes 414d573200092b0000006e6f206e6f7465207769746820696420333030303030303120696e207468697320636f6c6c656374696f6effffffff0000ffffffff
 == s18 clip
 > GET /api/anki/media/clip.ogg
 < 200 content-type=audio/ogg cache-control=private, max-age=31536000, immutable
@@ -796,17 +956,17 @@
 > GET /api/anki/decks/999
 < 404 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="This deck no longer exists." notStarted=false dailyCap=false}
-< bytes 414d573200081b00000054686973206465636b206e6f206c6f6e676572206578697374732effffffff0000ffffffff
+< bytes 414d573200091b00000054686973206465636b206e6f206c6f6e676572206578697374732effffffff0000ffffffff
 == s18 deck summary, id not a number
 > GET /api/anki/decks/abc
 < 404 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="This deck no longer exists." notStarted=false dailyCap=false}
-< bytes 414d573200081b00000054686973206465636b206e6f206c6f6e676572206578697374732effffffff0000ffffffff
+< bytes 414d573200091b00000054686973206465636b206e6f206c6f6e676572206578697374732effffffff0000ffffffff
 == s18 delete Default
 > DELETE /api/anki/decks/1
 < 400 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="The Default deck cannot be deleted: Anki keeps it, and would only empty it." notStarted=false dailyCap=false}
-< bytes 414d573200084b0000005468652044656661756c74206465636b2063616e6e6f742062652064656c657465643a20416e6b69206b656570732069742c20616e6420776f756c64206f6e6c7920656d7074792069742effffffff0000ffffffff
+< bytes 414d573200094b0000005468652044656661756c74206465636b2063616e6e6f742062652064656c657465643a20416e6b69206b656570732069742c20616e6420776f756c64206f6e6c7920656d7074792069742effffffff0000ffffffff
 == s18 delete filtered
 > DELETE /api/anki/decks/1794170430294
 < 200 content-type=application/x-amgi-wire cache-control=no-store
@@ -821,7 +981,7 @@
 > DELETE /api/anki/decks/1794170430284
 < 404 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="This deck no longer exists." notStarted=false dailyCap=false}
-< bytes 414d573200081b00000054686973206465636b206e6f206c6f6e676572206578697374732effffffff0000ffffffff
+< bytes 414d573200091b00000054686973206465636b206e6f206c6f6e676572206578697374732effffffff0000ffffffff
 == s18 decks at the end
 > GET /api/anki/decks
 < 200 content-type=application/x-amgi-wire cache-control=no-store
@@ -846,7 +1006,7 @@
 > POST /api/anki/install
 < 409 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="No Anki data folder at <base>/nowhere. Install Anki and open it once, then try again." notStarted=false dailyCap=false}
-< bytes 414d57320008550000004e6f20416e6b69206461746120666f6c646572206174203c626173653e2f6e6f77686572652e20496e7374616c6c20416e6b6920616e64206f70656e206974206f6e63652c207468656e2074727920616761696e2effffffff0000ffffffff
+< bytes 414d57320009550000004e6f20416e6b69206461746120666f6c646572206174203c626173653e2f6e6f77686572652e20496e7374616c6c20416e6b6920616e64206f70656e206974206f6e63652c207468656e2074727920616761696e2effffffff0000ffffffff
 == s18 install state, folder not there
 > GET /api/anki/install
 < 200 content-type=application/x-amgi-wire cache-control=no-store
@@ -866,17 +1026,17 @@
 > POST /api/anki/starter
 < 400 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="Pick two different languages." notStarted=false dailyCap=false}
-< bytes 414d573200081d0000005069636b2074776f20646966666572656e74206c616e6775616765732effffffff0000ffffffff
+< bytes 414d573200091d0000005069636b2074776f20646966666572656e74206c616e6775616765732effffffff0000ffffffff
 == s18 starter, unknown pair
 > POST /api/anki/starter
 < 400 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="amgi has no starter phrases for that pair of languages." notStarted=false dailyCap=false}
-< bytes 414d5732000837000000616d676920686173206e6f2073746172746572207068726173657320666f7220746861742070616972206f66206c616e6775616765732effffffff0000ffffffff
+< bytes 414d5732000937000000616d676920686173206e6f2073746172746572207068726173657320666f7220746861742070616972206f66206c616e6775616765732effffffff0000ffffffff
 == s18 starter, no languages
 > POST /api/anki/starter
 < 400 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="known and learning languages are required" notStarted=false dailyCap=false}
-< bytes 414d57320008290000006b6e6f776e20616e64206c6561726e696e67206c616e67756167657320617265207265717569726564ffffffff0000ffffffff
+< bytes 414d57320009290000006b6e6f776e20616e64206c6561726e696e67206c616e67756167657320617265207265717569726564ffffffff0000ffffffff
 == s18 starter state
 > GET /api/anki/starter
 < 200 content-type=application/x-amgi-wire cache-control=no-store
@@ -886,22 +1046,22 @@
 > POST /api/anki/card-text
 < 400 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="userInput, knownLanguage and learningLanguage are required" notStarted=false dailyCap=false}
-< bytes 414d573200083a00000075736572496e7075742c206b6e6f776e4c616e677561676520616e64206c6561726e696e674c616e677561676520617265207265717569726564ffffffff0000ffffffff
+< bytes 414d573200093a00000075736572496e7075742c206b6e6f776e4c616e677561676520616e64206c6561726e696e674c616e677561676520617265207265717569726564ffffffff0000ffffffff
 == s18 card text, no language
 > POST /api/anki/card-text
 < 400 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="userInput, knownLanguage and learningLanguage are required" notStarted=false dailyCap=false}
-< bytes 414d573200083a00000075736572496e7075742c206b6e6f776e4c616e677561676520616e64206c6561726e696e674c616e677561676520617265207265717569726564ffffffff0000ffffffff
+< bytes 414d573200093a00000075736572496e7075742c206b6e6f776e4c616e677561676520616e64206c6561726e696e674c616e677561676520617265207265717569726564ffffffff0000ffffffff
 == s18 audio, no text
 > POST /api/anki/audio
 < 400 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="text and language are required" notStarted=false dailyCap=false}
-< bytes 414d573200081e0000007465787420616e64206c616e677561676520617265207265717569726564ffffffff0000ffffffff
+< bytes 414d573200091e0000007465787420616e64206c616e677561676520617265207265717569726564ffffffff0000ffffffff
 == s18 audio, no language
 > POST /api/anki/audio
 < 400 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="text and language are required" notStarted=false dailyCap=false}
-< bytes 414d573200081e0000007465787420616e64206c616e677561676520617265207265717569726564ffffffff0000ffffffff
+< bytes 414d573200091e0000007465787420616e64206c616e677561676520617265207265717569726564ffffffff0000ffffffff
 == s11 status
 > GET /api/anki/status
 < 200 content-type=application/x-amgi-wire cache-control=no-store
@@ -980,22 +1140,22 @@
 > GET /api/anki/decks/1794170430303/notes/field-values
 < 400 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="notetypeId and fieldIndex must be given, as a whole number" notStarted=false dailyCap=false}
-< bytes 414d573200083a0000006e6f746574797065496420616e64206669656c64496e646578206d75737420626520676976656e2c20617320612077686f6c65206e756d626572ffffffff0000ffffffff
+< bytes 414d573200093a0000006e6f746574797065496420616e64206669656c64496e646578206d75737420626520676976656e2c20617320612077686f6c65206e756d626572ffffffff0000ffffffff
 == s11 field values ?notetypeId=abc&fieldIndex=0
 > GET /api/anki/decks/1794170430303/notes/field-values?notetypeId=abc&fieldIndex=0
 < 400 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="notetypeId must be given, as a whole number" notStarted=false dailyCap=false}
-< bytes 414d573200082b0000006e6f7465747970654964206d75737420626520676976656e2c20617320612077686f6c65206e756d626572ffffffff0000ffffffff
+< bytes 414d573200092b0000006e6f7465747970654964206d75737420626520676976656e2c20617320612077686f6c65206e756d626572ffffffff0000ffffffff
 == s11 field values ?notetypeId=Basic&fieldIndex=1.5
 > GET /api/anki/decks/1794170430303/notes/field-values?notetypeId=1794170430302&fieldIndex=1.5
 < 400 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="fieldIndex must be given, as a whole number" notStarted=false dailyCap=false}
-< bytes 414d573200082b0000006669656c64496e646578206d75737420626520676976656e2c20617320612077686f6c65206e756d626572ffffffff0000ffffffff
+< bytes 414d573200092b0000006669656c64496e646578206d75737420626520676976656e2c20617320612077686f6c65206e756d626572ffffffff0000ffffffff
 == s11 field values ?notetypeId=Basic
 > GET /api/anki/decks/1794170430303/notes/field-values?notetypeId=1794170430302
 < 400 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="fieldIndex must be given, as a whole number" notStarted=false dailyCap=false}
-< bytes 414d573200082b0000006669656c64496e646578206d75737420626520676976656e2c20617320612077686f6c65206e756d626572ffffffff0000ffffffff
+< bytes 414d573200092b0000006669656c64496e646578206d75737420626520676976656e2c20617320612077686f6c65206e756d626572ffffffff0000ffffffff
 == s11 field values ?notetypeId=Basic&fieldIndex=9
 > GET /api/anki/decks/1794170430303/notes/field-values?notetypeId=1794170430302&fieldIndex=9
 < 200 content-type=application/x-amgi-wire cache-control=no-store
@@ -1015,12 +1175,12 @@
 > POST /api/anki/decks
 < 400 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="a deck name is required" notStarted=false dailyCap=false}
-< bytes 414d573200081700000061206465636b206e616d65206973207265717569726564ffffffff0000ffffffff
+< bytes 414d573200091700000061206465636b206e616d65206973207265717569726564ffffffff0000ffffffff
 == s11 create deck, no name
 > POST /api/anki/decks
 < 400 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="a deck name is required" notStarted=false dailyCap=false}
-< bytes 414d573200081700000061206465636b206e616d65206973207265717569726564ffffffff0000ffffffff
+< bytes 414d573200091700000061206465636b206e616d65206973207265717569726564ffffffff0000ffffffff
 == s11 rename deck
 > PATCH /api/anki/decks/10000007
 < 200 content-type=application/x-amgi-wire cache-control=no-store
@@ -1030,17 +1190,17 @@
 > PATCH /api/anki/decks/10000007
 < 400 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="a deck called \"Existing\" already exists" notStarted=false dailyCap=false}
-< bytes 414d573200082700000061206465636b2063616c6c656420224578697374696e672220616c726561647920657869737473ffffffff0000ffffffff
+< bytes 414d573200092700000061206465636b2063616c6c656420224578697374696e672220616c726561647920657869737473ffffffff0000ffffffff
 == s11 rename deck, blank name
 > PATCH /api/anki/decks/10000007
 < 400 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="name is required" notStarted=false dailyCap=false}
-< bytes 414d57320008100000006e616d65206973207265717569726564ffffffff0000ffffffff
+< bytes 414d57320009100000006e616d65206973207265717569726564ffffffff0000ffffffff
 == s11 rename a deck not there
 > PATCH /api/anki/decks/999
 < 400 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="no deck with id 999 in this collection" notStarted=false dailyCap=false}
-< bytes 414d57320008260000006e6f206465636b20776974682069642039393920696e207468697320636f6c6c656374696f6effffffff0000ffffffff
+< bytes 414d57320009260000006e6f206465636b20776974682069642039393920696e207468697320636f6c6c656374696f6effffffff0000ffffffff
 == s11 add note
 > POST /api/anki/notes
 < 200 content-type=application/x-amgi-wire cache-control=no-store
@@ -1055,22 +1215,22 @@
 > POST /api/anki/notes
 < 400 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="deckId, notetypeId and fields are required" notStarted=false dailyCap=false}
-< bytes 414d573200082a0000006465636b49642c206e6f746574797065496420616e64206669656c647320617265207265717569726564ffffffff0000ffffffff
+< bytes 414d573200092a0000006465636b49642c206e6f746574797065496420616e64206669656c647320617265207265717569726564ffffffff0000ffffffff
 == s11 add note, no note type
 > POST /api/anki/notes
 < 400 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="deckId, notetypeId and fields are required" notStarted=false dailyCap=false}
-< bytes 414d573200082a0000006465636b49642c206e6f746574797065496420616e64206669656c647320617265207265717569726564ffffffff0000ffffffff
+< bytes 414d573200092a0000006465636b49642c206e6f746574797065496420616e64206669656c647320617265207265717569726564ffffffff0000ffffffff
 == s11 add note, no fields
 > POST /api/anki/notes
 < 400 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="note type \"Basic\" has 2 fields, got 0" notStarted=false dailyCap=false}
-< bytes 414d57320008250000006e6f746520747970652022426173696322206861732032206669656c64732c20676f742030ffffffff0000ffffffff
+< bytes 414d57320009250000006e6f746520747970652022426173696322206861732032206669656c64732c20676f742030ffffffff0000ffffffff
 == s11 add note, unknown note type
 > POST /api/anki/notes
 < 400 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="no note type with id 42 in this collection" notStarted=false dailyCap=false}
-< bytes 414d573200082a0000006e6f206e6f74652074797065207769746820696420343220696e207468697320636f6c6c656374696f6effffffff0000ffffffff
+< bytes 414d573200092a0000006e6f206e6f74652074797065207769746820696420343220696e207468697320636f6c6c656374696f6effffffff0000ffffffff
 == s11 bulk add
 > POST /api/anki/notes/bulk
 < 200 content-type=application/x-amgi-wire cache-control=no-store
@@ -1080,12 +1240,12 @@
 > POST /api/anki/notes/bulk
 < 400 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="notes must be a non-empty array" notStarted=false dailyCap=false}
-< bytes 414d573200081f0000006e6f746573206d7573742062652061206e6f6e2d656d707479206172726179ffffffff0000ffffffff
+< bytes 414d573200091f0000006e6f746573206d7573742062652061206e6f6e2d656d707479206172726179ffffffff0000ffffffff
 == s11 bulk add, a note with no deck
 > POST /api/anki/notes/bulk
 < 400 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="each note requires deckId, notetypeId and fields" notStarted=false dailyCap=false}
-< bytes 414d573200083000000065616368206e6f7465207265717569726573206465636b49642c206e6f746574797065496420616e64206669656c6473ffffffff0000ffffffff
+< bytes 414d573200093000000065616368206e6f7465207265717569726573206465636b49642c206e6f746574797065496420616e64206669656c6473ffffffff0000ffffffff
 == s11 edit note
 > PATCH /api/anki/notes/30000005
 < 200 content-type=application/x-amgi-wire cache-control=no-store
@@ -1100,12 +1260,12 @@
 > PATCH /api/anki/notes/30000005
 < 400 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="note type \"Basic\" has 2 fields, got 1" notStarted=false dailyCap=false}
-< bytes 414d57320008250000006e6f746520747970652022426173696322206861732032206669656c64732c20676f742031ffffffff0000ffffffff
+< bytes 414d57320009250000006e6f746520747970652022426173696322206861732032206669656c64732c20676f742031ffffffff0000ffffffff
 == s11 edit a note not there
 > PATCH /api/anki/notes/999
 < 400 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="no note with id 999 in this collection" notStarted=false dailyCap=false}
-< bytes 414d57320008260000006e6f206e6f746520776974682069642039393920696e207468697320636f6c6c656374696f6effffffff0000ffffffff
+< bytes 414d57320009260000006e6f206e6f746520776974682069642039393920696e207468697320636f6c6c656374696f6effffffff0000ffffffff
 == s11 notes after the edits
 > GET /api/anki/decks/10000007/notes
 < 200 content-type=application/x-amgi-wire cache-control=no-store
@@ -1120,7 +1280,7 @@
 > DELETE /api/anki/notes/30000005
 < 400 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="no note with id 30000005 in this collection" notStarted=false dailyCap=false}
-< bytes 414d573200082b0000006e6f206e6f7465207769746820696420333030303030303520696e207468697320636f6c6c656374696f6effffffff0000ffffffff
+< bytes 414d573200092b0000006e6f206e6f7465207769746820696420333030303030303520696e207468697320636f6c6c656374696f6effffffff0000ffffffff
 == s11 clip
 > GET /api/anki/media/clip.ogg
 < 200 content-type=audio/ogg cache-control=private, max-age=31536000, immutable
@@ -1181,17 +1341,17 @@
 > GET /api/anki/decks/999
 < 404 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="This deck no longer exists." notStarted=false dailyCap=false}
-< bytes 414d573200081b00000054686973206465636b206e6f206c6f6e676572206578697374732effffffff0000ffffffff
+< bytes 414d573200091b00000054686973206465636b206e6f206c6f6e676572206578697374732effffffff0000ffffffff
 == s11 deck summary, id not a number
 > GET /api/anki/decks/abc
 < 404 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="This deck no longer exists." notStarted=false dailyCap=false}
-< bytes 414d573200081b00000054686973206465636b206e6f206c6f6e676572206578697374732effffffff0000ffffffff
+< bytes 414d573200091b00000054686973206465636b206e6f206c6f6e676572206578697374732effffffff0000ffffffff
 == s11 delete Default
 > DELETE /api/anki/decks/1
 < 400 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="The Default deck cannot be deleted: Anki keeps it, and would only empty it." notStarted=false dailyCap=false}
-< bytes 414d573200084b0000005468652044656661756c74206465636b2063616e6e6f742062652064656c657465643a20416e6b69206b656570732069742c20616e6420776f756c64206f6e6c7920656d7074792069742effffffff0000ffffffff
+< bytes 414d573200094b0000005468652044656661756c74206465636b2063616e6e6f742062652064656c657465643a20416e6b69206b656570732069742c20616e6420776f756c64206f6e6c7920656d7074792069742effffffff0000ffffffff
 == s11 delete filtered
 > DELETE /api/anki/decks/1794170430309
 < 200 content-type=application/x-amgi-wire cache-control=no-store
@@ -1206,7 +1366,7 @@
 > DELETE /api/anki/decks/1794170430303
 < 404 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="This deck no longer exists." notStarted=false dailyCap=false}
-< bytes 414d573200081b00000054686973206465636b206e6f206c6f6e676572206578697374732effffffff0000ffffffff
+< bytes 414d573200091b00000054686973206465636b206e6f206c6f6e676572206578697374732effffffff0000ffffffff
 == s11 decks at the end
 > GET /api/anki/decks
 < 200 content-type=application/x-amgi-wire cache-control=no-store
@@ -1231,7 +1391,7 @@
 > POST /api/anki/install
 < 409 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="No Anki data folder at <base>/nowhere. Install Anki and open it once, then try again." notStarted=false dailyCap=false}
-< bytes 414d57320008550000004e6f20416e6b69206461746120666f6c646572206174203c626173653e2f6e6f77686572652e20496e7374616c6c20416e6b6920616e64206f70656e206974206f6e63652c207468656e2074727920616761696e2effffffff0000ffffffff
+< bytes 414d57320009550000004e6f20416e6b69206461746120666f6c646572206174203c626173653e2f6e6f77686572652e20496e7374616c6c20416e6b6920616e64206f70656e206974206f6e63652c207468656e2074727920616761696e2effffffff0000ffffffff
 == s11 install state, folder not there
 > GET /api/anki/install
 < 200 content-type=application/x-amgi-wire cache-control=no-store
@@ -1241,27 +1401,27 @@
 > POST /api/anki/starter
 < 400 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="Restart Anki once so it adds the \"amgi Listening\" card type, then try again." notStarted=false dailyCap=false}
-< bytes 414d573200084c0000005265737461727420416e6b69206f6e636520736f2069742061646473207468652022616d6769204c697374656e696e6722206361726420747970652c207468656e2074727920616761696e2effffffff0000ffffffff
+< bytes 414d573200094c0000005265737461727420416e6b69206f6e636520736f2069742061646473207468652022616d6769204c697374656e696e6722206361726420747970652c207468656e2074727920616761696e2effffffff0000ffffffff
 == s11 starter again
 > POST /api/anki/starter
 < 400 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="Restart Anki once so it adds the \"amgi Listening\" card type, then try again." notStarted=false dailyCap=false}
-< bytes 414d573200084c0000005265737461727420416e6b69206f6e636520736f2069742061646473207468652022616d6769204c697374656e696e6722206361726420747970652c207468656e2074727920616761696e2effffffff0000ffffffff
+< bytes 414d573200094c0000005265737461727420416e6b69206f6e636520736f2069742061646473207468652022616d6769204c697374656e696e6722206361726420747970652c207468656e2074727920616761696e2effffffff0000ffffffff
 == s11 starter, same languages
 > POST /api/anki/starter
 < 400 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="Pick two different languages." notStarted=false dailyCap=false}
-< bytes 414d573200081d0000005069636b2074776f20646966666572656e74206c616e6775616765732effffffff0000ffffffff
+< bytes 414d573200091d0000005069636b2074776f20646966666572656e74206c616e6775616765732effffffff0000ffffffff
 == s11 starter, unknown pair
 > POST /api/anki/starter
 < 400 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="amgi has no starter phrases for that pair of languages." notStarted=false dailyCap=false}
-< bytes 414d5732000837000000616d676920686173206e6f2073746172746572207068726173657320666f7220746861742070616972206f66206c616e6775616765732effffffff0000ffffffff
+< bytes 414d5732000937000000616d676920686173206e6f2073746172746572207068726173657320666f7220746861742070616972206f66206c616e6775616765732effffffff0000ffffffff
 == s11 starter, no languages
 > POST /api/anki/starter
 < 400 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="known and learning languages are required" notStarted=false dailyCap=false}
-< bytes 414d57320008290000006b6e6f776e20616e64206c6561726e696e67206c616e67756167657320617265207265717569726564ffffffff0000ffffffff
+< bytes 414d57320009290000006b6e6f776e20616e64206c6561726e696e67206c616e67756167657320617265207265717569726564ffffffff0000ffffffff
 == s11 starter state
 > GET /api/anki/starter
 < 200 content-type=application/x-amgi-wire cache-control=no-store
@@ -1271,22 +1431,22 @@
 > POST /api/anki/card-text
 < 400 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="userInput, knownLanguage and learningLanguage are required" notStarted=false dailyCap=false}
-< bytes 414d573200083a00000075736572496e7075742c206b6e6f776e4c616e677561676520616e64206c6561726e696e674c616e677561676520617265207265717569726564ffffffff0000ffffffff
+< bytes 414d573200093a00000075736572496e7075742c206b6e6f776e4c616e677561676520616e64206c6561726e696e674c616e677561676520617265207265717569726564ffffffff0000ffffffff
 == s11 card text, no language
 > POST /api/anki/card-text
 < 400 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="userInput, knownLanguage and learningLanguage are required" notStarted=false dailyCap=false}
-< bytes 414d573200083a00000075736572496e7075742c206b6e6f776e4c616e677561676520616e64206c6561726e696e674c616e677561676520617265207265717569726564ffffffff0000ffffffff
+< bytes 414d573200093a00000075736572496e7075742c206b6e6f776e4c616e677561676520616e64206c6561726e696e674c616e677561676520617265207265717569726564ffffffff0000ffffffff
 == s11 audio, no text
 > POST /api/anki/audio
 < 400 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="text and language are required" notStarted=false dailyCap=false}
-< bytes 414d573200081e0000007465787420616e64206c616e677561676520617265207265717569726564ffffffff0000ffffffff
+< bytes 414d573200091e0000007465787420616e64206c616e677561676520617265207265717569726564ffffffff0000ffffffff
 == s11 audio, no language
 > POST /api/anki/audio
 < 400 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="text and language are required" notStarted=false dailyCap=false}
-< bytes 414d573200081e0000007465787420616e64206c616e677561676520617265207265717569726564ffffffff0000ffffffff
+< bytes 414d573200091e0000007465787420616e64206c616e677561676520617265207265717569726564ffffffff0000ffffffff
 == profiles
 > GET /api/anki/profiles
 < 200 content-type=application/x-amgi-wire cache-control=no-store
@@ -1341,12 +1501,12 @@
 > POST /api/anki/card-text
 < 500 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="GEMINI_API_KEY is not set, so nothing was generated: get a key at https://aistudio.google.com/apikey, add it to .env.local and restart amgi." notStarted=false dailyCap=false}
-< bytes 414d573200088c00000047454d494e495f4150495f4b4559206973206e6f74207365742c20736f206e6f7468696e67207761732067656e6572617465643a206765742061206b65792061742068747470733a2f2f616973747564696f2e676f6f676c652e636f6d2f6170696b65792c2061646420697420746f202e656e762e6c6f63616c20616e64207265737461727420616d67692effffffff0000ffffffff
+< bytes 414d573200098c00000047454d494e495f4150495f4b4559206973206e6f74207365742c20736f206e6f7468696e67207761732067656e6572617465643a206765742061206b65792061742068747470733a2f2f616973747564696f2e676f6f676c652e636f6d2f6170696b65792c2061646420697420746f202e656e762e6c6f63616c20616e64207265737461727420616d67692effffffff0000ffffffff
 == keyless: audio
 > POST /api/anki/audio
 < 500 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="GEMINI_API_KEY is not set, so nothing was generated: get a key at https://aistudio.google.com/apikey, add it to .env.local and restart amgi." notStarted=false dailyCap=false}
-< bytes 414d573200088c00000047454d494e495f4150495f4b4559206973206e6f74207365742c20736f206e6f7468696e67207761732067656e6572617465643a206765742061206b65792061742068747470733a2f2f616973747564696f2e676f6f676c652e636f6d2f6170696b65792c2061646420697420746f202e656e762e6c6f63616c20616e64207265737461727420616d67692effffffff0000ffffffff
+< bytes 414d573200098c00000047454d494e495f4150495f4b4559206973206e6f74207365742c20736f206e6f7468696e67207761732067656e6572617465643a206765742061206b65792061742068747470733a2f2f616973747564696f2e676f6f676c652e636f6d2f6170696b65792c2061646420697420746f202e656e762e6c6f63616c20616e64207265737461727420616d67692effffffff0000ffffffff
 == fake: card text with cue audio
 > POST /api/anki/card-text
 < 200 content-type=application/x-amgi-wire cache-control=no-store
@@ -1376,7 +1536,7 @@
 > POST /api/anki/card-text
 < 500 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="Gemini request to gemini-3.8-flash failed (INTERNAL): The model is overloaded. Please try again later." notStarted=false dailyCap=false}
-< bytes 414d573200086600000047656d696e69207265717565737420746f2067656d696e692d332e382d666c617368206661696c65642028494e5445524e414c293a20546865206d6f64656c206973206f7665726c6f616465642e20506c656173652074727920616761696e206c617465722effffffff0000ffffffff
+< bytes 414d573200096600000047656d696e69207265717565737420746f2067656d696e692d332e382d666c617368206661696c65642028494e5445524e414c293a20546865206d6f64656c206973206f7665726c6f616465642e20506c656173652074727920616761696e206c617465722effffffff0000ffffffff
 == fake: the clip it made
 > GET /api/anki/media/plusaudio-dce4d16cea2470806c22.wav
 < 200 content-type=audio/wav cache-control=private, max-age=31536000, immutable
@@ -1386,24 +1546,24 @@
 > POST /api/anki/card-text
 < 429 content-type=application/x-amgi-wire cache-control=no-store retry-after=<checked>
 < error {mode="" error="Gemini is limiting how many requests gemini-3.8-flash-tts takes per minute and asked to wait <n>s." retryAfterMs=1 notStarted=false dailyCap=false maxWaitMs=180000}
-< bytes 414d573200086200000047656d696e69206973206c696d6974696e6720686f77206d616e792072657175657374732067656d696e692d332e382d666c6173682d7474732074616b657320706572206d696e75746520616e642061736b656420746f2077616974203c6e3e732e01000000000020bf0200
+< bytes 414d573200096200000047656d696e69206973206c696d6974696e6720686f77206d616e792072657175657374732067656d696e692d332e382d666c6173682d7474732074616b657320706572206d696e75746520616e642061736b656420746f2077616974203c6e3e732e01000000000020bf0200
 == fake: refused before starting
 > POST /api/anki/audio
 < 429 content-type=application/x-amgi-wire cache-control=no-store retry-after=<checked>
 < error {mode="" error="Gemini's per-minute limit is reached; this card waits <n>s before starting." retryAfterMs=1 notStarted=true dailyCap=false maxWaitMs=180000}
-< bytes 414d573200084b00000047656d696e692773207065722d6d696e757465206c696d697420697320726561636865643b20746869732063617264207761697473203c6e3e73206265666f7265207374617274696e672e01000000010020bf0200
+< bytes 414d573200094b00000047656d696e692773207065722d6d696e757465206c696d697420697320726561636865643b20746869732063617264207761697473203c6e3e73206265666f7265207374617274696e672e01000000010020bf0200
 == fake: card refused before starting
 > POST /api/anki/card-text
 < 429 content-type=application/x-amgi-wire cache-control=no-store retry-after=<checked>
 < error {mode="" error="Gemini's per-minute limit is reached; this card waits <n>s before starting." retryAfterMs=1 notStarted=true dailyCap=false maxWaitMs=180000}
-< bytes 414d573200084b00000047656d696e692773207065722d6d696e757465206c696d697420697320726561636865643b20746869732063617264207761697473203c6e3e73206265666f7265207374617274696e672e01000000010020bf0200
+< bytes 414d573200094b00000047656d696e692773207065722d6d696e757465206c696d697420697320726561636865643b20746869732063617264207761697473203c6e3e73206265666f7265207374617274696e672e01000000010020bf0200
 == fake: daily cap
 > POST /api/anki/card-text
 < 429 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="Gemini's free tier allows 10 requests per day per model, and today's are used up for gemini-3.8-flash. Enable billing for your Gemini API key's project in Google AI Studio (https://aistudio.google.com/apikey) to lift the limit, or try again tomorrow." notStarted=false dailyCap=true}
-< bytes 414d57320008fa00000047656d696e6927732066726565207469657220616c6c6f7773203130207265717565737473207065722064617920706572206d6f64656c2c20616e6420746f646179277320617265207573656420757020666f722067656d696e692d332e382d666c6173682e20456e61626c652062696c6c696e6720666f7220796f75722047656d696e6920415049206b657927732070726f6a65637420696e20476f6f676c652041492053747564696f202868747470733a2f2f616973747564696f2e676f6f676c652e636f6d2f6170696b65792920746f206c69667420746865206c696d69742c206f722074727920616761696e20746f6d6f72726f772effffffff0001ffffffff
+< bytes 414d57320009fa00000047656d696e6927732066726565207469657220616c6c6f7773203130207265717565737473207065722064617920706572206d6f64656c2c20616e6420746f646179277320617265207573656420757020666f722067656d696e692d332e382d666c6173682e20456e61626c652062696c6c696e6720666f7220796f75722047656d696e6920415049206b657927732070726f6a65637420696e20476f6f676c652041492053747564696f202868747470733a2f2f616973747564696f2e676f6f676c652e636f6d2f6170696b65792920746f206c69667420746865206c696d69742c206f722074727920616761696e20746f6d6f72726f772effffffff0001ffffffff
 == fake: daily cap again
 > POST /api/anki/card-text
 < 429 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="Gemini's free tier allows 10 requests per day per model, and today's are used up for gemini-3.8-flash. Enable billing for your Gemini API key's project in Google AI Studio (https://aistudio.google.com/apikey) to lift the limit, or try again tomorrow." notStarted=false dailyCap=true}
-< bytes 414d57320008fa00000047656d696e6927732066726565207469657220616c6c6f7773203130207265717565737473207065722064617920706572206d6f64656c2c20616e6420746f646179277320617265207573656420757020666f722067656d696e692d332e382d666c6173682e20456e61626c652062696c6c696e6720666f7220796f75722047656d696e6920415049206b657927732070726f6a65637420696e20476f6f676c652041492053747564696f202868747470733a2f2f616973747564696f2e676f6f676c652e636f6d2f6170696b65792920746f206c69667420746865206c696d69742c206f722074727920616761696e20746f6d6f72726f772effffffff0001ffffffff
+< bytes 414d57320009fa00000047656d696e6927732066726565207469657220616c6c6f7773203130207265717565737473207065722064617920706572206d6f64656c2c20616e6420746f646179277320617265207573656420757020666f722067656d696e692d332e382d666c6173682e20456e61626c652062696c6c696e6720666f7220796f75722047656d696e6920415049206b657927732070726f6a65637420696e20476f6f676c652041492053747564696f202868747470733a2f2f616973747564696f2e676f6f676c652e636f6d2f6170696b65792920746f206c69667420746865206c696d69742c206f722074727920616761696e20746f6d6f72726f772effffffff0001ffffffff

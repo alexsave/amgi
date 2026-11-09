@@ -54,7 +54,7 @@ enum {
 /* The transport modes (server/collection/transport.c). A name the table does not know (a newer
  * server) is WIRE_MODE_OTHER, which reads back as "". */
 enum { WIRE_MODE_DIRECT, WIRE_MODE_BRIDGE, WIRE_MODE_LOCKED, WIRE_MODE_NOT_FOUND, WIRE_MODE_UNSUPPORTED_SCHEMA,
-       WIRE_MODE_BRIDGE_NO_COLLECTION, WIRE_MODE_UNCONFIGURED, WIRE_MODE_BRIDGE_OUTDATED, WIRE_MODE_OTHER,
+       WIRE_MODE_BRIDGE_NO_COLLECTION, WIRE_MODE_UNCONFIGURED, WIRE_MODE_BRIDGE_OUTDATED, WIRE_MODE_DAMAGED, WIRE_MODE_OTHER,
        WIRE_MODES };
 const char *wire_mode_name(uint32_t mode);
 uint32_t wire_mode_of(const char *s, uint32_t len);

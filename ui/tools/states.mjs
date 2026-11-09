@@ -6,6 +6,9 @@
 //   Anki locked (a real lock, held by the anki library): the list's place says why, the badge too
 //   an Anki folder with no profile: the setup screen, "Could not find an Anki profile"
 //   no Anki folder: the setup screen says so, and Install is off
+//   an Anki add-on from an older amgi: the badge and the list's place say to install again
+//   a damaged collection (zero pages, as Anki's close left Alex's at 18:42): the badge and the
+//     list's place say amgi did not open it, and the file is byte for byte as it was
 // Needs ANKI_PYTHON_BIN and ANKI_FIXTURE_APKG (the e2e-ui skill).
 //   node ui/tools/states.mjs <base url> <name> <work dir> [out dir]
 import fs from 'node:fs';
@@ -180,6 +183,24 @@ try {
   } finally {
     await new Promise((resolve) => old.close(resolve));
   }
+
+  // 7. A damaged collection: zero pages where SQLite's header should be (incident 18:42).
+  const damaged = folder('state-damaged', 'all');
+  const zeroed = path.join(damaged, 'User 1', 'collection.anki2');
+  fs.writeFileSync(zeroed, Buffer.alloc(4096 * 58));
+  const zeroes = fs.readFileSync(zeroed);
+  b = await open({ base: damaged, collection: zeroed });
+  await goto(b, `${base}/decks`);
+  check(await until(b, `${badge} === 'Anki: damaged'`, 150), 'damaged: the badge says so');
+  const said = await until(b, `document.querySelector('.empty-deck-state p')?.textContent`, 100);
+  check(/The collection file is damaged; amgi did not open it/.test(said || ''), `damaged: the list's place says why (${said})`);
+  await sleep(300);
+  await shot(b, '46-damaged');
+  await b.close();
+  b = null;
+  check(fs.readFileSync(zeroed).equals(zeroes), 'damaged: the file is byte for byte as it was');
+  check(['collection.anki2-wal', 'collection.anki2-shm', 'collection.anki2-journal']
+    .every((f) => !fs.existsSync(path.join(damaged, 'User 1', f))), 'damaged: nothing made beside it');
 } catch (error) {
   failures.push(`the drive stopped: ${error.stack || error}`);
   console.log(`FAIL the drive stopped: ${error.stack || error}`);
