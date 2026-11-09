@@ -135,9 +135,20 @@ try {
     probe.style.color = 'var(--flame-orange)';
     const red = getComputedStyle(probe).color;
     probe.remove();
-    const code = document.querySelector('.install-block code');
-    const text = code.textContent, breaks = [];
-    let walker = document.createTreeWalker(code, NodeFilter.SHOW_TEXT), top = null, prev = '';
+    return { accent: getComputedStyle(radio).accentColor, red, radio: radio.getBoundingClientRect().left, label: profile.getBoundingClientRect().left };
+  })()`);
+  check(looks.accent === looks.red, `the profile radio is the theme's red (${looks.accent}, the theme ${looks.red})`);
+  check(Math.abs(looks.radio - looks.label) < 0.5, `the profile radio starts on the labels' left edge (${looks.radio} vs ${looks.label})`);
+  // a folder path long enough to wrap, its names hyphenated (where a browser would break a line);
+  // the app's origin only, which nothing after this step uses (step 5 is the keyless server's)
+  const longDir = `${ankiDir}/a-rather-long-folder-name-for-checking-the-wrap/and-another-long-segment-named-anki-data-folder-copy`;
+  await seed(b, base, { baseDir: longDir, collection: path.join(longDir, 'User 1', 'collection.anki2'), profile: 'User 1' });
+  await goto(b, `${base}/settings`);
+  await until(b, `!!document.querySelector('.install-block code')`, 150);
+  const wrap = await b.evaluate(`(() => {
+    const code = document.querySelector('.install-block code'), breaks = [];
+    const walker = document.createTreeWalker(code, NodeFilter.SHOW_TEXT);
+    let top = null, prev = '';
     for (let n = walker.nextNode(); n; n = walker.nextNode()) {
       for (let i = 0; i < n.length; i++) {
         const r = document.createRange(); r.setStart(n, i); r.setEnd(n, i + 1);
@@ -146,11 +157,12 @@ try {
         top = t; prev = n.data[i];
       }
     }
-    return { accent: getComputedStyle(radio).accentColor, red, radio: radio.getBoundingClientRect().left, label: profile.getBoundingClientRect().left, text, breaks };
+    return { text: code.textContent, breaks };
   })()`);
-  check(looks.accent === looks.red, `the profile radio is the theme's red (${looks.accent}, the theme ${looks.red})`);
-  check(Math.abs(looks.radio - looks.label) < 0.5, `the profile radio starts on the labels' left edge (${looks.radio} vs ${looks.label})`);
-  check(looks.breaks.every((c) => c === '/'), `the folder path breaks only after a slash (${looks.breaks.length} breaks, after ${JSON.stringify(looks.breaks.join(''))}: ${looks.text})`);
+  check(wrap.text === longDir && wrap.breaks.length > 0 && wrap.breaks.every((c) => c === '/'),
+    `a long folder path breaks only after a slash (${wrap.breaks.length} breaks, after ${JSON.stringify(wrap.breaks.join(''))})`);
+  await sleep(300);
+  await shot(b, '15b-settings-long-path');
 
   // 4b. Save, then a reload the moment "Anki settings saved." shows (in the same task, by an observer
   // on the page): the saved value is there after it, so the message never shows before the write.

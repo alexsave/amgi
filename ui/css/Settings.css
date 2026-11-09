@@ -179,9 +179,12 @@
   gap: 0.5rem;
 }
 
-/* A folder path's parts (settings.c path_text): a line breaks only between them, after a slash. */
+/* A folder path's parts (settings.c path_text): a line breaks only between them, after a slash,
+   unless one part alone is wider than the line, which then wraps within itself. */
 .path-part {
-  white-space: nowrap;
+  display: inline-block;
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
 .install-block .preference-help {
