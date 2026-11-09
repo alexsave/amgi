@@ -210,7 +210,7 @@ static void scan_view(void) {
   int none = !scan_loading && scan_exists == 1 && !nprofiles, missing = !scan_loading && scan_exists == 0;
   if (!scan_error.len && !none && !missing && !nprofiles) return;
   if (!cd_region_show(&scan_out, 1)) return;
-  cd_at(section, saved_slot);
+  cd_at(section, saved_msg.shown ? saved_msg.root : saved_slot); /* above Save's own message */
   cd_open(CD_LIT("div"));
   cd_name_open(scan_out.root);
   if (scan_error.len) {
