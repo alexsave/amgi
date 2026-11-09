@@ -249,6 +249,6 @@ void badges_update(void) {
     cd_set_attr(b->span, CD_LIT("title"), cd_internz(p->title));
     cd_str style = CD_LIT("style");
     cd_set_attr(b->dot, style, cd_tmp(style_buf, dot_style(p->color)));
-    cd_set_text(b->label, cd_internz(p->label));
+    cd_set_text_node(b->label, cd_internz(p->label));
   }
 }
