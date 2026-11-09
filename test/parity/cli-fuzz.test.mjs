@@ -15,6 +15,7 @@ import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { sandboxEnv } from '../sandbox-home.cjs';
 import { createRequire } from 'node:module';
 import { enc } from './protocol.mjs';
 
@@ -82,14 +83,13 @@ test('the C CLI answers hostile protocol lines without a fault', { skip: IMPL ? 
   fs.writeFileSync(junk, 'not a database\n');
   // Run two folders down in the scratch folder: an "open" of a hostile relative name (one is
   // "../collection.anki2") makes its files there, and never beside the checkout. A run from the
-  // checkout once made an empty amgi-collection-backups in its parent folder. HOME is a scratch
-  // folder too, so a default base dir never reaches the real one.
+  // checkout once made an empty amgi-collection-backups in its parent folder. HOME is a fresh temp
+  // dir of its own (test/sandbox-home.cjs), so a default base dir never reaches the real one.
   const cwd = path.join(dir, 'a', 'b');
   fs.mkdirSync(cwd, { recursive: true });
-  const home = path.join(dir, 'home');
-  fs.mkdirSync(home);
   const input = `${lines(collection, junk).join('\n')}\nquit\n`;
-  const run = spawnSync(path.resolve(ROOT, IMPL), [], { cwd, env: { ...process.env, HOME: home, XDG_DATA_HOME: '' }, input, encoding: 'utf8', timeout: 240000, maxBuffer: 64 * 1024 * 1024 });
+  const run = spawnSync(path.resolve(ROOT, IMPL), [], {
+    cwd, env: sandboxEnv({ ASAN_OPTIONS: process.env.ASAN_OPTIONS, UBSAN_OPTIONS: process.env.UBSAN_OPTIONS }), input, encoding: 'utf8', timeout: 240000, maxBuffer: 64 * 1024 * 1024 });
   fs.rmSync(dir, { recursive: true, force: true });
   assert.equal(run.error, undefined, `the CLI ran (${run.error})`);
   // cbase's log lines (a refused connection is a WARN) are the only stderr allowed.
