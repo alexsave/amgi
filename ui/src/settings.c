@@ -78,8 +78,10 @@ static uint32_t nprofiles;
 static int scan_loading, scan_exists = -1, saved_shown, install_running, install_ok = -1;
 static text scan_base, scan_error, install_message, save_error;
 static cd_id section, scan_button, scan_text, install_button, install_text, base_input, url_input, token_input, saved_slot,
-  before_bridge, install_block;
-static cd_region scan_out = {0};   /* the scan's messages or the profile list, before "Bridge address" */
+  install_block;
+/* the scan's messages or the profile list, after "Bridge token" and before Save: the scan answers
+ * after the screen is drawn, and nothing a person may be aiming at sits below it but Save */
+static cd_region scan_out = {0};
 static cd_region saved_msg = {0};  /* "Anki settings saved.", or why they were not */
 static cd_region install_msg = {0};
 static int shown;
@@ -164,7 +166,7 @@ void settings_build(void) {
   scan_button = save_button(scan_pressed, CD_LIT("Scan for profiles"), &scan_text);
   cd_close();
 
-  before_bridge = el_id(CD_LIT("div"), CD_LIT("preference-item"));
+  row_open();
   label("bridgeUrl", CD_LIT("Bridge address"));
   url_input = text_input("bridgeUrl", &draft[S_BRIDGE_URL], CD_LIT("http://127.0.0.1:8798"));
   cd_close();
@@ -208,7 +210,7 @@ static void scan_view(void) {
   int none = !scan_loading && scan_exists == 1 && !nprofiles, missing = !scan_loading && scan_exists == 0;
   if (!scan_error.len && !none && !missing && !nprofiles) return;
   if (!cd_region_show(&scan_out, 1)) return;
-  cd_at(section, before_bridge);
+  cd_at(section, saved_slot);
   cd_open(CD_LIT("div"));
   cd_name_open(scan_out.root);
   if (scan_error.len) {
