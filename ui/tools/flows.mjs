@@ -145,8 +145,11 @@ try {
   await seed(b, base, { baseDir: longDir, collection: path.join(longDir, 'User 1', 'collection.anki2'), profile: 'User 1' });
   await goto(b, `${base}/settings`);
   await until(b, `!!document.querySelector('.install-block code')`, 150);
-  const wrap = await b.evaluate(`(() => {
-    const code = document.querySelector('.install-block code'), breaks = [];
+  // the scan of that folder (it is not there) says so with the same path in its message
+  await until(b, `!!document.querySelector('.settings-page .message.error code')`, 150);
+  // the characters a code element's lines break after
+  const breaksIn = (selector) => b.evaluate(`(() => {
+    const code = document.querySelector(${JSON.stringify(selector)}), breaks = [];
     const walker = document.createTreeWalker(code, NodeFilter.SHOW_TEXT);
     let top = null, prev = '';
     for (let n = walker.nextNode(); n; n = walker.nextNode()) {
@@ -159,8 +162,18 @@ try {
     }
     return { text: code.textContent, breaks };
   })()`);
-  check(wrap.text === longDir && wrap.breaks.length > 0 && wrap.breaks.every((c) => c === '/'),
-    `a long folder path breaks only after a slash (${wrap.breaks.length} breaks, after ${JSON.stringify(wrap.breaks.join(''))})`);
+  for (const [where, selector] of [['the install line', '.install-block code'], ['the not-found message', '.settings-page .message.error code']]) {
+    const wrap = await breaksIn(selector);
+    check(wrap.text === longDir && wrap.breaks.length > 0 && wrap.breaks.every((c) => c === '/'),
+      `in ${where} a long folder path breaks only after a slash (${wrap.breaks.length} breaks, after ${JSON.stringify(wrap.breaks.join(''))})`);
+  }
+  // "Current mode" and its badge on the left edge the card's other labels start on
+  const edges = await b.evaluate(`(() => {
+    const labels = [...document.querySelectorAll('.preference-item > label')];
+    const mode = labels.find(l => l.textContent === 'Current mode'), install = labels.find(l => l.textContent === 'Install amgi into Anki');
+    return [mode, mode.nextElementSibling, install].map(e => e.getBoundingClientRect().left);
+  })()`);
+  check(edges[0] === edges[2] && edges[1] === edges[2], `"Current mode" and its badge start where the card's labels do (${edges.join(', ')})`);
   await sleep(300);
   await shot(b, '15b-settings-long-path');
 
