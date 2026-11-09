@@ -21,9 +21,9 @@
 // reads (package.json, the lockfile) and the eslint config are not source and are not scanned.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
+import { shippedSources, stripJsComments, stripPyComments } from './source-scan.mjs';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
 const FOLDER = 'plusaudio/lib/json/';
@@ -58,16 +58,6 @@ function callAt(src, open) {
   return src.slice(open);
 }
 
-const SOURCE = /\.(?:js|mjs|cjs|ts|html|py|c|h)$/;
-/** Not shipped: a directory of this name anywhere in the path. */
-const NOT_SHIPPED_DIR = new Set([
-  'test', 'tests', '__tests__', 'test-helpers', 'tools', 'scripts', 'docs', 'fixtures', 'e2e', 'vendor', 'node_modules',
-]);
-const notShipped = (file) => {
-  const parts = file.split('/');
-  return parts.some((p) => NOT_SHIPPED_DIR.has(p)) || /\.(?:test|spec|config)\.[a-z]+$/.test(parts.at(-1));
-};
-
 const ANSWER_FORMAT = 'plusaudio/ANSWER_FORMAT.md';
 const ANKI = 'FORCED by Anki: ';
 /**
@@ -79,9 +69,6 @@ const ALLOWED = [
     file: `${FOLDER}modelAnswer.js`, count: 1, kind: 'ours',
     why: `FORCED by Gemini: the API's structured output is JSON text, and parseModelAnswer reads it once; the caller then checks every field against its format. ${ANSWER_FORMAT} records what was measured against function calling and labelled lines.`,
   },
-
-
-
 
   {
     file: `${C_FOLDER}anki_json.c`, count: 2, kind: 'anki',
@@ -125,61 +112,6 @@ const ALLOWED = [
   },
 ];
 
-/** JavaScript with its comments blanked, lines kept. Strings are kept, so a "//" in a URL does not start a comment. */
-function stripJsComments(src) {
-  let out = '';
-  let quote = '';
-  for (let i = 0; i < src.length;) {
-    const c = src[i], d = src[i + 1];
-    if (quote) {
-      out += c;
-      if (c === '\\') { out += d ?? ''; i += 2; continue; }
-      if (c === quote || (c === '\n' && quote !== '`')) quote = '';
-      i++;
-    } else if (c === '"' || c === '\'' || c === '`') {
-      quote = c; out += c; i++;
-    } else if (c === '/' && d === '/') {
-      while (i < src.length && src[i] !== '\n') i++;
-    } else if (c === '/' && d === '*') {
-      i += 2;
-      while (i < src.length && !(src[i] === '*' && src[i + 1] === '/')) { if (src[i] === '\n') out += '\n'; i++; }
-      i += 2;
-    } else {
-      out += c; i++;
-    }
-  }
-  return out;
-}
-
-/** Python with its comments and triple-quoted strings (docstrings) blanked, lines kept. */
-function stripPyComments(src) {
-  let out = '';
-  let quote = '';
-  for (let i = 0; i < src.length;) {
-    const c = src[i];
-    const triple = src.slice(i, i + 3);
-    if (quote.length === 3) {
-      if (triple === quote) { quote = ''; i += 3; continue; }
-      if (c === '\n') out += '\n';
-      i++;
-    } else if (quote) {
-      out += c;
-      if (c === '\\') { out += src[i + 1] ?? ''; i += 2; continue; }
-      if (c === quote || c === '\n') quote = '';
-      i++;
-    } else if (triple === '"""' || triple === '\'\'\'') {
-      quote = triple; i += 3;
-    } else if (c === '"' || c === '\'') {
-      quote = c; out += c; i++;
-    } else if (c === '#') {
-      while (i < src.length && src[i] !== '\n') i++;
-    } else {
-      out += c; i++;
-    }
-  }
-  return out;
-}
-
 /** Every JSON use in a file's source, as "line: text". */
 export function jsonUses(src, file) {
   const py = file.endsWith('.py');
@@ -206,11 +138,6 @@ export function jsonUses(src, file) {
   return hits.map((h) => `${h.line}: ${h.text}`);
 }
 
-function shippedSources() {
-  const tracked = execFileSync('git', ['ls-files', '-z'], { cwd: ROOT, encoding: 'utf8', maxBuffer: 64 << 20 }).split('\0');
-  return tracked.filter((f) => f && SOURCE.test(f) && !notShipped(f));
-}
-
 /** Each problem with `found` (file -> hits) against `allowed`, as a line a person can act on. */
 export function judge(found, allowed) {
   const byFile = new Map(allowed.map((a) => [a.file, a]));
@@ -230,7 +157,7 @@ export function judge(found, allowed) {
 
 function scan() {
   const found = new Map();
-  for (const file of shippedSources()) {
+  for (const file of shippedSources(ROOT)) {
     const hits = jsonUses(readFileSync(path.join(ROOT, file), 'utf8'), file);
     if (hits.length) found.set(file, hits);
   }
@@ -272,7 +199,7 @@ test('the judge: a new file, a count off either way, and a stale entry fail; a l
 });
 
 test('the scan covers the shipped code', () => {
-  const files = shippedSources();
+  const files = shippedSources(ROOT);
   // Canaries: if a root moves or the filter starts dropping one, the scan looks at nothing and passes forever.
   for (const must of [
     'src/server/anki/bridgeClient.js', 'src/server/api/anki/decks/route.js', 'ui/server/serve.mjs', 'ui/server/wire.mjs',
