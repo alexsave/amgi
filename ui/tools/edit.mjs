@@ -15,7 +15,8 @@ const { holdCollectionOpen } = createRequire(import.meta.url)('../../plusaudio/t
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const cdom = process.env.CDOM || path.join(here, '..', '..', 'cdom');
-const { launch, sleep } = await import(path.join(cdom, 'tools', 'cdp.mjs'));
+const { sleep } = await import(path.join(cdom, 'tools', 'cdp.mjs'));
+const { launchChrome } = await import('./chrome.mjs');
 const [base, name, ankiDir, outArg] = process.argv.slice(2);
 const out = outArg || path.join(here, '..', 'out', 'shots');
 fs.mkdirSync(out, { recursive: true });
@@ -58,7 +59,7 @@ const key = async (b, k, code, keyCode) => {
 const selectAll = (b) => b.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'a', code: 'KeyA', modifiers: 4, windowsVirtualKeyCode: 65, commands: ['selectAll'] });
 const rows = `[...document.querySelectorAll('.note-row-target')].map(e => e.textContent).join(' | ')`;
 
-const b = await launch(['--hide-scrollbars']);
+const b = await launchChrome();
 const watchdog = setTimeout(async () => {
   console.log('FAIL the drive took more than 4 minutes');
   await b.close();

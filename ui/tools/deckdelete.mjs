@@ -17,7 +17,8 @@ import { WIRE_MIME, decode, encode } from '../wire/wire.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const cdom = process.env.CDOM || path.join(here, '..', '..', 'cdom');
-const { launch, sleep } = await import(path.join(cdom, 'tools', 'cdp.mjs'));
+const { sleep } = await import(path.join(cdom, 'tools', 'cdp.mjs'));
+const { launchChrome } = await import('./chrome.mjs');
 const anki = createRequire(import.meta.url)('../../plusaudio/test/collection/helpers/anki-python.js');
 const { holdCollectionOpen } = anki;
 // The server opens the file for a moment on every request (the status poll among them), and Anki's
@@ -119,7 +120,7 @@ async function ask(b) {
   return open;
 }
 
-const b = await launch(['--hide-scrollbars']);
+const b = await launchChrome();
 const watchdog = setTimeout(async () => {
   console.log('FAIL the drive took more than 4 minutes');
   await b.close();

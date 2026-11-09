@@ -159,18 +159,20 @@ test('the e2e shell tools run in a sandbox, and e2e.sh gives each server and the
   const starts = fs.readFileSync(path.join(ROOT, 'ui/tools/e2e.sh'), 'utf8').split('\n').filter((l) => /^start /.test(l));
   assert.equal(starts.length, 4);
   for (const l of starts) assert.match(l, / env "HOME=\$\(fresh_home\)" /, l);
+  const fixture = fs.readFileSync(path.join(ROOT, 'ui/tools/fixture.sh'), 'utf8');
+  assert.match(fixture, /^env "HOME=\$\(fresh_home\)" "\$ANKI_PYTHON_BIN" /m, 'fixture.sh runs the anki library under its own HOME');
 });
 
-test('sandbox-home.sh gives a fresh HOME, unsets XDG_DATA_HOME, and refuses a TMPDIR inside the real home', () => {
+test('sandbox-home.sh keeps the shell\'s HOME for Chrome, gives fresh HOMEs, unsets XDG_DATA_HOME, refuses a TMPDIR inside the real home', () => {
   const sh = path.join(ROOT, 'ui/tools/sandbox-home.sh');
   const env = { ...sandboxEnv(), XDG_DATA_HOME: '/nowhere' };
   const out = execFileSync('bash', ['-c', `. "${sh}"; echo "$HOME"; echo "\${XDG_DATA_HOME-unset}"; fresh_home`],
     { env, encoding: 'utf8' }).split('\n');
-  assert.notEqual(out[0], env.HOME);
-  assert.ok(out[0].startsWith(fs.realpathSync(os.tmpdir())) || out[0].startsWith(os.tmpdir()), out[0]);
+  assert.equal(out[0], env.HOME, 'the shell keeps its HOME (Chrome uses it)');
   assert.equal(out[1], 'unset');
+  assert.ok(out[2].startsWith(os.tmpdir()) || out[2].startsWith(fs.realpathSync(os.tmpdir())), out[2]);
   assert.notEqual(out[2], out[0]);
-  assert.ok(!fs.existsSync(out[0]), 'the sandbox root is removed on exit');
+  assert.ok(!fs.existsSync(out[2]), 'the sandbox root is removed on exit');
   const inside = fs.mkdtempSync(path.join(os.userInfo().homedir, '.amgi-sandbox-probe-'));
   try {
     assert.throws(() => execFileSync('bash', ['-c', `. "${sh}"; echo reached`],
@@ -178,4 +180,29 @@ test('sandbox-home.sh gives a fresh HOME, unsets XDG_DATA_HOME, and refuses a TM
   } finally {
     fs.rmSync(inside, { recursive: true, force: true });
   }
+});
+
+test('every drive starts Chrome through ui/tools/chrome.mjs, which stops it when the drive exits', () => {
+  const drives = tracked.filter((f) => f.startsWith('ui/tools/') && f.endsWith('.mjs') && f !== 'ui/tools/chrome.mjs');
+  for (const f of drives) assert.doesNotMatch(fs.readFileSync(path.join(ROOT, f), 'utf8'), /\blaunch\(/, `${f}: Chrome only through launchChrome()`);
+  assert.equal(drives.filter((f) => /launchChrome\(\)/.test(fs.readFileSync(path.join(ROOT, f), 'utf8'))).length, 6, 'the six drives');
+});
+
+test('a drive that exits without closing its Chrome leaves no Chrome running', () => {
+  // A stand-in drive: launchChrome(), say the Chrome's PID (its child), and exit with it still open.
+  const script = `import { execFileSync } from 'node:child_process';
+    const { launchChrome } = await import(${JSON.stringify(path.join(ROOT, 'ui/tools/chrome.mjs'))});
+    await launchChrome();
+    process.stdout.write(execFileSync('pgrep', ['-P', String(process.pid)], { encoding: 'utf8' }));
+    process.exit(0);`;
+  const env = { ...process.env };
+  delete env.XDG_DATA_HOME;
+  const pids = execFileSync(process.execPath, ['--input-type=module', '-e', script], { env, encoding: 'utf8' })
+    .split('\n').filter(Boolean).map(Number);
+  assert.ok(pids.length >= 1, 'the stand-in started a Chrome');
+  const alive = (p) => { try { process.kill(p, 0); return true; } catch { return false; } };
+  for (let i = 0; i < 50 && pids.some(alive); i++) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 100);
+  const left = pids.filter(alive);
+  for (const p of left) process.kill(p, 'SIGKILL');
+  assert.deepEqual(left, [], 'the Chrome it started is gone');
 });
