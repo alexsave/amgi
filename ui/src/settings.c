@@ -61,11 +61,12 @@ void settings_got(const uint8_t *p, int32_t len) {
   page_show();
   state_start();
 }
-void settings_save(void) {
+static void kept_anyway(void *ctx, uint32_t ok) { (void)ctx, (void)ok; }
+void settings_save(cd_store_done_fn done, void *ctx) {
   settings_stored = 1;
   char *block = cd_alloc(settings_room(settings));
   uint32_t n = settings_block(block, settings);
-  cd_store_put(STORE_TOKEN(STORE_SETTINGS, 2), STORE_KEY, sizeof STORE_KEY - 1, block, n);
+  cd_store_put_cb(done ? done : kept_anyway, ctx, STORE_KEY, sizeof STORE_KEY - 1, block, n);
   cd_free(block);
 }
 
@@ -323,6 +324,20 @@ static void saved_gone(void *ctx) {
   saved_view();
 }
 
+/* "Anki settings saved." only once the store has them: a reload before then would lose them. */
+static void saved_written(void *ctx, uint32_t ok) {
+  (void)ctx;
+  if (!ok) {
+    text_setz(&save_error, "This browser did not keep the settings: they apply until the page is reloaded");
+    saved_shown = 0;
+    saved_view();
+    return;
+  }
+  saved_shown = 1;
+  saved_view();
+  cd_timer_cb(2000, saved_gone, 0);
+}
+
 static void save(void) {
   /* all three read before any is kept: one too long keeps none of them, and says which */
   char base[MAX_BASE_DIR], url[2048], token[2048];
@@ -342,10 +357,9 @@ static void save(void) {
   text_set(&draft[S_BRIDGE_URL], url, nu);
   text_set(&draft[S_BRIDGE_TOKEN], token, nt);
   for (int f = 0; f < S_FIELDS; f++) text_set(&settings[f], draft[f].p, draft[f].len);
-  settings_save();
-  saved_shown = 1;
+  saved_shown = 0;
   saved_view();
-  cd_timer_cb(2000, saved_gone, 0);
+  settings_save(saved_written, 0);
   poll_status();
   refresh_decks();
 }

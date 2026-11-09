@@ -129,7 +129,7 @@ static void choose(uint32_t i) {
   text_set(&settings[S_COLLECTION], profiles[i].path.p, profiles[i].path.len);
   text_set(&settings[S_PROFILE], profiles[i].name.p, profiles[i].name.len);
   text_set(&chosen, profiles[i].path.p, profiles[i].path.len);
-  settings_save();
+  settings_save(0, 0);
   poll_status();
   refresh_decks();
 }
