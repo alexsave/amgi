@@ -59,7 +59,7 @@ export HOME="$work/home"
 server_pid=""
 cleanup() {
   if [ -n "$server_pid" ]; then
-    # npm start ends in exec of server/build/amgi; stop that and anything left under the npm.
+    # make start ends in exec of server/build/amgi; stop that and anything left under the npm.
     pkill -TERM -P "$server_pid" 2> /dev/null
     kill -TERM "$server_pid" 2> /dev/null
     for p in $(pgrep -f "$clone/server/build/amgi serve"); do kill -TERM "$p" 2> /dev/null; done
@@ -139,7 +139,7 @@ s_drives() {
   fi
   cd "$clone" && nice -n 10 npm run build && nice -n 10 ui/tools/fixture.sh && HOME="$REAL_HOME" nice -n 10 npm run e2e
 }
-s_npm_start() {
+s_make_start() {
   cd "$clone" || return 1
   local home="$work/home" log="$logs/make-start.server.log" port="" n=0
   mkdir -p "$home"
@@ -178,7 +178,7 @@ if step clone s_clone; then
   step check-asan s_check_asan
   step npm-test s_npm_test
   step drives s_drives
-  step make-start s_npm_start
+  step make-start s_make_start
 fi
 step real-anki s_real_anki
 summary
