@@ -187,6 +187,10 @@ ON_EVENT(typed) {
   uint32_t n;
   char *v = take_text(&n);
   follow_text(v ? v : "", n); /* too long: no text to make cards of, the button off */
+  if (!v) {
+    cd_str r = CD_LIT("rows");
+    cd_set_attr(input, r, CD_LIT("10")); /* and the box at its tallest, as for any long paste */
+  }
   cd_free(v);
   bulk_forget(); /* typing again puts the last run away */
 }
