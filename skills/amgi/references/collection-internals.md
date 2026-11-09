@@ -19,15 +19,19 @@ The reverse is also true: a process that leaves the file open stops Anki from op
 So open, do one unit of work, and close. amgi's direct transport does that on every request, closing on error paths too.
 A profile that is `locked` while Anki looks closed usually means Anki is still running in the background, or a crashed Python process still has the file open.
 
-The lock rule amgi follows, because the exclusive lock is not always held while Anki is still using the file:
-- A `collection.anki2-wal` with no `collection.anki2-shm` beside it means an exclusive-mode owner holds the file: Anki, or an Anki that crashed.
-  An exclusive-mode connection keeps its WAL index in its own memory, so it never makes a `-shm`; a normal-mode connection always does.
-- amgi then reports `locked`.
-  It never opens the file with SQLite, to read or to write, and it checks again right after its own open, in case Anki arrived in between.
-- amgi never runs an explicit checkpoint (`wal_checkpoint`, `sqlite3_wal_checkpoint`), and `test/no-checkpoint.test.mjs` holds that.
-- Why: Anki's own backup on close drops its exclusive lock for a moment while its `-wal` is still live.
-  Any second SQLite connection opened then checkpoints on its close and resets Anki's live `-wal`, and the collection is lost.
+The rule the C server follows before it lets SQLite near the file (`collection_openable` and `conn_open` in `server/collection/db.c`), because Anki's exclusive lock is not held for the whole time Anki uses the file:
+- A file without SQLite's 16-byte header (`SQLite format 3` and a NUL) is `damaged`, and amgi does not open it.
+- A `collection.anki2-wal` or a `collection.anki2-shm` beside it, either one, means someone else's SQLite has the file, so amgi reports `locked` and does not open it, to read or to write.
+  A `-wal` alone is Anki (it keeps its WAL index in memory, so it never makes a `-shm`), or an Anki that crashed, whose `-wal` holds the only copy of its newest pages.
+  A `-wal` with a `-shm` is another SQLite user in normal mode, and a `-shm` alone is what one left; amgi cannot tell a live one from a dead one, and refusing costs only a retry.
+- amgi checks again right after `sqlite3_open_v2`, before any statement, in case Anki arrived in between.
+- amgi opens with `SQLITE_OPEN_READWRITE` and never `SQLITE_OPEN_CREATE`, so a collection that went away is never made anew, empty.
+- amgi never asks for a checkpoint (`wal_checkpoint`, `sqlite3_wal_checkpoint`), and `test/no-checkpoint.test.mjs` holds that for all of amgi's shipped code.
+  The only checkpoint left is SQLite's own as amgi's connection closes, which, with no `-wal` there when it opened, folds back only amgi's own commit.
+- Why: Anki's own backup on close drops its exclusive lock while its `-wal` is still live.
+  The server's checkpoint then cut that `-wal` to nothing, and Anki's next frames left a hole that its close wrote into the collection as zero pages.
   That happened on 2026-11-08: a real collection was left with 56 of its 58 pages zero (`~/Dev/foolish-reports/incident-1842.md`).
+- The race no check can close is Anki opening the file between the second check and amgi's first statement; then Anki's exclusive lock refuses amgi's read (`locked`), or amgi's shared lock briefly delays Anki's.
 
 ## Schemas
 
