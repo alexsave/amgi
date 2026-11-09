@@ -156,7 +156,7 @@ void settings_build(void) {
   section = el_id(CD_LIT("div"), CD_LIT("preferences-section"));
 
   row_open();
-  cd_attr(CD_LIT("style"), CD_LIT("align-items: center;"));
+  cd_attr(CD_LIT("style"), CD_LIT("align-items: flex-start;")); /* on the labels' edge, the badge its own width */
   label(0, CD_LIT("Current mode"));
   badge_build(&badges[1]);
   cd_close();
