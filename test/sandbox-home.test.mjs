@@ -190,7 +190,7 @@ test('every drive starts Chrome through ui/tools/chrome.mjs, which stops it when
   for (const f of ['--use-mock-keychain', '--password-store=basic']) assert.ok(spawn[0].includes(`'${f}'`), `cdom's Chrome launch has ${f}`);
   const drives = tracked.filter((f) => f.startsWith('ui/tools/') && f.endsWith('.mjs') && f !== 'ui/tools/chrome.mjs');
   for (const f of drives) assert.doesNotMatch(fs.readFileSync(path.join(ROOT, f), 'utf8'), /\blaunch\(/, `${f}: Chrome only through launchChrome()`);
-  assert.equal(drives.filter((f) => /launchChrome\(\)/.test(fs.readFileSync(path.join(ROOT, f), 'utf8'))).length, 7, 'the six drives and incident1842.mjs');
+  assert.equal(drives.filter((f) => /launchChrome\(\)/.test(fs.readFileSync(path.join(ROOT, f), 'utf8'))).length, 8, 'the seven drives and incident1842.mjs');
 });
 
 test('a drive that exits without closing its Chrome leaves no Chrome running', () => {
