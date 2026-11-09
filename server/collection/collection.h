@@ -9,8 +9,8 @@
  *     "locked" only ever means another process (Anki) has it;
  *   - the backup ledger (backup.js) is per process, keyed the same way: a backup before the first
  *     change of a session, after anybody else changed the file, or past 30 minutes.
- * Each call opens its own connection, does one unit of work and closes it (open.js), so the file
- * is never held between calls.
+ * Each call opens its own connection, does one unit of work and closes it (as the Node core's
+ * open.js did), so the file is never held between calls.
  *
  * Every result is allocated in the caller's arena. A call answers 0, or -1 with *err set: a
  * collection that is not ready ("locked", "not-found", "unsupported-schema", with the message
