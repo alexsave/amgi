@@ -181,6 +181,22 @@ try {
     return [mode, mode.nextElementSibling, install].map(e => e.getBoundingClientRect().left);
   })()`);
   check(edges[0] === edges[2] && edges[1] === edges[2], `"Current mode" and its badge start where the card's labels do (${edges.join(', ')})`);
+  // Install into that long folder (made now, under this run's copy): the result names the add-ons
+  // folder on a line of its own, broken only after a slash.
+  fs.mkdirSync(longDir, { recursive: true });
+  await click(b, '.install-block .save-button');
+  const installed = await until(b, `document.querySelector('.install-block .message.success')?.textContent`, 150);
+  check(!!installed, `the install into the long folder answers (${installed})`);
+  const addons = path.join(longDir, 'addons21');
+  if (await b.evaluate(`!!document.querySelector('.install-block .message code')`)) {
+    const wrap = await breaksIn('.install-block .message code');
+    check(wrap.text === addons && wrap.breaks.length > 0 && wrap.breaks.every((c) => c === '/'),
+      `in the install result the add-ons folder breaks only after a slash (${wrap.breaks.length} breaks, after ${JSON.stringify(wrap.breaks.join(''))})`);
+  } else {
+    check(false, `the install result shows the add-ons folder as a path of its own (${installed})`);
+  }
+  await sleep(300);
+  await shot(b, '15c-install-long-path');
   await sleep(300);
   await shot(b, '15b-settings-long-path');
 
