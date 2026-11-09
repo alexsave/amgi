@@ -4,6 +4,7 @@
 // (`cbase: listening 127.0.0.1:<port>`); and the tests' fake Gemini.
 import { spawn } from 'node:child_process';
 import path from 'node:path';
+import { sandboxEnv } from '../sandbox-home.cjs';
 
 export const ROOT = path.resolve(import.meta.dirname, '..', '..');
 export const SERVER = path.join(ROOT, 'server', 'build', 'amgi');
@@ -50,10 +51,7 @@ function stop(child) {
  * changes the server's answers is passed on.
  */
 export async function startServer({ key = 'offline-dummy', base = 'http://127.0.0.1:9' } = {}) {
-  const env = {
-    PATH: process.env.PATH, HOME: process.env.HOME, TMPDIR: process.env.TMPDIR, CBASE_LISTEN: '127.0.0.1:0', GEMINI_API_KEY: key,
-  };
-  if (base) env.GEMINI_API_BASE = base;
+  const env = sandboxEnv({ CBASE_LISTEN: '127.0.0.1:0', GEMINI_API_KEY: key, GEMINI_API_BASE: base || undefined });
   const s = await startAndRead(SERVER, ['serve'], env, LISTENING, 'the amgi server');
   return { url: `http://${s.match}`, stop: s.stop, pid: s.child.pid };
 }
@@ -61,6 +59,6 @@ export async function startServer({ key = 'offline-dummy', base = 'http://127.0.
 /** The tests' fake Gemini (plusaudio/test/helpers/fake-gemini.js), standalone, on its own free port. */
 export async function startFakeGemini() {
   const s = await startAndRead(process.execPath, ['plusaudio/test/helpers/fake-gemini.js', '0'],
-    { PATH: process.env.PATH, HOME: process.env.HOME }, /GEMINI_API_BASE=(\S+)/, 'the fake Gemini');
+    sandboxEnv(), /GEMINI_API_BASE=(\S+)/, 'the fake Gemini');
   return { url: s.match, stop: s.stop };
 }

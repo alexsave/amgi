@@ -17,6 +17,7 @@ import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
 import { createRequire } from 'node:module';
+import { sandboxEnv } from '../sandbox-home.cjs';
 import {
   BridgeError, PROTOCOL_HEADER, closeBridgesUnderTest, probeBridgeUnderTest as probeBridge, resolveTransportUnderTest as resolveTransport,
 } from '../parity/bridge-under-test.mjs';
@@ -32,7 +33,7 @@ const maybe = anki ? describe : describe.skip;
 
 /** The add-on's server on a free port over `collectionPath`; resolves to its URL and a stop(). */
 function startBridge(collectionPath) {
-  const child = spawn(anki.bin, [ENTRY, collectionPath, TOKEN, '', '0'], { stdio: ['pipe', 'pipe', 'inherit'] });
+  const child = spawn(anki.bin, [ENTRY, collectionPath, TOKEN, '', '0'], { env: sandboxEnv(), stdio: ['pipe', 'pipe', 'inherit'] });
   const ready = new Promise((resolve, reject) => {
     child.stdout.once('data', (chunk) => {
       const match = /^LISTENING (\d+)/.exec(chunk.toString());

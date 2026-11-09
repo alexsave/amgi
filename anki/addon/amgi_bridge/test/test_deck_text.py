@@ -21,6 +21,7 @@ import unittest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import deck_text  # noqa: E402
+from sandbox_home import sandbox_env  # noqa: E402
 
 # .../test/test_deck_text.py -> test -> amgi_bridge -> addon -> anki -> repo root
 REPO_ROOT = os.path.dirname(
@@ -30,7 +31,7 @@ REPO_ROOT = os.path.dirname(
 
 def node_available() -> bool:
     try:
-        subprocess.run(["node", "--version"], capture_output=True, check=True)
+        subprocess.run(["node", "--version"], env=sandbox_env(), capture_output=True, check=True)
         return True
     except (OSError, subprocess.CalledProcessError):
         return False
@@ -70,6 +71,7 @@ process.stdout.write(JSON.stringify(out));
     result = subprocess.run(
         ["node", "-e", script, deck_js, audio_store_js],
         input=json.dumps(payload),
+        env=sandbox_env(),
         capture_output=True,
         text=True,
         check=True,
