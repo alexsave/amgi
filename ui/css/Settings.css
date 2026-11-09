@@ -149,11 +149,12 @@
 }
 
 /* A folder path in a message, on its own line(s) between the sentences around it, at the size the
-   install line shows a path. */
+   install line shows a path, in the message's colour. */
 .message-path {
   display: block;
   margin: 0.5rem 0;
   font-size: 0.85rem;
+  color: inherit; /* the box's own colour: a path in a success box is not an error */
 }
 
 .message.success {

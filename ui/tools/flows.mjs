@@ -123,7 +123,8 @@ try {
   await until(b, `!!document.querySelector('.install-block .save-button')`);
   await click(b, '.install-block .save-button');
   const msg = await until(b, `document.querySelector('.install-block .message.success')?.textContent`, 150);
-  check(msg && msg.endsWith(`(${path.join(ankiDir, 'addons21')})`), `Settings' install says where it went: ${msg}`);
+  const went = await b.evaluate(`document.querySelector('.install-block .message.success code')?.textContent`);
+  check(went === path.join(ankiDir, 'addons21'), `Settings' install says where it went: ${msg} [${went}]`);
   await sleep(300);
   await shot(b, '15-settings-installed');
   // The card's pixels: the profile radio in the theme's red (not the browser's blue) and on the
