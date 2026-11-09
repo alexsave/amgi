@@ -28,7 +28,7 @@ _Noreturn void cx_rethrow(cx *c);
 /* Run fn(c, arg); 0 when it returned, -1 when it threw (c->err says what). */
 int cx_try(cx *c, void (*fn)(cx *, void *), void *arg);
 
-/* ---- the database: one connection, opened per unit of work as open.js does ---- */
+/* ---- the database: one connection, opened per unit of work, as the Node core's open.js did ---- */
 typedef struct {
   sqlite3 *db;
   int schema;

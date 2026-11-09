@@ -1,4 +1,5 @@
-/* open.js and relaxed-read.js, and the plumbing every other file stands on: see core.h. */
+/* Ported from what were open.js and relaxed-read.js (the deleted Node core), and the plumbing every
+ * other file stands on: see core.h. */
 #include <errno.h>
 #include <math.h>
 #include <stdarg.h>
@@ -52,7 +53,8 @@ int64_t now_ms(void) {
 /* ---- statements ---- */
 static _Noreturn void sql_throw(cx *c, conn *k) {
   const char *msg = sqlite3_errmsg(k->db);
-  /* open.js's isLockedError: the message, as node:sqlite passes it on. */
+  /* As the Node core's isLockedError (open.js, before the port) read it: the message, as node:sqlite
+   * passed it on. */
   cx_throw(c, strcasestr(msg, "database is locked") ? "locked" : NULL, 0, "%s", msg);
 }
 
