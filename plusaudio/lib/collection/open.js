@@ -27,7 +27,9 @@
 //    locked and never opened, checked again right after the open, never
 //    OPEN_CREATE, never a checkpoint. THIS FILE DOES NOT FOLLOW IT YET: it opens
 //    whatever is there and checkpoints on every open (below), which is the
-//    incident's sequence; test/no-checkpoint.test.mjs is red on it until it does.
+//    incident's sequence. The owner decided on 2026-11-08 that the Node server
+//    gets no fix: it is not run until the switch to the C server, which deletes
+//    it; test/no-checkpoint.test.mjs allows this one checkpoint until then.
 //
 // Lock detection is a first-class result here, not a thrown error a caller has
 // to pattern-match: openCollection() returns a tagged object, and callers
