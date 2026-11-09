@@ -28,11 +28,13 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { seed } from './seed.mjs';
 import { startServer } from '../../test/parity/servers.mjs';
+import { sandboxEnv } from '../../test/sandbox-home.cjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..', '..');
 const cdom = process.env.CDOM || path.join(root, 'cdom');
-const { launch, sleep } = await import(path.join(cdom, 'tools', 'cdp.mjs'));
+const { sleep } = await import(path.join(cdom, 'tools', 'cdp.mjs'));
+const { launchChrome } = await import('./chrome.mjs');
 
 const home = path.resolve(process.argv[2] || '');
 // Never the real HOME: the server's default Anki folder is under it. An empty folder under the
@@ -44,13 +46,8 @@ if (!process.argv[2] || !fs.existsSync(home) || fs.realpathSync(home) === real |
   console.log(`FAIL refusing to run: the argument must be an empty folder under ${tmp}, not the real HOME (${real})`);
   process.exit(2);
 }
-const sandbox = { ...process.env, HOME: home };
-// the server under the temp HOME: startServer passes process.env.HOME on
-async function serverInSandbox() {
-  const was = process.env.HOME;
-  process.env.HOME = home;
-  try { return await startServer({ key: '' }); } finally { process.env.HOME = was; }
-}
+// The folder holds the collection; the server, the installer and the Anki stand-in each run with a
+// fresh temp HOME of their own besides (test/sandbox-home.cjs), and Chrome keeps the real one.
 
 const failures = [];
 const check = (ok, what) => {
@@ -63,7 +60,7 @@ const profile = path.join(base, 'User 1');
 const col = path.join(profile, 'collection.anki2');
 fs.mkdirSync(profile, { recursive: true });
 fs.copyFileSync(path.join(root, 'test', 'parity', 'fixtures', 'schema18', 'collection.anki2'), col);
-execFileSync(process.execPath, [path.join(here, 'fixture-install.mjs'), base, '--addons-only'], { stdio: 'ignore', env: sandbox });
+execFileSync(process.execPath, [path.join(here, 'fixture-install.mjs'), base, '--addons-only'], { stdio: 'ignore', env: sandboxEnv() });
 // One add-on file from an older amgi, so the page's template check finds the files behind and,
 // when the server says Anki is closed, reinstalls on its own (the files, then the note type into
 // the collection: the page load's write).
@@ -74,7 +71,7 @@ const makeOlder = () => fs.writeFileSync(older, Buffer.concat([shipped, Buffer.f
 
 // Counts and integrity through Python's own sqlite3, with Anki closed: read write, so its close
 // takes away the -wal and -shm it made (a read-only one leaves them, and they would read as an Anki).
-const py = (code) => execFileSync('python3', ['-I', '-c', code, col], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+const py = (code) => execFileSync('python3', ['-I', '-c', code, col], { env: sandboxEnv(), encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
 const counts = () => py(`import sqlite3,sys
 d=sqlite3.connect(sys.argv[1])
 d.create_collation('unicase',lambda a,b:(a.casefold()>b.casefold())-(a.casefold()<b.casefold()))
@@ -102,7 +99,7 @@ async function cleanup() {
 }
 try {
   // 2. Anki, open and unlocked by its own backup, with a full -wal.
-  anki = spawn(path.join(root, 'server', 'build', 'anki_standin'), [col], { stdio: ['pipe', 'pipe', 'inherit'], env: sandbox });
+  anki = spawn(path.join(root, 'server', 'build', 'anki_standin'), [col], { stdio: ['pipe', 'pipe', 'inherit'], env: sandboxEnv() });
   procs.push(anki);
   let said = '';
   anki.stdout.setEncoding('utf8');
@@ -114,8 +111,8 @@ try {
     `beside it, a -wal and no -shm, Anki's exclusive mode (${beside.join(' ') || 'nothing'})`);
 
   // 3. The server and the page, twice.
-  server = await serverInSandbox();
-  b = await launch(['--hide-scrollbars', '--use-mock-keychain', '--password-store=basic']);
+  server = await startServer({ key: '' });
+  b = await launchChrome();
   await b.send('Network.enable');
   const requests = [];
   const pending = new Set();
@@ -173,7 +170,7 @@ from anki.collection import Collection
 c=Collection(sys.argv[1])
 problems,ok=c.fix_integrity()
 print('checked' if ok else 'failed', c.note_count(), c.card_count(), '|', problems.replace(chr(10),' / '))
-c.close()`, col], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+c.close()`, col], { env: sandboxEnv(), encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
     } catch (e) { out = `failed: ${String(e.stderr || e.message).split('\n').filter(Boolean).at(-1)}`; }
     check(out.startsWith('checked'), `the anki library opens it and Check Database passes: ${out}`);
   } else {
