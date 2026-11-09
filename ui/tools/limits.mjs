@@ -1,9 +1,10 @@
 // Text too long for the page's buffer, against a copy of the UI fixture that each run builds fresh
 // (ui/tools/flows.sh, amgi installed): every box refuses it with a message and keeps nothing, never
 // a value cut short (ui/src/dom.c input_value). A deck name past the new-deck modal's 512 bytes and
-// past the rename's, a paste past the card box's MAX_PASTE (64 KB), a card field past 4096 bytes and
-// a bridge token past the settings' 2048. Each limit is crossed by one byte, in multi-byte UTF-8
-// where the limit is a name's, so the value does not end on a character boundary at the limit.
+// past the rename's, a paste past the card box's MAX_PASTE (64 KB), a card field past 4096 bytes, a
+// bridge token past the settings' 2048, each crossed by one byte (in multi-byte UTF-8 where the limit
+// is a name's, so the value does not end on a character boundary at the limit); and an Anki data
+// folder path of 1500 bytes, refused alike by Save and Scan, which share one limit.
 //
 //   node ui/tools/limits.mjs <base url> <name> <anki folder> [out dir]
 import fs from 'node:fs';
@@ -203,6 +204,32 @@ try {
     await until(b, `!!document.querySelector('#bridgeUrl')`, 150);
     check(await b.evaluate(`document.querySelector('#bridgeUrl').value === 'http://127.0.0.1:8798'`),
       `and nothing was kept, not even the address typed with it (${await b.evaluate(`document.querySelector('#bridgeUrl').value`)})`);
+  });
+
+  // 6. settings.c: the Anki data folder has one limit (MAX_BASE_DIR, 1024 bytes) for save, scan and
+  // install alike: a path between 1024 and 2048 bytes is refused by Save and by Scan the same way.
+  await section('the data folder path', async () => {
+    const tooLong = 'The Anki data folder path is too long';
+    const errors = `[...document.querySelectorAll('.settings-page .message.error')].filter(e => e.textContent === ${JSON.stringify(tooLong)}).length`;
+    let longPath = `${ankiDir}/`;
+    longPath += 'p'.repeat(1500 - bytes(longPath));
+    check(bytes(longPath) === 1500, `the long path is 1500 bytes (${bytes(longPath)})`);
+    await goto(b, `${base}/settings`);
+    await until(b, `[...document.querySelectorAll('.save-button')].some(x => x.textContent === 'Scan for profiles')`, 150);
+    await sleep(300);
+    await click(b, '#ankiBaseDir');
+    await paste(b, longPath);
+    await b.evaluate(`[...document.querySelectorAll('.save-button')].find(x => x.textContent === 'Save Anki settings').dataset.drive = 'save'`);
+    await click(b, '.save-button[data-drive="save"]');
+    check(await until(b, `${errors} === 1`), `Save refuses a 1500-byte path (${await b.evaluate(errors)} message)`);
+    await b.evaluate(`[...document.querySelectorAll('.save-button')].find(x => x.textContent === 'Scan for profiles').dataset.drive = 'scan'`);
+    await click(b, '.save-button[data-drive="scan"]');
+    check(await until(b, `${errors} === 2`), `and Scan refuses it the same way (${await b.evaluate(errors)} messages)`);
+    await sleep(300);
+    await shot(b, '65-path-too-long');
+    await goto(b, `${base}/settings`);
+    await until(b, `!!document.querySelector('#ankiBaseDir')`, 150);
+    check(await b.evaluate(`document.querySelector('#ankiBaseDir').value === ${JSON.stringify(ankiDir)}`), 'and the saved folder is the one it was');
   });
 
   check(!pageErrors.length, `no page errors${pageErrors.length ? `: ${pageErrors.join(' / ')}` : ''}`);

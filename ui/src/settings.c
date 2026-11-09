@@ -249,6 +249,10 @@ static void scan_view(void) {
 ON_ANSWER(profiles_answered);
 ON_ANSWER(installed_answered);
 
+/* The Anki data folder, as scan, install and save all read it: one size, so a path that saves also
+ * scans and installs. The server hands the path to the file system as it is (opendir, then the
+ * profile and add-on paths under it), and on macOS no path of PATH_MAX (1024) bytes or more opens. */
+#define MAX_BASE_DIR 1024
 #define TOO_LONG_BASE "The Anki data folder path is too long"
 
 static void scan(void) {
@@ -258,7 +262,7 @@ static void scan(void) {
   /* The typed override, without saving it: a scan is a preview, not a commitment. */
   text probe[S_FIELDS];
   for (int f = 0; f < S_FIELDS; f++) probe[f] = settings[f];
-  char buf[1024];
+  char buf[MAX_BASE_DIR];
   uint32_t n;
   if (!input_value(base_input, buf, sizeof buf, &n)) {
     scan_loading = 0;
@@ -316,12 +320,13 @@ static void save(void) {
   /* one too long keeps nothing, and says which */
   static const int field[] = {S_BASE_DIR, S_BRIDGE_URL, S_BRIDGE_TOKEN};
   static const char *const too_long[] = {TOO_LONG_BASE, "The bridge address is too long", "The bridge token is too long"};
+  static const uint32_t cap[] = {MAX_BASE_DIR, 2048, 2048};
   cd_id from[] = {base_input, url_input, token_input};
   char buf[2048];
   text_free(&save_error);
   for (int k = 0; k < 3; k++) {
     uint32_t n;
-    if (!input_value(from[k], buf, sizeof buf, &n)) {
+    if (!input_value(from[k], buf, cap[k], &n)) {
       text_setz(&save_error, too_long[k]);
       saved_shown = 0;
       saved_view();
@@ -343,7 +348,7 @@ static void install(void) {
   install_ok = -1;
   text_free(&install_message);
   install_view();
-  char buf[1024];
+  char buf[MAX_BASE_DIR];
   uint32_t n;
   if (!input_value(base_input, buf, sizeof buf, &n)) {
     install_running = 0;
