@@ -20,7 +20,8 @@
 #   check-asan   make -C server check-asan  (the same under ASan and UBSan)
 #   npm-test     npm ci, then npm test
 #   drives       npm run e2e: the six browser drives against the C server, fixture plus fake Gemini
-#   npm-start    npm start on the clone, then GET / and GET /api/anki/status must answer 200
+#   make-start   make start on the clone (no npm): GET / answers 307 to /decks (as the recorded contract pins),
+#                GET /decks and /app.wasm answer 200, GET /api/anki/status answers 200 as amgi wire
 #   real-anki    the real Anki collection's size and mtime are the same after as before
 # Exits 0 only when every step passes. A failed step does not stop the later ones, except that
 # nothing runs without a clone.
@@ -140,26 +141,30 @@ s_drives() {
 }
 s_npm_start() {
   cd "$clone" || return 1
-  local home="$work/home" log="$logs/npm-start.server.log" port="" n=0
+  local home="$work/home" log="$logs/make-start.server.log" port="" n=0
   mkdir -p "$home"
   # Port 0: cbase picks a free one and names it in its startup line.
   env HOME="$home" CBASE_LISTEN=127.0.0.1:0 GEMINI_API_KEY=offline-dummy GEMINI_API_BASE=http://127.0.0.1:9 \
-    nice -n 10 npm start > "$log" 2>&1 &
+    nice -n 10 make start > "$log" 2>&1 &
   server_pid=$!
   until port="$(grep -o 'cbase: listening [^ ]*' "$log" | head -1 | sed 's/.*://')" && [ -n "$port" ] || [ "$n" -gt 600 ]; do
-    if ! kill -0 "$server_pid" 2> /dev/null; then echo "npm start exited before listening:"; cat "$log"; return 1; fi
+    if ! kill -0 "$server_pid" 2> /dev/null; then echo "make start exited before listening:"; cat "$log"; return 1; fi
     sleep 1; n=$((n + 1))
   done
   if [ -z "$port" ]; then echo "no 'cbase: listening' line after 600 s:"; cat "$log"; return 1; fi
   echo "listening on 127.0.0.1:$port"
-  local page status
-  page="$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$port/")"
+  local page decks wasm status
+  page="$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "http://127.0.0.1:$port/")"
+  decks="$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$port/decks")"
+  wasm="$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$port/app.wasm")"
   status="$(curl -s -o "$work/status.bin" -w '%{http_code} %{content_type}' "http://127.0.0.1:$port/api/anki/status")"
   echo "GET / -> $page"
+  echo "GET /decks -> $decks, GET /app.wasm -> $wasm"
   echo "GET /api/anki/status -> $status ($(wc -c < "$work/status.bin" | tr -d ' ') bytes)"
   cleanup
   server_pid=""
-  [ "$page" = 200 ] && case "$status" in "200 application/x-amgi-wire"*) true ;; *) false ;; esac
+  case "$page" in "307 "*/decks) true ;; *) return 1 ;; esac
+  [ "$decks" = 200 ] && [ "$wasm" = 200 ] && case "$status" in "200 application/x-amgi-wire"*) true ;; *) false ;; esac
 }
 s_real_anki() {
   local after
@@ -173,7 +178,7 @@ if step clone s_clone; then
   step check-asan s_check_asan
   step npm-test s_npm_test
   step drives s_drives
-  step npm-start s_npm_start
+  step make-start s_npm_start
 fi
 step real-anki s_real_anki
 summary
