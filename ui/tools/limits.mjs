@@ -65,6 +65,23 @@ const text = (selector) => `document.querySelector(${JSON.stringify(selector)})?
 const decksShown = `document.querySelectorAll('.deck-item').length`;
 const deckNames = `[...document.querySelectorAll('.deck-item h3')].map(h => h.textContent)`;
 
+// Each limit is a section of its own, from its own page, so one that fails (a mutant that lets the
+// long value through) still lets the others run and say whether they hold.
+async function section(what, fn) {
+  try {
+    await fn();
+  } catch (err) {
+    check(false, `${what}: ${err.message}`);
+  }
+}
+async function openDeck(b, deck) {
+  await goto(b, `${base}/decks`);
+  await until(b, `${decksShown} >= 7`, 150);
+  const i = await b.evaluate(`${deckNames}.findIndex(h => h === ${JSON.stringify(deck)})`);
+  await click(b, `.deck-item:nth-child(${i + 1})`);
+  await until(b, `document.querySelector('.deck-name-button')?.textContent === ${JSON.stringify(deck)} && document.querySelectorAll('.note-rows > li').length > 0`, 150);
+}
+
 // 171 three-byte characters: 513 bytes, one past the 512 the deck name buffers hold
 const longName = '덱'.repeat(171);
 
@@ -86,98 +103,107 @@ try {
   check(await until(b, `${decksShown} === 7`, 150), 'the deck list, seven decks');
 
   // 1. decks.c: a new deck's name one byte past 512 is refused in the modal, and no deck is made.
-  check(bytes(longName) === 513, `the long name is 513 bytes (${bytes(longName)})`);
-  await click(b, '.deck-actions .action-btn');
-  await until(b, `document.activeElement?.id === 'deckName'`);
-  await paste(b, longName);
-  await click(b, '.modal-content .primary-btn');
-  const modalErr = await until(b, text('.modal-content .error-message'));
-  check(modalErr === 'That name is too long', `the modal refuses a 513-byte name: ${modalErr}`);
-  await sleep(300);
-  await shot(b, '60-modal-name-too-long');
-  // one character fewer (510 bytes) fits, so the refusal is the length's and nothing else's
-  await click(b, '#deckName');
-  await paste(b, longName.slice(1));
-  await click(b, '.modal-content .primary-btn');
-  check(await until(b, `/^\\/deck\\/\\d+$/.test(location.pathname) && document.querySelector('.deck-name-button')?.textContent === ${JSON.stringify(longName.slice(1))}`, 150),
-    `a 510-byte name is made and opened (${await b.evaluate(`location.pathname + ' ' + (document.querySelector('.modal-content .error-message')?.textContent ?? '')`)})`);
-  await goto(b, `${base}/decks`);
-  await until(b, `${decksShown} === 8`, 150);
-  check(!(await b.evaluate(deckNames)).includes(longName), 'and no deck has the 513-byte name');
+  await section('the new-deck name', async () => {
+    check(bytes(longName) === 513, `the long name is 513 bytes (${bytes(longName)})`);
+    await click(b, '.deck-actions .action-btn');
+    await until(b, `document.activeElement?.id === 'deckName'`);
+    await paste(b, longName);
+    await click(b, '.modal-content .primary-btn');
+    const modalErr = await until(b, text('.modal-content .error-message'));
+    check(modalErr === 'That name is too long', `the modal refuses a 513-byte name: ${modalErr}`);
+    await sleep(300);
+    await shot(b, '60-modal-name-too-long');
+    // one character fewer (510 bytes) fits, so the refusal is the length's and nothing else's
+    await click(b, '#deckName');
+    await paste(b, longName.slice(1));
+    await click(b, '.modal-content .primary-btn');
+    check(await until(b, `/^\\/deck\\/\\d+$/.test(location.pathname) && document.querySelector('.deck-name-button')?.textContent === ${JSON.stringify(longName.slice(1))}`, 150),
+      `a 510-byte name is made and opened (${await b.evaluate(`location.pathname + ' ' + (document.querySelector('.modal-content .error-message')?.textContent ?? '')`)})`);
+    await goto(b, `${base}/decks`);
+    await until(b, `${decksShown} === 8`, 150);
+    check(!(await b.evaluate(deckNames)).includes(longName), 'and no deck has the 513-byte name');
+  });
 
   // 2. deck.c: a rename one byte past 512 is refused under the name, which stays as it was.
-  const i = await b.evaluate(`${deckNames}.findIndex(h => h === '한국어')`);
-  await click(b, `.deck-item:nth-child(${i + 1})`);
-  await until(b, `document.querySelector('.deck-name-button')?.textContent === '한국어'`, 150);
-  await click(b, '.deck-name-button');
-  await until(b, `document.activeElement?.classList.contains('deck-name-input')`);
-  await paste(b, longName);
-  await key(b, 'Enter', 'Enter', 13);
-  const renameErr = await until(b, text('.deck-name-error'));
-  check(renameErr === 'That name is too long', `the rename refuses a 513-byte name: ${renameErr}`);
-  check(await b.evaluate(`${text('.deck-name-button')} === '한국어'`), 'and the name stays 한국어');
-  await sleep(300);
-  await shot(b, '61-rename-too-long');
+  await section('the rename', async () => {
+    await openDeck(b, '한국어');
+    await click(b, '.deck-name-button');
+    await until(b, `document.activeElement?.classList.contains('deck-name-input')`);
+    await paste(b, longName);
+    await key(b, 'Enter', 'Enter', 13);
+    const renameErr = await until(b, text('.deck-name-error'));
+    check(renameErr === 'That name is too long', `the rename refuses a 513-byte name: ${renameErr}`);
+    check(await b.evaluate(`${text('.deck-name-button')} === '한국어'`), 'and the name stays 한국어');
+    await sleep(300);
+    await shot(b, '61-rename-too-long');
+  });
 
   // 3. form.c: a paste one byte past MAX_PASTE says so, and the button makes nothing.
-  const lines = [];
-  for (let n = 0; bytes(lines.join('\n')) < 65537; n++) lines.push(`line ${n} of a long paste`);
-  let long = lines.join('\n');
-  while (bytes(long) > 65537) long = long.slice(0, -1);
-  check(bytes(long) === 65537, `the long paste is 65537 bytes (${bytes(long)})`);
-  await click(b, '#amgiCardInput');
-  await paste(b, long);
-  const formErr = await until(b, text('.card-form-error'));
-  check(/too long/.test(formErr || ''), `the box says the paste is too long: ${formErr}`);
-  check(await b.evaluate(`document.querySelector('.card-form-go').disabled`), 'and its button is off');
-  await sleep(300);
-  await shot(b, '62-paste-too-long');
-  await paste(b, 'short again');
-  check(await until(b, `!document.querySelector('.card-form-error') && !document.querySelector('.card-form-go').disabled`),
-    'a short text takes the message away and turns the button on');
-  await paste(b, '');
+  await section('the paste', async () => {
+    await openDeck(b, '한국어');
+    const lines = [];
+    for (let n = 0; bytes(lines.join('\n')) < 65537; n++) lines.push(`line ${n} of a long paste`);
+    let long = lines.join('\n');
+    while (bytes(long) > 65537) long = long.slice(0, -1);
+    check(bytes(long) === 65537, `the long paste is 65537 bytes (${bytes(long)})`);
+    await click(b, '#amgiCardInput');
+    await paste(b, long);
+    const formErr = await until(b, text('.card-form-error'));
+    check(/too long/.test(formErr || ''), `the box says the paste is too long: ${formErr}`);
+    check(await b.evaluate(`document.querySelector('.card-form-go').disabled`), 'and its button is off');
+    await sleep(300);
+    await shot(b, '62-paste-too-long');
+    await paste(b, 'short again');
+    check(await until(b, `!document.querySelector('.card-form-error') && !document.querySelector('.card-form-go').disabled`),
+      'a short text takes the message away and turns the button on');
+  });
 
   // 4. panel.c: a card field one byte past 4096 is not saved, and the panel says why.
-  await click(b, '.note-rows > li:nth-child(3) .note-row-edit');
-  await until(b, `!!document.querySelector('.card-panel-value-big')`);
-  const before = await b.evaluate(`document.querySelector('.card-panel-value-big').value`);
-  await click(b, '.card-panel-value-big');
-  await paste(b, 'x'.repeat(4097));
-  await key(b, 'Enter', 'Enter', 13);
-  const panelErr = await until(b, text('.card-panel-error'));
-  check(panelErr === 'This field is too long to save', `the panel refuses a 4097-byte field: ${panelErr}`);
-  await sleep(300);
-  await shot(b, '63-field-too-long');
-  await click(b, '.note-rows > li:nth-child(3) .note-row-edit'); // Close
-  await goto(b, `${base}${await b.evaluate('location.pathname')}`);
-  await until(b, `document.querySelectorAll('.note-rows > li').length > 0`, 150);
-  await click(b, '.note-rows > li:nth-child(3) .note-row-edit');
-  await until(b, `!!document.querySelector('.card-panel-value-big')`);
-  check(await b.evaluate(`document.querySelector('.card-panel-value-big').value === ${JSON.stringify(before)}`), 'and Anki keeps the field as it was');
+  await section('the card field', async () => {
+    await openDeck(b, '한국어');
+    await click(b, '.note-rows > li:nth-child(3) .note-row-edit');
+    await until(b, `!!document.querySelector('.card-panel-value-big')`);
+    const before = await b.evaluate(`document.querySelector('.card-panel-value-big').value`);
+    await click(b, '.card-panel-value-big');
+    await paste(b, 'x'.repeat(4097));
+    await key(b, 'Enter', 'Enter', 13);
+    const panelErr = await until(b, text('.card-panel-error'));
+    check(panelErr === 'This field is too long to save', `the panel refuses a 4097-byte field: ${panelErr}`);
+    await sleep(300);
+    await shot(b, '63-field-too-long');
+    await click(b, '.note-rows > li:nth-child(3) .note-row-edit'); // Close
+    await goto(b, `${base}${await b.evaluate('location.pathname')}`);
+    await until(b, `document.querySelectorAll('.note-rows > li').length > 0`, 150);
+    await click(b, '.note-rows > li:nth-child(3) .note-row-edit');
+    await until(b, `!!document.querySelector('.card-panel-value-big')`);
+    check(await b.evaluate(`document.querySelector('.card-panel-value-big').value === ${JSON.stringify(before)}`), 'and Anki keeps the field as it was');
+  });
 
   // 5. settings.c: a bridge token one byte past 2048 saves nothing, and says which setting.
-  await click(b, 'button[title="Settings"]');
-  await until(b, `!!document.querySelector('#bridgeToken')`, 150);
-  // the scan's answer draws its message above the bridge rows: typed once it has, so the clicks land
-  await until(b, `[...document.querySelectorAll('.save-button')].some(x => x.textContent === 'Scan for profiles')`, 150);
-  await sleep(300);
-  await click(b, '#bridgeToken');
-  await paste(b, 't'.repeat(2049));
-  await click(b, '#bridgeUrl');
-  await paste(b, 'http://127.0.0.1:9999');
-  const typedToken = await b.evaluate(`document.querySelector('#bridgeToken').value.length`);
-  check(typedToken === 2049, `the token box holds 2049 bytes (${typedToken})`);
-  await b.evaluate(`[...document.querySelectorAll('.save-button')].find(x => x.textContent === 'Save Anki settings').dataset.drive = 'save'`);
-  await click(b, '.save-button[data-drive="save"]');
-  const saveErr = await until(b, `document.querySelector('.settings-page .message.error')?.textContent === 'The bridge token is too long' && 'The bridge token is too long'`);
-  check(saveErr === 'The bridge token is too long', `Save refuses a 2049-byte token: ${saveErr}`);
-  check(await b.evaluate(`!document.querySelector('.settings-page .message.success')`), 'and does not say saved');
-  await sleep(300);
-  await shot(b, '64-setting-too-long');
-  await goto(b, `${base}/settings`);
-  await until(b, `!!document.querySelector('#bridgeUrl')`, 150);
-  check(await b.evaluate(`document.querySelector('#bridgeUrl').value === 'http://127.0.0.1:8798'`),
-    `and nothing was kept, not even the address typed with it (${await b.evaluate(`document.querySelector('#bridgeUrl').value`)})`);
+  await section('the bridge token', async () => {
+    await goto(b, `${base}/settings`);
+    await until(b, `!!document.querySelector('#bridgeToken')`, 150);
+    // the scan's answer draws its message above the bridge rows: typed once it has, so the clicks land
+    await until(b, `[...document.querySelectorAll('.save-button')].some(x => x.textContent === 'Scan for profiles')`, 150);
+    await sleep(300);
+    await click(b, '#bridgeToken');
+    await paste(b, 't'.repeat(2049));
+    await click(b, '#bridgeUrl');
+    await paste(b, 'http://127.0.0.1:9999');
+    const typedToken = await b.evaluate(`document.querySelector('#bridgeToken').value.length`);
+    check(typedToken === 2049, `the token box holds 2049 bytes (${typedToken})`);
+    await b.evaluate(`[...document.querySelectorAll('.save-button')].find(x => x.textContent === 'Save Anki settings').dataset.drive = 'save'`);
+    await click(b, '.save-button[data-drive="save"]');
+    const saveErr = await until(b, text('.settings-page .message.error'));
+    check(saveErr === 'The bridge token is too long', `Save refuses a 2049-byte token: ${saveErr}`);
+    check(await b.evaluate(`!document.querySelector('.settings-page .message.success')`), 'and does not say saved');
+    await sleep(300);
+    await shot(b, '64-setting-too-long');
+    await goto(b, `${base}/settings`);
+    await until(b, `!!document.querySelector('#bridgeUrl')`, 150);
+    check(await b.evaluate(`document.querySelector('#bridgeUrl').value === 'http://127.0.0.1:8798'`),
+      `and nothing was kept, not even the address typed with it (${await b.evaluate(`document.querySelector('#bridgeUrl').value`)})`);
+  });
 
   check(!pageErrors.length, `no page errors${pageErrors.length ? `: ${pageErrors.join(' / ')}` : ''}`);
 } finally {
