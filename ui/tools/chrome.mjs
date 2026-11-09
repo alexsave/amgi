@@ -11,10 +11,9 @@ import { sandboxEnv } from '../../test/sandbox-home.cjs';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const { launch } = await import(path.join(process.env.CDOM || path.join(here, '..', '..', 'cdom'), 'tools', 'cdp.mjs'));
 
-// Off the keychain as well: cdom's pin (cbfcf6f) does not pass these yet, and a Chrome that ever
-// meets a HOME with no login keychain asks macOS for one in a dialog. Drop them here once the cdom
-// pin's cdp.mjs carries them.
-export const CHROME_FLAGS = ['--hide-scrollbars', '--use-mock-keychain', '--password-store=basic'];
+// cdom's launcher keeps Chrome off the keychain itself (--use-mock-keychain, --password-store=basic),
+// so a Chrome that meets a HOME with no login keychain never asks macOS for one in a dialog.
+export const CHROME_FLAGS = ['--hide-scrollbars'];
 
 let armed = false;
 function arm() {
