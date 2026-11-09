@@ -77,7 +77,7 @@ typedef struct { text name, path; } profile;
 static profile *profiles;
 static uint32_t nprofiles;
 static int scan_loading, scan_exists = -1, saved_shown, install_running, install_ok = -1;
-static text scan_base, scan_error, install_message, save_error;
+static text scan_base, scan_error, install_message, install_dir, save_error;
 static cd_id section, scan_button, scan_text, install_button, install_text, base_input, url_input, token_input, saved_slot,
   install_block;
 /* the scan's messages or the profile list, after "Bridge token" and before Save: the scan answers
@@ -314,8 +314,8 @@ static void saved_view(void) {
   cd_region_end(&saved_msg);
 }
 
-/* The install's message, after its button, as React draws it: "<message> (<addons dir>)" in a
- * success box, or the error in an error box. */
+/* The install's message, after its button: the server's sentence and, on a line of its own, the
+ * add-ons folder it installed into (path_text), in a success box; or the error in an error box. */
 static void install_view(void) {
   if (!shown) return;
   cd_set_text(install_text, install_running ? CD_LIT("Installing…") : CD_LIT("Install into Anki"));
@@ -326,6 +326,11 @@ static void install_view(void) {
   el(CD_LIT("div"), install_ok == 1 ? CD_LIT("message success") : CD_LIT("message error"));
   cd_name_open(install_msg.root);
   tmp_text(install_message.p, install_message.len);
+  if (install_dir.len) {
+    el(CD_LIT("code"), CD_LIT("message-path"));
+    path_text(install_dir.p, install_dir.len);
+    cd_close();
+  }
   cd_close();
   cd_region_end(&install_msg);
 }
@@ -387,6 +392,7 @@ static void install(void) {
   install_running = 1;
   install_ok = -1;
   text_free(&install_message);
+  text_free(&install_dir);
   install_view();
   char buf[MAX_BASE_DIR];
   uint32_t n;
@@ -439,24 +445,16 @@ ON_ANSWER(installed_answered) {
   wire_installed in;
   answer a = take(&h_answer, WK_INSTALLED, status, p, len, &in);
   install_running = 0;
-  char m[2048];
-  uint32_t n;
   if (a.ok) {
-    /* "<message> (<add-ons folder>)" */
     install_ok = 1;
-    n = in.message.len < 1500 ? in.message.len : 1500;
-    __builtin_memcpy(m, in.message.p, n);
-    m[n++] = ' ';
-    m[n++] = '(';
-    uint32_t d = in.addons_dir.len < 500 ? in.addons_dir.len : 500;
-    __builtin_memcpy(m + n, in.addons_dir.p, d);
-    n += d;
-    m[n++] = ')';
+    text_set(&install_message, in.message.p, in.message.len);
+    text_set(&install_dir, in.addons_dir.p, in.addons_dir.len);
   } else {
     install_ok = 0;
-    n = answer_message(&a, m, sizeof m);
+    char m[2048];
+    text_set(&install_message, m, answer_message(&a, m, sizeof m));
+    text_free(&install_dir);
   }
-  text_set(&install_message, m, n);
   install_view();
   refresh_decks();
 }
