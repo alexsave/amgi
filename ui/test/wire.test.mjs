@@ -8,17 +8,18 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
 import path from 'node:path';
+import { sandboxEnv } from '../../test/sandbox-home.cjs';
 import { fileURLToPath } from 'node:url';
 import { KIND, decode, encode } from '../wire/wire.mjs';
 
 const dump = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'out', 'wire_dump');
-const read = (bytes) => execFileSync(dump, { input: bytes }).toString();
+const read = (bytes) => execFileSync(dump, { env: sandboxEnv(), input: bytes }).toString();
 
 function refusesCutShort(bytes) {
   for (let n = 0; n < bytes.length; n++) {
-    assert.equal(spawnSync(dump, { input: bytes.subarray(0, n) }).stdout.toString(), 'bad\n', `prefix of ${n} bytes`);
+    assert.equal(spawnSync(dump, { env: sandboxEnv(), input: bytes.subarray(0, n) }).stdout.toString(), 'bad\n', `prefix of ${n} bytes`);
   }
-  assert.equal(spawnSync(dump, { input: Buffer.concat([bytes, Buffer.from([0])]) }).stdout.toString(), 'bad\n', 'one byte too many');
+  assert.equal(spawnSync(dump, { env: sandboxEnv(), input: Buffer.concat([bytes, Buffer.from([0])]) }).stdout.toString(), 'bad\n', 'one byte too many');
 }
 
 test('every kind in the schema is one the server can name', () => {
@@ -67,7 +68,7 @@ test('a list that claims more items than its bytes could hold is refused at once
   head.writeUInt8(0, 5); // mode
   // values: 2^31 strings in 3 bytes; walking them would take minutes
   const bytes = Buffer.concat([head.subarray(0, 6), Buffer.from([0, 0, 0, 0x80]), Buffer.from('abc')]);
-  const r = spawnSync(dump, { input: bytes, timeout: 5000 });
+  const r = spawnSync(dump, { env: sandboxEnv(), input: bytes, timeout: 5000 });
   assert.equal(r.stdout.toString(), 'bad\n');
   assert.equal(decode('q_note_update', Buffer.concat([Buffer.from([0x41, 0x4d, 0x57, 0x32, KIND.q_note_update, 0xff, 0xff, 0xff, 0x7f])])), null);
 });

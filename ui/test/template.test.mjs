@@ -9,6 +9,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import { sandboxEnv } from '../../test/sandbox-home.cjs';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
@@ -24,7 +25,7 @@ function c(fn, s) {
   const head = Buffer.alloc(8);
   head.writeUInt32LE(fn, 0);
   head.writeUInt32LE(b.length, 4);
-  const out = execFileSync(dump, { input: Buffer.concat([head, b]) });
+  const out = execFileSync(dump, { env: sandboxEnv(), input: Buffer.concat([head, b]) });
   return out.subarray(4, 4 + out.readUInt32LE(0)).toString('utf8');
 }
 const NAMES = c(9, '').split('\x1f');
