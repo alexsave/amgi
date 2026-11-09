@@ -179,6 +179,11 @@
   gap: 0.5rem;
 }
 
+/* A folder path's parts (settings.c path_text): a line breaks only between them, after a slash. */
+.path-part {
+  white-space: nowrap;
+}
+
 .install-block .preference-help {
   margin: 0;
   font-size: 0.85rem;
