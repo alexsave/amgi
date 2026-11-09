@@ -140,11 +140,12 @@
   transform: none;
 }
 
+/* Every message box on the card (the scan's, the install's, Save's): text on the left, as the card is. */
 .message {
   margin: 20px 0;
   padding: 12px;
   border-radius: 4px;
-  text-align: center;
+  text-align: left;
 }
 
 /* A folder path in a message, on its own line(s) between the sentences around it, at the size the
