@@ -322,22 +322,23 @@ static void saved_gone(void *ctx) {
 }
 
 static void save(void) {
-  /* one too long keeps nothing, and says which */
-  static const int field[] = {S_BASE_DIR, S_BRIDGE_URL, S_BRIDGE_TOKEN};
-  static const char *const too_long[] = {TOO_LONG_BASE, "The bridge address is too long", "The bridge token is too long"};
-  cd_id from[] = {base_input, url_input, token_input};
-  char buf[2048];
+  /* all three read before any is kept: one too long keeps none of them, and says which */
+  char base[MAX_BASE_DIR], url[2048], token[2048];
+  uint32_t nb, nu, nt;
+  const char *too_long = !base_dir_value(base, &nb) ? TOO_LONG_BASE
+    : !input_value(url_input, url, sizeof url, &nu) ? "The bridge address is too long"
+    : !input_value(token_input, token, sizeof token, &nt) ? "The bridge token is too long"
+    : 0;
   text_free(&save_error);
-  for (int k = 0; k < 3; k++) {
-    uint32_t n;
-    if (!(k ? input_value(from[k], buf, sizeof buf, &n) : base_dir_value(buf, &n))) {
-      text_setz(&save_error, too_long[k]);
-      saved_shown = 0;
-      saved_view();
-      return;
-    }
-    text_set(&draft[field[k]], buf, n);
+  if (too_long) {
+    text_setz(&save_error, too_long);
+    saved_shown = 0;
+    saved_view();
+    return;
   }
+  text_set(&draft[S_BASE_DIR], base, nb);
+  text_set(&draft[S_BRIDGE_URL], url, nu);
+  text_set(&draft[S_BRIDGE_TOKEN], token, nt);
   for (int f = 0; f < S_FIELDS; f++) text_set(&settings[f], draft[f].p, draft[f].len);
   settings_save();
   saved_shown = 1;
