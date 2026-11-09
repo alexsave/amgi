@@ -36,7 +36,9 @@ typedef struct {
   size_t nstmts, cap;
 } conn;
 
-enum { OPEN_OK, OPEN_NOT_FOUND, OPEN_LOCKED, OPEN_UNSUPPORTED };
+enum { OPEN_OK, OPEN_NOT_FOUND, OPEN_LOCKED, OPEN_UNSUPPORTED, OPEN_DAMAGED };
+/* Whether the collection may be opened at all, before SQLite sees it (db.c says the rules). */
+int collection_openable(cx *c, str path);
 /* openCollection: OPEN_* (and *schema), or throws a SQLite error that is not a lock. */
 int conn_open(cx *c, str path, conn *out, int *schema);
 void conn_close(conn *k);
