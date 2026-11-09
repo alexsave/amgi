@@ -104,9 +104,9 @@ npm run e2e     # builds, then every browser drive against fresh servers (see .c
 make -C server check   # cbase's whole check with amgi as its product (its gates, unit tests and smokes)
 ```
 
-The page is C, compiled to WebAssembly by `ui/build.sh`, on [cdom](https://github.com/alexsave/cdom) (the submodule at `cdom/`): the C owns the DOM, one call per change, and there is no JavaScript framework.
+The page is C, compiled to WebAssembly on [cdom](https://github.com/alexsave/cdom) (the submodule at `cdom/`) by `ui/Makefile`, which builds on cdom's own make fragment (`cdom.mk`) and which `ui/build.sh` runs: the C owns the DOM, one call per change, and there is no JavaScript framework.
 The server is C: `server/build/amgi`, the amgi app (`server/app/`, `server/amgi/`) on [cbase](https://github.com/alexsave/cbase)'s `serve` (the submodule at `cbase/`), with the Anki collection code (`server/collection/`), the rate gate and the Gemini client (gRPC over HTTP/2, cbase's) in the same process, and no Node.
-`make start` starts it (`server/tools/start.sh`): it listens on `CBASE_LISTEN` (`127.0.0.1:3000` by default, or `PORT`), says `cbase: listening <host>:<port>` on stdout, answers only a `Host` of `127.0.0.1`, `localhost` or `[::1]` at that port (against DNS rebinding), sends no CORS headers, and reads `.env.local` through cbase's `CBASE_ENV_FILE`.
+`make start` starts it through cbase's `make serve` (`make -C server serve`, run from the repository root): it listens on `CBASE_LISTEN` (`127.0.0.1:3000` by default, or `PORT`), says `cbase: listening <host>:<port>` on stdout, answers only a `Host` of `127.0.0.1`, `localhost` or `[::1]` at that port (against DNS rebinding), sends no CORS headers, and reads `.env.local` through cbase's `CBASE_ENV_FILE`.
 `.claude/skills/e2e-ui/` and `ui/tools/` drive the app in headless Chrome against a fixture Anki collection.
 `anki/test/harness/drive.js` does the same for the card template.
 `test/parity/` holds the server's contract: an HTTP suite over every route and error shape, compared byte for byte with a recording (made from the Node server the C one replaced), and a collection runner that applies one operation list to schema 11 and 18 fixtures through the C core and compares every row afterwards.

@@ -12,6 +12,9 @@
 #   make -C server check-collection   the C collection core's own tests (server/test/unit.c), under ASan
 #   make -C server build/asan/collection_cli   the collection CLI under ASan and UBSan
 #   make -C server check              cbase's whole check, with the amgi app as its product
+#   make -C server serve              build/amgi, then serve from the repository root (cbase.mk's
+#                                     make serve: CBASE_LISTEN, or PORT, moves it from 127.0.0.1:3000;
+#                                     .env.local, when it is there, is read as CBASE_ENV_FILE)
 #
 # sqlite is upstream's on every platform: on macOS Homebrew's, as cbase.mk resolves it. ICU is the
 # one Node is built with (process.versions.icu, 78 today), so case folding, NFC and script lookups
@@ -23,6 +26,9 @@ endif
 C_ROOT := ..
 CBASE_PROVIDERS := local
 APP_SERVE := amgi
+# serve runs from the repository root, where it reads the page's files (ui/out), the add-ons and the
+# starter deck, and finds .env.local (cbase.mk's APP_ENV_FILE default).
+APP_SERVE_DIR := ..
 APP_SRC_ROOTS := app
 # wire.h, for the tests that include the app's headers (test/app_unit.c)
 APP_INC := -I../ui/wire
