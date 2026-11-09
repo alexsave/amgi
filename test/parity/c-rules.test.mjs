@@ -31,14 +31,5 @@ test('nothing in amgi\'s C or in cbase cancels a thread', () => {
   assert.deepEqual(hits, []);
 });
 
-// incident-1842: amgi never asks SQLite for a checkpoint. One cut Anki's live -wal to nothing while
-// Anki's lock was down, and Anki's next frames left a hole its close copied into the collection as
-// zero pages. server/collection/db.c (collection_openable) says the rules that keep SQLite's own
-// open and close safe; this holds the C to having no checkpoint call of its own.
-test('nothing in amgi\'s C asks SQLite for a checkpoint', () => {
-  const tracked = execFileSync('git', ['ls-files', '-z', '--', 'server/*.c', 'server/*.h'], { cwd: ROOT, encoding: 'utf8' }).split('\0').filter(Boolean);
-  assert.ok(tracked.some((f) => f.endsWith('db.c')), 'the scan sees db.c');
-  // server/test/ is left out: incident_1842.c plays Anki on a sandbox copy, checkpoint and all.
-  const hits = tracked.filter((f) => !f.startsWith('server/test/')).filter((f) => /wal_checkpoint/i.test(fs.readFileSync(path.join(ROOT, f), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')));
-  assert.deepEqual(hits, []);
-});
+// The incident-1842 checkpoint rule is held by test/no-checkpoint.test.mjs, for the C, the
+// JavaScript and the add-on's Python at once, with comments blanked.
