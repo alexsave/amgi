@@ -138,9 +138,10 @@ class CrossTransportTests(unittest.TestCase):
         self.addCleanup(lambda: shutil.rmtree(self.tmpdir, ignore_errors=True))
 
         # Seed a collection and immediately close it - closed is the only
-        # state either transport is allowed to touch it in (see open.js's
-        # module docstring: Anki's exclusive lock means at most one thing
-        # ever has the file open at a time).
+        # state either transport is allowed to touch it in (Anki's exclusive
+        # lock means at most one thing ever has the file open at a time; the
+        # Node core's open.js said so, and server/collection/db.c's
+        # openCollection, its C port, says it now).
         import anki.lang
         from anki.collection import Collection
 
