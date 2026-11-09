@@ -20,6 +20,7 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { sandboxEnv } from '../sandbox-home.cjs';
 import { createRequire } from 'node:module';
 import { dec, enc, hex, items, list, noteTokens, strs } from './protocol.mjs';
 
@@ -105,7 +106,7 @@ function dumpOf(copy, since, until) {
   const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'amgi-parity-dump-'));
   fs.cpSync(copy.profile, scratch, { recursive: true });
   const out = execFileSync(DUMP, ['--since', String(since), '--until', String(until), path.join(scratch, 'collection.anki2'),
-    path.join(scratch, 'collection.media'), path.join(scratch, 'amgi-collection-backups')], { encoding: 'utf8', maxBuffer: 256 << 20 });
+    path.join(scratch, 'collection.media'), path.join(scratch, 'amgi-collection-backups')], { env: sandboxEnv(), encoding: 'utf8', maxBuffer: 256 << 20 });
   fs.rmSync(scratch, { recursive: true, force: true });
   void backups;
   return out;

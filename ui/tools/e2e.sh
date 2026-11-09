@@ -13,6 +13,7 @@ set -uo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 root="$(cd "$here/../.." && pwd)"
 cd "$root"
+. "$here/sandbox-home.sh"
 shots="${1:-$root/.e2e/shots}"
 logs="$root/.e2e/servers"
 mkdir -p "$shots" "$logs"
@@ -22,7 +23,7 @@ for v in ANKI_PYTHON_BIN ANKI_FIXTURE_APKG; do
 done
 server=("$root/server/build/amgi" serve)
 pids=()
-trap '[ ${#pids[@]} -gt 0 ] && kill "${pids[@]}" 2> /dev/null' EXIT
+trap '[ ${#pids[@]} -gt 0 ] && kill "${pids[@]}" 2> /dev/null; rm -rf "$sandbox_root"' EXIT
 
 # start <var> <line prefix> <command...>: runs it in the background, waits for the line that names
 # its URL, and sets <var> to the URL (empty if it never came)
@@ -37,8 +38,8 @@ start() {
   case "${!var}" in http*) ;; *) printf -v "$var" 'http://%s' "${!var}" ;; esac
 }
 listening='cbase: listening '
-start gemini GEMINI_API_BASE= node plusaudio/test/helpers/fake-gemini.js 0
-start app "$listening" env CBASE_LISTEN=127.0.0.1:0 GEMINI_API_KEY=offline-dummy GEMINI_API_BASE=http://127.0.0.1:9 "${server[@]}"
-start keyless "$listening" env CBASE_LISTEN=127.0.0.1:0 GEMINI_API_KEY= "${server[@]}"
-start faked "$listening" env CBASE_LISTEN=127.0.0.1:0 GEMINI_API_KEY=fake "GEMINI_API_BASE=$gemini" "${server[@]}"
+start gemini GEMINI_API_BASE= env "HOME=$(fresh_home)" node plusaudio/test/helpers/fake-gemini.js 0
+start app "$listening" env "HOME=$(fresh_home)" CBASE_LISTEN=127.0.0.1:0 GEMINI_API_KEY=offline-dummy GEMINI_API_BASE=http://127.0.0.1:9 "${server[@]}"
+start keyless "$listening" env "HOME=$(fresh_home)" CBASE_LISTEN=127.0.0.1:0 GEMINI_API_KEY= "${server[@]}"
+start faked "$listening" env "HOME=$(fresh_home)" CBASE_LISTEN=127.0.0.1:0 GEMINI_API_KEY=fake "GEMINI_API_BASE=$gemini" "${server[@]}"
 ui/tools/drives.sh cdom "$app" "$keyless" "$faked" "$gemini" "$shots"

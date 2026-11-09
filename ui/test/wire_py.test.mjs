@@ -10,13 +10,14 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import { sandboxEnv } from '../../test/sandbox-home.cjs';
 import { KIND, decode, encode } from '../wire/wire.mjs';
 
 const ROOT = path.resolve(import.meta.dirname, '..', '..');
 const ADDON = path.join(ROOT, 'anki', 'addon', 'amgi_bridge');
 
 test('the add-on\'s wire_schema.py is what wire_py.c writes from wire.c', () => {
-  const generated = execFileSync(path.join(ROOT, 'ui', 'out', 'wire_py'), { encoding: 'utf8' });
+  const generated = execFileSync(path.join(ROOT, 'ui', 'out', 'wire_py'), { env: sandboxEnv(), encoding: 'utf8' });
   assert.equal(fs.readFileSync(path.join(ADDON, 'wire_schema.py'), 'utf8'), generated,
     'run ui/build.sh and commit anki/addon/amgi_bridge/wire_schema.py');
 });
@@ -46,7 +47,7 @@ function throughPython(messages) {
     head.writeUInt32LE(bytes.length, 1 + kind.length);
     return [head, bytes];
   }));
-  const out = execFileSync('python3', ['-I', '-c', ROUND_TRIP, ADDON], { input });
+  const out = execFileSync('python3', ['-I', '-c', ROUND_TRIP, ADDON], { env: sandboxEnv(), input });
   const answers = [];
   for (let at = 0; at < out.length;) {
     const n = out.readUInt32LE(at);
@@ -116,7 +117,7 @@ sys.stdout.buffer.write(bytes(out))
 `;
 
 test('what the add-on writes from its own values, the server reads as those values', () => {
-  const out = execFileSync('python3', ['-I', '-c', FROM_PYTHON, ADDON]);
+  const out = execFileSync('python3', ['-I', '-c', FROM_PYTHON, ADDON], { env: sandboxEnv() });
   const bodies = [];
   for (let at = 0; at < out.length; at += 4 + out.readUInt32LE(at)) bodies.push(out.subarray(at + 4, at + 4 + out.readUInt32LE(at)));
   assert.deepEqual(decode('b_deck', bodies[0]), { id: 1794163006799, name: '한국어' });

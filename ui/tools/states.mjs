@@ -10,6 +10,7 @@
 //   node ui/tools/states.mjs <base url> <name> <work dir> [out dir]
 import fs from 'node:fs';
 import path from 'node:path';
+import { sandboxEnv } from '../../test/sandbox-home.cjs';
 import { execFileSync } from 'node:child_process';
 import http from 'node:http';
 import { createRequire } from 'node:module';
@@ -29,7 +30,7 @@ const check = (ok, what) => {
   console.log(`${ok ? 'ok  ' : 'FAIL'} ${what}`);
   if (!ok) failures.push(what);
 };
-const sh = (cmd, args) => execFileSync(cmd, args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+const sh = (cmd, args) => execFileSync(cmd, args, { cwd: root, env: sandboxEnv({ ANKI_PYTHON_BIN: process.env.ANKI_PYTHON_BIN, ANKI_FIXTURE_APKG: process.env.ANKI_FIXTURE_APKG }), encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
 // A folder as one profile, "User 1", from the UI fixture; installed fully, add-ons only, or not at all.
 function folder(dirName, install) {
   const dir = sh(path.join(here, 'flows.sh'), [path.join(root, '.e2e', 'fixture'), path.join(work, dirName)]);
