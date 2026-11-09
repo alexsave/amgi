@@ -120,6 +120,25 @@ ON_EVENT(install_pressed);
 ON_EVENT(scan_pressed);
 ON_EVENT(save_pressed);
 
+/* A folder path that may wrap only after a slash: each part up to and with its slash kept whole
+ * (.path-part, nowrap), a <wbr> after it. A browser breaks a line after a hyphen too, which cut
+ * a name in two ("amgi-settings-" / "click"). */
+static void path_text(const char *p, uint32_t n) {
+  for (uint32_t i = 0; i < n;) {
+    uint32_t j = i;
+    while (j < n && p[j] != '/') j++;
+    if (j < n) j++; /* the slash stays with its part */
+    el(CD_LIT("span"), CD_LIT("path-part"));
+    tmp_text(p + i, j - i);
+    cd_close();
+    if (j < n) {
+      cd_open(CD_LIT("wbr"));
+      cd_close();
+    }
+    i = j;
+  }
+}
+
 void settings_build(void) {
   for (int f = 0; f < S_FIELDS; f++) text_set(&draft[f], settings[f].p ? settings[f].p : "", settings[f].len);
   if (!settings_stored || !draft[S_BRIDGE_URL].len) text_setz(&draft[S_BRIDGE_URL], DEFAULT_BRIDGE_URL);
@@ -150,7 +169,7 @@ void settings_build(void) {
   el(CD_LIT("p"), CD_LIT("preference-help"));
   cd_text(CD_LIT("Installs into "));
   cd_open(CD_LIT("code"));
-  if (draft[S_BASE_DIR].len) tmp_text(draft[S_BASE_DIR].p, draft[S_BASE_DIR].len);
+  if (draft[S_BASE_DIR].len) path_text(draft[S_BASE_DIR].p, draft[S_BASE_DIR].len);
   else cd_text(CD_LIT("your default Anki data folder"));
   cd_close();
   if (!draft[S_BASE_DIR].len) cd_text(CD_LIT(" - set the override below to install somewhere else."));
