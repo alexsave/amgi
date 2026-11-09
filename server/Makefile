@@ -59,8 +59,10 @@ AMGI_SRC := $(sort $(wildcard amgi/*.c))
 APP_EXTRA_SRC := $(COL_SRC) $(BRIDGE_SRC) $(AMGI_SRC)
 APP_EXTRA_CFLAGS = $(WARN) -O2 -g -pthread -I$(CBASE)/core/include -I$(CBASE)/core/src -I$(CBASE)/lib -I../ui/wire \
   $(ICU_CFLAGS) $(SQLITE_CFLAGS) $(OPENSSL_CFLAGS)
-APP_LDLIBS := $(ICU_LDFLAGS) -licui18n -licuuc
+SERVER_LDFLAGS := $(ICU_LDFLAGS) -licui18n -licuuc
 APP_PROGS := collection_cli=collection/cli.c app_unit=test/app_unit.c golden_cards=test/golden_cards.c
+# cbase's own default port is 8642; amgi keeps 3000 (PORT, or CBASE_LISTEN, moves it).
+APP_SERVE_LISTEN := 127.0.0.1:$(or $(PORT),3000)
 include $(CBASE)/cbase.mk
 
 # The ones not linked with cbase: the dump tool, and the core's own tests, under the sanitizers.
