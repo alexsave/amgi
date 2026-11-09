@@ -185,7 +185,7 @@ test('sandbox-home.sh keeps the shell\'s HOME for Chrome, gives fresh HOMEs, uns
 test('every drive starts Chrome through ui/tools/chrome.mjs, which stops it when the drive exits', () => {
   const drives = tracked.filter((f) => f.startsWith('ui/tools/') && f.endsWith('.mjs') && f !== 'ui/tools/chrome.mjs');
   for (const f of drives) assert.doesNotMatch(fs.readFileSync(path.join(ROOT, f), 'utf8'), /\blaunch\(/, `${f}: Chrome only through launchChrome()`);
-  assert.equal(drives.filter((f) => /launchChrome\(\)/.test(fs.readFileSync(path.join(ROOT, f), 'utf8'))).length, 6, 'the six drives');
+  assert.equal(drives.filter((f) => /launchChrome\(\)/.test(fs.readFileSync(path.join(ROOT, f), 'utf8'))).length, 7, 'the six drives and incident1842.mjs');
 });
 
 test('a drive that exits without closing its Chrome leaves no Chrome running', () => {
