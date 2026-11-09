@@ -107,12 +107,6 @@ static str header_value(cx *c, const cb_buf *head, const char *name) {
   return S("");
 }
 
-static int64_t mono_ms(void) {
-  struct timespec t;
-  clock_gettime(CLOCK_MONOTONIC, &t);
-  return (int64_t)t.tv_sec * 1000 + t.tv_nsec / 1000000;
-}
-
 /* Decode bytes of kind into out, or 0 when they are not one whole message of it. Strings point
  * into the arena's copy of the bytes. */
 int wire_length_fits(size_t n);
@@ -179,20 +173,20 @@ static void fetch(cx *c, call *k) {
     buf_c(&headers, "Content-Type: " WIRE_MIME "\r\n");
     wire_encode(&body, k->send_kind, k->send);
   }
+  /* A write (POST, PATCH, DELETE) is never sent twice: cbase's client resends only a GET, HEAD or
+   * OPTIONS whose reused connection failed before any answer (net/https.h). The add-on runs a write
+   * the moment it has read it, so a second copy would be a second note. */
   cb_https_response r = {0};
-  int64_t started = mono_ms();
-  int rc = (tls ? cb_https_request : cb_http_plain_request)(host, port, k->method, path, headers.p, body.p, body.len,
-                                                            k->timeout_ms, &r);
-  int64_t took = mono_ms() - started;
+  int rc = tls ? cb_https_request(host, port, k->method, path, headers.p, body.p, body.len, k->timeout_ms, &r)
+               : cb_http_plain_request(CB_HTTPS_OTHER, host, port, k->method, path, headers.p, body.p, body.len,
+                                       k->timeout_ms, &r);
   buf_free(&headers);
   free(body.p);
   if (rc != CB_OK) {
+    int timed_out = r.fail == CB_HTTPS_FAIL_TIMEOUT;
     cb_https_response_free(&r);
-    /* fetch's two failures: the AbortController's timer fired, or there was no answer at all.
-     * cbase's client says CB_E_IO for both, so the deadline is told by the clock (within 50 ms of
-     * it, as the client's own deadline is measured apart from this one). Asked of cbase's
-     * amgi-http lane: a result of its own for a timeout, and then this goes. */
-    cx_throw(c, NULL, 0, took + 50 >= k->timeout_ms ? "This operation was aborted" : "fetch failed");
+    /* fetch's two failures: the AbortController's timer fired, or there was no answer at all. */
+    cx_throw(c, NULL, 0, timed_out ? "This operation was aborted" : "fetch failed");
   }
   int status = r.status;
   str theirs = header_value(c, &r.headers, PROTOCOL_HEADER);
