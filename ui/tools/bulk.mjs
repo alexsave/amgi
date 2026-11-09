@@ -13,7 +13,8 @@ import { seed } from './seed.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const cdom = process.env.CDOM || path.join(here, '..', '..', 'cdom');
-const { launch, sleep } = await import(path.join(cdom, 'tools', 'cdp.mjs'));
+const { sleep } = await import(path.join(cdom, 'tools', 'cdp.mjs'));
+const { launchChrome } = await import('./chrome.mjs');
 const [base, gemini, name, ankiDir, outArg] = process.argv.slice(2);
 const out = outArg || path.join(here, '..', 'out', 'shots');
 fs.mkdirSync(out, { recursive: true });
@@ -63,7 +64,7 @@ const typeInto = async (b, text) => {
   await b.send('Input.insertText', { text });
 };
 
-const b = await launch(['--hide-scrollbars']);
+const b = await launchChrome();
 const watchdog = setTimeout(async () => {
   console.log('FAIL the drive took more than 9 minutes');
   await b.close();

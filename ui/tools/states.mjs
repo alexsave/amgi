@@ -23,7 +23,8 @@ import { seed } from './seed.mjs';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(here, '..', '..');
 const cdom = process.env.CDOM || path.join(root, 'cdom');
-const { launch, sleep } = await import(path.join(cdom, 'tools', 'cdp.mjs'));
+const { sleep } = await import(path.join(cdom, 'tools', 'cdp.mjs'));
+const { launchChrome } = await import('./chrome.mjs');
 const { holdCollectionOpen } = createRequire(import.meta.url)('../../plusaudio/test/collection/helpers/anki-python.js');
 const [base, name, work, outArg] = process.argv.slice(2);
 const out = outArg || path.join(here, '..', 'out', 'shots');
@@ -64,7 +65,7 @@ async function goto(b, url) {
 }
 // A new browser profile for each state: nothing remembered but what is seeded.
 async function open(settings) {
-  const b = await launch(['--hide-scrollbars']);
+  const b = await launchChrome();
   await b.send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 900, deviceScaleFactor: 2, mobile: false });
   await seed(b, base, { baseDir: settings.base, collection: settings.collection || '', ...settings.bridge });
   return b;

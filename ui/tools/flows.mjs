@@ -11,7 +11,8 @@ import { seed } from './seed.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const cdom = process.env.CDOM || path.join(here, '..', '..', 'cdom');
-const { launch, sleep } = await import(path.join(cdom, 'tools', 'cdp.mjs'));
+const { sleep } = await import(path.join(cdom, 'tools', 'cdp.mjs'));
+const { launchChrome } = await import('./chrome.mjs');
 const [base, keyless, name, ankiDir, outArg] = process.argv.slice(2);
 const out = outArg || path.join(here, '..', 'out', 'shots');
 fs.mkdirSync(out, { recursive: true });
@@ -50,7 +51,7 @@ async function click(b, selector) {
 const type = (b, text) => b.send('Input.insertText', { text });
 const decksShown = `document.querySelectorAll('.deck-item').length`;
 
-const b = await launch(['--hide-scrollbars']);
+const b = await launchChrome();
 const watchdog = setTimeout(async () => {
   console.log('FAIL the drive took more than 4 minutes');
   await b.close();

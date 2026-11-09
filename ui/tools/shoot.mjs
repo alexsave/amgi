@@ -16,7 +16,8 @@ import { seed } from './seed.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const cdom = process.env.CDOM || path.join(here, '..', '..', 'cdom');
-const { launch, sleep } = await import(path.join(cdom, 'tools', 'cdp.mjs'));
+const { sleep } = await import(path.join(cdom, 'tools', 'cdp.mjs'));
+const { launchChrome } = await import('./chrome.mjs');
 
 const [base, name, collection, outArg] = process.argv.slice(2);
 if (!base || !name || !collection) {
@@ -78,7 +79,7 @@ async function back(b) {
 }
 const settled = `document.querySelectorAll('.deck-item').length > 0 && document.querySelector('nav.navbar span[title]')?.textContent === 'Anki connected' ? document.querySelectorAll('.deck-item').length : 0`;
 
-const b = await launch(['--hide-scrollbars']);
+const b = await launchChrome();
 // One bound on the whole drive: a step that never answers ends the run, and the Chrome it started.
 const watchdog = setTimeout(async () => {
   console.log('FAIL the drive took more than 4 minutes');

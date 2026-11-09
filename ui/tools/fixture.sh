@@ -10,5 +10,5 @@ cd "$root"
 . "$here/sandbox-home.sh"
 node .claude/skills/e2e-ui/scripts/fixture.js "$dir" > /dev/null
 node ui/tools/fixture-install.mjs "$dir"
-"$ANKI_PYTHON_BIN" "$here/fixture-extra.py" "$dir/collection.anki2"
+env "HOME=$(fresh_home)" "$ANKI_PYTHON_BIN" "$here/fixture-extra.py" "$dir/collection.anki2"
 echo "$dir/collection.anki2"
