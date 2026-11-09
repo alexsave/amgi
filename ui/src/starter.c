@@ -110,8 +110,9 @@ void starter_forget(void) {
 ON_EVENT(language_picked) {
   char code[8];
   int which = CTX_INDEX(ctx) == 1;
-  uint32_t n = cd_input_value(which ? learning_sel : known_sel, code, sizeof code);
-  uint32_t i = index_of(code, n);
+  uint32_t n;
+  /* the options are the app's own codes: one that does not fit is no language */
+  uint32_t i = input_value(which ? learning_sel : known_sel, code, sizeof code, &n) ? index_of(code, n) : NLANGUAGES;
   if (i >= NLANGUAGES) return;
   if (which) learning = i;
   else known = i;

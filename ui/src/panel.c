@@ -183,7 +183,14 @@ static void commit(uint32_t k) {
   int32_t i = index_of_key(k);
   if (i < 0 || (uint32_t)i >= nfields || !inputs[k]) return;
   char buf[4096];
-  uint32_t n = cd_input_value(inputs[k], buf, sizeof buf);
+  uint32_t n;
+  if (!input_value(inputs[k], buf, sizeof buf, &n)) {
+    text_setz(&error, "This field is too long to save");
+    error_view();
+    return;
+  }
+  text_free(&error);
+  error_view();
   if (same(buf, n, fields[i].p, fields[i].len)) return;
   text_set(&fields[i], buf, n);
   save();
