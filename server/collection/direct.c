@@ -21,7 +21,7 @@ void notes_count(cx *c, conn *k, double deck, int64_t *out);
 void notes_page(cx *c, conn *k, double deck, double offset, double limit, col_note **out, size_t *nout);
 void field_values(cx *c, conn *k, double deck, double notetype, double field, str **out, size_t *nout);
 void spec_validate(cx *c, const col_spec *spec);
-void notetype_create(cx *c, conn *k, const col_spec *spec, col_notetype_made *out);
+void notetype_create(cx *c, conn *k, str path, const col_spec *spec, col_notetype_made *out);
 str media_dir_for(cx *c, str collection);
 str media_add(cx *c, str dir, str desired, const void *data, size_t len);
 int media_write_fixed(cx *c, str dir, str name, const void *data, size_t len);
@@ -147,7 +147,7 @@ typedef struct { conn *k; str path; conn_fn fn; void *arg; } write_args;
 static void write_body(cx *c, void *arg) {
   write_args *w = arg;
   conn_exec(c, w->k, "BEGIN");
-  ensure_backup_on(c, w->path, w->k);
+  w->k->backed_up = ensure_backup_on(c, w->path, w->k).p != NULL;
   w->fn(c, w->k, w->arg);
   conn_exec(c, w->k, "COMMIT");
 }
@@ -265,13 +265,14 @@ int col_field_values(arena *a, str path, double deck, double notetype, double fi
   return r;
 }
 
-typedef struct { const col_spec *spec; const col_media *media; size_t nmedia; col_notetype_made *out; } nt_create_args;
+typedef struct { const col_spec *spec; const col_media *media; size_t nmedia; col_notetype_made *out; str path; } nt_create_args;
 static void nt_create_conn(cx *c, conn *k, void *arg) {
   nt_create_args *n = arg;
-  notetype_create(c, k, n->spec, n->out);
+  notetype_create(c, k, n->path, n->spec, n->out);
 }
 static void nt_create_path(cx *c, str path, void *arg) {
   nt_create_args *n = arg;
+  n->path = path;
   spec_validate(c, n->spec);
   with_write(c, path, nt_create_conn, arg);
   /* The note type's own media, after the rows, and only when it really was made. */
@@ -283,7 +284,7 @@ static void nt_create_path(cx *c, str path, void *arg) {
 int col_create_notetype(arena *a, str path, const col_spec *spec, const col_media *media, size_t nmedia,
                         col_notetype_made *out, col_err *err) {
   memset(out, 0, sizeof *out);
-  nt_create_args n = {spec, media, nmedia, out};
+  nt_create_args n = {spec, media, nmedia, out, {NULL, 0}};
   return locked(a, path, nt_create_path, &n, err);
 }
 

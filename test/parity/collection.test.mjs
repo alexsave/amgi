@@ -532,9 +532,12 @@ for (const schema of ['18', '11']) {
       check(`collection-${schema}-dump`, main.dump);
     });
 
-    test('one backup for the whole session, however many writes', () => {
+    // C takes one more on schema 18: making a note type is the page's automatic install write, and
+    // it always has a backup of its own (incident-1842; on schema 11 it is refused and writes nothing).
+    const sessionBackups = IMPL && schema === '18' ? 2 : 1;
+    test('one backup for the whole session, however many writes (and one more before the note type, in C)', () => {
       const backups = fs.readdirSync(path.join(main.copy.profile, 'amgi-collection-backups'));
-      assert.equal(backups.length, 1, backups.join(', '));
+      assert.equal(backups.length, sessionBackups, backups.join(', '));
     });
 
     test('the result opens in real Anki, and Check Database finds nothing', { skip: !anki && 'needs ANKI_PYTHON_BIN' }, () => {

@@ -329,14 +329,14 @@ static str take_backup(cx *c, str path, sqlite3 *src) {
 
 /* ---- the policy ---- */
 
-typedef struct { str path; conn *k; str mark, key; int64_t now; str dst; int taken; } backup_run;
+typedef struct { str path; conn *k; str mark, key; int64_t now; str dst; int taken, fresh; } backup_run;
 static void backup_body(cx *c, void *arg) {
   backup_run *r = arg;
   r->mark = mark_on(c, r->path, r->k);
   pthread_mutex_lock(&ledger_lock);
   ledger_entry *rec = ledger_find(r->key);
   /* A mark we could not read is a collection Anki has open, and there is a recent backup. */
-  int skip = rec && r->now - rec->backed_up_at < BACKUP_MAX_AGE_MS &&
+  int skip = !r->fresh && rec && r->now - rec->backed_up_at < BACKUP_MAX_AGE_MS &&
              (!r->mark.p || (rec->mark && strlen(rec->mark) == r->mark.n && !memcmp(rec->mark, r->mark.p, r->mark.n)));
   pthread_mutex_unlock(&ledger_lock);
   if (skip) return;
@@ -353,8 +353,8 @@ static void backup_body(cx *c, void *arg) {
  * transaction of its own around the probe and the copy. k NULL: a handle of its own, and a
  * collection it cannot open is not copied, since the copy would be torn (addMedia only: a write
  * cannot get here with an unreadable collection). The backup's path, or empty. */
-str ensure_backup_on(cx *c, str path, conn *k) {
-  backup_run r = {path, k, {NULL, 0}, path_resolve(c->a, path), now_ms(), {NULL, 0}, 0};
+static str ensure_on(cx *c, str path, conn *k, int fresh) {
+  backup_run r = {path, k, {NULL, 0}, path_resolve(c->a, path), now_ms(), {NULL, 0}, 0, fresh};
   conn own;
   if (!k) {
     int open = open_own_conn(c, path, &own);
@@ -387,6 +387,12 @@ str ensure_backup_on(cx *c, str path, conn *k) {
   rec->mark = dup_or_null(r.mark, r.mark.p != NULL);
   pthread_mutex_unlock(&ledger_lock);
   return r.dst;
+}
+
+str ensure_backup_on(cx *c, str path, conn *k) { return ensure_on(c, path, k, 0); }
+str ensure_fresh_backup_on(cx *c, str path, conn *k) {
+  if (k && k->backed_up) return (str){NULL, 0};
+  return ensure_on(c, path, k, 1);
 }
 
 /* noteCollectionWritten: how the collection looks after our write, read on k (NULL: a handle of
