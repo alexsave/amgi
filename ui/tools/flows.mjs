@@ -147,6 +147,15 @@ try {
   check(await until(b, `!window.__reloading && document.readyState === 'complete' && !!document.querySelector('#bridgeToken')`, 150), 'the page reloads the moment it says saved');
   const kept = await b.evaluate(`document.querySelector('#bridgeToken').value`);
   check(kept === 'token-kept', `and the saved token is there after the reload (${JSON.stringify(kept)})`);
+  // A write the browser refuses (a quota, say: IndexedDB's put throws here) says so, never "saved".
+  await until(b, `[...document.querySelectorAll('.save-button')].some(x => x.textContent === 'Scan for profiles')`, 150);
+  await sleep(300);
+  await b.evaluate(`IDBObjectStore.prototype.put = function () { throw new DOMException('full', 'QuotaExceededError'); }`);
+  await b.evaluate(`[...document.querySelectorAll('.save-button')].find(x => x.textContent === 'Save Anki settings').dataset.drive = 'save'`);
+  await click(b, '.save-button[data-drive="save"]');
+  const refused = await until(b, `document.querySelector('.settings-page .message.error')?.textContent`, 50);
+  check(refused === 'This browser did not keep the settings: they apply until the page is reloaded' && !(await b.evaluate(`!!document.querySelector('.settings-page .message.success')`)),
+    `a failed write says so, not saved (${refused})`);
 
   // 5. The starter deck, on a server with no key: offered below the list, built, opened.
   if (keyless) {

@@ -283,7 +283,6 @@ try {
     await paste(b, fits);
     await press('Save Anki settings');
     check(await until(b, `${text('.settings-page .message.success')} === 'Anki settings saved.'`, 30), `Save keeps a 1023-byte path (${await b.evaluate(text('.settings-page .message'))})`);
-    await sleep(500); // the store's write lands (IndexedDB, after the message)
     await settingsPage();
     check(await b.evaluate(`document.querySelector('#ankiBaseDir').value === ${JSON.stringify(fits)}`), `and it is there after a reload (${await b.evaluate(`document.querySelector('#ankiBaseDir').value.length + ' ' + location.pathname`)})`);
     check(await b.evaluate(`${pathErrors} === 0`), 'and Scan, run as the page opens, takes it without a word on its length');

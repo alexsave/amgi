@@ -104,7 +104,8 @@ extern int settings_stored, settings_loaded;
  * the saved ones): into dst, room settings_room(s); returns the bytes. */
 uint32_t settings_block(char *dst, const text *s);
 uint32_t settings_room(const text *s);
-void settings_save(void);                 /* settings[] into the store */
+/* settings[] into the store; done, when not 0, hears whether the store kept them (cd_store_put_cb) */
+void settings_save(cd_store_done_fn done, void *ctx);
 void settings_load(void);                 /* from the store; settings_loaded once it answers */
 void settings_got(const uint8_t *p, int32_t len);
 void deck_langs_got(uint32_t token, const uint8_t *p, int32_t len);
