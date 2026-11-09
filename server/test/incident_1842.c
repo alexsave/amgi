@@ -24,6 +24,7 @@
  *
  *   build/incident_1842 <repo root> */
 #include <fcntl.h>
+#include <ftw.h>
 #include <sqlite3.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -132,6 +133,11 @@ static void file_shape(const char *path, long *pages, long *zero, int *header) {
   close(fd);
 }
 
+static int remove_one(const char *p, const struct stat *sb, int flag, struct FTW *ftw) {
+  (void)sb, (void)flag, (void)ftw;
+  return remove(p);
+}
+
 int main(int argc, char **argv) {
   if (argc < 2) return fprintf(stderr, "usage: %s <repo root>\n", argv[0]), 2;
   char dir[] = "/tmp/amgi-incident-1842-XXXXXX";
@@ -190,7 +196,9 @@ int main(int argc, char **argv) {
   CHECK(ok, "collection.anki2 does not open after Anki closed");
 
   ar_free(&a);
+  /* The scratch folder is kept on a failure, for a look, and removed on a pass. */
   if (failures) fprintf(stderr, "kept for a look: %s\n", made);
+  else if (nftw(made, remove_one, 16, FTW_DEPTH | FTW_PHYS) != 0) die("removing the scratch folder");
   printf("incident_1842: %d checks, %d failed\n", checks, failures);
   return failures ? 1 : 0;
 }
