@@ -101,9 +101,13 @@ static int locked(arena *a, str path, void (*fn)(cx *, str, void *), void *arg, 
 
 /* ---- withCollection and _withBackup ---- */
 static const char *state_name(int open) {
-  return open == OPEN_LOCKED ? "locked" : open == OPEN_NOT_FOUND ? "not-found" : "unsupported-schema";
+  return open == OPEN_LOCKED      ? "locked"
+         : open == OPEN_NOT_FOUND ? "not-found"
+         : open == OPEN_DAMAGED   ? "damaged"
+                                  : "unsupported-schema";
 }
 static _Noreturn void not_ready(cx *c, int open) {
+  if (open == OPEN_DAMAGED) cx_throw(c, "damaged", 0, "the collection file is damaged; amgi did not open it");
   const char *s = state_name(open);
   cx_throw(c, s, 0, "collection is %s", s);
 }
@@ -438,6 +442,8 @@ int col_read_media(arena *a, str path, str name, int *found, str *bytes, col_err
 typedef struct { str name; const void *data; size_t len; str *stored; } addm_args;
 static void addm_fn(cx *c, str path, void *arg) {
   addm_args *m = arg;
+  /* The media folder is the collection's: nothing is written beside a damaged one. */
+  if (collection_openable(c, path) == OPEN_DAMAGED) not_ready(c, OPEN_DAMAGED);
   ensure_backup_on(c, path, NULL);
   *m->stored = media_add(c, media_dir_for(c, path), m->name, m->data, m->len);
 }
