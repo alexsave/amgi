@@ -15,6 +15,7 @@ const { spawnSync } = require('node:child_process');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const { sandboxEnv } = require('../../test/sandbox-home.cjs');
 const { test } = require('node:test');
 
 const { main, parseArgs, run } = require('../generate-clip');
@@ -209,6 +210,7 @@ test('main() prints usage and exits 0 on --help without requiring an API key', a
 // that loads the whole generator and does nothing wrong has to leave stderr empty.
 test('loading the generator leaves stderr empty', () => {
   const result = spawnSync(process.execPath, [path.join(__dirname, '..', 'generate-clip.js'), '--help'], {
+    env: sandboxEnv(),
     encoding: 'utf8',
   });
   assert.equal(result.status, 0);

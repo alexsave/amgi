@@ -26,6 +26,7 @@ import unittest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import bridge_ops  # noqa: E402
+from sandbox_home import sandbox_env  # noqa: E402
 
 try:
     import anki.lang
@@ -91,6 +92,7 @@ def run_c(collection_path: str, op: str, args: dict):
         raise ValueError("unknown op " + op)
     completed = subprocess.run(
         [COLLECTION_CLI],
+        env=sandbox_env(),
         input="open %s\n%s\nquit\n" % (_enc(collection_path), line),
         capture_output=True,
         text=True,

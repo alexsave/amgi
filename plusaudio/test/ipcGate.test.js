@@ -9,6 +9,7 @@ const assert = require('node:assert/strict');
 const { fork } = require('node:child_process');
 const { EventEmitter } = require('node:events');
 const path = require('node:path');
+const { sandboxEnv } = require('../../test/sandbox-home.cjs');
 const { test } = require('node:test');
 
 const { FAIL_OPEN_WAIT_MS, FORK_IPC_OPTIONS, createIpcGate, serveGate } = require('../lib/ipcGate');
@@ -91,7 +92,7 @@ test('two real forked children share one gate in the parent: the second sees the
   const { gate } = fakeGate();
   const script = path.join(__dirname, 'helpers', 'gate-child.js');
   const run = (...args) => new Promise((resolve, reject) => {
-    const child = fork(script, args, { stdio: ['ignore', 'ignore', 'inherit', 'ipc'], ...FORK_IPC_OPTIONS });
+    const child = fork(script, args, { env: sandboxEnv(), stdio: ['ignore', 'ignore', 'inherit', 'ipc'], ...FORK_IPC_OPTIONS });
     serveGate(child, gate);
     child.on('message', (message) => { if (message && message.result !== undefined) resolve(message); });
     child.on('error', reject);

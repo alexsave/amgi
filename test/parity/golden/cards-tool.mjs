@@ -4,6 +4,7 @@
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import { sandboxEnv } from '../../sandbox-home.cjs';
 
 const ROOT = path.resolve(import.meta.dirname, '..', '..', '..');
 const TOOL = path.join(ROOT, 'server', 'build', 'golden_cards');
@@ -44,7 +45,7 @@ export function cards(calls) {
     tl.writeUInt32LE(t.length, 0);
     return [head, l, tl, t];
   });
-  const out = execFileSync(TOOL, { input: Buffer.concat(parts), maxBuffer: 64 << 20 });
+  const out = execFileSync(TOOL, { env: sandboxEnv(), input: Buffer.concat(parts), maxBuffer: 64 << 20 });
   const answers = [];
   for (let at = 0; at < out.length;) {
     const n = out.readUInt32LE(at);

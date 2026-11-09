@@ -5,6 +5,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
+import { sandboxEnv } from '../../test/sandbox-home.cjs';
 import { fileURLToPath } from 'node:url';
 import { DEDUPE, GUESSES, HAS_AUDIO, PASTE_LINES, STRIP_HTML } from './text-expected.mjs';
 
@@ -19,7 +20,7 @@ function c(calls) {
     head.writeUInt32LE(b.length, 4);
     return [head, Buffer.from(b)];
   });
-  const out = execFileSync(dump, { input: Buffer.concat(parts) });
+  const out = execFileSync(dump, { env: sandboxEnv(), input: Buffer.concat(parts) });
   const answers = [];
   for (let at = 0; at < out.length;) {
     const n = out.readUInt32LE(at);

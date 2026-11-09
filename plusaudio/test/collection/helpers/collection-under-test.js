@@ -9,12 +9,13 @@ const { spawn } = require('node:child_process');
 const path = require('node:path');
 
 const ROOT = path.resolve(__dirname, '..', '..', '..', '..');
+const { sandboxEnv } = require(path.join(ROOT, 'test', 'sandbox-home.cjs'));
 const IMPL = process.env.AMGI_COLLECTION_IMPL || path.join(ROOT, 'server', 'build', 'collection_cli');
 
 /** The C core, over the protocol. */
 async function overProtocol(collectionPath) {
   const { dec, enc, items, noteTokens, strs } = await import(path.join(ROOT, 'test', 'parity', 'protocol.mjs'));
-  const child = spawn(IMPL, [], { stdio: ['pipe', 'pipe', 'inherit'] });
+  const child = spawn(IMPL, [], { env: sandboxEnv(), stdio: ['pipe', 'pipe', 'inherit'] });
   child.stdout.setEncoding('utf8');
   let buffer = '';
   const waiting = [];

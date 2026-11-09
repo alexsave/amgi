@@ -21,6 +21,7 @@ name="$1" app="$2" keyless="$3" faked="$4" gemini="$5" shots="$6"
 work="$root/.e2e/drives"
 mkdir -p "$work"
 cd "$root"
+. "$here/sandbox-home.sh"
 fresh() { # fresh <folder> [installed]: the fixture as one profile, "User 1", amgi installed or not
   local dir
   dir=$(ui/tools/flows.sh .e2e/fixture "$work/$1")

@@ -14,6 +14,7 @@ const assert = require('node:assert/strict');
 const { spawn } = require('node:child_process');
 const net = require('node:net');
 const path = require('node:path');
+const { sandboxEnv } = require('../../test/sandbox-home.cjs');
 const { test } = require('node:test');
 
 const { writeBytesField, writeDoubleField, writeVarint, writeVarintField } = require('../lib/protobuf');
@@ -289,7 +290,7 @@ test('a process that made a request exits as soon as its work is done, without w
   `;
   const started = Date.now();
   const { code, stdout } = await new Promise((resolve) => {
-    const proc = spawn(process.execPath, ['-e', child], { stdio: ['ignore', 'pipe', 'inherit'] });
+    const proc = spawn(process.execPath, ['-e', child], { env: sandboxEnv(), stdio: ['ignore', 'pipe', 'inherit'] });
     let out = '';
     proc.stdout.on('data', (chunk) => { out += chunk; });
     proc.on('exit', (exitCode) => resolve({ code: exitCode, stdout: out }));

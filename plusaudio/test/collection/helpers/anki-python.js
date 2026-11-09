@@ -14,11 +14,13 @@ const { spawn, spawnSync } = require('node:child_process');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const { sandboxEnv } = require('../../../../test/sandbox-home.cjs');
 
 function findPython() {
   const candidates = [process.env.ANKI_PYTHON_BIN, 'python3', 'python'].filter(Boolean);
   for (const candidate of candidates) {
     const probe = spawnSync(candidate, ['-c', 'import anki.buildinfo; print(anki.buildinfo.buildhash)'], {
+      env: sandboxEnv(),
       encoding: 'utf8',
     });
     if (probe.status === 0) return { bin: candidate, buildhash: probe.stdout.trim() };
@@ -39,7 +41,7 @@ const fixtureApkg = findFixtureApkg();
 /** Run a Python script (as a string) with the anki library importable, returning stdout. */
 function runPython(script, args = []) {
   if (!anki) throw new Error('anki python library not available; guard callers with anki !== null');
-  const result = spawnSync(anki.bin, ['-c', script, ...args], { encoding: 'utf8' });
+  const result = spawnSync(anki.bin, ['-c', script, ...args], { env: sandboxEnv(), encoding: 'utf8' });
   if (result.status !== 0) {
     throw new Error(`python script failed (exit ${result.status}):\n${result.stderr}`);
   }
@@ -150,7 +152,7 @@ sys.stdin.readline()
 col.close()
 print("RELEASED", flush=True)
 `;
-  const child = spawn(anki.bin, ['-c', script, collectionPath], { stdio: ['pipe', 'pipe', 'inherit'] });
+  const child = spawn(anki.bin, ['-c', script, collectionPath], { env: sandboxEnv(), stdio: ['pipe', 'pipe', 'inherit'] });
   const held = new Promise((resolve, reject) => {
     child.stdout.once('data', (chunk) => {
       if (chunk.toString().includes('HELD')) resolve();

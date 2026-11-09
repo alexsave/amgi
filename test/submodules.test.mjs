@@ -11,6 +11,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { sandboxEnv } from './sandbox-home.cjs';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
 const SCRIPT = path.join(ROOT, 'server', 'tools', 'submodules.sh');
@@ -20,7 +21,7 @@ after(() => fs.rmSync(tmp, { recursive: true, force: true }));
 // The local stand-ins are file:// remotes, which git refuses for submodules unless allowed; the
 // author and committer are fixed so no global git config is needed.
 const ENV = {
-  ...process.env,
+  ...sandboxEnv(),
   GIT_CONFIG_NOSYSTEM: '1',
   GIT_CONFIG_GLOBAL: '/dev/null',
   GIT_CONFIG_COUNT: '1',

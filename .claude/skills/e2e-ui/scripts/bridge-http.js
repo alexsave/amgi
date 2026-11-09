@@ -15,6 +15,7 @@
 const path = require('path');
 const { spawn } = require('child_process');
 const { anki } = require('./fixture');
+const { sandboxEnv } = require('../../../../test/sandbox-home.cjs');
 
 const TOKEN = 'e2e-test-token';
 const TOKEN_HEADER = 'X-Amgi-Bridge-Token';
@@ -27,6 +28,7 @@ const FOREIGN_ORIGIN = 'https://evil.example';
 function startServer(collectionPath) {
   const script = path.join(__dirname, 'bridge_server_entry.py');
   const child = spawn(anki.bin, [script, collectionPath, TOKEN, ALLOWED_ORIGIN, '0'], {
+    env: sandboxEnv(),
     stdio: ['pipe', 'pipe', 'inherit'],
   });
   const ready = new Promise((resolve, reject) => {

@@ -3,6 +3,7 @@
 // server/build/collection_cli (make -C server), or the program AMGI_COLLECTION_IMPL names.
 import { spawn } from 'node:child_process';
 import path from 'node:path';
+import { sandboxEnv } from '../sandbox-home.cjs';
 
 const ROOT = path.resolve(import.meta.dirname, '..', '..');
 const IMPL = process.env.AMGI_COLLECTION_IMPL;
@@ -17,7 +18,7 @@ export function implCommand() {
 export class Impl {
   constructor() {
     const [cmd, args] = implCommand();
-    this.child = spawn(cmd, args, { cwd: ROOT, stdio: ['pipe', 'pipe', 'inherit'] });
+    this.child = spawn(cmd, args, { cwd: ROOT, env: sandboxEnv(), stdio: ['pipe', 'pipe', 'inherit'] });
     this.buffer = '';
     this.waiting = [];
     this.child.stdout.setEncoding('utf8');
