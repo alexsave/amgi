@@ -238,7 +238,7 @@ void deck_build(void) {
   el_text(CD_LIT("h3"), 0, CD_LIT("Cards in this deck"));
   cd_open(CD_LIT("span"));
   cd_text_num(d->count);
-  cd_name(listhead_count = cd_id_new());
+  cd_name_text(listhead_count = cd_id_new());
   cd_close();
   cd_close();
   cd_close();
@@ -382,7 +382,7 @@ static void row_build(uint32_t i) {
     cd_class(CD_LIT("note-row-edit"));
     cd_on(edit, CD_EV_CLICK, edit_pressed, CTX_OF(i));
     cd_text(open ? CD_LIT("Close") : CD_LIT("Edit"));
-    cd_name(row_edit[i] = cd_id_new());
+    cd_name_text(row_edit[i] = cd_id_new());
     cd_close();
   } else {
     el(CD_LIT("span"), CD_LIT("note-row-edit note-row-edit-off"));

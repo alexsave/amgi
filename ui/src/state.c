@@ -237,7 +237,7 @@ void badge_build(badge *b) {
   attr_tmp(style, style_buf, dot_style(p->color));
   cd_close();
   cd_text(cd_internz(p->label));
-  cd_name(b->label = cd_id_new());
+  cd_name_text(b->label = cd_id_new());
   cd_close();
 }
 

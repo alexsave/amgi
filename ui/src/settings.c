@@ -107,7 +107,7 @@ static cd_id save_button(cd_event_fn on_click, cd_str s, cd_id *txt) {
   cd_class(CD_LIT("save-button"));
   cd_on(b, CD_EV_CLICK, on_click, 0);
   cd_text(s);
-  if (txt) cd_name(*txt = cd_id_new());
+  if (txt) cd_name_text(*txt = cd_id_new());
   cd_close();
   return b;
 }

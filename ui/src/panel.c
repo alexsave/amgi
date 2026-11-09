@@ -130,7 +130,7 @@ void panel_build(int64_t id, const wire_strs *f, const text *names, uint32_t nna
     cd_class(CD_LIT("card-panel-redo"));
     cd_on(redo_btn[s], CD_EV_CLICK, s ? redo_cue : redo_target, 0);
     cd_text(CD_LIT(" "));
-    cd_name(redo_text[s] = cd_id_new());
+    cd_name_text(redo_text[s] = cd_id_new());
     cd_close();
   }
   cd_close();
@@ -142,7 +142,7 @@ void panel_build(int64_t id, const wire_strs *f, const text *names, uint32_t nna
   cd_class(CD_LIT("card-panel-delete"));
   cd_on(delete_btn, CD_EV_CLICK, delete_pressed, 0);
   cd_text(CD_LIT("Delete card"));
-  cd_name(delete_text = cd_id_new());
+  cd_name_text(delete_text = cd_id_new());
   cd_close();
   cd_close();
   cd_close();
