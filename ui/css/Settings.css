@@ -147,6 +147,14 @@
   text-align: center;
 }
 
+/* A folder path in a message, on its own line(s) between the sentences around it, at the size the
+   install line shows a path. */
+.message-path {
+  display: block;
+  margin: 0.5rem 0;
+  font-size: 0.85rem;
+}
+
 .message.success {
   background-color: rgba(46, 204, 113, 0.1);
   color: #2ecc71;
