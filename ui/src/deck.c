@@ -188,8 +188,15 @@ static void rename_commit(void) {
   if (!renaming) return;
   const deck *d = deck_by_id(deck_id);
   char buf[512];
-  wire_str typed = trim((wire_str){buf, cd_input_value(name_input, buf, sizeof buf)});
+  uint32_t len;
+  int fits = input_value(name_input, buf, sizeof buf, &len);
+  wire_str typed = trim((wire_str){buf, len});
   renaming = 0;
+  if (d && !rename_cancelled && !fits) {
+    text_setz(&rename_error, "That name is too long");
+    name_view();
+    return;
+  }
   uint32_t n;
   const char *old = d ? cd_bytes(d->name, &n) : (n = 0, "");
   if (!d || rename_cancelled || !typed.len || same(typed.p, typed.len, old, n)) {
@@ -818,8 +825,10 @@ ON_EVENT(langs_done_pressed) {
 ON_EVENT(language_changed) {
   char code[8];
   int learning = CTX_INDEX(ctx) == 1;
-  uint32_t n = cd_input_value(learning ? learning_select : known_select, code, sizeof code - 1);
-  if (!language_name(code, n)) return;
+  uint32_t n;
+  /* the options are the app's own codes: one that does not fit is no language */
+  if (!input_value(learning ? learning_select : known_select, code, sizeof code - 1, &n) || !language_name(code, n))
+    return;
   code[n] = 0;
   __builtin_memcpy(learning ? langs.learning : langs.known, code, n + 1);
   deck_langs_save(deck_id, &langs);

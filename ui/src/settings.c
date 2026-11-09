@@ -76,11 +76,11 @@ typedef struct { text name, path; } profile;
 static profile *profiles;
 static uint32_t nprofiles;
 static int scan_loading, scan_exists = -1, saved_shown, install_running, install_ok = -1;
-static text scan_base, scan_error, install_message;
+static text scan_base, scan_error, install_message, save_error;
 static cd_id section, scan_button, scan_text, install_button, install_text, base_input, url_input, token_input, saved_slot,
   before_bridge, install_block;
 static cd_region scan_out = {0};   /* the scan's messages or the profile list, before "Bridge address" */
-static cd_region saved_msg = {0};  /* "Anki settings saved." */
+static cd_region saved_msg = {0};  /* "Anki settings saved.", or why they were not */
 static cd_region install_msg = {0};
 static int shown;
 
@@ -184,6 +184,7 @@ void settings_build(void) {
 void settings_forget(void) {
   if (!shown) return;
   shown = 0;
+  text_free(&save_error);
   cd_region_hide(&scan_out);
   cd_region_hide(&saved_msg);
   cd_region_hide(&install_msg);
@@ -248,6 +249,8 @@ static void scan_view(void) {
 ON_ANSWER(profiles_answered);
 ON_ANSWER(installed_answered);
 
+#define TOO_LONG_BASE "The Anki data folder path is too long"
+
 static void scan(void) {
   scan_loading = 1;
   text_free(&scan_error);
@@ -256,18 +259,26 @@ static void scan(void) {
   text probe[S_FIELDS];
   for (int f = 0; f < S_FIELDS; f++) probe[f] = settings[f];
   char buf[1024];
-  probe[S_BASE_DIR] = (text){buf, cd_input_value(base_input, buf, sizeof buf)};
+  uint32_t n;
+  if (!input_value(base_input, buf, sizeof buf, &n)) {
+    scan_loading = 0;
+    text_setz(&scan_error, TOO_LONG_BASE);
+    scan_view();
+    return;
+  }
+  probe[S_BASE_DIR] = (text){buf, n};
   ask_as(probe, profiles_answered, 0, "GET", "/profiles", WIRE_NONE, 0);
 }
 
 static void saved_view(void) {
   if (!shown) return;
   cd_region_hide(&saved_msg);
-  if (!saved_shown || !cd_region_show(&saved_msg, 1)) return;
+  if ((!saved_shown && !save_error.len) || !cd_region_show(&saved_msg, 1)) return;
   cd_at(section, saved_slot);
-  el(CD_LIT("div"), CD_LIT("message success"));
+  el(CD_LIT("div"), save_error.len ? CD_LIT("message error") : CD_LIT("message success"));
   cd_name_open(saved_msg.root);
-  cd_text(CD_LIT("Anki settings saved."));
+  if (save_error.len) tmp_text(save_error.p, save_error.len);
+  else cd_text(CD_LIT("Anki settings saved."));
   cd_close();
   cd_region_end(&saved_msg);
 }
@@ -302,10 +313,22 @@ static void saved_gone(void *ctx) {
 }
 
 static void save(void) {
+  /* one too long keeps nothing, and says which */
+  static const int field[] = {S_BASE_DIR, S_BRIDGE_URL, S_BRIDGE_TOKEN};
+  static const char *const too_long[] = {TOO_LONG_BASE, "The bridge address is too long", "The bridge token is too long"};
+  cd_id from[] = {base_input, url_input, token_input};
   char buf[2048];
-  text_set(&draft[S_BASE_DIR], buf, cd_input_value(base_input, buf, sizeof buf));
-  text_set(&draft[S_BRIDGE_URL], buf, cd_input_value(url_input, buf, sizeof buf));
-  text_set(&draft[S_BRIDGE_TOKEN], buf, cd_input_value(token_input, buf, sizeof buf));
+  text_free(&save_error);
+  for (int k = 0; k < 3; k++) {
+    uint32_t n;
+    if (!input_value(from[k], buf, sizeof buf, &n)) {
+      text_setz(&save_error, too_long[k]);
+      saved_shown = 0;
+      saved_view();
+      return;
+    }
+    text_set(&draft[field[k]], buf, n);
+  }
   for (int f = 0; f < S_FIELDS; f++) text_set(&settings[f], draft[f].p, draft[f].len);
   settings_save();
   saved_shown = 1;
@@ -321,7 +344,15 @@ static void install(void) {
   text_free(&install_message);
   install_view();
   char buf[1024];
-  wire_q_install q = {{buf, cd_input_value(base_input, buf, sizeof buf)}};
+  uint32_t n;
+  if (!input_value(base_input, buf, sizeof buf, &n)) {
+    install_running = 0;
+    install_ok = 0;
+    text_setz(&install_message, TOO_LONG_BASE);
+    install_view();
+    return;
+  }
+  wire_q_install q = {{buf, n}};
   ask(installed_answered, 0, "POST", "/install", WK_Q_INSTALL, &q);
 }
 

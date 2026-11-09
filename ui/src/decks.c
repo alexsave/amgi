@@ -171,9 +171,11 @@ ON_ANSWER(created);
 
 static void modal_submit(void) {
   char name[512];
-  wire_str typed = trim((wire_str){name, cd_input_value(modal_input, name, sizeof name)});
-  if (!typed.len) {
-    text_setz(&modal_error, "Enter a deck name");
+  uint32_t len;
+  int fits = input_value(modal_input, name, sizeof name, &len);
+  wire_str typed = trim((wire_str){name, len});
+  if (!fits || !typed.len) {
+    text_setz(&modal_error, fits ? "Enter a deck name" : "That name is too long");
     modal_error_view();
     return;
   }
