@@ -94,6 +94,12 @@
   justify-content: space-between;
 }
 
+/* The profile radios: the theme's red, and on the labels' left edge (no default margin). */
+.preference-item input[type="radio"] {
+  margin: 0;
+  accent-color: var(--flame-orange);
+}
+
 .preference-item.checkbox label {
   margin: 0;
 }
