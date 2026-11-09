@@ -276,7 +276,7 @@ ON_ANSWER(installed_answered);
  * file system as it is (opendir, then the profile and add-on paths under it), and on macOS no path
  * of PATH_MAX (1024) bytes or more opens (ENAMETOOLONG). */
 #define MAX_BASE_DIR 1024
-#define TOO_LONG_BASE "The Anki data folder path is too long"
+#define TOO_LONG_BASE AM_Z("The Anki data folder path is too long")
 
 /* The typed folder into buf (MAX_BASE_DIR bytes): 1 with *n its length when it is shorter than
  * MAX_BASE_DIR, else 0. */
@@ -352,7 +352,7 @@ static void saved_gone(void *ctx) {
 static void saved_written(void *ctx, uint32_t ok) {
   (void)ctx;
   if (!ok) {
-    text_setz(&save_error, "This browser did not keep the settings: they apply until the page is reloaded");
+    text_setz(&save_error, AM_Z("This browser did not keep the settings: they apply until the page is reloaded"));
     saved_shown = 0;
     saved_view();
     return;
@@ -367,8 +367,8 @@ static void save(void) {
   char base[MAX_BASE_DIR], url[2048], token[2048];
   uint32_t nb, nu, nt;
   const char *too_long = !base_dir_value(base, &nb) ? TOO_LONG_BASE
-    : !input_value(url_input, url, sizeof url, &nu) ? "The bridge address is too long"
-    : !input_value(token_input, token, sizeof token, &nt) ? "The bridge token is too long"
+    : !input_value(url_input, url, sizeof url, &nu) ? AM_Z("The bridge address is too long")
+    : !input_value(token_input, token, sizeof token, &nt) ? AM_Z("The bridge token is too long")
     : 0;
   text_free(&save_error);
   if (too_long) {

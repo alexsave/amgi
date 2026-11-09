@@ -30,13 +30,23 @@ SCHEMA := ../anki/addon/amgi_bridge/wire_schema.py
 CSS := index.css App.css Navbar.css TemplateUpdate.css DeckItem.css DeckList.css FirstRun.css StarterDeck.css \
   Settings.css AudioChip.css BulkRun.css CardForm.css CardPanel.css CardList.css confirm.css
 
-all: $(OUT)/app.wasm $(OUT)/index.html $(OUT)/app.css $(OUT)/wire.wasm $(OUT)/wire_dump $(OUT)/text_dump $(SCHEMA)
+all: $(OUT)/app.wasm $(OUT)/index.html $(OUT)/app.css $(OUT)/wire.wasm $(OUT)/wire_dump $(OUT)/text_dump $(OUT)/am_decode_test $(SCHEMA)
+
+# The shipped UI strings are obfuscated so `strings app.wasm` no longer reads the app's text. Before
+# the compile, ui/tools/textgen.c reads src/*.c, turns every CD_LIT(...)/AM_Z(...) into an id lookup
+# in out/gen/<file>, and emits out/gen/am_blob.c (the one XOR-obfuscated blob, and am_s/am_z over it).
+# cdom.mk compiles the out/gen copies, not src/, so the module carries no plaintext UI text while the
+# sources keep their readable strings. The key is fixed, so the blob is reproducible. See src/am_text.h.
+GEN := $(OUT)/gen
+SRCS := $(sort $(wildcard src/*.c))
+GEN_SRCS := $(patsubst src/%,$(GEN)/%,$(SRCS)) $(GEN)/am_blob.c
 
 # The module as cdom.mk links it, before the size pass.
 APP_WASM := $(OUT)/raw/app.wasm
-APP_SRC := $(sort $(wildcard src/*.c)) wire/wire.c
+APP_SRC := $(GEN_SRCS) wire/wire.c
 APP_MODULES := net store audio url
-APP_CFLAGS := $(WARN)
+# -Isrc: the out/gen copies #include "app.h" from src/.
+APP_CFLAGS := $(WARN) -Isrc
 APP_LDFLAGS := -Wl,--strip-all
 APP_PAGE := $(OUT)/index.html
 APP_PAGE_SRC := src/index.html
@@ -47,6 +57,24 @@ include $(CDOM)/cdom.mk
 # cdom.mk's rule knows cdom's headers; these are the app's own.
 APP_HDR := $(wildcard src/*.h) wire/wire.h
 $(APP_WASM): $(APP_HDR)
+
+# textgen and the generated sources. One run writes every out/gen file, so a stamp stands in for the
+# group (GNU make 3.81 has no grouped targets); the sources depend on it.
+$(OUT)/textgen: tools/textgen.c
+	@mkdir -p $(@D)
+	$(HOST_CC) -O1 $(WARN) -o $@ tools/textgen.c
+
+GEN_STAMP := $(GEN)/.textgen.stamp
+$(GEN_STAMP): $(OUT)/textgen $(SRCS) $(APP_HDR)
+	@mkdir -p $(GEN)
+	$(OUT)/textgen $(GEN) src/app.h $(SRCS)
+	@touch $@
+$(GEN_SRCS): $(GEN_STAMP)
+
+# The blob's XOR decode is lossless: every string decodes back to its original (am_check.h's plaintext).
+$(OUT)/am_decode_test: test/am_decode_test.c $(GEN_STAMP)
+	@mkdir -p $(@D)
+	$(HOST_CC) $(SAN) $(WARN) -I$(GEN) -o $@ test/am_decode_test.c
 
 # wasm-opt <in> <out>: binaryen's size pass when it is installed, a copy when it is not.
 wasm_opt = if command -v wasm-opt > /dev/null; then \
@@ -66,9 +94,25 @@ $(OUT)/raw/wire.wasm: wire/wire_node.c wire/wire.c wire/wire.h $(CDOM)/cdom.mk
 $(OUT)/wire.wasm: $(OUT)/raw/wire.wasm
 	$(call wasm_opt,$<,$@)
 
-$(OUT)/app.css: $(addprefix css/,$(CSS))
+# cssmin strips the authored /* ... */ comments (the old React component notes) out of the shipped
+# app.css, so the stylesheet carries none while css/ keeps them. It respects strings, so content and
+# url() are untouched.
+$(OUT)/cssmin: tools/cssmin.c
 	@mkdir -p $(@D)
-	for f in $^; do cat $$f; printf '\n'; done > $@.tmp && mv $@.tmp $@
+	$(HOST_CC) -O1 $(WARN) -o $@ tools/cssmin.c
+
+$(OUT)/app.css: $(addprefix css/,$(CSS)) $(OUT)/cssmin
+	@mkdir -p $(@D)
+	{ for f in $(addprefix css/,$(CSS)); do cat $$f; printf '\n'; done; } | $(OUT)/cssmin > $@.tmp && mv $@.tmp $@
+
+# cdom ships its shim minified but with a leading `// GENERATED ...` line comment; drop the shim's
+# line comments so the shim inlined into index.html carries none. cdom is not forked: this is a copy
+# we inline in its place (CDOM_SHIM override, below).
+STRIPPED_SHIM := $(OUT)/cdom.min.stripped.js
+CDOM_SHIM := $(STRIPPED_SHIM)
+$(STRIPPED_SHIM): $(CDOM)/shim/cdom.min.js
+	@mkdir -p $(@D)
+	awk '!/^[ \t]*\/\//' $< > $@.tmp && mv $@.tmp $@
 
 $(OUT)/wire_dump: test/wire_dump.c wire/wire.c wire/wire.h
 	@mkdir -p $(@D)

@@ -193,7 +193,7 @@ static void rename_commit(void) {
   wire_str typed = trim((wire_str){buf, len});
   renaming = 0;
   if (d && !rename_cancelled && !fits) {
-    text_setz(&rename_error, "That name is too long");
+    text_setz(&rename_error, AM_Z("That name is too long"));
     name_view();
     return;
   }
@@ -702,7 +702,7 @@ ON_ANSWER(note_deleted) {
     uint32_t n = answer_message(&a, m, sizeof m);
     deleting = -1;
     rows_build();
-    confirm_ask("Could not delete the card", m, n, 0, "OK", 0, 0);
+    confirm_ask(AM_Z("Could not delete the card"), m, n, 0, "OK", 0, 0);
   }
 }
 ON_ANSWER(renamed) {
@@ -783,8 +783,8 @@ ON_EVENT(delete_pressed) {
   uint32_t flen = strip_html(front, prompt);
   deleting = n->id;
   /* the confirmation names the card: the row is small and the thing destroyed is not */
-  confirm_ask("Delete this card?", front, flen, "Its review history goes too, on every device you sync with.", "Delete",
-              delete_now, 0);
+  confirm_ask(AM_Z("Delete this card?"), front, flen,
+              AM_Z("Its review history goes too, on every device you sync with."), "Delete", delete_now, 0);
   cd_free(front);
   deleting = -1; /* set again when the answer is yes (delete_now) */
   pending_delete = n->id;

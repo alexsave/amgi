@@ -185,7 +185,7 @@ static void commit(uint32_t k) {
   char buf[4096];
   uint32_t n;
   if (!input_value(inputs[k], buf, sizeof buf, &n)) {
-    text_setz(&error, "This field is too long to save");
+    text_setz(&error, AM_Z("This field is too long to save"));
     error_view();
     return;
   }
@@ -242,8 +242,8 @@ ON_EVENT(delete_pressed) {
   int32_t ti = idx.target;
   char *t = cd_alloc(ti >= 0 && (uint32_t)ti < nfields ? fields[ti].len + 1 : 1);
   uint32_t n = ti >= 0 && (uint32_t)ti < nfields ? strip_tags(t, (wire_str){fields[ti].p, fields[ti].len}) : 0;
-  confirm_ask("Delete this card?", t, n, "Its review history goes too, on every device you sync with.", "Delete", removed,
-              0);
+  confirm_ask(AM_Z("Delete this card?"), t, n, AM_Z("Its review history goes too, on every device you sync with."),
+              "Delete", removed, 0);
   cd_free(t);
 }
 

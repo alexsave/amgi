@@ -10,6 +10,7 @@
 #include "cdom_store.h"
 #include "cdom_url.h"
 #include "../wire/wire.h"
+#include "am_text.h"
 
 /* ---- text (text.c) ---- */
 uint32_t zlen(const char *s);

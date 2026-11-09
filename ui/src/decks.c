@@ -175,7 +175,7 @@ static void modal_submit(void) {
   int fits = input_value(modal_input, name, sizeof name, &len);
   wire_str typed = trim((wire_str){name, len});
   if (!fits || !typed.len) {
-    text_setz(&modal_error, fits ? "Enter a deck name" : "That name is too long");
+    text_setz(&modal_error, fits ? AM_Z("Enter a deck name") : AM_Z("That name is too long"));
     modal_error_view();
     return;
   }
@@ -203,8 +203,10 @@ ON_ANSWER(created) {
     open_after_refresh(d.id);
     return;
   }
-  char m[600] = "Failed to create deck: ";
-  uint32_t n = 23 + answer_message(&a, m + 23, sizeof m - 23);
+  char m[600];
+  uint32_t base = zlen(AM_Z("Failed to create deck: "));
+  __builtin_memcpy(m, AM_Z("Failed to create deck: "), base);
+  uint32_t n = base + answer_message(&a, m + base, sizeof m - base);
   text_set(&modal_error, m, n);
   modal_error_view();
 }

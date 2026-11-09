@@ -101,24 +101,24 @@ static void draw(void) {
   char s[400];
   uint32_t n = 0;
   if (scan_loading) {
-    step(CD_LIT("first-run-step now"), "1", "Looking for Anki…", zlen("Looking for Anki…"));
+    step(CD_LIT("first-run-step now"), "1", AM_Z("Looking for Anki…"), zlen(AM_Z("Looking for Anki…")));
   } else if (pr) {
-    n = cat(s, 0, "Found Anki: profile “", zlen("Found Anki: profile “"));
+    n = cat(s, 0, AM_Z("Found Anki: profile “"), zlen(AM_Z("Found Anki: profile “")));
     uint32_t l = pr->name.len < 300 ? pr->name.len : 300;
     n = cat(s, n, pr->name.p, l);
     n = cat(s, n, "”", zlen("”"));
     if (nprofiles == 1) n = cat(s, n, ", picked for you", 16);
     step(CD_LIT("first-run-step done"), "✓", s, n);
   } else {
-    step(CD_LIT("first-run-step next"), "1", "Could not find an Anki profile", zlen("Could not find an Anki profile"));
+    step(CD_LIT("first-run-step next"), "1", AM_Z("Could not find an Anki profile"), zlen(AM_Z("Could not find an Anki profile")));
   }
-  const char *t2 = install_done ? "Installed the add-ons and the card type"
-                   : install_running ? "Installing the add-ons and the card type"
-                                     : "Install the add-ons and the card type";
+  const char *t2 = install_done ? AM_Z("Installed the add-ons and the card type")
+                   : install_running ? AM_Z("Installing the add-ons and the card type")
+                                     : AM_Z("Install the add-ons and the card type");
   step(install_done ? CD_LIT("first-run-step done") : install_running ? CD_LIT("first-run-step now") : CD_LIT("first-run-step next"),
        install_done ? "✓" : "2", t2, zlen(t2));
-  const char *t3 = install_done && !needs_restart ? "The card type is already in your collection - add cards now"
-                                                  : "Restart Anki, and amgi notices by itself";
+  const char *t3 = install_done && !needs_restart ? AM_Z("The card type is already in your collection - add cards now")
+                                                  : AM_Z("Restart Anki, and amgi notices by itself");
   step(install_done ? CD_LIT("first-run-step now") : CD_LIT("first-run-step next"), "3", t3, zlen(t3));
   cd_close();
   cd_close();

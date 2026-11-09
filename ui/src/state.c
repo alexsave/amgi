@@ -186,27 +186,43 @@ const notetype *amgi_notetype(void) {
 }
 
 /* ---- the mode badge: src/utils/ankiModeText.js's table ---- */
-static const presentation PRESENT[WIRE_MODES] = {
-  [WIRE_MODE_DIRECT] = {"Anki connected", "#4caf50", "Reading your Anki collection file directly - Anki is closed."},
-  [WIRE_MODE_BRIDGE] = {"Anki connected", "#4caf50", "Reading your live collection through the Anki bridge add-on."},
-  [WIRE_MODE_LOCKED] = {"Anki locked", "#e07050",
-                        "Anki is open and the bridge is not reachable, so your collection cannot be read right now. "
-                        "Close Anki, or start the bridge (Tools > amgi: Bridge status...) and paste its token into Settings."},
-  [WIRE_MODE_BRIDGE_NO_COLLECTION] = {"Anki: no profile", "#e07050",
-                                      "The bridge is running but no Anki profile is open yet - pick one in Anki."},
-  [WIRE_MODE_NOT_FOUND] = {"Anki: not found", "#e07050",
-                           "No collection.anki2 was found at the selected profile. Open Settings to pick a different one."},
-  [WIRE_MODE_UNSUPPORTED_SCHEMA] = {"Anki: unsupported", "#e07050",
-                                    "This collection uses a schema version amgi does not support yet."},
-  [WIRE_MODE_UNCONFIGURED] = {"Anki: not set up yet", "#808080", "amgi has not been installed into Anki on this machine yet."},
-  [WIRE_MODE_BRIDGE_OUTDATED] = {"Anki: update amgi", "#e07050",
-                                 "The amgi add-on running in Anki is from a different amgi than this one. Press "
-                                 "Install into Anki again (Settings), then restart Anki."},
-  [WIRE_MODE_DAMAGED] = {"Anki: damaged", "#e07050",
-                         "The collection file is damaged; amgi did not open it. Anki can restore it from one of its backups."},
-  [WIRE_MODE_OTHER] = {"Anki: not set up yet", "#808080", "amgi has not been installed into Anki on this machine yet."},
-};
-const presentation *present(uint32_t m) { return &PRESENT[m < WIRE_MODES ? m : WIRE_MODE_OTHER]; }
+/* The label and sentence are obfuscated strings (AM_Z), which decode at runtime, so the table is
+ * filled on first use rather than statically; the colours stay plain (they are not a tell). */
+static presentation PRESENT[WIRE_MODES];
+static int present_ready;
+static void present_fill(void) {
+  PRESENT[WIRE_MODE_DIRECT] = (presentation){AM_Z("Anki connected"), "#4caf50",
+                                             AM_Z("Reading your Anki collection file directly - Anki is closed.")};
+  PRESENT[WIRE_MODE_BRIDGE] = (presentation){AM_Z("Anki connected"), "#4caf50",
+                                             AM_Z("Reading your live collection through the Anki bridge add-on.")};
+  PRESENT[WIRE_MODE_LOCKED] = (presentation){
+      AM_Z("Anki locked"), "#e07050",
+      AM_Z("Anki is open and the bridge is not reachable, so your collection cannot be read right now. "
+           "Close Anki, or start the bridge (Tools > amgi: Bridge status...) and paste its token into Settings.")};
+  PRESENT[WIRE_MODE_BRIDGE_NO_COLLECTION] = (presentation){
+      AM_Z("Anki: no profile"), "#e07050",
+      AM_Z("The bridge is running but no Anki profile is open yet - pick one in Anki.")};
+  PRESENT[WIRE_MODE_NOT_FOUND] = (presentation){
+      AM_Z("Anki: not found"), "#e07050",
+      AM_Z("No collection.anki2 was found at the selected profile. Open Settings to pick a different one.")};
+  PRESENT[WIRE_MODE_UNSUPPORTED_SCHEMA] = (presentation){
+      AM_Z("Anki: unsupported"), "#e07050", AM_Z("This collection uses a schema version amgi does not support yet.")};
+  PRESENT[WIRE_MODE_UNCONFIGURED] = (presentation){
+      AM_Z("Anki: not set up yet"), "#808080", AM_Z("amgi has not been installed into Anki on this machine yet.")};
+  PRESENT[WIRE_MODE_BRIDGE_OUTDATED] = (presentation){
+      AM_Z("Anki: update amgi"), "#e07050",
+      AM_Z("The amgi add-on running in Anki is from a different amgi than this one. Press "
+           "Install into Anki again (Settings), then restart Anki.")};
+  PRESENT[WIRE_MODE_DAMAGED] = (presentation){
+      AM_Z("Anki: damaged"), "#e07050",
+      AM_Z("The collection file is damaged; amgi did not open it. Anki can restore it from one of its backups.")};
+  PRESENT[WIRE_MODE_OTHER] = (presentation){
+      AM_Z("Anki: not set up yet"), "#808080", AM_Z("amgi has not been installed into Anki on this machine yet.")};
+}
+const presentation *present(uint32_t m) {
+  if (!present_ready) { present_fill(); present_ready = 1; }
+  return &PRESENT[m < WIRE_MODES ? m : WIRE_MODE_OTHER];
+}
 /* The badge cannot say "connected" over a page that says "set amgi up". */
 static const presentation *badge_now(void) { return present(installed == 0 ? WIRE_MODE_UNCONFIGURED : mode); }
 
