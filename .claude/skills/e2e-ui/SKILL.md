@@ -80,7 +80,7 @@ When judging alignment, also measure: `getBoundingClientRect()` through the driv
 
 `states.mjs` opens a fixture copy with the real `anki` library and holds it open - the same exclusive lock a running Anki desktop client holds on its own collection (`locking_mode=exclusive`, zero busy timeout; see `plusaudio/lib/collection/open.js`'s module comment for the experiments this is built from) - and checks the mode badge (`nav.navbar span[title]`) says **Anki locked** and the list's place says why.
 Then it lets go and checks the badge and the list come back on the next status poll.
-amgi also reports **locked** for a `-wal` with no `-shm` beside it, without opening the file, because that is an exclusive-mode owner (Anki, or an Anki that crashed), and it never checkpoints a collection: the rule and the incident behind it are in `skills/amgi/references/collection-internals.md`, "Locking".
+amgi also reports **locked**, without opening the file, whenever a `-wal` or a `-shm` sits beside the collection, says **damaged** for a file without SQLite's header, and never checkpoints a collection: the rule and the incident behind it are in `skills/amgi/references/collection-internals.md`, "Locking".
 Never point a drive, a probe or `sqlite3` at a real profile's `collection.anki2`: even a read's close can checkpoint into Anki's live `-wal`.
 This is a real lock, not a simulated `SQLITE_BUSY`, for the same reason `plusaudio/test/collection/open-lock.test.js` insists on one: an assertion that only your own reader agrees with your own writer proves nothing.
 
