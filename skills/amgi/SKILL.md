@@ -66,8 +66,9 @@ Every call reads five plain headers, each value percent-encoded (`server/amgi/we
   The token and port are in Anki under Tools > amgi: Bridge status..., which is also where the bridge is switched on (it is off by default).
   When the bridge answers, amgi uses it; otherwise it falls back to the file.
 
-`GET /api/anki/status` says which transport answered: `direct`, `bridge`, or why neither did (`locked`: Anki has the file open and the bridge is off; `bridge-outdated`: the add-on running in Anki is from another amgi, so press Install into Anki again and restart Anki; `not-found`; `unsupported-schema`; `bridge-no-collection`; `unconfigured`).
+`GET /api/anki/status` says which transport answered: `direct`, `bridge`, or why neither did (`locked`: Anki has the file open and the bridge is off; `bridge-outdated`: the add-on running in Anki is from another amgi, so press Install into Anki again and restart Anki; `not-found`; `unsupported-schema`; `damaged`: the file does not start with SQLite's header, so amgi did not open it; `bridge-no-collection`; `unconfigured`).
 On `locked`, ask the user to close Anki or turn the bridge on; never copy or force the file.
+On `damaged`, tell the user Anki can restore the collection from one of its backups; never try to repair it.
 
 ### The routes
 

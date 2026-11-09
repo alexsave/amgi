@@ -8,6 +8,10 @@
 #define MSG_UNCONFIGURED "No Anki profile is selected yet. Open Settings to pick one."
 #define MSG_NOT_FOUND "No collection.anki2 was found at the selected profile. Open Settings to pick a different one."
 #define MSG_UNSUPPORTED_SCHEMA "This collection uses a schema version amgi does not support yet."
+/* The collection file does not start with SQLite's header (server/collection/db.c's
+ * collection_openable): amgi did not open it, so nothing it does can make it worse. */
+#define MSG_DAMAGED \
+  "The collection file is damaged; amgi did not open it. Anki can restore it from one of its backups."
 #define MSG_LOCKED                                                                    \
   "Anki is open on this collection and the local bridge is not reachable. "          \
   "Either close Anki, or turn on the bridge in Anki (Tools > amgi: Bridge status...) " \
