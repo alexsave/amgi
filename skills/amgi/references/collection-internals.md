@@ -19,6 +19,16 @@ The reverse is also true: a process that leaves the file open stops Anki from op
 So open, do one unit of work, and close. amgi's direct transport does that on every request, closing on error paths too.
 A profile that is `locked` while Anki looks closed usually means Anki is still running in the background, or a crashed Python process still has the file open.
 
+The lock rule amgi follows, because the exclusive lock is not always held while Anki is still using the file:
+- A `collection.anki2-wal` with no `collection.anki2-shm` beside it means an exclusive-mode owner holds the file: Anki, or an Anki that crashed.
+  An exclusive-mode connection keeps its WAL index in its own memory, so it never makes a `-shm`; a normal-mode connection always does.
+- amgi then reports `locked`.
+  It never opens the file with SQLite, to read or to write, and it checks again right after its own open, in case Anki arrived in between.
+- amgi never runs an explicit checkpoint (`wal_checkpoint`, `sqlite3_wal_checkpoint`), and `test/no-checkpoint.test.mjs` holds that.
+- Why: Anki's own backup on close drops its exclusive lock for a moment while its `-wal` is still live.
+  Any second SQLite connection opened then checkpoints on its close and resets Anki's live `-wal`, and the collection is lost.
+  That happened on 2026-11-08: a real collection was left with 56 of its 58 pages zero (`~/Dev/foolish-reports/incident-1842.md`).
+
 ## Schemas
 
 - **Schema 11** (Anki before about 2.1.28): note types, decks and deck config are JSON blobs in the `col` row.
