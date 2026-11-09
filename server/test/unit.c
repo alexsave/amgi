@@ -266,21 +266,6 @@ static size_t count_backups(const char *collection) {
   return n;
 }
 
-typedef struct { str path; int n, ok, done; } lister;
-static void *list_again(void *arg) {
-  lister *l = arg;
-  for (int i = 0; i < l->n; i++) {
-    arena a = {0};
-    col_notetype *nts;
-    size_t n;
-    col_err e;
-    if (col_list_notetypes(&a, l->path, &nts, &n, &e) == 0) l->ok++;
-    ar_free(&a);
-  }
-  __atomic_store_n(&l->done, 1, __ATOMIC_RELEASE);
-  return NULL;
-}
-
 typedef struct { str path; int ok; col_err err; } adder;
 static void *add_one(void *arg) {
   adder *ad = arg;
@@ -299,6 +284,52 @@ static void *add_one(void *arg) {
   }
   ar_free(&a);
   return NULL;
+}
+
+/* ---- the collection file is only opened when it is safe to (incident-1842) ---- */
+/* The whole of a file, or {NULL, 0} when there is none. */
+static str slurp(arena *a, const char *path) {
+  FILE *f = fopen(path, "rb");
+  if (!f) return (str){NULL, 0};
+  buf b = {0};
+  char chunk[1 << 16];
+  size_t n;
+  while ((n = fread(chunk, 1, sizeof chunk, f)) > 0) buf_put(&b, chunk, n);
+  fclose(f);
+  str out = b.n ? buf_str(a, &b) : (str){ar_dup(a, "", 0), 0};
+  buf_free(&b);
+  return out;
+}
+static int same_file(arena *a, const char *path, str was) {
+  str now = slurp(a, path);
+  return (now.p == NULL) == (was.p == NULL) && (!now.p || str_eq(now, was));
+}
+static int exists(const char *path) {
+  struct stat sb;
+  return stat(path, &sb) == 0;
+}
+/* collection.anki2, -wal and -shm as they are now. */
+typedef struct { char main[4200], wal[4200], shm[4200], dir[4200]; str m, w, s; } files;
+static void snapshot(arena *a, str path, files *f) {
+  snprintf(f->main, sizeof f->main, "%s", path.p);
+  snprintf(f->wal, sizeof f->wal, "%s-wal", path.p);
+  snprintf(f->shm, sizeof f->shm, "%s-shm", path.p);
+  snprintf(f->dir, sizeof f->dir, "%.*s", (int)(strrchr(path.p, '/') - path.p), path.p);
+  f->m = slurp(a, f->main), f->w = slurp(a, f->wal), f->s = slurp(a, f->shm);
+}
+static int unchanged(arena *a, const files *f) {
+  return same_file(a, f->main, f->m) && same_file(a, f->wal, f->w) && same_file(a, f->shm, f->s);
+}
+/* sqlite_master's text, on a connection of its own that is closed again. */
+static char *schema_text(const char *path) {
+  sqlite3 *db;
+  sqlite3_open_v2(path, &db, SQLITE_OPEN_READWRITE, NULL); /* read-write: its close removes the -wal and -shm it made */
+  sqlite3_stmt *q;
+  sqlite3_prepare_v2(db, "SELECT group_concat(name || ':' || coalesce(sql, ''), char(10)) FROM sqlite_master", -1, &q, NULL);
+  char *out = sqlite3_step(q) == SQLITE_ROW ? strdup((const char *)sqlite3_column_text(q, 0)) : strdup("(none)");
+  sqlite3_finalize(q);
+  sqlite3_close(db);
+  return out;
 }
 
 static void core_state(void) {
@@ -360,37 +391,20 @@ static void core_state(void) {
   CHECK(count_backups(led.p) == 2, "a second backup, and only one (%zu)", count_backups(led.p));
   CHECK(col_remove_deck(&a, led, 1, &(col_removal){0}, &e) < 0 && e.status == 400, "the Default deck is refused, 400");
 
-  /* The schema is never touched: a read writes nothing (another connection sees no change), and
-   * after every deck and note-type operation the schema text is what Anki wrote. */
+  /* The schema is never touched: a read writes nothing (the file is byte for byte as it was, now
+   * that no open checkpoints), and after every deck and note-type operation the schema text is what
+   * Anki wrote. Each look is a connection of its own, opened and closed: one held open beside the
+   * collection would make it locked to amgi (incident-1842). */
   str s18 = fixture(&a, "18", "schema");
-  sqlite3 *watch;
-  sqlite3_open(s18.p, &watch);
-  sqlite3_create_collation(watch, "unicase", SQLITE_UTF8, NULL, unicase_cmp);
-  const char *schema_sql = "SELECT group_concat(name || ':' || coalesce(sql, ''), char(10)) FROM sqlite_master";
-  char *before = NULL;
-  {
-    sqlite3_stmt *q;
-    sqlite3_prepare_v2(watch, schema_sql, -1, &q, NULL);
-    sqlite3_step(q);
-    before = strdup((const char *)sqlite3_column_text(q, 0));
-    sqlite3_finalize(q);
+  char *before = schema_text(s18.p);
+  str bytes_before = slurp(&a, s18.p);
+  int listed = 0;
+  for (int i = 0; i < 300; i++) {
+    col_notetype *nl;
+    size_t nn;
+    listed += col_list_notetypes(&a, s18, &nl, &nn, &e) == 0;
   }
-  /* While a thread lists note types over and over, another connection keeps reading the schema:
-   * a relax (schema rewritten to COLLATE NOCASE and back) commits, so the watcher would see it. */
-  lister ls = {s18, 300, 0, 0};
-  pthread_t lt;
-  pthread_create(&lt, NULL, list_again, &ls);
-  int relaxed_seen = 0, reads = 0;
-  while (!__atomic_load_n(&ls.done, __ATOMIC_ACQUIRE)) {
-    sqlite3_stmt *q;
-    if (sqlite3_prepare_v2(watch, schema_sql, -1, &q, NULL) == SQLITE_OK && sqlite3_step(q) == SQLITE_ROW) {
-      reads++;
-      if (strstr((const char *)sqlite3_column_text(q, 0), "COLLATE NOCASE")) relaxed_seen++;
-    }
-    sqlite3_finalize(q);
-  }
-  pthread_join(lt, NULL);
-  CHECK(ls.ok == 300 && reads > 0 && relaxed_seen == 0, "listing note types never rewrites the schema (%d of 300 listed, %d reads, %d saw it relaxed)", ls.ok, reads, relaxed_seen);
+  CHECK(listed == 300 && same_file(&a, s18.p, bytes_before), "listing note types 300 times writes nothing (%d listed)", listed);
   col_notetype *nts;
   size_t nnt;
   col_deck_made dm;
@@ -407,15 +421,11 @@ static void core_state(void) {
   steps[2] = (typeof(steps[0])){"create a note type", col_create_notetype(&a, s18, &spec, NULL, 0, &ntm, &e) == 0};
   steps[3] = (typeof(steps[0])){"remove the deck", col_remove_deck(&a, s18, (double)made_id, &rm, &e) == 0};
   steps[4] = (typeof(steps[0])){"list note types", col_list_notetypes(&a, s18, &nts, &nnt, &e) == 0};
-  for (int i = 0; i < 5; i++) {
-    sqlite3_stmt *q;
-    sqlite3_prepare_v2(watch, schema_sql, -1, &q, NULL);
-    sqlite3_step(q);
-    CHECK(steps[i].ok && !strcmp(before, (const char *)sqlite3_column_text(q, 0)), "after \"%s\" the schema text is Anki's", steps[i].what);
-    sqlite3_finalize(q);
-  }
+  char *after = schema_text(s18.p);
+  for (int i = 0; i < 5; i++) CHECK(steps[i].ok, "\"%s\"", steps[i].what);
+  CHECK(!strcmp(before, after), "after them all the schema text is Anki's");
   free(before);
-  sqlite3_close(watch);
+  free(after);
 
   /* Names that differ only by case, as unicase (Anki's collation) folds them: the same deck, never a
    * second row the unique index would refuse. */
@@ -512,6 +522,102 @@ static void atomic_writes(void) {
   ar_free(&a);
 }
 
+/* Anki's leftover: one committed change in a -wal the close did not fold back (no -shm, as Anki's
+ * exclusive connection keeps its index in memory). */
+static void leave_wal(str path) {
+  sqlite3 *db;
+  sqlite3_open(path.p, &db);
+  sqlite3_db_config(db, SQLITE_DBCONFIG_NO_CKPT_ON_CLOSE, 1, NULL);
+  sqlite3_exec(db, "PRAGMA journal_mode = WAL; UPDATE col SET mod = mod + 1", NULL, NULL, NULL);
+  sqlite3_close(db);
+  char shm[4200];
+  snprintf(shm, sizeof shm, "%s-shm", path.p);
+  unlink(shm);
+}
+/* Every op the core has, each refused with this kind; and then nothing on disk changed. */
+static void all_refused(arena *a, str path, const char *kind, const char *message, const char *what) {
+  files f;
+  snapshot(a, path, &f);
+  col_err e;
+  col_state st = {"(none)", 0};
+  CHECK(col_status(a, path, &st, &e) == 0 && !strcmp(st.status, kind), "%s: status says %s (%s)", what, kind, st.status);
+  col_deck *d;
+  size_t nd;
+  memset(&e, 0, sizeof e);
+  CHECK(col_list_decks(a, path, &d, &nd, &e) < 0 && e.kind && !strcmp(e.kind, kind) && str_eq_c(e.message, message),
+        "%s: a read is refused (%s: %.*s)", what, e.kind ? e.kind : "-", (int)e.message.n, e.message.p);
+  col_deck_made made;
+  memset(&e, 0, sizeof e);
+  CHECK(col_create_deck(a, path, S("Never"), &made, &e) < 0 && e.kind && !strcmp(e.kind, kind), "%s: a write is refused", what);
+  CHECK(unchanged(a, &f), "%s: collection.anki2, its -wal and its -shm are byte for byte as they were", what);
+  CHECK(count_backups(path.p) == 0, "%s: no backup taken", what);
+}
+
+static void collection_safety(void) {
+  arena a = {0};
+  const char *damaged = "the collection file is damaged; amgi did not open it";
+  /* Lane D's shape: a main that is zero for its whole length (58 pages) beside a short -wal. Any
+   * SQLite open of it fails, and its close then checkpoints that -wal, the only good copy of the
+   * newest pages, into the zeros and deletes it. amgi checks the header first and never opens it. */
+  str zero = fixture(&a, "18", "zero-main");
+  leave_wal(zero);
+  char wal[4200];
+  snprintf(wal, sizeof wal, "%s-wal", zero.p);
+  CHECK(exists(wal), "the leftover -wal is there");
+  FILE *z = fopen(zero.p, "wb");
+  static const char page[4096];
+  for (int i = 0; i < 58; i++) fwrite(page, 1, sizeof page, z);
+  fclose(z);
+  all_refused(&a, zero, "damaged", damaged, "zeroed main and a -wal");
+  files f;
+  snapshot(&a, zero, &f);
+  col_err e = {0};
+  str stored;
+  CHECK(col_add_media(&a, zero, S("clip.ogg"), "ogg", 3, &stored, &e) < 0 && e.kind && !strcmp(e.kind, "damaged"), "addMedia is refused too");
+  char media[4300];
+  snprintf(media, sizeof media, "%s/collection.media", f.dir);
+  CHECK(!exists(media) && unchanged(&a, &f), "and wrote nothing");
+  /* The same without a -wal, and a file too short to have a header. */
+  str bare = fixture(&a, "18", "zero-bare");
+  z = fopen(bare.p, "wb");
+  for (int i = 0; i < 58; i++) fwrite(page, 1, sizeof page, z);
+  fclose(z);
+  all_refused(&a, bare, "damaged", damaged, "zeroed main");
+  str tiny = fixture(&a, "18", "tiny");
+  z = fopen(tiny.p, "wb");
+  fwrite("SQLite format", 1, 13, z);
+  fclose(z);
+  all_refused(&a, tiny, "damaged", damaged, "13 bytes");
+
+  /* incident-1842: a -wal (or -shm) beside the collection means Anki has it open, or left it open.
+   * Anki's backup-on-close drops its exclusive lock while it still writes that -wal, so the lock
+   * cannot be trusted: amgi does not open the file at all, and answers locked. */
+  str left = fixture(&a, "18", "leftover-wal");
+  leave_wal(left);
+  all_refused(&a, left, "locked", "collection is locked", "a leftover -wal");
+  str shm_only = fixture(&a, "18", "leftover-shm");
+  char shm[4200];
+  snprintf(shm, sizeof shm, "%s-shm", shm_only.p);
+  fclose(fopen(shm, "wb"));
+  all_refused(&a, shm_only, "locked", "collection is locked", "a leftover -shm");
+
+  /* A healthy, closed collection: a status probe and a read change nothing and leave nothing; a
+   * write leaves no -wal or -shm behind. */
+  str clean = fixture(&a, "18", "clean");
+  snapshot(&a, clean, &f);
+  col_state st = {"(none)", 0};
+  col_deck *d;
+  size_t nd;
+  CHECK(col_status(&a, clean, &st, &e) == 0 && !strcmp(st.status, "ok"), "a clean collection is ok");
+  CHECK(col_list_decks(&a, clean, &d, &nd, &e) == 0 && nd > 0, "and reads");
+  CHECK(unchanged(&a, &f), "a status probe and a read leave collection.anki2 byte for byte as it was, and no -wal or -shm");
+  col_deck_made made;
+  CHECK(col_create_deck(&a, clean, S("Written"), &made, &e) == 0 && made.created, "a write");
+  CHECK(!exists(f.wal) && !exists(f.shm), "leaves no -wal or -shm");
+  CHECK(col_status(&a, clean, &st, &e) == 0 && !strcmp(st.status, "ok"), "so the next op opens it");
+  ar_free(&a);
+}
+
 int main(int argc, char **argv) {
   root = argc > 1 ? argv[1] : "..";
   const char *tmp = getenv("TMPDIR");
@@ -527,6 +633,7 @@ int main(int argc, char **argv) {
   json_depth();
   atomic_writes();
   media_files();
+  collection_safety();
   char cmd[4200];
   snprintf(cmd, sizeof cmd, "rm -rf '%s'", scratch);
   if (system(cmd) != 0) fprintf(stderr, "could not remove %s\n", scratch);

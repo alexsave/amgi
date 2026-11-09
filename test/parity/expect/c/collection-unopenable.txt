@@ -1,0 +1,30 @@
+> open missing.anki2
+ok
+> status
+ok not-found !
+> listDecks
+err not-found collection%20is%20not-found
+> createDeck x
+err not-found collection%20is%20not-found
+> addNote 1 1 [x,y] [] ! !
+err not-found collection%20is%20not-found
+> open old.anki2
+ok
+> status
+ok unsupported-schema !
+> listDecks
+err unsupported-schema collection%20is%20unsupported-schema
+> createDeck x
+err unsupported-schema collection%20is%20unsupported-schema
+> addNote 1 1 [x,y] [] ! !
+err unsupported-schema collection%20is%20unsupported-schema
+> open junk.anki2
+ok
+> status
+ok damaged !
+> listDecks
+err damaged the%20collection%20file%20is%20damaged%3B%20amgi%20did%20not%20open%20it
+> createDeck x
+err damaged the%20collection%20file%20is%20damaged%3B%20amgi%20did%20not%20open%20it
+> addNote 1 1 [x,y] [] ! !
+err damaged the%20collection%20file%20is%20damaged%3B%20amgi%20did%20not%20open%20it
