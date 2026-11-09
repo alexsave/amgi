@@ -63,6 +63,10 @@ Then `ui/tools/drives.sh` runs the drives one at a time, one headless Chrome eac
 - `bulk.mjs`: making cards against the fake Gemini, including a per-minute limit (the countdown), a failure, and a spent daily cap.
 - `states.mjs`: the decks screen in each setup state: ready, card type missing, locked (a real lock, see below) and released again, no profile, no Anki folder.
 
+Then `ui/tools/incident1842.sh` (also runnable alone, one command, building what it needs) replays incident 18:42 in a browser: `server/build/anki_standin` plays Anki holding a temp-HOME copy of the schema18 fixture after its own backup dropped its lock, the page loads `/decks` twice with the add-on files behind (so each load's template check would reinstall into the collection), and after Anki closes the file must have SQLite's header, no zero page, integrity ok, the same notes and cards, and pass the anki library's Check Database (with `ANKI_PYTHON_BIN`).
+During the window the page must say **Anki locked** and send no `POST /api/anki/install`.
+Chrome keeps the real HOME (a temp one has no keychain, and macOS shows a dialog); only the server and the stand-in get the temp one.
+
 Screenshots land in `.e2e/shots` (or the folder given to `e2e.sh`), the logs in `.e2e/drives` and `.e2e/servers`.
 A whole run takes about six minutes, most of it the bulk drive waiting out the fake's per-minute limit, as a real one would.
 
