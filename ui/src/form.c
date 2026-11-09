@@ -9,6 +9,7 @@ static int shown, has_text;
 static int64_t form_deck;
 static cd_id box, input, go_button, go_text;
 static cd_region inner = {0};
+static cd_region too_long = {0}; /* the paste is more than MAX_PASTE bytes: said, after the box */
 static lang_pair langs;
 static uint32_t line_count;
 
@@ -46,7 +47,28 @@ void form_forget(void) {
   if (!shown) return;
   shown = 0;
   bulk_forget();
+  cd_region_hide(&too_long);
   cd_region_hide(&inner);
+}
+
+/* The box's value, whole, into a new MAX_PASTE buffer (the caller frees it), or 0 when it does not
+ * fit: then the box says so and makes nothing, so no line of a long paste is dropped unsaid. */
+static char *take_text(uint32_t *n) {
+  char *v = cd_alloc(MAX_PASTE);
+  int fits = input_value(input, v, MAX_PASTE, n);
+  if (fits) {
+    cd_region_hide(&too_long);
+  } else if (cd_region_show(&too_long, 1)) {
+    cd_at(box, 0);
+    el(CD_LIT("p"), CD_LIT("card-form-error"));
+    cd_name_open(too_long.root);
+    cd_text(CD_LIT("This is too long to make cards from at once (64 KB at most). Make them in parts."));
+    cd_close();
+    cd_region_end(&too_long);
+  }
+  if (fits) return v;
+  cd_free(v);
+  return 0;
 }
 
 /* The button and the box's height follow what is typed: "Make N cards" for several lines, and a
@@ -81,6 +103,7 @@ ON_EVENT(go_pressed);
 static void form_draw(void) {
   if (!shown) return;
   bulk_forget();
+  cd_region_hide(&too_long);
   cd_region_hide(&inner);
   if (!cd_region_show(&inner, 1)) return;
   cd_at(box, 0);
@@ -143,8 +166,9 @@ static void finished(void) {
 
 static void submit(void) {
   if (!has_text || !amgi_notetype()) return;
-  char *v = cd_alloc(MAX_PASTE);
-  uint32_t n = cd_input_value(input, v, MAX_PASTE);
+  uint32_t n;
+  char *v = take_text(&n);
+  if (!v) return;
   wire_str *lines = cd_alloc(MAX_LINES * sizeof *lines);
   char *keys = cd_alloc(n + 1);
   uint32_t count = paste_lines(v, n, lines, MAX_LINES, keys);
@@ -160,17 +184,18 @@ ON_EVENT(go_pressed) {
 }
 ON_EVENT(typed) {
   if (!shown) return;
-  char *v = cd_alloc(MAX_PASTE);
-  uint32_t n = cd_input_value(input, v, MAX_PASTE);
-  follow_text(v, n);
+  uint32_t n;
+  char *v = take_text(&n);
+  follow_text(v ? v : "", n); /* too long: no text to make cards of, the button off */
   cd_free(v);
   bulk_forget(); /* typing again puts the last run away */
 }
 ON_EVENT(key_down) {
   if (!shown || e->key != 13 || (e->mods & CD_MOD_SHIFT)) return;
   /* Enter makes the card of a single line; with a line break already in, it is a new line */
-  char *v = cd_alloc(MAX_PASTE);
-  uint32_t n = cd_input_value(input, v, MAX_PASTE), breaks = 0;
+  uint32_t n, breaks = 0;
+  char *v = take_text(&n);
+  if (!v) return; /* too long: Enter is a new line, as with any text of several */
   for (uint32_t i = 0; i < n; i++) breaks += v[i] == '\n';
   cd_free(v);
   if (!breaks) {

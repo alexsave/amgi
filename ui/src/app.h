@@ -46,6 +46,13 @@ cd_id el_id(cd_str tag, cd_str cls);              /* the same, named with a new 
 void el_text(cd_str tag, cd_str cls, cd_str s);   /* an element holding one text, closed */
 void tmp_text(const char *p, uint32_t len);       /* a one-off text node */
 void attr_tmp(cd_str name, const char *p, uint32_t len);
+/* An input's value, whole, into dst: 1 with *len its length in bytes when it fits in cap, else 0
+ * with *len 0, and the caller says the value is too long. A value is never read cut short (a cut
+ * paste drops lines without a word). The one caller of cd_input_text, poisoned for every other file. */
+int input_value(cd_id id, char *dst, uint32_t cap, uint32_t *len);
+#ifndef INPUT_VALUE_OWNER
+#pragma GCC poison cd_input_text
+#endif
 /* A cd_on handler, defined: static, and either argument may go unused. */
 #define ON_EVENT(name) \
   static void name(const cd_event_rec *e __attribute__((unused)), void *ctx __attribute__((unused)))
