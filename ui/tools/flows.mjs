@@ -167,6 +167,13 @@ try {
     check(wrap.text === longDir && wrap.breaks.length > 0 && wrap.breaks.every((c) => c === '/'),
       `in ${where} a long folder path breaks only after a slash (${wrap.breaks.length} breaks, after ${JSON.stringify(wrap.breaks.join(''))})`);
   }
+  // the message box's text on the left, as the card is: its first line starts at the box's content edge
+  const msgEdge = await b.evaluate(`(() => {
+    const box = document.querySelector('.settings-page .message.error'), st = getComputedStyle(box);
+    const r = document.createRange(); r.selectNodeContents(box.firstChild);
+    return [r.getClientRects()[0].left, box.getBoundingClientRect().left + parseFloat(st.borderLeftWidth) + parseFloat(st.paddingLeft)];
+  })()`);
+  check(Math.abs(msgEdge[0] - msgEdge[1]) < 0.5, `the not-found message's text starts at its box's content edge (${msgEdge.join(' vs ')})`);
   // "Current mode" and its badge on the left edge the card's other labels start on
   const edges = await b.evaluate(`(() => {
     const labels = [...document.querySelectorAll('.preference-item > label')];
