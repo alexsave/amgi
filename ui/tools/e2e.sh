@@ -42,3 +42,11 @@ start app "$listening" env CBASE_LISTEN=127.0.0.1:0 GEMINI_API_KEY=offline-dummy
 start keyless "$listening" env CBASE_LISTEN=127.0.0.1:0 GEMINI_API_KEY= "${server[@]}"
 start faked "$listening" env CBASE_LISTEN=127.0.0.1:0 GEMINI_API_KEY=fake "GEMINI_API_BASE=$gemini" "${server[@]}"
 ui/tools/drives.sh cdom "$app" "$keyless" "$faked" "$gemini" "$shots"
+failed=$?
+# Incident 18:42: the page loaded twice while Anki holds the collection after its own backup dropped
+# its lock (a server and a temp HOME of its own; the build above already ran).
+make -s -C server build/anki_standin && INCIDENT1842_NO_BUILD=1 ui/tools/incident1842.sh > "$logs/incident1842.log" 2>&1
+incident=$?
+echo "incident1842: $(grep -c '^ok' "$logs/incident1842.log") ok"
+grep -v '^ok' "$logs/incident1842.log"
+[ $failed -eq 0 ] && [ $incident -eq 0 ]
