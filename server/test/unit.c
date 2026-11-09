@@ -615,6 +615,24 @@ static void collection_safety(void) {
   CHECK(col_create_deck(&a, clean, S("Written"), &made, &e) == 0 && made.created, "a write");
   CHECK(!exists(f.wal) && !exists(f.shm), "leaves no -wal or -shm");
   CHECK(col_status(&a, clean, &st, &e) == 0 && !strcmp(st.status, "ok"), "so the next op opens it");
+
+  /* The automatic install's write (a new note type) always has a backup of its own, but only one:
+   * after a deck made earlier in the session (which took the session's backup) it takes another;
+   * as the session's first write, the one with_write takes is it; a note type that is already
+   * there writes nothing and copies nothing. */
+  str fields[] = {S("Front"), S("Back")};
+  col_spec_template tmpl = {S("Card 1"), S("{{Front}}"), S("{{Back}}")};
+  col_spec spec = {S("Automatic type"), fields, 2, &tmpl, 1, S(".card {}"), NULL, 0};
+  col_notetype_made ntm;
+  str inst = fixture(&a, "18", "install-after");
+  CHECK(col_create_deck(&a, inst, S("First"), &made, &e) == 0 && count_backups(inst.p) == 1, "a deck: the session's backup");
+  CHECK(col_create_notetype(&a, inst, &spec, NULL, 0, &ntm, &e) == 0 && ntm.created, "the note type is made");
+  CHECK(count_backups(inst.p) == 2, "with a backup of its own (%zu)", count_backups(inst.p));
+  CHECK(col_create_notetype(&a, inst, &spec, NULL, 0, &ntm, &e) == 0 && !ntm.created, "again: it is there");
+  CHECK(count_backups(inst.p) == 2, "and nothing is copied (%zu)", count_backups(inst.p));
+  str first = fixture(&a, "18", "install-first");
+  CHECK(col_create_notetype(&a, first, &spec, NULL, 0, &ntm, &e) == 0 && ntm.created, "the session's first write is the note type");
+  CHECK(count_backups(first.p) == 1, "one backup, not two (%zu)", count_backups(first.p));
   ar_free(&a);
 }
 

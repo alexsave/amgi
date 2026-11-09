@@ -313,7 +313,7 @@ static void one_handle(void) {
   conn k2 = {0};
   k2.db = raw_open(path2.p);
   exec(k2.db, "BEGIN IMMEDIATE");
-  backup_run r = {path2, &k2, {NULL, 0}, path_resolve(&a, path2), now_ms(), {NULL, 0}, 0};
+  backup_run r = {path2, &k2, {NULL, 0}, path_resolve(&a, path2), now_ms(), {NULL, 0}, 0, 0};
   int threw = cx_try(&c, backup_body, &r) < 0;
   CHECK(threw && strstr(c.err.message.p, "before the write lock"), "a backup after the write lock is refused");
   CHECK(bak_names(&a, path2) == 0 && tmp_names(&a, path2) == 0, "and leaves nothing");
