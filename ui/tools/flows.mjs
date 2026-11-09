@@ -127,6 +127,27 @@ try {
   await sleep(300);
   await shot(b, '15-settings-installed');
 
+  // 4b. Save, then a reload the moment "Anki settings saved." shows (in the same task, by an observer
+  // on the page): the saved value is there after it, so the message never shows before the write.
+  await until(b, `[...document.querySelectorAll('.save-button')].some(x => x.textContent === 'Scan for profiles')`, 150);
+  await sleep(300); // the scan's answer is drawn, so the clicks land where they aim
+  await click(b, '#bridgeToken');
+  await type(b, 'token-kept');
+  await b.evaluate(`(() => {
+    window.__reloading = true;
+    new MutationObserver((_, o) => {
+      if ([...document.querySelectorAll('.settings-page .message.success')].some(e => e.textContent === 'Anki settings saved.')) {
+        o.disconnect();
+        location.reload();
+      }
+    }).observe(document.body, { childList: true, subtree: true, characterData: true });
+  })()`);
+  await b.evaluate(`[...document.querySelectorAll('.save-button')].find(x => x.textContent === 'Save Anki settings').dataset.drive = 'save'`);
+  await click(b, '.save-button[data-drive="save"]');
+  check(await until(b, `!window.__reloading && document.readyState === 'complete' && !!document.querySelector('#bridgeToken')`, 150), 'the page reloads the moment it says saved');
+  const kept = await b.evaluate(`document.querySelector('#bridgeToken').value`);
+  check(kept === 'token-kept', `and the saved token is there after the reload (${JSON.stringify(kept)})`);
+
   // 5. The starter deck, on a server with no key: offered below the list, built, opened.
   if (keyless) {
     await seed(b, keyless, { baseDir: ankiDir, collection: path.join(ankiDir, 'User 1', 'collection.anki2') });
