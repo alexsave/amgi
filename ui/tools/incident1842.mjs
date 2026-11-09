@@ -161,7 +161,7 @@ try {
   check(s.header, `collection.anki2 starts with SQLite's header (${s.pages} pages, ${s.zero} zero)`);
   check(s.zero === 0, `collection.anki2 has no zero page (${s.zero} of ${s.pages})`);
   let after = ['(does not open)'];
-  try { after = counts().split(' '); } catch {}
+  try { after = counts().split(' '); } catch { /* not a database: after stays '(does not open)' */ }
   check(after[0] === 'ok', `integrity_check: ${after[0]}`);
   check(after[1] === before[1] && after[2] === before[2],
     `notes and cards as before (${before[1]} and ${before[2]}; now ${after[1]} and ${after[2]})`);
