@@ -34,6 +34,7 @@ typedef struct {
   int schema;
   sqlite3_stmt **stmts;
   size_t nstmts, cap;
+  int backed_up; /* this connection's write transaction began with a backup (with_write sets it) */
 } conn;
 
 enum { OPEN_OK, OPEN_NOT_FOUND, OPEN_LOCKED, OPEN_UNSUPPORTED, OPEN_DAMAGED };
@@ -65,6 +66,10 @@ int unicase_cmp(void *ctx, int na, const void *a, int nb, const void *b);
 /* backup.c: the backup a write takes first, on the connection it writes with (NULL: a handle of
  * its own), and the ledger told how the collection looks after it. The comments are in backup.c. */
 str ensure_backup_on(cx *c, str path, conn *k); /* the backup's path, or empty */
+/* A backup now whatever the ledger says, unless k's transaction already began with one: for the
+ * write the page makes by itself (installing the note type), so it never runs without a copy of
+ * just what it builds on. */
+str ensure_fresh_backup_on(cx *c, str path, conn *k);
 void note_written_on(cx *c, str path, conn *k);
 
 /* ---- text (deck.js, cardText.ts, template.js) ---- */

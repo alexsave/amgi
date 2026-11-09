@@ -648,7 +648,10 @@ static void create_rows(cx *c, conn *k, void *arg) {
   q_run(c, k, st);
 }
 
-void notetype_create(cx *c, conn *k, const col_spec *spec, col_notetype_made *out) {
+/* Installing the note type is the write the page makes by itself, on every load until it is there
+ * (amgi's automatic install), with no person in the loop: it takes a backup of its own first, even
+ * when the session already has one, and only when it will really write. */
+void notetype_create(cx *c, conn *k, str path, const col_spec *spec, col_notetype_made *out) {
   memset(out, 0, sizeof *out);
   if (k->schema == 11) {
     out->reason = S("legacy-schema");
@@ -666,6 +669,7 @@ void notetype_create(cx *c, conn *k, const col_spec *spec, col_notetype_made *ou
     }
   }
   q_done(st);
+  ensure_fresh_backup_on(c, path, k);
   nt_args na = {spec, now_ms(), 0};
   create_rows(c, k, &na);
   out->created = 1;
