@@ -117,7 +117,7 @@ static void form_draw(void) {
     cd_attr(CD_LIT("disabled"), CD_LIT(""));
     cd_on(go_button, CD_EV_CLICK, go_pressed, 0);
     cd_text(CD_LIT("Make the card"));
-    cd_name(go_text = cd_id_new());
+    cd_name_text(go_text = cd_id_new());
     cd_close();
     cd_close();
   }
