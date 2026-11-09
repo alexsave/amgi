@@ -18,6 +18,16 @@
 //    one unit of work, and closes it before returning - never a handle held
 //    across calls, and never one left open on an error path.
 //
+//  - The exclusive lock is not held all the time Anki uses the file: Anki's own
+//    backup on close drops it while its -wal is still live, and a second
+//    connection's checkpoint on close then resets that -wal (the incident of
+//    2026-11-08, ~/Dev/foolish-reports/incident-1842.md). So the rule is: a -wal
+//    with no -shm beside it is an exclusive-mode owner (Anki, or an Anki that
+//    crashed) - report locked, never open the file with SQLite, read or write,
+//    and check again right after the open; and never run an explicit checkpoint
+//    (test/no-checkpoint.test.mjs; skills/amgi/references/collection-internals.md,
+//    "Locking").
+//
 // Lock detection is a first-class result here, not a thrown error a caller has
 // to pattern-match: openCollection() returns a tagged object, and callers
 // switch on `.status` the same way they would check an HTTP status code.
