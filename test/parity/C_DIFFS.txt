@@ -4,6 +4,24 @@
 # difference between a C recording (expect/c/) and Node's that is not named here, and on any
 # entry here that is not found. At L4 the C recordings become the contract and this file goes.
 
+== A file that does not start with SQLite's header is damaged, and amgi does not open it (incident-1842: SQLite fails to read such a file, but its close still folds a -wal beside it into it and deletes the -wal, which may hold the only good copy of the newest pages). Status says damaged, and every op is refused with that sentence, before SQLite sees the file.
+@ collection-unopenable
+  > status
+- err error file%20is%20not%20a%20database
++ ok damaged !
+
+  > listDecks
+- err error file%20is%20not%20a%20database
++ err damaged the%20collection%20file%20is%20damaged%3B%20amgi%20did%20not%20open%20it
+
+  > createDeck x
+- err error file%20is%20not%20a%20database
++ err damaged the%20collection%20file%20is%20damaged%3B%20amgi%20did%20not%20open%20it
+
+  > addNote 1 1 [x,y] [] ! !
+- err error file%20is%20not%20a%20database
++ err damaged the%20collection%20file%20is%20damaged%3B%20amgi%20did%20not%20open%20it
+
 == hasMedia refuses a name readMedia refuses: empty, ".", "..", a separator or a NUL (finding 8). Node's existsSync(join(dir, "")) is the folder itself, so it said yes.
 @ collection-18-transcript collection-11-transcript
   > hasMedia ~

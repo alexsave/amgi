@@ -6,8 +6,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
+#include <fcntl.h>
 #include <sys/stat.h>
 #include <time.h>
+#include <unistd.h>
 #include <unicode/unorm2.h>
 #include <unicode/ustring.h>
 
@@ -141,6 +143,49 @@ static int file_exists(str path, arena *a) {
   return stat(str_z(a, path), &sb) == 0;
 }
 
+/* Whether amgi may hand the file to SQLite at all: OPEN_OK, or the state to answer without opening
+ * it. Two rules, both from incident-1842 (2026-11-08 18:42, a real collection left with 56 of 58
+ * pages zeroed), each checked before SQLite ever sees the file, since SQLite's own open and close
+ * already write:
+ *
+ * - A file that does not start with SQLite's header ("SQLite format 3" and a NUL): damaged,
+ *   unopened. SQLite fails to read such a file but its close still checkpoints a -wal beside it
+ *   into it and deletes the -wal, the only good copy of the newest pages (lane D's reproduction of
+ *   the 18:42 file). Asked first, so a damaged file says so whatever lies beside it.
+ * - A -wal or -shm beside the collection: locked, unopened, asked before the open and again right
+ *   after it, before any statement. Anki keeps its collection in exclusive
+ *   WAL mode, so a -wal is there for as long as Anki has it open, and Anki's backup-on-close drops
+ *   its exclusive lock (close() of any descriptor on the file drops a process's fcntl locks) while
+ *   it goes on writing that -wal from the index in its memory. An open that succeeds in that window
+ *   reads or, worse, changes a -wal that is live; a checkpoint did, cutting it to nothing, and Anki's
+ *   next frames left a hole that its close copied into the file as zero pages. A -wal left by an
+ *   Anki that did not close cleanly holds the only copy of its newest pages: Anki folds it in on
+ *   its next open, and amgi does not touch it either. A -shm is never Anki's (it keeps the index in
+ *   memory). A -wal with a -shm is a non-exclusive WAL user (another SQLite tool, or one that crashed),
+ *   and a -shm alone is what such a user left: also locked, as amgi cannot tell a live one from a
+ *   dead one either, and refusing costs nothing but a retry once it is closed.
+ *
+ * What is left is a race no check can close: Anki opening the file between the second check and
+ * amgi's first statement. Its exclusive lock then refuses amgi's read ("locked"), or amgi's shared
+ * lock delays Anki's, as any two SQLite processes do. amgi never asks for a checkpoint (no wal_checkpoint, on any open): the
+ * only one is SQLite's own as amgi's connection closes, which, with no -wal there when it opened,
+ * folds back nothing but amgi's own commit and removes the -wal and -shm it made. */
+static int wal_beside(cx *c, str path) {
+  return file_exists(str_cat(c->a, path, S("-wal")), c->a) || file_exists(str_cat(c->a, path, S("-shm")), c->a);
+}
+int collection_openable(cx *c, str path) {
+  if (!file_exists(path, c->a)) return OPEN_NOT_FOUND;
+  static const char header[16] = "SQLite format 3";
+  char got[16];
+  int fd = open(str_z(c->a, path), O_RDONLY | O_NONBLOCK);
+  if (fd < 0) return OPEN_NOT_FOUND;
+  ssize_t n = read(fd, got, sizeof got);
+  close(fd);
+  if (n != (ssize_t)sizeof got || memcmp(got, header, sizeof got)) return OPEN_DAMAGED;
+  if (wal_beside(c, path)) return OPEN_LOCKED;
+  return OPEN_OK;
+}
+
 /* A thrown SQLite error during the open: a lock is a state, anything else is thrown on. */
 typedef struct { conn *k; int *schema; int result; } open_args;
 
@@ -162,19 +207,27 @@ static void open_body(cx *c, void *arg) {
     return;
   }
   *o->schema = (int)ver;
-  conn_exec(c, k, "PRAGMA wal_checkpoint(TRUNCATE)");
   o->result = OPEN_OK;
 }
 
 int conn_open(cx *c, str path, conn *out, int *schema) {
   memset(out, 0, sizeof *out);
-  if (!file_exists(path, c->a)) return OPEN_NOT_FOUND;
-  if (sqlite3_open_v2(str_z(c->a, path), &out->db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, NULL) != SQLITE_OK) {
+  int openable = collection_openable(c, path);
+  if (openable != OPEN_OK) return openable;
+  /* Never SQLITE_OPEN_CREATE: a collection that went away since is not made anew, empty. */
+  if (sqlite3_open_v2(str_z(c->a, path), &out->db, SQLITE_OPEN_READWRITE, NULL) != SQLITE_OK) {
     const char *msg = out->db ? sqlite3_errmsg(out->db) : "out of memory";
     char *copy = ar_dup(c->a, msg, strlen(msg));
     conn_close(out);
     if (strcasestr(copy, "database is locked")) return OPEN_LOCKED;
     cx_throw(c, NULL, 0, "%s", copy);
+  }
+  /* Again now that the file is open, before any statement (sqlite3_open_v2 reads nothing and makes
+   * no -wal; the first statement does): an Anki that started in between has made its -wal, and a
+   * connection that never read closes without touching it. */
+  if (wal_beside(c, path)) {
+    conn_close(out);
+    return OPEN_LOCKED;
   }
   /* What DatabaseSync sets up by default: defensive on, foreign keys on, no double-quoted strings. */
   sqlite3_db_config(out->db, SQLITE_DBCONFIG_DEFENSIVE, 1, NULL);
