@@ -265,7 +265,7 @@ static void editor_close(void) {
   panel_forget();
   cd_region_hide(&editor);
   cd_set_class(row_li[editor_row], CD_LIT("note-row-wrap"));
-  cd_set_text(row_edit[editor_row], CD_LIT("Edit"));
+  cd_set_text_node(row_edit[editor_row], CD_LIT("Edit"));
   editor_row = -1;
 }
 
@@ -275,7 +275,7 @@ static void editor_open(uint32_t i) {
   if (!t || !row_edit[i] || !cd_region_show(&editor, 1)) return;
   editor_row = (int32_t)i;
   cd_set_class(row_li[i], CD_LIT("note-row-wrap is-open"));
-  cd_set_text(row_edit[i], CD_LIT("Close"));
+  cd_set_text_node(row_edit[i], CD_LIT("Close"));
   cd_at(row_li[i], 0);
   el(CD_LIT("div"), CD_LIT("note-row-editor"));
   cd_name_open(editor.root);
@@ -560,7 +560,7 @@ void deck_decks_changed(void) {
     return;
   }
   if (!renaming) name_view(); /* an open rename keeps what is typed in it; it shows the name again when it closes */
-  cd_set_text_num(listhead_count, d->count);
+  cd_set_text_node_num(listhead_count, d->count);
   sub_build();
 }
 

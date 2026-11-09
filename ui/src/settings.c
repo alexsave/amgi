@@ -224,7 +224,7 @@ ON_EVENT(profile_picked) {
  * (once done) the error, the missing-folder or no-profile message, or the profile radios. */
 static void scan_view(void) {
   if (!shown) return;
-  cd_set_text(scan_text, scan_loading ? CD_LIT("Scanning…") : CD_LIT("Scan for profiles"));
+  cd_set_text_node(scan_text, scan_loading ? CD_LIT("Scanning…") : CD_LIT("Scan for profiles"));
   cd_set_bool(scan_button, CD_LIT("disabled"), scan_loading);
   cd_region_hide(&scan_out);
   int none = !scan_loading && scan_exists == 1 && !nprofiles, missing = !scan_loading && scan_exists == 0;
@@ -318,7 +318,7 @@ static void saved_view(void) {
  * add-ons folder it installed into (path_text), in a success box; or the error in an error box. */
 static void install_view(void) {
   if (!shown) return;
-  cd_set_text(install_text, install_running ? CD_LIT("Installing…") : CD_LIT("Install into Anki"));
+  cd_set_text_node(install_text, install_running ? CD_LIT("Installing…") : CD_LIT("Install into Anki"));
   cd_set_bool(install_button, CD_LIT("disabled"), install_running);
   cd_region_hide(&install_msg);
   if (!install_message.len || !cd_region_show(&install_msg, 1)) return;

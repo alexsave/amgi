@@ -45,7 +45,7 @@ static void set_error(const answer *a) {
 static void labels_view(void) {
   for (int s = 0; s < 2; s++) {
     if (busy == s + 1) {
-      cd_set_text(redo_text[s], CD_LIT("Redoing…"));
+      cd_set_text_node(redo_text[s], CD_LIT("Redoing…"));
     } else {
       static const char R[] = "Redo ";
       const char *n = name_of(s ? langs.known : langs.learning);
@@ -53,11 +53,11 @@ static void labels_view(void) {
       uint32_t l = zlen(n);
       __builtin_memcpy(t, R, sizeof R - 1);
       __builtin_memcpy(t + sizeof R - 1, n, l);
-      cd_set_text(redo_text[s], cd_tmp(t, (uint32_t)sizeof R - 1 + l));
+      cd_set_text_node(redo_text[s], cd_tmp(t, (uint32_t)sizeof R - 1 + l));
     }
     cd_set_bool(redo_btn[s], CD_LIT("disabled"), busy != 0);
   }
-  cd_set_text(delete_text, deleting ? CD_LIT("Deleting…") : CD_LIT("Delete card"));
+  cd_set_text_node(delete_text, deleting ? CD_LIT("Deleting…") : CD_LIT("Delete card"));
   cd_set_bool(delete_btn, CD_LIT("disabled"), deleting);
 }
 

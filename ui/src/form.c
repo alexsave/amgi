@@ -89,9 +89,9 @@ static void follow_text(const char *v, uint32_t n) {
     char t2[32] = "Make ";
     uint32_t k = 5 + cd_fmt(t2 + 5, (int32_t)line_count, 0, CD_UNIT_NONE);
     __builtin_memcpy(t2 + k, " cards", 6);
-    cd_set_text(go_text, cd_tmp(t2, k + 6));
+    cd_set_text_node(go_text, cd_tmp(t2, k + 6));
   } else {
-    cd_set_text(go_text, CD_LIT("Make the card"));
+    cd_set_text_node(go_text, CD_LIT("Make the card"));
   }
   cd_set_bool(go_button, CD_LIT("disabled"), !ready() || !has_text);
 }

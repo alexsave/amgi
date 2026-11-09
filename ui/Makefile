@@ -40,6 +40,8 @@ APP_CFLAGS := $(WARN)
 APP_LDFLAGS := -Wl,--strip-all
 APP_PAGE := $(OUT)/index.html
 APP_PAGE_SRC := src/index.html
+# The page loads /app.wasm by URL (the server serves it), so the module stays its own file.
+APP_WASM_SEPARATE := 1
 include $(CDOM)/cdom.mk
 
 # cdom.mk's rule knows cdom's headers; these are the app's own.
