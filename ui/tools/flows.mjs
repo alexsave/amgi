@@ -210,9 +210,12 @@ try {
   await b.evaluate(`IDBObjectStore.prototype.put = function () { throw new DOMException('full', 'QuotaExceededError'); }`);
   await b.evaluate(`[...document.querySelectorAll('.save-button')].find(x => x.textContent === 'Save Anki settings').dataset.drive = 'save'`);
   await click(b, '.save-button[data-drive="save"]');
-  const refused = await until(b, `document.querySelector('.settings-page .message.error')?.textContent`, 50);
-  check(refused === 'This browser did not keep the settings: they apply until the page is reloaded' && !(await b.evaluate(`!!document.querySelector('.settings-page .message.success')`)),
-    `a failed write says so, not saved (${refused})`);
+  // Save's own box, not the scan's (the long folder seeded above is not there, so the scan says so too)
+  const notKept = 'This browser did not keep the settings: they apply until the page is reloaded';
+  const errors = `[...document.querySelectorAll('.settings-page .message.error')].map(e => e.textContent)`;
+  const refused = await until(b, `${errors}.includes(${JSON.stringify(notKept)})`, 50);
+  check(refused && !(await b.evaluate(`!!document.querySelector('.settings-page .message.success')`)),
+    `a failed write says so, not saved (${JSON.stringify(await b.evaluate(errors))})`);
 
   // 5. The starter deck, on a server with no key: offered below the list, built, opened.
   if (keyless) {
