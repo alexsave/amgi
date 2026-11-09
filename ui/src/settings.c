@@ -238,11 +238,11 @@ static void scan_view(void) {
     tmp_text(scan_error.p, scan_error.len);
   } else if (missing) {
     cd_class(CD_LIT("message error"));
-    cd_text(CD_LIT("No Anki data folder was found at "));
-    cd_open(CD_LIT("code"));
-    tmp_text(scan_base.p ? scan_base.p : "", scan_base.len);
+    cd_text(CD_LIT("No Anki data folder was found at"));
+    el(CD_LIT("code"), CD_LIT("message-path")); /* a line of its own: a long path is no sentence */
+    path_text(scan_base.p ? scan_base.p : "", scan_base.len);
     cd_close();
-    cd_text(CD_LIT(". If Anki is not installed yet, install it and open it once to create a profile, then scan again."));
+    cd_text(CD_LIT("If Anki is not installed yet, install it and open it once to create a profile, then scan again."));
   } else if (none) {
     cd_class(CD_LIT("message error"));
     cd_text(CD_LIT("Found the Anki data folder but no profile with a collection in it yet - open Anki once to create one."));
