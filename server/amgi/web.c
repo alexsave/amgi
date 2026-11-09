@@ -248,6 +248,7 @@ void amgi_not_ready(arena *a, cb_http_res *res, const char *mode) {
     {"not-found", MSG_NOT_FOUND},
     {"unsupported-schema", MSG_UNSUPPORTED_SCHEMA},
     {"locked", MSG_LOCKED},
+    {"damaged", MSG_DAMAGED},
     {"bridge-outdated", MSG_BRIDGE_OUTDATED},
     {"bridge-no-collection", MSG_BRIDGE_NO_COLLECTION},
   };

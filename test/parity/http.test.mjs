@@ -305,10 +305,18 @@ describe('the HTTP contract', { concurrency: false }, () => {
     const old = new DatabaseSync(path.join(dir, 'old.anki2'));
     old.exec('CREATE TABLE col (id integer primary key, ver integer); INSERT INTO col VALUES (1, 5);');
     old.close();
+    // Incident 18:42: a collection without SQLite's header (here zero pages, as Anki's close left
+    // it) is damaged, and one with a -wal beside it is locked; amgi opens neither.
+    fs.writeFileSync(path.join(dir, 'zeroed.anki2'), Buffer.alloc(4096 * 4));
+    fs.copyFileSync(path.join(FIXTURES, 'schema18', 'collection.anki2'), path.join(dir, 'held.anki2'));
+    fs.writeFileSync(path.join(dir, 'held.anki2-wal'), Buffer.alloc(0));
+    const before = { zeroed: fs.readFileSync(path.join(dir, 'zeroed.anki2')), held: fs.readFileSync(path.join(dir, 'held.anki2')) };
     const cases = {
       unconfigured: {},
       'not-found': { 'x-amgi-collection': encodeURIComponent(path.join(dir, 'missing.anki2')) },
       'unsupported-schema': { 'x-amgi-collection': encodeURIComponent(path.join(dir, 'old.anki2')) },
+      damaged: { 'x-amgi-collection': encodeURIComponent(path.join(dir, 'zeroed.anki2')) },
+      'locked (a -wal beside it)': { 'x-amgi-collection': encodeURIComponent(path.join(dir, 'held.anki2')) },
       'malformed escape': { 'x-amgi-collection': '%E0%A4%A' },
     };
     for (const [mode, headers] of Object.entries(cases)) {
@@ -326,6 +334,11 @@ describe('the HTTP contract', { concurrency: false }, () => {
         await call(ctx, `${mode}: ${m} ${u}`, m, u, { headers, body, bases: [dir] });
       }
     }
+    for (const name of ['zeroed', 'held']) {
+      assert.ok(fs.readFileSync(path.join(dir, `${name}.anki2`)).equals(before[name]), `${name}.anki2 byte for byte unchanged`);
+    }
+    assert.equal(fs.statSync(path.join(dir, 'held.anki2-wal')).size, 0, 'the -wal untouched');
+    assert.deepEqual(fs.readdirSync(dir).sort(), ['held.anki2', 'held.anki2-wal', 'old.anki2', 'zeroed.anki2'], 'nothing made beside them');
   });
 
   test('the bridge: an add-on in another protocol (older and newer), one with no profile open, one not answering', async () => {

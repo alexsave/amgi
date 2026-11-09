@@ -202,6 +202,8 @@ static const presentation PRESENT[WIRE_MODES] = {
   [WIRE_MODE_BRIDGE_OUTDATED] = {"Anki: update amgi", "#e07050",
                                  "The amgi add-on running in Anki is from a different amgi than this one. Press "
                                  "Install into Anki again (Settings), then restart Anki."},
+  [WIRE_MODE_DAMAGED] = {"Anki: damaged", "#e07050",
+                         "The collection file is damaged; amgi did not open it. Anki can restore it from one of its backups."},
   [WIRE_MODE_OTHER] = {"Anki: not set up yet", "#808080", "amgi has not been installed into Anki on this machine yet."},
 };
 const presentation *present(uint32_t m) { return &PRESENT[m < WIRE_MODES ? m : WIRE_MODE_OTHER]; }

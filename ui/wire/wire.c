@@ -3,7 +3,7 @@
 
 static const char *const MODE_NAMES[WIRE_MODES] = {
   "direct", "bridge", "locked", "not-found", "unsupported-schema", "bridge-no-collection", "unconfigured",
-  "bridge-outdated", "",
+  "bridge-outdated", "damaged", "",
 };
 
 const char *wire_mode_name(uint32_t mode) { return mode < WIRE_MODES ? MODE_NAMES[mode] : ""; }

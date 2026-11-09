@@ -22,7 +22,7 @@ LIST = 9
 BYTES = 10
 
 # A mode's byte is its index; the last, "", is any name the table does not know.
-MODES = ("direct", "bridge", "locked", "not-found", "unsupported-schema", "bridge-no-collection", "unconfigured", "bridge-outdated", "")
+MODES = ("direct", "bridge", "locked", "not-found", "unsupported-schema", "bridge-no-collection", "unconfigured", "bridge-outdated", "damaged", "")
 
 # Each kind by name: its byte, and its fields in wire order as (name, type, item fields or None).
 KINDS = {
