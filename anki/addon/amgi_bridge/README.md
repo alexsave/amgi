@@ -131,6 +131,9 @@ That reasoning no longer applies now that reaching into a live collection with n
 amgi is local-first: its web UI is a visual deck builder, and reviewing and editing happen against a local Anki collection instead of a hosted backend.
 When Anki is closed, the UI reaches the collection file directly, through `plusaudio/lib/collection/` (Node, no Anki install required - see that folder's own `index.js`).
 When Anki is open, the collection file is locked in `locking_mode=exclusive` and cannot even be read from outside the Anki process (see `plusaudio/lib/collection/open.js`'s module comment for the experiments that pinned that down), so the only way in is from inside Anki itself.
+amgi treats a `-wal` with no `-shm` beside it as that exclusive owner (Anki, or an Anki that crashed): it reports the collection locked and does not open it with SQLite, to read or to write, and it checks again right after its own open.
+amgi never runs an explicit checkpoint either.
+The reason is that Anki's backup on close drops its exclusive lock while its `-wal` is still live, and a second connection's checkpoint on close then resets that `-wal` (the incident of 2026-11-08, `~/Dev/foolish-reports/incident-1842.md`; the full rule is in `skills/amgi/references/collection-internals.md`, "Locking").
 That is what this bridge is: a small local HTTP server, run by this add-on, that the UI can talk to instead of the file, picking whichever transport is available and otherwise not caring which one it is using.
 
 ### What it exposes
