@@ -91,6 +91,12 @@ build/incident_1842: $(COL_SRC) test/incident_1842.c $(COL_HDR)
 	@mkdir -p $(@D)
 	$(CC) $(NATIVE_CFLAGS) $(NATIVE_SAN) -o $@ $(COL_SRC) test/incident_1842.c $(NATIVE_LIBS)
 
+# Anki's side of the same sequence as a program of its own, for the browser drive of it
+# (ui/tools/incident1842.sh): a real server and a real page in the window instead of the calls.
+build/anki_standin: test/anki_standin.c
+	@mkdir -p $(@D)
+	$(CC) $(NATIVE_CFLAGS) -O1 -o $@ test/anki_standin.c $(SQLITE_LDFLAGS) -lsqlite3
+
 check-collection: build/unit build/backup_unit build/media_unit build/incident_1842
 	build/unit $(CURDIR)/..
 	build/backup_unit $(CURDIR)/..
