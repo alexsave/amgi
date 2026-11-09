@@ -5,6 +5,8 @@
 //   03-back        the browser's back button from Settings (the history entry before)
 //   04-deck        a deck row clicked: /deck/<id>
 //   05-back-again  back from there
+//   08-scan-held   Settings with its profile scan held in flight (the rows a click aims at)
+//   09-scan-done   the same screen once the scan answers: the rows have not moved
 // and checks the address and the screen at each step. Then it times first paint over fresh loads.
 //
 //   node ui/tools/shoot.mjs <base url> <name> <collection.anki2> [out dir]
@@ -87,7 +89,9 @@ const watchdog = setTimeout(async () => {
   process.exit(1);
 }, 240000);
 const pageErrors = [];
+const paused = []; // Fetch.requestPaused ids: the requests the drive is holding
 b.onEvent = (d) => {
+  if (d.method === 'Fetch.requestPaused') paused.push(d.params.requestId);
   if (d.method === 'Runtime.exceptionThrown') pageErrors.push(d.params.exceptionDetails.exception?.description || d.params.exceptionDetails.text);
   if (d.method === 'Runtime.consoleAPICalled' && d.params.type === 'error') pageErrors.push(d.params.args.map((a) => a.value ?? a.description).join(' '));
 };
@@ -162,6 +166,33 @@ try {
   await shot(b, '07-long-page2');
   await goto(b, `${base}/decks`);
   check(await until(b, `(${settled}) === 7`), 'the list again, loaded at /decks');
+
+  // Settings while its profile scan is in flight, held by the drive (no timing in it): a person aims
+  // at the bridge rows, the scan answers, the click lands. Every row must be where it was aimed at.
+  await b.send('Fetch.enable', { patterns: [{ urlPattern: '*/api/anki/profiles*', requestStage: 'Request' }] });
+  await goto(b, `${base}/settings`);
+  for (let i = 0; i < 100 && !paused.length; i++) await sleep(100);
+  check(paused.length > 0 && await until(b, `!!document.querySelector('#bridgeToken')`), 'the scan is held in flight, the rows drawn');
+  const rows = ['#ankiBaseDir', '#bridgeUrl', '#bridgeToken'];
+  const at = (sel) => b.evaluate(`(() => { const r = document.querySelector(${JSON.stringify(sel)})?.getBoundingClientRect(); return r ? [r.left + r.width / 2, r.top + r.height / 2] : null; })()`);
+  const aimed = [];
+  for (const sel of rows) aimed.push(await at(sel));
+  check(await b.evaluate(`[...document.querySelectorAll('.save-button')].some(x => x.textContent === 'Scanning…')`), 'the button says Scanning…');
+  await shot(b, '08-scan-held');
+  for (const id of paused.splice(0)) await b.send('Fetch.continueRequest', { requestId: id });
+  await b.send('Fetch.disable');
+  check(await until(b, `[...document.querySelectorAll('.save-button')].some(x => x.textContent === 'Scan for profiles') && !!document.querySelector('.settings-page .message.error')`),
+    'the scan answers (no profile in the fixture folder)');
+  await sleep(300);
+  await shot(b, '09-scan-done');
+  for (let i = 0; i < rows.length; i++) {
+    const [x, y] = aimed[i];
+    for (const type of ['mouseMoved', 'mousePressed', 'mouseReleased']) {
+      await b.send('Input.dispatchMouseEvent', { type, x, y, button: 'left', clickCount: 1 });
+    }
+    const focused = await b.evaluate('document.activeElement?.id');
+    check(focused === rows[i].slice(1), `a click aimed at ${rows[i]} during the scan lands there once it answers (focus: ${focused || 'none'})`);
+  }
 
   check(!pageErrors.length, `no page errors${pageErrors.length ? `: ${pageErrors.join(' / ')}` : ''}`);
 
