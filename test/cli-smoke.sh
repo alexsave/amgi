@@ -1,6 +1,6 @@
 #!/bin/bash
 # The amgi command line end to end, as an agent drives it (skills/amgi/SKILL.md), on a throwaway
-# collection under a temp HOME: a locked collection refused, up, a second up, install, deck add,
+# collection under a temp HOME: a locked collection refused, up, a second up, install, deck add (twice: find-or-create),
 # card add (the manual form: no Gemini), card list, deck list, the error exits, down.
 #   make build && test/cli-smoke.sh
 # Every process here runs with the temp HOME (ui/tools/sandbox-home.sh), so nothing can reach a
@@ -60,9 +60,14 @@ expect 0 "^amgi up: already running pid=$pid " up
 expect 4 - card add --deck Spanish
 expect 4 - deck
 expect 4 - deck add
-expect 0 "^install${tab}ready=yes" install
+expect 0 "^install${tab}yes${tab}yes${tab}" install
 expect 0 "^deck${tab}[0-9]+${tab}0${tab}Spanish\$" deck add Spanish
-expect 0 "^note${tab}[0-9]+${tab}Where is the station\\?${tab}¿Dónde está la estación\\?${tab}-\$" \
+first="$out"
+# deck add is find-or-create: the same name again is the same deck, exit 0, said on stderr
+expect 0 "^deck${tab}[0-9]+${tab}0${tab}Spanish\$" deck add Spanish
+[ "$out" = "$first" ] || { echo "FAIL a second deck add is another deck: $first / $out"; fails=$((fails + 1)); }
+[ "$err" = "amgi: the deck was already there" ] || { echo "FAIL a second deck add said: $err"; fails=$((fails + 1)); }
+expect 0 "^note${tab}[0-9]+${tab}Where is the station\\?${tab}¿Dónde está la estación\\?${tab}-${tab}-\$" \
   card add --deck Spanish --front "Where is the station?" --back "¿Dónde está la estación?" --to es
 expect 0 "^note${tab}[0-9]+${tab}Where is the station\\?${tab}" card list --deck Spanish
 expect 0 "^deck${tab}[0-9]+${tab}1${tab}Spanish\$" deck list
@@ -70,7 +75,7 @@ expect 3 - card add --deck Nope --front a --back b
 expect 3 - card list --deck Nope
 expect 5 - card add --deck Spanish --text "Good morning" --from en --to es
 case "$err" in *"--key-file"*) ;; *) echo "FAIL the no-key message does not say --key-file: $err"; fails=$((fails + 1)) ;; esac
-expect 0 "^status${tab}mode=direct" status
+expect 0 "^status${tab}direct${tab}18${tab}$pid${tab}[0-9]+${tab}User 1${tab}" status
 
 expect 0 "^amgi down pid=$pid\$" down
 [ -e "$pidfile" ] && { echo "FAIL the pid file is still there"; fails=$((fails + 1)); }
