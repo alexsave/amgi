@@ -1,7 +1,7 @@
 #!/bin/bash
 # The amgi command line end to end, as an agent drives it (skills/amgi/SKILL.md), on a throwaway
 # collection under a temp HOME: a locked collection refused, up, a second up, install, deck add (twice: find-or-create),
-# card add (the manual form: no Gemini), card list, deck list, the error exits, down.
+# card add (the manual form: no Gemini), card list, deck list, deck remove (dry run, then --yes), the error exits, down.
 #   make build && test/cli-smoke.sh
 # Every process here runs with the temp HOME (ui/tools/sandbox-home.sh), so nothing can reach a
 # real Anki profile. No Gemini call is made: the generate form is only run without a key (exit 5).
@@ -75,6 +75,16 @@ expect 3 - card add --deck Nope --front a --back b
 expect 3 - card list --deck Nope
 expect 5 - card add --deck Spanish --text "Good morning" --from en --to es
 case "$err" in *"--key-file"*) ;; *) echo "FAIL the no-key message does not say --key-file: $err"; fails=$((fails + 1)) ;; esac
+# deck remove: without --yes nothing goes; with it the deck is gone; a wrong name and Default delete nothing
+expect 0 "^would-remove${tab}[0-9]+${tab}1${tab}1${tab}0${tab}Spanish\$" deck remove Spanish
+expect 0 "^deck${tab}[0-9]+${tab}1${tab}Spanish\$" deck list
+expect 3 - deck remove Nope --yes
+expect 4 - deck remove Default --yes
+expect 0 "^deck${tab}1${tab}" deck list
+expect 0 "^removed${tab}[0-9]+${tab}1${tab}1${tab}1${tab}Spanish\$" deck remove Spanish --yes
+expect 0 - deck list
+printf '%s\n' "$out" | grep -q "${tab}Spanish\$" && { echo "FAIL Spanish is still listed after deck remove --yes"; fails=$((fails + 1)); }
+expect 3 - deck remove Spanish
 expect 0 "^status${tab}direct${tab}18${tab}$pid${tab}[0-9]+${tab}User 1${tab}" status
 
 expect 0 "^amgi down pid=$pid\$" down
