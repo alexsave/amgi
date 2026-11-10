@@ -1,7 +1,7 @@
 # Sourced by the e2e shell tools (e2e.sh, fixture.sh, drives.sh). Every amgi server, the fake
 # Gemini and every Anki Python child they start gets a fresh, empty temp HOME of its own
 # (`env "HOME=$(fresh_home)" ...`), so nothing can reach a real Anki profile
-# (~/Library/Application Support/Anki2). Incident 18:42: ~/Dev/foolish-reports/incident-1842.md.
+# (~/Library/Application Support/Anki2). Incident 18:42: docs/INCIDENT_1842.md.
 # The drives themselves keep the real HOME, so the headless Chrome they start finds the login
 # keychain and never asks macOS for one; the node drives start their servers and Anki children
 # through test/sandbox-home.cjs, which gives each its own temp HOME the same way.

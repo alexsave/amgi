@@ -4,7 +4,7 @@
 // Python, the add-on's bridge, the fake Gemini) runs with a fresh, empty temp HOME of its own and
 // no XDG_DATA_HOME, so nothing it does can reach a real Anki profile
 // (~/Library/Application Support/Anki2) or a real amgi config. Incident 18:42
-// (~/Dev/foolish-reports/incident-1842.md): a server a person's tools started opened a real
+// (docs/INCIDENT_1842.md): a server a person's tools started opened a real
 // collection while Anki had it open, and Anki's close then zeroed it. test/sandbox-home.test.mjs
 // holds every spawn in the test code to this module.
 

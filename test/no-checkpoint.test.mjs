@@ -4,7 +4,7 @@
 // exclusive-mode owner (Anki, or an Anki that crashed), and amgi reports the collection locked
 // without opening it. amgi never checkpoints a WAL itself. Why: Anki's own backup on close drops its
 // exclusive lock, and a second SQLite connection's checkpoint then resets Anki's live -wal; the
-// incident of 2026-11-08 (~/Dev/foolish-reports/incident-1842.md) emptied a real collection that way.
+// incident of 2026-11-08 (docs/INCIDENT_1842.md) emptied a real collection that way.
 //
 // This test scans every tracked source file that ships (test/source-scan.mjs: not a test, a tool, a
 // script, a fixture or a document; the submodules are not in git ls-files), in C, JavaScript and the

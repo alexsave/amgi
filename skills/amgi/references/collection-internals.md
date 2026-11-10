@@ -30,7 +30,7 @@ The rule the C server follows before it lets SQLite near the file (`collection_o
   The only checkpoint left is SQLite's own as amgi's connection closes, which, with no `-wal` there when it opened, folds back only amgi's own commit.
 - Why: Anki's own backup on close drops its exclusive lock while its `-wal` is still live.
   The server's checkpoint then cut that `-wal` to nothing, and Anki's next frames left a hole that its close wrote into the collection as zero pages.
-  That happened on 2026-11-08: a real collection was left with 56 of its 58 pages zero (`~/Dev/foolish-reports/incident-1842.md`).
+  That happened on 2026-11-08: a real collection was left with 56 of its 58 pages zero (`docs/INCIDENT_1842.md`).
 - The race no check can close is Anki opening the file between the second check and amgi's first statement; then Anki's exclusive lock refuses amgi's read (`locked`), or amgi's shared lock briefly delays Anki's.
 
 ## Schemas
