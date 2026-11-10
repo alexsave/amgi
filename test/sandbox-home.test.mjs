@@ -1,5 +1,5 @@
 // Every process the tests and the drives start runs with a fresh temp HOME and no XDG_DATA_HOME
-// (incident 18:42, ~/Dev/foolish-reports/incident-1842.md). This holds the test code to it:
+// (incident 18:42, docs/INCIDENT_1842.md). This holds the test code to it:
 // - the node guard (test/sandbox-home.cjs) refuses the real home, a dir inside it or above it,
 //   an Anki2 folder and XDG_DATA_HOME, and hands each child its own empty HOME;
 // - every child-process call in the test code (JavaScript, parsed with eslint's own parser, and

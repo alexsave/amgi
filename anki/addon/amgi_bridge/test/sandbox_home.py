@@ -1,6 +1,6 @@
 # Every process these tests start (collection_cli, node) runs with a fresh, empty temp HOME and no
 # XDG_DATA_HOME, so nothing it does can reach a real Anki profile
-# (~/Library/Application Support/Anki2). Incident 18:42: ~/Dev/foolish-reports/incident-1842.md.
+# (~/Library/Application Support/Anki2). Incident 18:42: docs/INCIDENT_1842.md.
 # The node and shell halves are test/sandbox-home.cjs and ui/tools/sandbox-home.sh;
 # test/sandbox-home.test.mjs holds every spawn in the test code to one of them.
 
