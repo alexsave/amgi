@@ -14,7 +14,11 @@
  * through cbase's loopback client, so the server's handlers stay the one owner of every rule: the
  * transport and its lock check, the backup before the first write, Gemini and its rate gate. The wire
  * stays inside: what is printed is plain text, one record a line, fields split by tabs, and a write
- * prints what reading it back finds.
+ * prints what reading it back finds. The records:
+ *   deck ID NOTES NAME
+ *   note ID FRONT BACK CUE_AUDIO TARGET_AUDIO          (an audio field is its [sound:...] reference, or -)
+ *   status MODE SCHEMA PID PORT PROFILE COLLECTION
+ *   install READY ADDONS UP_TO_DATE NOTE_TYPE_CHECKED  (each yes, no or unknown)
  *
  * Exit codes: 0 done; 1 anything else (amgi not up, a server error); 2 Anki has the collection (locked);
  * 3 not found (a deck, the note type, a profile, the collection); 4 a usage error; 5 Gemini (no key,
@@ -494,7 +498,7 @@ static int print_install(arena *a, const up_state *s) {
   int rc;
   const wire_install_state *i = get(a, s, "/api/anki/install", WK_INSTALL_STATE, &rc);
   if (!i) return rc;
-  printf("install\tready=%s\taddons=%s\tup_to_date=%s\tnote_type_checked=%s\n", yn(i->ready), yn(i->installed),
+  printf("install\t%s\t%s\t%s\t%s\n", yn(i->ready), yn(i->installed),
          yn(i->up_to_date), yn(i->collection_checked));
   return RC_OK;
 }
@@ -508,9 +512,9 @@ static int cmd_status(int argc, char **argv) {
   arena a = {0};
   const wire_status *st = get(&a, &s, "/api/anki/status", WK_STATUS, &rc);
   if (st) {
-    printf("status\tmode=%s\tschema=%u\tpid=%d\tport=%d\tprofile=", wire_mode_name(st->mode), st->schema_version, s.pid, s.port);
+    printf("status\t%s\t%u\t%d\t%d\t", wire_mode_name(st->mode), st->schema_version, s.pid, s.port);
     put(s.profile, strlen(s.profile));
-    printf("\tcollection=");
+    putchar('\t');
     put(s.collection, strlen(s.collection));
     putchar('\n');
     rc = print_install(&a, &s);
@@ -609,8 +613,8 @@ static int find_listening(arena *a, const wire_notetypes *nts, listening *out) {
   return 0;
 }
 
-/* note ID FRONT BACK AUDIO: an amgi Listening note's Cue and Target and its two clips' references
- * (or "-"), and any other note's first two fields. */
+/* note ID FRONT BACK CUE_AUDIO TARGET_AUDIO: an amgi Listening note's Cue and Target and its two
+ * clips' references (each "-" when there is none), and any other note's first two fields. */
 static void print_note(const wire_note *n, const listening *l) {
   int amgi = l->nt && n->notetype_id == l->nt->id;
   int front = amgi ? l->idx.cue : 0, back = amgi ? l->idx.target : 1;
@@ -618,15 +622,12 @@ static void print_note(const wire_note *n, const listening *l) {
   if ((uint32_t)front < n->fields.n) put_w(n->fields.v[front]);
   putchar('\t');
   if ((uint32_t)back < n->fields.n) put_w(n->fields.v[back]);
-  putchar('\t');
-  int any = 0;
   int clips[2] = {amgi ? l->idx.cue_audio : -1, amgi ? l->idx.target_audio : -1};
-  for (int k = 0; k < 2; k++)
-    if (clips[k] >= 0 && (uint32_t)clips[k] < n->fields.n && n->fields.v[clips[k]].len) {
-      if (any++) putchar(' ');
-      put_w(n->fields.v[clips[k]]);
-    }
-  if (!any) putchar('-');
+  for (int k = 0; k < 2; k++) {
+    putchar('\t');
+    if (clips[k] >= 0 && (uint32_t)clips[k] < n->fields.n && n->fields.v[clips[k]].len) put_w(n->fields.v[clips[k]]);
+    else putchar('-');
+  }
   putchar('\n');
 }
 
