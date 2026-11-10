@@ -6,7 +6,7 @@
  *   amgi down                                               stop it
  *   amgi status                                             the collection's state and the install's
  *   amgi install                                            install the add-ons and the note type
- *   amgi deck add NAME | amgi deck list
+ *   amgi deck add NAME | amgi deck list | amgi deck remove NAME [--yes]
  *   amgi card add --deck NAME (--front TEXT --back TEXT [--to LANG] | --text TEXT --from LANG --to LANG [--no-audio])
  *   amgi card list --deck NAME
  *
@@ -16,6 +16,8 @@
  * stays inside: what is printed is plain text, one record a line, fields split by tabs, and a write
  * prints what reading it back finds. The records:
  *   deck ID NOTES NAME
+ *   would-remove ID NOTES CARDS SUBDECKS NAME           (deck remove without --yes: nothing deleted)
+ *   removed ID NOTES CARDS DECKS NAME                   (deck remove --yes: what the delete took)
  *   note ID FRONT BACK CUE_AUDIO TARGET_AUDIO          (an audio field is its [sound:...] reference, or -)
  *   status MODE SCHEMA PID PORT PROFILE COLLECTION
  *   install READY ADDONS UP_TO_DATE NOTE_TYPE_CHECKED  (each yes, no or unknown)
@@ -71,6 +73,7 @@ static const char USAGE[] =
   "  amgi install\n"
   "  amgi deck add NAME\n"
   "  amgi deck list\n"
+  "  amgi deck remove NAME [--yes]   (without --yes: what it would remove, and nothing is deleted)\n"
   "  amgi card add --deck NAME --front TEXT --back TEXT [--to LANG]\n"
   "  amgi card add --deck NAME --text TEXT --from LANG --to LANG [--no-audio]\n"
   "  amgi card list --deck NAME\n"
@@ -554,8 +557,81 @@ static const wire_deck *find_deck(const wire_decks *ds, const char *name) {
   return NULL;
 }
 
+/* deck remove NAME [--yes]: the deck by its exact name. Without --yes, GET /decks/:id, which changes
+ * nothing, says what a delete would take; with it, DELETE /decks/:id, then the deck list to show it gone. */
+static int deck_remove(int argc, char **argv) {
+  const char *name = NULL;
+  int yes = 0;
+  opt opts[] = {{"--yes", NULL, &yes}};
+  if (parse_opts(argc, argv, 3, opts, 1, &name) || !name || !name[0]) return usage("deck remove takes one NAME, and --yes to delete");
+  up_state s;
+  int rc = need_up(&s);
+  if (rc) return rc;
+  arena a = {0};
+  const wire_decks *ds = get(&a, &s, "/api/anki/decks", WK_DECKS, &rc);
+  if (!ds) goto out;
+  const wire_deck *d = NULL;
+  int matches = 0;
+  for (uint32_t i = 0; i < ds->ndecks; i++)
+    if (weq(ds->decks[i].name, name)) d = &ds->decks[i], matches++;
+  if (!matches) {
+    fprintf(stderr, "amgi: no deck named \"%s\" (the name must match exactly): nothing deleted\n", name);
+    rc = RC_NOT_FOUND;
+    goto out;
+  }
+  if (matches > 1) {
+    fprintf(stderr, "amgi: %d decks are named \"%s\": nothing deleted\n", matches, name);
+    rc = RC_USAGE;
+    goto out;
+  }
+  if (d->id == 1) {
+    fputs("amgi: the Default deck cannot be removed (Anki would only empty it): nothing deleted\n", stderr);
+    rc = RC_USAGE;
+    goto out;
+  }
+  char path[96];
+  snprintf(path, sizeof path, "/api/anki/decks/%lld", (long long)d->id);
+  if (!yes) {
+    const wire_deck_summary *w = get(&a, &s, path, WK_DECK_SUMMARY, &rc);
+    if (!w) goto out;
+    printf("would-remove\t%lld\t%u\t%u\t%u\t", (long long)w->id, w->notes, w->cards, w->subdecks);
+    put_w(w->name);
+    putchar('\n');
+    fputs("amgi: nothing was deleted; run it again with --yes to delete the deck, its subdecks and their cards\n", stderr);
+    goto out;
+  }
+  answer x;
+  if ((rc = call(&a, &s, "DELETE", path, -1, NULL, CALL_MS, &x))) goto out;
+  if (x.status != 200) {
+    rc = failed(&a, &x, path);
+    goto out;
+  }
+  const wire_deck_removed *r = as_kind(&a, &x, WK_DECK_REMOVED);
+  if (!r) {
+    fprintf(stderr, "amgi: DELETE %s answered something other than deck_removed\n", path);
+    rc = RC_FAIL;
+    goto out;
+  }
+  /* the read-back: the deck list no longer has it */
+  const wire_decks *after = get(&a, &s, "/api/anki/decks", WK_DECKS, &rc);
+  if (!after) goto out;
+  for (uint32_t i = 0; i < after->ndecks; i++)
+    if (after->decks[i].id == r->id) {
+      fprintf(stderr, "amgi: deck %lld was removed but the deck list still shows it\n", (long long)r->id);
+      rc = RC_FAIL;
+      goto out;
+    }
+  printf("removed\t%lld\t%u\t%u\t%u\t", (long long)r->id, r->notes, r->cards, r->decks);
+  put_w(r->name);
+  putchar('\n');
+out:
+  ar_free(&a);
+  return rc;
+}
+
 static int cmd_deck(int argc, char **argv) {
-  if (argc < 3) return usage("deck takes add NAME or list");
+  if (argc < 3) return usage("deck takes add NAME, list or remove NAME");
+  if (!strcmp(argv[2], "remove")) return deck_remove(argc, argv);
   up_state s;
   int rc;
   if (!strcmp(argv[2], "list")) {
@@ -567,7 +643,7 @@ static int cmd_deck(int argc, char **argv) {
     ar_free(&a);
     return rc;
   }
-  if (strcmp(argv[2], "add") != 0) return usage("deck takes add NAME or list");
+  if (strcmp(argv[2], "add") != 0) return usage("deck takes add NAME, list or remove NAME");
   if (argc != 4 || !argv[3][0]) return usage("deck add takes one NAME (quote it when it has spaces; A::B is subdeck B of A)");
   if ((rc = need_up(&s))) return rc;
   arena a = {0};

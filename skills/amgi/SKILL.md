@@ -11,14 +11,20 @@ amgi checks for an open Anki itself (a `-wal` or `-shm` beside the collection co
 Before its first write amgi copies the collection to `amgi-collection-backups/` beside `collection.anki2`.
 Never edit `collection.anki2` yourself.
 
-## Quick start (from the repository root; no Node needed)
+## Install once (from the repository root; no Node needed)
 
+An installer or the user does this once per checkout; an agent whose folder already has `server/build/amgi` skips straight to "Each time".
 Prerequisites: make, Xcode's command line tools, and `brew install sqlite icu4c@78 openssl@3`.
-`make server` prints only a few lines (no compiler output) and takes about 5 seconds on a clean checkout.
+`make server` prints only a few lines (no compiler output); clone, submodules and build take about 8 seconds end to end (clone 1 s, submodules 3 s, build 4 s).
 
 ```bash
 git submodule update --init --recursive
 make server
+```
+
+## Each time
+
+```bash
 server/build/amgi up --key-file /path/to/.env.local
 server/build/amgi deck add "Spanish"
 server/build/amgi card add --deck "Spanish" --text "Where is the station?" --from en --to es
@@ -30,18 +36,23 @@ server/build/amgi down
 Language codes: `en`, `ko`, `ja`, `zh_cn`, `zh_hk`, `es`, `fr`, `pt`, `ru`, `id`, `de`, `tr`, `vi`, `it`, `th`, `hi`, `ur`, `ar`.
 `card add --deck D --front TEXT --back TEXT` makes a card with no Gemini call and no audio.
 A write prints what reading it back finds.
-Output is tab-separated: `deck ID NOTES NAME`, `note ID FRONT BACK CUE_AUDIO TARGET_AUDIO` (`-` when absent), `status MODE SCHEMA PID PORT PROFILE COLLECTION`, `install READY ADDONS UP_TO_DATE NOTE_TYPE_CHECKED`.
+Output is tab-separated: `deck ID NOTES NAME`, `would-remove ID NOTES CARDS SUBDECKS NAME`, `removed ID NOTES CARDS DECKS NAME`, `note ID FRONT BACK CUE_AUDIO TARGET_AUDIO` (`-` when absent), `status MODE SCHEMA PID PORT PROFILE COLLECTION`, `install READY ADDONS UP_TO_DATE NOTE_TYPE_CHECKED`.
 Exit codes: 0 ok, 1 other (amgi not up, server error), 2 locked, 3 not found, 4 usage, 5 Gemini.
 `deck add` is find-or-create: the same name again prints the same deck line, exits 0, and says `amgi: the deck was already there` on stderr.
 `up` serves on 127.0.0.1:3000 in the background (`--port N`; `--profile NAME` when there are several); pid file `server/build/amgi.pid`, log `server/build/amgi.log`.
 A second `up` from the same checkout prints `amgi up: already running pid=... port=...` and exits 0.
 Another checkout's `up`, or `make start`, on the same port makes `up` exit 1 with "Address already in use": pass `--port`.
+`deck remove NAME` deletes nothing: it prints what a delete would take (`would-remove`) and says to pass `--yes`.
+`deck remove NAME --yes` deletes the deck, its subdecks, their cards and the notes left with no card, and prints `removed`.
+It matches the exact name only (none: exit 3), refuses the Default deck (exit 4), and deletes nothing in either case.
+The audio files of a removed deck stay in `collection.media` until Anki's Tools > Check Media.
 
 ## Which commands write
 
-Read-only: `status`, `deck list`, `card list`.
-Writes: `deck add`, `card add`, `install`.
+Read-only: `status`, `deck list`, `card list`, and `deck remove` without `--yes`.
+Writes: `deck add`, `card add`, `deck remove --yes`, `install`.
 `card add --text` stores two audio clips in `collection.media` as soon as Gemini answers, even if no note is then added.
+Ask the user before `deck remove --yes` on a deck the user did not ask to delete.
 `install` is NOT part of adding a card: when amgi is installed, `amgi status` prints a line starting `install<TAB>yes`; run `amgi install` only when the user asks.
 
 ## The key and Gemini's limits
