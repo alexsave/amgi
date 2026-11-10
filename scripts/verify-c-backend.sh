@@ -59,10 +59,10 @@ export HOME="$work/home"
 server_pid=""
 cleanup() {
   if [ -n "$server_pid" ]; then
-    # make start ends in exec of server/build/amgi; stop that and anything left under the npm.
+    # make start ends in exec of server/build/amgi-serve; stop that and anything left under the npm.
     pkill -TERM -P "$server_pid" 2> /dev/null
     kill -TERM "$server_pid" 2> /dev/null
-    for p in $(pgrep -f "$clone/server/build/amgi serve"); do kill -TERM "$p" 2> /dev/null; done
+    for p in $(pgrep -f "$clone/server/build/amgi(-serve)? serve"); do kill -TERM "$p" 2> /dev/null; done
   fi
 }
 trap cleanup EXIT

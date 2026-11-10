@@ -1,6 +1,10 @@
 # amgi's native code, on cbase (the submodule at ../cbase) through cbase.mk:
-#   - server/app: the amgi app on cbase serve (build/amgi): the cb_app over server/amgi, its routes,
+#   - server/app: the amgi app on cbase serve (build/amgi-serve): the cb_app over server/amgi, its routes,
 #     install, the starter deck, the rate gate and Gemini (server/amgi/amgi.h).
+#   - server/cli: build/amgi, the one binary people and agents run: `amgi serve` is the same server
+#     as build/amgi-serve, and its other words (up, down, deck, card, ...) are the command line, a
+#     loopback client of that server (server/cli/amgi.c). cbase's serve binary stays cbase's own
+#     main (its smoke holds it to cbase's usage), so the command line is a program of its own.
 #   - server/collection and server/json: the collection core (the C port of what was plusaudio/lib/collection,
 #     the direct transport and the bridge client) and its Anki JSON quarantine, as one library with
 #     its own flags and its own gates (test/no-json.test.mjs, the random scan, server/test/unit.c).
@@ -8,11 +12,11 @@
 #     (strtod for JSON numbers and Number()), which cbase's number gate refuses in a product root.
 #   - test/parity/dump.c: the collection-parity dump tool (no cbase in it).
 #
-#   make -C server                    build/amgi, build/collection_cli, build/app_unit, build/parity_dump
+#   make -C server                    build/amgi, build/amgi-serve, build/collection_cli, build/app_unit, build/parity_dump
 #   make -C server check-collection   the C collection core's own tests (server/test/unit.c), under ASan
 #   make -C server build/asan/collection_cli   the collection CLI under ASan and UBSan
 #   make -C server check              cbase's whole check, with the amgi app as its product
-#   make -C server serve              build/amgi, then serve from the repository root (cbase.mk's
+#   make -C server serve              build/amgi-serve, then serve from the repository root (cbase.mk's
 #                                     make serve: CBASE_LISTEN, or PORT, moves it from 127.0.0.1:3000;
 #                                     .env.local, when it is there, is read as CBASE_ENV_FILE)
 #
@@ -25,7 +29,7 @@ ifeq ($(wildcard $(CBASE)/cbase.mk),)
 endif
 C_ROOT := ..
 CBASE_PROVIDERS := local
-APP_SERVE := amgi
+APP_SERVE := amgi-serve
 # serve runs from the repository root, where it reads the page's files (ui/out), the add-ons and the
 # starter deck, and finds .env.local (cbase.mk's APP_ENV_FILE default).
 APP_SERVE_DIR := ..
@@ -60,7 +64,7 @@ APP_EXTRA_SRC := $(COL_SRC) $(BRIDGE_SRC) $(AMGI_SRC)
 APP_EXTRA_CFLAGS = $(WARN) -O2 -g -pthread -I$(CBASE)/core/include -I$(CBASE)/core/src -I$(CBASE)/lib -I../ui/wire \
   $(ICU_CFLAGS) $(SQLITE_CFLAGS) $(OPENSSL_CFLAGS)
 SERVER_LDFLAGS := $(ICU_LDFLAGS) -licui18n -licuuc
-APP_PROGS := collection_cli=collection/cli.c app_unit=test/app_unit.c golden_cards=test/golden_cards.c
+APP_PROGS := amgi=cli/amgi.c collection_cli=collection/cli.c app_unit=test/app_unit.c golden_cards=test/golden_cards.c
 # cbase's own default port is 8642; amgi keeps 3000 (PORT, or CBASE_LISTEN, moves it).
 APP_SERVE_LISTEN := 127.0.0.1:$(or $(PORT),3000)
 include $(CBASE)/cbase.mk
