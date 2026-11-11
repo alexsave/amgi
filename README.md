@@ -102,7 +102,7 @@ The server is C: `server/build/amgi`, the amgi app (`server/app/`, `server/amgi/
 `server/build/amgi` is also the command line for agents and scripts (`amgi up`, `amgi deck add`, `amgi card add`, `amgi down`; `skills/amgi/SKILL.md`), a client of the same server on loopback.
 `make start` starts it through cbase's `make serve` (`make -C server serve`, run from the repository root): it listens on `CBASE_LISTEN` (`127.0.0.1:3000` by default, or `PORT`), says `cbase: listening <host>:<port>` on stdout, answers only a `Host` of `127.0.0.1`, `localhost` or `[::1]` at that port (against DNS rebinding), sends no CORS headers, and reads `.env.local` through cbase's `CBASE_ENV_FILE`.
 `.claude/skills/e2e-ui/` and `tests/e2e/ui/` drive the app in headless Chrome against a fixture Anki collection.
-`anki/test/harness/drive.js` does the same for the card template.
+`tests/e2e/anki/drive.js` does the same for the card template.
 `tests/server/parity/` holds the server's contract: an HTTP suite over every route and error shape, compared byte for byte with a recording (made from the Node server the C one replaced), and a collection runner that applies one operation list to schema 11 and 18 fixtures through the C core and compares every row afterwards.
 `tests/server/bridge/` runs the C bridge client against the add-on's real server.
 

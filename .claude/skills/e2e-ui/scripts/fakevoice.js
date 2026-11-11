@@ -8,7 +8,7 @@
 //
 // The amgi web app has no microphone of its own any more (reviewing happens
 // in Anki, not in a browser tab - see README.md), so today the only consumer
-// of this file is anki/test/harness/drive.js, driving the card template
+// of this file is tests/e2e/anki/drive.js, driving the card template
 // against a stand-in Anki reviewer. Load-bearing: do not move or rename this
 // file without updating that require() too.
 module.exports = function fakeVoiceScript({ leadMs = 600, speechMs = 1500, totalMs = 12000 } = {}) {

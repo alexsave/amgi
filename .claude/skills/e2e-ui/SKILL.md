@@ -8,7 +8,7 @@ description: Run amgi locally against a fixture Anki collection (no environment 
 amgi is local-first: no account, no hosted backend, no environment variable required to run it.
 Everything here runs against a **fixture** Anki collection you build yourself, on disk, and drives headless Chrome over the DevTools protocol (`cdom/tools/cdp.mjs`) and real HTTP - never against a real personal collection, and never against anything that needs a network credential.
 
-For the review loop itself - the card template's hands-free listen-then-speak flow - see `anki/test/harness/drive.js` and `anki/README.md` instead.
+For the review loop itself - the card template's hands-free listen-then-speak flow - see `tests/e2e/anki/drive.js` and `anki/README.md` instead.
 This skill covers the app: the deck browser and card builder, and the two transports it reaches an Anki collection through.
 
 ## One-time setup
@@ -108,5 +108,5 @@ No browser here - this is a backend test.
   Its one-line label (e.g. "Anki locked") and its full explanation (its `title`) are two different strings - assert on the title for the explanation.
 - `cdp.mjs` gives every Chrome its own free debugging port, and the drives close theirs on exit; one Chrome at a time keeps timings honest on a loaded machine.
 - Chrome's `--use-file-for-fake-audio-capture` is a **no-op on this machine** - the captured stream is digital silence.
-  This does not matter for the amgi app (it has no microphone of its own), but it matters for the Anki card template's mic path, which `anki/test/harness/drive.js` drives with `scripts/fakevoice.js` instead (through `scripts/lib.js` and `puppeteer-core`).
+  This does not matter for the amgi app (it has no microphone of its own), but it matters for the Anki card template's mic path, which `tests/e2e/anki/drive.js` drives with `scripts/fakevoice.js` instead (through `scripts/lib.js` and `puppeteer-core`).
   Do not spend time regenerating wav files for that harness; it is not a format problem.
