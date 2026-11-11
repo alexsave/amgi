@@ -8,7 +8,7 @@
 #                     page), then the one sheet the C UI adds (confirm.css, for the <dialog> that
 #                     replaced window.confirm)
 #   out/wire.wasm     the wire writers for the Node tests and tools (wire/wire_node.c, no cdom code)
-#   out/wire_dump, out/text_dump   natively, under ASan and UBSan, for ui/test: the app's wire
+#   out/wire_dump, out/text_dump   natively, under ASan and UBSan, for tests/ui: the app's wire
 #                     walkers, and src/text.c with src/fields.c
 #   out/wire_py       writes ../anki/addon/amgi_bridge/wire_schema.py from wire.c's table, so the
 #                     Anki bridge add-on holds no layout of its own
@@ -70,13 +70,13 @@ $(OUT)/app.css: $(addprefix css/,$(CSS))
 	@mkdir -p $(@D)
 	for f in $^; do cat $$f; printf '\n'; done > $@.tmp && mv $@.tmp $@
 
-$(OUT)/wire_dump: test/wire_dump.c wire/wire.c wire/wire.h
+$(OUT)/wire_dump: ../tests/ui/wire_dump.c wire/wire.c wire/wire.h
 	@mkdir -p $(@D)
-	$(HOST_CC) $(SAN) $(WARN) -o $@ test/wire_dump.c wire/wire.c
+	$(HOST_CC) $(SAN) $(WARN) -o $@ ../tests/ui/wire_dump.c wire/wire.c
 
-$(OUT)/text_dump: test/text_dump.c src/text.c src/fields.c $(APP_HDR) $(CDOM_HEADERS)
+$(OUT)/text_dump: ../tests/ui/text_dump.c src/text.c src/fields.c $(APP_HDR) $(CDOM_HEADERS)
 	@mkdir -p $(@D)
-	$(HOST_CC) $(SAN) $(WARN) -I$(CDOM)/src -o $@ test/text_dump.c src/text.c src/fields.c
+	$(HOST_CC) $(SAN) $(WARN) -I$(CDOM)/src -o $@ ../tests/ui/text_dump.c src/text.c src/fields.c
 
 $(OUT)/wire_py: wire/wire_py.c wire/wire.c wire/wire.h
 	@mkdir -p $(@D)

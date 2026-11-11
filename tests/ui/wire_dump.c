@@ -1,11 +1,11 @@
 /* Reads one wire message on stdin the way the app does (wire_room, wire_decode into the kind's
  * struct), prints the struct field by field through the schema, then writes the struct again with
  * the app's writer (wire_encode) and says whether the bytes came back the same. "bad" when the
- * reader refuses the bytes. ui/test/wire.test.mjs feeds it the server's encoder. */
+ * reader refuses the bytes. tests/ui/wire.test.mjs feeds it the server's encoder. */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "../wire/wire.h"
+#include "../../ui/wire/wire.h"
 
 uint8_t *wire_grow(uint8_t *p, uint32_t len, uint32_t cap) {
   (void)len;

@@ -1,5 +1,5 @@
 /* Text work the React app did with JS strings and regexes, on UTF-8 bytes: each function names the
- * JS it stands for, and ui/test/text.test.mjs runs both on the same inputs. */
+ * JS it stands for, and tests/ui/text.test.mjs runs both on the same inputs. */
 #include "app.h"
 
 uint32_t zlen(const char *s) {
