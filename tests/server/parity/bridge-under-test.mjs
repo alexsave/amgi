@@ -2,7 +2,7 @@
 // transport.c), driven over the collection-parity protocol (tests/server/parity/protocol.mjs: "probe" and
 // "transport", then the same commands, answered by the bridge) by server/build/collection_cli. The
 // answers come back in the shapes the tests read, and a failure as a BridgeError with its status, so
-// the bridge tests (test/bridge/bridgeLive.test.mjs) check the client against the add-on's real
+// the bridge tests (tests/server/bridge/bridgeLive.test.mjs) check the client against the add-on's real
 // server.
 export const PROTOCOL_HEADER = 'X-Amgi-Bridge-Protocol';
 
