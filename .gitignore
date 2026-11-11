@@ -8,6 +8,9 @@ node_modules/
 /coverage
 /.e2e
 
+# the Anki card script, built by make -C anki from src/utils and anki/src
+/anki/media/_amgi-loop.js
+
 # misc
 .DS_Store
 __pycache__/

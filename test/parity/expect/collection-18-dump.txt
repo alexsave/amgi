@@ -419,7 +419,7 @@ integrity: ok
 media: 44 files
   Upper.ogg 5 bytes ae03458115429a05
   _amgi-loop.css 17891 bytes aabc449f6f452bbc
-  _amgi-loop.js 75891 bytes 77be31e0a3246cbe
+  _amgi-loop.js 75881 bytes 1eabd5476ce516b9
   café.wav 3 bytes 3fc9ac5142ed08c0
   clip-244bb6aabcd3e2161f5d2c8828085f74a4ee9923.wav 10 bytes f3c3799e9f1f07df
   clip-dc47c831882373042ff0b07416e3d60053a289c2.wav 11 bytes 0b6948296d8fecb2
