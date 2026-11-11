@@ -11,8 +11,10 @@
 #     It is APP_EXTRA_SRC, not a source root, because it carries JavaScript's number semantics
 #     (strtod for JSON numbers and Number()), which cbase's number gate refuses in a product root.
 #   - test/parity/dump.c: the collection-parity dump tool (no cbase in it).
+#   - server/cli/clip.c: build/amgi-clip, one clip for a caller that is not C (the add-on's Fill missing
+#     audio): card_generate_audio in process, the contract of plusaudio/generate-clip.js.
 #
-#   make -C server                    build/amgi, build/amgi-serve, build/collection_cli, build/app_unit, build/parity_dump
+#   make -C server                    build/amgi, build/amgi-serve, build/amgi-clip, build/collection_cli, build/app_unit, build/parity_dump
 #   make -C server check-collection   the C collection core's own tests (server/test/unit.c), under ASan
 #   make -C server build/asan/collection_cli   the collection CLI under ASan and UBSan
 #   make -C server check              cbase's whole check, with the amgi app as its product
@@ -64,7 +66,7 @@ APP_EXTRA_SRC := $(COL_SRC) $(BRIDGE_SRC) $(AMGI_SRC)
 APP_EXTRA_CFLAGS = $(WARN) -O2 -g -pthread -I$(CBASE)/core/include -I$(CBASE)/core/src -I$(CBASE)/lib -I../ui/wire \
   $(ICU_CFLAGS) $(SQLITE_CFLAGS) $(OPENSSL_CFLAGS)
 SERVER_LDFLAGS := $(ICU_LDFLAGS) -licui18n -licuuc
-APP_PROGS := amgi=cli/amgi.c collection_cli=collection/cli.c app_unit=test/app_unit.c golden_cards=test/golden_cards.c
+APP_PROGS := amgi=cli/amgi.c amgi-clip=cli/clip.c collection_cli=collection/cli.c app_unit=test/app_unit.c golden_cards=test/golden_cards.c
 # cbase's own default port is 8642; amgi keeps 3000 (PORT, or CBASE_LISTEN, moves it).
 APP_SERVE_LISTEN := 127.0.0.1:$(or $(PORT),3000)
 include $(CBASE)/cbase.mk
