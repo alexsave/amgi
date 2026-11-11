@@ -15,7 +15,7 @@
 | `server/json/anki_json.c`, `anki_json.h` | `JSON.parse` and `JSON.stringify` as `decks.js`, `deck-remove.js`, `notes.js` and `notetypes.js` use them on Anki's columns |
 | `server/collection/util.c`, `util.h` | no JS file: the built-ins the JS leaned on (`trim`, `toLowerCase`, `normalize('NFC')`, `localeCompare`, `<` on strings, Number to string, `path.resolve/join/basename/dirname/extname`, sha1, Node's UTF-8 decoding) |
 | `server/collection/core.h` | internal: the throw/catch context that stands for JS exceptions, and statement helpers |
-| `server/collection/cli.c` | `test/parity/collection-impl.mjs` (the C side of the parity protocol) |
+| `server/collection/cli.c` | `tests/server/parity/collection-impl.mjs` (the C side of the parity protocol) |
 
 Not ported in L1, and where it goes:
 - `src/server/anki/transport.js` (`resolveTransport`, `discoverProfiles`): L2 and L3.

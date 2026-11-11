@@ -27,7 +27,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { seed } from './seed.mjs';
-import { startServer } from '../../test/parity/servers.mjs';
+import { startServer } from '../../tests/server/parity/servers.mjs';
 import { sandboxEnv } from '../../test/sandbox-home.cjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -59,7 +59,7 @@ const base = path.join(home, 'Anki2');
 const profile = path.join(base, 'User 1');
 const col = path.join(profile, 'collection.anki2');
 fs.mkdirSync(profile, { recursive: true });
-fs.copyFileSync(path.join(root, 'test', 'parity', 'fixtures', 'schema18', 'collection.anki2'), col);
+fs.copyFileSync(path.join(root, 'tests', 'server', 'parity', 'fixtures', 'schema18', 'collection.anki2'), col);
 execFileSync(process.execPath, [path.join(here, 'fixture-install.mjs'), base, '--addons-only'], { stdio: 'ignore', env: sandboxEnv() });
 // One add-on file from an older amgi, so the page's template check finds the files behind and,
 // when the server says Anki is closed, reinstalls on its own (the files, then the note type into

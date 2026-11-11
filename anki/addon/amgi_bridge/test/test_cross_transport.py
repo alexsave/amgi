@@ -40,7 +40,7 @@ REPO_ROOT = os.path.dirname(
 COLLECTION_CLI = os.path.join(REPO_ROOT, "server", "build", "collection_cli")
 
 
-# The CLI's line protocol (test/parity/protocol.mjs says it in full): a text token is
+# The CLI's line protocol (tests/server/parity/protocol.mjs says it in full): a text token is
 # percent-encoded UTF-8, "~" the empty string; a list is "[a,b]".
 def _enc(value: str) -> str:
     if value == "":

@@ -1,10 +1,10 @@
 // Collection parity: one operation list, applied to a copy of each fixture collection (schema 11
-// and schema 18, test/parity/fixtures, made by real Anki with make_fixtures.py), through an
-// implementation of the collection core driven over test/parity/protocol.mjs. Every answer goes
+// and schema 18, tests/server/parity/fixtures, made by real Anki with make_fixtures.py), through an
+// implementation of the collection core driven over tests/server/parity/protocol.mjs. Every answer goes
 // into a transcript, and the collection afterwards (every row, the schema text, the media folder,
-// the backups) is dumped by server/build/parity_dump (test/parity/dump.c); both, with ids and
-// times normalised, must equal test/parity/expect/: the contract's golden answers. They were recorded
-// from the Node code the C core replaced and are now the C core's (test/parity/impl-process.mjs runs
+// the backups) is dumped by server/build/parity_dump (tests/server/parity/dump.c); both, with ids and
+// times normalised, must equal tests/server/parity/expect/: the contract's golden answers. They were recorded
+// from the Node code the C core replaced and are now the C core's (tests/server/parity/impl-process.mjs runs
 // server/build/collection_cli): where C answers differently on purpose (PR #30's review fixes: the
 // first field's checksum stripped once, as Anki does; hasMedia refusing what readMedia refuses) its
 // answer is the recording, and the install and starter steps are the server's own C orchestration,
@@ -20,15 +20,15 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { sandboxEnv } from '../sandbox-home.cjs';
+import { sandboxEnv } from '../../../test/sandbox-home.cjs';
 import { createRequire } from 'node:module';
 import { dec, enc, hex, items, list, noteTokens, strs } from './protocol.mjs';
 
 const require = createRequire(import.meta.url);
-const { anki, holdCollectionOpen, runPython } = require('../../plusaudio/test/collection/helpers/anki-python.js');
+const { anki, holdCollectionOpen, runPython } = require('../../../plusaudio/test/collection/helpers/anki-python.js');
 
-const ROOT = path.resolve(import.meta.dirname, '..', '..');
-const HERE = path.join(ROOT, 'test', 'parity');
+const ROOT = path.resolve(import.meta.dirname, '..', '..', '..');
+const HERE = path.join(ROOT, 'tests', 'server', 'parity');
 const DUMP = path.join(ROOT, 'server', 'build', 'parity_dump');
 
 import { Impl } from './impl-process.mjs';

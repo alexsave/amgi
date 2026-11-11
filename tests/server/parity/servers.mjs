@@ -4,9 +4,9 @@
 // (`cbase: listening 127.0.0.1:<port>`); and the tests' fake Gemini.
 import { spawn } from 'node:child_process';
 import path from 'node:path';
-import { sandboxEnv } from '../sandbox-home.cjs';
+import { sandboxEnv } from '../../../test/sandbox-home.cjs';
 
-export const ROOT = path.resolve(import.meta.dirname, '..', '..');
+export const ROOT = path.resolve(import.meta.dirname, '..', '..', '..');
 export const SERVER = path.join(ROOT, 'server', 'build', 'amgi');
 
 /** Start `cmd` and resolve with its child and the first match of `pattern` on its stdout. */

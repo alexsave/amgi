@@ -1,6 +1,6 @@
 // Golden file: cards.c's Korean pronunciation-aware comparison (koreanPronunciation and
 // normalizeForComparison for 'ko'), which decides whether a clip's transcript says the card's
-// Korean. The expected answers in test/parity/golden/korean-expected.tsv were produced once from
+// Korean. The expected answers in tests/server/parity/golden/korean-expected.tsv were produced once from
 // plusaudio's TypeScript (by a generator removed at L4) and are now the contract: liaison
 // (음악이 [으마기]), palatalisation (같이 [가치]), the ㅎ rules (좋다 [조타], 좋아요 [조아요], 축하 [추카]),
 // coda neutralisation (부엌 [부억]), nasalisation (국물 [궁물]), lateralisation (신라 [실라]),

@@ -1,9 +1,9 @@
 /* collection_cli: the C collection core behind the collection-parity runner's line protocol
- * (test/parity/protocol.mjs has the protocol). One process is one server session: the backup ledger
+ * (tests/server/parity/protocol.mjs has the protocol). One process is one server session: the backup ledger
  * and the path locks live as long as it does, and "parallel" runs its commands on threads, as
  * concurrent requests reach a server.
  *
- *   node --test test/parity/collection.test.mjs */
+ *   node --test tests/server/parity/collection.test.mjs */
 #include <math.h>
 #include <pthread.h>
 #include <stdio.h>

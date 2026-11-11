@@ -1,5 +1,5 @@
 // The HTTP contract: every /api/anki route and every error shape, over real HTTP, against the C
-// server (test/parity/servers.mjs), compared with test/parity/expect/http.txt. The recording was made
+// server (tests/server/parity/servers.mjs), compared with tests/server/parity/expect/http.txt. The recording was made
 // from the Node server the C one replaced, and is kept as the contract's golden answers; one entry
 // has changed since, by decision: a preflight from another origin is cbase's 403 with no
 // Access-Control-* header (Node answered OPTIONS as a method with no layout, 501), either way no
@@ -28,15 +28,15 @@ import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
-import { BRIDGE_PROTOCOL, WIRE_MIME, decode, encode } from '../../ui/wire/wire.mjs';
+import { BRIDGE_PROTOCOL, WIRE_MIME, decode, encode } from '../../../ui/wire/wire.mjs';
 import { ROOT, startFakeGemini, startServer } from './servers.mjs';
 
 const require = createRequire(import.meta.url);
-const { anki, holdCollectionOpen } = require('../../plusaudio/test/collection/helpers/anki-python.js');
-const { controlFake } = require('../../plusaudio/test/helpers/fake-gemini.js');
+const { anki, holdCollectionOpen } = require('../../../plusaudio/test/collection/helpers/anki-python.js');
+const { controlFake } = require('../../../plusaudio/test/helpers/fake-gemini.js');
 
-const EXPECT = path.join(ROOT, 'test', 'parity', 'expect', 'http.txt');
-const FIXTURES = path.join(ROOT, 'test', 'parity', 'fixtures');
+const EXPECT = path.join(ROOT, 'tests', 'server', 'parity', 'expect', 'http.txt');
+const FIXTURES = path.join(ROOT, 'tests', 'server', 'parity', 'fixtures');
 
 /** The kind each route answers (server/amgi/routes.c's ROUTES), by method and path pattern. */
 const ANSWERS = [

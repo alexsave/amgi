@@ -176,7 +176,7 @@ static void fetch(cx *c, call *k) {
   /* A write (POST, PATCH, DELETE) is never sent twice: cbase's client resends only a GET, HEAD or
    * OPTIONS whose reused connection failed before any answer (net/https.h). The add-on runs a write
    * the moment it has read it, so a second copy would be a second note
-   * (test/parity/bridge-resend.test.mjs holds it). */
+   * (tests/server/parity/bridge-resend.test.mjs holds it). */
   cb_https_response r = {0};
   int rc = tls ? cb_https_request(host, port, k->method, path, headers.p, body.p, body.len, k->timeout_ms, &r)
                : cb_http_plain_request(CB_HTTPS_OTHER, host, port, k->method, path, headers.p, body.p, body.len,

@@ -1,5 +1,5 @@
 /* The card policy's pure functions (server/amgi/cards.c), for the golden-file tests in
- * test/parity/golden_korean.test.mjs and golden_judge.test.mjs. It reads records on stdin, each
+ * tests/server/parity/golden_korean.test.mjs and golden_judge.test.mjs. It reads records on stdin, each
  * (u8 op, u32 length, the language's bytes, u32 length, the text's bytes), and answers each with
  * (u32 length, bytes):
  *   k  koreanPronunciation(text)
