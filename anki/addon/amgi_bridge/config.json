@@ -1,6 +1,5 @@
 {
-  "plusaudio_dir": "",
-  "node_path": "",
+  "amgi_dir": "",
   "gemini_api_key": "",
   "bridge_enabled": false,
   "bridge_port": 8798,
