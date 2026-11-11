@@ -1,6 +1,7 @@
-# Unit tests for deck_text.py, plus a parity check against the Node modules it
-# is a port of. No dependency on the `anki` pip package: these run anywhere
-# Python 3.10+ and Node are installed, including plain `npm test`.
+# Unit tests for deck_text.py, plus golden values for the rules it ports. The values were recorded
+# from the JavaScript this was ported from (plusaudio/lib/deck.js and audio-store.js, both since
+# deleted), so a divergence is still caught with the original gone. No dependency on the `anki` pip
+# package or on Node: these run anywhere Python 3.10+ is installed.
 #
 # Deliberately does not `import anki`: this repo's own anki/ directory has no
 # __init__.py, so if these tests ever ran with the repo root on sys.path and a
@@ -12,71 +13,54 @@
 
 from __future__ import annotations
 
-import json
 import os
-import subprocess
 import sys
 import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import deck_text  # noqa: E402
-from sandbox_home import sandbox_env  # noqa: E402
 
-# .../test/test_deck_text.py -> test -> amgi_bridge -> addon -> anki -> repo root
-REPO_ROOT = os.path.dirname(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-)
+SPOKEN_TEXT = ["",
+  "plain text",
+  "안녕하십니까? 9시 뉴스입니다",
+  "",
+  "A&BA C&notarealentity;",
+  "line break para item",
+  "",
+  "bare unquoted"]
 
+DECODED = ["",
+  "plain text",
+  "<div><b>안녕하십니까</b>? 9시 뉴스<b>입니다</b></div><div></div>",
+  "[sound:1-1-13-1.mp3]<img src=\"paste-125aeb8fa1091ecc1898eba0a2372987a17817a2.jpg\">",
+  "A&BA C&notarealentity;",
+  "line<br>break<p>para</p><li>item</li>",
+  "<audio src='a.mp3'></audio><AUDIO SRC=\"b.mp3\">",
+  "<audio src=c.mp3>bare unquoted</audio>"]
 
-def node_available() -> bool:
-    try:
-        subprocess.run(["node", "--version"], env=sandbox_env(), capture_output=True, check=True)
-        return True
-    except (OSError, subprocess.CalledProcessError):
-        return False
+REFS = [[],
+  [],
+  [],
+  [("1-1-13-1.mp3", "sound", 0, 20)],
+  [],
+  [],
+  [("a.mp3", "html", 0, 27), ("b.mp3", "html", 27, 19)],
+  [("c.mp3", "html", 0, 17)]]
 
+RENDERED = ["[sound:a.mp3]",
+  "<audio src=\"a&quot;b&amp;c.mp3\"></audio>",
+  "<audio src=\"안녕.mp3\"></audio>"]
 
-def run_node_probe(payload: dict) -> dict:
-    """Runs the real plusaudio/lib functions in Node and returns their output,
-    so the parity tests compare against the actual source rather than a
-    second, hand-copied idea of what it does."""
-    script = r"""
-const deck = require(process.argv[1]);
-const { mediaName, isOwnedMediaName } = require(process.argv[2]);
-const input = JSON.parse(require('fs').readFileSync(0, 'utf8'));
-const out = {};
-if ('spokenTextOf' in input) out.spokenText = deck.spokenText(input.spokenTextOf);
-if ('decodeEntitiesOf' in input) out.decodeEntities = deck.decodeEntities(input.decodeEntitiesOf);
-if ('audioReferencesOf' in input) {
-  out.audioReferences = deck.audioReferences(input.audioReferencesOf).map((r) => ({
-    name: r.name, form: r.form, index: r.index, length: r.length,
-  }));
-}
-if ('renderAudioReference' in input) {
-  out.renderAudioReference = deck.renderAudioReference(
-    input.renderAudioReference.filename, input.renderAudioReference.form,
-  );
-}
-if ('setOwnedAudio' in input) {
-  const p = input.setOwnedAudio;
-  out.setOwnedAudio = deck.setOwnedAudio(p.fieldText, p.filename, isOwnedMediaName, p.form);
-}
-if ('mediaNameOf' in input) out.mediaName = mediaName(input.mediaNameOf.text, input.mediaNameOf.language);
-if ('isOwnedMediaNameOf' in input) out.isOwnedMediaName = isOwnedMediaName(input.isOwnedMediaNameOf);
-process.stdout.write(JSON.stringify(out));
-"""
-    deck_js = os.path.join(REPO_ROOT, "plusaudio", "lib", "deck.js")
-    audio_store_js = os.path.join(REPO_ROOT, "plusaudio", "lib", "audio-store.js")
-    result = subprocess.run(
-        ["node", "-e", script, deck_js, audio_store_js],
-        input=json.dumps(payload),
-        env=sandbox_env(),
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-    return json.loads(result.stdout)
+SET_OWNED = ["[sound:1-1-13-1.mp3]<img src=\"paste-125aeb8fa1091ecc1898eba0a2372987a17817a2.jpg\">[sound:plusaudio-cccccccccccccccccccc.mp3]",
+  "[sound:1-1-13-1.mp3]<img src=\"paste-125aeb8fa1091ecc1898eba0a2372987a17817a2.jpg\"><audio src=\"plusaudio-cccccccccccccccccccc.mp3\"></audio>",
+  "[sound:plusaudio-cccccccccccccccccccc.mp3]",
+  "1-1-13-1_gpt4o.mp3 plain<audio src=\"plusaudio-dddddddddddddddddddd.mp3\"></audio>"]
+
+MEDIA_NAMES = ["plusaudio-dce4d16cea2470806c22.wav",
+  "plusaudio-f364f47094e4d8912c22.wav",
+  "plusaudio-90f9a7cbebe9c12e69e1.wav",
+  "plusaudio-88fce36fc5541e5201ec.wav"]
 
 
 class DeckTextUnitTests(unittest.TestCase):
@@ -122,12 +106,9 @@ class DeckTextUnitTests(unittest.TestCase):
         self.assertFalse(deck_text.is_owned_media_name("plusaudio-" + "a" * 19 + ".mp3"))
 
 
-@unittest.skipUnless(node_available(), "node is required for the parity check against plusaudio/lib")
-class DeckTextParityWithPlusaudioLib(unittest.TestCase):
-    """A divergence between this port and plusaudio/lib/deck.js would be a bug
-    in a user's live collection, not just a failing test, so parity is checked
-    against the real source rather than trusted to two hand-written copies
-    agreeing by construction."""
+class DeckTextGoldenTests(unittest.TestCase):
+    """A divergence from the rules deck_text.py ports would be a bug in a user's live collection, not
+    just a failing test. The expected values above were recorded from the JavaScript original."""
 
     SAMPLE_FIELDS = [
         "",
@@ -140,68 +121,44 @@ class DeckTextParityWithPlusaudioLib(unittest.TestCase):
         "<audio src=c.mp3>bare unquoted</audio>",
     ]
 
-    def test_spoken_text_matches_node_for_sample_fields(self):
-        for field in self.SAMPLE_FIELDS:
+    def test_spoken_text_matches_the_recording(self):
+        for field, want in zip(self.SAMPLE_FIELDS, SPOKEN_TEXT):
             with self.subTest(field=field):
-                node_out = run_node_probe({"spokenTextOf": field})
-                self.assertEqual(deck_text.spoken_text(field), node_out["spokenText"])
+                self.assertEqual(deck_text.spoken_text(field), want)
 
-    def test_decode_entities_matches_node(self):
-        for field in self.SAMPLE_FIELDS:
+    def test_decode_entities_matches_the_recording(self):
+        for field, want in zip(self.SAMPLE_FIELDS, DECODED):
             with self.subTest(field=field):
-                node_out = run_node_probe({"decodeEntitiesOf": field})
-                self.assertEqual(deck_text.decode_entities(field), node_out["decodeEntities"])
+                self.assertEqual(deck_text.decode_entities(field), want)
 
-    def test_audio_references_matches_node_for_sample_fields(self):
-        for field in self.SAMPLE_FIELDS:
+    def test_audio_references_matches_the_recording(self):
+        for field, want in zip(self.SAMPLE_FIELDS, REFS):
             with self.subTest(field=field):
-                node_out = run_node_probe({"audioReferencesOf": field})
-                python_refs = [
-                    {"name": r.name, "form": r.form, "index": r.index, "length": r.length}
-                    for r in deck_text.audio_references(field)
-                ]
-                self.assertEqual(python_refs, node_out["audioReferences"])
+                got = [(r.name, r.form, r.index, r.length) for r in deck_text.audio_references(field)]
+                self.assertEqual(got, want)
 
-    def test_render_audio_reference_matches_node(self):
+    def test_render_audio_reference_matches_the_recording(self):
         cases = [("a.mp3", "sound"), ('a"b&c.mp3', "html"), ("안녕.mp3", "html")]
-        for filename, form in cases:
+        for (filename, form), want in zip(cases, RENDERED):
             with self.subTest(filename=filename, form=form):
-                node_out = run_node_probe({"renderAudioReference": {"filename": filename, "form": form}})
-                self.assertEqual(deck_text.render_audio_reference(filename, form), node_out["renderAudioReference"])
+                self.assertEqual(deck_text.render_audio_reference(filename, form), want)
 
-    def test_set_owned_audio_matches_node(self):
+    def test_set_owned_audio_matches_the_recording(self):
         cases = [
-            {"fieldText": self.SAMPLE_FIELDS[3], "filename": "plusaudio-" + "c" * 20 + ".mp3", "form": "sound"},
-            {"fieldText": self.SAMPLE_FIELDS[3], "filename": "plusaudio-" + "c" * 20 + ".mp3", "form": "html"},
-            {"fieldText": "", "filename": "plusaudio-" + "c" * 20 + ".mp3", "form": "sound"},
-            {"fieldText": "1-1-13-1_gpt4o.mp3 plain", "filename": "plusaudio-" + "d" * 20 + ".mp3", "form": "html"},
+            (self.SAMPLE_FIELDS[3], "plusaudio-" + "c" * 20 + ".mp3", "sound"),
+            (self.SAMPLE_FIELDS[3], "plusaudio-" + "c" * 20 + ".mp3", "html"),
+            ("", "plusaudio-" + "c" * 20 + ".mp3", "sound"),
+            ("1-1-13-1_gpt4o.mp3 plain", "plusaudio-" + "d" * 20 + ".mp3", "html"),
         ]
-        for case in cases:
-            with self.subTest(**case):
-                node_out = run_node_probe({"setOwnedAudio": case})
-                python_out = deck_text.set_owned_audio(
-                    case["fieldText"], case["filename"], deck_text.is_owned_media_name, case["form"]
-                )
-                self.assertEqual(python_out, node_out["setOwnedAudio"])
+        for (field, filename, form), want in zip(cases, SET_OWNED):
+            with self.subTest(field=field, filename=filename, form=form):
+                self.assertEqual(deck_text.set_owned_audio(field, filename, deck_text.is_owned_media_name, form), want)
 
-    def test_media_name_matches_node(self):
+    def test_media_name_matches_the_recording(self):
         cases = [("안녕하세요", "ko"), ("hello", "en"), ("", "ja"), ("a\nb", "zh_cn")]
-        for text, language in cases:
+        for (text, language), want in zip(cases, MEDIA_NAMES):
             with self.subTest(text=text, language=language):
-                node_out = run_node_probe({"mediaNameOf": {"text": text, "language": language}})
-                self.assertEqual(deck_text.media_name(text, language), node_out["mediaName"])
-
-    def test_is_owned_media_name_matches_node(self):
-        cases = [
-            "plusaudio-" + "a" * 20 + ".mp3",
-            "plusaudio-" + "a" * 19 + ".mp3",
-            "1-1-13-1_gpt4o.mp3",
-            "1-1-13-1.mp3",
-        ]
-        for name in cases:
-            with self.subTest(name=name):
-                node_out = run_node_probe({"isOwnedMediaNameOf": name})
-                self.assertEqual(deck_text.is_owned_media_name(name), node_out["isOwnedMediaName"])
+                self.assertEqual(deck_text.media_name(text, language), want)
 
 
 if __name__ == "__main__":

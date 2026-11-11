@@ -72,7 +72,13 @@ const OUT_DIR = path.join(ROOT, 'anki', 'starter', 'media');
 const MANIFEST = path.join(ROOT, 'anki', 'starter', 'voices.tsv');
 const CACHE = path.join(ROOT, '.cache', 'starter-audio');
 
-const { STARTER_EXTENSION, starterClipName } = require('../plusaudio/lib/audio-store');
+// A starter clip's name: the content hash every clip of amgi's is named by (server/amgi/web.c
+// media_name, and anki/addon/amgi_bridge/deck_text.py), with the starter's mp3 extension. The
+// profile is bumped when the voice, prompt or validation policy changes enough to regenerate all.
+const STARTER_EXTENSION = 'mp3';
+const AUDIO_PROFILE = 'v1';
+const starterClipName = (text, language) =>
+  `plusaudio-${require('node:crypto').createHash('sha1').update(`${AUDIO_PROFILE}\n${language}\n${text}`, 'utf8').digest('hex').slice(0, 20)}.${STARTER_EXTENSION}`;
 
 /** The one seed the starter voices are drawn from. Change it to re-roll every voice. */
 const STARTER_SEED = 20261108;
