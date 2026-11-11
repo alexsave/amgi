@@ -18,6 +18,8 @@
 #include <string.h>
 #include <sys/stat.h>
 
+#include "srcscan.h"
+
 static const char *root;
 static int checks, failures, saw_direct;
 
@@ -47,30 +49,14 @@ static void scan(const char *rel) {
     fprintf(stderr, "FAIL %s: path too long\n", rel);
     return;
   }
-  FILE *f = fopen(path, "rb");
-  if (!f) {
+  size_t n = 0;
+  char *buf = read_file(path, &n);
+  if (!buf) {
     failures++;
     fprintf(stderr, "FAIL %s: cannot read it\n", rel);
     return;
   }
-  size_t cap = 65536, n = 0;
-  char *buf = malloc(cap);
-  if (!buf) { fclose(f); fprintf(stderr, "out of memory\n"); exit(2); }
-  size_t got;
-  while ((got = fread(buf + n, 1, cap - n, f)) > 0) {
-    n += got;
-    if (n == cap) {
-      cap *= 2;
-      buf = realloc(buf, cap);
-      if (!buf) { fclose(f); fprintf(stderr, "out of memory\n"); exit(2); }
-    }
-  }
-  int bad = ferror(f);
-  fclose(f);
-  if (bad) {
-    failures++;
-    fprintf(stderr, "FAIL %s: read error\n", rel);
-  } else if (calls_cancel(buf, n)) {
+  if (calls_cancel(buf, n)) {
     failures++;
     fprintf(stderr, "FAIL %s: cancels a thread; a cancelled thread never gives back the collection core's path lock\n", rel);
   }
