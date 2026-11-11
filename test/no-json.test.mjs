@@ -206,7 +206,7 @@ test('the scan covers the shipped code', () => {
   for (const must of [
     'server/amgi/routes.c', 'server/collection/bridge.c', 'server/app/amgi_app.c', 'ui/wire/wire.mjs', 'ui/wire/wire.c',
     'plusaudio/generate-clip.js', 'plusaudio/lib/cardGeneration/cardGeneration.ts', `${FOLDER}modelAnswer.js`,
-    'anki/addon/amgi_bridge/bridge_server.py', 'anki/addon/amgi_bridge/bridge_ops.py', 'anki/media/_amgi-loop.js',
+    'anki/addon/amgi_bridge/bridge_server.py', 'anki/addon/amgi_bridge/bridge_ops.py', 'anki/src/anki-loop.js',
     'anki/notetype/front.html',
   ]) assert.ok(files.includes(must), `${must} is scanned`);
   assert.ok(!files.some((f) => /(^|\/)(test|__tests__|tools|scripts)\//.test(f)), 'and no test, tool or script is');

@@ -13,6 +13,7 @@
 //
 // Exits non-zero on the first failed check.
 
+const { execFileSync } = require('node:child_process');
 const fs = require('node:fs');
 const http = require('node:http');
 const os = require('node:os');
@@ -22,7 +23,7 @@ const ROOT = path.resolve(__dirname, '..', '..', '..');
 const SKILL = path.join(ROOT, '.claude', 'skills', 'e2e-ui', 'scripts');
 const fakeVoiceScript = require(path.join(SKILL, 'fakevoice.js'));
 const { launch, watch } = require(path.join(SKILL, 'lib.js'));
-const { build, OUTPUT } = require(path.join(ROOT, 'anki', 'tools', 'build-loop.js'));
+const OUTPUT = path.join(ROOT, 'anki', 'media', '_amgi-loop.js');
 
 const CARDS = [
   {
@@ -69,7 +70,8 @@ function wav(seconds, hz) {
 
 function mediaFolder() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'amgi-anki-'));
-  fs.writeFileSync(OUTPUT, build());
+  // The bundle is built, not committed: the drive runs the same make rule the build does.
+  execFileSync('make', ['-s', '-C', path.join(ROOT, 'anki')]);
   fs.copyFileSync(OUTPUT, path.join(dir, '_amgi-loop.js'));
   fs.copyFileSync(path.join(ROOT, 'anki', 'media', '_amgi-loop.css'), path.join(dir, '_amgi-loop.css'));
   // The note type's OWN stylesheet, which Anki applies to every card and this

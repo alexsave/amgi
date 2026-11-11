@@ -1,5 +1,5 @@
 // The Anki half of the review loop: everything above this line in the
-// generated file is amgi's own code, copied verbatim by tools/build-loop.js.
+// generated file is amgi's own code, copied verbatim by tools/build-loop.sh.
 //
 // What this adds is the host: Anki's `pycmd` bridge, HTML5 <audio> elements
 // pointing straight at the collection's media folder, and a keyboard.

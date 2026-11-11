@@ -10,22 +10,25 @@ const fs = require('node:fs');
 const path = require('node:path');
 const test = require('node:test');
 
-const { build, OUTPUT } = require('../tools/build-loop.js');
+const { execFileSync, spawnSync } = require('node:child_process');
+const os = require('node:os');
 
 const ROOT = path.resolve(__dirname, '..', '..');
+const SCRIPT = path.join(ROOT, 'anki', 'tools', 'build-loop.sh');
+const OUTPUT = path.join(ROOT, 'anki', 'media', '_amgi-loop.js');
 const read = (...parts) => fs.readFileSync(path.join(ROOT, ...parts), 'utf8');
 
+// The bundle is built, not committed: make -C anki, which this runs, so a stale file cannot be read.
+execFileSync('make', ['-s', '-B', '-C', path.join(ROOT, 'anki')]);
 const bundle = fs.readFileSync(OUTPUT, 'utf8');
 const front = read('anki', 'notetype', 'front.html');
 const back = read('anki', 'notetype', 'back.html');
 const styling = read('anki', 'notetype', 'styling.css');
 
-test('the shipped bundle is what the sources build to', () => {
-  assert.equal(
-    bundle,
-    build(),
-    'anki/media/_amgi-loop.js is stale: run `node anki/tools/build-loop.js` and commit the result'
-  );
+test('make -C anki leaves the bundle alone until a source changes', () => {
+  const before = fs.statSync(OUTPUT).mtimeMs;
+  execFileSync('make', ['-s', '-C', path.join(ROOT, 'anki')]);
+  assert.equal(fs.statSync(OUTPUT).mtimeMs, before, 'rebuilt with nothing changed');
 });
 
 test('the bundle carries the shared code verbatim, not a paraphrase of it', () => {
@@ -50,18 +53,37 @@ test('the bundle is a classic script with no module syntax left', () => {
   assert.doesNotThrow(() => new Function(bundle));
 });
 
+// The script reads src/utils and anki/src relative to where it runs, so a temp directory with fake
+// sources there is a build of whatever a test wants to refuse.
+function buildFake(voice, loop) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'amgi-loop-'));
+  fs.mkdirSync(path.join(dir, 'src', 'utils'), { recursive: true });
+  fs.mkdirSync(path.join(dir, 'anki', 'src'), { recursive: true });
+  fs.mkdirSync(path.join(dir, 'anki', 'media'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'src', 'utils', 'voiceActivity.js'), voice);
+  fs.writeFileSync(path.join(dir, 'src', 'utils', 'reviewLoop.js'), loop);
+  fs.writeFileSync(path.join(dir, 'anki', 'src', 'anki-loop.js'), 'host();\n');
+  const out = path.join(dir, 'anki', 'media', 'out.js');
+  const run = spawnSync(SCRIPT, [out], { cwd: dir, encoding: 'utf8' });
+  const built = fs.existsSync(out) ? fs.readFileSync(out, 'utf8') : null;
+  fs.rmSync(dir, { recursive: true });
+  return { run, built };
+}
+
 test('the build refuses a dependency a card template could not load', () => {
-  const { toClassicScript } = require('../tools/build-loop.js');
-  assert.throws(
-    () => toClassicScript("import React from 'react';\n", 'fake.js'),
-    /cannot follow this import/
-  );
-  assert.throws(() => toClassicScript('export default 1;\n', 'fake.js'), /unsupported export/);
+  const imported = buildFake("import React from 'react';\n", 'const b = 1;\n');
+  assert.notEqual(imported.run.status, 0);
+  assert.match(imported.run.stderr, /cannot follow this import/);
+  assert.equal(imported.built, null, 'and writes nothing');
+  const exported = buildFake('export default 1;\n', 'const b = 1;\n');
+  assert.notEqual(exported.run.status, 0);
+  assert.match(exported.run.stderr, /unsupported export/);
   // The one import the bundle can satisfy by concatenation is allowed through.
-  assert.equal(
-    toClassicScript("import { detectSpeechEnd } from './voiceActivity.js';\nconst a = 1;\n", 'fake.js'),
-    'const a = 1;'
-  );
+  const ok = buildFake('export const a = 1;\n', "import { a } from './voiceActivity.js';\nconst b = a;\n");
+  assert.equal(ok.run.status, 0, ok.run.stderr);
+  assert.match(ok.built, /\nconst a = 1;\n/);
+  assert.match(ok.built, /\nconst b = a;\n/);
+  assert.doesNotMatch(ok.built, /^\s*(import|export)\b/m);
 });
 
 // Anki decides which files to carry into an .apkg by scanning templates and

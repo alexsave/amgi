@@ -5,14 +5,14 @@
 #   make start    the submodules, the page, the server, then the server on 127.0.0.1:3000
 #                 (CBASE_LISTEN=host:port, or PORT, to move it; .env.local holds GEMINI_API_KEY)
 #   make dev      the same
-#   make build    the page and the server (server/build/amgi), not started
+#   make build    the page, the Anki card script (anki/Makefile) and the server (server/build/amgi), not started
 #   amgi up       server/build/amgi up: the server in the background, for the command line
 #                 (skills/amgi/SKILL.md); amgi down stops it
 #   make test     the C checks, then the JavaScript and Python suites (npm test: tests need node)
 #   make lint     eslint (needs npm install)
 #
 # Node is for the tests and the linter alone; nothing here that builds or starts amgi runs it.
-.PHONY: start dev build submodules ui server test lint
+.PHONY: start dev build submodules ui server anki test lint
 
 start dev: build
 	$(MAKE) -s -C server serve
@@ -25,7 +25,10 @@ submodules:
 ui: submodules
 	ui/build.sh
 
-server: submodules
+anki:
+	$(MAKE) -s -C anki
+
+server: submodules anki
 	$(MAKE) -s -j2 -C server build/amgi build/amgi-serve
 
 test:

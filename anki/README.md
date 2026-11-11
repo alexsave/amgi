@@ -12,7 +12,7 @@ anki/
   notetype/          what you paste into Anki: front, back, styling
   media/             what you copy into collection.media: _amgi-loop.js, _amgi-loop.css
   src/anki-loop.js   the Anki-specific half of the loop (source, not shipped)
-  tools/build-loop.js  builds media/_amgi-loop.js from amgi's own source
+  tools/build-loop.sh  builds media/_amgi-loop.js from amgi's own source (make -C anki)
   test/              a node:test suite, and a Chrome harness that drives the template
   addon/amgi_mic/    the desktop add-on that grants the microphone
   addon/amgi_bridge/  the desktop add-on that fills in missing audio, and exposes a local HTTP bridge, from inside a live collection
@@ -162,14 +162,14 @@ The detector's settings and their defaults are documented in `src/utils/voiceAct
 ## How this stays the same loop as the app
 
 `media/_amgi-loop.js` is generated, not written.
-`tools/build-loop.js` concatenates amgi's own `src/utils/voiceActivity.js` and `src/utils/reviewLoop.js` with the Anki host in `src/anki-loop.js`, strips the ES module syntax, and wraps the result in an IIFE.
+`tools/build-loop.sh` (run by `make -C anki`, and by `make build`) concatenates amgi's own `src/utils/voiceActivity.js` and `src/utils/reviewLoop.js` with the Anki host in `src/anki-loop.js`, strips the ES module syntax, and wraps the result in an IIFE.
 A card template has to be a classic script, because Anki re-runs `<script>` tags by cloning them into the page on every render ([ts/reviewer/index.ts](https://github.com/ankitects/anki/blob/main/ts/reviewer/index.ts), `setInnerHTML`), and a module would not re-execute.
 
-The generated file is committed, because it has to ship inside a collection, and `test/build-loop.test.js` rebuilds it and fails if the committed copy has drifted.
+The generated file is not committed: `make build` and `npm test` build it, and the server's Install copies the built file into a collection.
 The same suite asserts that whole blocks of the shared sources appear in the bundle verbatim, so the build cannot quietly turn into a rewrite.
 
 ```bash
-node anki/tools/build-loop.js     # after changing either shared file
+make -C anki                      # rebuilds it after changing a shared file
 npm test                          # includes anki/test
 ```
 
