@@ -2,12 +2,12 @@
 # The amgi command line end to end, as an agent drives it (skills/amgi/SKILL.md), on a throwaway
 # collection under a temp HOME: a locked collection refused, up, a second up, install, deck add (twice: find-or-create),
 # card add (the manual form: no Gemini), card list, deck list, deck remove (dry run, then --yes), the error exits, down.
-#   make build && test/cli-smoke.sh
+#   make build && tests/server/cli-smoke.sh
 # Every process here runs with the temp HOME (ui/tools/sandbox-home.sh), so nothing can reach a
 # real Anki profile. No Gemini call is made: the generate form is only run without a key (exit 5).
 set -uo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
-root="$(cd "$here/.." && pwd)"
+root="$(cd "$here/../.." && pwd)"
 amgi="$root/server/build/amgi"
 pidfile="$root/server/build/amgi.pid"
 . "$root/ui/tools/sandbox-home.sh"
@@ -19,7 +19,7 @@ unset CBASE_ENV_FILE GEMINI_API_KEY GEMINI_API_BASE
 
 profile="$home/Library/Application Support/Anki2/User 1"
 mkdir -p "$profile"
-cp -R "$root/test/parity/fixtures/schema18/." "$profile/"
+cp -R "$root/tests/server/parity/fixtures/schema18/." "$profile/"
 collection="$profile/collection.anki2"
 
 run() { env "HOME=$home" "$amgi" "$@"; }
