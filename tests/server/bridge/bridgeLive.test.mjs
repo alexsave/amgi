@@ -24,7 +24,7 @@ import {
 import { BRIDGE_PROTOCOL, WIRE_MIME, decode, encode } from '../../../ui/wire/wire.mjs';
 
 const require = createRequire(import.meta.url);
-const { anki, buildFixtureCollection, tempDir, withAnkiLibrary } = require('../../../plusaudio/test/collection/helpers/anki-python');
+const { anki, buildFixtureCollection, tempDir, withAnkiLibrary } = require('../plusaudio/collection/helpers/anki-python');
 
 const ROOT = path.resolve(import.meta.dirname, '..', '..', '..');
 const ENTRY = path.join(ROOT, '.claude', 'skills', 'e2e-ui', 'scripts', 'bridge_server_entry.py');

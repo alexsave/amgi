@@ -10,9 +10,9 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { test } = require('node:test');
 
-const { Random, SEED, createRandom, random } = require('../lib/random');
+const { Random, SEED, createRandom, random } = require('../../../plusaudio/lib/random');
 
-const REPO = path.join(__dirname, '..', '..');
+const REPO = path.join(__dirname, '..', '..', '..');
 
 test('the same seed gives the same raw draw sequence, and another seed another one', () => {
   const draws = (seed) => {
@@ -55,7 +55,7 @@ test('the C source is the same generator, its seed one named value', () => {
 test('the shipped seed is the one named value, and the shared generator is a Random', () => {
   assert.ok(SEED === null || Number.isInteger(SEED));
   assert.ok(random instanceof Random);
-  const source = fs.readFileSync(path.join(__dirname, '..', 'lib', 'random.js'), 'utf8');
+  const source = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'plusaudio', 'lib', 'random.js'), 'utf8');
   assert.equal((source.match(/^const SEED = /gm) || []).length, 1, 'exactly one line sets the seed');
 });
 
@@ -133,7 +133,7 @@ test('nothing in the repo draws a random except through lib/random.js', () => {
 });
 
 test('the scan does catch each kind of stray random', () => {
-  const dir = fs.mkdtempSync(path.join(REPO, 'plusaudio', 'test', '.stray-'));
+  const dir = fs.mkdtempSync(path.join(REPO, 'tests', 'server', 'plusaudio', '.stray-'));
   try {
     const samples = [
       'const x = Math' + '.random();',

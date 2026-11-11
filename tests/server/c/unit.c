@@ -97,7 +97,7 @@ static void text_rules(void) {
   CHECK(field_checksum(&c, S("existing one")) == 3521495218, "the checksum of a fixture note, as Anki stored it");
   CHECK(looks_romanized(&c, S("annyeong"), S("ko")) && !looks_romanized(&c, S("안녕 still"), S("KO")) &&
           !looks_romanized(&c, S("hola"), S("es")), "the romanisation guard");
-  /* random.js's pinned draws for seed 1 (plusaudio/test/random.test.js) */
+  /* random.js's pinned draws for seed 1 (tests/server/plusaudio/random.test.js) */
   rng r;
   rng_seed(&r, 1);
   uint32_t want[] = {1828152527, 3394835397u, 2967886022u, 2251045104u};

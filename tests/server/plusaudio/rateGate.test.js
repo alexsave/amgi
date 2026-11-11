@@ -6,8 +6,8 @@
 const assert = require('node:assert/strict');
 const { test } = require('node:test');
 
-const { BASE_BLOCK_MS, JITTER, MAX_BLOCK_MS, WINDOW_MS, createRateGate } = require('../lib/rateGate');
-const { createRandom } = require('../lib/random');
+const { BASE_BLOCK_MS, JITTER, MAX_BLOCK_MS, WINDOW_MS, createRateGate } = require('../../../plusaudio/lib/rateGate');
+const { createRandom } = require('../../../plusaudio/lib/random');
 
 const M = 'gemini-3.8-flash-tts';
 
@@ -166,11 +166,11 @@ test('admission: new work waits while any known model is blocked, and records no
 });
 
 test('the shared gate survives the module being loaded again, as Next dev does', () => {
-  const file = require.resolve('../lib/rateGate');
-  const first = require('../lib/rateGate').sharedGate();
+  const file = require.resolve('../../../plusaudio/lib/rateGate');
+  const first = require('../../../plusaudio/lib/rateGate').sharedGate();
   first.record('reload-test-model', 'rateLimited', 10_000);
   delete require.cache[file];
-  const again = require('../lib/rateGate');
+  const again = require('../../../plusaudio/lib/rateGate');
   assert.equal(again.sharedGate(), first, 'one gate per process, however many copies of the module');
   assert.ok(again.sharedGate().inspect('reload-test-model').blockedUntil > 0);
 });

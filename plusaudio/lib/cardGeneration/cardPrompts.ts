@@ -2,7 +2,7 @@
 //
 // These live next to the text policy they enforce (cardText.ts) and away from
 // any one runtime's plumbing, so the wording can be read, diffed and unit
-// tested on its own (plusaudio/test/generator.test.js drives it end to end;
+// tested on its own (tests/server/plusaudio/generator.test.js drives it end to end;
 // there is no separate prompt-only test).
 //
 // The through-line: an amgi card is not a dictionary entry, it is something a

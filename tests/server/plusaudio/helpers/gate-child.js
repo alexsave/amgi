@@ -4,7 +4,7 @@
 // the parent's gate the way generate-clip.js does (gateForThisProcess), does
 // what argv[2] says, reports its answer and exits.
 
-const { gateForThisProcess } = require('../../lib/ipcGate');
+const { gateForThisProcess } = require('../../../../plusaudio/lib/ipcGate');
 
 const M = 'gemini-3.8-flash-tts';
 

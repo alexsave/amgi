@@ -1,5 +1,5 @@
 // The contract of build/amgi-clip (server/cli/clip.c), proven against the tests' fake Gemini
-// (plusaudio/test/helpers/fake-gemini.js, in process): the same cases generate-clip.test.js
+// (tests/server/plusaudio/helpers/fake-gemini.js, in process): the same cases generate-clip.test.js
 // asserts of the Node script it replaces, plus the rate gate's wait range. The binary is run as a
 // child with a sandboxed environment; every spawn is async, so the fake keeps answering while
 // the child waits on it.
@@ -16,7 +16,7 @@ import { ROOT } from './servers.mjs';
 import { sandboxEnv } from '../../../test/sandbox-home.cjs';
 
 const require = createRequire(import.meta.url);
-const { fakeGemini, WAV, dailyQuotaExhausted, grpcError, quotaExhausted } = require('../../../plusaudio/test/helpers/fake-gemini.js');
+const { fakeGemini, WAV, dailyQuotaExhausted, grpcError, quotaExhausted } = require('../plusaudio/helpers/fake-gemini.js');
 
 const CLIP = path.join(ROOT, 'server', 'build', 'amgi-clip');
 const UNAVAILABLE = 14;

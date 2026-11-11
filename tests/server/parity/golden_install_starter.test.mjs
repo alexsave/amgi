@@ -17,7 +17,7 @@ import { ROOT, startServer } from './servers.mjs';
 import { runSteps } from './golden/install-starter-steps.mjs';
 import { freshAnki } from './golden/fresh-anki.mjs';
 
-const { anki } = createRequire(import.meta.url)('../../../plusaudio/test/collection/helpers/anki-python.js');
+const { anki } = createRequire(import.meta.url)('../plusaudio/collection/helpers/anki-python.js');
 
 test('install and the starter deck answer the golden file, line for line', { skip: !anki && 'needs ANKI_PYTHON_BIN' }, async () => {
   const want = fs.readFileSync(path.join(import.meta.dirname, 'golden', 'install-starter-expected.txt'), 'utf8').trimEnd().split('\n');

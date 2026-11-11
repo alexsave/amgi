@@ -18,7 +18,7 @@ import * as espree from 'espree';
 import { assertSandboxed, sandboxEnv } from './sandbox-home.cjs';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
-const SCANNED = ['test', 'tests/server/parity', 'tests/server/bridge', 'ui/test', 'ui/tools', 'plusaudio/test', 'anki/addon/amgi_bridge/test', '.claude/skills/e2e-ui/scripts'];
+const SCANNED = ['test', 'tests/server/parity', 'tests/server/bridge', 'ui/test', 'ui/tools', 'tests/server/plusaudio', 'anki/addon/amgi_bridge/test', '.claude/skills/e2e-ui/scripts'];
 const SELF = 'test/sandbox-home.test.mjs';
 const EXEMPT = new Set(['git', 'make', 'ffmpeg']);
 const JS_CALLS = new Set(['spawn', 'spawnSync', 'execFile', 'execFileSync', 'exec', 'execSync', 'fork']);

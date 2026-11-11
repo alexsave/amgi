@@ -10,9 +10,9 @@
 const assert = require('node:assert/strict');
 const { test } = require('node:test');
 
-const { GEMINI_TTS_VOICES } = require('../lib/cardGeneration/models.ts');
-const { createGeminiSpeech } = require('../lib/cardGeneration/geminiSpeech.ts');
-const { createRandom } = require('../lib/random');
+const { GEMINI_TTS_VOICES } = require('../../../plusaudio/lib/cardGeneration/models.ts');
+const { createGeminiSpeech } = require('../../../plusaudio/lib/cardGeneration/geminiSpeech.ts');
+const { createRandom } = require('../../../plusaudio/lib/random');
 
 // Gemini's prebuilt TTS voices, as its speech-generation docs list them
 // (https://aistudio.google.com/docs/speech-generation, 2026-11-08).

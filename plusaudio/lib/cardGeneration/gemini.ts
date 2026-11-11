@@ -11,7 +11,7 @@
 // Like the rest of cardGeneration/, this module reads no environment variable
 // and owns no global state: the key, the endpoint and the clock's sleep are
 // injected, so a test points it at an in-process fake gRPC server
-// (plusaudio/test/helpers/fake-gemini.js) and never reaches the network.
+// (tests/server/plusaudio/helpers/fake-gemini.js) and never reaches the network.
 //
 // What the API does, as verified live on 2026-11-07/08 (the wire details are
 // in geminiWire.ts):

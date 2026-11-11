@@ -17,7 +17,7 @@ import { WIRE_MIME, decode, encode } from '../../../ui/wire/wire.mjs';
 import { ROOT, startServer } from './servers.mjs';
 
 const require = createRequire(import.meta.url);
-const { fakeGemini } = require('../../../plusaudio/test/helpers/fake-gemini.js');
+const { fakeGemini } = require('../plusaudio/helpers/fake-gemini.js');
 
 let fake;
 let app;

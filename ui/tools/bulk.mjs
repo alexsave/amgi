@@ -1,4 +1,4 @@
-// Making cards, end to end, against the project's fake Gemini (node plusaudio/test/helpers/fake-gemini.js,
+// Making cards, end to end, against the project's fake Gemini (node tests/server/plusaudio/helpers/fake-gemini.js,
 // its limits switched through POST /control) and a fresh copy of the UI fixture (ui/tools/flows.sh, amgi installed): one line by
 // Enter; a paste of several, a section marker dropped and a line the deck already has skipped; a
 // per-minute limit waited out with its countdown; a failed line and its Retry; the day's cap ending
@@ -50,7 +50,7 @@ async function click(b, selector) {
     await b.send('Input.dispatchMouseEvent', { type, x: box[0], y: box[1], button: 'left', clickCount: 1 });
   }
 }
-const { controlFake } = createRequire(import.meta.url)('../../plusaudio/test/helpers/fake-gemini.js');
+const { controlFake } = createRequire(import.meta.url)('../../tests/server/plusaudio/helpers/fake-gemini.js');
 const control = (q) => controlFake(gemini, q);
 const enter = async (b) => {
   await b.send('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 });

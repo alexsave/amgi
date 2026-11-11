@@ -12,14 +12,14 @@
 const assert = require('node:assert/strict');
 const { test } = require('node:test');
 
-const { createGenerator } = require('../lib/generator');
-const { createGeminiContext } = require('../lib/geminiContext');
-const { generateCardAudio } = require('../lib/cardGeneration/cardGeneration.ts');
-const { GENERATE_CONTENT_PATH } = require('../lib/cardGeneration/geminiWire.ts');
-const { CARD_MODELS, GEMINI_TTS_VOICES } = require('../lib/cardGeneration/models.ts');
-const { dailyQuotaMessage } = require('../lib/cardGeneration/gemini.ts');
-const { createRandom } = require('../lib/random');
-const { JITTER, createRateGate } = require('../lib/rateGate');
+const { createGenerator } = require('../../../plusaudio/lib/generator');
+const { createGeminiContext } = require('../../../plusaudio/lib/geminiContext');
+const { generateCardAudio } = require('../../../plusaudio/lib/cardGeneration/cardGeneration.ts');
+const { GENERATE_CONTENT_PATH } = require('../../../plusaudio/lib/cardGeneration/geminiWire.ts');
+const { CARD_MODELS, GEMINI_TTS_VOICES } = require('../../../plusaudio/lib/cardGeneration/models.ts');
+const { dailyQuotaMessage } = require('../../../plusaudio/lib/cardGeneration/gemini.ts');
+const { createRandom } = require('../../../plusaudio/lib/random');
+const { JITTER, createRateGate } = require('../../../plusaudio/lib/rateGate');
 const { WAV, dailyQuotaExhausted, fakeGemini, quotaExhausted } = require('./helpers/fake-gemini');
 
 const voiceOf = (request) => request.body.generationConfig.speechConfig.voiceConfig.prebuiltVoiceConfig.voiceName;

@@ -476,7 +476,7 @@ export function normalizeForComparison(text: string, language = ''): string {
 // each syllable into jamo, applying the rules at each boundary, and
 // recomposing. Two strings with the same output sound the same.
 //
-// COVERED (each with a test in plusaudio/test/cardText.test.js):
+// COVERED (each with a test in tests/server/plusaudio/cardText.test.js):
 //   - 연음 (liaison): a final consonant moves onto a following silent ㅇ:
 //     역이 -> 여기, 책을 -> 채글, 있어 -> 이써; a cluster moves its second
 //     half: 읽어 -> 일거, 앉아 -> 안자, 없어 -> 업써.

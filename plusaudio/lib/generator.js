@@ -13,7 +13,7 @@
 // This module used to live beside a hosted edge function, the other runtime
 // that needed it. That backend is retired (it is in git history); the policy
 // moved here, into plusaudio's own
-// package, because plusaudio/lib/generator.js and plusaudio/test/generator.test.js
+// package, because plusaudio/lib/generator.js and tests/server/plusaudio/generator.test.js
 // are now its only importers.
 //
 // Requiring the TypeScript module directly (Node strips the types) is

@@ -14,10 +14,10 @@ const assert = require('node:assert/strict');
 const { spawn } = require('node:child_process');
 const net = require('node:net');
 const path = require('node:path');
-const { sandboxEnv } = require('../../test/sandbox-home.cjs');
+const { sandboxEnv } = require('../../../test/sandbox-home.cjs');
 const { test } = require('node:test');
 
-const { writeBytesField, writeDoubleField, writeVarint, writeVarintField } = require('../lib/protobuf');
+const { writeBytesField, writeDoubleField, writeVarint, writeVarintField } = require('../../../plusaudio/lib/protobuf');
 const {
   GenerateContentRequest,
   GenerateContentResponse,
@@ -27,11 +27,11 @@ const {
   encodeStatus,
   encodeValue,
   statusDetails,
-} = require('../lib/cardGeneration/geminiWire.ts');
-const { GeminiUnavailableError, createGeminiClient } = require('../lib/cardGeneration/gemini.ts');
-const { GENERATED_CARD_FORMAT } = require('../lib/cardGeneration/cardGeneration.ts');
-const { createRateGate } = require('../lib/rateGate');
-const { createRandom } = require('../lib/random');
+} = require('../../../plusaudio/lib/cardGeneration/geminiWire.ts');
+const { GeminiUnavailableError, createGeminiClient } = require('../../../plusaudio/lib/cardGeneration/gemini.ts');
+const { GENERATED_CARD_FORMAT } = require('../../../plusaudio/lib/cardGeneration/cardGeneration.ts');
+const { createRateGate } = require('../../../plusaudio/lib/rateGate');
+const { createRandom } = require('../../../plusaudio/lib/random');
 const { fakeGemini, grpcError, textAnswer, wavAnswer, WAV } = require('./helpers/fake-gemini');
 
 const str = (n, text) => writeBytesField(n, Buffer.from(text, 'utf8'));
@@ -283,7 +283,7 @@ test('many requests in flight at once on one connection raise no listener warnin
 test('a process that made a request exits as soon as its work is done, without waiting out the idle connection', async () => {
   const gemini = await fakeGemini({ speech: wavAnswer(), text: textAnswer('{}') });
   const child = `
-    const { createGeminiClient } = require(${JSON.stringify(path.join(__dirname, '../lib/cardGeneration/gemini.ts'))});
+    const { createGeminiClient } = require(${JSON.stringify(path.join(__dirname, '../../../plusaudio/lib/cardGeneration/gemini.ts'))});
     const client = createGeminiClient({ apiKey: 'k', baseUrl: ${JSON.stringify(gemini.baseUrl)} });
     client.generateContent('m', { generationConfig: { responseModalities: ['AUDIO'] } })
       .then((r) => { process.stdout.write(String(r.candidates[0].content.parts[0].inlineData.data.length)); });

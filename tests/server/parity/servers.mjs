@@ -56,9 +56,9 @@ export async function startServer({ key = 'offline-dummy', base = 'http://127.0.
   return { url: `http://${s.match}`, stop: s.stop, pid: s.child.pid };
 }
 
-/** The tests' fake Gemini (plusaudio/test/helpers/fake-gemini.js), standalone, on its own free port. */
+/** The tests' fake Gemini (tests/server/plusaudio/helpers/fake-gemini.js), standalone, on its own free port. */
 export async function startFakeGemini() {
-  const s = await startAndRead(process.execPath, ['plusaudio/test/helpers/fake-gemini.js', '0'],
+  const s = await startAndRead(process.execPath, ['tests/server/plusaudio/helpers/fake-gemini.js', '0'],
     sandboxEnv(), /GEMINI_API_BASE=(\S+)/, 'the fake Gemini');
   return { url: s.match, stop: s.stop };
 }

@@ -17,7 +17,7 @@ import { Impl } from './impl-process.mjs';
 import { enc } from './protocol.mjs';
 
 const require = createRequire(import.meta.url);
-const { anki, runPython } = require('../../../plusaudio/test/collection/helpers/anki-python.js');
+const { anki, runPython } = require('../plusaudio/collection/helpers/anki-python.js');
 const { createRandom } = require('../../../plusaudio/lib/random.js');
 
 const ROOT = path.resolve(import.meta.dirname, '..', '..', '..');

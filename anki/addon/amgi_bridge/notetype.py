@@ -21,7 +21,7 @@
 #
 # That second writer used to be refused, because hand-encoding the protobuf
 # config columns meant guessing field numbers nothing validated. The proto is
-# vendored now and plusaudio/test/collection/notetype-write.test.js checks the
+# vendored now and tests/server/plusaudio/collection/notetype-write.test.js checks the
 # Node-written note type against the real library, including that running
 # ensure_notetype over it changes nothing. So a note type the Node side made
 # is "current" here and is left completely untouched, which is what the
