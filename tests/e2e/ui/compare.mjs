@@ -1,7 +1,7 @@
 // Pixel comparison of two screenshots of the same screen: how many pixels differ in any channel,
 // by how much at most, and the box they fall in; writes <out>/<name>-diff.png, the first shot
 // dimmed with every differing pixel in red.
-//   node ui/tools/compare.mjs <a.png> <b.png> <diff.png>
+//   node tests/e2e/ui/compare.mjs <a.png> <b.png> <diff.png>
 import sharp from 'sharp';
 
 const [a, b, out] = process.argv.slice(2);

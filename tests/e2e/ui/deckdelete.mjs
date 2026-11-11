@@ -1,25 +1,25 @@
 // Deleting a deck from the bottom of its page, against a copy of the UI fixture that each run builds
-// fresh (ui/tools/flows.sh): not offered for Default; a deck with a subdeck and cards (the
+// fresh (tests/e2e/ui/flows.sh): not offered for Default; a deck with a subdeck and cards (the
 // confirmation names both, Cancel and Escape keep it, Delete takes it, the list follows, and Back
 // does not return to it); a long deck; an empty one; Anki holding the file (the failure shown under
 // the button, nothing deleted, then deleted once Anki lets go); a deck deleted underneath the page
 // (it says the deck no longer exists); and a deck page for a deck that is gone. After each delete the
 // collection is read with Anki itself: the decks are gone, graves were left, and it is whole.
 //
-//   node ui/tools/deckdelete.mjs <base url> <name> <anki folder> [out dir]
+//   node tests/e2e/ui/deckdelete.mjs <base url> <name> <anki folder> [out dir]
 // Needs ANKI_PYTHON_BIN (the e2e-ui skill).
 import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { seed } from './seed.mjs';
-import { WIRE_MIME, decode, encode } from '../wire/wire.mjs';
+import { WIRE_MIME, decode, encode } from '../../../ui/wire/wire.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const cdom = process.env.CDOM || path.join(here, '..', '..', 'cdom');
+const cdom = process.env.CDOM || path.join(here, '..', '..', '..', 'cdom');
 const { sleep } = await import(path.join(cdom, 'tools', 'cdp.mjs'));
 const { launchChrome } = await import('./chrome.mjs');
-const anki = createRequire(import.meta.url)('../../tests/server/plusaudio/collection/helpers/anki-python.js');
+const anki = createRequire(import.meta.url)('../../server/plusaudio/collection/helpers/anki-python.js');
 const { holdCollectionOpen } = anki;
 // The server opens the file for a moment on every request (the status poll among them), and Anki's
 // own open does not wait: a read here that meets one is tried again.
@@ -34,7 +34,7 @@ function withAnkiLibrary(file, body) {
   }
 }
 const [base, name, ankiDir, outArg] = process.argv.slice(2);
-const out = outArg || path.join(here, '..', 'out', 'shots');
+const out = outArg || path.join(here, '..', '..', '..', 'ui', 'out', 'shots');
 fs.mkdirSync(out, { recursive: true });
 const collection = path.join(ankiDir, 'User 1', 'collection.anki2');
 const failures = [];

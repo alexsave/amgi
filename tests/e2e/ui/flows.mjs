@@ -1,20 +1,20 @@
-// The setup flows, against an Anki folder of their own that each run builds fresh (ui/tools/flows.sh):
+// The setup flows, against an Anki folder of their own that each run builds fresh (tests/e2e/ui/flows.sh):
 // the first run (a profile found and picked, amgi installed), a new deck by the modal, the card
 // design notice (files behind, then the collection behind), Settings' Install button, and the
 // starter deck on a server with no Gemini key.
 //
-//   node ui/tools/flows.mjs <base url> <no-key base url> <name> <anki folder> [out dir]
+//   node tests/e2e/ui/flows.mjs <base url> <no-key base url> <name> <anki folder> [out dir]
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { seed } from './seed.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const cdom = process.env.CDOM || path.join(here, '..', '..', 'cdom');
+const cdom = process.env.CDOM || path.join(here, '..', '..', '..', 'cdom');
 const { sleep } = await import(path.join(cdom, 'tools', 'cdp.mjs'));
 const { launchChrome } = await import('./chrome.mjs');
 const [base, keyless, name, ankiDir, outArg] = process.argv.slice(2);
-const out = outArg || path.join(here, '..', 'out', 'shots');
+const out = outArg || path.join(here, '..', '..', '..', 'ui', 'out', 'shots');
 fs.mkdirSync(out, { recursive: true });
 const failures = [];
 const check = (ok, what) => {

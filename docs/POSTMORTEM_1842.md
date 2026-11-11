@@ -156,7 +156,7 @@ Friction: the owner's corrections on wording and scope, the incident, a one-hour
 | 2 | Never open a file without a SQLite header; show "damaged" in the UI | foolish | Done: dbf48a1 and #35 |
 | 3 | Never checkpoint, enforced by `test/no-checkpoint.test.mjs` | amgi | Done: #41's commits, in main via #35 |
 | 4 | A fresh backup before the automatic install write | foolish | Done: 1bd5cff, in main via #35 |
-| 5 | `incident_1842.c` (unit) and `ui/tools/incident1842.sh` (browser drive) in the suites | foolish, cdom | Done: 7be5120 and #42's commits, in main via #35 |
+| 5 | `incident_1842.c` (unit) and `tests/e2e/ui/incident1842.sh` (browser drive) in the suites | foolish, cdom | Done: 7be5120 and #42's commits, in main via #35 |
 | 6 | A temp HOME for every test process, enforced by `test/sandbox-home.test.mjs` | foolish | Done: #35 |
 | 7 | Chrome launches with `--use-mock-keychain --password-store=basic` | cdom, foolish | Done: cdom's tools/cdp.mjs and amgi 693b49c |
 | 8 | cli-fuzz writes only inside its scratch folder | foolish | Done: 37fe99e |

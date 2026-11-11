@@ -35,7 +35,7 @@ With Anki open, the note type arrives when Anki next restarts (`needsRestart` in
 ## Driving the page
 
 The simplest way to do what a user does is to do it in the page: open <http://localhost:3000>, and the deck list, the deck page, the card form and the paste-many-lines run all work as for a person.
-`ui/tools/` has headless Chrome drives (shoot, flows, edit, bulk, states) that do exactly this through `cdom/tools/cdp.mjs`, and they are the worked examples of every flow: what to click, what to wait for, what the page shows.
+`tests/e2e/ui/` has headless Chrome drives (shoot, flows, edit, bulk, states) that do exactly this through `cdom/tools/cdp.mjs`, and they are the worked examples of every flow: what to click, what to wait for, what the page shows.
 The `e2e-ui` skill runs them against a fixture collection.
 
 ## The server's API

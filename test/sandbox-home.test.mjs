@@ -5,7 +5,7 @@
 // - every child-process call in the test code (JavaScript, parsed with eslint's own parser, and
 //   Python, parsed with its ast module) passes an env made by sandboxEnv / sandbox_env, unless
 //   the program is git, make or ffmpeg, which never open a collection;
-// - the e2e shell tools source ui/tools/sandbox-home.sh, and e2e.sh starts each server and the
+// - the e2e shell tools source tests/e2e/ui/sandbox-home.sh, and e2e.sh starts each server and the
 //   fake Gemini with a HOME of its own.
 // The C binaries' own default base dir is the c-backend side's test, not this one.
 import { test } from 'node:test';
@@ -18,7 +18,7 @@ import * as espree from 'espree';
 import { assertSandboxed, sandboxEnv } from './sandbox-home.cjs';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
-const SCANNED = ['test', 'tests/server/parity', 'tests/server/bridge', 'tests/ui', 'ui/tools', 'tests/server/plusaudio', 'tests/anki/addon', '.claude/skills/e2e-ui/scripts'];
+const SCANNED = ['test', 'tests/server/parity', 'tests/server/bridge', 'tests/ui', 'tests/e2e/ui', 'tests/server/plusaudio', 'tests/anki/addon', '.claude/skills/e2e-ui/scripts'];
 const SELF = 'test/sandbox-home.test.mjs';
 const EXEMPT = new Set(['git', 'make', 'ffmpeg']);
 const JS_CALLS = new Set(['spawn', 'spawnSync', 'execFile', 'execFileSync', 'exec', 'execSync', 'fork']);
@@ -153,18 +153,18 @@ test('every child process the test code starts gets a sandboxed HOME', () => {
 });
 
 test('the e2e shell tools run in a sandbox, and e2e.sh gives each server and the fake its own HOME', () => {
-  for (const f of ['ui/tools/e2e.sh', 'ui/tools/fixture.sh', 'ui/tools/drives.sh']) {
+  for (const f of ['tests/e2e/ui/e2e.sh', 'tests/e2e/ui/fixture.sh', 'tests/e2e/ui/drives.sh']) {
     assert.match(fs.readFileSync(path.join(ROOT, f), 'utf8'), /^\. "\$here\/sandbox-home\.sh"$/m, `${f} sources sandbox-home.sh`);
   }
-  const starts = fs.readFileSync(path.join(ROOT, 'ui/tools/e2e.sh'), 'utf8').split('\n').filter((l) => /^start /.test(l));
+  const starts = fs.readFileSync(path.join(ROOT, 'tests/e2e/ui/e2e.sh'), 'utf8').split('\n').filter((l) => /^start /.test(l));
   assert.equal(starts.length, 4);
   for (const l of starts) assert.match(l, / env "HOME=\$\(fresh_home\)" /, l);
-  const fixture = fs.readFileSync(path.join(ROOT, 'ui/tools/fixture.sh'), 'utf8');
+  const fixture = fs.readFileSync(path.join(ROOT, 'tests/e2e/ui/fixture.sh'), 'utf8');
   assert.match(fixture, /^env "HOME=\$\(fresh_home\)" "\$ANKI_PYTHON_BIN" /m, 'fixture.sh runs the anki library under its own HOME');
 });
 
 test('sandbox-home.sh keeps the shell\'s HOME for Chrome, gives fresh HOMEs, unsets XDG_DATA_HOME, refuses a TMPDIR inside the real home', () => {
-  const sh = path.join(ROOT, 'ui/tools/sandbox-home.sh');
+  const sh = path.join(ROOT, 'tests/e2e/ui/sandbox-home.sh');
   const env = { ...sandboxEnv(), XDG_DATA_HOME: '/nowhere' };
   const out = execFileSync('bash', ['-c', `. "${sh}"; echo "$HOME"; echo "\${XDG_DATA_HOME-unset}"; fresh_home`],
     { env, encoding: 'utf8' }).split('\n');
@@ -182,13 +182,13 @@ test('sandbox-home.sh keeps the shell\'s HOME for Chrome, gives fresh HOMEs, uns
   }
 });
 
-test('every drive starts Chrome through ui/tools/chrome.mjs, which stops it when the drive exits', async () => {
+test('every drive starts Chrome through tests/e2e/ui/chrome.mjs, which stops it when the drive exits', async () => {
   // Off the keychain: cdom's launcher passes both flags on every Chrome it starts.
   const cdp = fs.readFileSync(path.join(ROOT, 'cdom/tools/cdp.mjs'), 'utf8');
   const spawn = cdp.match(/'--headless=new'[^\]]*\]/);
   assert.ok(spawn, "cdom/tools/cdp.mjs starts Chrome with '--headless=new'");
   for (const f of ['--use-mock-keychain', '--password-store=basic']) assert.ok(spawn[0].includes(`'${f}'`), `cdom's Chrome launch has ${f}`);
-  const drives = tracked.filter((f) => f.startsWith('ui/tools/') && f.endsWith('.mjs') && f !== 'ui/tools/chrome.mjs');
+  const drives = tracked.filter((f) => f.startsWith('tests/e2e/ui/') && f.endsWith('.mjs') && f !== 'tests/e2e/ui/chrome.mjs');
   for (const f of drives) assert.doesNotMatch(fs.readFileSync(path.join(ROOT, f), 'utf8'), /\blaunch\(/, `${f}: Chrome only through launchChrome()`);
   assert.equal(drives.filter((f) => /launchChrome\(\)/.test(fs.readFileSync(path.join(ROOT, f), 'utf8'))).length, 8, 'the seven drives and incident1842.mjs');
 });
@@ -196,7 +196,7 @@ test('every drive starts Chrome through ui/tools/chrome.mjs, which stops it when
 test('a drive that exits without closing its Chrome leaves no Chrome running', () => {
   // A stand-in drive: launchChrome(), say the Chrome's PID (its child), and exit with it still open.
   const script = `import { execFileSync } from 'node:child_process';
-    const { launchChrome } = await import(${JSON.stringify(path.join(ROOT, 'ui/tools/chrome.mjs'))});
+    const { launchChrome } = await import(${JSON.stringify(path.join(ROOT, 'tests/e2e/ui/chrome.mjs'))});
     await launchChrome();
     process.stdout.write(execFileSync('pgrep', ['-P', String(process.pid)], { encoding: 'utf8' }));
     process.exit(0);`;
