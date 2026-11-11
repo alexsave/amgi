@@ -7,7 +7,7 @@
 # and a module would neither re-execute nor load on clients that serve cards from a non-HTTP origin.
 #
 # The output is not committed: anki/Makefile rebuilds it from the three sources, and
-# anki/test/build-loop.test.js holds the result to the sources it was built from.
+# tests/anki/build-loop.test.js holds the result to the sources it was built from.
 #
 # The only import allowed inside the bundle is one shared file reaching for another, which
 # concatenation already satisfies. Anything else means the shared code has grown a dependency that

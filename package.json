@@ -19,7 +19,7 @@
     "start": "make start",
     "dev": "make dev",
     "lint": "eslint",
-    "test": "server/tools/submodules.sh && ui/build.sh && make -s -C anki && make -s -j2 -C server all check-collection check-app && node --test \"tests/ui/review-loop/**/*.test.js\" \"tests/server/plusaudio/**/*.test.js\" \"anki/test/**/*.test.js\" \"tests/ui/*.test.mjs\" \"test/*.test.mjs\" \"tests/server/parity/*.test.mjs\" \"tests/server/bridge/*.test.mjs\" && \"${ANKI_PYTHON_BIN:-python3}\" -m unittest discover -s anki/addon/amgi_bridge/test -p \"test_*.py\" -v",
+    "test": "server/tools/submodules.sh && ui/build.sh && make -s -C anki && make -s -j2 -C server all check-collection check-app && node --test \"tests/ui/review-loop/**/*.test.js\" \"tests/server/plusaudio/**/*.test.js\" \"tests/anki/**/*.test.js\" \"tests/ui/*.test.mjs\" \"test/*.test.mjs\" \"tests/server/parity/*.test.mjs\" \"tests/server/bridge/*.test.mjs\" && \"${ANKI_PYTHON_BIN:-python3}\" -m unittest discover -s anki/addon/amgi_bridge/test -p \"test_*.py\" -v",
     "e2e": "make build && ui/tools/e2e.sh"
   }
 }
