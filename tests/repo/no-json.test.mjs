@@ -201,7 +201,7 @@ test('the scan covers the shipped code', () => {
     'anki/addon/amgi_bridge/bridge_server.py', 'anki/addon/amgi_bridge/bridge_ops.py', 'anki/src/anki-loop.js',
     'anki/notetype/front.html',
   ]) assert.ok(files.includes(must), `${must} is scanned`);
-  assert.ok(!files.some((f) => /(^|\/)(test|__tests__|tools|scripts)\//.test(f)), 'and no test, tool or script is');
+  assert.ok(!files.some((f) => /(^|\/)(test|tests|__tests__|tools|scripts)\//.test(f)), 'and no test, tool or script is');
 });
 
 test('no shipped code parses or formats JSON, but for the uses listed with their reasons', () => {
