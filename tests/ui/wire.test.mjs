@@ -8,7 +8,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
 import path from 'node:path';
-import { sandboxEnv } from '../../test/sandbox-home.cjs';
+import { sandboxEnv } from '../repo/sandbox-home.cjs';
 import { fileURLToPath } from 'node:url';
 import { KIND, decode, encode } from '../../ui/wire/wire.mjs';
 

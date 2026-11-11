@@ -11,7 +11,7 @@ import path from 'node:path';
 import { createRequire } from 'node:module';
 import { WIRE_MIME, encode } from '../../../ui/wire/wire.mjs';
 import { LISTENING, ROOT, SERVER } from './servers.mjs';
-import { sandboxEnv } from '../../../test/sandbox-home.cjs';
+import { sandboxEnv } from '../../repo/sandbox-home.cjs';
 
 const require = createRequire(import.meta.url);
 const { fakeGemini } = require('../plusaudio/helpers/fake-gemini.js');

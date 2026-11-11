@@ -27,7 +27,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { shippedSources, stripJsComments, stripPyComments } from './source-scan.mjs';
 
-const ROOT = path.resolve(import.meta.dirname, '..');
+const ROOT = path.resolve(import.meta.dirname, '..', '..');
 const FOLDER = 'plusaudio/lib/json/';
 /**
  * The C quarantine: amgi's C reads and writes JSON only here (server/json/anki_json.h says why), through
@@ -211,7 +211,7 @@ test('no shipped code parses or formats JSON, but for the uses listed with their
     `\n${problems.join('\n')}\n\n`
     + 'amgi\'s own boundaries cross as fixed binary layouts (ui/wire/wire.c is the model: one schema table that every\n'
     + `reader and writer walks). If something outside amgi really does force JSON here, put the call in ${FOLDER}\n`
-    + 'behind a named function and add it to ALLOWED in test/no-json.test.mjs with who forces it.\n');
+    + 'behind a named function and add it to ALLOWED in tests/repo/no-json.test.mjs with who forces it.\n');
 });
 
 test('amgi\'s own JSON lives in the one folder, and every entry says why', () => {

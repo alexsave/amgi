@@ -14,7 +14,7 @@ const { spawn, spawnSync } = require('node:child_process');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { sandboxEnv } = require('../../../../../test/sandbox-home.cjs');
+const { sandboxEnv } = require('../../../../repo/sandbox-home.cjs');
 
 function findPython() {
   const candidates = [process.env.ANKI_PYTHON_BIN, 'python3', 'python'].filter(Boolean);

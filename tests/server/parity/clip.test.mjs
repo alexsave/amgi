@@ -13,7 +13,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { ROOT } from './servers.mjs';
-import { sandboxEnv } from '../../../test/sandbox-home.cjs';
+import { sandboxEnv } from '../../repo/sandbox-home.cjs';
 
 const require = createRequire(import.meta.url);
 const { fakeGemini, WAV, dailyQuotaExhausted, grpcError, quotaExhausted } = require('../plusaudio/helpers/fake-gemini.js');

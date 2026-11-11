@@ -15,7 +15,7 @@ import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { sandboxEnv } from '../../../test/sandbox-home.cjs';
+import { sandboxEnv } from '../../repo/sandbox-home.cjs';
 import { createRequire } from 'node:module';
 import { enc } from './protocol.mjs';
 
@@ -84,7 +84,7 @@ test('the C CLI answers hostile protocol lines without a fault', { skip: IMPL ? 
   // Run two folders down in the scratch folder: an "open" of a hostile relative name (one is
   // "../collection.anki2") makes its files there, and never beside the checkout. A run from the
   // checkout once made an empty amgi-collection-backups in its parent folder. HOME is a fresh temp
-  // dir of its own (test/sandbox-home.cjs), so a default base dir never reaches the real one.
+  // dir of its own (tests/repo/sandbox-home.cjs), so a default base dir never reaches the real one.
   const cwd = path.join(dir, 'a', 'b');
   fs.mkdirSync(cwd, { recursive: true });
   const input = `${lines(collection, junk).join('\n')}\nquit\n`;

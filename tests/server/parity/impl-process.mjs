@@ -3,7 +3,7 @@
 // server/build/collection_cli (make -C server), or the program AMGI_COLLECTION_IMPL names.
 import { spawn } from 'node:child_process';
 import path from 'node:path';
-import { sandboxEnv } from '../../../test/sandbox-home.cjs';
+import { sandboxEnv } from '../../repo/sandbox-home.cjs';
 
 const ROOT = path.resolve(import.meta.dirname, '..', '..', '..');
 const IMPL = process.env.AMGI_COLLECTION_IMPL;

@@ -29,7 +29,7 @@ const { sharedGate } = require('./rateGate');
 // unless the parent forks with serialization 'advanced' (V8's structured
 // clone, binary), and the child takes the parent's choice. Every fork of a
 // script that asks a gate spreads FORK_IPC_OPTIONS into its options, so a
-// gate message never travels as JSON (test/no-json.test.mjs flags a fork
+// gate message never travels as JSON (tests/repo/no-json.test.mjs flags a fork
 // without it).
 const FORK_IPC_OPTIONS = Object.freeze({ serialization: 'advanced' });
 

@@ -1,4 +1,4 @@
-/* The source scans' shared part (ported from test/source-scan.mjs): which tracked files ship, and
+/* The source scans' shared part (ported from tests/repo/source-scan.mjs): which tracked files ship, and
  * their code with the comments blanked, so a scan reads code and not what a comment says about it.
  * Header only, so each scan program is one C file plus this.
  *

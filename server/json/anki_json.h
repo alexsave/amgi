@@ -1,4 +1,4 @@
-/* The one JSON reader and writer in amgi's C, quarantined in this folder (test/no-json.test.mjs
+/* The one JSON reader and writer in amgi's C, quarantined in this folder (tests/repo/no-json.test.mjs
  * fails on JSON parsed or formatted in C anywhere else, and counts every call to these two named
  * functions per file against its list of reasons).
  *

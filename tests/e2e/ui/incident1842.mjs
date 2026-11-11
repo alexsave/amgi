@@ -28,7 +28,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { seed } from './seed.mjs';
 import { startServer } from '../../server/parity/servers.mjs';
-import { sandboxEnv } from '../../../test/sandbox-home.cjs';
+import { sandboxEnv } from '../../repo/sandbox-home.cjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..', '..', '..');
@@ -47,7 +47,7 @@ if (!process.argv[2] || !fs.existsSync(home) || fs.realpathSync(home) === real |
   process.exit(2);
 }
 // The folder holds the collection; the server, the installer and the Anki stand-in each run with a
-// fresh temp HOME of their own besides (test/sandbox-home.cjs), and Chrome keeps the real one.
+// fresh temp HOME of their own besides (tests/repo/sandbox-home.cjs), and Chrome keeps the real one.
 
 const failures = [];
 const check = (ok, what) => {

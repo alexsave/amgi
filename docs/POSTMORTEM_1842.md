@@ -100,7 +100,7 @@ Not determined: which server reset the `-wal`, and what Anki wrote over the whol
 - **It corrected the early theories.** The first reads ("a positioned write at offset 0", "a file emptied first", "the write points at cdom's try server", and cdom's reading of Anki's source that Anki was "very unlikely" to be involved, when its lock drop in read_locked_db_file was half the cause) were replaced by evidence: Anki's own close wrote the zeros.
 - **Red first, mutation-checked.** `incident_1842.c` was red 5 of 5 before the rule; the fix killed all six mutants; the guards scan and the browser drive were each shown red without the fix; removing only the `-wal` half lets the automatic install write into the live file again.
 - **The fix has one owner.** `collection_openable` in db.c owns every open rule, and checks again right after the open to close the race with Anki starting.
-- **The temp-HOME rule is enforced by a test.** `test/sandbox-home.test.mjs` parses the test code and fails on any child process started without a sandboxed env.
+- **The temp-HOME rule is enforced by a test.** `tests/repo/sandbox-home.test.mjs` parses the test code and fails on any child process started without a sandboxed env.
 - **The fix beat its ETA.** Committed at 19:16 against an executor ETA of ~19:40 and a dispatcher ETA of ~19:50, with the owner's target 19:40.
 - **The re-test never touched real data.** It ran on a copied profile (Anki with `-b ~/Dev/anki-retest-base`), with real Anki doing a real backup on close.
 - **The rules were written down.** ARCHITECTURE.md section 6b (s6-safety.md) records each rule, its owner in code, and how it is proven.
@@ -157,7 +157,7 @@ Friction: the owner's corrections on wording and scope, the incident, a one-hour
 | 3 | Never checkpoint, enforced by `test/no-checkpoint.test.mjs` | amgi | Done: #41's commits, in main via #35 |
 | 4 | A fresh backup before the automatic install write | foolish | Done: 1bd5cff, in main via #35 |
 | 5 | `incident_1842.c` (unit) and `tests/e2e/ui/incident1842.sh` (browser drive) in the suites | foolish, cdom | Done: 7be5120 and #42's commits, in main via #35 |
-| 6 | A temp HOME for every test process, enforced by `test/sandbox-home.test.mjs` | foolish | Done: #35 |
+| 6 | A temp HOME for every test process, enforced by `tests/repo/sandbox-home.test.mjs` | foolish | Done: #35 |
 | 7 | Chrome launches with `--use-mock-keychain --password-store=basic` | cdom, foolish | Done: cdom's tools/cdp.mjs and amgi 693b49c |
 | 8 | cli-fuzz writes only inside its scratch folder | foolish | Done: 37fe99e |
 | 9 | Delete the Node server (it carried the same checkpoint) | foolish | Done: #35 |

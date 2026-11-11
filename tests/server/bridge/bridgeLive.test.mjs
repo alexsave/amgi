@@ -17,7 +17,7 @@ import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
 import { createRequire } from 'node:module';
-import { sandboxEnv } from '../../../test/sandbox-home.cjs';
+import { sandboxEnv } from '../../repo/sandbox-home.cjs';
 import {
   BridgeError, PROTOCOL_HEADER, closeBridgesUnderTest, probeBridgeUnderTest as probeBridge, resolveTransportUnderTest as resolveTransport,
 } from '../parity/bridge-under-test.mjs';

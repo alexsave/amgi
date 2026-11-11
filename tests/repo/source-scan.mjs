@@ -1,4 +1,4 @@
-// What the repository's source scans share (test/no-json.test.mjs; the C port of the checkpoint scan,
+// What the repository's source scans share (tests/repo/no-json.test.mjs; the C port of the checkpoint scan,
 // tests/server/c/no_checkpoint.c, keeps its own copy of these rules in tests/server/c/srcscan.h):
 // which tracked files ship, and their code with the comments blanked, so a scan reads code and
 // not what a comment says about it.

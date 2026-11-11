@@ -6,7 +6,7 @@
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { sandboxEnv } from '../../../test/sandbox-home.cjs';
+import { sandboxEnv } from '../../repo/sandbox-home.cjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const { launch } = await import(path.join(process.env.CDOM || path.join(here, '..', '..', '..', 'cdom'), 'tools', 'cdp.mjs'));

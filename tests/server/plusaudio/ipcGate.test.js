@@ -9,7 +9,7 @@ const assert = require('node:assert/strict');
 const { fork } = require('node:child_process');
 const { EventEmitter } = require('node:events');
 const path = require('node:path');
-const { sandboxEnv } = require('../../../test/sandbox-home.cjs');
+const { sandboxEnv } = require('../../repo/sandbox-home.cjs');
 const { test } = require('node:test');
 
 const { FAIL_OPEN_WAIT_MS, FORK_IPC_OPTIONS, createIpcGate, serveGate } = require('../../../plusaudio/lib/ipcGate');
