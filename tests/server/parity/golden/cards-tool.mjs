@@ -1,4 +1,4 @@
-// The C card policy's pure functions through server/test/golden_cards.c, for the golden tests.
+// The C card policy's pure functions through tests/server/c/golden_cards.c, for the golden tests.
 // Builds the tool on first use (make -C server build/golden_cards; npm test's make builds it too),
 // then answers a batch of calls in one run.
 import { execFileSync } from 'node:child_process';
