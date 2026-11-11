@@ -109,11 +109,18 @@ build/anki_standin: test/anki_standin.c
 	@mkdir -p $(@D)
 	$(CC) $(NATIVE_CFLAGS) -O1 -o $@ test/anki_standin.c $(SQLITE_LDFLAGS) -lsqlite3
 
-check-collection: build/unit build/backup_unit build/media_unit build/incident_1842
+# The rule that nothing in amgi's C, nor in the cbase it links, calls pthread_cancel (server/test/c_rules.c).
+# The tracked C comes from git; cbase/core and cbase/providers are walked by the program itself.
+build/c_rules: test/c_rules.c
+	@mkdir -p $(@D)
+	$(CC) $(NATIVE_CFLAGS) -o $@ $<
+
+check-collection: build/unit build/backup_unit build/media_unit build/incident_1842 build/c_rules
 	build/unit $(CURDIR)/..
 	build/backup_unit $(CURDIR)/..
 	build/media_unit
 	build/incident_1842 $(CURDIR)/..
+	build/c_rules $(CURDIR)/.. $$(git -C .. ls-files -- '*.c' '*.h')
 
 # The collection CLI under ASan and UBSan, linked with cbase's sanitized build.
 $(call prog,build/asan,build/obj/asan,build/obj/asan-extra,collection_cli,collection/cli.c,ASAN_CB_CFLAGS)
