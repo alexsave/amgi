@@ -1,5 +1,5 @@
 /* Anki, as far as collection.anki2 is concerned, for the incident 18:42 browser drive
- * (ui/tools/incident1842.mjs). The same steps as server/test/incident_1842.c's child, as a program
+ * (ui/tools/incident1842.mjs). The same steps as tests/server/c/incident_1842.c's child, as a program
  * of its own so a drive can run it beside a real server and a real page:
  *
  *   1. open the collection in WAL mode with locking_mode=EXCLUSIVE (Anki's way: the WAL index lives

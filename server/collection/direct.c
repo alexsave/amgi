@@ -34,7 +34,7 @@ int media_read(cx *c, str dir, str name, str *out);
  *
  * A ticket is always given back: the op runs inside cx_try (locked below), so a throw, which is a
  * longjmp out of the op, lands before lock_give. A thread is never cancelled while it holds one:
- * nothing in amgi's C or in cbase cancels a thread (server/test/c_rules.c fails if one
+ * nothing in amgi's C or in cbase cancels a thread (tests/server/c/c_rules.c fails if one
  * appears), so no cancellation point can leave a ticket taken and its path stuck. */
 typedef struct path_lock {
   struct path_lock *next;

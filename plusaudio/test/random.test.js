@@ -49,7 +49,7 @@ test('int(n) stays in [0, n)', () => {
 test('the C source is the same generator, its seed one named value', () => {
   const source = fs.readFileSync(path.join(REPO, 'server', 'collection', 'rng.c'), 'utf8');
   assert.equal((source.match(/^#define AMGI_SEED /gm) || []).length, 1, 'exactly one line sets the C seed');
-  // server/test/unit.c pins rng.c's seed-1 draws to this generator's, so the two stay one sequence.
+  // tests/server/c/unit.c pins rng.c's seed-1 draws to this generator's, so the two stay one sequence.
 });
 
 test('the shipped seed is the one named value, and the shared generator is a Random', () => {

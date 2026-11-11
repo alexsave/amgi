@@ -7,7 +7,7 @@
 #     main (its smoke holds it to cbase's usage), so the command line is a program of its own.
 #   - server/collection and server/json: the collection core (the C port of what was plusaudio/lib/collection,
 #     the direct transport and the bridge client) and its Anki JSON quarantine, as one library with
-#     its own flags and its own gates (test/no-json.test.mjs, the random scan, server/test/unit.c).
+#     its own flags and its own gates (test/no-json.test.mjs, the random scan, tests/server/c/unit.c).
 #     It is APP_EXTRA_SRC, not a source root, because it carries JavaScript's number semantics
 #     (strtod for JSON numbers and Number()), which cbase's number gate refuses in a product root.
 #   - tests/server/parity/dump.c: the collection-parity dump tool (no cbase in it).
@@ -15,7 +15,7 @@
 #     audio): card_generate_audio in process, the contract of plusaudio/generate-clip.js.
 #
 #   make -C server                    build/amgi, build/amgi-serve, build/amgi-clip, build/collection_cli, build/app_unit, build/parity_dump
-#   make -C server check-collection   the C collection core's own tests (server/test/unit.c), under ASan
+#   make -C server check-collection   the C collection core's own tests (tests/server/c/unit.c), under ASan
 #   make -C server build/asan/collection_cli   the collection CLI under ASan and UBSan
 #   make -C server check              cbase's whole check, with the amgi app as its product
 #   make -C server serve              build/amgi-serve, then serve from the repository root (cbase.mk's
@@ -36,7 +36,7 @@ APP_SERVE := amgi-serve
 # starter deck, and finds .env.local (cbase.mk's APP_ENV_FILE default).
 APP_SERVE_DIR := ..
 APP_SRC_ROOTS := app
-# wire.h, for the tests that include the app's headers (test/app_unit.c)
+# wire.h, for the tests that include the app's headers (tests/server/c/app_unit.c)
 APP_INC := -I../ui/wire
 ICU_MAJOR ?= 78
 ifeq ($(shell uname -s),Darwin)
@@ -66,7 +66,7 @@ APP_EXTRA_SRC := $(COL_SRC) $(BRIDGE_SRC) $(AMGI_SRC)
 APP_EXTRA_CFLAGS = $(WARN) -O2 -g -pthread -I$(CBASE)/core/include -I$(CBASE)/core/src -I$(CBASE)/lib -I../ui/wire \
   $(ICU_CFLAGS) $(SQLITE_CFLAGS) $(OPENSSL_CFLAGS)
 SERVER_LDFLAGS := $(ICU_LDFLAGS) -licui18n -licuuc
-APP_PROGS := amgi=cli/amgi.c amgi-clip=cli/clip.c collection_cli=collection/cli.c app_unit=test/app_unit.c golden_cards=test/golden_cards.c
+APP_PROGS := amgi=cli/amgi.c amgi-clip=cli/clip.c collection_cli=collection/cli.c app_unit=../tests/server/c/app_unit.c golden_cards=../tests/server/c/golden_cards.c
 # cbase's own default port is 8642; amgi keeps 3000 (PORT, or CBASE_LISTEN, moves it).
 APP_SERVE_LISTEN := 127.0.0.1:$(or $(PORT),3000)
 include $(CBASE)/cbase.mk
@@ -84,42 +84,42 @@ build/parity_dump: ../tests/server/parity/dump.c
 	@mkdir -p $(@D)
 	$(CC) $(NATIVE_CFLAGS) -O2 -o $@ $< $(NATIVE_LIBS)
 
-# Tests of the C itself (server/test/unit.c).
-build/unit: $(COL_SRC) collection/wire_host.c test/unit.c $(COL_HDR)
+# Tests of the C itself (tests/server/c/unit.c).
+build/unit: $(COL_SRC) collection/wire_host.c ../tests/server/c/unit.c $(COL_HDR)
 	@mkdir -p $(@D)
-	$(CC) $(NATIVE_CFLAGS) $(NATIVE_SAN) -I../ui/wire -o $@ $(COL_SRC) collection/wire_host.c test/unit.c $(NATIVE_LIBS)
+	$(CC) $(NATIVE_CFLAGS) $(NATIVE_SAN) -I../ui/wire -o $@ $(COL_SRC) collection/wire_host.c ../tests/server/c/unit.c $(NATIVE_LIBS)
 
-# Tests of the backup (server/test/backup_unit.c), which includes collection/backup.c to reach its fault points.
-build/backup_unit: $(COL_SRC) test/backup_unit.c $(COL_HDR)
+# Tests of the backup (tests/server/c/backup_unit.c), which includes collection/backup.c to reach its fault points.
+build/backup_unit: $(COL_SRC) ../tests/server/c/backup_unit.c $(COL_HDR)
 	@mkdir -p $(@D)
-	$(CC) $(NATIVE_CFLAGS) $(NATIVE_SAN) -o $@ $(filter-out collection/backup.c,$(COL_SRC)) test/backup_unit.c $(NATIVE_LIBS)
+	$(CC) $(NATIVE_CFLAGS) $(NATIVE_SAN) -o $@ $(filter-out collection/backup.c,$(COL_SRC)) ../tests/server/c/backup_unit.c $(NATIVE_LIBS)
 
-# The media folder's own tests (server/test/media_unit.c), media.c built with its fault seam.
-build/media_unit: $(COL_SRC) test/media_unit.c $(COL_HDR)
+# The media folder's own tests (tests/server/c/media_unit.c), media.c built with its fault seam.
+build/media_unit: $(COL_SRC) ../tests/server/c/media_unit.c $(COL_HDR)
 	@mkdir -p $(@D)
-	$(CC) $(NATIVE_CFLAGS) $(NATIVE_SAN) -DMEDIA_FAULTS -o $@ $(COL_SRC) test/media_unit.c $(NATIVE_LIBS)
+	$(CC) $(NATIVE_CFLAGS) $(NATIVE_SAN) -DMEDIA_FAULTS -o $@ $(COL_SRC) ../tests/server/c/media_unit.c $(NATIVE_LIBS)
 
-# Incident 18:42 (server/test/incident_1842.c): the page load must not open a collection Anki holds
+# Incident 18:42 (tests/server/c/incident_1842.c): the page load must not open a collection Anki holds
 # in exclusive mode (a -wal with no -shm), lock or no lock.
-build/incident_1842: $(COL_SRC) test/incident_1842.c $(COL_HDR)
+build/incident_1842: $(COL_SRC) ../tests/server/c/incident_1842.c $(COL_HDR)
 	@mkdir -p $(@D)
-	$(CC) $(NATIVE_CFLAGS) $(NATIVE_SAN) -o $@ $(COL_SRC) test/incident_1842.c $(NATIVE_LIBS)
+	$(CC) $(NATIVE_CFLAGS) $(NATIVE_SAN) -o $@ $(COL_SRC) ../tests/server/c/incident_1842.c $(NATIVE_LIBS)
 
 # Anki's side of the same sequence as a program of its own, for the browser drive of it
 # (ui/tools/incident1842.sh): a real server and a real page in the window instead of the calls.
-build/anki_standin: test/anki_standin.c
+build/anki_standin: ../tests/server/c/anki_standin.c
 	@mkdir -p $(@D)
-	$(CC) $(NATIVE_CFLAGS) -O1 -o $@ test/anki_standin.c $(SQLITE_LDFLAGS) -lsqlite3
+	$(CC) $(NATIVE_CFLAGS) -O1 -o $@ ../tests/server/c/anki_standin.c $(SQLITE_LDFLAGS) -lsqlite3
 
-# The rule that nothing in amgi's C, nor in the cbase it links, calls pthread_cancel (server/test/c_rules.c).
+# The rule that nothing in amgi's C, nor in the cbase it links, calls pthread_cancel (tests/server/c/c_rules.c).
 # The tracked C comes from git; cbase/core and cbase/providers are walked by the program itself.
-build/c_rules: test/c_rules.c test/srcscan.h
+build/c_rules: ../tests/server/c/c_rules.c ../tests/server/c/srcscan.h
 	@mkdir -p $(@D)
 	$(CC) $(NATIVE_CFLAGS) -o $@ $<
 
-# The incident-1842 rule: no checkpoint in any shipped C, JavaScript or Python (server/test/no_checkpoint.c).
+# The incident-1842 rule: no checkpoint in any shipped C, JavaScript or Python (tests/server/c/no_checkpoint.c).
 # The tracked files come from git; the program decides which ship (srcscan.h, the scan's shared part).
-build/no_checkpoint: test/no_checkpoint.c test/srcscan.h
+build/no_checkpoint: ../tests/server/c/no_checkpoint.c ../tests/server/c/srcscan.h
 	@mkdir -p $(@D)
 	$(CC) $(NATIVE_CFLAGS) -o $@ $<
 
@@ -134,8 +134,8 @@ check-collection: build/unit build/backup_unit build/media_unit build/incident_1
 # The collection CLI under ASan and UBSan, linked with cbase's sanitized build.
 $(call prog,build/asan,build/obj/asan,build/obj/asan-extra,collection_cli,collection/cli.c,ASAN_CB_CFLAGS)
 
-# The amgi app's own tests (server/test/app_unit.c), under ASan and UBSan.
-$(call prog,build/asan,build/obj/asan,build/obj/asan-extra,app_unit,test/app_unit.c,ASAN_CB_CFLAGS)
+# The amgi app's own tests (tests/server/c/app_unit.c), under ASan and UBSan.
+$(call prog,build/asan,build/obj/asan,build/obj/asan-extra,app_unit,../tests/server/c/app_unit.c,ASAN_CB_CFLAGS)
 check-app: build/asan/app_unit
 	build/asan/app_unit
 
