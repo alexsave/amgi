@@ -3,7 +3,7 @@
 no Qt and no running Anki desktop app, so bridge-http.js can prove
 bridge_server.py's routing, bridge_auth.py's token/Origin rules, and
 bridge_ops.py's collection-mutating calls against real HTTP and real bytes on
-disk - not the FakeDispatcher anki/addon/amgi_bridge/test/test_bridge_server.py
+disk - not the FakeDispatcher tests/anki/addon/test_bridge_server.py
 uses to prove the same routing/auth logic in isolation, and not a running Anki
 process either.
 

@@ -6,8 +6,7 @@
 # NOT wired into `npm test` - see README.md, "Testing", for why and how to
 # run this manually. Short version:
 #
-#   cd anki/addon/amgi_bridge
-#   AMGI_SAMPLE_APKG=/path/to/a/real.apkg anki-test-env/bin/python -m unittest test.test_bridge_ops -v
+#   AMGI_SAMPLE_APKG=/path/to/a/real.apkg anki/addon/amgi_bridge/anki-test-env/bin/python -m unittest discover -s tests/anki/addon -p test_bridge_ops.py -v
 
 from __future__ import annotations
 
@@ -17,7 +16,7 @@ import sys
 import tempfile
 import unittest
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "anki", "addon", "amgi_bridge")))
 
 import bridge_ops  # noqa: E402
 

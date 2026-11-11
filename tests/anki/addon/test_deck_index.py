@@ -13,7 +13,7 @@
 # depend on. Run it with a Python that has `anki` installed:
 #
 #   python -m venv anki-test-env && anki-test-env/bin/pip install anki
-#   cd anki/addon/amgi_bridge && anki-test-env/bin/python -m unittest test.test_deck_index -v
+#   anki/addon/amgi_bridge/anki-test-env/bin/python -m unittest discover -s tests/anki/addon -p test_deck_index.py -v
 
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ import sys
 import tempfile
 import unittest
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "anki", "addon", "amgi_bridge")))
 
 try:
     from anki.collection import Collection

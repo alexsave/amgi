@@ -23,7 +23,7 @@ import sys
 import tempfile
 import unittest
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "anki", "addon", "amgi_bridge")))
 
 import bridge_ops  # noqa: E402
 from sandbox_home import sandbox_env  # noqa: E402
@@ -33,10 +33,8 @@ try:
 except ModuleNotFoundError:  # pragma: no cover - environment-dependent
     anki = None  # type: ignore[assignment]
 
-# .../test/test_cross_transport.py -> test -> amgi_bridge -> addon -> anki -> repo root
-REPO_ROOT = os.path.dirname(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-)
+# tests/anki/addon/test_cross_transport.py -> three folders up is the repo root
+REPO_ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", ".."))
 COLLECTION_CLI = os.path.join(REPO_ROOT, "server", "build", "collection_cli")
 
 

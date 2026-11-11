@@ -12,9 +12,9 @@
 # a Python that has `anki` installed:
 #
 #   python -m venv anki-test-env && anki-test-env/bin/pip install anki
-#   cd anki/addon/amgi_bridge && anki-test-env/bin/python -m unittest test.test_core_collection -v
+#   anki/addon/amgi_bridge/anki-test-env/bin/python -m unittest discover -s tests/anki/addon -p test_core_collection.py -v
 #
-# The `cd` matters, not just the pip install: see the sys.path note below.
+# Run it from the repository root, as npm test does: the sys.path note below says why the add-on's own directory comes first.
 
 from __future__ import annotations
 
@@ -32,10 +32,10 @@ import unittest
 # is not what ends up on sys.path - for instance if these tests are run with
 # the repo root as the working directory - Python can merge the repo's anki/
 # folder into the real `anki` package's namespace and resolve `anki.media` to
-# the wrong thing entirely. Prepending this test's own directory's parent
-# keeps `import core` and `import anki.collection` from ever touching the
-# same namespace.
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# the wrong thing entirely. Prepending the add-on's own directory keeps
+# `import core` and `import anki.collection` from ever touching the same
+# namespace.
+sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "anki", "addon", "amgi_bridge")))
 
 import core  # noqa: E402
 from core import AudioFillConfig, apply_fill, plan_fill  # noqa: E402

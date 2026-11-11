@@ -12,7 +12,7 @@ import os
 import sys
 import unittest
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "anki", "addon", "amgi_bridge")))
 
 import bridge_wire  # noqa: E402
 import wire_schema  # noqa: E402
@@ -167,7 +167,7 @@ class PackageImportTests(unittest.TestCase):
         import importlib
         import types
 
-        here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        here = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "anki", "addon", "amgi_bridge"))
         package = types.ModuleType("amgi_bridge_pkgtest")
         package.__path__ = [here]
         sys.modules["amgi_bridge_pkgtest"] = package
