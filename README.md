@@ -82,15 +82,8 @@ Settings (`/settings`) holds the profile and the bridge address and token.
 
 ## Command line
 
-`plusaudio/` adds generated audio to an existing `.apkg` in place, without touching note identity or review history:
-
-```bash
-cd plusaudio
-node add-audio.js "My Deck.apkg" --dry-run   # what would be generated, no key needed
-node add-audio.js "My Deck.apkg"             # needs GEMINI_API_KEY
-```
-
-See [plusaudio/README.md](plusaudio/README.md) for the options.
+`server/build/amgi` is the command line: `up`, `down`, `status`, `install`, `deck add|list|remove` and `card add|list`.
+[skills/amgi/SKILL.md](skills/amgi/SKILL.md) has the commands and their exit codes.
 
 ## Development
 
@@ -123,7 +116,7 @@ test/parity/     The server's contract: the HTTP and collection suites, their fi
 test/bridge/     The bridge client against the add-on's real server
 server/          The C server (make -C server): the amgi app on cbase (app/, amgi/), the collection core (collection/, json/), their tests (test/)
 src/utils/       The review loop and voice-activity detection the card template shares
-plusaudio/       CLI for .apkg files and the card generation policy (lib/cardGeneration/)
+plusaudio/       The card generation policy (lib/cardGeneration/) and generate-clip.js, which the Anki add-on runs
 anki/            Card template plus the mic and bridge add-ons
 skills/amgi/     Agent skill: how an LLM runs and drives amgi (linked from .claude/skills, beside e2e-ui)
 ```
@@ -153,7 +146,6 @@ amgi's own JSON lives in one folder, `plusaudio/lib/json/`, behind one named fun
 - `plusaudio/lib/json/modelAnswer.js`: Gemini's structured answers are JSON text, and nothing else is offered ([plusaudio/ANSWER_FORMAT.md](plusaudio/ANSWER_FORMAT.md) says what was measured against the alternatives).
 - `server/json/model_answer.c`, `server/json/model_answer.h`, `server/amgi/cards.c`: the same answers read by the C server, through `model_answer_parse` in the C quarantine (the quarantine's one parser under its own name), called once by `cards.c`'s port of `readStructured`.
 - `server/json/anki_json.c`, `server/json/anki_json.h`, `server/collection/decks.c`, `server/collection/notes.c`: the collection core in C, which reads and writes the same Anki formats; its one JSON reader and writer is quarantined in `server/json/` behind named functions, and the scan fails on JSON parsed or formatted anywhere else in C.
-- `plusaudio/lib/deck.js`, `plusaudio/lib/package.js`: Anki's own formats in the `.apkg` CLI (a schema 11 package's `col.models`, an older `.apkg`'s media map), read and written as Anki defines them.
 
 See [ROADMAP.md](ROADMAP.md) for what is still open.
 

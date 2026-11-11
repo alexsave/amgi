@@ -246,7 +246,7 @@ See that file's own module docstring for the full reasoning, and "Testing" below
 `test/test_deck_text.py`, `test/test_core_config.py`, `test/test_generator.py`, `test/test_bridge_auth.py` and `test/test_bridge_server.py` need no `anki` pip package and no network.
 `npm test` runs them with `ANKI_PYTHON_BIN` (a Python with the `anki` package) when it is set, and `python3` otherwise, so with it set the tests below that need `anki` run too instead of skipping.
 
-- `test_deck_text.py` checks `deck_text.py` against `plusaudio/lib/deck.js` and `audio-store.js` themselves, by shelling out to Node on the same inputs and asserting equality - not against a second, hand-written idea of what those functions do.
+- `test_deck_text.py` checks `deck_text.py` against values recorded from the JavaScript it was ported from (`plusaudio/lib/deck.js` and `audio-store.js`, since deleted), so the rules cannot drift with the original gone.
 - `test_generator.py` checks the subprocess seam - the command built, the environment passed through, exit-code and stderr handling, temp-file cleanup, and the actionable errors for a missing Node, a missing repo checkout, and a missing API key - by mocking `subprocess.run`.
   There is no API key available to these tests, and live calls are not authorised; mocking at the transport boundary is what "keep the seam narrow enough to mock" (see the top of `generator.py`) means in practice.
   `../../plusaudio/test/generate-clip.test.js` checks the other side of the same contract from Node, with a stubbed generator - also never a real client.

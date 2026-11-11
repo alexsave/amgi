@@ -18,8 +18,8 @@
 //
 //   --text      the exact text to speak. Required. Spoken as-is, with no HTML stripping
 //               or tag removal here: a caller with its own field markup (the add-on's
-//               deck_text.spoken_text, add-audio.js's own note-field handling) has
-//               already reduced it to plain spoken text before this is called.
+//               deck_text.spoken_text) has already reduced it to plain spoken text
+//               before this is called.
 //   --language  an amgi language code (ko, ja, zh_cn, es, ...). Required. Picks the
 //               language the validator transcribes and judges in, the same as everywhere
 //               else this generator is called from.
@@ -72,7 +72,7 @@
 //
 // This file is argument handling and file I/O only. It has no generation policy of its
 // own: it hands text and language straight to lib/generator.js's createGenerator, the
-// same adapter add-audio.js already uses over cardGeneration.ts.
+// adapter over cardGeneration.ts.
 
 const fs = require('node:fs');
 const path = require('node:path');
@@ -150,7 +150,7 @@ async function main(argv) {
     return 2;
   }
 
-  // Same lookup add-audio.js already uses: an environment variable wins, and a .env file
+  // An environment variable wins, and a .env file
   // next to this script (never committed - see .gitignore) is the fallback for a plain
   // Anki install with nothing else setting the environment.
   try {

@@ -2,7 +2,7 @@
 // template can play, with the right clip in the right field. Neither side's own tests catch a drift
 // on their own: the app finds the amgi fields by name (ui/src/fields.c, amgi_fields_of), the
 // template reads them by name (anki/notetype/*.html), and the clips are rendered by
-// plusaudio/lib/deck.js. This holds the three to each other, reading the real template files, not
+// the clip names and references server/amgi/web.c makes. This holds the three to each other, reading the real template files, not
 // another copy of the same assumption. Run ui/build.sh first (it builds ui/out/text_dump).
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -10,11 +10,18 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { sandboxEnv } from '../../test/sandbox-home.cjs';
-import { createRequire } from 'node:module';
 
-const require = createRequire(import.meta.url);
-const { audioReferences, renderAudioReference } = require('../../plusaudio/lib/deck');
-const { mediaName } = require('../../plusaudio/lib/audio-store');
+
+// A clip is named by a hash of (text, language), recorded from the JavaScript naming this was ported
+// from (the same names server/amgi/web.c and the add-on's deck_text.py make).
+const CLIP_NAMES = new Map([
+  ['I am a little tired today.\0en', 'plusaudio-9867373d43306191c93c.wav'],
+  ['오늘 저는 조금 피곤해요.\0ko', 'plusaudio-afdb21e134c02ce3dedd.wav'],
+]);
+const mediaName = (text, language) => CLIP_NAMES.get(`${text}\0${language}`);
+const renderAudioReference = (name) => `<audio src="${name}"></audio>`;
+const audioReferences = (field) =>
+  [...field.matchAll(/<audio\s+src="([^"]+)"[^>]*><\/audio>/g)].map((m) => ({ name: m[1], form: 'html' }));
 
 const ROOT = path.join(import.meta.dirname, '..', '..');
 const dump = path.join(ROOT, 'ui', 'out', 'text_dump');

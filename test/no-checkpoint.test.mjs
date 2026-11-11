@@ -23,16 +23,7 @@ const ROOT = path.resolve(import.meta.dirname, '..');
 /** A checkpoint by name, in any of the three languages (the pragma, the C API, the mode constants). */
 const CHECKPOINT = /wal_checkpoint|SQLITE_CHECKPOINT_[A-Z]+/g;
 
-const ALLOWED = [
-  {
-    // writePackage: pkg.db is the .apkg tool's own unpacked copy. openPackage writes the package's
-    // collection into a fresh fs.mkdtempSync(os.tmpdir()) folder and opens that, so the checkpoint
-    // folds the tool's own writes into its own temporary file before it is read back into the new
-    // package. No other process has that file, and it is never the user's collection.
-    file: 'plusaudio/lib/package.js', count: 1,
-    why: 'the .apkg tool\'s own temporary database (openPackage\'s mkdtemp copy), never a live collection',
-  },
-];
+const ALLOWED = [];
 
 /** Every checkpoint asked for in a file's code, as "line: text". */
 export function checkpointUses(src, file) {
@@ -86,7 +77,7 @@ test('the judge: a new file, a count off either way, and a stale entry fail', ()
 
 test('the scan covers the shipped C, JavaScript and Python', () => {
   const files = shippedSources(ROOT);
-  for (const f of ['server/collection/db.c', 'plusaudio/lib/package.js', 'anki/addon/amgi_bridge/bridge_ops.py']) assert.ok(files.includes(f), f);
+  for (const f of ['server/collection/db.c', 'plusaudio/generate-clip.js', 'anki/addon/amgi_bridge/bridge_ops.py']) assert.ok(files.includes(f), f);
   assert.ok(!files.some((f) => f.startsWith('cbase/') || f.startsWith('cdom/')), 'the submodules are not amgi\'s code');
 });
 

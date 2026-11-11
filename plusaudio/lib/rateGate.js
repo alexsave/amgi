@@ -12,7 +12,7 @@
 // WHERE IT LIVES. One instance per process (sharedGate below). The app's
 // server has its own port of this gate in C (server/amgi/gate.c), shared by
 // every card in it. A script run on its own (generate-clip.js, the starter
-// re-record, add-audio.js, the Anki add-on's subprocess) has only itself to
+// re-record, the Anki add-on's subprocess) has only itself to
 // coordinate, and uses its own instance; ipcGate.js lets a parent process
 // share one with scripts it forks.
 //

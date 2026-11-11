@@ -28,7 +28,7 @@ Gemini speaks every clip and checks it; get a key at https://aistudio.google.com
 Its free tier allows 10 requests per day per model, so a real deck needs billing enabled on the
 key's Google project.
 If you already export `GEMINI_API_KEY` in the environment Anki itself runs in, or keep it in a
-`.env` file in your `plusaudio` checkout (the same file `plusaudio/add-audio.js` reads), leave this
+`.env` file in your `plusaudio` checkout (the file `plusaudio/generate-clip.js` reads), leave this
 blank and either of those is used.
 Setting it here overrides both, and is stored in this add-on's own config file, in plain text:
 readable to anything with access to your Anki profile folder, and to nothing else - the same
