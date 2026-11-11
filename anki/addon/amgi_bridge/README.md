@@ -47,18 +47,15 @@ it no longer does.
 
 That does mean it needs a few things a purely-installed add-on would not:
 
-- **Node.js**, to run the same generator `plusaudio/` uses.
-  This is a real install step, not a nicety: if you do not already have Node, get it from
-  [nodejs.org](https://nodejs.org) first.
-- **A checkout of [this repo](https://github.com/alexsave/amgi)**, so `plusaudio/generate-clip.js`
-  and the shared generation policy it runs exist on disk somewhere.
-- **A Gemini API key** (https://aistudio.google.com/apikey), in the environment, in
-  `plusaudio/.env`, or pasted into this add-on's own config (see below).
+- **A checkout of [this repo](https://github.com/alexsave/amgi) with the server built in it**, so `server/build/amgi-clip`, the C program that makes one clip, exists on disk.
+  Run `make -C server` in the checkout (a C compiler is all it needs; see the root `README.md`).
+  Node is not needed.
+- **A Gemini API key** (https://aistudio.google.com/apikey), in the environment, in the checkout's `.env.local` (the file the amgi app reads its key from too), or pasted into this add-on's own config (see below).
 
 1. Copy the `amgi_bridge` folder into your Anki add-ons folder (Tools > Add-ons > View Files puts you in the right place), then restart Anki.
-2. Tools > Add-ons, select amgi_bridge, click Config, and set `plusaudio_dir` to the `plusaudio` folder of your checkout.
-   Set `node_path` too if `node` is not on the `PATH` Anki itself runs with, and `gemini_api_key` if you are not already setting `GEMINI_API_KEY` some other way.
-   See `config.md` (shown next to the config editor) for all three, in the order they are checked.
+2. Tools > Add-ons, select amgi_bridge, click Config, and set `amgi_dir` to the full path of your checkout.
+   Set `gemini_api_key` too if you are not already setting `GEMINI_API_KEY` some other way.
+   See `config.md` (shown next to the config editor) for both, and for the order the key is looked for in.
 3. Tools > amgi: Fill missing audio...
 
 If any of the above is missing or misconfigured, this add-on says so before a run starts - a message
@@ -77,7 +74,7 @@ If your deck mixes note types, the dialog offers every field name used by any of
 
 ## Which reference to write
 
-Same choice, and the same two forms, as `plusaudio`'s `--audio-tag` (see [`../../plusaudio/README.md`](../../plusaudio/README.md), "Which reference to write"):
+Two forms:
 
 - `sound` (default) - `[sound:clip.mp3]`.
   Works everywhere, Anki plays it with its own player, `R` replays it.
@@ -86,18 +83,15 @@ Same choice, and the same two forms, as `plusaudio`'s `--audio-tag` (see [`../..
 
 Re-running with the other form converts a note without regenerating its audio: the clip is a content hash of the text, so only the reference changes.
 
-## Relation to `plusaudio/`
+## Relation to the amgi app
 
-Same generation policy, same clip-naming scheme, two different situations:
+Same generation code, same clip-naming scheme, two different situations:
 
-- **`plusaudio/`** edits a `.apkg` file.
-  Use it for a deck you are going to share, or one you cannot open directly - someone else's deck, or a shared collection you do not have Anki open against right now.
-  You export, run it, and import the result back.
-- **This add-on** edits your own open collection directly, through Anki itself.
-  Use it for your own live deck, when you have Anki open.
+- **The amgi app** (the server, `amgi card add`, the web UI) makes new cards, text and audio together.
+- **This add-on** fills audio into notes that already exist in your own open collection, through Anki itself.
   No export, no import, and Anki's own GUID matching, scheduling and undo history are never in question because Anki is the one doing the writing.
 
-They stay interchangeable on the same deck: `plusaudio` and this add-on name a clip the same way (`plusaudio-<hash of profile, language, text>.wav`, or `.mp3` for a clip made before speech moved to Gemini, from `plusaudio/lib/audio-store.js`, ported for Python in `deck_text.py`), so a deck touched by one and then the other treats the other's clips as already done rather than regenerating them.
+A clip is named the same way on both sides (`plusaudio-<hash of profile, language, text>.wav`, or `.mp3` for a clip made before speech moved to Gemini; the rule is `deck_text.py`'s, recorded from the JavaScript it was ported from), so a note whose clip one side made is already done for the other.
 
 ## Idempotency and cancellation
 
@@ -111,18 +105,19 @@ See `core.apply_fill`'s docstring for why, and `test_core_collection.py`'s cance
 
 ## Generation: local, not the edge function
 
-The generation policy - prompts, Gemini speech, the transcribe-then-judge validation loop - lives in exactly one place, `plusaudio/lib/cardGeneration/cardGeneration.ts`, and this add-on does not get a second copy of it in Python.
-It is Python, so it cannot `require()` that TypeScript module the way `plusaudio/lib/generator.js` does.
-Instead `generator.py` shells out to `plusaudio/generate-clip.js`, a small Node entry point built for exactly this - text and a language in, one clip written to a file, over a documented contract (see that file's own top-of-file comment) - which in turn calls the same shared generator `plusaudio/add-audio.js` uses.
+The generation policy - prompts, Gemini speech, the transcribe-then-judge validation loop - lives in exactly one place, the server's C code (`server/amgi/cards.c`), and this add-on does not get a second copy of it in Python.
+Instead `generator.py` runs `server/build/amgi-clip` (`server/cli/clip.c`), a small C program built for exactly this.
+Text and a language go in, and one clip is written to a file, over a documented contract (the top-of-file comment of `clip.c`): exit 0 for a clip, 1 for a failure whose last stderr line is the message, 3 for a rate limit with `retry-after-ms=<n>` on stdout, and 4 for a spent daily cap.
+It makes the clip with the same `card_generate_audio` the server uses for its own cards.
 
 That contract is the seam `core.apply_fill` depends on: it takes any `fetch_audio(text) -> bytes` callable (see `generator.AudioGenerator`), so it has no idea, and does not need one, that the other end is a subprocess.
 
 This add-on used to call a deployed `cards` edge function over HTTPS instead, signed in with an amgi account's email and password stored in this add-on's own config.
 That is gone.
 Generating locally, against your own key, removes a real liability - an amgi account's password sitting in plaintext in an Anki add-on's config file - and removes the amgi account, the hosted quota, and the network dependency on Supabase entirely.
-The only network calls this add-on makes now are the ones `plusaudio/generate-clip.js` makes to Google's Gemini API, from your own machine, with your own key.
+The only network calls this add-on makes now are the ones `amgi-clip` makes to Google's Gemini API, from your own machine, with your own key.
 
-The tradeoff is Node and a repo checkout become real requirements, not optional ones - see "Install" above.
+The tradeoff is that a built repo checkout becomes a real requirement, not an optional one - see "Install" above.
 That was the whole reason the edge-function version existed in the first place: everyone who could already use the amgi web app had what it needed and nothing else.
 That reasoning no longer applies now that reaching into a live collection with no amgi account at all is the point.
 
@@ -247,9 +242,10 @@ See that file's own module docstring for the full reasoning, and "Testing" below
 `npm test` runs them with `ANKI_PYTHON_BIN` (a Python with the `anki` package) when it is set, and `python3` otherwise, so with it set the tests below that need `anki` run too instead of skipping.
 
 - `test_deck_text.py` checks `deck_text.py` against values recorded from the JavaScript it was ported from (`plusaudio/lib/deck.js` and `audio-store.js`, since deleted), so the rules cannot drift with the original gone.
-- `test_generator.py` checks the subprocess seam - the command built, the environment passed through, exit-code and stderr handling, temp-file cleanup, and the actionable errors for a missing Node, a missing repo checkout, and a missing API key - by mocking `subprocess.run`.
+- `test_generator.py` checks the subprocess seam - the command built, the environment and working directory passed, each exit code and the message it becomes, temp-file cleanup, and the actionable errors for a missing checkout, an unbuilt `amgi-clip`, and a missing API key - by mocking `subprocess.run`.
   There is no API key available to these tests, and live calls are not authorised; mocking at the transport boundary is what "keep the seam narrow enough to mock" (see the top of `generator.py`) means in practice.
-  `../../plusaudio/test/generate-clip.test.js` checks the other side of the same contract from Node, with a stubbed generator - also never a real client.
+  One test in it also runs the real `amgi-clip` through `AmgiClipAudioGenerator` against the tests' fake Gemini (`plusaudio/test/helpers/fake-gemini.js`), when `server/build/amgi-clip` is built, and skips saying so when it is not.
+  `../../../test/parity/clip.test.mjs` checks the C side of the same contract, against the same fake - never a real client.
 - `test_core_config.py` checks `AudioFillConfig`'s own validation.
 - `test_bridge_auth.py` checks the token and Origin logic (`bridge_auth.py`) as plain functions: valid token and allowed origin succeeds; a missing or wrong token fails; a foreign origin fails, even with the right token; a "simple" request shaped so a browser would never preflight it still fails, because it cannot carry the token header without losing its "simple" status.
 - `test_bridge_server.py` proves the same claims again, against a real listening socket and a real `http.client` connection, plus routing (every endpoint in the table above), the request and answer messages, the protocol check, and error-status mapping (`ValueError` to 400, `BridgeBusy` to 503, anything else to 500) - all against a fake dispatcher, so none of it needs Anki or Qt.
@@ -310,9 +306,10 @@ To check it:
    This was written against the operations API's documented shape as of Anki 2.1.45+, but its exact keyword arguments (`.with_progress(label=...)` in particular) have not been checked against the installed Anki version's `aqt/operations/__init__.py`.
    If the dialog or the run raises a `TypeError` about an unexpected keyword, that file is the first place to look.
 
-5. **`generate-clip.js` against a real Gemini key.**
-   `test_generator.py` proves the command this add-on builds and the way it handles the result are correct; `generate-clip.test.js` proves the Node side of the same contract. Neither proves a real account accepts the request.
-   To check: set `GEMINI_API_KEY` (or `plusaudio/.env`), configure `plusaudio_dir` in this add-on, run it on a small test deck, and confirm a clip comes back and plays.
+5. **`amgi-clip` against a real Gemini key.**
+   `test_generator.py` proves the command this add-on builds and the way it handles the result are correct, and runs the real binary against a fake Gemini; `test/parity/clip.test.mjs` proves the C side of the same contract.
+   Neither proves a real account accepts the request.
+   To check: set `GEMINI_API_KEY` (or put it in the checkout's `.env.local`), configure `amgi_dir` in this add-on, run it on a small test deck, and confirm a clip comes back and plays.
 
 6. **The bridge actually starts, stops, and is reachable from a browser.**
    `bridge_server.py` and `bridge_ops.py` are proven directly (see "Testing" above); what is not proven without Qt is the wiring around them in `__init__.py` and `bridge_dispatch.py`.
@@ -337,6 +334,6 @@ Adding new notes, not just filling in audio for ones that exist.
 Given this add-on already has a live `Collection`, most of what made that hard before is gone:
 
 - **Anki does the writing.** `col.new_note(notetype)` / `col.add_note(note, deck_id)` are the same shape `apply_fill` already uses for `update_note` - no GUID minting, no card creation math (Anki creates a note's cards itself from its note type's templates), no revlog to leave alone because there is none yet for a new card.
-- **What is actually new work**: a source of terms (the missing piece `plusaudio/README.md`'s own "What this is not" section already names - "it needs a source of terms... not a different generator"), and a new Node entry point alongside `generate-clip.js` for `cardGeneration.ts`'s text-generation path (`generateCardText`, not just `generateCardAudio`), since writing a new note needs both sides' text, not just a clip for text that already exists.
+- **What is actually new work**: a source of terms, and a way to reach the server's card-text generation (`server/amgi/cards.c`, which `amgi card add` and `POST /api/anki/card-text` already use) from here, alongside `amgi-clip`, since writing a new note needs both sides' text, not just a clip for text that already exists.
 - **The dialog** would grow an input for what to generate cards *about*, or a way to point at a word list, in place of - or alongside - the deck+field picker this version has.
 - **Duplicate handling** the CLI tools never had to consider: Anki's own `col.find_dupes` / note-duplicate detection is not currently called anywhere in `core.py`, and a v2 that creates notes should use it before adding one, since nothing here currently stops the same term being generated twice into the same deck.

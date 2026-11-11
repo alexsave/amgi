@@ -12,7 +12,7 @@
 #     (strtod for JSON numbers and Number()), which cbase's number gate refuses in a product root.
 #   - test/parity/dump.c: the collection-parity dump tool (no cbase in it).
 #   - server/cli/clip.c: build/amgi-clip, one clip for a caller that is not C (the add-on's Fill missing
-#     audio): card_generate_audio in process, the contract of plusaudio/generate-clip.js.
+#     audio): card_generate_audio in process, over the contract in clip.c's header.
 #
 #   make -C server                    build/amgi, build/amgi-serve, build/amgi-clip, build/collection_cli, build/app_unit, build/parity_dump
 #   make -C server check-collection   the C collection core's own tests (server/test/unit.c), under ASan

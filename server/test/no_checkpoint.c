@@ -92,7 +92,7 @@ static void test_scan(void) {
 /* The shipped predicate: which tracked paths the scan reads. */
 static void test_shipped(void) {
   CHECK(shipped("server/collection/db.c"), "a C source ships");
-  CHECK(shipped("plusaudio/generate-clip.js"), "a JavaScript source ships");
+  CHECK(shipped("anki/src/anki-loop.js"), "a JavaScript source ships");
   CHECK(shipped("anki/addon/amgi_bridge/bridge_ops.py"), "a Python source ships");
   CHECK(!shipped("server/test/c_rules.c"), "a file under test/ does not ship");
   CHECK(!shipped("anki/addon/amgi_bridge/test/test_x.py"), "a file under a test folder does not ship");
@@ -111,7 +111,7 @@ int main(int argc, char **argv) {
   test_scan();
   test_shipped();
   const char *root = argv[1];
-  int saw_db = 0, saw_gen = 0, saw_py = 0;
+  int saw_db = 0, saw_js = 0, saw_py = 0;
   for (int i = 2; i < argc; i++) {
     const char *rel = argv[i];
     if (strncmp(rel, "cbase/", 6) == 0 || strncmp(rel, "cdom/", 5) == 0) {
@@ -121,7 +121,7 @@ int main(int argc, char **argv) {
     }
     if (!shipped(rel)) continue;
     if (strcmp(rel, "server/collection/db.c") == 0) saw_db = 1;
-    if (strcmp(rel, "plusaudio/generate-clip.js") == 0) saw_gen = 1;
+    if (strcmp(rel, "anki/src/anki-loop.js") == 0) saw_js = 1;
     if (strcmp(rel, "anki/addon/amgi_bridge/bridge_ops.py") == 0) saw_py = 1;
     char path[4096];
     if (snprintf(path, sizeof path, "%s/%s", root, rel) >= (int)sizeof path) {
@@ -150,7 +150,7 @@ int main(int argc, char **argv) {
     free(src);
   }
   CHECK(saw_db, "the scan sees the C (server/collection/db.c)");
-  CHECK(saw_gen, "the scan sees the JavaScript (plusaudio/generate-clip.js)");
+  CHECK(saw_js, "the scan sees the JavaScript (anki/src/anki-loop.js)");
   CHECK(saw_py, "the scan sees the Python (anki/addon/amgi_bridge/bridge_ops.py)");
   printf("no checkpoint: %d checks, %d failed\n", checks, failures);
   return failures ? 1 : 0;

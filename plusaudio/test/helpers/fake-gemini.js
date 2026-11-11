@@ -6,9 +6,9 @@
 // connection, framing, trailers, status details) exactly as it does against
 // generativelanguage.googleapis.com, and only the far end is ours.
 //
-// Every model call amgi makes goes through cardGeneration/gemini.ts's one
-// client, and this fake tells the four kinds of request apart the way the
-// real service would see them:
+// Every model call amgi makes goes through one client (server/amgi/gemini.c),
+// and this fake tells the four kinds of request apart the way the real service
+// would see them:
 //
 //   speech      generationConfig.responseModalities includes "AUDIO"
 //   judge       an inlineData audio part AND a responseJsonSchema

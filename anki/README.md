@@ -70,7 +70,7 @@ through the app needs no conversion step at all.
 The add-on's Tools > amgi: Fill missing audio... fills the same fields into notes that already exist.
 
 If the deck you want audio in is one you already have open in Anki, [`addon/amgi_bridge/`](addon/amgi_bridge/README.md) does the same generation directly against your live collection, with no export or import step.
-It runs entirely on your own machine against your own Gemini key - no amgi account, same as `plusaudio/` itself - but it does need Node and a checkout of this repo; see its README's "Install" section.
+It runs entirely on your own machine against your own Gemini key - no amgi account - but it does need a checkout of this repo with the server built in it (`make -C server`, which builds the `amgi-clip` it runs); Node is not needed. See its README's "Install" section.
 
 ### Notes you already added through the amgi app, before this fix
 

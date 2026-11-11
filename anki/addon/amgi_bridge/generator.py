@@ -1,14 +1,14 @@
 # Where this add-on gets a clip's audio bytes from.
 #
 # The generation policy - prompts, Gemini speech, the
-# transcribe-then-judge validation loop - lives in exactly one place,
-# plusaudio/lib/cardGeneration/cardGeneration.ts, and is not allowed a second
-# copy. This add-on is Python and cannot require() that TypeScript module the
-# way plusaudio/lib/generator.js does, so it shells out instead, to
-# plusaudio/generate-clip.js - a small Node entry point built for exactly
-# this: text and a language in, one clip written to a file, over a documented
-# argument/exit-code contract (see that file's own top-of-file comment, which
-# is the actual contract; this file is one side of it).
+# transcribe-then-judge validation loop - lives in exactly one place, the
+# amgi server's C code (server/amgi/cards.c, card_generate_audio), and is not
+# allowed a second copy. This add-on is Python, so it runs that code the one
+# way a program that is not C can: as the small C program built for exactly
+# this, server/build/amgi-clip (server/cli/clip.c). Text and a language in,
+# one clip written to a file, over a documented argument/exit-code contract
+# (clip.c's own top-of-file comment is the actual contract; this file is the
+# other side of it).
 #
 # That is the seam this file exists to be. AudioGenerator below is the only
 # thing core.apply_fill depends on - a callable from text to bytes - so
@@ -18,29 +18,37 @@
 # This add-on runs entirely on the machine it is installed on: no amgi
 # account, no hosted quota, no network dependency but Google's Gemini API
 # (which speaks the clip and checks it). What it needs from that machine -
-# Node, a checkout of this repo (for plusaudio/generate-clip.js and the
-# shared policy it requires), and a Gemini API key - is what
-# NodeCliAudioGenerator.ensure_ready checks up
+# a checkout of this repo with amgi-clip built in it (`make -C server`), and
+# a Gemini API key - is what AmgiClipAudioGenerator.ensure_ready checks up
 # front, in __init__.py, before a run touches a single note, so a missing
 # piece is one clear message instead of one identical failure per note.
 #
-# test/test_generator.py mocks subprocess.run, the transport boundary here,
-# the same way the previous edge-function version of this file mocked
-# urllib.request.urlopen: everything on this side of that boundary (argument
-# construction, exit-code handling, error messages, file cleanup) is what a
-# mock can prove, and generate-clip.js's own test/generate-clip.test.js
-# proves the other side of the same contract from Node.
+# test/test_generator.py mocks subprocess.run, the transport boundary here:
+# everything on this side of that boundary (argument construction, exit-code
+# handling, error messages, file cleanup) is what a mock can prove. One test
+# there also runs the real amgi-clip against the tests' fake Gemini, and
+# test/parity/clip.test.mjs proves the C side of the same contract.
 #
 # License: GNU AGPL, version 3 or later, to match Anki's own.
 
 from __future__ import annotations
 
+import math
 import os
-import shutil
+import re
 import subprocess
-import sys
 import tempfile
 from typing import Optional, Protocol
+
+# Where amgi-clip is built, and the key file it reads, both relative to the checkout (amgi_dir).
+CLIP_PATH = os.path.join("server", "build", "amgi-clip")
+ENV_FILE = ".env.local"
+
+# amgi-clip's exit codes (server/cli/clip.c's header).
+EXIT_RATE_LIMITED = 3
+EXIT_DAILY_CAP = 4
+
+_RETRY_AFTER = re.compile(r"^retry-after-ms=(\d+)$", re.MULTILINE)
 
 
 class AudioGenerator(Protocol):
@@ -50,66 +58,36 @@ class AudioGenerator(Protocol):
 
 class GenerationError(Exception):
     """Raised when a clip could not be produced, with a message meant to be
-    shown to the user as-is: a missing Node install, a missing repo
-    checkout, a missing API key, or generate-clip.js's own failure."""
+    shown to the user as-is: a missing checkout or amgi-clip build, a missing
+    API key, or amgi-clip's own failure."""
 
 
-def _find_node(node_path: str) -> str:
-    """Resolves `node_path` to an executable, or raises a GenerationError
-    explaining exactly what to fix.
-
-    A bare command name (the default, "node") is resolved against PATH with
-    shutil.which rather than handed straight to subprocess: Anki is commonly
-    launched as a GUI app rather than from a shell, and a GUI app on macOS in
-    particular does not inherit a shell's PATH (an rc file's `nvm`/`brew`
-    additions in particular), so "node happens to work in Terminal" and
-    "node happens to work inside Anki" are different claims. Failing that
-    check now, with a clear message, beats letting subprocess.run raise a
-    bare FileNotFoundError deep inside a run.
-    """
-    if os.sep in node_path or (os.altsep and os.altsep in node_path):
-        if os.path.isfile(node_path) and os.access(node_path, os.X_OK):
-            return node_path
+def _find_clip(amgi_dir: str) -> str:
+    """The path of amgi-clip in the checkout at `amgi_dir`, or a
+    GenerationError saying exactly what to fix."""
+    if not amgi_dir:
         raise GenerationError(
-            f"amgi audio fill's configured node_path ({node_path!r}) is not an executable file. "
-            "Fix node_path in Tools > Add-ons > amgi_bridge > Config, or clear it to search PATH."
+            "amgi audio fill needs amgi_dir set to the folder of your amgi checkout first: "
+            "open Tools > Add-ons, select amgi_bridge, click Config, and fill it in."
         )
-    found = shutil.which(node_path)
-    if found is None:
+    clip_path = os.path.join(amgi_dir, CLIP_PATH)
+    if not (os.path.isfile(clip_path) and os.access(clip_path, os.X_OK)):
         raise GenerationError(
-            "amgi audio fill needs Node.js to generate audio and could not find "
-            f"{node_path!r} on PATH. Install Node (https://nodejs.org) or set node_path in "
-            "Tools > Add-ons > amgi_bridge > Config to its full path (run `which node` in a "
-            "terminal where `node` already works to find it)."
+            f"amgi audio fill's configured amgi_dir ({amgi_dir!r}) has no built {CLIP_PATH} in it. "
+            "Run `make -C server` in that checkout of https://github.com/alexsave/amgi, or point "
+            "amgi_dir at one where it is built (Tools > Add-ons > amgi_bridge > Config)."
         )
-    return found
+    return clip_path
 
 
-def _find_script(plusaudio_dir: str) -> str:
-    if not plusaudio_dir:
-        raise GenerationError(
-            "amgi audio fill needs plusaudio_dir set to your amgi checkout's plusaudio folder "
-            "first: open Tools > Add-ons, select amgi_bridge, click Config, and fill it in."
-        )
-    script_path = os.path.join(plusaudio_dir, "generate-clip.js")
-    if not os.path.isfile(script_path):
-        raise GenerationError(
-            f"amgi audio fill's configured plusaudio_dir ({plusaudio_dir!r}) has no "
-            "generate-clip.js in it. Point plusaudio_dir at the plusaudio/ folder of a checkout "
-            "of https://github.com/alexsave/amgi (Tools > Add-ons > amgi_bridge > Config)."
-        )
-    return script_path
-
-
-def _env_file_has_key(plusaudio_dir: str) -> bool:
-    """Same fallback generate-clip.js itself checks (a plusaudio/.env file),
-    read here only to decide whether ensure_ready can call the key
-    "resolvable" without actually spawning Node. Deliberately tolerant of a
-    malformed .env: this is a courtesy pre-check, not a parser generate-clip.js
-    depends on - a bad line here is generate-clip.js's own error to raise."""
-    env_path = os.path.join(plusaudio_dir, ".env")
+def _env_file_has_key(amgi_dir: str) -> bool:
+    """Whether the checkout's .env.local, amgi-clip's own fallback, holds a
+    GEMINI_API_KEY, read here only to decide whether ensure_ready can call the
+    key "resolvable" without spawning anything. Deliberately tolerant of a
+    malformed file: this is a courtesy pre-check, not a parser amgi-clip
+    depends on - a bad line here is amgi-clip's own error to raise."""
     try:
-        with open(env_path, "r", encoding="utf-8") as handle:
+        with open(os.path.join(amgi_dir, ENV_FILE), "r", encoding="utf-8") as handle:
             for line in handle:
                 line = line.strip()
                 if line.startswith("GEMINI_API_KEY=") and line[len("GEMINI_API_KEY="):].strip():
@@ -119,51 +97,79 @@ def _env_file_has_key(plusaudio_dir: str) -> bool:
     return False
 
 
-class NodeCliAudioGenerator:
-    """Generates a clip by shelling out to `node generate-clip.js`.
+def _last_line(text: str) -> str:
+    """The last non-empty line of `text`: amgi-clip's message to show a
+    person (a log line with a timestamp can come before it)."""
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    return lines[-1] if lines else ""
+
+
+def _failure_message(result: subprocess.CompletedProcess) -> str:
+    """The sentence a failed amgi-clip run is shown to the user as."""
+    if result.returncode == EXIT_RATE_LIMITED:
+        match = _RETRY_AFTER.search(result.stdout or "")
+        if match:
+            seconds = max(1, math.ceil(int(match.group(1)) / 1000))
+            return (
+                f"Gemini asked amgi to wait {seconds} s before the next request (it is limiting how "
+                "many requests your key makes). Run Fill missing audio again after that; notes "
+                "already filled are kept."
+            )
+        return (
+            "Gemini is limiting how many requests your key makes. Wait a minute and run Fill "
+            "missing audio again; notes already filled are kept."
+        )
+    if result.returncode == EXIT_DAILY_CAP:
+        return (
+            "Your Gemini key's daily cap is spent, so no more audio can be made today. Run Fill "
+            "missing audio again tomorrow, or enable billing on the key's Google project for a "
+            "higher cap; notes already filled are kept."
+        )
+    return _last_line(result.stderr or "") or f"amgi-clip exited {result.returncode} with no message"
+
+
+class AmgiClipAudioGenerator:
+    """Generates a clip by running the checkout's server/build/amgi-clip.
 
     One key is needed, GEMINI_API_KEY: it speaks each clip and checks that
     the clip says what the note says. Config precedence, most specific
     first: `gemini_api_key` in this add-on's own config (if set, passed to
     the subprocess as GEMINI_API_KEY, overriding whatever it would otherwise
     inherit); otherwise GEMINI_API_KEY already in this process's environment,
-    inherited by the subprocess as normal; otherwise generate-clip.js's own
-    fallback, plusaudio/.env next to it. The same three
-    places, in the same order, are what ensure_ready checks before a run
-    starts.
+    inherited by the subprocess as normal; otherwise amgi-clip's own
+    fallback, .env.local at the root of the checkout (amgi-clip runs there).
+    The same three places, in the same order, are what ensure_ready checks
+    before a run starts.
     """
 
     def __init__(
         self,
-        node_path: str,
-        plusaudio_dir: str,
+        amgi_dir: str,
         *,
         gemini_api_key: Optional[str] = None,
         timeout: float = 120.0,
     ) -> None:
-        self._node_path = node_path
-        self._plusaudio_dir = plusaudio_dir
+        self._amgi_dir = amgi_dir
         self._gemini_api_key = gemini_api_key or None
         self._timeout = timeout
 
     def ensure_ready(self) -> None:
-        """Checks Node, the script, and the API key up front, so a bad
-        config fails once, before any note is attempted, rather than as a
-        wall of identical per-note failures once a run is already under way.
-        Raises GenerationError with a message meant to be shown as-is."""
-        _find_node(self._node_path)
-        _find_script(self._plusaudio_dir)
-        if self._gemini_api_key or os.environ.get("GEMINI_API_KEY") or _env_file_has_key(self._plusaudio_dir):
+        """Checks the checkout, its amgi-clip build, and the API key up
+        front, so a bad config fails once, before any note is attempted,
+        rather than as a wall of identical per-note failures once a run is
+        already under way. Raises GenerationError with a message meant to be
+        shown as-is."""
+        _find_clip(self._amgi_dir)
+        if self._gemini_api_key or os.environ.get("GEMINI_API_KEY") or _env_file_has_key(self._amgi_dir):
             return
         raise GenerationError(
             "amgi audio fill needs a Gemini API key (https://aistudio.google.com/apikey) and found none. "
             "Set gemini_api_key in Tools > Add-ons > amgi_bridge > Config, or set GEMINI_API_KEY in the "
-            f"environment Anki runs in, or put GEMINI_API_KEY=... in {os.path.join(self._plusaudio_dir, '.env')}."
+            f"environment Anki runs in, or put GEMINI_API_KEY=... in {os.path.join(self._amgi_dir, ENV_FILE)}."
         )
 
     def fetch_audio(self, text: str, language: str) -> bytes:
-        node_path = _find_node(self._node_path)
-        script_path = _find_script(self._plusaudio_dir)
+        clip_path = _find_clip(self._amgi_dir)
 
         env = os.environ.copy()
         if self._gemini_api_key:
@@ -172,14 +178,12 @@ class NodeCliAudioGenerator:
         handle, out_path = tempfile.mkstemp(prefix="amgi-audio-", suffix=".wav")
         os.close(handle)
         try:
-            os.remove(out_path)  # generate-clip.js must be the one to create it, not us.
-            result = self._run_node(node_path, script_path, text, language, out_path, env)
+            os.remove(out_path)  # amgi-clip must be the one to create it, not us.
+            result = self._run_clip(clip_path, text, language, out_path, env)
             if result.returncode != 0:
-                message = result.stderr.strip() or f"generate-clip.js exited {result.returncode} with no message"
-                raise GenerationError(message)
-            self._forward_warnings(result.stderr)
+                raise GenerationError(_failure_message(result))
             if not os.path.isfile(out_path):
-                raise GenerationError("generate-clip.js exited 0 but wrote no clip; this is a bug in generate-clip.js")
+                raise GenerationError("amgi-clip exited 0 but wrote no clip; this is a bug in amgi-clip")
             with open(out_path, "rb") as handle:
                 return handle.read()
         finally:
@@ -188,35 +192,23 @@ class NodeCliAudioGenerator:
             except OSError:
                 pass
 
-    def _run_node(
-        self, node_path: str, script_path: str, text: str, language: str, out_path: str, env: dict
+    def _run_clip(
+        self, clip_path: str, text: str, language: str, out_path: str, env: dict
     ) -> subprocess.CompletedProcess:
-        args = [node_path, script_path, "--text", text, "--language", language, "--out", out_path]
+        args = [clip_path, "--text", text, "--language", language, "--out", out_path]
         try:
             return subprocess.run(
-                args, capture_output=True, text=True, timeout=self._timeout, env=env, cwd=self._plusaudio_dir
+                args, capture_output=True, text=True, timeout=self._timeout, env=env, cwd=self._amgi_dir
             )
         except FileNotFoundError as error:
-            # Defensive: ensure_ready and _find_node already check node_path is an
-            # executable file, but Node could still vanish between that check and
-            # this call (an upgrade, a removed nvm version). Same actionable
-            # message either way, rather than a bare traceback mid-run.
-            raise GenerationError(f"could not run {node_path!r}: {error}") from error
+            # Defensive: ensure_ready and _find_clip already check amgi-clip is an
+            # executable file, but it can still vanish between that check and this
+            # call (a `make clean` in the checkout). Same actionable message either
+            # way, rather than a bare traceback mid-run.
+            raise GenerationError(
+                f"could not run {clip_path!r}: {error}. Run `make -C server` in your amgi checkout."
+            ) from error
         except subprocess.TimeoutExpired as error:
             raise GenerationError(
-                f"generate-clip.js did not finish within {self._timeout:.0f}s for {text!r}"
+                f"amgi-clip did not finish within {self._timeout:.0f}s for {text!r}"
             ) from error
-
-    @staticmethod
-    def _forward_warnings(stderr: str) -> None:
-        # cardGeneration.ts's own non-fatal warnings (a missing reading for a
-        # language whose script hides one, a validator falling back after
-        # the audio judge is unreachable) arrive on stderr even on a
-        # successful run. The previous, edge-function version of this file
-        # had no way to surface these at all - they stayed in the edge
-        # function's own server logs. Printing them here is strictly more
-        # visible than that, not a new requirement: this add-on still does
-        # not fail or warn the user in the UI over them.
-        text = stderr.strip()
-        if text:
-            print(text, file=sys.stderr)

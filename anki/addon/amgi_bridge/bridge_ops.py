@@ -305,8 +305,8 @@ def _romanization_warning(
     field_names: Sequence[str], fields: Sequence[str], language: Optional[str], learning_field_index: Optional[int]
 ) -> Optional[str]:
     """Port of server/collection/notes.c's romanizationWarning - see
-    cardText.ts's looksRomanized (mirrored here by deck_text.looks_romanized)
-    for the policy. Both `language` and `learning_field_index` are optional
+    deck_text.looks_romanized (server/collection/text.c's looks_romanized on
+    the server's side) for the policy. Both `language` and `learning_field_index` are optional
     and caller-supplied (a bridge client typing a note by hand can send
     neither, and nothing is checked); only the ONE field the caller names is
     ever looked at, never every field, so a note's known-language side being

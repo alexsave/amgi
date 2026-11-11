@@ -2,37 +2,34 @@
 
 This add-on generates entirely on your own machine: no amgi account, no hosted service, and no
 quota but your own Gemini account's.
-It needs three things to do that, and checks all three before a run starts so a bad setting is one
-clear message, not a stall or a traceback partway through.
+It needs two things to do that, a built checkout and a Gemini key, and checks both before a run
+starts so a bad setting is one clear message, not a stall or a traceback partway through.
 
-`plusaudio_dir`
+`amgi_dir`
 Required.
-The full path to the `plusaudio` folder of a checkout of this add-on's own repo
-(`https://github.com/alexsave/amgi`), for example `/Users/you/amgi/plusaudio`.
-This is where `generate-clip.js` lives, and it is what actually makes a clip: this add-on has no
-generation logic of its own, and is never going to grow a second copy of it in Python.
+The full path of a checkout of this add-on's own repo (`https://github.com/alexsave/amgi`), for
+example `/Users/you/amgi`, with the server built in it (`make -C server`, run in that folder).
+What makes a clip is that build's `server/build/amgi-clip`, the same C code the amgi app makes its
+own clips with: this add-on has no generation logic of its own, and is never going to grow a second
+copy of it in Python.
+It runs in this folder, so the `.env.local` there is where it looks for a key (see below).
 See `../../README.md` (the repo root) if you have not checked the repo out yet.
-
-`node_path`
-Optional.
-Leave it blank to use whatever `node` resolves to on your system `PATH`.
-Anki is usually launched as a GUI app rather than from a terminal, and on macOS in particular a GUI
-app does not see the `PATH` a shell's startup file (`nvm`, Homebrew, ...) sets up - so "`node` works
-in Terminal" and "`node` works inside Anki" can genuinely differ.
-If Tools > amgi: Fill missing audio... says it cannot find Node, run `which node` in a terminal
-where you know it works and paste that full path in here.
 
 `gemini_api_key`
 Optional.
 Gemini speaks every clip and checks it; get a key at https://aistudio.google.com/apikey.
 Its free tier allows 10 requests per day per model, so a real deck needs billing enabled on the
 key's Google project.
-If you already export `GEMINI_API_KEY` in the environment Anki itself runs in, or keep it in a
-`.env` file in your `plusaudio` checkout (the file `plusaudio/generate-clip.js` reads), leave this
-blank and either of those is used.
+If you already export `GEMINI_API_KEY` in the environment Anki itself runs in, or keep it in the
+`.env.local` file at the root of your checkout (the file the amgi app and `amgi-clip` both read),
+leave this blank and either of those is used.
 Setting it here overrides both, and is stored in this add-on's own config file, in plain text:
 readable to anything with access to your Anki profile folder, and to nothing else - the same
-tradeoff `plusaudio/.env` already makes for the same key.
+tradeoff `.env.local` already makes for the same key.
+
+`plusaudio_dir` and `node_path`, from before audio was made by `amgi-clip`, are no longer read.
+If your config still has them, they are ignored, and you can delete them; set `amgi_dir` instead.
+Node is not needed any more, and a key in `plusaudio/.env` is not read: move it to `.env.local`.
 
 None of this add-on's earlier Supabase/amgi-account settings (`supabase_url`, `supabase_anon_key`,
 `email`, `password`) exist any more.

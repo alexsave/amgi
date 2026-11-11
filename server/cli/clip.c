@@ -1,14 +1,14 @@
 /* amgi-clip: one clip, generated on demand, for a caller that is not C (the Anki add-on's Fill missing
- * audio, anki/addon/amgi_bridge/generator.py). It is plusaudio/generate-clip.js in C, with the same
- * contract, whose header comment is the one written down: the arguments, the exit codes 0 to 4, what
- * stdout and stderr carry, and the key's lookup. The generation is server/amgi's card_generate_audio,
- * through the one Gemini client (gemini.c) and the one rate gate of the process (gate.c), so a clip
- * made here meets the same validation the server's own clips meet.
+ * audio, anki/addon/amgi_bridge/generator.py). This comment is the contract, and the add-on is the
+ * other side of it: the arguments, the exit codes 0 to 4, what stdout and stderr carry, and the
+ * key's lookup. The generation is server/amgi's card_generate_audio, through the one Gemini client
+ * (gemini.c) and the one rate gate of the process (gate.c), so a clip made here meets the same
+ * validation the server's own clips meet.
  *
  *   amgi-clip --text <text> --language <code> --out <path.wav> [--reading <text>]
  *
  *   exit 0  the clip was written to --out (written under a temporary name and renamed, so a caller
- *           never sees half a clip)
+ *           never sees half a clip); nothing on stdout or stderr
  *   exit 1  no clip: no key, a network or API error, the validation gave up, or --out cannot be
  *           written; the last stderr line is the message to show a person
  *   exit 2  usage: a missing, unknown or valueless argument (nothing was attempted)
@@ -17,8 +17,9 @@
  *
  * On exit 1, 3 and 4 a clip left at --out by an earlier run is removed, so the file's existence says
  * whether this run made it. The key is GEMINI_API_KEY from the environment, else the same key from
- * the file AMGI_CLIP_ENV_FILE names (default plusaudio/.env, read from the working directory, where
- * the server also reads its own .env.local). GEMINI_API_BASE moves the endpoint (the tests' fake). */
+ * the file AMGI_CLIP_ENV_FILE names (default .env.local, read from the working directory: run from
+ * the repository root, it is the file the server reads its key from too). GEMINI_API_BASE moves the
+ * endpoint (the tests' fake). */
 #include <errno.h>
 #include <limits.h>
 #include <stdio.h>
@@ -32,7 +33,7 @@
 #include "../amgi/messages.h"
 
 #define USAGE "Usage: amgi-clip --text <text> --language <code> --out <path.wav> [--reading <text>]\n"
-#define ENV_FILE_DEFAULT "plusaudio/.env"
+#define ENV_FILE_DEFAULT ".env.local"
 #define EXIT_FAIL 1
 #define EXIT_USAGE 2
 #define EXIT_RATE_LIMITED 3
@@ -52,8 +53,9 @@ static const char **slot_of(clip_opts *o, const char *flag) {
   return NULL;
 }
 
-/* parseArgs, in its order: 0, or -1 with the sentence a usage error names in `problem`. A repeated
- * flag takes its last value, and a value may begin with "--", as Node's parser took it. */
+/* The arguments, in order: 0, or -1 with the sentence a usage error names in `problem`. A repeated
+ * flag takes its last value, and a value may begin with "--" (the word after a value flag is always
+ * its value). */
 static int parse_args(int argc, char **argv, clip_opts *o, char *problem, size_t cap) {
   for (int i = 1; i < argc; i++) {
     const char *arg = argv[i];
@@ -116,7 +118,7 @@ int main(int argc, char **argv) {
   }
 
   /* The environment wins, and the file only supplies what the environment does not set. A missing or
-   * malformed file is no key at all, as Node's loadEnvFile was caught and ignored by generate-clip.js. */
+   * malformed file is no key at all: the missing-key message below says what to do. */
   const char *env_file = getenv("AMGI_CLIP_ENV_FILE");
   if (!env_file || !*env_file) env_file = ENV_FILE_DEFAULT;
   char env_err[512];
@@ -141,7 +143,7 @@ int main(int argc, char **argv) {
   int code = 0;
   if (failed) {
     fprintf(stderr, "%.*s\n", (int)e.message.n, e.message.p);
-    unlink(o.out); /* a failed run leaves no clip at --out (generate-clip.js's removeStaleOutput) */
+    unlink(o.out); /* a failed run leaves no clip at --out, so a stale one cannot pass for this run's */
     if (e.kind == GE_RATE) {
       long long wait = e.retry_after_ms < 0 ? 0 : (long long)e.retry_after_ms;
       printf("retry-after-ms=%lld\n", wait);

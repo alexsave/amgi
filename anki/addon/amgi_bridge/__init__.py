@@ -9,8 +9,8 @@
 #
 # 2. Tools > amgi: Bridge status... - a local HTTP bridge (bridge_server.py,
 #    bridge_dispatch.py, bridge_ops.py) that lets the amgi web UI talk to
-#    this same collection while Anki is running, mirroring what the Node
-#    layer (plusaudio/lib/collection/) does when Anki is closed. Off by
+#    this same collection while Anki is running, mirroring what the server's
+#    collection code (server/collection/, C) does when Anki is closed. Off by
 #    default; see README.md, "Local HTTP bridge", for the full security
 #    model.
 #
@@ -45,7 +45,7 @@ from .bridge_dispatch import AqtBridgeDispatcher
 from .bridge_server import BridgeServer
 from .core import AudioFillConfig, FillResult, apply_fill, plan_fill
 from .dialogs import BridgeStatusDialog, FillAudioDialog
-from .generator import GenerationError, NodeCliAudioGenerator
+from .generator import AmgiClipAudioGenerator, GenerationError
 from .deck_index import repair_deck_index
 from .notetype import AssetsMissing, assets_dir_for, ensure_notetype
 
@@ -57,10 +57,10 @@ def _config() -> dict:
     return mw.addonManager.getConfig(__name__) or {}
 
 
-def _build_generator(config: dict) -> NodeCliAudioGenerator:
-    return NodeCliAudioGenerator(
-        node_path=(config.get("node_path") or "node"),
-        plusaudio_dir=(config.get("plusaudio_dir") or ""),
+def _build_generator(config: dict) -> AmgiClipAudioGenerator:
+    # A config from before amgi-clip may still carry node_path and plusaudio_dir; nothing reads them.
+    return AmgiClipAudioGenerator(
+        amgi_dir=(config.get("amgi_dir") or ""),
         gemini_api_key=(config.get("gemini_api_key") or None),
     )
 
@@ -68,7 +68,7 @@ def _build_generator(config: dict) -> NodeCliAudioGenerator:
 def _run_fill(fill_config: AudioFillConfig) -> None:
     generator = _build_generator(_config())
     try:
-        # A missing Node, repo checkout or API key is a local, instant check
+        # A missing checkout, amgi-clip build or API key is a local, instant check
         # (no subprocess, no network) - do it before the progress dialog even
         # opens, so a bad config is one clear message, not a background op
         # that starts and then immediately fails.

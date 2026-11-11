@@ -10,11 +10,10 @@
 // excuses, except for an entry marked `leaving`: work in flight removes those, and they may have
 // fewer hits than stated, or none.
 //
-// amgi's own JavaScript JSON lives in one folder, plusaudio/lib/json, behind one named function per
-// use, and its C JSON in one quarantine, server/json, behind three. Outside them there is only
-// Anki's own JSON (its collection and package formats, which amgi reads and writes as Anki defines
-// them) and the Gemini model's answer, read through the quarantine. The Anki add-on's Python
-// is scanned too.
+// amgi's shipped JavaScript and Python have no JSON at all, and its C has JSON in one quarantine,
+// server/json, behind three named functions. Through them pass only Anki's own JSON (its
+// collection formats, which amgi reads and writes as Anki defines them) and the Gemini model's
+// answer. A fork() counts as a use, since Node serializes its IPC channel as JSON.
 //
 // README.md's "JSON that remains and why" names the same files; the last test holds the two
 // together.
@@ -28,7 +27,6 @@ import path from 'node:path';
 import { shippedSources, stripJsComments, stripPyComments } from './source-scan.mjs';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
-const FOLDER = 'plusaudio/lib/json/';
 /**
  * The C quarantine: amgi's C reads and writes JSON only here (server/json/anki_json.h says why), through
  * three named functions: anki_json_parse and anki_json_stringify for Anki's columns, and
@@ -38,7 +36,7 @@ const C_FOLDER = 'server/json/';
 
 /**
  * JavaScript: JSON.x, .json() (Response.json, NextResponse.json, request.json), and fork(), whose
- * IPC channel Node serializes as JSON unless the call asks for 'advanced' (see BINARY_IPC).
+ * IPC channel Node serializes as JSON by default.
  */
 const JS_JSON = /\bJSON\s*\.\s*[A-Za-z_]+|\.json\s*\(|\bfork\s*\(/g;
 /**
@@ -51,31 +49,14 @@ const C_JSON = /\b(?:anki_json_parse|anki_json_stringify|model_answer_parse|json
 /** Python: the json module imported, or any of its four calls. */
 const PY_JSON = /^\s*import\s+json\b|^\s*from\s+json\s+import\b|\bjson\s*\.\s*(?:loads|dumps|load|dump)\s*\(/g;
 
-/** A fork() call whose options choose V8's binary clone for the channel: plusaudio/lib/ipcGate.js's FORK_IPC_OPTIONS, or the option written out. */
-const BINARY_IPC = /\bFORK_IPC_OPTIONS\b|\bserialization\s*:\s*['"]advanced['"]/;
-
-/** The text of the call whose "(" is at `open`, through its matching ")" (or to the end). */
-function callAt(src, open) {
-  let depth = 0;
-  for (let i = open; i < src.length; i++) {
-    if (src[i] === '(') depth++;
-    else if (src[i] === ')' && --depth === 0) return src.slice(open, i + 1);
-  }
-  return src.slice(open);
-}
-
 const ANSWER_FORMAT = 'plusaudio/ANSWER_FORMAT.md';
 const ANKI = 'FORCED by Anki: ';
 /**
- * kind: 'ours' (amgi's own JSON, which must live in FOLDER), 'model' (the Gemini model's answer in C:
- * the quarantine's model_answer_parse and its one caller), or 'anki' (Anki's own formats, read
- * and written where the collection code is).
+ * kind: 'model' (the Gemini model's answer in C: the quarantine's model_answer_parse and its one
+ * caller) or 'anki' (Anki's own formats, read and written where the collection code is). There is
+ * no kind for amgi's own JSON: it has none.
  */
 const ALLOWED = [
-  {
-    file: `${FOLDER}modelAnswer.js`, count: 1, kind: 'ours',
-    why: `FORCED by Gemini: the API's structured output is JSON text, and parseModelAnswer reads it once; the caller then checks every field against its format. ${ANSWER_FORMAT} records what was measured against function calling and labelled lines.`,
-  },
   {
     file: `${C_FOLDER}anki_json.c`, count: 2, kind: 'anki',
     why: `${ANKI}the C collection core's one JSON reader and writer (anki_json_parse and anki_json_stringify, defined here), for Anki's JSON columns, written to give the bytes JSON.parse and JSON.stringify gave.`,
@@ -94,7 +75,7 @@ const ALLOWED = [
   },
   {
     file: 'server/amgi/cards.c', count: 1, kind: 'model',
-    why: `FORCED by Gemini: cardGeneration.ts's readStructured in C reads each structured answer (card text, the audio verdict, the transcript match) once, through model_answer_parse, and checks every field against its format. ${ANSWER_FORMAT}.`,
+    why: `FORCED by Gemini: cards.c's parse_structured reads each structured answer (card text, the audio verdict, the transcript match) once, through model_answer_parse, and checks every field against its format. ${ANSWER_FORMAT}.`,
   },
   {
     file: 'server/collection/decks.c', count: 5, kind: 'anki',
@@ -116,19 +97,6 @@ export function jsonUses(src, file) {
   code.split('\n').forEach((line, n) => {
     for (const m of line.matchAll(py ? PY_JSON : c ? C_JSON : JS_JSON)) hits.push({ line: n + 1, text: m[0].trim() });
   });
-  if (c) return hits.map((h) => `${h.line}: ${h.text}`);
-  if (!py) {
-    // A fork that asks for the binary channel is not a JSON use: drop it, looking at the whole call.
-    const lineStarts = [0];
-    for (let i = 0; i < code.length; i++) if (code[i] === '\n') lineStarts.push(i + 1);
-    const binary = new Set();
-    for (const m of code.matchAll(/\bfork\s*\(/g)) {
-      if (BINARY_IPC.test(callAt(code, m.index + m[0].length - 1))) {
-        binary.add(lineStarts.findLastIndex((start) => start <= m.index) + 1);
-      }
-    }
-    return hits.filter((h) => !(h.text.startsWith('fork') && binary.has(h.line))).map((h) => `${h.line}: ${h.text}`);
-  }
   return hits.map((h) => `${h.line}: ${h.text}`);
 }
 
@@ -162,8 +130,6 @@ test('the scan reads code and not comments, in each language', () => {
   assert.deepEqual(jsonUses('const a = JSON.parse(x);\nconst b = await res.json();\nfork(script, args);\n', 'a.js'),
     ['1: JSON.parse', '2: .json(', '3: fork(']);
   assert.deepEqual(jsonUses('return NextResponse.json({ ok: true })', 'a.js'), ['1: .json(']);
-  assert.deepEqual(jsonUses('fork(a, b, {\n  stdio: [],\n  ...FORK_IPC_OPTIONS,\n});\nfork(a, b, { serialization: "advanced" });\nfork(a, b, { stdio: [] });\n', 'a.js'),
-    ['6: fork('], 'a fork that asks for the binary channel is not a use; one that does not is');
   assert.deepEqual(jsonUses('// it used to JSON.stringify(x)\n/* JSON.parse(a)\n   res.json() */\nconst u = "https://x/y.json"; // .json()\n', 'a.js'), [],
     'a mention in a comment, or a .json file name, is not a use');
   assert.deepEqual(jsonUses('const u = "http://a//b"; JSON.stringify(u)', 'a.js'), ['1: JSON.stringify'], 'a // in a string hides nothing');
@@ -197,7 +163,7 @@ test('the scan covers the shipped code', () => {
   // Canaries: if a root moves or the filter starts dropping one, the scan looks at nothing and passes forever.
   for (const must of [
     'server/amgi/routes.c', 'server/collection/bridge.c', 'server/app/amgi_app.c', 'ui/wire/wire.mjs', 'ui/wire/wire.c',
-    'plusaudio/generate-clip.js', 'plusaudio/lib/cardGeneration/cardGeneration.ts', `${FOLDER}modelAnswer.js`,
+    'server/cli/clip.c', 'plusaudio/lib/cardGeneration/geminiWire.ts', 'src/utils/reviewLoop.js',
     'anki/addon/amgi_bridge/bridge_server.py', 'anki/addon/amgi_bridge/bridge_ops.py', 'anki/src/anki-loop.js',
     'anki/notetype/front.html',
   ]) assert.ok(files.includes(must), `${must} is scanned`);
@@ -210,18 +176,18 @@ test('no shipped code parses or formats JSON, but for the uses listed with their
   assert.deepEqual(problems, [],
     `\n${problems.join('\n')}\n\n`
     + 'amgi\'s own boundaries cross as fixed binary layouts (ui/wire/wire.c is the model: one schema table that every\n'
-    + `reader and writer walks). If something outside amgi really does force JSON here, put the call in ${FOLDER}\n`
+    + `reader and writer walks). If something outside amgi really does force JSON here, put the call in ${C_FOLDER}\n`
     + 'behind a named function and add it to ALLOWED in test/no-json.test.mjs with who forces it.\n');
 });
 
-test('amgi\'s own JSON lives in the one folder, and every entry says why', () => {
+test('every allowed use is C, Anki\'s or the model\'s, and says why', () => {
   for (const a of ALLOWED) {
     assert.ok(a.why.length > 40, `${a.file}: a reason, not a label`);
-    if (a.kind === 'ours') assert.ok(a.file.startsWith(FOLDER), `${a.file}: our own JSON belongs in ${FOLDER}`);
-    else if (a.kind === 'model') assert.ok(a.file.startsWith(C_FOLDER) || a.file === 'server/amgi/cards.c', `${a.file}: the model's answer is read in ${C_FOLDER}, by cards.c alone`);
+    assert.match(a.file, /\.[ch]$/, `${a.file}: only C reaches JSON, through ${C_FOLDER}`);
+    if (a.kind === 'model') assert.ok(a.file.startsWith(C_FOLDER) || a.file === 'server/amgi/cards.c', `${a.file}: the model's answer is read in ${C_FOLDER}, by cards.c alone`);
     else assert.equal(a.kind, 'anki', `${a.file}: kind ${a.kind}`);
   }
-  assert.ok(ALLOWED.find((a) => a.file === `${FOLDER}modelAnswer.js`).why.includes(ANSWER_FORMAT));
+  assert.ok(ALLOWED.find((a) => a.file === `${C_FOLDER}model_answer.c`).why.includes(ANSWER_FORMAT));
 });
 
 test('C reaches JSON only through the quarantine\'s three named functions', () => {

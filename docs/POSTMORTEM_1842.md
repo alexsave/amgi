@@ -172,7 +172,7 @@ Friction: the owner's corrections on wording and scope, the incident, a one-hour
 | 18 | Say "final, no more pushes" before asking for a merge; never push to a branch whose PR may merge | foolish | Open (proposed here, from 5.6) |
 | 19 | ETAs: post a time only for work in our own hands, and re-post when scope changes | foolish | Open (proposed here, from 5.2) |
 | 20 | Durable files only (no /tmp), lint plus tests on every PR | all | Done as rules (thread decision and memory); keep in every brief |
-| 21 | Replace the add-on's Node `generate-clip.js` with a C tool | foolish | Open (follow-up recorded at the 19:32 handoff) |
+| 21 | Replace the add-on's Node `generate-clip.js` with a C tool | foolish | Done: `server/build/amgi-clip` (#60); the add-on runs it and the Node generator is deleted (branch add-on-uses-amgi-clip) |
 | 22 | Deck rename onto a taken name: refuse, or Anki's "+" (branch decks-anki-names) | Alex | Open decision |
 | 23 | Every hands-on check of a build that writes a collection runs on a copied profile and a fake HOME, never the real one, until merged and verified | cdom, all | Done as a rule (in place since the re-test) |
 | 24 | During a live check, change one thing at a time (no server restart or rebuild mid-check) | all | Done as a rule |
