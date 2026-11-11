@@ -104,14 +104,6 @@ const ALLOWED = [
     file: 'server/collection/notes.c', count: 5, kind: 'anki',
     why: `${ANKI}the C port of notes.js and notetypes.js: col.models (schema 11), and nextPos in col.conf (schema 11) or the config table (schema 18), through the quarantine.`,
   },
-  {
-    file: 'plusaudio/lib/deck.js', count: 1, kind: 'anki',
-    why: `${ANKI}an .apkg of schema 11 keeps its note types in col.models, JSON, which the CLI reads to find the fields.`,
-  },
-  {
-    file: 'plusaudio/lib/package.js', count: 2, kind: 'anki',
-    why: `${ANKI}an older .apkg's media member is a JSON map from member number to file name; reading and writing that package format means reading and writing it.`,
-  },
 ];
 
 /** Every JSON use in a file's source, as "line: text". */

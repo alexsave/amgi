@@ -63,21 +63,11 @@ It is not recommended: Anki does not recognise a bare filename as a media refere
 The amgi app itself already writes both audio
 fields in this form when it adds or bulk-adds notes to this note type - it
 finds `CueAudio`/`TargetAudio` by their names (see `amgi_fields_of` in
-`ui/src/fields.c`) and renders every clip with
-`plusaudio/lib/deck.js`'s own `renderAudioReference(..., 'html')`, the same
-function `plusaudio/` and `addon/amgi_bridge/` use. A deck built entirely
+`ui/src/fields.c`) and renders every clip as `<audio src="...">` (`server/amgi/web.c`),
+the same form the `amgi_bridge` add-on writes. A deck built entirely
 through the app needs no conversion step at all.
 
-`plusaudio/` writes the fields for you.
-Give it `--audio-tag html` and it writes `<audio src="...">` references in exactly the form above:
-
-```bash
-node plusaudio/add-audio.js "My Deck.apkg" --audio-tag html
-```
-
-Its default is `--audio-tag sound`, which is right for an ordinary Anki deck and wrong for this note type.
-A deck already generated one way converts to the other by re-running with the other flag: the clip filenames are content hashes, so nothing is regenerated and no note ends up with two references to the same clip.
-See [`../plusaudio/README.md`](../plusaudio/README.md).
+The add-on's Tools > amgi: Fill missing audio... fills the same fields into notes that already exist.
 
 If the deck you want audio in is one you already have open in Anki, [`addon/amgi_bridge/`](addon/amgi_bridge/README.md) does the same generation directly against your live collection, with no export or import step.
 It runs entirely on your own machine against your own Gemini key - no amgi account, same as `plusaudio/` itself - but it does need Node and a checkout of this repo; see its README's "Install" section.

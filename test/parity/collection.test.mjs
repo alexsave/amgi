@@ -203,7 +203,7 @@ async function operations(t, impl, schema) {
   await t.cmd(`addNote ${note(created, basic, ['wrong count'])}`);
   await t.cmd(`addNote ${note(created, 4242, ['x', 'y'])}`);
   await t.cmd(`addNote ${note(created, basic, ['', ''])}`);
-  // Field text as Anki stores it (deck.js ankiFields): ASCII control characters but tab and line
+  // Field text as Anki stores it (the JavaScript ankiFields this was ported from): ASCII control characters but tab and line
   // feed removed, the field separator 0x1f among them, then NFC.
   await t.cmd(`addNote ${note(created, basic, ['sep\u001fin field', 'x'])}`);
   await t.cmd(`addNote ${note(created, basic, ['\u0000nul \u0001\u0008 \u000b\u000c\r\n\t \u001b esc \u007f del', 'cr\r\nlf'])}`);
