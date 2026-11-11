@@ -10,7 +10,7 @@ here="$(cd "$(dirname "$0")" && pwd)"
 root="$(cd "$here/../.." && pwd)"
 amgi="$root/server/build/amgi"
 pidfile="$root/server/build/amgi.pid"
-. "$root/ui/tools/sandbox-home.sh"
+. "$root/tests/e2e/ui/sandbox-home.sh"
 home="$(fresh_home)"
 unset CBASE_ENV_FILE GEMINI_API_KEY GEMINI_API_BASE
 

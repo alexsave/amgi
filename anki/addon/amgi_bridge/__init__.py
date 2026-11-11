@@ -24,7 +24,7 @@
 # Everything GUI-shaped lives in this file and dialogs.py, and neither can be
 # run outside Anki itself - Qt is not installable in the environment this was
 # written in. core.py, deck_text.py, generator.py, bridge_ops.py,
-# bridge_auth.py and bridge_server.py have no aqt import and are what test/
+# bridge_auth.py and bridge_server.py have no aqt import and are what tests/anki/addon/
 # actually exercises; see README.md, "What is unverified", for the exact
 # manual steps to check this file.
 #

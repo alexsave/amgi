@@ -77,7 +77,7 @@ Smaller writes give the same mechanism with fewer zero pages.
 ## The failing test
 
 - Branch `incident-1842` off origin/c-backend-l2 (3e122fa), commit 26a94e7, pushed, no PR.
-- `tests/server/c/incident_1842.c`, built and run by `make -C server build/incident_1842 && server/build/incident_1842 <repo>`.
+- `server/test/incident_1842.c`, built and run by `make -C server build/incident_1842 && server/build/incident_1842 <repo>`.
   It is also part of `make -C server check-collection`.
 - The test needs no Anki.
   A child process plays Anki through SQLite: an exclusive-mode WAL, then the lock loss as a raw open and close of the file, then a whole-file write.

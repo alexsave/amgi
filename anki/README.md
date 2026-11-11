@@ -13,7 +13,7 @@ anki/
   media/             what you copy into collection.media: _amgi-loop.js, _amgi-loop.css
   src/anki-loop.js   the Anki-specific half of the loop (source, not shipped)
   tools/build-loop.sh  builds media/_amgi-loop.js from amgi's own source (make -C anki)
-  test/              a node:test suite, and a Chrome harness that drives the template
+  tests/anki/        a node:test suite for build-loop.sh (the Chrome drive of the template is tests/e2e/anki/)
   addon/amgi_mic/    the desktop add-on that grants the microphone
   addon/amgi_bridge/  the desktop add-on that fills in missing audio, and exposes a local HTTP bridge, from inside a live collection
 ```
@@ -160,7 +160,7 @@ The same suite asserts that whole blocks of the shared sources appear in the bun
 
 ```bash
 make -C anki                      # rebuilds it after changing a shared file
-npm test                          # includes anki/test
+npm test                          # includes tests/anki
 ```
 
 The alternative was a documented copy with a diffing test, which is the same amount of machinery for a weaker guarantee: a copy can be edited and the test then tells you the two files differ, rather than making the deck's copy impossible to edit at all.
@@ -173,7 +173,7 @@ The alternative was a documented copy with a diffing test, which is the same amo
 node tests/e2e/anki/drive.js          # add HEADLESS=false to watch it
 ```
 
-`test/harness/reviewer.html` is a stand-in for Anki's reviewer: one long-lived document with a `#qa` element whose `innerHTML` is replaced per side, scripts re-executed the way `ts/reviewer/index.ts` re-executes them, a `pycmd` that accepts the commands `_linkHandler` whitelists, and a media folder served over HTTP so filenames resolve the way Anki resolves them.
+`tests/e2e/anki/reviewer.html` is a stand-in for Anki's reviewer: one long-lived document with a `#qa` element whose `innerHTML` is replaced per side, scripts re-executed the way `ts/reviewer/index.ts` re-executes them, a `pycmd` that accepts the commands `_linkHandler` whitelists, and a media folder served over HTTP so filenames resolve the way Anki resolves them.
 `drive.js` runs the real template files out of `notetype/` against it, with the synthetic microphone from `.claude/skills/e2e-ui/scripts/fakevoice.js`.
 
 It checks, across five sessions (with a microphone, with one that refuses outright, with one that never answers at all, with a card that has no cue audio, and with no Web Audio in the client at all):
@@ -205,7 +205,7 @@ What that run confirmed, and changed:
 
 1. **Anki's exporter carrying `_amgi-loop.js` and `_amgi-loop.css` into an `.apkg`.**
    Read from [rslib/src/text.rs](https://github.com/ankitects/anki/blob/main/rslib/src/text.rs), `UNDERSCORED_REFERENCES` and `UNDERSCORED_CSS_IMPORTS`, which is why the template quotes the filenames rather than building them in JavaScript.
-   `test/build-loop.test.js` runs those two regexes against the templates, but only real Anki can prove the exporter agrees.
+   `tests/anki/build-loop.test.js` runs those two regexes against the templates, but only real Anki can prove the exporter agrees.
    To check: export the deck with media, unzip it, and look for both files in the media map.
 
 2. **AnkiDroid, AnkiMobile and AnkiWeb, all of it.**
