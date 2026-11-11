@@ -1,8 +1,9 @@
-// The contract of build/amgi-clip (server/cli/clip.c), proven against the tests' fake Gemini
-// (plusaudio/test/helpers/fake-gemini.js, in process): the same cases generate-clip.test.js
-// asserts of the Node script it replaces, plus the rate gate's wait range. The binary is run as a
+// The contract of build/amgi-clip (server/cli/clip.c's header comment), proven against the tests'
+// fake Gemini (plusaudio/test/helpers/fake-gemini.js, in process): every exit code, what stdout and
+// stderr carry, where the key comes from, and the rate gate's wait range. The binary is run as a
 // child with a sandboxed environment; every spawn is async, so the fake keeps answering while
-// the child waits on it.
+// the child waits on it. The add-on's side of the same contract is
+// anki/addon/amgi_bridge/test/test_generator.py.
 //
 // Needs make -C server build/amgi-clip first (the test says so when it is missing).
 import { test } from 'node:test';
@@ -29,10 +30,10 @@ function scratch() {
   return { dir, out: path.join(dir, 'clip.wav'), envFile: path.join(dir, 'no-such.env') };
 }
 
-/** Runs the binary with `args`; resolves with its exit code and both streams. */
-function runClip(args, env) {
+/** Runs the binary with `args` in `cwd`; resolves with its exit code and both streams. */
+function runClip(args, env, cwd = ROOT) {
   return new Promise((resolve, reject) => {
-    const child = spawn(CLIP, args, { cwd: ROOT, env: sandboxEnv(env), stdio: ['ignore', 'pipe', 'pipe'] });
+    const child = spawn(CLIP, args, { cwd, env: sandboxEnv(env), stdio: ['ignore', 'pipe', 'pipe'] });
     let stdout = '';
     let stderr = '';
     child.stdout.setEncoding('utf8');
@@ -191,7 +192,21 @@ test('the key comes from the env file when the environment does not set it', asy
   }
 });
 
-test('the environment wins over the env file, as Node loadEnvFile left it', async () => {
+test('with no AMGI_CLIP_ENV_FILE the key comes from .env.local in the working directory', async () => {
+  const paths = scratch();
+  fs.writeFileSync(path.join(paths.dir, '.env.local'), 'GEMINI_API_KEY=from-env-local\n');
+  const fake = await fakeGemini({ transcribe: '안녕' });
+  try {
+    const env = clipEnv(fake, paths, { key: undefined, AMGI_CLIP_ENV_FILE: undefined });
+    const { code, stderr } = await runClip(request(paths.out), env, paths.dir);
+    assert.equal(code, 0, stderr);
+    assert.equal(fake.of('speech')[0].headers['x-goog-api-key'], 'from-env-local');
+  } finally {
+    await fake.close();
+  }
+});
+
+test('the environment wins over the env file', async () => {
   const paths = scratch();
   fs.writeFileSync(paths.envFile, 'GEMINI_API_KEY=from-file\n');
   const fake = await fakeGemini({ transcribe: '안녕' });
