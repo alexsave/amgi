@@ -26,7 +26,7 @@ The rule the C server follows before it lets SQLite near the file (`collection_o
   A `-wal` with a `-shm` is another SQLite user in normal mode, and a `-shm` alone is what one left; amgi cannot tell a live one from a dead one, and refusing costs only a retry.
 - amgi checks again right after `sqlite3_open_v2`, before any statement, in case Anki arrived in between.
 - amgi opens with `SQLITE_OPEN_READWRITE` and never `SQLITE_OPEN_CREATE`, so a collection that went away is never made anew, empty.
-- amgi never asks for a checkpoint (`wal_checkpoint`, `sqlite3_wal_checkpoint`), and `test/no-checkpoint.test.mjs` holds that for all of amgi's shipped code.
+- amgi never asks for a checkpoint (`wal_checkpoint`, `sqlite3_wal_checkpoint`), and `server/test/no_checkpoint.c` holds that for all of amgi's shipped code.
   The only checkpoint left is SQLite's own as amgi's connection closes, which, with no `-wal` there when it opened, folds back only amgi's own commit.
 - Why: Anki's own backup on close drops its exclusive lock while its `-wal` is still live.
   The server's checkpoint then cut that `-wal` to nothing, and Anki's next frames left a hole that its close wrote into the collection as zero pages.
