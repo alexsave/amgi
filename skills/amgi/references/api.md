@@ -137,21 +137,10 @@ When a model is limited, the API answers 429, an `error` with `retryAfterMs` and
 - no `notStarted`: the card had started and hit a per-minute limit; wait `retryAfterMs` and retry it.
 - `dailyCap: true`: the day's quota is spent; stop and tell the user.
 
-One rate gate in the server owns all waiting (`server/amgi/gate.c`; `plusaudio/lib/rateGate.js` for generate-clip.js), so wait exactly `retryAfterMs` and add no backoff of your own.
+One rate gate in the server owns all waiting (`server/amgi/gate.c`), so wait exactly `retryAfterMs` and add no backoff of your own.
 Make cards one after another; parallel calls only queue on the same gate.
 
-## generate-clip.js
-
-`plusaudio/generate-clip.js` writes one WAV (the add-on's fill-audio runs it; unlike `server/build/amgi` it needs Node).
-It reads `GEMINI_API_KEY` from the environment only, not from `.env.local`, and reaches Gemini over gRPC (HTTP/2 to `generativelanguage.googleapis.com:443`), so a network that only lets HTTP/1.1 through a proxy blocks it.
-
-```bash
-cd plusaudio
-GEMINI_API_KEY=... node generate-clip.js --text "역이 어디예요?" --language ko --out /tmp/clip.wav
-```
-
-It exits 3 when rate limited (stdout then carries `retry-after-ms=<n>`) and 4 when the daily cap is spent.
-A card's text, and rewriting one side of a card, is the app's own (`POST /api/anki/card-text`); there is no script for it.
+A card's text and its audio, and rewriting one side of a card, go through the app (`POST /api/anki/card-text`) or `amgi card add`; nothing else makes them.
 
 ## The bridge directly
 

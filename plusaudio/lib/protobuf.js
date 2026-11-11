@@ -1,17 +1,13 @@
 'use strict';
 
-// Just enough protobuf to read and write the metadata Anki puts in an .apkg,
-// and the wire primitives under cardGeneration/geminiWire.ts's Gemini messages.
-//
-// Two of a package's members are protobuf messages rather than text: `meta` is
-// a PackageMetadata, and a modern package's `media` is a MediaEntries
-// (proto/anki/import_export.proto). Both are a handful of scalar fields, and
-// the encoding they use is small: a varint tag whose low three bits are the
-// wire type and whose remaining bits are the field number, followed either by
-// a varint or by a length and that many bytes. Hand-rolling it is a few dozen
-// lines and keeps this package's zero-dependency rule intact, where a protobuf
-// runtime would be a megabyte of code and a build step to generate stubs from
-// a .proto we would have to keep in sync with Anki's anyway.
+// Just enough protobuf for the wire primitives under cardGeneration/geminiWire.ts's
+// Gemini messages, which the tests' fake Gemini (test/helpers/fake-gemini.js)
+// speaks. The encoding is small: a varint tag whose low three bits are the wire
+// type and whose remaining bits are the field number, followed either by a
+// varint, a fixed-width value, or a length and that many bytes. Hand-rolling it
+// is a few dozen lines and keeps this package's zero-dependency rule intact,
+// where a protobuf runtime would be a megabyte of code and a build step.
+// amgi's own protobuf is C (server/collection/pb.c, and server/amgi/gemini.c for Gemini).
 //
 // https://protobuf.dev/programming-guides/encoding/
 

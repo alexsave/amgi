@@ -31,7 +31,7 @@ from aqt.qt import (
 from .core import AUDIO_TAG_FORMS, AudioFillConfig
 
 # A starting point, not a limit: the field is editable, and any code
-# cardGeneration.ts's transcription and audio judge understand works, even if
+# the transcription and audio judge (server/amgi/cards.c) understand works, even if
 # it is not in this shortlist.
 COMMON_LANGUAGES = [
     "ko", "ja", "zh_cn", "zh_hk", "es", "fr", "de", "it", "pt", "ru",

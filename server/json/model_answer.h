@@ -3,7 +3,7 @@
  * (plusaudio/ANSWER_FORMAT.md records what was measured against the alternatives), so this one parse
  * stays; it is the quarantine's own JSON.parse (anki_json.h), under its own name so the no-JSON
  * scan counts it with its own reason. The caller checks the value against its format
- * (server/amgi/cards.c, read_structured). */
+ * (server/amgi/cards.c, parse_structured). */
 #ifndef AMGI_MODEL_ANSWER_H
 #define AMGI_MODEL_ANSWER_H
 #include "anki_json.h"

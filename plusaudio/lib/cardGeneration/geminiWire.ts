@@ -1,6 +1,8 @@
 // The protobuf messages amgi exchanges with Gemini over gRPC, and the codec
-// that turns them into bytes and back. gemini.ts owns the call; this module
-// owns only the wire format.
+// that turns them into bytes and back, for the tests' fake Gemini
+// (plusaudio/test/helpers/fake-gemini.js), which decodes amgi's requests and
+// encodes its answers with it. amgi's own client is C (server/amgi/gemini.c,
+// the same messages), so the fake is an independent reading of the wire.
 //
 // The service is google.ai.generativelanguage.v1beta.GenerativeService
 // (googleapis/googleapis, google/ai/generativelanguage/v1beta/

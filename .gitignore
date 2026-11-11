@@ -31,6 +31,7 @@ plusaudio-audio/
 # ...except the starter deck's, which are source, not generated content.
 # They are the one set of clips amgi ships rather than makes, because the
 # people they exist for are exactly the people with no key to make them
-# with (see server/amgi/starter.c). Rebuilt by
-# scripts/build-starter-audio.js.
+# with (see server/amgi/starter.c). They were recorded by
+# scripts/build-starter-audio.js, deleted with the Node generator it ran
+# through (git history has it); there is no tool to re-record them now.
 !anki/starter/media/*.mp3

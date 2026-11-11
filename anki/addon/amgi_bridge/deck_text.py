@@ -179,13 +179,13 @@ def is_owned_media_name(filename: str) -> bool:
     return bool(_OWNED_NAME.match(filename) or _LEGACY_OWNED_NAME.search(filename))
 
 
-# Port of plusaudio/lib/cardGeneration/cardText.ts's looksRomanized
-# - see that file's docstring for the policy (a soft
-# warning on hand-authored text, never a hard rule, and never applied to
-# LLM-generated text, which the generation prompt already forbids
-# romanising). Ranges chosen to match \p{Script=...} for the same scripts in
-# the JS version; Python's stdlib `re` has no Unicode script property
-# support, so this is done by hand with explicit codepoint blocks instead.
+# The romanisation guard, ported from cardText.ts's looksRomanized (since
+# removed); the server's copy is server/collection/text.c's looks_romanized.
+# The policy: a soft warning on hand-authored text, never a hard rule, and
+# never applied to LLM-generated text, which the generation prompt already
+# forbids romanising. Ranges chosen to match \p{Script=...} for the same
+# scripts in the JS version; Python's stdlib `re` has no Unicode script
+# property support, so this is done by hand with explicit codepoint blocks.
 _NATIVE_SCRIPT_RANGES: dict[str, tuple[tuple[int, int], ...]] = {
     "ko": ((0xAC00, 0xD7A3), (0x1100, 0x11FF), (0x3130, 0x318F)),  # Hangul syllables + Jamo
     "ja": ((0x3040, 0x309F), (0x30A0, 0x30FF), (0x4E00, 0x9FFF), (0x3400, 0x4DBF)),  # kana + kanji (Han)
@@ -209,7 +209,7 @@ def looks_romanized(text: str, language: str) -> bool:
     """True when `text` is written entirely in the Latin alphabet even though
     `language`'s own script is something else. Mixed text (a gloss, a proper
     noun) is not flagged: this only fires when the native script is entirely
-    absent. Mirrors cardText.ts's looksRomanized exactly."""
+    absent. Agrees with server/collection/text.c's looks_romanized."""
     ranges = _NATIVE_SCRIPT_RANGES.get(_normalize_language_code(language))
     if not ranges:
         return False

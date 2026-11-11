@@ -1,6 +1,6 @@
-/* plusaudio/lib/rateGate.js in C: the one rate gate the process shares between every Gemini call
- * in it, asked before each request how long to wait and told after each answer whether it was
- * refused. rateGate.js's header has the policy, kept number for number:
+/* The one rate gate the process shares between every Gemini call in it, asked before each request
+ * how long to wait and told after each answer whether it was refused (ported from
+ * plusaudio/lib/rateGate.js, since removed, number for number). The policy:
  *   - a 429 blocks the model for a doubling backoff from 2 s up to 180 s (MAX_WAIT_MS), with
  *     Google's retryDelay as the floor (which may pass the cap);
  *   - it learns a per-minute cap, 80% of what got through in the last minute, once at least three

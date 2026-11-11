@@ -2,7 +2,7 @@
   "name": "plusaudio",
   "private": true,
   "license": "AGPL-3.0-or-later",
-  "description": "The card generation policy and generate-clip.js, the Node entry point the Anki add-on runs. Deliberately kept out of the web app's dependency tree.",
+  "description": "Test support: the tests' fake Gemini, its protobuf codec, the seedable random source and the bridge to the real Anki library. Nothing here ships.",
   "engines": {
     "node": "^24.12.0 || ^25.1.0 || >=26.0.0"
   },
