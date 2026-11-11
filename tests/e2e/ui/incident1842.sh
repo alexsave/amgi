@@ -1,13 +1,13 @@
 #!/bin/bash
 # Incident 18:42 end to end, one command: builds what it needs (the page, the server, the Anki
 # stand-in), makes a fresh temp folder for the server's and the stand-in's HOME, runs
-# ui/tools/incident1842.mjs with it and deletes it after. The collection is a copy in that folder of
+# tests/e2e/ui/incident1842.mjs with it and deletes it after. The collection is a copy in that folder of
 # the repo's own fixture; no real Anki folder is read or written.
 #
-#   ui/tools/incident1842.sh        (ANKI_PYTHON_BIN, when set, adds the anki library's Check Database)
+#   tests/e2e/ui/incident1842.sh        (ANKI_PYTHON_BIN, when set, adds the anki library's Check Database)
 set -uo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
-root="$(cd "$here/../.." && pwd)"
+root="$(cd "$here/../../.." && pwd)"
 cd "$root"
 if [ "${INCIDENT1842_NO_BUILD:-}" != 1 ]; then
   server/tools/submodules.sh || exit 1

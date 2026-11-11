@@ -106,7 +106,7 @@ build/incident_1842: $(COL_SRC) ../tests/server/c/incident_1842.c $(COL_HDR)
 	$(CC) $(NATIVE_CFLAGS) $(NATIVE_SAN) -o $@ $(COL_SRC) ../tests/server/c/incident_1842.c $(NATIVE_LIBS)
 
 # Anki's side of the same sequence as a program of its own, for the browser drive of it
-# (ui/tools/incident1842.sh): a real server and a real page in the window instead of the calls.
+# (tests/e2e/ui/incident1842.sh): a real server and a real page in the window instead of the calls.
 build/anki_standin: ../tests/server/c/anki_standin.c
 	@mkdir -p $(@D)
 	$(CC) $(NATIVE_CFLAGS) -O1 -o $@ ../tests/server/c/anki_standin.c $(SQLITE_LDFLAGS) -lsqlite3

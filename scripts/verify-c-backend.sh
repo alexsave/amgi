@@ -127,17 +127,17 @@ s_check() { cd "$clone" && nice -n 10 make -j"$jobs" -C server check; }
 s_check_asan() { cd "$clone" && nice -n 10 make -j"$jobs" -C server check-asan; }
 s_npm_test() { cd "$clone" && nice -n 10 npm ci --no-audit --no-fund && nice -n 10 npm test; }
 s_drives() {
-  # ui/tools/e2e.sh starts the fake Gemini and three C servers on free ports, and builds nothing
+  # tests/e2e/ui/e2e.sh starts the fake Gemini and three C servers on free ports, and builds nothing
   # itself: npm run e2e builds the page and the server first. The fixture is made here.
   # Chrome must not run under the throwaway HOME: it has no ~/Library/Keychains there and macOS pops a
   # keychain dialog at the owner. So Chrome gets the real HOME, and only the servers get a temp one,
   # which e2e.sh must set itself (env HOME=... on the server start lines). Refuse to run otherwise,
   # because a server under the real HOME could reach the real Anki2 folder.
   if ! grep -q 'HOME=' "$clone/ui/tools/e2e.sh"; then
-    echo "ui/tools/e2e.sh does not give the servers their own HOME; not running the drives under the real HOME" >&2
+    echo "tests/e2e/ui/e2e.sh does not give the servers their own HOME; not running the drives under the real HOME" >&2
     return 1
   fi
-  cd "$clone" && nice -n 10 npm run build && nice -n 10 ui/tools/fixture.sh && HOME="$REAL_HOME" nice -n 10 npm run e2e
+  cd "$clone" && nice -n 10 npm run build && nice -n 10 tests/e2e/ui/fixture.sh && HOME="$REAL_HOME" nice -n 10 npm run e2e
 }
 s_make_start() {
   cd "$clone" || return 1

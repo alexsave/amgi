@@ -1,7 +1,7 @@
 # Adds to a fixture collection what the UI's screens need beyond the e2e-ui skill's own fixture: a
 # Korean deck with a subdeck, plain Basic notes in it, a deck longer than a page, and two "amgi Listening" notes with real
 # clips (a WAV and an MP3, made by ffmpeg) so the deck page shows its audio chips.
-#   <python with anki> ui/tools/fixture-extra.py <dir>/collection.anki2
+#   <python with anki> tests/e2e/ui/fixture-extra.py <dir>/collection.anki2
 import os
 import subprocess
 import sys
@@ -27,7 +27,7 @@ for i in range(1, 26):
 
 amgi = col.models.by_name("amgi Listening")
 if amgi is None:
-    sys.exit("install amgi first (ui/tools/fixture-install.mjs): no amgi Listening note type")
+    sys.exit("install amgi first (tests/e2e/ui/fixture-install.mjs): no amgi Listening note type")
 with tempfile.TemporaryDirectory() as tmp:
     clips = {}
     for name, freq, ext in [("cue-hello", 440, "wav"), ("target-hello", 660, "mp3"), ("cue-thanks", 520, "wav"), ("target-thanks", 780, "wav")]:

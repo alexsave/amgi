@@ -5,7 +5,7 @@
 // for one), with a profile of its own (cdom/tools/cdp.mjs):
 //
 //   1. <HOME>/Anki2/User 1/collection.anki2, a copy, with amgi's add-ons installed and its note type
-//      not yet in the collection (ui/tools/fixture-install.mjs --addons-only), so every page load's
+//      not yet in the collection (tests/e2e/ui/fixture-install.mjs --addons-only), so every page load's
 //      template check finds the collection behind and, when the server says Anki is closed,
 //      POSTs /api/anki/install on its own (ui/src/template.c), a write into the collection;
 //   2. server/build/anki_standin plays Anki: exclusive WAL, its backup's lock drop, a whole-file
@@ -20,18 +20,18 @@
 // close writes the hole as zeros), green with it (dbf48a1: a -wal or -shm beside the collection is
 // "locked", never opened).
 //
-//   node ui/tools/incident1842.mjs <empty temp dir>      (ui/tools/incident1842.sh does it all)
+//   node tests/e2e/ui/incident1842.mjs <empty temp dir>      (tests/e2e/ui/incident1842.sh does it all)
 import { spawn, execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { seed } from './seed.mjs';
-import { startServer } from '../../tests/server/parity/servers.mjs';
-import { sandboxEnv } from '../../test/sandbox-home.cjs';
+import { startServer } from '../../server/parity/servers.mjs';
+import { sandboxEnv } from '../../../test/sandbox-home.cjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const root = path.resolve(here, '..', '..');
+const root = path.resolve(here, '..', '..', '..');
 const cdom = process.env.CDOM || path.join(root, 'cdom');
 const { sleep } = await import(path.join(cdom, 'tools', 'cdp.mjs'));
 const { launchChrome } = await import('./chrome.mjs');

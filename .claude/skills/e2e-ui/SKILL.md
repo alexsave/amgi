@@ -36,25 +36,25 @@ node --test tests/server/parity/collection.test.mjs   # confirms both actually w
 That test is not part of this skill - it is the proof that the C collection core writes what the real Anki library writes - but it exercises exactly the same `ANKI_PYTHON_BIN`/`ANKI_FIXTURE_APKG` machinery this skill's scripts reuse (`scripts/fixture.js` wraps `tests/server/plusaudio/collection/helpers/anki-python.js` rather than re-implementing it), so a green run here means the fixture-building and lock-holding steps below will work too.
 
 `npm test` needs only `ANKI_PYTHON_BIN`: the collection tests that import a shared deck build their own small one with Anki (`buildSharedDeckPackage` in that helper), so no test depends on what is in your package.
-`ANKI_FIXTURE_APKG` is for the browser drives: `ui/tools/fixture.sh` imports it into the UI fixture every drive copies (its decks are the list the screens show), and `states.mjs` builds its "before amgi" collection the same way (`scripts/fixture.js`).
+`ANKI_FIXTURE_APKG` is for the browser drives: `tests/e2e/ui/fixture.sh` imports it into the UI fixture every drive copies (its decks are the list the screens show), and `states.mjs` builds its "before amgi" collection the same way (`scripts/fixture.js`).
 
 ## Building the fixture
 
 ```bash
-ui/tools/fixture.sh            # .e2e/fixture/collection.anki2
+tests/e2e/ui/fixture.sh            # .e2e/fixture/collection.anki2
 ```
 
 Wipes and rebuilds `.e2e/fixture` (gitignored) every run, from nothing, with the real `anki` library end to end - not a hand-rolled `.anki2` writer:
-`scripts/fixture.js`'s hand-made decks and notes with everything in `ANKI_FIXTURE_APKG` imported on top, then amgi installed into it the way the **Install into Anki** button does (`ui/tools/fixture-install.mjs`, with the fixture folder as the Anki folder, so nothing lands in a real Anki), then `ui/tools/fixture-extra.py`'s Korean decks, a 26-note deck for paging, and amgi notes with clips.
+`scripts/fixture.js`'s hand-made decks and notes with everything in `ANKI_FIXTURE_APKG` imported on top, then amgi installed into it the way the **Install into Anki** button does (`tests/e2e/ui/fixture-install.mjs`, with the fixture folder as the Anki folder, so nothing lands in a real Anki), then `tests/e2e/ui/fixture-extra.py`'s Korean decks, a 26-note deck for paging, and amgi notes with clips.
 
 ## Running every drive
 
 ```bash
-make build && ui/tools/e2e.sh           # or: npm run e2e
+make build && tests/e2e/ui/e2e.sh           # or: npm run e2e
 ```
 
-`ui/tools/e2e.sh` starts what the drives need, each on a free port, and stops it all on exit: the fake Gemini and three app servers (`server/build/amgi serve`, started with `CBASE_LISTEN=127.0.0.1:0`, their `cbase: listening <host>:<port>` line read for the port) that differ only in their key - any key (the screens), none (the starter deck is offered), and one pointed at the fake.
-Then `ui/tools/drives.sh` runs the drives one at a time, one headless Chrome each, every one on a fresh copy of the fixture, and prints each drive's `ok` count and every `FAIL` line:
+`tests/e2e/ui/e2e.sh` starts what the drives need, each on a free port, and stops it all on exit: the fake Gemini and three app servers (`server/build/amgi serve`, started with `CBASE_LISTEN=127.0.0.1:0`, their `cbase: listening <host>:<port>` line read for the port) that differ only in their key - any key (the screens), none (the starter deck is offered), and one pointed at the fake.
+Then `tests/e2e/ui/drives.sh` runs the drives one at a time, one headless Chrome each, every one on a fresh copy of the fixture, and prints each drive's `ok` count and every `FAIL` line:
 
 - `shoot.mjs`: the deck list, settings, a deck, its language picker, paging through a long deck, the back button, and first-paint timings.
 - `flows.mjs`: first run, install, the create-deck modal, the card-design notice, the starter deck.
@@ -64,7 +64,7 @@ Then `ui/tools/drives.sh` runs the drives one at a time, one headless Chrome eac
 - `limits.mjs`: text one byte too long for each box (a new deck's name and a rename past 512 bytes, a paste past 64 KB, a card field past 4096 bytes, a bridge token past 2048, an Anki data folder path of 1500 bytes refused by Save and Scan alike), each refused with a message and nothing kept.
 - `states.mjs`: the decks screen in each setup state: ready, card type missing, locked (a real lock, see below) and released again, no profile, no Anki folder.
 
-Then `ui/tools/incident1842.sh` (also runnable alone, one command, building what it needs) replays incident 18:42 in a browser: `server/build/anki_standin` plays Anki holding a temp-HOME copy of the schema18 fixture after its own backup dropped its lock, the page loads `/decks` twice with the add-on files behind (so each load's template check would reinstall into the collection), and after Anki closes the file must have SQLite's header, no zero page, integrity ok, the same notes and cards, and pass the anki library's Check Database (with `ANKI_PYTHON_BIN`).
+Then `tests/e2e/ui/incident1842.sh` (also runnable alone, one command, building what it needs) replays incident 18:42 in a browser: `server/build/anki_standin` plays Anki holding a temp-HOME copy of the schema18 fixture after its own backup dropped its lock, the page loads `/decks` twice with the add-on files behind (so each load's template check would reinstall into the collection), and after Anki closes the file must have SQLite's header, no zero page, integrity ok, the same notes and cards, and pass the anki library's Check Database (with `ANKI_PYTHON_BIN`).
 During the window the page must say **Anki locked** and send no `POST /api/anki/install`.
 Chrome keeps the real HOME (a temp one has no keychain, and macOS shows a dialog); only the server and the stand-in get the temp one.
 

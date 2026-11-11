@@ -101,7 +101,7 @@ The page is C, compiled to WebAssembly on [cdom](https://github.com/alexsave/cdo
 The server is C: `server/build/amgi`, the amgi app (`server/app/`, `server/amgi/`) on [cbase](https://github.com/alexsave/cbase)'s `serve` (the submodule at `cbase/`), with the Anki collection code (`server/collection/`), the rate gate and the Gemini client (gRPC over HTTP/2, cbase's) in the same process, and no Node.
 `server/build/amgi` is also the command line for agents and scripts (`amgi up`, `amgi deck add`, `amgi card add`, `amgi down`; `skills/amgi/SKILL.md`), a client of the same server on loopback.
 `make start` starts it through cbase's `make serve` (`make -C server serve`, run from the repository root): it listens on `CBASE_LISTEN` (`127.0.0.1:3000` by default, or `PORT`), says `cbase: listening <host>:<port>` on stdout, answers only a `Host` of `127.0.0.1`, `localhost` or `[::1]` at that port (against DNS rebinding), sends no CORS headers, and reads `.env.local` through cbase's `CBASE_ENV_FILE`.
-`.claude/skills/e2e-ui/` and `ui/tools/` drive the app in headless Chrome against a fixture Anki collection.
+`.claude/skills/e2e-ui/` and `tests/e2e/ui/` drive the app in headless Chrome against a fixture Anki collection.
 `anki/test/harness/drive.js` does the same for the card template.
 `tests/server/parity/` holds the server's contract: an HTTP suite over every route and error shape, compared byte for byte with a recording (made from the Node server the C one replaced), and a collection runner that applies one operation list to schema 11 and 18 fixtures through the C core and compares every row afterwards.
 `tests/server/bridge/` runs the C bridge client against the add-on's real server.
@@ -110,7 +110,7 @@ The server is C: `server/build/amgi`, the amgi app (`server/app/`, `server/amgi/
 ui/src/          The page, in C: decks, deck view, card form and panel, bulk run, settings, first run
 ui/css/          Its stylesheets
 ui/wire/         The wire format between the page and the server
-ui/tools/        Browser drives and their fixture
+tests/e2e/ui/        Browser drives and their fixture
 tests/ui/         Tests of the C against what it must agree with
 tests/server/parity/     The server's contract: the HTTP and collection suites, their fixtures and recordings (each suite's header says how it compares)
 tests/server/bridge/     The bridge client against the add-on's real server
