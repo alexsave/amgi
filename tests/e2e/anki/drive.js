@@ -8,8 +8,8 @@
 // Anki's own bridge, media server or keyboard. anki/README.md lists what that
 // leaves unverified.
 //
-//   node anki/test/harness/drive.js            # both paths, headless
-//   HEADLESS=false node anki/test/harness/drive.js
+//   node tests/e2e/anki/drive.js            # both paths, headless
+//   HEADLESS=false node tests/e2e/anki/drive.js
 //
 // Exits non-zero on the first failed check.
 

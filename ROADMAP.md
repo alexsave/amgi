@@ -12,7 +12,7 @@ Items from the retired hosted service (accounts, Supabase, the in-app scheduler 
   It imports nothing from npm, so Node can load it with type stripping and no build step.
   Keep it that way, or every caller grows a second, worse generator.
 - Run `npm run lint`, `npm test` and `npm run build` before committing, and keep all three green.
-  If you touch the card template or the shared review-loop files, also run `node anki/test/harness/drive.js`, which `npm test` does not.
+  If you touch the card template or the shared review-loop files, also run `node tests/e2e/anki/drive.js`, which `npm test` does not.
 
 ## A reading line for scripts a beginner cannot read yet
 
@@ -33,4 +33,4 @@ No plan has been written for it yet.
 ## CI
 
 There is no `.github/workflows/` yet.
-On every PR it should run `npm ci`, `npm run lint`, `npm run build`, `npm test` and `node anki/test/harness/drive.js`.
+On every PR it should run `npm ci`, `npm run lint`, `npm run build`, `npm test` and `node tests/e2e/anki/drive.js`.

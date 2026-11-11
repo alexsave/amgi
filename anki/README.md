@@ -170,7 +170,7 @@ The alternative was a documented copy with a diffing test, which is the same amo
 ### What the Chrome harness proves
 
 ```bash
-node anki/test/harness/drive.js          # add HEADLESS=false to watch it
+node tests/e2e/anki/drive.js          # add HEADLESS=false to watch it
 ```
 
 `test/harness/reviewer.html` is a stand-in for Anki's reviewer: one long-lived document with a `#qa` element whose `innerHTML` is replaced per side, scripts re-executed the way `ts/reviewer/index.ts` re-executes them, a `pycmd` that accepts the commands `_linkHandler` whitelists, and a media folder served over HTTP so filenames resolve the way Anki resolves them.
