@@ -214,6 +214,7 @@ test('--reading reaches the audio judge and never the synthesiser', async () => 
   try {
     const { code, stderr } = await runClip(request(paths.out, '行った', 'ja', ['--reading', 'いった']), clipEnv(fake, paths));
     assert.equal(code, 0, stderr);
+    assert.equal(fake.of('judge').length, 1, 'the judge hears the clip, because the reading is in question');
     assert.ok(JSON.stringify(fake.of('judge')[0].body).includes('いった'), 'the judge is given the reading');
     assert.ok(!JSON.stringify(fake.of('speech')[0].body).includes('いった'), 'the synthesiser is not');
   } finally {
