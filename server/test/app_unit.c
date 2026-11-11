@@ -1,5 +1,5 @@
 /* Tests of the amgi app's own C (server/amgi), built under ASan and UBSan (make -C server check-app,
- * run by npm test). The routes themselves are proven over HTTP by test/parity/http.test.mjs; this
+ * run by npm test). The routes themselves are proven over HTTP by tests/server/parity/http.test.mjs; this
  * holds what HTTP cannot reach, or cannot reach exactly:
  *   - the rate gate (gate.c), plusaudio/test/rateGate.test.js case for case, on a fake clock and a
  *     seeded draw: the 429 block and its doubling to the cap, Google's retryDelay as its floor, the
@@ -297,7 +297,7 @@ static void test_gemini(void) {
 }
 
 /* ---- cards.c: the parts the fake Gemini cannot show (the rest is held by the golden files under
- * test/parity/golden and the fake-Gemini drives) ---- */
+ * tests/server/parity/golden and the fake-Gemini drives) ---- */
 static void test_cards(void) {
   arena a = {0};
   card_text t = {S("안녕"), S("hello"), S("r")};

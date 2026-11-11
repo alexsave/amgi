@@ -6,12 +6,12 @@
 // and, when a request on that reused connection fails before any byte of an answer, retries it once
 // on a fresh one (cbase's cb_http_plain_request does, for every method). The stand-in add-on here
 // answers the probe (GET /status) on a kept-alive connection, then reads each write and closes the
-// connection without answering. The server under test (test/parity/servers.mjs) must have sent each
+// connection without answering. The server under test (tests/server/parity/servers.mjs) must have sent each
 // write exactly once.
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import net from 'node:net';
-import { BRIDGE_PROTOCOL, WIRE_MIME, encode } from '../../ui/wire/wire.mjs';
+import { BRIDGE_PROTOCOL, WIRE_MIME, encode } from '../../../ui/wire/wire.mjs';
 import { startServer } from './servers.mjs';
 
 const STATUS = encode('b_status', { profileOpen: true, profileName: 'User 1', collectionOpen: true, schemaVersion: 18, ankiVersion: '26.09.4', qtVersion: '6.9' });

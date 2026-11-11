@@ -19,7 +19,7 @@ before(async () => {
   port = new URL(app.url).port;
   const top = fs.mkdtempSync(path.join(os.tmpdir(), 'amgi-host-'));
   const base = path.join(top, 'Anki2');
-  fs.cpSync(path.join(ROOT, 'test', 'parity', 'fixtures', 'schema18'), path.join(base, 'User 1'), { recursive: true });
+  fs.cpSync(path.join(ROOT, 'tests', 'server', 'parity', 'fixtures', 'schema18'), path.join(base, 'User 1'), { recursive: true });
   headers = { 'x-amgi-collection': encodeURIComponent(path.join(base, 'User 1', 'collection.anki2')) };
 });
 after(() => app?.stop());

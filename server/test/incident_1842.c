@@ -147,7 +147,7 @@ int main(int argc, char **argv) {
   char *made = mkdtemp(tmp && *tmp ? tmpl : dir);
   if (!made) die("mkdtemp");
   char fixture[4096], path[4096];
-  snprintf(fixture, sizeof fixture, "%s/test/parity/fixtures/schema18/collection.anki2", argv[1]);
+  snprintf(fixture, sizeof fixture, "%s/tests/server/parity/fixtures/schema18/collection.anki2", argv[1]);
   snprintf(path, sizeof path, "%s/collection.anki2", made);
   copy_file(fixture, path);
 

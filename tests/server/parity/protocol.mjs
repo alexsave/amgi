@@ -1,4 +1,4 @@
-// The collection-parity runner's command protocol: how test/parity/collection.test.mjs drives an
+// The collection-parity runner's command protocol: how tests/server/parity/collection.test.mjs drives an
 // implementation of the collection core over its stdin and stdout, one line per command: the C
 // core's server/build/collection_cli speaks it (the Node implementation it was first written for
 // was removed at L4).

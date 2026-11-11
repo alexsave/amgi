@@ -9,7 +9,7 @@
 // the bridge-outdated mode, with its "press Install into Anki again" message.
 //
 // Needs the anki library (ANKI_PYTHON_BIN, as the other collection tests); skipped without it. The
-// client is driven through server/build/collection_cli (test/parity/bridge-under-test.mjs).
+// client is driven through server/build/collection_cli (tests/server/parity/bridge-under-test.mjs).
 import { after, before, describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
@@ -20,7 +20,7 @@ import { createRequire } from 'node:module';
 import { sandboxEnv } from '../sandbox-home.cjs';
 import {
   BridgeError, PROTOCOL_HEADER, closeBridgesUnderTest, probeBridgeUnderTest as probeBridge, resolveTransportUnderTest as resolveTransport,
-} from '../parity/bridge-under-test.mjs';
+} from '../../tests/server/parity/bridge-under-test.mjs';
 import { BRIDGE_PROTOCOL, WIRE_MIME, decode, encode } from '../../ui/wire/wire.mjs';
 
 const require = createRequire(import.meta.url);

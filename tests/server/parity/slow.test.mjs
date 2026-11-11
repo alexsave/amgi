@@ -13,11 +13,11 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
-import { WIRE_MIME, decode, encode } from '../../ui/wire/wire.mjs';
+import { WIRE_MIME, decode, encode } from '../../../ui/wire/wire.mjs';
 import { ROOT, startServer } from './servers.mjs';
 
 const require = createRequire(import.meta.url);
-const { fakeGemini } = require('../../plusaudio/test/helpers/fake-gemini.js');
+const { fakeGemini } = require('../../../plusaudio/test/helpers/fake-gemini.js');
 
 let fake;
 let app;
@@ -27,7 +27,7 @@ before(async () => {
   app = await startServer({ key: 'fake', base: fake.baseUrl });
   const top = fs.mkdtempSync(path.join(os.tmpdir(), 'amgi-slow-'));
   const base = path.join(top, 'Anki2');
-  fs.cpSync(path.join(ROOT, 'test', 'parity', 'fixtures', 'schema18'), path.join(base, 'User 1'), { recursive: true });
+  fs.cpSync(path.join(ROOT, 'tests', 'server', 'parity', 'fixtures', 'schema18'), path.join(base, 'User 1'), { recursive: true });
   headers = { 'x-amgi-collection': encodeURIComponent(path.join(base, 'User 1', 'collection.anki2')) };
 });
 after(async () => {

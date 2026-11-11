@@ -77,7 +77,7 @@ static str fixture(arena *a, const char *schema, const char *name) {
   char dir[4096], from[4096], to[4096];
   snprintf(dir, sizeof dir, "%s/%s", scratch, name);
   mkdir(dir, 0777);
-  snprintf(from, sizeof from, "%s/test/parity/fixtures/schema%s/collection.anki2", root, schema);
+  snprintf(from, sizeof from, "%s/tests/server/parity/fixtures/schema%s/collection.anki2", root, schema);
   snprintf(to, sizeof to, "%s/collection.anki2", dir);
   copy_file(from, to);
   return str_c(ar_dup(a, to, strlen(to)));

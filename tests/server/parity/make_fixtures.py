@@ -1,13 +1,13 @@
 """Builds the collection-parity fixtures with the real Anki library: one collection, written twice,
 as schema 18 (what current Anki writes) and schema 11 (the same collection downgraded, as an Anki
-before 2.1.28 keeps it). The parity runner (test/parity/collection.test.mjs) applies one operation
+before 2.1.28 keeps it). The parity runner (tests/server/parity/collection.test.mjs) applies one operation
 list to a copy of each, through the Node collection code and through the C one.
 
-    $ANKI_PYTHON_BIN test/parity/make_fixtures.py test/parity/fixtures
+    $ANKI_PYTHON_BIN tests/server/parity/make_fixtures.py tests/server/parity/fixtures
 
 The fixtures are committed, so a parity run needs no Python and every run starts from the same
 bytes. Run this again only when the fixture's content should change, then update
-test/parity/expect/ to match and review every changed line: the recordings are the contract, and
+tests/server/parity/expect/ to match and review every changed line: the recordings are the contract, and
 since L4 there is no recorder (PARITY_RECORD went with the Node side).
 
 What is in it, each piece there because an operation in the list needs it:

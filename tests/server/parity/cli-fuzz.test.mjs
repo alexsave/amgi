@@ -15,15 +15,15 @@ import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { sandboxEnv } from '../sandbox-home.cjs';
+import { sandboxEnv } from '../../../test/sandbox-home.cjs';
 import { createRequire } from 'node:module';
 import { enc } from './protocol.mjs';
 
 const require = createRequire(import.meta.url);
-const { createRandom } = require('../../plusaudio/lib/random.js');
+const { createRandom } = require('../../../plusaudio/lib/random.js');
 
 const IMPL = process.env.AMGI_COLLECTION_IMPL;
-const ROOT = path.resolve(import.meta.dirname, '..', '..');
+const ROOT = path.resolve(import.meta.dirname, '..', '..', '..');
 const SEED = 20261108;
 
 const VERBS = ['status', 'listDecks', 'countNotesInDeck', 'listNotetypes', 'listNotesInDeck', 'existingFieldValues', 'createDeck', 'renameDeck',
@@ -78,7 +78,7 @@ function lines(collection, junk) {
 test('the C CLI answers hostile protocol lines without a fault', { skip: IMPL ? false : 'needs the C core (AMGI_COLLECTION_IMPL)' }, () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'amgi-cli-fuzz-'));
   const collection = path.join(dir, 'collection.anki2');
-  fs.copyFileSync(path.join(ROOT, 'test', 'parity', 'fixtures', 'schema18', 'collection.anki2'), collection);
+  fs.copyFileSync(path.join(ROOT, 'tests', 'server', 'parity', 'fixtures', 'schema18', 'collection.anki2'), collection);
   const junk = path.join(dir, 'junk.anki2');
   fs.writeFileSync(junk, 'not a database\n');
   // Run two folders down in the scratch folder: an "open" of a hostile relative name (one is

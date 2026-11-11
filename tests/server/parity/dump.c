@@ -1,7 +1,7 @@
 /* The collection-parity dump: a collection.anki2 (and its media folder and backups) as text, row by
  * row, with what differs from run to run normalised away and nothing else. Two runs of the same
  * operation list, one through the Node collection code and one through the C one, must dump to the
- * same text (test/parity/collection.test.mjs).
+ * same text (tests/server/parity/collection.test.mjs).
  *
  *   parity_dump --since <ms> --until <ms> <collection.anki2> [<media dir>] [<backup dir>]
  *

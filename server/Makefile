@@ -10,7 +10,7 @@
 #     its own flags and its own gates (test/no-json.test.mjs, the random scan, server/test/unit.c).
 #     It is APP_EXTRA_SRC, not a source root, because it carries JavaScript's number semantics
 #     (strtod for JSON numbers and Number()), which cbase's number gate refuses in a product root.
-#   - test/parity/dump.c: the collection-parity dump tool (no cbase in it).
+#   - tests/server/parity/dump.c: the collection-parity dump tool (no cbase in it).
 #   - server/cli/clip.c: build/amgi-clip, one clip for a caller that is not C (the add-on's Fill missing
 #     audio): card_generate_audio in process, the contract of plusaudio/generate-clip.js.
 #
@@ -80,7 +80,7 @@ NATIVE_LIBS = $(ICU_LDFLAGS) $(SQLITE_LDFLAGS) $(OPENSSL_LDFLAGS) \
 
 all: build/parity_dump
 
-build/parity_dump: ../test/parity/dump.c
+build/parity_dump: ../tests/server/parity/dump.c
 	@mkdir -p $(@D)
 	$(CC) $(NATIVE_CFLAGS) -O2 -o $@ $< $(NATIVE_LIBS)
 

@@ -9,12 +9,12 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
-import { WIRE_MIME, encode } from '../../ui/wire/wire.mjs';
+import { WIRE_MIME, encode } from '../../../ui/wire/wire.mjs';
 import { LISTENING, ROOT, SERVER } from './servers.mjs';
-import { sandboxEnv } from '../sandbox-home.cjs';
+import { sandboxEnv } from '../../../test/sandbox-home.cjs';
 
 const require = createRequire(import.meta.url);
-const { fakeGemini } = require('../../plusaudio/test/helpers/fake-gemini.js');
+const { fakeGemini } = require('../../../plusaudio/test/helpers/fake-gemini.js');
 
 /** The server with only an env file for its Gemini settings; resolves to its URL and a stop(). */
 function serveWith(envFile) {
@@ -35,7 +35,7 @@ test('an inline comment in .env.local is not part of the key Gemini gets', async
   const fake = await fakeGemini({ speech: { raw: true, hang: true } });
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'amgi-env-'));
   const base = path.join(dir, 'Anki2');
-  fs.cpSync(path.join(ROOT, 'test', 'parity', 'fixtures', 'schema18'), path.join(base, 'User 1'), { recursive: true });
+  fs.cpSync(path.join(ROOT, 'tests', 'server', 'parity', 'fixtures', 'schema18'), path.join(base, 'User 1'), { recursive: true });
   const headers = { 'x-amgi-collection': encodeURIComponent(path.join(base, 'User 1', 'collection.anki2')), 'content-type': WIRE_MIME };
   for (const [line, want] of [
     ['GEMINI_API_KEY=abc # my key', 'abc'],
