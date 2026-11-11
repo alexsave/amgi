@@ -13,7 +13,7 @@
 //   node tests/e2e/ui/states.mjs <base url> <name> <work dir> [out dir]
 import fs from 'node:fs';
 import path from 'node:path';
-import { sandboxEnv } from '../../../test/sandbox-home.cjs';
+import { sandboxEnv } from '../../repo/sandbox-home.cjs';
 import { execFileSync } from 'node:child_process';
 import http from 'node:http';
 import { createRequire } from 'node:module';

@@ -7,7 +7,7 @@
 #     main (its smoke holds it to cbase's usage), so the command line is a program of its own.
 #   - server/collection and server/json: the collection core (the C port of what was plusaudio/lib/collection,
 #     the direct transport and the bridge client) and its Anki JSON quarantine, as one library with
-#     its own flags and its own gates (test/no-json.test.mjs, the random scan, tests/server/c/unit.c).
+#     its own flags and its own gates (tests/repo/no-json.test.mjs, the random scan, tests/server/c/unit.c).
 #     It is APP_EXTRA_SRC, not a source root, because it carries JavaScript's number semantics
 #     (strtod for JSON numbers and Number()), which cbase's number gate refuses in a product root.
 #   - tests/server/parity/dump.c: the collection-parity dump tool (no cbase in it).
@@ -141,7 +141,7 @@ check-app: build/asan/app_unit
 
 .PHONY: check-collection check-app
 
-# The libraries build/amgi links, for test/license.test.mjs (every one of them has a notice).
+# The libraries build/amgi links, for tests/repo/license.test.mjs (every one of them has a notice).
 print-ldlibs:
 	@echo $(LDLIBS)
 .PHONY: print-ldlibs

@@ -4,7 +4,7 @@
 # (~/Library/Application Support/Anki2). Incident 18:42: docs/INCIDENT_1842.md.
 # The drives themselves keep the real HOME, so the headless Chrome they start finds the login
 # keychain and never asks macOS for one; the node drives start their servers and Anki children
-# through test/sandbox-home.cjs, which gives each its own temp HOME the same way.
+# through tests/repo/sandbox-home.cjs, which gives each its own temp HOME the same way.
 # XDG_DATA_HOME is unset for everything started from here. The temp HOMEs live under one root,
 # checked once to be outside the real home and removed on exit (a caller that sets its own EXIT
 # trap removes "$sandbox_root" in it).

@@ -10,7 +10,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
-import { sandboxEnv } from '../../test/sandbox-home.cjs';
+import { sandboxEnv } from '../repo/sandbox-home.cjs';
 import { KIND, decode, encode } from '../../ui/wire/wire.mjs';
 
 const ROOT = path.resolve(import.meta.dirname, '..', '..');
