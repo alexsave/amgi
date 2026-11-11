@@ -111,16 +111,23 @@ build/anki_standin: test/anki_standin.c
 
 # The rule that nothing in amgi's C, nor in the cbase it links, calls pthread_cancel (server/test/c_rules.c).
 # The tracked C comes from git; cbase/core and cbase/providers are walked by the program itself.
-build/c_rules: test/c_rules.c
+build/c_rules: test/c_rules.c test/srcscan.h
 	@mkdir -p $(@D)
 	$(CC) $(NATIVE_CFLAGS) -o $@ $<
 
-check-collection: build/unit build/backup_unit build/media_unit build/incident_1842 build/c_rules
+# The incident-1842 rule: no checkpoint in any shipped C, JavaScript or Python (server/test/no_checkpoint.c).
+# The tracked files come from git; the program decides which ship (srcscan.h, the scan's shared part).
+build/no_checkpoint: test/no_checkpoint.c test/srcscan.h
+	@mkdir -p $(@D)
+	$(CC) $(NATIVE_CFLAGS) -o $@ $<
+
+check-collection: build/unit build/backup_unit build/media_unit build/incident_1842 build/c_rules build/no_checkpoint
 	build/unit $(CURDIR)/..
 	build/backup_unit $(CURDIR)/..
 	build/media_unit
 	build/incident_1842 $(CURDIR)/..
 	build/c_rules $(CURDIR)/.. $$(git -C .. ls-files -- '*.c' '*.h')
+	build/no_checkpoint $(CURDIR)/.. $$(git -C .. ls-files)
 
 # The collection CLI under ASan and UBSan, linked with cbase's sanitized build.
 $(call prog,build/asan,build/obj/asan,build/obj/asan-extra,collection_cli,collection/cli.c,ASAN_CB_CFLAGS)
