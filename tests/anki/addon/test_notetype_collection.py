@@ -14,7 +14,7 @@
 # Run it manually with a Python that has `anki` installed:
 #
 #   python -m venv anki-test-env && anki-test-env/bin/pip install anki
-#   cd anki/addon/amgi_bridge && anki-test-env/bin/python -m unittest test.test_notetype_collection -v
+#   anki/addon/amgi_bridge/anki-test-env/bin/python -m unittest discover -s tests/anki/addon -p test_notetype_collection.py -v
 #
 # The `cd` matters - see test_core_collection.py's own note on the namespace
 # collision between this repo's anki/ directory and the real anki package.
@@ -27,7 +27,7 @@ import sys
 import tempfile
 import unittest
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "anki", "addon", "amgi_bridge")))
 
 import notetype  # noqa: E402
 
@@ -41,7 +41,7 @@ except ModuleNotFoundError:  # pragma: no cover - environment-dependent
     Collection = None  # type: ignore[assignment]
 
 REPO_ROOT = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "..", "..")
+    os.path.join(os.path.dirname(__file__), "..", "..", "..")
 )
 
 
