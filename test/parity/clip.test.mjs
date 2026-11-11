@@ -32,7 +32,7 @@ function scratch() {
 /** Runs the binary with `args`; resolves with its exit code and both streams. */
 function runClip(args, env) {
   return new Promise((resolve, reject) => {
-    const child = spawn(CLIP, args, { cwd: ROOT, env, stdio: ['ignore', 'pipe', 'pipe'] });
+    const child = spawn(CLIP, args, { cwd: ROOT, env: sandboxEnv(env), stdio: ['ignore', 'pipe', 'pipe'] });
     let stdout = '';
     let stderr = '';
     child.stdout.setEncoding('utf8');
