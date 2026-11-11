@@ -25,7 +25,7 @@ import { createRequire } from 'node:module';
 import { dec, enc, hex, items, list, noteTokens, strs } from './protocol.mjs';
 
 const require = createRequire(import.meta.url);
-const { anki, holdCollectionOpen, runPython } = require('../../../plusaudio/test/collection/helpers/anki-python.js');
+const { anki, holdCollectionOpen, runPython } = require('../plusaudio/collection/helpers/anki-python.js');
 
 const ROOT = path.resolve(import.meta.dirname, '..', '..', '..');
 const HERE = path.join(ROOT, 'tests', 'server', 'parity');

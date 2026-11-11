@@ -8,8 +8,8 @@
 const assert = require('node:assert/strict');
 const { test } = require('node:test');
 
-const { readingSystem, readingIsAmbiguous } = require('../lib/cardGeneration/cardText.ts');
-const { buildCardGenerationPrompt } = require('../lib/cardGeneration/cardPrompts.ts');
+const { readingSystem, readingIsAmbiguous } = require('../../../plusaudio/lib/cardGeneration/cardText.ts');
+const { buildCardGenerationPrompt } = require('../../../plusaudio/lib/cardGeneration/cardPrompts.ts');
 
 test('readingSystem names a native script for every opaque-reading language, never a romanisation', () => {
   // The old systems named a romanisation outright: Hepburn romaji, Hanyu

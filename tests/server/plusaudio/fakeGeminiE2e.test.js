@@ -6,9 +6,9 @@
 const assert = require('node:assert/strict');
 const { test } = require('node:test');
 
-const { GeminiDailyCapError, GeminiRateLimitError, createGeminiClient } = require('../lib/cardGeneration/gemini.ts');
-const { JITTER, createRateGate } = require('../lib/rateGate');
-const { createRandom } = require('../lib/random');
+const { GeminiDailyCapError, GeminiRateLimitError, createGeminiClient } = require('../../../plusaudio/lib/cardGeneration/gemini.ts');
+const { JITTER, createRateGate } = require('../../../plusaudio/lib/rateGate');
+const { createRandom } = require('../../../plusaudio/lib/random');
 const { controlFake, e2eScript, fakeGemini } = require('./helpers/fake-gemini');
 
 const speech = (text) => ({ generationConfig: { responseModalities: ['AUDIO'] }, contents: [{ role: 'user', parts: [{ text }] }] });

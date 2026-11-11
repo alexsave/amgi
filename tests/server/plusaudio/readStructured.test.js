@@ -7,7 +7,7 @@
 const assert = require('node:assert/strict');
 const { test } = require('node:test');
 
-const { GENERATED_CARD_FORMAT, readStructured } = require('../lib/cardGeneration/cardGeneration.ts');
+const { GENERATED_CARD_FORMAT, readStructured } = require('../../../plusaudio/lib/cardGeneration/cardGeneration.ts');
 
 const CARD = { known_text: 'date', learning_text: '날짜', sense_tag: 'calendar day', register: 'casual', spoken_reading: '' };
 const read = (value) => readStructured(typeof value === 'string' ? value : JSON.stringify(value), GENERATED_CARD_FORMAT);

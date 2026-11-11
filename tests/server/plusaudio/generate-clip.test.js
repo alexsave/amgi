@@ -15,12 +15,12 @@ const { spawnSync } = require('node:child_process');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { sandboxEnv } = require('../../test/sandbox-home.cjs');
+const { sandboxEnv } = require('../../../test/sandbox-home.cjs');
 const { test } = require('node:test');
 
-const { main, parseArgs, run } = require('../generate-clip');
+const { main, parseArgs, run } = require('../../../plusaudio/generate-clip');
 const { withEnvHidden } = require('./helpers/hide-env');
-const { DAILY_CAP_EXIT, RATE_LIMITED_EXIT, parseRetryAfter } = require('../lib/cliExit');
+const { DAILY_CAP_EXIT, RATE_LIMITED_EXIT, parseRetryAfter } = require('../../../plusaudio/lib/cliExit');
 
 function tempOutputPath() {
   return path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'plusaudio-generate-clip-')), 'clip.wav');
@@ -209,7 +209,7 @@ test('main() prints usage and exits 0 on --help without requiring an API key', a
 // a failed clip was once recorded as having failed with - is noise ahead of it. So a run
 // that loads the whole generator and does nothing wrong has to leave stderr empty.
 test('loading the generator leaves stderr empty', () => {
-  const result = spawnSync(process.execPath, [path.join(__dirname, '..', 'generate-clip.js'), '--help'], {
+  const result = spawnSync(process.execPath, [path.join(__dirname, '..', '..', '..', 'plusaudio', 'generate-clip.js'), '--help'], {
     env: sandboxEnv(),
     encoding: 'utf8',
   });

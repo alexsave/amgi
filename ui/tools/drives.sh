@@ -11,7 +11,7 @@
 #   ui/tools/drives.sh <name> <app url> <no-key app url> <fake-gemini app url> <fake gemini url> <shots dir>
 #
 # The three app servers differ only in their Gemini key: one with any key (the screens), one with
-# none (the starter deck is offered), one pointed at the fake (node plusaudio/test/helpers/fake-gemini.js
+# none (the starter deck is offered), one pointed at the fake (node tests/server/plusaudio/helpers/fake-gemini.js
 # <port>, whose limits the bulk drive switches). Start the fake and its server fresh before a run:
 # the fake's "broken line" fails once, and a server's rate gate remembers the limits it met.
 set -uo pipefail

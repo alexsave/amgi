@@ -18,7 +18,7 @@
 //     (the Retry-After header is checked against the real value first).
 // The recording also shows each answer decoded, for a person reading a diff.
 //
-// The Gemini routes run against the tests' fake Gemini (plusaudio/test/helpers/fake-gemini.js),
+// The Gemini routes run against the tests' fake Gemini (tests/server/plusaudio/helpers/fake-gemini.js),
 // each scenario on fresh servers so no rate gate remembers another's limits. The locked case
 // holds the collection open with the real Anki library and skips without it (ANKI_PYTHON_BIN).
 import { test, describe, before, after } from 'node:test';
@@ -32,8 +32,8 @@ import { BRIDGE_PROTOCOL, WIRE_MIME, decode, encode } from '../../../ui/wire/wir
 import { ROOT, startFakeGemini, startServer } from './servers.mjs';
 
 const require = createRequire(import.meta.url);
-const { anki, holdCollectionOpen } = require('../../../plusaudio/test/collection/helpers/anki-python.js');
-const { controlFake } = require('../../../plusaudio/test/helpers/fake-gemini.js');
+const { anki, holdCollectionOpen } = require('../plusaudio/collection/helpers/anki-python.js');
+const { controlFake } = require('../plusaudio/helpers/fake-gemini.js');
 
 const EXPECT = path.join(ROOT, 'tests', 'server', 'parity', 'expect', 'http.txt');
 const FIXTURES = path.join(ROOT, 'tests', 'server', 'parity', 'fixtures');
