@@ -103,7 +103,7 @@ They stay interchangeable on the same deck: `plusaudio` and this add-on name a c
 
 A clip's filename is a hash of the generation profile, the language, and the exact text.
 If the text has not changed since this tool last filled it in, the note already points at the file this run would produce, so plan_fill (`core.py`) leaves it alone.
-Running the whole thing twice in a row does nothing the second time; this is checked in `test/test_core_collection.py` against a real collection.
+Running the whole thing twice in a row does nothing the second time; this is checked in `tests/anki/addon/test_core_collection.py` against a real collection.
 
 A note's field is only changed after its clip has already been generated and written into the collection's media folder.
 The collection's database itself is not touched until the very end of a run, in a single write covering every note finished so far.
@@ -228,13 +228,13 @@ See `bridge_auth.py`'s own module docstring for the full mechanical explanation 
 
 `bridge_server.py` never touches `mw.col`, `mw`, or any Qt object.
 The HTTP listener runs on whatever thread `ThreadingHTTPServer` spins up per connection, and that file has no `aqt` import at all to make the mistake even possible.
-Every request is handled by a `dispatcher` object (`bridge_dispatch.AqtBridgeDispatcher` in production, a plain fake in `test/test_bridge_server.py`) whose methods hand the actual work to Anki's own operation queue: `aqt.operations.QueryOp` for reads, `aqt.operations.CollectionOp` for writes that should produce a real undo step and fire Anki's own change hooks, so the browser, deck list and editor all notice a note or deck the bridge just touched, the same as if it came from Anki's UI.
+Every request is handled by a `dispatcher` object (`bridge_dispatch.AqtBridgeDispatcher` in production, a plain fake in `tests/anki/addon/test_bridge_server.py`) whose methods hand the actual work to Anki's own operation queue: `aqt.operations.QueryOp` for reads, `aqt.operations.CollectionOp` for writes that should produce a real undo step and fire Anki's own change hooks, so the browser, deck list and editor all notice a note or deck the bridge just touched, the same as if it came from Anki's UI.
 Each dispatch then blocks the calling (HTTP) thread on a plain `threading.Event` until Anki calls back with a result.
 See `bridge_dispatch.py`'s own module docstring for exactly which operations use which, and why `add_media` uses `QueryOp`: it touches the media folder, not the undo-tracked collection database, and `QueryOp`'s own docstring names "adding/deleting files" as exactly its other intended use.
 
 ### Cross-transport parity
 
-`test/test_cross_transport.py` is the test that actually matters for "the UI can pick either transport and not care": it runs the Node layer and this bridge's `bridge_ops.py` against the *same* collection file, one after the other, and asserts they agree.
+`tests/anki/addon/test_cross_transport.py` is the test that actually matters for "the UI can pick either transport and not care": it runs the Node layer and this bridge's `bridge_ops.py` against the *same* collection file, one after the other, and asserts they agree.
 A deck one side creates is recognised, not duplicated, by the other; a note one side adds is read back correctly, with the same fields, tags and note type id, by the other's own reader.
 An assertion that only one side agrees with its own writer would prove nothing about that interchangeability - this is what actually pins it down.
 See that file's own module docstring for the full reasoning, and "Testing" below for how to run it.
@@ -243,42 +243,43 @@ See that file's own module docstring for the full reasoning, and "Testing" below
 
 ### What is actually verified
 
-`test/test_deck_text.py`, `test/test_core_config.py`, `test/test_generator.py`, `test/test_bridge_auth.py` and `test/test_bridge_server.py` need no `anki` pip package and no network.
+`tests/anki/addon/test_deck_text.py`, `tests/anki/addon/test_core_config.py`, `tests/anki/addon/test_generator.py`, `tests/anki/addon/test_bridge_auth.py` and `tests/anki/addon/test_bridge_server.py` need no `anki` pip package and no network.
 `npm test` runs them with `ANKI_PYTHON_BIN` (a Python with the `anki` package) when it is set, and `python3` otherwise, so with it set the tests below that need `anki` run too instead of skipping.
 
 - `test_deck_text.py` checks `deck_text.py` against values recorded from the JavaScript it was ported from (`plusaudio/lib/deck.js` and `audio-store.js`, since deleted), so the rules cannot drift with the original gone.
 - `test_generator.py` checks the subprocess seam - the command built, the environment passed through, exit-code and stderr handling, temp-file cleanup, and the actionable errors for a missing Node, a missing repo checkout, and a missing API key - by mocking `subprocess.run`.
   There is no API key available to these tests, and live calls are not authorised; mocking at the transport boundary is what "keep the seam narrow enough to mock" (see the top of `generator.py`) means in practice.
-  `../../plusaudio/test/generate-clip.test.js` checks the other side of the same contract from Node, with a stubbed generator - also never a real client.
+  `../../../tests/server/plusaudio/generate-clip.test.js` checks the other side of the same contract from Node, with a stubbed generator - also never a real client.
 - `test_core_config.py` checks `AudioFillConfig`'s own validation.
 - `test_bridge_auth.py` checks the token and Origin logic (`bridge_auth.py`) as plain functions: valid token and allowed origin succeeds; a missing or wrong token fails; a foreign origin fails, even with the right token; a "simple" request shaped so a browser would never preflight it still fails, because it cannot carry the token header without losing its "simple" status.
 - `test_bridge_server.py` proves the same claims again, against a real listening socket and a real `http.client` connection, plus routing (every endpoint in the table above), the request and answer messages, the protocol check, and error-status mapping (`ValueError` to 400, `BridgeBusy` to 503, anything else to 500) - all against a fake dispatcher, so none of it needs Anki or Qt.
 
-`test/test_core_collection.py` runs `core.plan_fill`/`core.apply_fill` against a REAL `anki.collection.Collection`: real notes, real `Note.__setitem__`, real `col.media.add_file`/`write_data`/`check()`.
+`tests/anki/addon/test_core_collection.py` runs `core.plan_fill`/`core.apply_fill` against a REAL `anki.collection.Collection`: real notes, real `Note.__setitem__`, real `col.media.add_file`/`write_data`/`check()`.
 It proves: a note gets its clip and reference written and nothing else in the field disturbed; `col.media.check()` reports the clip used and nothing missing; a second run changes nothing; editing the text regenerates and leaves exactly one owned reference; switching `--audio-tag` converts without regenerating; a note missing the mapped field is skipped, not crashed on; a failed generation is retried on the next run rather than losing the note; and a cancelled run commits the notes finished so far and leaves the rest for next time.
 One class of that file runs against a hand-built fixture.
 Another (`SampleDeckTests`, gated on the `AMGI_SAMPLE_APKG` environment variable) runs the same checks against a real 333-note shared deck with the deck author's own `[sound:]` tags and `<img>` tags already in the audio field, confirming those are left alone.
 
-`test/test_bridge_ops.py` is the same style of test for the bridge side: every function in `bridge_ops.py` (`status`, `list_decks`, `list_notetypes`, `create_deck`, `add_note`, `update_note`, `list_notes_in_deck`, `add_media`) against a REAL `anki.collection.Collection`.
+`tests/anki/addon/test_bridge_ops.py` is the same style of test for the bridge side: every function in `bridge_ops.py` (`status`, `list_decks`, `list_notetypes`, `create_deck`, `add_note`, `update_note`, `list_notes_in_deck`, `add_media`) against a REAL `anki.collection.Collection`.
 Its pagination test adds 2,500 notes to one deck and pages through all of them in fixed-size batches, checking every note is returned exactly once and the total count is right on every page - proving the SQL `LIMIT`/`OFFSET` path is what actually runs, not something that loads the whole deck and slices it in Python, which is what "must not choke on a 20k-note collection" requires in practice.
 Its own `SampleDeckTests` (also gated on `AMGI_SAMPLE_APKG`) pages through the same real 333-note deck and checks every note's note type is one `list_notetypes` also reports, with non-empty field names.
 
-`test/test_bridge_dispatch.py` runs `bridge_dispatch.py`'s writes through its real code against a real collection, with a stand-in for `aqt.mw` and `aqt.operations` that does what Anki's `CollectionOp` does with a result: hand it to the success callback, then read the `OpChanges` off it.
+`tests/anki/addon/test_bridge_dispatch.py` runs `bridge_dispatch.py`'s writes through its real code against a real collection, with a stand-in for `aqt.mw` and `aqt.operations` that does what Anki's `CollectionOp` does with a result: hand it to the success callback, then read the `OpChanges` off it.
 A write that returns anything but an `OpResult` with real changes fails there as it would inside Anki.
 
-`test/test_cross_transport.py` is the one described above in "Cross-transport parity": it needs both `anki` and a `node` on `PATH`, and runs the Node layer and `bridge_ops.py` against the same collection file, checking they agree.
+`tests/anki/addon/test_cross_transport.py` is the one described above in "Cross-transport parity": it needs both `anki` and a `node` on `PATH`, and runs the Node layer and `bridge_ops.py` against the same collection file, checking they agree.
 
 None of these three are wired into `npm test`: the `anki` pip package is a large, Rust-backed wheel this repo does not otherwise depend on, and `npm test` has to pass on a plain checkout with no Python environment at all.
 Run them with a Python that has `anki` installed:
 
 ```bash
-python -m venv anki-test-env
-anki-test-env/bin/pip install anki
-cd anki/addon/amgi_bridge   # see "A namespace collision worth knowing about" below - the cd matters
-AMGI_SAMPLE_APKG=/path/to/a/real.apkg anki-test-env/bin/python -m unittest discover -s test -p "test_core_collection.py" -v
-AMGI_SAMPLE_APKG=/path/to/a/real.apkg anki-test-env/bin/python -m unittest discover -s test -p "test_bridge_ops.py" -v
-anki-test-env/bin/python -m unittest discover -s test -p "test_cross_transport.py" -v
+python -m venv anki/addon/amgi_bridge/anki-test-env
+anki/addon/amgi_bridge/anki-test-env/bin/pip install anki
+AMGI_SAMPLE_APKG=/path/to/a/real.apkg anki/addon/amgi_bridge/anki-test-env/bin/python -m unittest discover -s tests/anki/addon -p "test_core_collection.py" -v
+AMGI_SAMPLE_APKG=/path/to/a/real.apkg anki/addon/amgi_bridge/anki-test-env/bin/python -m unittest discover -s tests/anki/addon -p "test_bridge_ops.py" -v
+anki/addon/amgi_bridge/anki-test-env/bin/python -m unittest discover -s tests/anki/addon -p "test_cross_transport.py" -v
 ```
+
+Run these from the repository root. Each test puts this add-on's own directory on `sys.path` (see "A namespace collision worth knowing about" below), so the working directory only matters for the paths the tests use.
 
 ### A namespace collision worth knowing about
 
@@ -288,7 +289,7 @@ If both end up on `sys.path` at once and the *repo root* is also on `sys.path` (
 For any name the pip package actually defines (`anki.media`, `anki.collection`, ...), the real module wins - that part of PEP 420 favours a genuine module over a bare namespace directory - so this has not caused a wrong answer here.
 But it is fragile: it would only take a stray top-level `anki/<name>.py` appearing in this repo, sharing a name the pip package uses, to have the repo's own file silently shadow the real one for anyone who happens to also have `anki` installed and runs Python from the repo root.
 
-Every test file under `test/` avoids the whole question by adding this add-on's own directory to `sys.path` and importing its modules directly (`import core`, `import deck_text`, `import generator`) rather than through any `anki.*` path - the same way Anki's own add-on loader imports them, which never goes through a path named `anki` at all (an installed add-on is `amgi_bridge`, full stop; see manifest.json's `package` key).
+Every test file under `tests/anki/addon/` avoids the whole question by adding this add-on's own directory to `sys.path` and importing its modules directly (`import core`, `import deck_text`, `import generator`) rather than through any `anki.*` path - the same way Anki's own add-on loader imports them, which never goes through a path named `anki` at all (an installed add-on is `amgi_bridge`, full stop; see manifest.json's `package` key).
 Running `python -m unittest` from this directory, as the commands above do, keeps the repo root off `sys.path` in the first place.
 
 ## What is unverified

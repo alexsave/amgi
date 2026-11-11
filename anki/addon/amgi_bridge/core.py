@@ -25,7 +25,7 @@ try:
     # imports this as part of the amgi_bridge package.
     from .deck_text import AUDIO_TAG_FORMS, audio_references, is_owned_media_name, media_name, set_owned_audio, spoken_text
 except ImportError:
-    # test/ imports this add-on's modules directly, with the add-on's own
+    # tests/anki/addon/ imports this add-on's modules directly, with the add-on's own
     # directory on sys.path, so it can exercise core.py without going through
     # __init__.py - which imports aqt, and aqt needs Qt installed to import at
     # all. Both import styles reach the same file; this just tolerates

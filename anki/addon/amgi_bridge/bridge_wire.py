@@ -11,7 +11,7 @@
 # ABSENT. A dotted name ("deck.id") is a field of a nested dict when writing; reading, it is one
 # flat key, as the server's reader makes it.
 #
-# Pure Python, no anki and no aqt import: test/test_bridge_wire.py runs it as is.
+# Pure Python, no anki and no aqt import: tests/anki/addon/test_bridge_wire.py runs it as is.
 
 from __future__ import annotations
 

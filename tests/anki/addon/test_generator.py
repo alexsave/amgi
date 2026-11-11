@@ -5,7 +5,7 @@
 # of that boundary - argument construction, exit-code handling, error
 # messages, and temp-file cleanup - the same way the previous, edge-function
 # version of this file mocked urllib.request.urlopen. generate-clip.js's own
-# test/generate-clip.test.js (tests/server/plusaudio/) proves the other side of the
+# generate-clip.test.js (tests/server/plusaudio/) proves the other side of the
 # same contract from Node.
 
 from __future__ import annotations

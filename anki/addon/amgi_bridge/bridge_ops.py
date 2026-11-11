@@ -18,7 +18,7 @@
 # mutation here is a call into Anki's API, never a raw SQL write.
 #
 # No function in this file touches aqt.operations, mw, or a socket. It is
-# tested the same way core.py is (test/test_bridge_ops.py, against a real
+# tested the same way core.py is (tests/anki/addon/test_bridge_ops.py, against a real
 # anki.collection.Collection): only bridge_dispatch.py knows this file
 # exists inside an Anki add-on at all.
 
@@ -34,8 +34,8 @@ try:
     # imports this as part of the amgi_bridge package.
     from .deck_text import looks_romanized
 except ImportError:
-    # test/ imports this module directly, with the add-on's own directory on
-    # sys.path (see test/test_bridge_ops.py) - the same dual-import tolerance
+    # tests/anki/addon/ imports this module directly, with the add-on's own directory on
+    # sys.path (see tests/anki/addon/test_bridge_ops.py) - the same dual-import tolerance
     # core.py uses for deck_text.py.
     from deck_text import looks_romanized
 
