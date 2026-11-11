@@ -7,7 +7,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { WIRE_MIME, decode, encode } from '../wire/wire.mjs';
-import { startServer } from '../../test/parity/servers.mjs';
+import { startServer } from '../../tests/server/parity/servers.mjs';
 
 const dir = path.resolve(process.argv[2]);
 const addonsOnly = process.argv[3] === '--addons-only';

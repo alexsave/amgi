@@ -17,10 +17,10 @@ import { Impl } from './impl-process.mjs';
 import { enc } from './protocol.mjs';
 
 const require = createRequire(import.meta.url);
-const { anki, runPython } = require('../../plusaudio/test/collection/helpers/anki-python.js');
-const { createRandom } = require('../../plusaudio/lib/random.js');
+const { anki, runPython } = require('../../../plusaudio/test/collection/helpers/anki-python.js');
+const { createRandom } = require('../../../plusaudio/lib/random.js');
 
-const ROOT = path.resolve(import.meta.dirname, '..', '..');
+const ROOT = path.resolve(import.meta.dirname, '..', '..', '..');
 const skip = !anki ? 'needs the anki library (ANKI_PYTHON_BIN)' : false;
 
 /** Every code point whose full case fold is two or three code points, from Python's casefold. */
@@ -50,7 +50,7 @@ test("deck names written by the C core keep Anki's name index whole, and find th
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'amgi-unicase-'));
   const ours = path.join(dir, 'ours.anki2');
   const theirs = path.join(dir, 'theirs.anki2');
-  fs.copyFileSync(path.join(ROOT, 'test', 'parity', 'fixtures', 'schema18', 'collection.anki2'), ours);
+  fs.copyFileSync(path.join(ROOT, 'tests', 'server', 'parity', 'fixtures', 'schema18', 'collection.anki2'), ours);
   fs.copyFileSync(ours, theirs);
   return (async () => {
     const impl = new Impl();

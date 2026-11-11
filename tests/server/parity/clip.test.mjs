@@ -13,10 +13,10 @@ import os from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { ROOT } from './servers.mjs';
-import { sandboxEnv } from '../sandbox-home.cjs';
+import { sandboxEnv } from '../../../test/sandbox-home.cjs';
 
 const require = createRequire(import.meta.url);
-const { fakeGemini, WAV, dailyQuotaExhausted, grpcError, quotaExhausted } = require('../../plusaudio/test/helpers/fake-gemini.js');
+const { fakeGemini, WAV, dailyQuotaExhausted, grpcError, quotaExhausted } = require('../../../plusaudio/test/helpers/fake-gemini.js');
 
 const CLIP = path.join(ROOT, 'server', 'build', 'amgi-clip');
 const UNAVAILABLE = 14;

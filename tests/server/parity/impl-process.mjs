@@ -1,11 +1,11 @@
-// The collection core as a process speaking the collection-parity protocol (test/parity/protocol.mjs):
+// The collection core as a process speaking the collection-parity protocol (tests/server/parity/protocol.mjs):
 // one server session, as the backup ledger and the lock chains see it. It is the C core's CLI,
 // server/build/collection_cli (make -C server), or the program AMGI_COLLECTION_IMPL names.
 import { spawn } from 'node:child_process';
 import path from 'node:path';
-import { sandboxEnv } from '../sandbox-home.cjs';
+import { sandboxEnv } from '../../../test/sandbox-home.cjs';
 
-const ROOT = path.resolve(import.meta.dirname, '..', '..');
+const ROOT = path.resolve(import.meta.dirname, '..', '..', '..');
 const IMPL = process.env.AMGI_COLLECTION_IMPL;
 
 export const COLLECTION_CLI = path.join(ROOT, 'server', 'build', 'collection_cli');
