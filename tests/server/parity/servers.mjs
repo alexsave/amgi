@@ -4,7 +4,7 @@
 // (`cbase: listening 127.0.0.1:<port>`); and the tests' fake Gemini.
 import { spawn } from 'node:child_process';
 import path from 'node:path';
-import { sandboxEnv } from '../../../test/sandbox-home.cjs';
+import { sandboxEnv } from '../../repo/sandbox-home.cjs';
 
 export const ROOT = path.resolve(import.meta.dirname, '..', '..', '..');
 export const SERVER = path.join(ROOT, 'server', 'build', 'amgi');

@@ -13,7 +13,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { sandboxEnv } from './sandbox-home.cjs';
 
-const ROOT = path.resolve(import.meta.dirname, '..');
+const ROOT = path.resolve(import.meta.dirname, '..', '..');
 const SCRIPT = path.join(ROOT, 'server', 'tools', 'submodules.sh');
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'amgi-submodules-'));
 after(() => fs.rmSync(tmp, { recursive: true, force: true }));

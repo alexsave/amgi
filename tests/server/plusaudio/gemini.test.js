@@ -14,7 +14,7 @@ const assert = require('node:assert/strict');
 const { spawn } = require('node:child_process');
 const net = require('node:net');
 const path = require('node:path');
-const { sandboxEnv } = require('../../../test/sandbox-home.cjs');
+const { sandboxEnv } = require('../../repo/sandbox-home.cjs');
 const { test } = require('node:test');
 
 const { writeBytesField, writeDoubleField, writeVarint, writeVarintField } = require('../../../plusaudio/lib/protobuf');

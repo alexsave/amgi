@@ -1,6 +1,6 @@
 // Every process the tests and the drives start runs with a fresh temp HOME and no XDG_DATA_HOME
 // (incident 18:42, docs/INCIDENT_1842.md). This holds the test code to it:
-// - the node guard (test/sandbox-home.cjs) refuses the real home, a dir inside it or above it,
+// - the node guard (tests/repo/sandbox-home.cjs) refuses the real home, a dir inside it or above it,
 //   an Anki2 folder and XDG_DATA_HOME, and hands each child its own empty HOME;
 // - every child-process call in the test code (JavaScript, parsed with eslint's own parser, and
 //   Python, parsed with its ast module) passes an env made by sandboxEnv / sandbox_env, unless
@@ -17,9 +17,9 @@ import path from 'node:path';
 import * as espree from 'espree';
 import { assertSandboxed, sandboxEnv } from './sandbox-home.cjs';
 
-const ROOT = path.resolve(import.meta.dirname, '..');
-const SCANNED = ['test', 'tests/server/parity', 'tests/server/bridge', 'tests/ui', 'tests/e2e/ui', 'tests/server/plusaudio', 'tests/anki/addon', '.claude/skills/e2e-ui/scripts'];
-const SELF = 'test/sandbox-home.test.mjs';
+const ROOT = path.resolve(import.meta.dirname, '..', '..');
+const SCANNED = ['tests/repo', 'tests/server/parity', 'tests/server/bridge', 'tests/ui', 'tests/e2e/ui', 'tests/server/plusaudio', 'tests/anki/addon', '.claude/skills/e2e-ui/scripts'];
+const SELF = 'tests/repo/sandbox-home.test.mjs';
 const EXEMPT = new Set(['git', 'make', 'ffmpeg']);
 const JS_CALLS = new Set(['spawn', 'spawnSync', 'execFile', 'execFileSync', 'exec', 'execSync', 'fork']);
 
@@ -149,7 +149,7 @@ test('every child process the test code starts gets a sandboxed HOME', () => {
     for (const b of unsandboxedJs(fs.readFileSync(path.join(ROOT, f), 'utf8'), f)) bad.push(`${f}:${b}`);
   }
   bad.push(...unsandboxedPy(tracked.filter((f) => f.endsWith('.py'))));
-  assert.deepEqual(bad, [], 'pass env: sandboxEnv() (test/sandbox-home.cjs) or env=sandbox_env() (sandbox_home.py)');
+  assert.deepEqual(bad, [], 'pass env: sandboxEnv() (tests/repo/sandbox-home.cjs) or env=sandbox_env() (sandbox_home.py)');
 });
 
 test('the e2e shell tools run in a sandbox, and e2e.sh gives each server and the fake its own HOME', () => {

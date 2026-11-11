@@ -20,7 +20,7 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { sandboxEnv } from '../../../test/sandbox-home.cjs';
+import { sandboxEnv } from '../../repo/sandbox-home.cjs';
 import { createRequire } from 'node:module';
 import { dec, enc, hex, items, list, noteTokens, strs } from './protocol.mjs';
 
