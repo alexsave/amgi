@@ -72,7 +72,7 @@ static void scan(const char *rel) {
     fprintf(stderr, "FAIL %s: read error\n", rel);
   } else if (calls_cancel(buf, n)) {
     failures++;
-    fprintf(stderr, "FAIL %s: calls pthread_cancel (a cancelled thread never gives back the collection core's path lock)\n", rel);
+    fprintf(stderr, "FAIL %s: cancels a thread; a cancelled thread never gives back the collection core's path lock\n", rel);
   }
   free(buf);
 }
