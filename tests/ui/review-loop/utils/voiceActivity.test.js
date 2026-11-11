@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, mock, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { isDeepStrictEqual } from 'node:util';
-import { detectSpeechEnd, SPEECH_END_DEFAULTS } from '../../utils/voiceActivity.js';
+import { detectSpeechEnd, SPEECH_END_DEFAULTS } from '../../../../src/utils/voiceActivity.js';
 
 // A stand-in for the Web Audio graph. `getFloatTimeDomainData` fills the whole
 // buffer with one value, so the RMS the detector computes is exactly that

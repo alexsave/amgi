@@ -244,7 +244,7 @@ Constraint recap: collection access and the Gemini client stay in Node scripts; 
 10. `settings.js`, `respond.js MESSAGES`, `mediaType.js`, `rateLimit.js` message strings, `MISSING_KEY_MESSAGE` (`plusaudio/lib/geminiKey.js`), `INSTALLED_MESSAGE` and `RESTART_MESSAGE`: pure data and tiny logic that C must carry. Each string should have one owner. Suggest a generated C header from the Node source for the strings the scripts also print (`MISSING_KEY_MESSAGE`), or the other way round, enforced by a test, to avoid a double Band-Aid.
 11. `serve.mjs` itself loads `.env.local` into the process environment and the scripts also load `plusaudio/.env`; both lookups must be preserved (problem list item for the C dotenv reader).
 12. Media bytes for `GET /media/:filename` on the bridge transport come from `readMedia` over base64 JSON; on direct from the folder. Stage 1: the worker returns the bytes (`collection-cli media-read`), so no direct file path logic is duplicated in C. After stage 1, the direct case can move to C `sendfile`.
-13. Test seams are in-process too: `src/test-helpers/fakeFork.js` and the `src/__tests__/server/*.test.js` suites call handlers with `Request` objects and `mock.module`. They do not exercise HTTP and cannot run against the C server (section 7).
+13. Test seams are in-process too: `src/test-helpers/fakeFork.js` and the `tests/ui/review-loop/server/*.test.js` suites call handlers with `Request` objects and `mock.module`. They do not exercise HTTP and cannot run against the C server (section 7).
 
 ## 6. What the C server and the Node pieces look like in stage 1
 
@@ -276,7 +276,7 @@ plusaudio/collection-cli.js   new
 - The `ui/build.sh` wasm build is untouched.
 
 ### 7.2 Tests
-- Today's server suites are handler-level: `src/__tests__/server/{audio,cardText,deckRemoveRoute,directClient,install,installNotetype,installRoute,mediaRoute,mediaType,rateLimitRoute,settingsHeaders,sideOrder,starterDeck,starterPhrases}.test.js`, importing route modules with a built `Request`, plus `mock.module`. They cannot be pointed at an HTTP server unchanged.
+- Today's server suites are handler-level: `tests/ui/review-loop/server/{audio,cardText,deckRemoveRoute,directClient,install,installNotetype,installRoute,mediaRoute,mediaType,rateLimitRoute,settingsHeaders,sideOrder,starterDeck,starterPhrases}.test.js`, importing route modules with a built `Request`, plus `mock.module`. They cannot be pointed at an HTTP server unchanged.
 - Plan: add an HTTP-level suite (`test/server/*.test.mjs`) that starts a server on `PORT=0` (Node impl or C impl, selected by an env var) and drives the same cases through the wire (using `ui/server/wire.mjs` to build requests and decode answers). Port each existing route test into it, running first against Node (must pass) and then against C (must pass): this is the compatibility proof. Keep the old handler-level tests for the code that stays in Node.
 - Keep `tests/ui/wire.test.mjs` (wire.wasm versus `wire_dump`) as is; add a native round trip for every kind in `server/test`.
 - Rate gate: port `tests/server/plusaudio/rateGate.test.js` to C with a fixed seed and the injected clock; fixed-seed draw-sequence test per the repo's randomness rule; the C gate draws exactly once per acquire and per admissionWait.
