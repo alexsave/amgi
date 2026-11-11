@@ -111,7 +111,7 @@ ui/src/          The page, in C: decks, deck view, card form and panel, bulk run
 ui/css/          Its stylesheets
 ui/wire/         The wire format between the page and the server
 ui/tools/        Browser drives and their fixture
-ui/test/         Tests of the C against what it must agree with
+tests/ui/         Tests of the C against what it must agree with
 tests/server/parity/     The server's contract: the HTTP and collection suites, their fixtures and recordings (each suite's header says how it compares)
 tests/server/bridge/     The bridge client against the add-on's real server
 server/          The C server (make -C server): the amgi app on cbase (app/, amgi/), the collection core (collection/, json/), their tests (test/)

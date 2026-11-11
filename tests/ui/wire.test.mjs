@@ -10,9 +10,9 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { sandboxEnv } from '../../test/sandbox-home.cjs';
 import { fileURLToPath } from 'node:url';
-import { KIND, decode, encode } from '../wire/wire.mjs';
+import { KIND, decode, encode } from '../../ui/wire/wire.mjs';
 
-const dump = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'out', 'wire_dump');
+const dump = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'ui', 'out', 'wire_dump');
 const read = (bytes) => execFileSync(dump, { env: sandboxEnv(), input: bytes }).toString();
 
 function refusesCutShort(bytes) {

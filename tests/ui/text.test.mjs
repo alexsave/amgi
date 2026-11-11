@@ -9,7 +9,7 @@ import { sandboxEnv } from '../../test/sandbox-home.cjs';
 import { fileURLToPath } from 'node:url';
 import { DEDUPE, GUESSES, HAS_AUDIO, PASTE_LINES, STRIP_HTML } from './text-expected.mjs';
 
-const dump = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'out', 'text_dump');
+const dump = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'ui', 'out', 'text_dump');
 const enc = new TextEncoder(), dec = new TextDecoder();
 // Every (function, input) through the C at once; the answers in order.
 function c(calls) {
