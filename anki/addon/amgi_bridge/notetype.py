@@ -28,7 +28,7 @@
 # idempotence below guarantees.
 #
 # No aqt import, on purpose, the same as core.py: this is exercised by
-# test/test_notetype_collection.py against a real anki.collection.Collection.
+# tests/anki/addon/test_notetype_collection.py against a real anki.collection.Collection.
 #
 # License: GNU AGPL, version 3 or later, to match Anki's own.
 

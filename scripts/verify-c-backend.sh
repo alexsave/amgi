@@ -133,7 +133,7 @@ s_drives() {
   # keychain dialog at the owner. So Chrome gets the real HOME, and only the servers get a temp one,
   # which e2e.sh must set itself (env HOME=... on the server start lines). Refuse to run otherwise,
   # because a server under the real HOME could reach the real Anki2 folder.
-  if ! grep -q 'HOME=' "$clone/ui/tools/e2e.sh"; then
+  if ! grep -q 'HOME=' "$clone/tests/e2e/ui/e2e.sh"; then
     echo "tests/e2e/ui/e2e.sh does not give the servers their own HOME; not running the drives under the real HOME" >&2
     return 1
   fi

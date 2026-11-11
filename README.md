@@ -110,11 +110,14 @@ The server is C: `server/build/amgi`, the amgi app (`server/app/`, `server/amgi/
 ui/src/          The page, in C: decks, deck view, card form and panel, bulk run, settings, first run
 ui/css/          Its stylesheets
 ui/wire/         The wire format between the page and the server
-tests/e2e/ui/        Browser drives and their fixture
-tests/ui/         Tests of the C against what it must agree with
-tests/server/parity/     The server's contract: the HTTP and collection suites, their fixtures and recordings (each suite's header says how it compares)
-tests/server/bridge/     The bridge client against the add-on's real server
-server/          The C server (make -C server): the amgi app on cbase (app/, amgi/), the collection core (collection/, json/), their tests (test/)
+tests/ui/             Tests of the C against what it must agree with, and the review loop's tests (review-loop/)
+tests/e2e/ui/         Browser drives of the app, and their fixture
+tests/e2e/anki/       The browser drive of the card template (drive.js, reviewer.html)
+tests/server/         Tests of the C server and what is next to it: c/ (the C unit tests), parity/ (the server's contract:
+                      the HTTP and collection suites, their fixtures and recordings), bridge/, plusaudio/, cli-smoke.sh
+tests/anki/           The build-loop test, and the add-on's Python tests (addon/)
+tests/repo/           Checks about the whole repo: no JSON, license, submodules, the temp-HOME guard
+server/               The C server (make -C server): the amgi app on cbase (app/, amgi/), the collection core (collection/, json/)
 src/utils/       The review loop and voice-activity detection the card template shares
 plusaudio/       The card generation policy (lib/cardGeneration/) and generate-clip.js, which the Anki add-on runs
 anki/            Card template plus the mic and bridge add-ons

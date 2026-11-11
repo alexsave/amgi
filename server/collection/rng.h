@@ -11,7 +11,7 @@
  * guid as the same note.
  *
  * Every draw goes through rng_uint32, under one lock (the collection core runs on several threads
- * in the server). test/no-random.test.mjs fails on any other random or clock-seeded source in
+ * in the server). tests/server/plusaudio/random.test.js fails on any other random or clock-seeded source in
  * the native code. */
 #ifndef AMGI_COL_RNG_H
 #define AMGI_COL_RNG_H

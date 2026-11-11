@@ -24,11 +24,11 @@
 # front, in __init__.py, before a run touches a single note, so a missing
 # piece is one clear message instead of one identical failure per note.
 #
-# test/test_generator.py mocks subprocess.run, the transport boundary here,
+# tests/anki/addon/test_generator.py mocks subprocess.run, the transport boundary here,
 # the same way the previous edge-function version of this file mocked
 # urllib.request.urlopen: everything on this side of that boundary (argument
 # construction, exit-code handling, error messages, file cleanup) is what a
-# mock can prove, and generate-clip.js's own test/generate-clip.test.js
+# mock can prove, and generate-clip.js's own tests/server/plusaudio/generate-clip.test.js
 # proves the other side of the same contract from Node.
 #
 # License: GNU AGPL, version 3 or later, to match Anki's own.

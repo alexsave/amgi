@@ -10,7 +10,7 @@
 # already does that bookkeeping, so none of it is reimplemented here.
 #
 # This is a port, not a shared module, because the add-on is Python and
-# plusaudio/lib is Node. test/test_deck_text.py checks the two stay identical
+# plusaudio/lib is Node. tests/anki/addon/test_deck_text.py checks the two stay identical
 # by shelling out to Node and comparing outputs on the same inputs - a
 # divergence here would be a bug in a user's live collection, not just a test
 # failure, so it is worth the extra suite.

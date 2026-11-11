@@ -84,7 +84,7 @@ Evidence: the surviving pages 2 and 7 are Anki's own post-backup transaction (co
 - **A faithful port copies its original's bugs.** The Node server (`plusaudio/lib/collection/open.js:91`) and its C port (`server/collection/db.c`) both ran `PRAGMA wal_checkpoint(TRUNCATE)` on every open.
 - **Dropping the checkpoint alone did not fix it.** The mutation check showed any second connection's ordinary close-time checkpoint does the same, even the `sqlite3` CLI; only refusing to open a file with a `-wal` or `-shm` beside it fixes it.
 - **The page writes on its own.** The page-load auto-install opens and writes the collection without a user action; the owner kept it automatic ("I dont want users to think about it"), so it had to be safe with no user in the loop.
-- **Tests ran with the real HOME.** `tests/server/parity/servers.mjs` started the C server with the real HOME, and the C server's default profile folder is `$HOME/Library/Application Support/Anki2`; this exposure turned out not to be the path at 18:42 (no request without `X-Amgi-Collection` opens a collection), but it was live, and one test (cli-fuzz) did write outside its sandbox at 18:25:07.
+- **Tests ran with the real HOME.** `test/parity/servers.mjs` started the C server with the real HOME, and the C server's default profile folder is `$HOME/Library/Application Support/Anki2`; this exposure turned out not to be the path at 18:42 (no request without `X-Amgi-Collection` opens a collection), but it was live, and one test (cli-fuzz) did write outside its sandbox at 18:25:07.
 - **Nothing simulated Anki's close.** No suite had a process playing Anki that loses its lock while still open, so the exact path (Anki just closed, the page reloading) was never exercised.
 - **No server log for the window.** The try server logged at warn and printed only its listening line, so which server made the reset cannot be told.
 - **A real user found it in minutes.** Alex's words at the restore: "well theres your bug, found much faster than your method".
@@ -100,7 +100,7 @@ Not determined: which server reset the `-wal`, and what Anki wrote over the whol
 - **It corrected the early theories.** The first reads ("a positioned write at offset 0", "a file emptied first", "the write points at cdom's try server", and cdom's reading of Anki's source that Anki was "very unlikely" to be involved, when its lock drop in read_locked_db_file was half the cause) were replaced by evidence: Anki's own close wrote the zeros.
 - **Red first, mutation-checked.** `incident_1842.c` was red 5 of 5 before the rule; the fix killed all six mutants; the guards scan and the browser drive were each shown red without the fix; removing only the `-wal` half lets the automatic install write into the live file again.
 - **The fix has one owner.** `collection_openable` in db.c owns every open rule, and checks again right after the open to close the race with Anki starting.
-- **The temp-HOME rule is enforced by a test.** `tests/repo/sandbox-home.test.mjs` parses the test code and fails on any child process started without a sandboxed env.
+- **The temp-HOME rule is enforced by a test.** `test/sandbox-home.test.mjs` parses the test code and fails on any child process started without a sandboxed env.
 - **The fix beat its ETA.** Committed at 19:16 against an executor ETA of ~19:40 and a dispatcher ETA of ~19:50, with the owner's target 19:40.
 - **The re-test never touched real data.** It ran on a copied profile (Anki with `-b ~/Dev/anki-retest-base`), with real Anki doing a real backup on close.
 - **The rules were written down.** ARCHITECTURE.md section 6b (s6-safety.md) records each rule, its owner in code, and how it is proven.
@@ -117,7 +117,7 @@ Not determined: which server reset the `-wal`, and what Anki wrote over the whol
    - The wrong port: foolish's 18:34 note told Alex to stop the Node server "on 3000 (PID 11741)", while that Node server (PID 11741) was on 3111 and 3000 was free.
 4. **The test-HOME exposure.** Test servers inherited the real HOME, so any request without the base-dir header could have reached the real Anki2 folder; foolish's standings say it "should have caught [it] before the first run".
    The fix then caused a side effect: Chrome under a temp HOME popped a macOS keychain dialog at Alex (fixed with `--use-mock-keychain --password-store=basic`).
-5. **A rebase dropped a test file silently.** #35's rebase lost `tests/server/parity/envfile.test.mjs`; foolish's post-merge cleanup check found it, and it was restored as amgi #43 (merged 2026-11-09 10:23).
+5. **A rebase dropped a test file silently.** #35's rebase lost `test/parity/envfile.test.mjs`; foolish's post-merge cleanup check found it, and it was restored as amgi #43 (merged 2026-11-09 10:23).
 6. **A PR merged before its follow-up commit was pushed.** foolish #474 (ARCHITECTURE.md) merged at 00:54:40, and the commit recording the x1 ruling, announced as "Pushed" on #474, became #475 (opened 00:55:36, merged 10:24).
 7. **A verify script with a wrong expectation.** verify-c-backend.sh required `GET /` to answer 200, but `/` answers 307 to /decks, as Node did; it failed on that step until amgi fixed it (amgi #44).
 8. **Files kept in /tmp.** amgi's verify script and checklist lived in a session scratchpad under /private/tmp until the owner said "dont keep things in tmp where we could lose them" (~18:26); foolish's run scripts moved to ~/Dev/foolish-reports only at 20:31.
@@ -156,8 +156,8 @@ Friction: the owner's corrections on wording and scope, the incident, a one-hour
 | 2 | Never open a file without a SQLite header; show "damaged" in the UI | foolish | Done: dbf48a1 and #35 |
 | 3 | Never checkpoint, enforced by `test/no-checkpoint.test.mjs` | amgi | Done: #41's commits, in main via #35 |
 | 4 | A fresh backup before the automatic install write | foolish | Done: 1bd5cff, in main via #35 |
-| 5 | `incident_1842.c` (unit) and `tests/e2e/ui/incident1842.sh` (browser drive) in the suites | foolish, cdom | Done: 7be5120 and #42's commits, in main via #35 |
-| 6 | A temp HOME for every test process, enforced by `tests/repo/sandbox-home.test.mjs` | foolish | Done: #35 |
+| 5 | `incident_1842.c` (unit) and `ui/tools/incident1842.sh` (browser drive) in the suites | foolish, cdom | Done: 7be5120 and #42's commits, in main via #35 |
+| 6 | A temp HOME for every test process, enforced by `test/sandbox-home.test.mjs` | foolish | Done: #35 |
 | 7 | Chrome launches with `--use-mock-keychain --password-store=basic` | cdom, foolish | Done: cdom's tools/cdp.mjs and amgi 693b49c |
 | 8 | cli-fuzz writes only inside its scratch folder | foolish | Done: 37fe99e |
 | 9 | Delete the Node server (it carried the same checkpoint) | foolish | Done: #35 |

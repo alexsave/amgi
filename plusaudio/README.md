@@ -12,7 +12,7 @@ Text and a language in, one clip written to `--out`, nothing else.
 It is a supported boundary between Python (the add-on) and this code, so its contract is documented at the top
 of the file itself - arguments, exit codes (0 success, 1 generation failure, 2 usage error, 3 rate limited with
 stdout `retry-after-ms=<n>`, 4 a daily cap spent), and what stdout and stderr each carry - and
-`test/generate-clip.test.js` tests it directly.
+`tests/server/plusaudio/generate-clip.test.js` tests it directly.
 It reads `GEMINI_API_KEY` from the environment, or a `.env` next to it.
 
 `lib/generator.js` is a thin adapter over `lib/cardGeneration/cardGeneration.ts`.
@@ -43,10 +43,10 @@ A spent quota is `RESOURCE_EXHAUSTED` with a `QuotaFailure` (whose `quotaId` say
 Codes that Google maps to an HTTP 4xx are fatal and the rest are retried, the same split the REST client made.
 
 `GEMINI_API_BASE` points `generate-clip.js` at another server; an `http://` address is spoken to as cleartext HTTP/2.
-`node test/helpers/fake-gemini.js [port]` starts the tests' fake gRPC server on its own, answering every kind of request with a passing default, and prints the `GEMINI_API_BASE` to use.
+`node tests/server/plusaudio/helpers/fake-gemini.js [port]` starts the tests' fake gRPC server on its own, answering every kind of request with a passing default, and prints the `GEMINI_API_BASE` to use.
 
 ## Tests
 
 ```bash
-node --test "test/**/*.test.js"   # or: npm test, or npm test at the repo root
+node --test "tests/server/plusaudio/**/*.test.js"   # from the repo root; or: npm test, or npm test at the repo root
 ```

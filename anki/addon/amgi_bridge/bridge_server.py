@@ -8,7 +8,7 @@
 # is any object with the methods BridgeRequestHandler calls below, and
 # bridge_dispatch.py is what supplies the real one (backed by
 # aqt.operations.CollectionOp/QueryOp against mw.col). That seam is what
-# makes test/test_bridge_server.py able to prove every routing, auth and
+# makes tests/anki/addon/test_bridge_server.py able to prove every routing, auth and
 # origin decision this file makes without Qt or a running Anki: it hands in
 # a fake dispatcher instead.
 #
@@ -33,8 +33,8 @@ try:
     from . import bridge_wire, wire_schema
     from .bridge_auth import TOKEN_HEADER, check_preflight, check_request
 except ImportError:
-    # test/ imports this module directly, with the add-on's own directory on
-    # sys.path (see test/test_bridge_server.py) - the same dual-import
+    # tests/anki/addon/ imports this module directly, with the add-on's own directory on
+    # sys.path (see tests/anki/addon/test_bridge_server.py) - the same dual-import
     # tolerance core.py uses for deck_text.py.
     import bridge_wire  # type: ignore[no-redef]
     import wire_schema  # type: ignore[no-redef]

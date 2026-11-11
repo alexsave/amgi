@@ -5,7 +5,7 @@
 // Every random draw amgi makes - which Gemini voice reads a clip, the bits of
 // a new note's guid - comes from a generator made here, and from nowhere
 // else: no Math.random, no crypto.randomBytes / randomUUID / getRandomValues,
-// no seed taken from the clock. test/random.test.js greps the repo
+// no seed taken from the clock. tests/server/plusaudio/random.test.js greps the repo
 // for those and fails on any it finds outside this file.
 //
 // To make every run reproducible, change SEED below to a constant (any

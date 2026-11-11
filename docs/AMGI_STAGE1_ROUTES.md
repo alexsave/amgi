@@ -185,7 +185,7 @@ Field lists are from `ui/wire/wire.h` structs and the `wire.c` SCHEMA table (JS 
 - Note `ui/build.sh` still needs wasm toolchain and node (terser) for the page; only the server changes in stage 1. `ui/out/wire.wasm` and `ui/server/wire.mjs` become unnecessary on the serving path once C handlers use `wire.c` natively (`wire_node.c` stays for the Node tests while Node routes survive).
 
 ### 3.2 Startup and environment
-- `PORT` default 3000; `PORT=0` takes a free port; binds 127.0.0.1. Prints `amgi on http://127.0.0.1:<port>` on stdout, which `tests/e2e/ui/e2e.sh` greps (`start app 'amgi on '`). cbase prints `serve: listening on 127.0.0.1:<port> (backend)` on stderr instead. The C app must print the amgi line itself (a `serve_open` hook runs after the store opens and before serving) or the drives change their grep.
+- `PORT` default 3000; `PORT=0` takes a free port; binds 127.0.0.1. Prints `amgi on http://127.0.0.1:<port>` on stdout, which `ui/tools/e2e.sh` greps (`start app 'amgi on '`). cbase prints `serve: listening on 127.0.0.1:<port> (backend)` on stderr instead. The C app must print the amgi line itself (a `serve_open` hook runs after the store opens and before serving) or the drives change their grep.
 - `.env.local` at repo root is loaded with `process.loadEnvFile` (a variable already set wins). The C server needs its own dotenv reader with the same rules (comments, quotes, `export`?, precedence). `GEMINI_API_KEY`, `GEMINI_API_BASE` (the fake Gemini for tests) pass to children by environment. The scripts additionally load `plusaudio/.env` themselves.
 - Node resolution hooks (`hooks.mjs`) disappear with Node routes.
 - cbase's `CBASE_LISTEN` (default `127.0.0.1:8080`, port 0..65535 accepted by config) and `CBASE_*` env prefix: amgi would map `PORT` to it. cbase also opens a SQLite store (`CBASE_DB`, default `./cbase.sqlite`) and generates a JWT secret when none is set; neither is wanted by amgi (see gaps).
@@ -244,7 +244,7 @@ Constraint recap: collection access and the Gemini client stay in Node scripts; 
 10. `settings.js`, `respond.js MESSAGES`, `mediaType.js`, `rateLimit.js` message strings, `MISSING_KEY_MESSAGE` (`plusaudio/lib/geminiKey.js`), `INSTALLED_MESSAGE` and `RESTART_MESSAGE`: pure data and tiny logic that C must carry. Each string should have one owner. Suggest a generated C header from the Node source for the strings the scripts also print (`MISSING_KEY_MESSAGE`), or the other way round, enforced by a test, to avoid a double Band-Aid.
 11. `serve.mjs` itself loads `.env.local` into the process environment and the scripts also load `plusaudio/.env`; both lookups must be preserved (problem list item for the C dotenv reader).
 12. Media bytes for `GET /media/:filename` on the bridge transport come from `readMedia` over base64 JSON; on direct from the folder. Stage 1: the worker returns the bytes (`collection-cli media-read`), so no direct file path logic is duplicated in C. After stage 1, the direct case can move to C `sendfile`.
-13. Test seams are in-process too: `src/test-helpers/fakeFork.js` and the `tests/ui/review-loop/server/*.test.js` suites call handlers with `Request` objects and `mock.module`. They do not exercise HTTP and cannot run against the C server (section 7).
+13. Test seams are in-process too: `src/test-helpers/fakeFork.js` and the `src/__tests__/server/*.test.js` suites call handlers with `Request` objects and `mock.module`. They do not exercise HTTP and cannot run against the C server (section 7).
 
 ## 6. What the C server and the Node pieces look like in stage 1
 
@@ -276,14 +276,14 @@ plusaudio/collection-cli.js   new
 - The `ui/build.sh` wasm build is untouched.
 
 ### 7.2 Tests
-- Today's server suites are handler-level: `tests/ui/review-loop/server/{audio,cardText,deckRemoveRoute,directClient,install,installNotetype,installRoute,mediaRoute,mediaType,rateLimitRoute,settingsHeaders,sideOrder,starterDeck,starterPhrases}.test.js`, importing route modules with a built `Request`, plus `mock.module`. They cannot be pointed at an HTTP server unchanged.
+- Today's server suites are handler-level: `src/__tests__/server/{audio,cardText,deckRemoveRoute,directClient,install,installNotetype,installRoute,mediaRoute,mediaType,rateLimitRoute,settingsHeaders,sideOrder,starterDeck,starterPhrases}.test.js`, importing route modules with a built `Request`, plus `mock.module`. They cannot be pointed at an HTTP server unchanged.
 - Plan: add an HTTP-level suite (`test/server/*.test.mjs`) that starts a server on `PORT=0` (Node impl or C impl, selected by an env var) and drives the same cases through the wire (using `ui/server/wire.mjs` to build requests and decode answers). Port each existing route test into it, running first against Node (must pass) and then against C (must pass): this is the compatibility proof. Keep the old handler-level tests for the code that stays in Node.
-- Keep `tests/ui/wire.test.mjs` (wire.wasm versus `wire_dump`) as is; add a native round trip for every kind in `server/test`.
-- Rate gate: port `tests/server/plusaudio/rateGate.test.js` to C with a fixed seed and the injected clock; fixed-seed draw-sequence test per the repo's randomness rule; the C gate draws exactly once per acquire and per admissionWait.
+- Keep `ui/test/wire.test.mjs` (wire.wasm versus `wire_dump`) as is; add a native round trip for every kind in `server/test`.
+- Rate gate: port `plusaudio/test/rateGate.test.js` to C with a fixed seed and the injected clock; fixed-seed draw-sequence test per the repo's randomness rule; the C gate draws exactly once per acquire and per admissionWait.
 - Differential tests (Node as oracle): `mediaName`/`starterClipName`, `parseStarterPhrases`, `detectInputLanguage` / `correctSwappedSides` (if ported later), `defaultBaseDir`, install manifest, `contentTypeFor`, `settings` percent-decoding, the `retry-after-ms=` parser.
 - Exit-code tests with a fake script: a shell script that prints and exits 0, 1, 2, 3 (with and without a retry line), 4; stderr multi-line; spawn failure. Plus the existing `fake-gemini.js` helper for the full path through `generate-*.js`.
 - Mutation-check each new test (repo rule).
-- Browser drives: `tests/e2e/ui/e2e.sh` and `drives.sh` run unchanged except for the server command; they are the acceptance test. They need `ANKI_PYTHON_BIN` and `ANKI_FIXTURE_APKG`.
+- Browser drives: `ui/tools/e2e.sh` and `drives.sh` run unchanged except for the server command; they are the acceptance test. They need `ANKI_PYTHON_BIN` and `ANKI_FIXTURE_APKG`.
 - Gate cbase's `make check` for the server tree in CI separately from `npm test` so a slow cbase gate does not slow the Node loop.
 
 ### 7.3 PR order, smallest first
