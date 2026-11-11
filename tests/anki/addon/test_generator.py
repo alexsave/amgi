@@ -18,12 +18,12 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "anki", "addon", "amgi_bridge")))
 
 import generator  # noqa: E402
 
-# test/test_generator.py -> test -> amgi_bridge -> addon -> anki -> repo root.
-REAL_PLUSAUDIO_DIR = str(Path(__file__).resolve().parents[4] / "plusaudio")
+# tests/anki/addon/test_generator.py -> parents[3] is the repo root.
+REAL_PLUSAUDIO_DIR = str(Path(__file__).resolve().parents[3] / "plusaudio")
 
 
 def completed(returncode: int, stdout: str = "", stderr: str = "") -> subprocess.CompletedProcess:
