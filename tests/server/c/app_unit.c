@@ -13,11 +13,11 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "../amgi/amgi.h"
-#include "../amgi/cards.h"
-#include "../amgi/gate.h"
-#include "../amgi/gemini.h"
-#include "../collection/rng.h"
+#include "../../../server/amgi/amgi.h"
+#include "../../../server/amgi/cards.h"
+#include "../../../server/amgi/gate.h"
+#include "../../../server/amgi/gemini.h"
+#include "../../../server/collection/rng.h"
 
 static int failures, checks;
 #define CHECK(cond, ...)                         \

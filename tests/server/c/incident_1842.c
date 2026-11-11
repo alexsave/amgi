@@ -33,7 +33,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-#include "../collection/collection.h"
+#include "../../../server/collection/collection.h"
 
 static int failures, checks;
 #define CHECK(cond, ...)                                   \

@@ -13,7 +13,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "../amgi/cards.h"
+#include "../../../server/amgi/cards.h"
 
 static int read_exact(void *p, size_t n) { return fread(p, 1, n, stdin) == n; }
 static int read_str(arena *a, str *out) {

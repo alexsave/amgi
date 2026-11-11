@@ -113,7 +113,7 @@ static int read_file(cx *c, str path, str *out) {
  * process leaves only a hidden one (".amgi-<pid>-<n>.tmp"), which Anki's media check skips as it
  * skips every name with a leading dot, and which no later write reuses. */
 
-/* The fault seam: only server/test/media_unit.c's build defines MEDIA_FAULTS. media_fault_next is
+/* The fault seam: only tests/server/c/media_unit.c's build defines MEDIA_FAULTS. media_fault_next is
  * taken (and cleared) by the next write, so each fault hits exactly one. APPEAR puts a file
  * ("appeared") at the final name just before the rename, as another process could. */
 enum { MEDIA_FAULT_NONE, MEDIA_FAULT_SHORT, MEDIA_FAULT_WRITE, MEDIA_FAULT_FSYNC, MEDIA_FAULT_RENAME, MEDIA_FAULT_KILL, MEDIA_FAULT_APPEAR };

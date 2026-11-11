@@ -13,8 +13,8 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include "../collection/core.h"
-#include "../collection/rng.h"
+#include "../../../server/collection/core.h"
+#include "../../../server/collection/rng.h"
 #include "wire.h"
 
 int media_exists(cx *c, str dir, str name);

@@ -18,7 +18,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-#include "../collection/core.h"
+#include "../../../server/collection/core.h"
 
 str media_dir_for(cx *c, str collection);
 str media_add(cx *c, str dir, str desired, const void *data, size_t len);

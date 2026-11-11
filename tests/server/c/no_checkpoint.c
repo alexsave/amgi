@@ -94,7 +94,7 @@ static void test_shipped(void) {
   CHECK(shipped("server/collection/db.c"), "a C source ships");
   CHECK(shipped("plusaudio/generate-clip.js"), "a JavaScript source ships");
   CHECK(shipped("anki/addon/amgi_bridge/bridge_ops.py"), "a Python source ships");
-  CHECK(!shipped("server/test/c_rules.c"), "a file under test/ does not ship");
+  CHECK(!shipped("tests/server/c/c_rules.c"), "a file under test/ does not ship");
   CHECK(!shipped("anki/addon/amgi_bridge/test/test_x.py"), "a file under a test folder does not ship");
   CHECK(!shipped("server/tools/x.c"), "a file under tools/ does not ship");
   CHECK(!shipped("plusaudio/random.test.js"), "a *.test.js file does not ship");

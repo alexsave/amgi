@@ -27,7 +27,7 @@ static struct dirent *test_readdir(DIR *d) {
 }
 #define BACKUP_READDIR test_readdir
 
-#include "../collection/backup.c"
+#include "../../../server/collection/backup.c"
 
 static int failures, checks;
 #define CHECK(cond, ...)                                    \
