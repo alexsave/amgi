@@ -1,4 +1,4 @@
-/* ui/src/text.c and fields.c natively, for ui/test/text.test.mjs: it reads records of (u32 function,
+/* ui/src/text.c and fields.c natively, for tests/ui/text.test.mjs: it reads records of (u32 function,
  * u32 length, bytes) on stdin and writes each answer as (u32 length, bytes). Functions:
  * 0 trim, 1 strip_html, 2 strip_tags, 3 audio_src, 4 has_audio_ref ("1"/"0"), 5 dedupe_key,
  * 6 guess_fields: names split by 0x1f, then 0x1e and the sort field's index (or nothing), answered
@@ -7,7 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "../src/app.h"
+#include "../../ui/src/app.h"
 
 void *cd_alloc(uint32_t n) { return malloc(n ? n : 1); }
 void cd_free(void *p) { free(p); }

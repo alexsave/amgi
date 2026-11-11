@@ -1,4 +1,4 @@
-// What src/utils/ankiFields.js answered on ui/test/text.test.mjs's samples, frozen when the React app
+// What src/utils/ankiFields.js answered on tests/ui/text.test.mjs's samples, frozen when the React app
 // (its only user) went: the C (ui/src/text.c, fields.c) must keep answering the same.
 export const STRIP_HTML = [
   "",

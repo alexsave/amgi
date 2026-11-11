@@ -70,7 +70,7 @@ field_guess guess_fields(const text *names, uint32_t n, uint32_t sort_field) {
 
 /* amgiNotetype.js's fieldIndexes: by name, case folded, never by position. The names asked for are
  * ASCII, so folding ASCII letters is the whole of toLowerCase's effect on a match. They are the
- * names anki/notetype's templates read; ui/test/template.test.mjs holds the two to each other. */
+ * names anki/notetype's templates read; tests/ui/template.test.mjs holds the two to each other. */
 const char *const AMGI_FIELD_NAMES[6] = {"Cue", "CueAudio", "Target", "TargetAudio", "Language", "Notes"};
 amgi_fields amgi_fields_of(const text *names, uint32_t n) {
   int32_t at[6];
