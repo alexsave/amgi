@@ -1,5 +1,4 @@
-/* The incident-1842 rule: no explicit checkpoint in amgi's shipped code (ported from
- * test/no-checkpoint.test.mjs).
+/* The incident-1842 rule: no explicit checkpoint in amgi's shipped code.
  *
  * The lock rule (skills/amgi/references/collection-internals.md): a -wal with no -shm beside it is an
  * exclusive-mode owner (Anki, or an Anki that crashed), and amgi reports the collection locked without

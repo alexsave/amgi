@@ -1,4 +1,5 @@
-// What the repository's source scans share (test/no-json.test.mjs, test/no-checkpoint.test.mjs):
+// What the repository's source scans share (test/no-json.test.mjs; the C port of the checkpoint scan,
+// server/test/no_checkpoint.c, keeps its own copy of these rules in server/test/srcscan.h):
 // which tracked files ship, and their code with the comments blanked, so a scan reads code and
 // not what a comment says about it.
 import { execFileSync } from 'node:child_process';
