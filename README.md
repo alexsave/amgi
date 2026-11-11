@@ -104,7 +104,7 @@ The server is C: `server/build/amgi`, the amgi app (`server/app/`, `server/amgi/
 `.claude/skills/e2e-ui/` and `ui/tools/` drive the app in headless Chrome against a fixture Anki collection.
 `anki/test/harness/drive.js` does the same for the card template.
 `tests/server/parity/` holds the server's contract: an HTTP suite over every route and error shape, compared byte for byte with a recording (made from the Node server the C one replaced), and a collection runner that applies one operation list to schema 11 and 18 fixtures through the C core and compares every row afterwards.
-`test/bridge/` runs the C bridge client against the add-on's real server.
+`tests/server/bridge/` runs the C bridge client against the add-on's real server.
 
 ```
 ui/src/          The page, in C: decks, deck view, card form and panel, bulk run, settings, first run
@@ -113,7 +113,7 @@ ui/wire/         The wire format between the page and the server
 ui/tools/        Browser drives and their fixture
 ui/test/         Tests of the C against what it must agree with
 tests/server/parity/     The server's contract: the HTTP and collection suites, their fixtures and recordings (each suite's header says how it compares)
-test/bridge/     The bridge client against the add-on's real server
+tests/server/bridge/     The bridge client against the add-on's real server
 server/          The C server (make -C server): the amgi app on cbase (app/, amgi/), the collection core (collection/, json/), their tests (test/)
 src/utils/       The review loop and voice-activity detection the card template shares
 plusaudio/       The card generation policy (lib/cardGeneration/) and generate-clip.js, which the Anki add-on runs

@@ -17,16 +17,16 @@ import fs from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
 import { createRequire } from 'node:module';
-import { sandboxEnv } from '../sandbox-home.cjs';
+import { sandboxEnv } from '../../../test/sandbox-home.cjs';
 import {
   BridgeError, PROTOCOL_HEADER, closeBridgesUnderTest, probeBridgeUnderTest as probeBridge, resolveTransportUnderTest as resolveTransport,
-} from '../../tests/server/parity/bridge-under-test.mjs';
-import { BRIDGE_PROTOCOL, WIRE_MIME, decode, encode } from '../../ui/wire/wire.mjs';
+} from '../parity/bridge-under-test.mjs';
+import { BRIDGE_PROTOCOL, WIRE_MIME, decode, encode } from '../../../ui/wire/wire.mjs';
 
 const require = createRequire(import.meta.url);
-const { anki, buildFixtureCollection, tempDir, withAnkiLibrary } = require('../../plusaudio/test/collection/helpers/anki-python');
+const { anki, buildFixtureCollection, tempDir, withAnkiLibrary } = require('../../../plusaudio/test/collection/helpers/anki-python');
 
-const ROOT = path.resolve(import.meta.dirname, '..', '..');
+const ROOT = path.resolve(import.meta.dirname, '..', '..', '..');
 const ENTRY = path.join(ROOT, '.claude', 'skills', 'e2e-ui', 'scripts', 'bridge_server_entry.py');
 const TOKEN = 'live-bridge-token';
 const maybe = anki ? describe : describe.skip;
