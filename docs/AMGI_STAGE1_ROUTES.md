@@ -185,7 +185,7 @@ Field lists are from `ui/wire/wire.h` structs and the `wire.c` SCHEMA table (JS 
 - Note `ui/build.sh` still needs wasm toolchain and node (terser) for the page; only the server changes in stage 1. `ui/out/wire.wasm` and `ui/server/wire.mjs` become unnecessary on the serving path once C handlers use `wire.c` natively (`wire_node.c` stays for the Node tests while Node routes survive).
 
 ### 3.2 Startup and environment
-- `PORT` default 3000; `PORT=0` takes a free port; binds 127.0.0.1. Prints `amgi on http://127.0.0.1:<port>` on stdout, which `ui/tools/e2e.sh` greps (`start app 'amgi on '`). cbase prints `serve: listening on 127.0.0.1:<port> (backend)` on stderr instead. The C app must print the amgi line itself (a `serve_open` hook runs after the store opens and before serving) or the drives change their grep.
+- `PORT` default 3000; `PORT=0` takes a free port; binds 127.0.0.1. Prints `amgi on http://127.0.0.1:<port>` on stdout, which `tests/e2e/ui/e2e.sh` greps (`start app 'amgi on '`). cbase prints `serve: listening on 127.0.0.1:<port> (backend)` on stderr instead. The C app must print the amgi line itself (a `serve_open` hook runs after the store opens and before serving) or the drives change their grep.
 - `.env.local` at repo root is loaded with `process.loadEnvFile` (a variable already set wins). The C server needs its own dotenv reader with the same rules (comments, quotes, `export`?, precedence). `GEMINI_API_KEY`, `GEMINI_API_BASE` (the fake Gemini for tests) pass to children by environment. The scripts additionally load `plusaudio/.env` themselves.
 - Node resolution hooks (`hooks.mjs`) disappear with Node routes.
 - cbase's `CBASE_LISTEN` (default `127.0.0.1:8080`, port 0..65535 accepted by config) and `CBASE_*` env prefix: amgi would map `PORT` to it. cbase also opens a SQLite store (`CBASE_DB`, default `./cbase.sqlite`) and generates a JWT secret when none is set; neither is wanted by amgi (see gaps).
@@ -283,7 +283,7 @@ plusaudio/collection-cli.js   new
 - Differential tests (Node as oracle): `mediaName`/`starterClipName`, `parseStarterPhrases`, `detectInputLanguage` / `correctSwappedSides` (if ported later), `defaultBaseDir`, install manifest, `contentTypeFor`, `settings` percent-decoding, the `retry-after-ms=` parser.
 - Exit-code tests with a fake script: a shell script that prints and exits 0, 1, 2, 3 (with and without a retry line), 4; stderr multi-line; spawn failure. Plus the existing `fake-gemini.js` helper for the full path through `generate-*.js`.
 - Mutation-check each new test (repo rule).
-- Browser drives: `ui/tools/e2e.sh` and `drives.sh` run unchanged except for the server command; they are the acceptance test. They need `ANKI_PYTHON_BIN` and `ANKI_FIXTURE_APKG`.
+- Browser drives: `tests/e2e/ui/e2e.sh` and `drives.sh` run unchanged except for the server command; they are the acceptance test. They need `ANKI_PYTHON_BIN` and `ANKI_FIXTURE_APKG`.
 - Gate cbase's `make check` for the server tree in CI separately from `npm test` so a slow cbase gate does not slow the Node loop.
 
 ### 7.3 PR order, smallest first

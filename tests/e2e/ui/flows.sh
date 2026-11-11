@@ -1,7 +1,7 @@
 #!/bin/bash
-# Builds a fresh Anki folder for ui/tools/flows.mjs from the UI fixture (ui/tools/fixture.sh): one
+# Builds a fresh Anki folder for tests/e2e/ui/flows.mjs from the UI fixture (tests/e2e/ui/fixture.sh): one
 # profile, "User 1", holding a copy of its collection and media, and no amgi add-ons installed yet.
-#   ui/tools/flows.sh <fixture dir> <new anki folder>
+#   tests/e2e/ui/flows.sh <fixture dir> <new anki folder>
 set -euo pipefail
 from="$(cd "$1" && pwd)"
 to="$2"

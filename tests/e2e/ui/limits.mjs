@@ -1,5 +1,5 @@
 // Text too long for the page's buffer, against a copy of the UI fixture that each run builds fresh
-// (ui/tools/flows.sh, amgi installed): every box refuses it with a message and keeps nothing, never
+// (tests/e2e/ui/flows.sh, amgi installed): every box refuses it with a message and keeps nothing, never
 // a value cut short (ui/src/dom.c input_value). A deck name past the new-deck modal's 512 bytes and
 // past the rename's, a paste past the card box's MAX_PASTE (64 KB), a card field past 4096 bytes, a
 // bridge token past the settings' 2048, each crossed by one byte (in multi-byte UTF-8 where the limit
@@ -7,18 +7,18 @@
 // path of 1024 or 1500 bytes refused alike by Save and Scan, which share one limit, and one of 1023
 // saved; and a save refused for one value keeps none of the others.
 //
-//   node ui/tools/limits.mjs <base url> <name> <anki folder> [out dir]
+//   node tests/e2e/ui/limits.mjs <base url> <name> <anki folder> [out dir]
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { seed } from './seed.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const cdom = process.env.CDOM || path.join(here, '..', '..', 'cdom');
+const cdom = process.env.CDOM || path.join(here, '..', '..', '..', 'cdom');
 const { sleep } = await import(path.join(cdom, 'tools', 'cdp.mjs'));
 const { launchChrome } = await import('./chrome.mjs');
 const [base, name, ankiDir, outArg] = process.argv.slice(2);
-const out = outArg || path.join(here, '..', 'out', 'shots');
+const out = outArg || path.join(here, '..', '..', '..', 'ui', 'out', 'shots');
 fs.mkdirSync(out, { recursive: true });
 const collection = path.join(ankiDir, 'User 1', 'collection.anki2');
 const failures = [];

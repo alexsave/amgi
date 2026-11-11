@@ -1,24 +1,24 @@
 // Editing on the deck page, against a copy of the UI fixture that each run builds fresh
-// (ui/tools/flows.sh): a card opened in its row and a field changed (saved when the field is left),
+// (tests/e2e/ui/flows.sh): a card opened in its row and a field changed (saved when the field is left),
 // Redo with Gemini unreachable (the error shown, nothing written), a row deleted after the
 // page's own confirmation (Cancel first, then Delete), and the deck renamed in place (Escape
 // abandons, Enter saves)..
 //
-//   node ui/tools/edit.mjs <base url> <name> <anki folder> [out dir]
+//   node tests/e2e/ui/edit.mjs <base url> <name> <anki folder> [out dir]
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 import { seed } from './seed.mjs';
 
-const { holdCollectionOpen } = createRequire(import.meta.url)('../../tests/server/plusaudio/collection/helpers/anki-python.js');
+const { holdCollectionOpen } = createRequire(import.meta.url)('../../server/plusaudio/collection/helpers/anki-python.js');
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const cdom = process.env.CDOM || path.join(here, '..', '..', 'cdom');
+const cdom = process.env.CDOM || path.join(here, '..', '..', '..', 'cdom');
 const { sleep } = await import(path.join(cdom, 'tools', 'cdp.mjs'));
 const { launchChrome } = await import('./chrome.mjs');
 const [base, name, ankiDir, outArg] = process.argv.slice(2);
-const out = outArg || path.join(here, '..', 'out', 'shots');
+const out = outArg || path.join(here, '..', '..', '..', 'ui', 'out', 'shots');
 fs.mkdirSync(out, { recursive: true });
 const collection = path.join(ankiDir, 'User 1', 'collection.anki2');
 const failures = [];

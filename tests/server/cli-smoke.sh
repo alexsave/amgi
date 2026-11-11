@@ -3,7 +3,7 @@
 # collection under a temp HOME: a locked collection refused, up, a second up, install, deck add (twice: find-or-create),
 # card add (the manual form: no Gemini), card list, deck list, deck remove (dry run, then --yes), the error exits, down.
 #   make build && tests/server/cli-smoke.sh
-# Every process here runs with the temp HOME (ui/tools/sandbox-home.sh), so nothing can reach a
+# Every process here runs with the temp HOME (tests/e2e/ui/sandbox-home.sh), so nothing can reach a
 # real Anki profile. No Gemini call is made: the generate form is only run without a key (exit 5).
 set -uo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"

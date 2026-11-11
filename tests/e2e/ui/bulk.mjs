@@ -1,10 +1,10 @@
 // Making cards, end to end, against the project's fake Gemini (node tests/server/plusaudio/helpers/fake-gemini.js,
-// its limits switched through POST /control) and a fresh copy of the UI fixture (ui/tools/flows.sh, amgi installed): one line by
+// its limits switched through POST /control) and a fresh copy of the UI fixture (tests/e2e/ui/flows.sh, amgi installed): one line by
 // Enter; a paste of several, a section marker dropped and a line the deck already has skipped; a
 // per-minute limit waited out with its countdown; a failed line and its Retry; the day's cap ending
 // every line still to go.
 //
-//   node ui/tools/bulk.mjs <base url> <fake gemini url> <name> <anki folder> [out dir]
+//   node tests/e2e/ui/bulk.mjs <base url> <fake gemini url> <name> <anki folder> [out dir]
 import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
@@ -12,11 +12,11 @@ import { fileURLToPath } from 'node:url';
 import { seed } from './seed.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const cdom = process.env.CDOM || path.join(here, '..', '..', 'cdom');
+const cdom = process.env.CDOM || path.join(here, '..', '..', '..', 'cdom');
 const { sleep } = await import(path.join(cdom, 'tools', 'cdp.mjs'));
 const { launchChrome } = await import('./chrome.mjs');
 const [base, gemini, name, ankiDir, outArg] = process.argv.slice(2);
-const out = outArg || path.join(here, '..', 'out', 'shots');
+const out = outArg || path.join(here, '..', '..', '..', 'ui', 'out', 'shots');
 fs.mkdirSync(out, { recursive: true });
 const collection = path.join(ankiDir, 'User 1', 'collection.anki2');
 const failures = [];
@@ -50,7 +50,7 @@ async function click(b, selector) {
     await b.send('Input.dispatchMouseEvent', { type, x: box[0], y: box[1], button: 'left', clickCount: 1 });
   }
 }
-const { controlFake } = createRequire(import.meta.url)('../../tests/server/plusaudio/helpers/fake-gemini.js');
+const { controlFake } = createRequire(import.meta.url)('../../server/plusaudio/helpers/fake-gemini.js');
 const control = (q) => controlFake(gemini, q);
 const enter = async (b) => {
   await b.send('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 });

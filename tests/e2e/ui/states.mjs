@@ -10,10 +10,10 @@
 //   a damaged collection (zero pages, as Anki's close left Alex's at 18:42): the badge and the
 //     list's place say amgi did not open it, and the file is byte for byte as it was
 // Needs ANKI_PYTHON_BIN and ANKI_FIXTURE_APKG (the e2e-ui skill).
-//   node ui/tools/states.mjs <base url> <name> <work dir> [out dir]
+//   node tests/e2e/ui/states.mjs <base url> <name> <work dir> [out dir]
 import fs from 'node:fs';
 import path from 'node:path';
-import { sandboxEnv } from '../../test/sandbox-home.cjs';
+import { sandboxEnv } from '../../../test/sandbox-home.cjs';
 import { execFileSync } from 'node:child_process';
 import http from 'node:http';
 import { createRequire } from 'node:module';
@@ -21,13 +21,13 @@ import { fileURLToPath } from 'node:url';
 import { seed } from './seed.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const root = path.join(here, '..', '..');
+const root = path.join(here, '..', '..', '..');
 const cdom = process.env.CDOM || path.join(root, 'cdom');
 const { sleep } = await import(path.join(cdom, 'tools', 'cdp.mjs'));
 const { launchChrome } = await import('./chrome.mjs');
-const { holdCollectionOpen } = createRequire(import.meta.url)('../../tests/server/plusaudio/collection/helpers/anki-python.js');
+const { holdCollectionOpen } = createRequire(import.meta.url)('../../server/plusaudio/collection/helpers/anki-python.js');
 const [base, name, work, outArg] = process.argv.slice(2);
-const out = outArg || path.join(here, '..', 'out', 'shots');
+const out = outArg || path.join(here, '..', '..', '..', 'ui', 'out', 'shots');
 fs.mkdirSync(out, { recursive: true });
 const failures = [];
 const check = (ok, what) => {
@@ -38,7 +38,7 @@ const sh = (cmd, args) => execFileSync(cmd, args, { cwd: root, env: sandboxEnv({
 // A folder as one profile, "User 1", from the UI fixture; installed fully, add-ons only, or not at all.
 function folder(dirName, install) {
   const dir = sh(path.join(here, 'flows.sh'), [path.join(root, '.e2e', 'fixture'), path.join(work, dirName)]);
-  if (install) sh(process.execPath, ['ui/tools/fixture-install.mjs', dir, ...(install === 'addons' ? ['--addons-only'] : [])]);
+  if (install) sh(process.execPath, ['tests/e2e/ui/fixture-install.mjs', dir, ...(install === 'addons' ? ['--addons-only'] : [])]);
   return dir;
 }
 // The base fixture, before amgi touched it: no card type in the collection.
@@ -97,7 +97,7 @@ try {
 
   // 2. Installed, the card type not in the collection yet.
   const behind = bareFolder('state-behind');
-  sh(process.execPath, ['ui/tools/fixture-install.mjs', behind, '--addons-only']);
+  sh(process.execPath, ['tests/e2e/ui/fixture-install.mjs', behind, '--addons-only']);
   b = await open({ base: behind, collection: path.join(behind, 'User 1', 'collection.anki2') });
   await goto(b, `${base}/decks`);
   check(await until(b, `document.querySelectorAll('.deck-item').length > 0 && document.querySelector('.template-update.is-behind strong')?.textContent === 'restart Anki'`, 150),

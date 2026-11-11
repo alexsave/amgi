@@ -9,7 +9,7 @@
 //   09-scan-done   the same screen once the scan answers: the rows have not moved
 // and checks the address and the screen at each step. Then it times first paint over fresh loads.
 //
-//   node ui/tools/shoot.mjs <base url> <name> <collection.anki2> [out dir]
+//   node tests/e2e/ui/shoot.mjs <base url> <name> <collection.anki2> [out dir]
 //   LOADS (default 7) first-paint loads; 0 skips timing.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -17,16 +17,16 @@ import { fileURLToPath } from 'node:url';
 import { seed } from './seed.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const cdom = process.env.CDOM || path.join(here, '..', '..', 'cdom');
+const cdom = process.env.CDOM || path.join(here, '..', '..', '..', 'cdom');
 const { sleep } = await import(path.join(cdom, 'tools', 'cdp.mjs'));
 const { launchChrome } = await import('./chrome.mjs');
 
 const [base, name, collection, outArg] = process.argv.slice(2);
 if (!base || !name || !collection) {
-  console.error('usage: node ui/tools/shoot.mjs <base url> <name> <collection.anki2> [out dir]');
+  console.error('usage: node tests/e2e/ui/shoot.mjs <base url> <name> <collection.anki2> [out dir]');
   process.exit(2);
 }
-const out = outArg || path.join(here, '..', 'out', 'shots');
+const out = outArg || path.join(here, '..', '..', '..', 'ui', 'out', 'shots');
 fs.mkdirSync(out, { recursive: true });
 const fixtureDir = path.dirname(path.resolve(collection));
 const LOADS = Number(process.env.LOADS ?? 7);
