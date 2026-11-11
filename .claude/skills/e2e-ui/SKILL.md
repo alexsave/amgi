@@ -33,7 +33,7 @@ export ANKI_FIXTURE_APKG=/path/to/SomeDeck.apkg
 node --test tests/server/parity/collection.test.mjs   # confirms both actually work together (make -C server first)
 ```
 
-That test is not part of this skill - it is the proof that the C collection core writes what the real Anki library writes - but it exercises exactly the same `ANKI_PYTHON_BIN`/`ANKI_FIXTURE_APKG` machinery this skill's scripts reuse (`scripts/fixture.js` wraps `plusaudio/test/collection/helpers/anki-python.js` rather than re-implementing it), so a green run here means the fixture-building and lock-holding steps below will work too.
+That test is not part of this skill - it is the proof that the C collection core writes what the real Anki library writes - but it exercises exactly the same `ANKI_PYTHON_BIN`/`ANKI_FIXTURE_APKG` machinery this skill's scripts reuse (`scripts/fixture.js` wraps `tests/server/plusaudio/collection/helpers/anki-python.js` rather than re-implementing it), so a green run here means the fixture-building and lock-holding steps below will work too.
 
 `npm test` needs only `ANKI_PYTHON_BIN`: the collection tests that import a shared deck build their own small one with Anki (`buildSharedDeckPackage` in that helper), so no test depends on what is in your package.
 `ANKI_FIXTURE_APKG` is for the browser drives: `ui/tools/fixture.sh` imports it into the UI fixture every drive copies (its decks are the list the screens show), and `states.mjs` builds its "before amgi" collection the same way (`scripts/fixture.js`).
@@ -71,7 +71,7 @@ Chrome keeps the real HOME (a temp one has no keychain, and macOS shows a dialog
 Screenshots land in `.e2e/shots` (or the folder given to `e2e.sh`), the logs in `.e2e/drives` and `.e2e/servers`.
 A whole run takes about six minutes, most of it the bulk drive waiting out the fake's per-minute limit, as a real one would.
 
-Nothing is real Gemini: the fake is the tests' own, `plusaudio/test/helpers/fake-gemini.js`, a gRPC server for `GenerativeService/GenerateContent` over cleartext HTTP/2 that answers speech, transcription and structured requests the way the tests expect.
+Nothing is real Gemini: the fake is the tests' own, `tests/server/plusaudio/helpers/fake-gemini.js`, a gRPC server for `GenerativeService/GenerateContent` over cleartext HTTP/2 that answers speech, transcription and structured requests the way the tests expect.
 The bulk drive switches its limits through its `POST /control` endpoint.
 A fresh fake and server matter: the fake's "broken line" fails once only, and a server's rate gate remembers the limits it met, which is why `e2e.sh` starts both every run.
 
@@ -86,7 +86,7 @@ When judging alignment, also measure: `getBoundingClientRect()` through the driv
 Then it lets go and checks the badge and the list come back on the next status poll.
 amgi also reports **locked**, without opening the file, whenever a `-wal` or a `-shm` sits beside the collection, says **damaged** for a file without SQLite's header, and never checkpoints a collection: the rule and the incident behind it are in `skills/amgi/references/collection-internals.md`, "Locking".
 Never point a drive, a probe or `sqlite3` at a real profile's `collection.anki2`: even a read's close can checkpoint into Anki's live `-wal`.
-This is a real lock, not a simulated `SQLITE_BUSY`, for the same reason `plusaudio/test/collection/open-lock.test.js` insists on one: an assertion that only your own reader agrees with your own writer proves nothing.
+This is a real lock, not a simulated `SQLITE_BUSY`, for the same reason `tests/server/plusaudio/collection/open-lock.test.js` insists on one: an assertion that only your own reader agrees with your own writer proves nothing.
 
 ## Testing the bridge transport
 

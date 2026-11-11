@@ -27,7 +27,7 @@
 # nothing runs without a clone.
 #
 # Safety: no real Gemini key ever reaches a step (GEMINI_API_KEY and GEMINI_API_BASE are unset;
-# the drives use plusaudio/test/helpers/fake-gemini.js, npm start gets a dummy key and an address
+# the drives use tests/server/plusaudio/helpers/fake-gemini.js, npm start gets a dummy key and an address
 # that refuses). npm start's server gets a throwaway HOME, and /api/anki/status is sent with no
 # settings headers, so it answers "unconfigured" and opens no collection and no bridge. Every
 # process this script starts is stopped on exit; nothing else is killed.

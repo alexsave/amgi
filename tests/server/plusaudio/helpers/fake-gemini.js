@@ -19,14 +19,14 @@
 // Each kind answers from the script passed in; anything unscripted fails the
 // way an outage would (UNAVAILABLE), which is what the fallback paths are for.
 //
-// Run directly, it is the e2e fake server: `node plusaudio/test/helpers/fake-gemini.js [port]`
+// Run directly, it is the e2e fake server: `node tests/server/plusaudio/helpers/fake-gemini.js [port]`
 // prints the GEMINI_API_BASE to point the app or a CLI at, and answers every
 // kind with a passing default.
 
 const crypto = require('node:crypto');
 const http2 = require('node:http2');
 
-const { pcmToWav } = require('../../lib/cardGeneration/geminiSpeech.ts');
+const { pcmToWav } = require('../../../../plusaudio/lib/cardGeneration/geminiSpeech.ts');
 const {
   GENERATE_CONTENT_PATH,
   GenerateContentRequest,
@@ -36,7 +36,7 @@ const {
   encodeStatus,
   frame,
   unframe,
-} = require('../../lib/cardGeneration/geminiWire.ts');
+} = require('../../../../plusaudio/lib/cardGeneration/geminiWire.ts');
 
 const WAV = Buffer.from(pcmToWav(new Uint8Array(8), 24000, 1));
 

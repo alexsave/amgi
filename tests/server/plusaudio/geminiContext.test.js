@@ -9,9 +9,9 @@
 const assert = require('node:assert/strict');
 const { test } = require('node:test');
 
-const { createGeminiContext } = require('../lib/geminiContext');
-const { GEMINI_TTS_LITE_MODEL, GEMINI_TTS_MODEL } = require('../lib/cardGeneration/models.ts');
-const { createRandom } = require('../lib/random');
+const { createGeminiContext } = require('../../../plusaudio/lib/geminiContext');
+const { GEMINI_TTS_LITE_MODEL, GEMINI_TTS_MODEL } = require('../../../plusaudio/lib/cardGeneration/models.ts');
+const { createRandom } = require('../../../plusaudio/lib/random');
 const { fakeGemini } = require('./helpers/fake-gemini');
 
 const synthesizeWith = async (options) => {

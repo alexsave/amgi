@@ -13,7 +13,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-const ENV_PATH = path.join(__dirname, '..', '..', '.env');
+const ENV_PATH = path.join(__dirname, '..', '..', '..', '..', 'plusaudio', '.env');
 const BACKUP_PATH = `${ENV_PATH}.hide-env-backup`;
 const LOCK_PATH = `${ENV_PATH}.hide-env-lock`;
 

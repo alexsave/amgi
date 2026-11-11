@@ -3,7 +3,7 @@
 // Builds and holds/releases a fixture Anki collection for this skill's other
 // scripts, on top of the exact same real-Anki-library bridge plusaudio's own
 // test suite uses to prove its collection reader against reality
-// (plusaudio/test/collection/helpers/anki-python.js) - see that file for how
+// (tests/server/plusaudio/collection/helpers/anki-python.js) - see that file for how
 // ANKI_PYTHON_BIN and ANKI_FIXTURE_APKG are resolved, and for why shelling
 // out to the real `anki` Python library, not a hand-rolled reader, is what
 // makes any of this worth trusting. This is a thin wrapper, not a second
@@ -38,7 +38,7 @@ const {
   holdCollectionOpen,
   runPython,
   withAnkiLibrary,
-} = require('../../../../plusaudio/test/collection/helpers/anki-python');
+} = require('../../../../tests/server/plusaudio/collection/helpers/anki-python');
 
 function build(outDir) {
   if (!anki) {

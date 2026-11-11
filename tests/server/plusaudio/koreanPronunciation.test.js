@@ -12,7 +12,7 @@
 const assert = require('node:assert/strict');
 const { test } = require('node:test');
 
-const { koreanPronunciation, normalizeForComparison } = require('../lib/cardGeneration/cardText.ts');
+const { koreanPronunciation, normalizeForComparison } = require('../../../plusaudio/lib/cardGeneration/cardText.ts');
 
 const sameSound = (a, b) => normalizeForComparison(a, 'ko') === normalizeForComparison(b, 'ko');
 

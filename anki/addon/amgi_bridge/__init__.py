@@ -182,7 +182,7 @@ def _ensure_bridge_token(config: dict) -> str:
         return token
     # Deliberately the OS's cryptographic source, not plusaudio/lib/random.js:
     # a secret must stay unguessable even with that file's seed fixed (see
-    # the ALLOWED list in plusaudio/test/random.test.js).
+    # the ALLOWED list in tests/server/plusaudio/random.test.js).
     token = secrets.token_urlsafe(32)
     config["bridge_token"] = token
     mw.addonManager.writeConfig(__name__, config)

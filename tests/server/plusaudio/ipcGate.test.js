@@ -9,12 +9,12 @@ const assert = require('node:assert/strict');
 const { fork } = require('node:child_process');
 const { EventEmitter } = require('node:events');
 const path = require('node:path');
-const { sandboxEnv } = require('../../test/sandbox-home.cjs');
+const { sandboxEnv } = require('../../../test/sandbox-home.cjs');
 const { test } = require('node:test');
 
-const { FAIL_OPEN_WAIT_MS, FORK_IPC_OPTIONS, createIpcGate, serveGate } = require('../lib/ipcGate');
-const { createRateGate } = require('../lib/rateGate');
-const { createRandom } = require('../lib/random');
+const { FAIL_OPEN_WAIT_MS, FORK_IPC_OPTIONS, createIpcGate, serveGate } = require('../../../plusaudio/lib/ipcGate');
+const { createRateGate } = require('../../../plusaudio/lib/rateGate');
+const { createRandom } = require('../../../plusaudio/lib/random');
 
 const M = 'gemini-3.8-flash-tts';
 

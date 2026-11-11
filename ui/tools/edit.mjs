@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 import { seed } from './seed.mjs';
 
-const { holdCollectionOpen } = createRequire(import.meta.url)('../../plusaudio/test/collection/helpers/anki-python.js');
+const { holdCollectionOpen } = createRequire(import.meta.url)('../../tests/server/plusaudio/collection/helpers/anki-python.js');
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const cdom = process.env.CDOM || path.join(here, '..', '..', 'cdom');

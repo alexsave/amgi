@@ -1,7 +1,7 @@
 /* Tests of the amgi app's own C (server/amgi), built under ASan and UBSan (make -C server check-app,
  * run by npm test). The routes themselves are proven over HTTP by tests/server/parity/http.test.mjs; this
  * holds what HTTP cannot reach, or cannot reach exactly:
- *   - the rate gate (gate.c), plusaudio/test/rateGate.test.js case for case, on a fake clock and a
+ *   - the rate gate (gate.c), tests/server/plusaudio/rateGate.test.js case for case, on a fake clock and a
  *     seeded draw: the 429 block and its doubling to the cap, Google's retryDelay as its floor, the
  *     learned per-minute cap and its growth, the jitter and its replay, one draw per call, admission;
  *   - the request helpers (web.c): decodeURIComponent, URLSearchParams.get, Number();

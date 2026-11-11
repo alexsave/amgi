@@ -16,11 +16,11 @@ const {
   isWav,
   pcmToWav,
   spokenInput,
-} = require('../lib/cardGeneration/geminiSpeech.ts');
-const { GeminiRateLimitError, GeminiUnavailableError, createGeminiClient, dailyQuotaMessage, isRateLimited } = require('../lib/cardGeneration/gemini.ts');
-const { GENERATE_CONTENT_PATH } = require('../lib/cardGeneration/geminiWire.ts');
-const { createRandom } = require('../lib/random');
-const { JITTER, createRateGate } = require('../lib/rateGate');
+} = require('../../../plusaudio/lib/cardGeneration/geminiSpeech.ts');
+const { GeminiRateLimitError, GeminiUnavailableError, createGeminiClient, dailyQuotaMessage, isRateLimited } = require('../../../plusaudio/lib/cardGeneration/gemini.ts');
+const { GENERATE_CONTENT_PATH } = require('../../../plusaudio/lib/cardGeneration/geminiWire.ts');
+const { createRandom } = require('../../../plusaudio/lib/random');
+const { JITTER, createRateGate } = require('../../../plusaudio/lib/rateGate');
 const { answer, fakeGemini, grpcError, quotaExhausted, wavAnswer } = require('./helpers/fake-gemini');
 
 const MODEL = 'gemini-3.8-flash-tts';
