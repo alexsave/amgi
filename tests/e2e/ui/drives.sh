@@ -40,7 +40,9 @@ run() { # run <drive> <args...>
   echo "$drive: $(grep -c '^ok' "$log") ok"
   grep -v '^ok' "$log"
 }
-run shoot "$app" "$name" "$root/.e2e/fixture/collection.anki2" "$shots"
+# shoot reads the fixture folder in place and a screen shows its path, so it gets a copy under $work too
+rm -rf "$work/shoot"; cp -R .e2e/fixture "$work/shoot"
+run shoot "$app" "$name" "$work/shoot/collection.anki2" "$shots"
 run flows "$app" "$keyless" "$name" "$(fresh flows)" "$shots"
 run edit "$app" "$name" "$(fresh edit installed)" "$shots"
 run deckdelete "$app" "$name" "$(fresh deckdelete installed)" "$shots"
