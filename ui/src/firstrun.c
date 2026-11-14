@@ -8,7 +8,7 @@ static profile *profiles;
 static uint32_t nprofiles;
 static int scan_loading = 1, base_exists = -1, install_running, install_done, install_failed, needs_restart = 1;
 static text base_dir, scan_error, install_message, chosen;
-static cd_region view = {0};
+static cd_region view = {.up = &page_region};
 static int shown;
 static holder h;
 
@@ -135,7 +135,13 @@ static void choose(uint32_t i) {
 }
 
 /* Shown as all of parent's children (the decks screen's root); the scan starts at once. */
+static void gone(void *ctx) {
+  (void)ctx;
+  shown = 0;
+}
+
 void firstrun_show(cd_id parent) {
+  if (!shown) cd_on_free(&page_region, gone, 0); /* shown again without a page in between: once */
   shown = 1;
   view.parent = parent;
   text_set(&chosen, settings[S_COLLECTION].p ? settings[S_COLLECTION].p : "", settings[S_COLLECTION].len);
@@ -143,12 +149,6 @@ void firstrun_show(cd_id parent) {
   text_free(&scan_error);
   draw();
   ask(profiles_answered, 0, "GET", "/profiles", WIRE_NONE, 0);
-}
-void firstrun_forget(void) {
-  if (!shown) return;
-  shown = 0;
-  cd_region_hide(&view);
-  view.parent = 0;
 }
 
 ON_EVENT(profile_chosen) {

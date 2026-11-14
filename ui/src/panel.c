@@ -15,7 +15,8 @@ static int busy;          /* 0, or the side being recorded again: 1 target, 2 cu
 static int deleting;
 static text error;
 static cd_id root, foot, clips_box, inputs[KEYS], redo_text[2], redo_btn[2], delete_text, delete_btn;
-static cd_region err = {0};
+static cd_region err = {0};       /* in the editor, which panel_build is given */
+static cd_region *owner;          /* the editor: the region the panel's chips go with */
 static int32_t chips[2] = {-1, -1};
 static holder h;
 
@@ -75,9 +76,15 @@ ON_EVENT(redo_target);
 ON_EVENT(redo_cue);
 ON_EVENT(delete_pressed);
 
-/* Built inside the open row's .note-row-editor; fields are the note's, copied. */
-void panel_build(int64_t id, const wire_strs *f, const text *names, uint32_t nnames, const lang_pair *l) {
-  panel_forget();
+static void gone(void *ctx);
+static void labels_view(void);
+
+/* Built inside the open row's .note-row-editor, while editor builds: the panel is the editor's, and goes
+ * with it. fields are the note's, copied. */
+void panel_build(cd_region *editor, int64_t id, const wire_strs *f, const text *names, uint32_t nnames,
+                 const lang_pair *l) {
+  owner = err.up = editor;
+  cd_on_free(0, gone, 0);
   open_ = 1;
   note_id = id;
   langs = *l;
@@ -122,8 +129,8 @@ void panel_build(int64_t id, const wire_strs *f, const text *names, uint32_t nna
 
   clips_box = el_id(CD_LIT("div"), CD_LIT("card-panel-clips"));
   wire_str cue = clip_of(idx.cue_audio), target = clip_of(idx.target_audio);
-  chips[0] = chip_build(cue.p, cue.len, name_of(langs.known), TONE_CUE);
-  chips[1] = chip_build(target.p, target.len, name_of(langs.learning), TONE_TARGET);
+  chips[0] = chip_build(0, cue.p, cue.len, name_of(langs.known), TONE_CUE);
+  chips[1] = chip_build(0, target.p, target.len, name_of(langs.learning), TONE_TARGET);
   for (int s = 0; s < 2; s++) {
     redo_btn[s] = el_id(CD_LIT("button"), 0);
     cd_attr(CD_LIT("type"), CD_LIT("button"));
@@ -146,21 +153,14 @@ void panel_build(int64_t id, const wire_strs *f, const text *names, uint32_t nna
   cd_close();
   cd_close();
   cd_close();
+  labels_view();
 }
 
-/* Once the rows' region has closed: the labels that need the panel's own state. */
-void panel_after(void) {
-  if (open_) labels_view();
-}
-
-void panel_forget(void) {
-  if (!open_) return;
+/* The editor goes: the error and the chips with it. */
+static void gone(void *ctx) {
+  (void)ctx;
   open_ = 0;
-  cd_region_hide(&err);
-  for (int s = 0; s < 2; s++) {
-    chip_forget(chips[s]);
-    chips[s] = -1;
-  }
+  chips[0] = chips[1] = -1;
   for (uint32_t i = 0; i < nfields; i++) text_free(&fields[i]);
   cd_free(fields);
   fields = 0;
@@ -267,12 +267,11 @@ ON_ANSWER(clip_answered) {
       save();
       /* the chip plays the new take: built again in its place (React's kept the old clip's bytes) */
       int32_t s = side ? 0 : 1;
-      cd_id old = chips[s] >= 0 ? chip_node(chips[s]) : 0;
       cd_id before = s == 0 && chips[1] >= 0 ? chip_node(chips[1]) : redo_btn[0];
-      chip_forget(chips[s]);
-      if (old) cd_remove(old);
+      chip_drop(chips[s]);
       cd_at(clips_box, before);
-      chips[s] = chip_build(c.filename.p, c.filename.len, name_of(side ? langs.known : langs.learning),
+      /* no region builds now: the editor owns the new chip, which frees its own node */
+      chips[s] = chip_build(owner, c.filename.p, c.filename.len, name_of(side ? langs.known : langs.learning),
                             side ? TONE_CUE : TONE_TARGET);
     }
   } else {

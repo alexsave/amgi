@@ -4,7 +4,7 @@
 #include "app.h"
 
 
-static cd_region view = {0};
+static cd_region view = {.up = &page_region};
 static cd_id parent_node, known_sel, learning_sel;
 static int shown, loaded, offered, busy;
 static uint32_t phrase_count;
@@ -91,19 +91,20 @@ static void draw(void) {
 }
 
 /* Below the deck list, last in parent. Asked once a screen; drawn when the answer offers it. */
+static void gone(void *ctx) {
+  (void)ctx;
+  shown = 0;
+}
+
 void starter_show(cd_id parent) {
   if (shown) return;
   shown = 1;
+  cd_on_free(&page_region, gone, 0);
   parent_node = parent;
   loaded = 0;
   busy = 0;
   text_free(&error);
   ask(state_answered, 0, "GET", "/starter", WIRE_NONE, 0);
-}
-void starter_forget(void) {
-  if (!shown) return;
-  shown = 0;
-  cd_region_hide(&view);
 }
 
 /* ctx: 0 the language known, 1 the one learnt */

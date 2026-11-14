@@ -17,8 +17,7 @@ typedef struct {
   uint32_t wait_timer;               /* the wait before asking again (cd_timer_cb's token, 0: none yet) */
   int same_both, retrying;
   int64_t note_id;
-  cd_region view;
-  int32_t chips[2];
+  cd_region view;                    /* in the run's view; its chips go with it */
 } row;
 
 static row *rows;
@@ -37,7 +36,7 @@ static uint32_t *buffered, nbuffered;   /* rows finished and not written yet */
 static uint32_t **batches, *batch_n, nbatches, batch_head; /* written one at a time, in order */
 static int writing;
 static cd_id list, head;
-static cd_region view = {0}, head_view = {0};
+static cd_region view = {.up = &page_region}, head_view = {.up = &view};
 static holder h;
 static void (*finished)(void);
 
@@ -120,10 +119,6 @@ ON_EVENT(retry_pressed);
 static void row_draw(uint32_t i) {
   if (!shown) return;
   row *r = &rows[i];
-  for (int s = 0; s < 2; s++) {
-    chip_forget(r->chips[s]);
-    r->chips[s] = -1;
-  }
   cd_region_hide(&r->view);
   if (!cd_region_show(&r->view, 1)) return;
   cd_id before = 0;
@@ -167,8 +162,8 @@ static void row_draw(uint32_t i) {
     cd_close();
   } else {
     const char *k = language_name(langs.known, zlen(langs.known)), *l = language_name(langs.learning, zlen(langs.learning));
-    r->chips[0] = chip_build(r->cue_clip.p, r->cue_clip.len, k ? k : langs.known, TONE_CUE);
-    r->chips[1] = chip_build(r->target_clip.p, r->target_clip.len, l ? l : langs.learning, TONE_TARGET);
+    chip_build(0, r->cue_clip.p, r->cue_clip.len, k ? k : langs.known, TONE_CUE);
+    chip_build(0, r->target_clip.p, r->target_clip.len, l ? l : langs.learning, TONE_TARGET);
   }
   cd_close();
   cd_close();
@@ -476,13 +471,14 @@ ON_ANSWER(keys_answered) {
   begin();
 }
 
-/* The run's state goes, its timers stopped with it. */
-static void clear_run(void) {
+/* The run's view goes (a new run, the form drawn again, or the page left): the one place the run's state
+ * goes, its timers stopped with it. Nothing more is drawn, and the answers still in flight are dropped by
+ * their run. The rows' views, the head's and their chips are the view's children, and are gone before this. */
+static void run_gone(void *ctx) {
+  (void)ctx;
   for (uint32_t i = 0; i < nrows; i++) {
     row *r = &rows[i];
     cd_timer_stop(r->wait_timer);
-    for (int s = 0; s < 2; s++) chip_forget(r->chips[s]);
-    cd_region_hide(&r->view);
     text *ts[] = {&r->line, &r->cue, &r->target, &r->cue_clip, &r->target_clip, &r->cue_ref, &r->target_ref, &r->error};
     for (uint32_t k = 0; k < sizeof ts / sizeof *ts; k++) text_free(ts[k]);
   }
@@ -501,16 +497,15 @@ static void clear_run(void) {
   cd_timer_stop(flush_timer);
   tick_timer = flush_timer = 0;
   text_free(&daily_cap);
-  cd_region_hide(&head_view);
-  cd_region_hide(&view);
+  shown = 0;
+  run++;
 }
 
 /* A run of lines, built after .card-form-lead in the form's box (form.c). A new run supersedes the
  * last: its answers still in flight are dropped. */
 void bulk_start(cd_id form_box, int64_t deck, const notetype *type, const lang_pair *l, const wire_str *lines, uint32_t n,
                 void (*on_finished)(void)) {
-  clear_run();
-  run++;
+  bulk_discard();
   shown = 1;
   running = 1;
   deck_id = deck;
@@ -522,10 +517,11 @@ void bulk_start(cd_id form_box, int64_t deck, const notetype *type, const lang_p
   nrows = n;
   for (uint32_t i = 0; i < n; i++) {
     __builtin_memset(&rows[i], 0, sizeof rows[i]);
-    rows[i].chips[0] = rows[i].chips[1] = -1;
+    rows[i].view.up = &view;
     text_set(&rows[i].line, lines[i].p, lines[i].len);
   }
   if (!cd_region_show(&view, 1)) return;
+  cd_on_free(0, run_gone, 0);
   cd_at(form_box, 0);
   el(CD_LIT("div"), CD_LIT("bulk-run"));
   cd_name_open(view.root);
@@ -560,14 +556,7 @@ void bulk_start(cd_id form_box, int64_t deck, const notetype *type, const lang_p
   }
 }
 
-/* The run's view goes (the form is drawn again, or the page left): nothing more is drawn, and
- * answers still in flight are dropped. */
-void bulk_forget(void) {
-  if (!shown) return;
-  clear_run();
-  shown = 0;
-  run++;
-}
+void bulk_discard(void) { cd_region_hide(&view); }
 
 /* ctx: the row */
 ON_EVENT(retry_pressed) {
