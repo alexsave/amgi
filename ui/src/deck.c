@@ -37,6 +37,18 @@ enum { DANGER_IDLE, DANGER_CHECKING, DANGER_DELETING };
 static int danger_state;
 static text danger_error;
 
+/* Views are renders (cd_dirty): the screen draws them from state in the flush that ends the entry. One rule, with
+ * two guards that cover different vectors:
+ * - dirty() asks only while the screen is shown: it covers an ask made after the screen went (a late answer, a timer);
+ * - screen_gone's cd_undirty covers an ask made earlier in the same entry, before the screen went. */
+static void dirty(cd_render_fn view) {
+  if (shown) cd_dirty(view, 0);
+}
+static void name_view(void *ctx);
+static void sub_view(void *ctx);
+static void rows_view(void *ctx);
+static void danger_view(void *ctx);
+
 ON_EVENT(back) { go("/decks", 6); }
 ON_ANSWER(notes_answered);
 ON_ANSWER(renamed);
@@ -90,7 +102,8 @@ void deck_langs_loaded(int64_t id, const lang_pair *p) {
   page_show();
 }
 
-static void sub_build(void) {
+static void sub_view(void *ctx) {
+  (void)ctx;
   cd_region_hide(&sub);
   const deck *d = deck_by_id(deck_id);
   if (!d || !cd_region_show(&sub, 1)) return;
@@ -144,8 +157,8 @@ static void sub_build(void) {
 }
 
 /* DeckName: the title, renamed where it is read. The button, or the input while renaming. */
-static void name_view(void) {
-  if (!shown) return;
+static void name_view(void *ctx) {
+  (void)ctx;
   const deck *d = deck_by_id(deck_id);
   cd_region_hide(&name_box);
   if (!d || !cd_region_show(&name_box, 1)) return;
@@ -192,19 +205,19 @@ static void rename_commit(void) {
   renaming = 0;
   if (d && !rename_cancelled && !fits) {
     text_setz(&rename_error, "That name is too long");
-    name_view();
+    dirty(name_view);
     return;
   }
   uint32_t n;
   const char *old = d ? cd_bytes(d->name, &n) : (n = 0, "");
   if (!d || rename_cancelled || !typed.len || same(typed.p, typed.len, old, n)) {
     rename_cancelled = 0;
-    name_view();
+    dirty(name_view);
     return;
   }
   rename_saving = 1;
   text_free(&rename_error);
-  name_view();
+  dirty(name_view);
   wire_q_deck_name q = {typed};
   char path[48] = "/decks/";
   path[7 + id_dec(path + 7, deck_id)] = 0;
@@ -217,6 +230,10 @@ static void rename_commit(void) {
 static void screen_gone(void *ctx) {
   (void)ctx;
   shown = 0;
+  cd_undirty(name_view, 0);
+  cd_undirty(sub_view, 0);
+  cd_undirty(rows_view, 0);
+  cd_undirty(danger_view, 0);
   renaming = rename_saving = 0;
   text_free(&rename_error);
   danger_state = DANGER_IDLE;
@@ -230,9 +247,6 @@ static void screen_gone(void *ctx) {
   }
 }
 
-static void rows_build(void);
-static void danger_view(void);
-
 /* The screen, then its regions (the name, the languages, the form, the rows, the danger section) and the
  * requests that fill them. */
 void deck_build(void) {
@@ -243,7 +257,6 @@ void deck_build(void) {
     /* the pair is on its way from the store (deck_langs_loaded draws the screen again) */
     langs_known = 0;
     deck_langs_load(route_deck);
-    page_root_done();
     return;
   }
   shown = 1;
@@ -283,13 +296,12 @@ void deck_build(void) {
     cd_close();
   }
   cd_close();
-  page_root_done();
-  name_view();
-  sub_build();
-  danger_view();
+  dirty(name_view);
+  dirty(sub_view);
+  dirty(danger_view);
   ensure_notetypes();
   if (!notes_known || page_notes.offset != want_offset) ask_notes(0);
-  rows_build();
+  dirty(rows_view);
   form_notetypes_known();
 }
 
@@ -453,8 +465,8 @@ static void rows_gone(void *ctx) {
   rows_hash = 0;
 }
 
-static void rows_build(void) {
-  if (!shown) return;
+static void rows_view(void *ctx) {
+  (void)ctx;
   cd_region_hide(&body); /* the open editor, and every chip, go with it */
   cd_region_hide(&pager);
   if (!cd_region_show(&body, 1)) return;
@@ -517,9 +529,10 @@ static void rows_build(void) {
 
 /* The danger section's contents: what deleting means, the button (what it is doing, while it is),
  * and why the last try failed. */
-static void danger_view(void) {
+static void danger_view(void *ctx) {
+  (void)ctx;
   cd_region_hide(&danger);
-  if (!shown || !danger.parent || !cd_region_show(&danger, 1)) return;
+  if (!danger.parent || !cd_region_show(&danger, 1)) return;
   cd_at(danger.parent, 0);
   el(CD_LIT("div"), CD_LIT("deck-danger-text"));
   el_text(CD_LIT("h3"), 0, CD_LIT("Delete this deck"));
@@ -549,9 +562,9 @@ void deck_decks_changed(void) {
     page_show(); /* the deck went: back to the list */
     return;
   }
-  if (!renaming) name_view(); /* an open rename keeps what is typed in it; it shows the name again when it closes */
+  if (!renaming) dirty(name_view); /* an open rename keeps what is typed in it; it shows the name again when it closes */
   cd_set_text_node_num(listhead_count, d->count);
-  sub_build();
+  dirty(sub_view);
 }
 
 static holder h_write;
@@ -559,7 +572,7 @@ static int64_t pending_delete = -1;
 static void delete_now(void *ctx) {
   (void)ctx;
   deleting = pending_delete;
-  rows_build(); /* the row's button says … while it goes */
+  dirty(rows_view); /* the row's button says … while it goes */
   char path[48] = "/notes/";
   path[7 + id_dec(path + 7, deleting)] = 0;
   ask(note_deleted, 0, "DELETE", path, WIRE_NONE, 0);
@@ -595,7 +608,7 @@ static void deck_delete_now(void *ctx) {
   (void)ctx;
   danger_state = DANGER_DELETING;
   text_free(&danger_error);
-  danger_view();
+  dirty(danger_view);
   char path[48] = "/decks/";
   path[7 + id_dec(path + 7, deck_id)] = 0;
   ask(deck_removed, 0, "DELETE", path, WIRE_NONE, 0);
@@ -660,7 +673,7 @@ ON_ANSWER(deck_removed) {
   } else if (here) {
     char m[600];
     text_set(&danger_error, m, answer_message(&a, m, sizeof m));
-    danger_view();
+    dirty(danger_view);
   }
 }
 ON_ANSWER(summary_answered) {
@@ -669,14 +682,14 @@ ON_ANSWER(summary_answered) {
   answer a = take(&h_write, WK_DECK_SUMMARY, status, p, len, &s);
   danger_state = DANGER_IDLE;
   if (a.ok) {
-    danger_view();
+    dirty(danger_view);
     deck_delete_ask(&s);
   } else if (a.status == 404) {
     refresh_decks();
   } else {
     char m[600];
     text_set(&danger_error, m, answer_message(&a, m, sizeof m));
-    danger_view();
+    dirty(danger_view);
   }
 }
 ON_ANSWER(note_deleted) {
@@ -691,7 +704,7 @@ ON_ANSWER(note_deleted) {
     char m[600];
     uint32_t n = answer_message(&a, m, sizeof m);
     deleting = -1;
-    rows_build();
+    dirty(rows_view);
     confirm_ask("Could not delete the card", m, n, 0, "OK", 0, 0);
   }
 }
@@ -705,7 +718,7 @@ ON_ANSWER(renamed) {
     char m[600];
     text_set(&rename_error, m, answer_message(&a, m, sizeof m));
   }
-  name_view();
+  dirty(name_view);
   refresh_decks();
 }
 ON_ANSWER(notes_answered) {
@@ -734,14 +747,14 @@ ON_ANSWER(notes_answered) {
     text_set(&notes_error, m, answer_message(&a, m, sizeof m));
     page_notes.nnotes = 0;
   }
-  rows_build();
+  dirty(rows_view);
 }
 
 /* Called when the note types arrive (state.c): the rows can name their types now. */
 void deck_notetypes_known(void) {
   if (!shown || !langs_known) return;
   form_notetypes_known();
-  if (notes_known) rows_build();
+  if (notes_known) dirty(rows_view);
 }
 
 ON_EVENT(prev_pressed) {
@@ -784,7 +797,7 @@ ON_EVENT(deck_delete_pressed) {
   /* first what it would take, so the confirmation can say it exactly */
   danger_state = DANGER_CHECKING;
   text_free(&danger_error);
-  danger_view();
+  dirty(danger_view);
   char path[48] = "/decks/";
   path[7 + id_dec(path + 7, deck_id)] = 0;
   ask(summary_answered, 0, "GET", path, WIRE_NONE, 0);
@@ -792,7 +805,7 @@ ON_EVENT(deck_delete_pressed) {
 ON_EVENT(rename_pressed) {
   renaming = 1;
   rename_cancelled = 0;
-  name_view();
+  dirty(name_view);
 }
 ON_EVENT(name_left) { rename_commit(); }
 ON_EVENT(name_key) {
@@ -800,16 +813,16 @@ ON_EVENT(name_key) {
   if (e->key == 27) {                                   /* Escape abandons the edit */
     rename_cancelled = 1;
     renaming = 0;
-    name_view();
+    dirty(name_view);
   }
 }
 ON_EVENT(langs_open_pressed) {
   langs_open = 1;
-  sub_build();
+  dirty(sub_view);
 }
 ON_EVENT(langs_done_pressed) {
   langs_open = 0;
-  sub_build();
+  dirty(sub_view);
 }
 /* ctx: 0 the language known, 1 the one learnt */
 ON_EVENT(language_changed) {
@@ -823,7 +836,7 @@ ON_EVENT(language_changed) {
   __builtin_memcpy(learning ? langs.learning : langs.known, code, n + 1);
   deck_langs_save(deck_id, &langs);
   form_langs_changed(&langs);
-  rows_build(); /* the chips carry the language names */
+  dirty(rows_view); /* the chips carry the language names */
 }
 
 /* A deck page for a deck that is not in the list while the collection answers: deleted here, in
@@ -840,5 +853,4 @@ void deck_gone_build(void) {
   cd_text(CD_LIT("← Decks"));
   cd_close();
   cd_close();
-  page_root_done();
 }

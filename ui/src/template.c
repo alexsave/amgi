@@ -31,7 +31,9 @@ ON_EVENT(install_now);
 ON_EVENT(check_again);
 ON_EVENT(dismiss);
 
-static void draw(void) {
+/* A top-level view: it has no screen to go, so nothing asks it after it is gone and nothing needs to undo an ask. */
+static void draw(void *ctx) {
+  (void)ctx;
   cd_region_hide(&view);
   if (dismissed || phase == P_CHECKING || phase == P_IDLE || !cd_region_show(&view, 1)) return;
   cd_at(app_content, page_root());
@@ -89,7 +91,7 @@ static void fail(const answer *a) {
   text_set(&message, m, answer_message(a, m, sizeof m));
   phase = P_FAILED;
   running = 0;
-  draw();
+  cd_dirty(draw, 0);
 }
 
 ON_ANSWER(state_answered) {
@@ -105,7 +107,7 @@ ON_ANSWER(state_answered) {
       phase = P_OFFERED;
     } else {
       phase = P_UPDATING;
-      draw();
+      cd_dirty(draw, 0);
       wire_q_install q = {{settings[S_BASE_DIR].p ? settings[S_BASE_DIR].p : "", settings[S_BASE_DIR].len}};
       ask(install_answered, 0, "POST", "/install", WK_Q_INSTALL, &q);
       return;
@@ -114,7 +116,7 @@ ON_ANSWER(state_answered) {
     phase = s.collection_checked && s.stale.n ? P_BEHIND : P_IDLE;
   }
   running = 0;
-  draw();
+  cd_dirty(draw, 0);
 }
 ON_ANSWER(install_answered) {
   wire_installed in;
@@ -128,5 +130,5 @@ ON_EVENT(check_again) { check(0); }
 ON_EVENT(dismiss) {
   /* for this visit only: a reload brings it back, because what it reports is still true */
   dismissed = 1;
-  draw();
+  cd_dirty(draw, 0);
 }

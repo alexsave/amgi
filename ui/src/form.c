@@ -34,9 +34,18 @@ static uint32_t placeholder(char *ph) {
   return n + sizeof C - 1;
 }
 
+static void form_draw(void *ctx);
+
+/* The box is a render. Two guards, for two vectors: dirty() asks only while the form is shown, which covers an ask made
+ * after the screen went (a late answer); the cd_undirty in form_gone covers an ask made earlier in the same entry. */
+static void dirty(void) {
+  if (shown) cd_dirty(form_draw, 0);
+}
+
 static void form_gone(void *ctx) {
   (void)ctx;
   shown = 0;
+  cd_undirty(form_draw, 0);
 }
 
 void form_build(int64_t deck_id, const lang_pair *l) {
@@ -97,8 +106,8 @@ ON_EVENT(typed);
 ON_EVENT(key_down);
 ON_EVENT(go_pressed);
 
-static void form_draw(void) {
-  if (!shown) return;
+static void form_draw(void *ctx) {
+  (void)ctx;
   bulk_discard();
   cd_region_hide(&too_long);
   cd_region_hide(&inner);
@@ -146,7 +155,7 @@ static void form_draw(void) {
   line_count = 0;
 }
 
-void form_notetypes_known(void) { form_draw(); }
+void form_notetypes_known(void) { dirty(); }
 void form_langs_changed(const lang_pair *l) {
   langs = *l;
   if (!shown || !inner.shown || !amgi_notetype() || !notetypes_known) return;
@@ -156,7 +165,9 @@ void form_langs_changed(const lang_pair *l) {
 }
 
 static void finished(void) {
-  /* the lines are cards now: the box empties */
+  /* the lines are cards now: the box empties. The box may be about to be drawn again (the note types arrived in this
+   * entry): draw it now, so input names the box that is there, not the one the draw takes away. */
+  cd_render_now();
   cd_set_str(input, CD_LIT("value"), CD_LIT(""));
   follow_text("", 0);
 }

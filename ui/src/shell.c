@@ -7,10 +7,6 @@ int64_t route_deck;
 cd_id app_content;
 cd_region page_region = {0};
 cd_id page_root(void) { return page_region.shown ? page_region.root : 0; }
-void page_root_done(void) {
-  cd_name_open(page_region.root);
-  cd_close();
-}
 
 static int parse_route(const char *p, uint32_t len) {
   uint32_t end = 0;
@@ -67,6 +63,8 @@ void page_show(void) {
   else if (route == R_DECKS) decks_build();
   else if (gone) deck_gone_build();
   else deck_build();
+  cd_name_open(page_region.root);
+  cd_close();
   cd_region_end(&page_region);
 }
 

@@ -9,6 +9,15 @@ static cd_id modal_form, modal_input, modal_buttons;
 static text modal_error;
 static int shown, setup, creating;
 
+/* The views are renders (cd_dirty), drawn from state in the flush that ends the entry. Two guards, for two vectors:
+ * dirty() asks only while its owner is up (alive: the screen, or the dialog), which covers an ask made after it went
+ * (a late answer); the cd_undirty in the owner's cleanup covers an ask made earlier in the same entry. */
+static void dirty(cd_render_fn view, const int *alive) {
+  if (*alive) cd_dirty(view, 0);
+}
+static void rows_view(void *ctx);
+static void modal_error_view(void *ctx);
+
 ON_EVENT(new_deck);
 ON_EVENT(open_deck) {
   uint32_t i = CTX_INDEX(ctx);
@@ -18,6 +27,7 @@ ON_EVENT(open_deck) {
 static void screen_gone(void *ctx) {
   (void)ctx;
   shown = 0;
+  cd_undirty(rows_view, 0);
 }
 
 /* The screen, then its rows (or the setup screen) as regions of the page. */
@@ -42,7 +52,6 @@ void decks_build(void) {
     rows.parent = el_id(CD_LIT("div"), CD_LIT("deck-list"));
     cd_close();
   }
-  page_root_done();
   decks_rows();
 }
 
@@ -52,8 +61,11 @@ void decks_build(void) {
 int decks_setup_wanted(void) { return installed == 0 || mode == WIRE_MODE_UNCONFIGURED; }
 int decks_setup_shown(void) { return shown && setup; }
 
-void decks_rows(void) {
-  if (!shown) return;
+void decks_rows(void) { dirty(rows_view, &shown); }
+
+/* The list, or what stands in for it; the setup screen and the starter offer come with it. */
+static void rows_view(void *ctx) {
+  (void)ctx;
   if (setup) {
     firstrun_show(page_root());
     return;
@@ -98,7 +110,8 @@ void decks_rows(void) {
   if (ready()) starter_show(page_root());
 }
 
-static void modal_error_view(void) {
+static void modal_error_view(void *ctx) {
+  (void)ctx;
   cd_region_hide(&modal_err);
   if (!modal_error.len || !cd_region_show(&modal_err, 1)) return;
   cd_at(modal_form, modal_buttons);
@@ -122,6 +135,7 @@ static void modal_gone(void *ctx) {
   (void)ctx;
   text_free(&modal_error);
   creating = 0;
+  cd_undirty(modal_error_view, 0);
 }
 
 static void modal_open(void) {
@@ -182,13 +196,13 @@ static void modal_submit(void) {
   wire_str typed = trim((wire_str){name, len});
   if (!fits || !typed.len) {
     text_setz(&modal_error, fits ? "Enter a deck name" : "That name is too long");
-    modal_error_view();
+    dirty(modal_error_view, &modal.shown);
     return;
   }
   if (creating) return;
   creating = 1;
   text_free(&modal_error);
-  modal_error_view();
+  dirty(modal_error_view, &modal.shown);
   wire_q_deck_name q = {typed};
   ask(created, 0, "POST", "/decks", WK_Q_DECK_NAME, &q);
 }
@@ -218,5 +232,5 @@ ON_ANSWER(created) {
   char m[600] = "Failed to create deck: ";
   uint32_t n = 23 + answer_message(&a, m + 23, sizeof m - 23);
   text_set(&modal_error, m, n);
-  modal_error_view();
+  dirty(modal_error_view, &modal.shown);
 }

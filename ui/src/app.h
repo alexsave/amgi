@@ -171,10 +171,6 @@ extern cd_id app_content;
  * comes, names it as its .up (static cd_region r = {.up = &page_region}), so it goes with the screen, and a screen
  * registers what it owns with cd_on_free(0, ...) while it builds. */
 extern cd_region page_region;
-/* The screen's root element is whole: names it as the page's root and closes it. A screen calls this when its
- * static part is built, and shows its regions after, which the browser puts where cd_at says only once no
- * element is open. */
-void page_root_done(void);
 void go(const char *path, uint32_t len);
 void go_deck(int64_t id);
 void go_replace(const char *path, uint32_t len); /* as go, in place of the current history entry */
