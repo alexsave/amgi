@@ -50,13 +50,6 @@ void text_bound_num(cd_bound *b, uint32_t n);    /* the same, a number's text */
 void bool_bound(cd_bound *b, cd_id el, cd_str prop, uint32_t v); /* el's boolean prop bound to b, recorded as v */
 void tmp_text(const char *p, uint32_t len);       /* a one-off text node */
 void attr_tmp(cd_str name, const char *p, uint32_t len);
-/* An input's value, whole, into dst: 1 with *len its length in bytes when it fits in cap, else 0
- * with *len 0, and the caller says the value is too long. A value is never read cut short (a cut
- * paste drops lines without a word). The one caller of cd_input_whole, poisoned for every other file. */
-int input_value(cd_id id, char *dst, uint32_t cap, uint32_t *len);
-#ifndef INPUT_VALUE_OWNER
-#pragma GCC poison cd_input_whole
-#endif
 /* A cd_on handler, defined: static, and either argument may go unused. */
 #define ON_EVENT(name) \
   static void name(const cd_event_rec *e __attribute__((unused)), void *ctx __attribute__((unused)))
