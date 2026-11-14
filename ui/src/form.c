@@ -59,7 +59,7 @@ void form_build(int64_t deck_id, const lang_pair *l) {
  * fit: then the box says so and makes nothing, so no line of a long paste is dropped unsaid. */
 static char *take_text(uint32_t *n) {
   char *v = cd_alloc(MAX_PASTE);
-  int fits = input_value(input, v, MAX_PASTE, n);
+  int fits = cd_input_whole(input, v, MAX_PASTE, n);
   if (fits) {
     cd_region_hide(&too_long);
   } else if (cd_region_show(&too_long, 1)) {
@@ -72,6 +72,7 @@ static char *take_text(uint32_t *n) {
   }
   if (fits) return v;
   cd_free(v);
+  *n = 0; /* the whole length of what did not fit is no text to read */
   return 0;
 }
 
