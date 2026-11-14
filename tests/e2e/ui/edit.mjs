@@ -214,6 +214,35 @@ try {
   check(await b.evaluate(naming), 'the rename is still being typed');
   await key(b, 'Escape', 'Escape', 27);
 
+  // 7. A rename typed while the deck list refreshes keeps what was typed: Anki takes the file and lets it go (the
+  // status poll sees both mode changes, and each one asks the decks again), the answers redraw the name, and Enter
+  // then saves exactly what was typed, here and in the deck list.
+  await click(b, '.deck-name-button');
+  await until(b, `document.activeElement?.classList.contains('deck-name-input')`);
+  await b.send('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'End', code: 'End', windowsVirtualKeyCode: 35, commands: ['moveToEndOfLine'] });
+  await b.send('Input.insertText', { text: ' 셋' });
+  const typedName = await b.evaluate(`document.activeElement.value`);
+  const decksAsked = `performance.getEntriesByType('resource').filter(e => e.name.endsWith('/api/anki/decks')).length`;
+  const before = await b.evaluate(decksAsked);
+  const holder3 = holdCollectionOpen(collection);
+  await holder3.held;
+  try {
+    check(await until(b, `${badge} === 'Anki locked'`, 150), 'locked a third time');
+  } finally {
+    await holder3.release();
+  }
+  check(await until(b, `${badge} === 'Anki connected'`, 150), 'and let go a third time');
+  check(await until(b, `${decksAsked} >= ${before} + 2`, 150), 'the deck list was asked again, twice');
+  await sleep(500);
+  check(await b.evaluate(`document.activeElement?.classList.contains('deck-name-input') && document.activeElement.value === ${JSON.stringify(typedName)}`),
+    'a rename typed while the deck list refreshes keeps what was typed');
+  await key(b, 'Enter', 'Enter', 13);
+  check(await until(b, `document.querySelector('.deck-name-button')?.textContent === ${JSON.stringify(typedName)}`, 150),
+    `and Enter saves exactly that on the page (${typedName})`);
+  await goto(b, `${base}/decks`);
+  check(await until(b, `[...document.querySelectorAll('.deck-item h3')].map(h => h.textContent).includes(${JSON.stringify(typedName)})`, 150),
+    'and in the deck list');
+
   check(!pageErrors.length, `no page errors${pageErrors.length ? `: ${pageErrors.join(' / ')}` : ''}`);
 } finally {
   clearTimeout(watchdog);
