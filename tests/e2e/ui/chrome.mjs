@@ -4,6 +4,7 @@
 // for a keychain. No Chrome outlives its drive: on exit, and on SIGINT or SIGTERM, this process's own children
 // (the Chrome it started; its helpers go with it) are stopped by PID.
 import { execFileSync } from 'node:child_process';
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { sandboxEnv } from '../../repo/sandbox-home.cjs';
@@ -31,4 +32,19 @@ function arm() {
 export async function launchChrome() {
   arm();
   return launch(CHROME_FLAGS);
+}
+
+/**
+ * The drives' one screenshot: shotter(out, name) gives shot(b, file), which writes <out>/<name>-<file>.png
+ * and, next to it, the DOM it shows as <name>-<file>.html (the outerHTML of the mount, the body the
+ * app was started on, id "amgi" in ui/src/index.html). tests/e2e/ui/parity.sh compares both between a
+ * baseline run and a new one, so a change that moves no pixel but changes an element still shows.
+ */
+export function shotter(out, name) {
+  return async (b, file) => {
+    const { result } = await b.send('Page.captureScreenshot', { format: 'png' });
+    fs.writeFileSync(path.join(out, `${name}-${file}.png`), Buffer.from(result.data, 'base64'));
+    const html = await b.evaluate(`(document.getElementById('amgi') || document.body).outerHTML`);
+    fs.writeFileSync(path.join(out, `${name}-${file}.html`), html);
+  };
 }

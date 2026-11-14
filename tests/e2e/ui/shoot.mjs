@@ -19,7 +19,7 @@ import { seed } from './seed.mjs';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const cdom = process.env.CDOM || path.join(here, '..', '..', '..', 'cdom');
 const { sleep } = await import(path.join(cdom, 'tools', 'cdp.mjs'));
-const { launchChrome } = await import('./chrome.mjs');
+const { launchChrome, shotter } = await import('./chrome.mjs');
 
 const [base, name, collection, outArg] = process.argv.slice(2);
 if (!base || !name || !collection) {
@@ -54,10 +54,7 @@ async function goto(b, url) {
 }
 
 
-const shot = async (b, file) => {
-  const { result } = await b.send('Page.captureScreenshot', { format: 'png' });
-  fs.writeFileSync(path.join(out, `${name}-${file}.png`), Buffer.from(result.data, 'base64'));
-};
+const shot = shotter(out, name);
 // A real click: the pointer pressed and released at the element's centre.
 async function click(b, selector) {
   // into view first: a press outside the viewport reaches nothing
