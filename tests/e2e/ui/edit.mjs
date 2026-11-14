@@ -76,6 +76,24 @@ try {
   await click(b, `.deck-item:nth-child(${i + 1})`);
   check(await until(b, `document.querySelectorAll('.note-rows > li').length === 4`, 150), 'the deck page, four notes');
 
+  // Chips are kept in a table of 256 slots, and a slot is free again when its chip's page goes.
+  // Enough visits to use the table several times over: a visit whose chips were not freed would find
+  // the table full and show fewer chips than the first.
+  const chipsOf = `document.querySelectorAll('.note-rows .audio-chip').length`;
+  const perVisit = await b.evaluate(chipsOf);
+  const visits = Math.ceil(256 / perVisit) + 2;
+  check(perVisit > 0, `the deck page has chips to count (${perVisit})`);
+  let last = perVisit;
+  for (let v = 1; v < visits && last === perVisit; v++) {
+    await click(b, '.back-btn');
+    await until(b, `document.querySelectorAll('.deck-item').length === 7`, 150);
+    await click(b, `.deck-item:nth-child(${i + 1})`);
+    await until(b, `document.querySelectorAll('.note-rows > li').length === 4`, 150);
+    await until(b, `${chipsOf} === ${perVisit}`, 50);
+    last = await b.evaluate(chipsOf);
+  }
+  check(last === perVisit, `a deck page visited ${visits} times still shows every chip (each visit's chips are freed with it): ${last} of ${perVisit}`);
+
   // 1. A card opened in its row; Target changed; saved when the field is left (Enter).
   await click(b, '.note-rows > li:nth-child(3) .note-row-edit');
   check(await until(b, `!!document.querySelector('.note-rows > li.is-open .card-panel') && document.querySelector('.note-rows > li:nth-child(3) .note-row-edit').textContent === 'Close'`), 'Edit opens the card, the button says Close');
