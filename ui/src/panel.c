@@ -26,9 +26,19 @@ static const char *name_of(const char *code) {
   return n ? n : code;
 }
 
-static void error_view(void) {
+static void error_view(void *ctx);
+static void labels_view(void *ctx);
+
+/* The views are renders. Two guards, for two vectors: dirty() asks only while the panel is open, which covers an ask
+ * made after the editor went (a late answer); the cd_undirty in gone covers an ask made earlier in the same entry. */
+static void dirty(cd_render_fn view) {
+  if (open_) cd_dirty(view, 0);
+}
+
+static void error_view(void *ctx) {
+  (void)ctx;
   cd_region_hide(&err);
-  if (!open_ || !error.len || !cd_region_show(&err, 1)) return;
+  if (!error.len || !cd_region_show(&err, 1)) return;
   cd_at(root, foot);
   el(CD_LIT("p"), CD_LIT("card-panel-error"));
   cd_name_open(err.root);
@@ -40,10 +50,11 @@ static void error_view(void) {
 static void set_error(const answer *a) {
   char m[600];
   text_set(&error, m, answer_message(a, m, sizeof m));
-  error_view();
+  dirty(error_view);
 }
 
-static void labels_view(void) {
+static void labels_view(void *ctx) {
+  (void)ctx;
   for (int s = 0; s < 2; s++) {
     if (busy == s + 1) {
       cd_set_text_node(redo_text[s], CD_LIT("Redoing…"));
@@ -77,7 +88,6 @@ ON_EVENT(redo_cue);
 ON_EVENT(delete_pressed);
 
 static void gone(void *ctx);
-static void labels_view(void);
 
 /* Built inside the open row's .note-row-editor, while editor builds: the panel is the editor's, and goes
  * with it. fields are the note's, copied. */
@@ -153,13 +163,15 @@ void panel_build(cd_region *editor, int64_t id, const wire_strs *f, const text *
   cd_close();
   cd_close();
   cd_close();
-  labels_view();
+  dirty(labels_view);
 }
 
 /* The editor goes: the error and the chips with it. */
 static void gone(void *ctx) {
   (void)ctx;
   open_ = 0;
+  cd_undirty(error_view, 0);
+  cd_undirty(labels_view, 0);
   chips[0] = chips[1] = -1;
   for (uint32_t i = 0; i < nfields; i++) text_free(&fields[i]);
   cd_free(fields);
@@ -186,11 +198,11 @@ static void commit(uint32_t k) {
   uint32_t n;
   if (!input_value(inputs[k], buf, sizeof buf, &n)) {
     text_setz(&error, "This field is too long to save");
-    error_view();
+    dirty(error_view);
     return;
   }
   text_free(&error);
-  error_view();
+  dirty(error_view);
   if (same(buf, n, fields[i].p, fields[i].len)) return;
   text_set(&fields[i], buf, n);
   save();
@@ -207,8 +219,8 @@ static void redo(int side) {
   }
   busy = side + 1;
   text_free(&error);
-  error_view();
-  labels_view();
+  dirty(error_view);
+  dirty(labels_view);
   const char *lang = side ? langs.known : langs.learning;
   wire_q_audio q = {{t, n}, {lang, zlen(lang)}, 1};
   ask(clip_answered, CTX_OF(side), "POST", "/audio", WK_Q_AUDIO, &q);
@@ -218,7 +230,7 @@ static void redo(int side) {
 static void removed(void *ctx) {
   (void)ctx;
   deleting = 1;
-  labels_view();
+  dirty(labels_view);
   char path[48] = "/notes/";
   path[7 + id_dec(path + 7, note_id)] = 0;
   ask(deleted, 0, "DELETE", path, WIRE_NONE, 0);
@@ -277,7 +289,7 @@ ON_ANSWER(clip_answered) {
   } else {
     set_error(&a);
   }
-  labels_view();
+  dirty(labels_view);
 }
 ON_ANSWER(deleted) {
   if (!open_) return;
@@ -288,6 +300,6 @@ ON_ANSWER(deleted) {
   } else {
     deleting = 0;
     set_error(&a);
-    labels_view();
+    dirty(labels_view);
   }
 }
