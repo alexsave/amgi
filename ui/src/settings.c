@@ -87,6 +87,8 @@ static cd_region scan_out = {0};
 static cd_region saved_msg = {0};  /* "Anki settings saved.", or why they were not */
 static cd_region install_msg = {0};
 static int shown;
+/* The pending "saved" timer, 0 when none: kept by hand until cdom has a timer handle that replaces itself (a possible cd_timer_set). */
+static uint32_t saved_timer;
 
 static void row_open(void) { el(CD_LIT("div"), CD_LIT("preference-item")); }
 static void label(const char *for_id, cd_str s) {
@@ -345,9 +347,6 @@ void settings_after(void) {
   install_view();
   scan();
 }
-
-/* The pending "saved" timer, 0 when none: kept by hand until cdom has a timer handle that replaces itself (a possible cd_timer_set). */
-static uint32_t saved_timer;
 
 static void saved_gone(void *ctx) {
   (void)ctx;
