@@ -125,6 +125,18 @@ try {
   check(n2 < n1, `the countdown goes down (${n1} then ${n2})`);
   check(/waiting for the rate limit/.test(await b.evaluate(head)), `the head says so: ${await b.evaluate(head)}`);
   await shot(b, '32-rate-limited');
+  // 3b. A run put away while its countdown ticks leaves no tick behind: a new run, rate limited at once, counts down
+  // at one second a second, not at the pace of the old run's tick and its own together.
+  const countdown = `Number([...document.querySelectorAll('.bulk-run-cue')].map(c => c.textContent).map(t => t.match(/retrying in (\\d+)s…/)?.[1]).find(Boolean))`;
+  const justTicked = await b.evaluate(countdown);
+  await until(b, `${countdown} !== ${justTicked}`, 30); // the old run's tick has just fired: the next is a second away
+  await b.evaluate(`(() => { const box = document.querySelector('#amgiCardInput'); box.value = 'honeydew 8\\nnectarine 10';
+    box.dispatchEvent(new Event('input', { bubbles: true })); document.querySelector('.card-form-go').click(); })()`);
+  check(await until(b, `${countdown} > 0`, 100), 'a new run, put straight after the old one was put away, counts down too');
+  const m1 = await b.evaluate(countdown);
+  await sleep(4200);
+  const m2 = await b.evaluate(countdown);
+  check(m1 - m2 >= 3 && m1 - m2 <= 5, `at one second a second, with no tick of the old run (${m1} then ${m2} in 4.2 s)`);
   check(await until(b, `${head} === 'Done: 2 added'`, 2000), `after the wait, both made (${await b.evaluate(head)})`);
   await control('perMinute=1000');
 

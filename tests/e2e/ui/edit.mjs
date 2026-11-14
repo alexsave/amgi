@@ -63,7 +63,9 @@ const watchdog = setTimeout(async () => {
   process.exit(1);
 }, 240000);
 const pageErrors = [];
+const held = []; // Fetch.requestPaused ids of the held requests
 b.onEvent = (d) => {
+  if (d.method === 'Fetch.requestPaused') held.push(d.params.requestId);
   if (d.method === 'Runtime.exceptionThrown') pageErrors.push(d.params.exceptionDetails.exception?.description || d.params.exceptionDetails.text);
   if (d.method === 'Runtime.consoleAPICalled' && d.params.type === 'error') pageErrors.push(d.params.args.map((a) => a.value ?? a.description).join(' '));
 };
@@ -122,6 +124,28 @@ try {
   check(await until(b, `[...document.querySelectorAll('.card-panel-redo')].every(b => !b.disabled)`), 'and the buttons come back');
   await sleep(300);
   await shot(b, '21-redo-failed');
+  await click(b, '.note-rows > li:nth-child(3) .note-row-edit');
+
+  // 2b. The card is closed while its Redo is out: the answer (an error here, Gemini being unreachable) finds no card to
+  // draw it in, so it draws nothing and throws nothing, and the card opened again is as new.
+  await b.send('Fetch.enable', { patterns: [{ urlPattern: '*/api/anki/audio', requestStage: 'Request' }] });
+  held.length = 0;
+  const errorsBefore = pageErrors.length;
+  await click(b, '.note-rows > li:nth-child(3) .note-row-edit');
+  await until(b, `!!document.querySelector('.card-panel')`);
+  await click(b, '.card-panel-redo');
+  for (let i = 0; i < 100 && !held.length; i++) await sleep(100);
+  check(held.length === 1, 'a Redo is held in flight');
+  await click(b, '.note-rows > li:nth-child(3) .note-row-edit'); // Close
+  check(await until(b, `!document.querySelector('.card-panel')`), 'and its card is closed meanwhile');
+  await b.send('Fetch.continueRequest', { requestId: held[0] });
+  await b.send('Fetch.disable');
+  await sleep(1500);
+  check(pageErrors.length === errorsBefore, `an answer that comes after its card closed throws nothing${pageErrors.length > errorsBefore ? ` (${pageErrors.slice(errorsBefore).join(' / ')})` : ''}`);
+  await click(b, '.note-rows > li:nth-child(3) .note-row-edit');
+  await until(b, `!!document.querySelector('.card-panel')`);
+  check(await b.evaluate(`!document.querySelector('.card-panel-error') && [...document.querySelectorAll('.card-panel-redo')].map(e => e.textContent + e.disabled).join('|') === 'Redo 한국어false|Redo Englishfalse'`),
+    'and the card opened again shows no error and both Redo buttons ready');
   await click(b, '.note-rows > li:nth-child(3) .note-row-edit');
 
   // 3. A row deleted: Cancel keeps it, Delete takes it.
@@ -242,6 +266,23 @@ try {
   await goto(b, `${base}/decks`);
   check(await until(b, `[...document.querySelectorAll('.deck-item h3')].map(h => h.textContent).includes(${JSON.stringify(typedName)})`, 150),
     'and in the deck list');
+
+  // 8. Settings visited and left, then the mode changes under the deck list: the badge Settings drew went with its page,
+  // and the mode change touches only the navbar's.
+  const errorsBeforeBadge = pageErrors.length;
+  await click(b, '.navbar .settings-icon');
+  await until(b, `location.pathname === '/settings' && !!document.querySelector('.settings-page .save-button')`);
+  await click(b, '.settings-header .back-button');
+  await until(b, `location.pathname === '/decks'`);
+  const holder4 = holdCollectionOpen(collection);
+  await holder4.held;
+  try {
+    check(await until(b, `${badge} === 'Anki locked'`, 150), 'locked once more, after Settings was left');
+  } finally {
+    await holder4.release();
+  }
+  check(await until(b, `${badge} === 'Anki connected'`, 150), 'and let go once more');
+  check(pageErrors.length === errorsBeforeBadge, `a mode change after Settings was left throws nothing${pageErrors.length > errorsBeforeBadge ? ` (${pageErrors.slice(errorsBeforeBadge).join(' / ')})` : ''}`);
 
   check(!pageErrors.length, `no page errors${pageErrors.length ? `: ${pageErrors.join(' / ')}` : ''}`);
 } finally {
