@@ -2,3 +2,15 @@
 #   <file> <reason>
 # <file> is the name as it sits in the shots folder (a .png, or the .html beside it).
 # Every entry needs its reason: a line without one is refused by parity.sh.
+cdom-31-paste.png the fake Gemini answers the five concurrent lines in arrival order, so card order varies run to run
+cdom-31-paste.html the fake Gemini answers the five concurrent lines in arrival order, so card order varies run to run
+cdom-32-rate-limited.png the fake Gemini answers the five concurrent lines in arrival order, so card order varies run to run and the countdown seconds are wall-clock
+cdom-32-rate-limited.html the fake Gemini answers the five concurrent lines in arrival order, so card order varies run to run and the countdown seconds are wall-clock
+cdom-33-failed.png the fake Gemini answers the five concurrent lines in arrival order, so card order varies run to run
+cdom-33-failed.html the fake Gemini answers the five concurrent lines in arrival order, so card order varies run to run
+cdom-34-daily-cap.png the fake Gemini answers the five concurrent lines in arrival order, so card order varies run to run
+cdom-34-daily-cap.html the fake Gemini answers the five concurrent lines in arrival order, so card order varies run to run
+cdom-12-modal.html div.modal-overlay became dialog.modal-overlay[open], intended in this PR
+cdom-60-modal-name-too-long.html div.modal-overlay became dialog.modal-overlay[open], intended in this PR
+cdom-12-modal.png the create-deck <dialog> is shown with showModal, and the browser's top layer rasterizes its text and edges at most 1 level a channel differently (1,422 px), with no geometry change; proven by the non-modal show() run matching the baseline byte for byte
+cdom-60-modal-name-too-long.png the create-deck <dialog> is shown with showModal, and the browser's top layer rasterizes its text and edges at most 1 level a channel differently (1,790 px), with no geometry change; proven by the non-modal show() run matching the baseline byte for byte
