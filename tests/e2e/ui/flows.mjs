@@ -218,6 +218,25 @@ try {
   check(await until(b, `!window.__reloading && document.readyState === 'complete' && !!document.querySelector('#bridgeToken')`, 150), 'the page reloads the moment it says saved');
   const kept = await b.evaluate(`document.querySelector('#bridgeToken').value`);
   check(kept === 'token-kept', `and the saved token is there after the reload (${JSON.stringify(kept)})`);
+  // 4c. "Anki settings saved." lasts two seconds from the latest save: a second Save at 1.5 s keeps it
+  // through 2.5 s, past the first save's own two seconds.
+  await until(b, `[...document.querySelectorAll('.save-button')].some(x => x.textContent === 'Scan for profiles')`, 150);
+  await sleep(300);
+  const savedShown = `[...document.querySelectorAll('.settings-page .message.success')].some(e => e.textContent === 'Anki settings saved.')`;
+  const pressSave = async () => {
+    await b.evaluate(`[...document.querySelectorAll('.save-button')].find(x => x.textContent === 'Save Anki settings').dataset.drive = 'save'`);
+    await click(b, '.save-button[data-drive="save"]');
+    await b.evaluate(`delete document.querySelector('.save-button[data-drive="save"]').dataset.drive`);
+  };
+  const firstSave = Date.now();
+  await pressSave();
+  check(await until(b, savedShown, 50), 'the first Save says saved');
+  await sleep(Math.max(0, firstSave + 1500 - Date.now()));
+  await pressSave();
+  check(await until(b, savedShown, 50), 'the second Save says saved');
+  await sleep(Math.max(0, firstSave + 2500 - Date.now()));
+  check(await b.evaluate(savedShown), 'a second Save 1.5 s after the first keeps "saved" up at 2.5 s, past the first one\'s two seconds');
+
   // A write the browser refuses (a quota, say: IndexedDB's put throws here) says so, never "saved".
   await until(b, `[...document.querySelectorAll('.save-button')].some(x => x.textContent === 'Scan for profiles')`, 150);
   await sleep(300);
