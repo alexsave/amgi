@@ -18,7 +18,7 @@ import { WIRE_MIME, decode, encode } from '../../../ui/wire/wire.mjs';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const cdom = process.env.CDOM || path.join(here, '..', '..', '..', 'cdom');
 const { sleep } = await import(path.join(cdom, 'tools', 'cdp.mjs'));
-const { launchChrome } = await import('./chrome.mjs');
+const { launchChrome, shotter } = await import('./chrome.mjs');
 const anki = createRequire(import.meta.url)('../../server/plusaudio/collection/helpers/anki-python.js');
 const { holdCollectionOpen } = anki;
 // The server opens the file for a moment on every request (the status poll among them), and Anki's
@@ -55,10 +55,7 @@ async function goto(b, url) {
   await b.send('Page.navigate', { url });
   await until(b, `document.readyState === 'complete'`);
 }
-const shot = async (b, file) => {
-  const { result } = await b.send('Page.captureScreenshot', { format: 'png' });
-  fs.writeFileSync(path.join(out, `${name}-${file}.png`), Buffer.from(result.data, 'base64'));
-};
+const shot = shotter(out, name);
 async function click(b, selector) {
   const box = await b.evaluate(`(() => { const e = document.querySelector(${JSON.stringify(selector)});
     e?.scrollIntoView({ block: 'center', behavior: 'instant' }); const r = e?.getBoundingClientRect();

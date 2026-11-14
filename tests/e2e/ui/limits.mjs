@@ -16,7 +16,7 @@ import { seed } from './seed.mjs';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const cdom = process.env.CDOM || path.join(here, '..', '..', '..', 'cdom');
 const { sleep } = await import(path.join(cdom, 'tools', 'cdp.mjs'));
-const { launchChrome } = await import('./chrome.mjs');
+const { launchChrome, shotter } = await import('./chrome.mjs');
 const [base, name, ankiDir, outArg] = process.argv.slice(2);
 const out = outArg || path.join(here, '..', '..', '..', 'ui', 'out', 'shots');
 fs.mkdirSync(out, { recursive: true });
@@ -39,10 +39,7 @@ async function goto(b, url) {
   await b.send('Page.navigate', { url });
   await until(b, `document.readyState === 'complete'`);
 }
-const shot = async (b, file) => {
-  const { result } = await b.send('Page.captureScreenshot', { format: 'png' });
-  fs.writeFileSync(path.join(out, `${name}-${file}.png`), Buffer.from(result.data, 'base64'));
-};
+const shot = shotter(out, name);
 async function click(b, selector) {
   const box = await b.evaluate(`(() => { const e = document.querySelector(${JSON.stringify(selector)});
     e?.scrollIntoView({ block: 'center', behavior: 'instant' }); const r = e?.getBoundingClientRect();
