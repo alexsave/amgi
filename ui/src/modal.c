@@ -4,6 +4,14 @@
  * back. Its close event (Escape, Cancel, or the action) is what ends it here. One at a time. */
 #include "app.h"
 
+/* The two modal dialogs' shared half: open one the browser makes modal, with the focus where its
+ * first keystroke belongs, and close it. What follows a close is the dialog's own CD_EV_CLOSE handler. */
+void dialog_show(cd_id dialog, cd_id focus) {
+  cd_call(dialog, CD_LIT("showModal"));
+  cd_call(focus, CD_LIT("focus"));
+}
+void dialog_close(cd_id dialog) { cd_call(dialog, CD_LIT("close")); }
+
 static cd_region box = {0};
 static void (*on_yes)(void *);
 static void *yes_ctx;
@@ -18,9 +26,9 @@ static void forget(void) {
 
 ON_EVENT(yes_pressed) {
   answered = 1;
-  cd_call(dialog, CD_LIT("close"));
+  dialog_close(dialog);
 }
-ON_EVENT(cancel_pressed) { cd_call(dialog, CD_LIT("close")); }
+ON_EVENT(cancel_pressed) { dialog_close(dialog); }
 /* every way out ends here: the action, Cancel, Escape */
 ON_EVENT(closed) {
   void (*then)(void *) = answered ? on_yes : 0;
@@ -73,10 +81,9 @@ void confirm_ask(const char *title, const char *body, uint32_t blen, const char 
   cd_close();
   cd_close();
   cd_region_end(&box);
-  cd_call(dialog, CD_LIT("showModal"));
-  cd_call(yes_button, CD_LIT("focus")); /* the action is the default: Enter takes it */
+  dialog_show(dialog, yes_button); /* the action is the default: Enter takes it */
 }
 
 void confirm_close(void) {
-  if (box.shown) cd_call(dialog, CD_LIT("close"));
+  if (box.shown) dialog_close(dialog);
 }

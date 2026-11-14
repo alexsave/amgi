@@ -117,15 +117,21 @@ static void modal_error_view(void) {
   cd_region_end(&modal_err);
 }
 
-ON_EVENT(modal_dismiss) { modal_close(); }
+/* Every way out of the modal ends in its dialog's close event: Escape, the X and a made deck all
+ * ask the dialog to close, and this is the one place that takes it away. */
+ON_EVENT(modal_closed) { modal_close(); }
+ON_EVENT(modal_dismiss) {
+  if (modal.shown) dialog_close(modal.root);
+}
 ON_EVENT(modal_submitted);
 
 static void modal_open(void) {
   modal_close();
   if (!rows.parent || !cd_region_show(&modal, 1)) return;
   cd_at(page_root(), rows.parent);
-  el(CD_LIT("div"), CD_LIT("modal-overlay"));
+  el(CD_LIT("dialog"), CD_LIT("modal-overlay"));
   cd_name_open(modal.root);
+  cd_on(modal.root, CD_EV_CLOSE, modal_closed, 0);
   el(CD_LIT("div"), CD_LIT("modal-content"));
   el(CD_LIT("div"), CD_LIT("modal-header"));
   el_text(CD_LIT("h3"), 0, CD_LIT("Create New Deck"));
@@ -164,7 +170,7 @@ static void modal_open(void) {
   cd_close();
   cd_close();
   cd_region_end(&modal);
-  cd_call(modal_input, CD_LIT("focus")); /* autoFocus */
+  dialog_show(modal.root, modal_input); /* autoFocus */
 }
 
 ON_ANSWER(created);
@@ -199,7 +205,7 @@ ON_ANSWER(created) {
   answer a = take(&h, WK_DECK_CREATED, status, p, len, &d);
   creating = 0;
   if (a.ok) {
-    modal_close();
+    dialog_close(modal.root);
     open_after_refresh(d.id);
     return;
   }
