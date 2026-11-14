@@ -1,5 +1,4 @@
 /* Shorthand over cdom's builder, and the icons. */
-#define INPUT_VALUE_OWNER
 #include "app.h"
 
 void el(cd_str tag, cd_str cls) {
@@ -36,11 +35,6 @@ void bool_bound(cd_bound *b, cd_id el, cd_str prop, uint32_t v) {
 }
 void tmp_text(const char *p, uint32_t len) { cd_text(cd_tmp(p, len)); }
 void attr_tmp(cd_str name, const char *p, uint32_t len) { cd_attr(name, cd_tmp(p, len)); }
-int input_value(cd_id id, char *dst, uint32_t cap, uint32_t *len) {
-  int fits = cd_input_whole(id, dst, cap, len);
-  if (!fits) *len = 0;
-  return fits;
-}
 
 void icon_with(const char *d1, const char *d2, cd_str style, cd_str cls) {
   cd_open(CD_LIT("svg"));

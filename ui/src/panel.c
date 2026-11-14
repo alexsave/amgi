@@ -192,7 +192,7 @@ static void commit(uint32_t k) {
   if (i < 0 || (uint32_t)i >= nfields || !inputs[k]) return;
   char buf[4096];
   uint32_t n;
-  if (!input_value(inputs[k], buf, sizeof buf, &n)) {
+  if (!cd_input_whole(inputs[k], buf, sizeof buf, &n)) {
     text_setz(&error, "This field is too long to save");
     dirty(error_view);
     return;
