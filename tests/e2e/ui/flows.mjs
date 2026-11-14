@@ -46,6 +46,10 @@ async function click(b, selector) {
   }
 }
 const type = (b, text) => b.send('Input.insertText', { text });
+const key = async (b, k, code, keyCode) => {
+  await b.send('Input.dispatchKeyEvent', { type: 'keyDown', key: k, code, windowsVirtualKeyCode: keyCode });
+  await b.send('Input.dispatchKeyEvent', { type: 'keyUp', key: k, code, windowsVirtualKeyCode: keyCode });
+};
 const decksShown = `document.querySelectorAll('.deck-item').length`;
 
 const b = await launchChrome();
@@ -85,6 +89,21 @@ try {
   check(await until(b, `!!document.querySelector('.modal-overlay #deckName') && document.activeElement?.id === 'deckName'`), 'New Deck opens the modal, the name focused');
   await sleep(300);
   await shot(b, '12-modal');
+  // The modal is modal: Tab past its last control stays inside it, Escape closes it, and the focus goes
+  // back to the button that opened it.
+  const inModal = `!!document.querySelector('.modal-overlay')?.contains(document.activeElement)`;
+  let strayed = -1;
+  for (let i = 0; i < 6 && strayed < 0; i++) {
+    await key(b, 'Tab', 'Tab', 9);
+    if (!(await b.evaluate(inModal))) strayed = i + 1;
+  }
+  check(strayed < 0, `Tab through every control keeps the focus inside the modal${strayed > 0 ? ` (left it at press ${strayed}: ${await b.evaluate(`document.activeElement?.outerHTML.slice(0, 80)`)})` : ''}`);
+  await key(b, 'Escape', 'Escape', 27);
+  check(await until(b, `!document.querySelector('.modal-overlay')`), 'Escape closes the modal');
+  check(await b.evaluate(`document.activeElement === document.querySelector('.deck-actions .action-btn')`),
+    `and the focus is back on the New Deck button (${await b.evaluate(`document.activeElement?.outerHTML.slice(0, 80)`)})`);
+  await click(b, '.deck-actions .action-btn');
+  check(await until(b, `!!document.querySelector('.modal-overlay #deckName') && document.activeElement?.id === 'deckName'`), 'New Deck opens it again, the name focused');
   await click(b, '.modal-content .primary-btn');
   check(await until(b, `document.querySelector('.modal-content .error-message')?.textContent === 'Enter a deck name'`), 'an empty name is refused');
   await click(b, '#deckName');
