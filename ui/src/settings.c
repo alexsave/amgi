@@ -83,9 +83,9 @@ static cd_id section, scan_button, scan_text, install_button, install_text, base
   install_block;
 /* the scan's messages or the profile list, after "Bridge token" and before Save: the scan answers
  * after the screen is drawn, and nothing a person may be aiming at sits below it but Save */
-static cd_region scan_out = {0};
-static cd_region saved_msg = {0};  /* "Anki settings saved.", or why they were not */
-static cd_region install_msg = {0};
+static cd_region scan_out = {.up = &page_region};
+static cd_region saved_msg = {.up = &page_region};  /* "Anki settings saved.", or why they were not */
+static cd_region install_msg = {.up = &page_region};
 static int shown;
 /* The pending "saved" timer, 0 when none: kept by hand until cdom has a timer handle that replaces itself (a possible cd_timer_set). */
 static uint32_t saved_timer;
@@ -142,7 +142,15 @@ static void path_text(const char *p, uint32_t n) {
   }
 }
 
+static void screen_gone(void *ctx);
+static void scan_view(void);
+static void saved_view(void);
+static void install_view(void);
+static void scan(void);
+
+/* The screen, then what the answers fill in (the scan, the messages) as regions of the page. */
 void settings_build(void) {
+  cd_on_free(0, screen_gone, 0);
   for (int f = 0; f < S_FIELDS; f++) text_set(&draft[f], settings[f].p ? settings[f].p : "", settings[f].len);
   if (!settings_stored || !draft[S_BRIDGE_URL].len) text_setz(&draft[S_BRIDGE_URL], DEFAULT_BRIDGE_URL);
   shown = 1;
@@ -203,19 +211,22 @@ void settings_build(void) {
   cd_close();
 
   cd_close(); /* .preferences-section */
-  cd_close(); /* .settings-content: .settings-page stays open for the shell to close */
+  cd_close(); /* .settings-content */
+  page_root_done(); /* .settings-page */
+  scan_view();
+  saved_view();
+  install_view();
+  scan();
 }
 
-void settings_forget(void) {
-  if (!shown) return;
+static void screen_gone(void *ctx) {
+  (void)ctx;
   shown = 0;
   cd_timer_stop(saved_timer); /* a stale one would hide the message of a screen opened again within two seconds */
   saved_timer = 0;
   saved_shown = 0;
   text_free(&save_error);
-  cd_region_hide(&scan_out);
-  cd_region_hide(&saved_msg);
-  cd_region_hide(&install_msg);
+  badges[1] = (badge){0, 0, 0}; /* its nodes go with the page */
 }
 
 ON_EVENT(profile_picked) {
@@ -339,13 +350,6 @@ static void install_view(void) {
   }
   cd_close();
   cd_region_end(&install_msg);
-}
-
-void settings_after(void) {
-  scan_view();
-  saved_view();
-  install_view();
-  scan();
 }
 
 static void saved_gone(void *ctx) {

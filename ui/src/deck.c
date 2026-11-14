@@ -17,24 +17,22 @@ static uint64_t rows_hash;
 static text notes_error;
 static uint32_t want_offset;
 static cd_id name_h1, title_box, sub_line, listhead_count, list_box, name_input;
-static cd_region name_box = {0};  /* the h1's contents: the name's button, or its input while renaming */
-static cd_region name_err = {0};  /* p.deck-name-error, under the h1 */
+static cd_region name_box = {.up = &page_region};  /* the h1's contents: the name's button, or its input while renaming */
+static cd_region name_err = {.up = &page_region};  /* p.deck-name-error, under the h1 */
 static int renaming, rename_saving, rename_cancelled;
 static text rename_error;
 static int64_t editing = -1, deleting = -1;
 /* The open card's editor, opened and closed in place in its row: building the rows again would
  * leave the pointer over a new node the browser does not count as hovered until the mouse moves. */
-static cd_region editor = {0};
 static cd_id *row_li, *row_edit;   /* each row's li and its Edit button's text, by row */
 static int32_t editor_row = -1;
-static cd_region sub = {0};       /* the count and the languages: all the children of p.deck-cards-sub */
-static cd_region body = {0};      /* div.empty-deck or ol.note-rows */
-static cd_region pager = {0};
+static cd_region sub = {.up = &page_region};       /* the count and the languages: all the children of p.deck-cards-sub */
+static cd_region body = {.up = &page_region};      /* div.empty-deck or ol.note-rows */
+static cd_region pager = {.up = &page_region};
+static cd_region editor = {.up = &body}; /* in a row of the body */
 static cd_id known_select, learning_select;
-static int32_t *row_chips;        /* the chips in the rows, forgotten with them */
-static uint32_t nrow_chips;
 /* Deleting the deck, last on the page: the section's contents, what it is doing, why it failed. */
-static cd_region danger = {0};
+static cd_region danger = {.up = &page_region};
 enum { DANGER_IDLE, DANGER_CHECKING, DANGER_DELETING };
 static int danger_state;
 static text danger_error;
@@ -147,7 +145,7 @@ static void sub_build(void) {
 
 /* DeckName: the title, renamed where it is read. The button, or the input while renaming. */
 static void name_view(void) {
-  if (!shown || !name_box.parent) return;
+  if (!shown) return;
   const deck *d = deck_by_id(deck_id);
   cd_region_hide(&name_box);
   if (!d || !cd_region_show(&name_box, 1)) return;
@@ -213,16 +211,42 @@ static void rename_commit(void) {
   ask(renamed, 0, "PATCH", path, WK_Q_DECK_NAME, &q);
 }
 
+/* The page goes: the regions of the screen with it. What is the deck's and not the page's stays, when the page
+ * is this deck's again (the list drawn again after a mode change, the languages arriving): the typing, the
+ * page of notes. Route is already the new page's. */
+static void screen_gone(void *ctx) {
+  (void)ctx;
+  shown = 0;
+  renaming = rename_saving = 0;
+  text_free(&rename_error);
+  danger_state = DANGER_IDLE;
+  text_free(&danger_error);
+  langs_open = 0;
+  if (route != R_DECK || route_deck != deck_id) {
+    editing = deleting = -1;
+    langs_known = 0;
+    notes_known = 0;
+    holder_free(&h_notes);
+  }
+}
+
+static void rows_build(void);
+static void danger_view(void);
+
+/* The screen, then its regions (the name, the languages, the form, the rows, the danger section) and the
+ * requests that fill them. */
 void deck_build(void) {
-  shown = 1;
+  cd_on_free(0, screen_gone, 0);
   const deck *d = deck_by_id(route_deck);
   el(CD_LIT("div"), CD_LIT("deck-cards"));
   if (!langs_known || deck_id != route_deck) {
     /* the pair is on its way from the store (deck_langs_loaded draws the screen again) */
     langs_known = 0;
     deck_langs_load(route_deck);
+    page_root_done();
     return;
   }
+  shown = 1;
   el(CD_LIT("div"), CD_LIT("deck-cards-header"));
   title_box = el_id(CD_LIT("div"), CD_LIT("deck-cards-title"));
   name_h1 = cd_open_id(CD_LIT("h1"));
@@ -252,81 +276,50 @@ void deck_build(void) {
   /* Not for the Default deck (id 1): Anki never removes it. Its remove_decks empties Default and
    * resets its name instead (rslib/src/decks/remove.rs), so "delete" would only empty it, and the
    * server refuses it on both transports. */
+  danger.parent = 0; /* none, for Default */
   if (deck_id != 1) {
     danger.parent = el_id(CD_LIT("section"), CD_LIT("deck-danger"));
     cd_attr(CD_LIT("aria-label"), CD_LIT("Delete this deck"));
     cd_close();
   }
   cd_close();
+  page_root_done();
+  name_view();
+  sub_build();
+  danger_view();
+  ensure_notetypes();
+  if (!notes_known || page_notes.offset != want_offset) ask_notes(0);
+  rows_build();
+  form_notetypes_known();
+}
+
+static void editor_gone(void *ctx) {
+  (void)ctx;
+  editor_row = -1;
 }
 
 static void editor_close(void) {
   if (editor_row < 0) return;
-  panel_forget();
-  cd_region_hide(&editor);
-  cd_set_class(row_li[editor_row], CD_LIT("note-row-wrap"));
-  cd_set_text_node(row_edit[editor_row], CD_LIT("Edit"));
-  editor_row = -1;
+  int32_t row = editor_row;
+  cd_region_hide(&editor); /* the panel goes with it */
+  cd_set_class(row_li[row], CD_LIT("note-row-wrap"));
+  cd_set_text_node(row_edit[row], CD_LIT("Edit"));
 }
 
 static void editor_open(uint32_t i) {
   const wire_note *n = &page_notes.notes[i];
   const notetype *t = notetype_by_id(n->notetype_id);
   if (!t || !row_edit[i] || !cd_region_show(&editor, 1)) return;
+  cd_on_free(0, editor_gone, 0);
   editor_row = (int32_t)i;
   cd_set_class(row_li[i], CD_LIT("note-row-wrap is-open"));
   cd_set_text_node(row_edit[i], CD_LIT("Close"));
   cd_at(row_li[i], 0);
   el(CD_LIT("div"), CD_LIT("note-row-editor"));
   cd_name_open(editor.root);
-  panel_build(n->id, &n->fields, t->fields, t->nfields, &langs);
+  panel_build(&editor, n->id, &n->fields, t->fields, t->nfields, &langs);
   cd_close();
   cd_region_end(&editor);
-  panel_after();
-}
-
-static void rows_forget(void) {
-  rows_hash = 0;
-  if (editor_row >= 0) {
-    panel_forget();
-    cd_region_hide(&editor);
-    editor_row = -1;
-  }
-  for (uint32_t i = 0; i < nrow_chips; i++) chip_forget(row_chips[i]);
-  nrow_chips = 0;
-  cd_region_hide(&body);
-  cd_region_hide(&pager);
-}
-
-void deck_forget(void) {
-  if (!shown) return;
-  shown = 0;
-  rows_forget();
-  cd_region_hide(&sub);
-  sub.parent = 0;
-  cd_region_hide(&name_err);
-  cd_region_hide(&name_box);
-  name_box.parent = 0;
-  renaming = rename_saving = 0;
-  text_free(&rename_error);
-  form_forget();
-  cd_region_hide(&danger);
-  danger.parent = 0;
-  danger_state = DANGER_IDLE;
-  text_free(&danger_error);
-  langs_open = 0;
-  if (route != R_DECK || route_deck != deck_id) {
-    editing = deleting = -1;
-    langs_known = 0;
-    notes_known = 0;
-    holder_free(&h_notes);
-  }
-}
-
-static void keep_chip(int32_t slot) {
-  if (slot < 0) return;
-  row_chips = cd_realloc(row_chips, (nrow_chips + 1) * sizeof *row_chips);
-  row_chips[nrow_chips++] = slot;
 }
 
 /* A field's text by name (CardList's textIn): the tags taken out, trimmed. */
@@ -379,8 +372,8 @@ static void row_build(uint32_t i) {
   cd_close();
   el(CD_LIT("span"), CD_LIT("note-row-clips"));
   wire_str cue_clip = audio_src(field_named(n, t, "CueAudio")), target_clip = audio_src(field_named(n, t, "TargetAudio"));
-  keep_chip(chip_build(cue_clip.p, cue_clip.len, lang_label(langs.known), TONE_CUE));
-  keep_chip(chip_build(target_clip.p, target_clip.len, lang_label(langs.learning), TONE_TARGET));
+  chip_build(0, cue_clip.p, cue_clip.len, lang_label(langs.known), TONE_CUE);
+  chip_build(0, target_clip.p, target_clip.len, lang_label(langs.learning), TONE_TARGET);
   if (amgi && !has_audio) el_text(CD_LIT("small"), CD_LIT("note-row-noaudio"), CD_LIT("no audio yet"));
   cd_close();
   if (amgi) {
@@ -455,10 +448,17 @@ static uint64_t page_hash(void) {
   return h | 1; /* never 0, which means no rows */
 }
 
+static void rows_gone(void *ctx) {
+  (void)ctx;
+  rows_hash = 0;
+}
+
 static void rows_build(void) {
-  if (!shown || !list_box) return;
-  rows_forget();
+  if (!shown) return;
+  cd_region_hide(&body); /* the open editor, and every chip, go with it */
+  cd_region_hide(&pager);
   if (!cd_region_show(&body, 1)) return;
+  cd_on_free(0, rows_gone, 0);
   cd_at(list_box, 0);
   if (notes_error.len) {
     el(CD_LIT("div"), CD_LIT("empty-deck"));
@@ -484,9 +484,10 @@ static void rows_build(void) {
     cd_close();
     rows_hash = page_hash();
   }
-  cd_region_end(&body);
+  /* inside the body's build, so the editor is the body's child whether the body is built by the page or by an answer */
   for (uint32_t i = 0; editing >= 0 && notes_known && i < page_notes.nnotes; i++)
     if (page_notes.notes[i].id == editing) editor_open(i);
+  cd_region_end(&body);
 
   uint32_t n = notes_known && notetypes_known ? page_notes.nnotes : 0;
   if (!n || (!page_notes.offset && !page_notes.has_more) || !cd_region_show(&pager, 1)) return;
@@ -539,17 +540,6 @@ static void danger_view(void) {
     cd_close();
   }
   cd_region_end(&danger);
-}
-
-void deck_after(void) {
-  if (!langs_known) return;
-  name_view();
-  sub_build();
-  danger_view();
-  ensure_notetypes();
-  if (!notes_known || page_notes.offset != want_offset) ask_notes(0);
-  rows_build();
-  form_notetypes_known();
 }
 
 void deck_decks_changed(void) {
@@ -838,7 +828,7 @@ ON_EVENT(language_changed) {
 
 /* A deck page for a deck that is not in the list while the collection answers: deleted here, in
  * Anki, or on another device and synced. Said, with the way back, rather than an empty page or a
- * silent jump. Built as deck_build is, under page.root (div.deck-cards left open). */
+ * silent jump. Built under page.root as deck_build is. */
 void deck_gone_build(void) {
   el(CD_LIT("div"), CD_LIT("deck-cards"));
   el(CD_LIT("div"), CD_LIT("deck-gone"));
@@ -850,4 +840,5 @@ void deck_gone_build(void) {
   cd_text(CD_LIT("← Decks"));
   cd_close();
   cd_close();
+  page_root_done();
 }

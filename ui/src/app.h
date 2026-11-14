@@ -167,6 +167,14 @@ enum { R_DECKS, R_SETTINGS, R_DECK };
 extern uint32_t route;
 extern int64_t route_deck;
 extern cd_id app_content;
+/* The screen's region (shell.c). A screen builds inside it, and every region a screen shows, now or when an answer
+ * comes, names it as its .up (static cd_region r = {.up = &page_region}), so it goes with the screen, and a screen
+ * registers what it owns with cd_on_free(0, ...) while it builds. */
+extern cd_region page_region;
+/* The screen's root element is whole: names it as the page's root and closes it. A screen calls this when its
+ * static part is built, and shows its regions after, which the browser puts where cd_at says only once no
+ * element is open. */
+void page_root_done(void);
 void go(const char *path, uint32_t len);
 void go_deck(int64_t id);
 void go_replace(const char *path, uint32_t len); /* as go, in place of the current history entry */
@@ -178,15 +186,10 @@ void decks_build(void);                   /* DeckList, under page.root */
 void decks_rows(void);                    /* its rows, when decks change */
 int decks_setup_wanted(void);             /* the setup screen is what the state calls for */
 int decks_setup_shown(void);              /* the setup screen is what is on screen */
-void decks_forget(void);
 
 void settings_build(void);
-void settings_after(void);                /* after the page region closed */
-void settings_forget(void);
 
 void deck_build(void);                    /* CardList, for route_deck */
-void deck_after(void);
-void deck_forget(void);
 void deck_reload(void);                   /* the open page of notes, asked again */
 void deck_decks_changed(void);            /* the deck list changed (a rename, a count) */
 void deck_notetypes_known(void);
@@ -195,36 +198,36 @@ void deck_gone_build(void);               /* the page of a deck that is not ther
 /* AudioChip: a chip is a button; chips are kept in a table by id so one plays at a time. */
 typedef struct { cd_id node; text filename; uint32_t tone; } chip_spec;
 enum { TONE_CUE, TONE_TARGET };
-/* Builds a chip (nothing when filename is empty) and returns its slot, or -1. */
-int32_t chip_build(const char *filename, uint32_t flen, const char *label, uint32_t tone);
-void chip_forget(int32_t slot);           /* its node went with a region */
+/* Builds a chip (nothing when filename is empty) and returns its slot, or -1. The chip goes with the region it is
+ * built in: owner 0 is the region building now (which also frees its node's id), or, for a chip built later,
+ * when no region builds, the region it is placed in (which does not know the node's id, so the chip frees it). */
+int32_t chip_build(cd_region *owner, const char *filename, uint32_t flen, const char *label, uint32_t tone);
+/* A chip that leaves before its region does (a clip made again): its slot is free and its node gone now. */
+void chip_drop(int32_t slot);
 cd_id chip_node(int32_t slot);
 void chips_audio_loaded(uint32_t token, uint32_t clip);
 void chips_audio_ended(uint32_t voice);
 
 void form_build(int64_t deck_id, const lang_pair *langs); /* CardForm */
-void form_forget(void);
 void form_notetypes_known(void);
 void form_langs_changed(const lang_pair *langs);
 
 /* BulkRun (bulk.c): a run of lines into cards, built at the end of the form's box. */
 void bulk_start(cd_id form_box, int64_t deck, const notetype *type, const lang_pair *langs, const wire_str *lines,
                 uint32_t n, void (*on_finished)(void));
-void bulk_forget(void);
+/* The run goes: its view, its timers, its state, and the answers still in flight are dropped. */
+void bulk_discard(void);
 
 /* FirstRun (firstrun.c), shown as all of parent's children. */
 void firstrun_show(cd_id parent);
-void firstrun_forget(void);
 
-/* CardPanel (panel.c), in the open row of the deck page. */
-void panel_build(int64_t id, const wire_strs *fields, const text *names, uint32_t nnames, const lang_pair *langs);
-void panel_after(void);
-void panel_forget(void);
+/* CardPanel (panel.c), in the open row of the deck page: built while editor builds, and goes with it. */
+void panel_build(cd_region *editor, int64_t id, const wire_strs *fields, const text *names, uint32_t nnames,
+                 const lang_pair *langs);
 void deck_note_removed(int64_t id);       /* the panel deleted its note */
 
 /* StarterDeck (starter.c), last in parent; TemplateUpdate (template.c), first in .app-content. */
 void starter_show(cd_id parent);
-void starter_forget(void);
 void template_mode_changed(void);
 
 /* A confirmation in the page (modal.c), in place of window.confirm. */

@@ -2,9 +2,9 @@
 #include "app.h"
 
 
-static cd_region rows = {0};  /* the rows: all the children of .deck-list */
-static cd_region modal = {0}; /* CreateDeckModal, between the header and the list */
-static cd_region modal_err = {0};
+static cd_region rows = {.up = &page_region};  /* the rows: all the children of .deck-list */
+static cd_region modal = {.up = &page_region}; /* CreateDeckModal, between the header and the list */
+static cd_region modal_err = {.up = &modal};
 static cd_id modal_form, modal_input, modal_buttons;
 static text modal_error;
 static int shown, setup, creating;
@@ -15,33 +15,35 @@ ON_EVENT(open_deck) {
   if (i < ndecks) go_deck(decks[i].id);
 }
 
+static void screen_gone(void *ctx) {
+  (void)ctx;
+  shown = 0;
+}
+
+/* The screen, then its rows (or the setup screen) as regions of the page. */
 void decks_build(void) {
   shown = 1;
+  cd_on_free(0, screen_gone, 0);
   el(CD_LIT("div"), CD_LIT("deck-management"));
   /* Setup is the whole screen (FirstRun), not an empty state inside the list: "Decks" and a New
    * Deck button over a machine that cannot make one yet is chrome for a thing that does not exist. */
   setup = decks_setup_wanted();
-  rows.parent = 0;
-  if (setup) return;
-  el(CD_LIT("div"), CD_LIT("deck-header"));
-  el_text(CD_LIT("h2"), 0, CD_LIT("Decks"));
-  el(CD_LIT("div"), CD_LIT("deck-actions"));
-  cd_id new_button = el_id(CD_LIT("button"), CD_LIT("action-btn"));
-  cd_attr(CD_LIT("title"), CD_LIT("New Deck"));
-  cd_on(new_button, CD_EV_CLICK, new_deck, 0);
-  icon(ICON_PLUS, 0, 0);
-  cd_close();
-  cd_close();
-  cd_close();
-  rows.parent = el_id(CD_LIT("div"), CD_LIT("deck-list"));
-  cd_close();
-}
-
-static void modal_close(void) {
-  cd_region_hide(&modal_err);
-  cd_region_hide(&modal);
-  text_free(&modal_error);
-  creating = 0;
+  if (!setup) {
+    el(CD_LIT("div"), CD_LIT("deck-header"));
+    el_text(CD_LIT("h2"), 0, CD_LIT("Decks"));
+    el(CD_LIT("div"), CD_LIT("deck-actions"));
+    cd_id new_button = el_id(CD_LIT("button"), CD_LIT("action-btn"));
+    cd_attr(CD_LIT("title"), CD_LIT("New Deck"));
+    cd_on(new_button, CD_EV_CLICK, new_deck, 0);
+    icon(ICON_PLUS, 0, 0);
+    cd_close();
+    cd_close();
+    cd_close();
+    rows.parent = el_id(CD_LIT("div"), CD_LIT("deck-list"));
+    cd_close();
+  }
+  page_root_done();
+  decks_rows();
 }
 
 /* Setup is the screen while amgi is not installed or no profile is picked; once both hold, the
@@ -50,16 +52,6 @@ static void modal_close(void) {
 int decks_setup_wanted(void) { return installed == 0 || mode == WIRE_MODE_UNCONFIGURED; }
 int decks_setup_shown(void) { return shown && setup; }
 
-void decks_forget(void) {
-  if (!shown) return;
-  shown = 0;
-  modal_close();
-  firstrun_forget();
-  starter_forget();
-  if (rows.parent) cd_region_hide(&rows);
-  rows.parent = 0;
-}
-
 void decks_rows(void) {
   if (!shown) return;
   if (setup) {
@@ -67,7 +59,7 @@ void decks_rows(void) {
     return;
   }
   cd_region_hide(&rows);
-  if (!rows.parent || !cd_region_show(&rows, 1)) return;
+  if (!cd_region_show(&rows, 1)) return;
   cd_at(rows.parent, 0);
   if (!ready()) {
     /* Not ready wins over whatever decks are still in hand: a list you cannot act on, under a
@@ -119,15 +111,23 @@ static void modal_error_view(void) {
 
 /* Every way out of the modal ends in its dialog's close event: Escape, the X and a made deck all
  * ask the dialog to close, and this is the one place that takes it away. */
-ON_EVENT(modal_closed) { modal_close(); }
+ON_EVENT(modal_closed) { cd_region_hide(&modal); }
 ON_EVENT(modal_dismiss) {
   if (modal.shown) dialog_close(modal.root);
 }
 ON_EVENT(modal_submitted);
 
+/* The dialog's own state goes with it, whichever way it goes: closed, or the page left. */
+static void modal_gone(void *ctx) {
+  (void)ctx;
+  text_free(&modal_error);
+  creating = 0;
+}
+
 static void modal_open(void) {
-  modal_close();
-  if (!rows.parent || !cd_region_show(&modal, 1)) return;
+  cd_region_hide(&modal);
+  if (!shown || setup || !cd_region_show(&modal, 1)) return;
+  cd_on_free(0, modal_gone, 0);
   cd_at(page_root(), rows.parent);
   el(CD_LIT("dialog"), CD_LIT("modal-overlay"));
   cd_name_open(modal.root);
