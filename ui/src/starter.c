@@ -80,8 +80,7 @@ ON_RENDER(draw) {
     el_text(CD_LIT("span"), 0, which ? CD_LIT("I am learning") : CD_LIT("I know"));
     cd_id sel = cd_open_id(CD_LIT("select"));
     if (busy) cd_attr(CD_LIT("disabled"), CD_LIT(""));
-    cd_bind_bool(&sel_off[which], sel, CD_LIT("disabled"));
-    cd_bound_shows_num(&sel_off[which], busy);
+    bool_bound(&sel_off[which], sel, CD_LIT("disabled"), busy);
     cd_on(sel, CD_EV_CHANGE, language_picked, CTX_OF(which));
     if (which) learning_sel = sel;
     else known_sel = sel;
@@ -96,15 +95,9 @@ ON_RENDER(draw) {
   cd_attr(CD_LIT("type"), CD_LIT("button"));
   cd_class(CD_LIT("starter-deck-cta"));
   if (cta_is_off()) cd_attr(CD_LIT("disabled"), CD_LIT(""));
-  cd_bind_bool(&cta_off, cta, CD_LIT("disabled"));
-  cd_bound_shows_num(&cta_off, cta_is_off());
+  bool_bound(&cta_off, cta, CD_LIT("disabled"), cta_is_off());
   cd_on(cta, CD_EV_CLICK, build_pressed, 0);
-  cd_str words = busy ? CD_LIT("Building the deck…") : CD_LIT("Make me a starter deck");
-  cd_text(words);
-  cd_id words_node = cd_id_new();
-  cd_name_text(words_node);
-  cd_bind_text(&cta_label, words_node);
-  cd_bound_shows(&cta_label, words);
+  text_bound(&cta_label, busy ? CD_LIT("Building the deck…") : CD_LIT("Make me a starter deck"));
   cd_close();
   note_node = el_id(CD_LIT("p"), CD_LIT("starter-deck-note"));
   cd_text(CD_LIT("To make your own cards, put "));

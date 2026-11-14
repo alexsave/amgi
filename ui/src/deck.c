@@ -523,23 +523,14 @@ ON_RENDER(pager_view) {
       if (which) {
         cd_open(CD_LIT("small"));
         cd_attr(CD_LIT("style"), CD_LIT("opacity: 0.75;"));
-        cd_text_num(page_notes.offset + 1);
-        cd_id lo = cd_id_new();
-        cd_name_text(lo);
-        cd_bind_text(&range_lo, lo);
-        cd_bound_shows_num(&range_lo, page_notes.offset + 1);
+        text_bound_num(&range_lo, page_notes.offset + 1);
         cd_text(CD_LIT("–"));
-        cd_text_num(page_notes.offset + n);
-        cd_id hi = cd_id_new();
-        cd_name_text(hi);
-        cd_bind_text(&range_hi, hi);
-        cd_bound_shows_num(&range_hi, page_notes.offset + n);
+        text_bound_num(&range_hi, page_notes.offset + n);
         cd_close();
       }
       cd_id step = el_id(CD_LIT("button"), CD_LIT("back-btn"));
       if (off[which]) cd_attr(CD_LIT("disabled"), CD_LIT(""));
-      cd_bind_bool(which ? &next_off : &prev_off, step, CD_LIT("disabled"));
-      cd_bound_shows_num(which ? &next_off : &prev_off, off[which]);
+      bool_bound(which ? &next_off : &prev_off, step, CD_LIT("disabled"), off[which]);
       cd_on(step, CD_EV_CLICK, which ? next_pressed : prev_pressed, 0);
       cd_text(which ? CD_LIT("Next →") : CD_LIT("← Prev"));
       cd_close();
@@ -564,14 +555,9 @@ ON_RENDER(danger_view) {
     cd_close();
     cd_id del = el_id(CD_LIT("button"), CD_LIT("deck-danger-btn"));
     cd_attr(CD_LIT("type"), CD_LIT("button"));
-    cd_bind_bool(&danger_off, del, CD_LIT("disabled"));
-    cd_bound_shows_num(&danger_off, 0);
+    bool_bound(&danger_off, del, CD_LIT("disabled"), 0);
     cd_on(del, CD_EV_CLICK, deck_delete_pressed, 0);
-    cd_text(CD_LIT("Delete deck"));
-    cd_id label = cd_id_new();
-    cd_name_text(label);
-    cd_bind_text(&danger_label, label);
-    cd_bound_shows(&danger_label, CD_LIT("Delete deck"));
+    text_bound(&danger_label, CD_LIT("Delete deck"));
     cd_close();
     cd_region_end(&danger);
   }
