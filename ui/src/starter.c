@@ -5,7 +5,10 @@
 
 
 static cd_region view = {.up = &page_region};
-static cd_id parent_node, known_sel, learning_sel;
+static cd_region failure = {.up = &view}; /* p.starter-deck-error, before the note: shown while error is set */
+/* What the button says and whether it and the two selects are off: set by patch_view, written only when changed. */
+static cd_bound cta_label, cta_off, sel_off[2];
+static cd_id parent_node, known_sel, learning_sel, note_node;
 static int shown, loaded, offered, busy;
 static uint32_t phrase_count;
 static uint32_t offered_langs; /* a bit per LANGUAGES index: the build ships clips for it */
@@ -39,8 +42,21 @@ ON_ANSWER(built);
 /* The view is a render. Two guards, for two vectors: dirty() asks only while the screen shows it, which covers an ask
  * made after the screen went (a late answer); the cd_undirty in gone covers an ask made earlier in the same entry. */
 static void draw(void *ctx);
+static void patch_view(void *ctx);
+/* draw builds the offer when what it is made of changes (the languages, the answer); patch_view sets what a press changes
+ * (busy: the button's words, what is off, the failure) on the offer that is there, so a press builds nothing. */
 static void dirty(void) {
   if (shown) cd_dirty(draw, 0);
+}
+static void dirty_patch(void) {
+  if (shown) cd_dirty(patch_view, 0);
+}
+
+static int cta_is_off(void) { return busy || learning >= NLANGUAGES || learning == known; }
+
+static void view_gone(void *ctx) {
+  (void)ctx;
+  cd_undirty(patch_view, 0); /* the offer it patches is gone; draw builds the next from the state as it is */
 }
 
 static void draw(void *ctx) {
@@ -50,6 +66,7 @@ static void draw(void *ctx) {
   cd_at(parent_node, 0);
   el(CD_LIT("div"), CD_LIT("starter-deck"));
   cd_name_open(view.root);
+  cd_on_free(0, view_gone, 0);
   el_text(CD_LIT("h3"), CD_LIT("starter-deck-title"), CD_LIT("Try it without a Gemini key"));
   el(CD_LIT("p"), CD_LIT("starter-deck-lead"));
   cd_text(CD_LIT("amgi writes and records cards with Google Gemini, and there is no key set here, so it cannot make one "
@@ -64,6 +81,8 @@ static void draw(void *ctx) {
     el_text(CD_LIT("span"), 0, which ? CD_LIT("I am learning") : CD_LIT("I know"));
     cd_id sel = cd_open_id(CD_LIT("select"));
     if (busy) cd_attr(CD_LIT("disabled"), CD_LIT(""));
+    cd_bind_bool(&sel_off[which], sel, CD_LIT("disabled"));
+    cd_bound_shows_num(&sel_off[which], busy);
     cd_on(sel, CD_EV_CHANGE, language_picked, CTX_OF(which));
     if (which) learning_sel = sel;
     else known_sel = sel;
@@ -77,16 +96,18 @@ static void draw(void *ctx) {
   cd_id cta = el_id(CD_LIT("button"), 0);
   cd_attr(CD_LIT("type"), CD_LIT("button"));
   cd_class(CD_LIT("starter-deck-cta"));
-  if (busy || learning >= NLANGUAGES || learning == known) cd_attr(CD_LIT("disabled"), CD_LIT(""));
+  if (cta_is_off()) cd_attr(CD_LIT("disabled"), CD_LIT(""));
+  cd_bind_bool(&cta_off, cta, CD_LIT("disabled"));
+  cd_bound_shows_num(&cta_off, cta_is_off());
   cd_on(cta, CD_EV_CLICK, build_pressed, 0);
-  cd_text(busy ? CD_LIT("Building the deck…") : CD_LIT("Make me a starter deck"));
+  cd_str words = busy ? CD_LIT("Building the deck…") : CD_LIT("Make me a starter deck");
+  cd_text(words);
+  cd_id words_node = cd_id_new();
+  cd_name_text(words_node);
+  cd_bind_text(&cta_label, words_node);
+  cd_bound_shows(&cta_label, words);
   cd_close();
-  if (error.len) {
-    el(CD_LIT("p"), CD_LIT("starter-deck-error"));
-    tmp_text(error.p, error.len);
-    cd_close();
-  }
-  el(CD_LIT("p"), CD_LIT("starter-deck-note"));
+  note_node = el_id(CD_LIT("p"), CD_LIT("starter-deck-note"));
   cd_text(CD_LIT("To make your own cards, put "));
   el_text(CD_LIT("code"), 0, CD_LIT("GEMINI_API_KEY=…"));
   cd_text(CD_LIT(" in "));
@@ -95,6 +116,23 @@ static void draw(void *ctx) {
   cd_close();
   cd_close();
   cd_region_end(&view);
+  dirty_patch(); /* the failure, if there is one */
+}
+
+static void patch_view(void *ctx) {
+  (void)ctx;
+  cd_bound_set(&cta_label, busy ? CD_LIT("Building the deck…") : CD_LIT("Make me a starter deck"));
+  cd_bound_set_num(&cta_off, cta_is_off());
+  cd_bound_set_num(&sel_off[0], busy);
+  cd_bound_set_num(&sel_off[1], busy);
+  cd_region_hide(&failure);
+  if (!error.len || !cd_region_show(&failure, 1)) return;
+  cd_at(view.root, note_node);
+  el(CD_LIT("p"), CD_LIT("starter-deck-error"));
+  cd_name_open(failure.root);
+  tmp_text(error.p, error.len);
+  cd_close();
+  cd_region_end(&failure);
 }
 
 /* Below the deck list, last in parent. Asked once a screen; drawn when the answer offers it. */
@@ -131,7 +169,7 @@ ON_EVENT(build_pressed) {
   if (busy || learning >= NLANGUAGES || learning == known) return;
   busy = 1;
   text_free(&error);
-  dirty();
+  dirty_patch();
   static const char P[] = "amgi starter - ";
   char name[64];
   uint32_t l = zlen(LANGUAGES[learning].name);
@@ -179,5 +217,5 @@ ON_ANSWER(built) {
   busy = 0;
   char m[600];
   text_set(&error, m, answer_message(&a, m, sizeof m));
-  dirty();
+  dirty_patch();
 }

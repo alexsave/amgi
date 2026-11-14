@@ -14,7 +14,9 @@ static lang_pair langs;
 static int busy;          /* 0, or the side being recorded again: 1 target, 2 cue */
 static int deleting;
 static text error;
-static cd_id root, foot, clips_box, inputs[KEYS], redo_text[2], redo_btn[2], delete_text, delete_btn;
+static cd_id root, foot, clips_box, inputs[KEYS], redo_btn[2];
+/* The buttons' words and whether they are off, set on every draw of labels_view and written only when changed. */
+static cd_bound redo_label[2], redo_off[2], delete_label, delete_off;
 static cd_region err = {0};       /* in the editor, which panel_build is given */
 static cd_region *owner;          /* the editor: the region the panel's chips go with */
 static int32_t chips[2] = {-1, -1};
@@ -57,7 +59,7 @@ static void labels_view(void *ctx) {
   (void)ctx;
   for (int s = 0; s < 2; s++) {
     if (busy == s + 1) {
-      cd_set_text_node(redo_text[s], CD_LIT("Redoing…"));
+      cd_bound_set(&redo_label[s], CD_LIT("Redoing…"));
     } else {
       static const char R[] = "Redo ";
       const char *n = name_of(s ? langs.known : langs.learning);
@@ -65,12 +67,12 @@ static void labels_view(void *ctx) {
       uint32_t l = zlen(n);
       __builtin_memcpy(t, R, sizeof R - 1);
       __builtin_memcpy(t + sizeof R - 1, n, l);
-      cd_set_text_node(redo_text[s], cd_tmp(t, (uint32_t)sizeof R - 1 + l));
+      cd_bound_set_bytes(&redo_label[s], t, (uint32_t)sizeof R - 1 + l);
     }
-    cd_set_bool(redo_btn[s], CD_LIT("disabled"), busy != 0);
+    cd_bound_set_num(&redo_off[s], busy != 0);
   }
-  cd_set_text_node(delete_text, deleting ? CD_LIT("Deleting…") : CD_LIT("Delete card"));
-  cd_set_bool(delete_btn, CD_LIT("disabled"), deleting);
+  cd_bound_set(&delete_label, deleting ? CD_LIT("Deleting…") : CD_LIT("Delete card"));
+  cd_bound_set_num(&delete_off, deleting);
 }
 
 static wire_str clip_of(int32_t i) {
@@ -147,19 +149,28 @@ void panel_build(cd_region *editor, int64_t id, const wire_strs *f, const text *
     cd_class(CD_LIT("card-panel-redo"));
     cd_on(redo_btn[s], CD_EV_CLICK, s ? redo_cue : redo_target, 0);
     cd_text(CD_LIT(" "));
-    cd_name_text(redo_text[s] = cd_id_new());
+    cd_id redo_text = cd_id_new();
+    cd_name_text(redo_text);
+    cd_bind_text(&redo_label[s], redo_text);
+    cd_bind_bool(&redo_off[s], redo_btn[s], CD_LIT("disabled"));
+    cd_bound_shows_num(&redo_off[s], 0);
     cd_close();
   }
   cd_close();
 
   foot = el_id(CD_LIT("div"), CD_LIT("card-panel-foot"));
   el_text(CD_LIT("span"), 0, CD_LIT("Changes save as you make them, straight into Anki."));
-  delete_btn = el_id(CD_LIT("button"), 0);
+  cd_id delete_btn = el_id(CD_LIT("button"), 0);
   cd_attr(CD_LIT("type"), CD_LIT("button"));
   cd_class(CD_LIT("card-panel-delete"));
   cd_on(delete_btn, CD_EV_CLICK, delete_pressed, 0);
   cd_text(CD_LIT("Delete card"));
-  cd_name_text(delete_text = cd_id_new());
+  cd_id delete_text = cd_id_new();
+  cd_name_text(delete_text);
+  cd_bind_text(&delete_label, delete_text);
+  cd_bound_shows(&delete_label, CD_LIT("Delete card"));
+  cd_bind_bool(&delete_off, delete_btn, CD_LIT("disabled"));
+  cd_bound_shows_num(&delete_off, 0);
   cd_close();
   cd_close();
   cd_close();
