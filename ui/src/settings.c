@@ -149,14 +149,10 @@ ON_RENDER(install_view);
 static void scan_begin(void);
 static void scan_ask(const char *base, uint32_t n);
 
-/* The views are renders, drawn from state in the flush that ends the entry. Two guards, for two vectors: dirty() asks
- * only while the screen is shown, which covers an ask made after the screen went (a late answer, the saved timer); the
- * cd_undirty in screen_gone covers an ask made earlier in the same entry. */
 static void dirty(cd_render_fn view) {
   if (shown) cd_dirty(view, 0);
 }
 
-/* The screen, then what the answers fill in (the scan, the messages) as regions of the page. */
 void settings_build(void) {
   cd_on_free(0, screen_gone, 0);
   for (int f = 0; f < S_FIELDS; f++) text_set(&draft[f], settings[f].p ? settings[f].p : "", settings[f].len);

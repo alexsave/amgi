@@ -36,8 +36,6 @@ static uint32_t placeholder(char *ph) {
 
 ON_RENDER(form_draw);
 
-/* The box is a render. Two guards, for two vectors: dirty() asks only while the form is shown, which covers an ask made
- * after the screen went (a late answer); the cd_undirty in form_gone covers an ask made earlier in the same entry. */
 static void dirty(void) {
   if (shown) cd_dirty(form_draw, 0);
 }

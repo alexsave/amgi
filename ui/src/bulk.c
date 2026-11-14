@@ -80,9 +80,7 @@ static uint32_t row_note(const row *r, char *d) {
 
 ON_RENDER(head_draw);
 
-/* The head is a render. Two guards, for two vectors: dirty_head() asks only while the run is shown, which covers an ask
- * made after the run went (a late answer, a tick); the cd_undirty in run_gone covers an ask made earlier in the same
- * entry. The rows stay direct calls (row_draw): they are list rows, and a list's rows are not renders. */
+/* The rows stay direct calls (row_draw): they are list rows, and a list's rows are not renders. */
 static void dirty_head(void) {
   if (shown) cd_dirty(head_draw, 0);
 }

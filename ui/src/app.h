@@ -60,7 +60,13 @@ int input_value(cd_id id, char *dst, uint32_t cap, uint32_t *len);
 /* A cd_on handler, defined: static, and either argument may go unused. */
 #define ON_EVENT(name) \
   static void name(const cd_event_rec *e __attribute__((unused)), void *ctx __attribute__((unused)))
-/* A cd_dirty render, defined: static, ctx unused. */
+/* A cd_dirty render, defined: static, ctx unused. A view is a render, drawn from state in the flush that ends the
+ * entry, and each module asks for one through a dirty() that guards the ask twice, for two vectors:
+ * - dirty() asks only while the owner (screen, editor, dialog) is up: it covers an ask made after the owner went (a
+ *   late answer, a timer);
+ * - the owner's cleanup calls cd_undirty on each view: it covers an ask made earlier in the same entry, before the
+ *   owner went.
+ * Neither covers the other, so a module has both. */
 #define ON_RENDER(name) static void name(void *ctx __attribute__((unused)))
 /* A small index carried in a handler's ctx (a row, a slot), and back. */
 #define CTX_OF(i) ((void *)(uintptr_t)(i))
