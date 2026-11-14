@@ -300,21 +300,28 @@ try {
     await sleep(300);
     await shot(b, '17-starter-deck');
   }
-  // 6. A create-deck answer that comes after the decks page went (the person pressed Settings while the
+  // 6. A create-deck answer that comes after the decks page went (the person went to Settings while the
   // POST was in flight). The modal is gone with the page, so a failure has nowhere to draw its message
   // and a success must not navigate away from where the person went. Held by the drive, no timing in it.
   await seed(b, base, { baseDir: ankiDir, collection: path.join(ankiDir, 'User 1', 'collection.anki2') });
   await goto(b, `${base}/decks`);
   await until(b, `${decksShown} > 0`, 150);
   await b.send('Fetch.enable', { patterns: [{ urlPattern: '*/api/anki/decks', requestStage: 'Request' }] });
+  // The modal makes the page behind it inert, so Settings cannot be clicked while it is open: the
+  // person leaves by the browser's forward button instead (Settings visited and backed out of first,
+  // so there is a Settings entry ahead of /decks).
   const holdAndLeave = async (deck) => {
     held.length = 0;
+    await click(b, '.navbar .settings-icon');
+    await until(b, `location.pathname === '/settings' && !!document.querySelector('.settings-page')`);
+    await b.evaluate(`history.back()`);
+    await until(b, `location.pathname === '/decks' && ${decksShown} > 0`);
     await click(b, '.deck-actions .action-btn');
     await until(b, `!!document.querySelector('.modal-overlay #deckName') && document.activeElement?.id === 'deckName'`);
     await type(b, deck);
     await click(b, '.modal-content .primary-btn');
     for (let i = 0; i < 100 && !held.length; i++) await sleep(100);
-    await click(b, '.navbar .settings-icon');
+    await b.evaluate(`history.forward()`);
     await until(b, `location.pathname === '/settings' && !!document.querySelector('.settings-page')`);
     return held.length === 1;
   };
@@ -323,8 +330,8 @@ try {
   await b.send('Fetch.fulfillRequest', { requestId: held[0], responseCode: 500, responseHeaders: [{ name: 'Content-Type', value: 'text/plain' }], body: Buffer.from('deck refused').toString('base64') });
   await sleep(700);
   check(pageErrors.length === errorsBefore && !(await b.evaluate(`!!document.querySelector('.error-message')`)),
-    `a refusal that comes after the page went draws nothing and throws nothing${pageErrors.length > errorsBefore ? ` (${pageErrors.slice(errorsBefore).join(' / ')})` : ''}`);
-  check(await b.evaluate(`location.pathname === '/settings'`), 'and the person is still on Settings');
+    `a refusal that comes after the page went draws nothing and throws nothing${pageErrors.length > errorsBefore ? ` (${pageErrors.slice(errorsBefore).join(' / ')})` : ''} ${await b.evaluate(`[...document.querySelectorAll('.error-message')].map(e => e.outerHTML).join()`)}`);
+  check(await b.evaluate(`location.pathname === '/settings'`), `and the person is still on Settings (at ${await b.evaluate('location.pathname')})`);
   await goto(b, `${base}/decks`);
   await until(b, `${decksShown} > 0`, 150);
   errorsBefore = pageErrors.length;
