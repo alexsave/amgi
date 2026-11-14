@@ -10,6 +10,9 @@
 #
 #   tests/e2e/ui/drives.sh <name> <app url> <no-key app url> <fake-gemini app url> <fake gemini url> <shots dir>
 #
+# AMGI_E2E_WORK sets the folder the drives copy the fixture into (default <repo>/.e2e/drives). A screen can
+# show that path (the Anki folder), so parity runs set it: both runs show the same paths.
+#
 # The three app servers differ only in their Gemini key: one with any key (the screens), one with
 # none (the starter deck is offered), one pointed at the fake (node tests/server/plusaudio/helpers/fake-gemini.js
 # <port>, whose limits the bulk drive switches). Start the fake and its server fresh before a run:
@@ -19,7 +22,7 @@ here="$(cd "$(dirname "$0")" && pwd)"
 root="$(cd "$here/../../.." && pwd)"
 name="$1" app="$2" keyless="$3" faked="$4" gemini="$5" shots="$6"
 # One place for both apps (gitignored), so a path a screen shows is the same in both shots.
-work="$root/.e2e/drives"
+work="${AMGI_E2E_WORK:-$root/.e2e/drives}"
 mkdir -p "$work"
 cd "$root"
 . "$here/sandbox-home.sh"
