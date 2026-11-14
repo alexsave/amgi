@@ -44,6 +44,10 @@ uint32_t paste_lines(const char *s, uint32_t len, wire_str *out, uint32_t cap, c
 void el(cd_str tag, cd_str cls);                  /* cd_open, then class when cls */
 cd_id el_id(cd_str tag, cd_str cls);              /* the same, named with a new id (cd_open_id) */
 void el_text(cd_str tag, cd_str cls, cd_str s);   /* an element holding one text, closed */
+/* These stay until cdom has a builder that emits and binds in one call (cdom_ui.h), so the sites can be swapped later. */
+void text_bound(cd_bound *b, cd_str v);          /* a text node showing v, named, bound to b, recorded as shown */
+void text_bound_num(cd_bound *b, uint32_t n);    /* the same, a number's text */
+void bool_bound(cd_bound *b, cd_id el, cd_str prop, uint32_t v); /* el's boolean prop bound to b, recorded as v */
 void tmp_text(const char *p, uint32_t len);       /* a one-off text node */
 void attr_tmp(cd_str name, const char *p, uint32_t len);
 /* An input's value, whole, into dst: 1 with *len its length in bytes when it fits in cap, else 0
