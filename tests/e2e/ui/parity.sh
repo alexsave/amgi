@@ -1,7 +1,7 @@
 #!/bin/bash
 # The UI's parity gate: the shots of a new run against a baseline run of the same drives, to show a
-# change moved nothing the page draws. Every PNG in the baseline must match the new one pixel for
-# pixel (tests/e2e/ui/compare.mjs), and every .html (the DOM each shot also writes, chrome.mjs) must
+# change moved nothing the page draws. Every PNG in the baseline must match the new one byte for
+# byte or, decoded by tests/e2e/ui/compare.mjs, pixel for pixel, and every .html (the DOM each shot also writes, chrome.mjs) must
 # be byte-identical. A file missing from either side is a failure. A shot that legitimately changes
 # with time is listed in tests/e2e/ui/parity-allow.txt with its reason, and is skipped.
 #
@@ -55,13 +55,19 @@ for a in "$base"/*.png "$base"/*.html; do
   fi
   case "$f" in
   *.png)
-    d=""
-    [ -z "$diffs" ] || d="$diffs/${f%.png}-diff.png"
-    out="$(node "$here/compare.mjs" "$a" "$b" "$d" 2>&1)"
-    case "$out" in
-    0\ of\ *\ pixels\ differ) ;;
-    *) fail "$f: $out" ;;
-    esac
+    # The same Chrome encodes the same pixels to the same bytes, so equal bytes are the pass. Only a
+    # difference is worth decoding: compare.mjs says where and draws it, when sharp is installed.
+    cmp -s "$a" "$b" && continue
+    out="the pixels differ (bytes differ; install sharp for compare.mjs's where and by how much)"
+    if node -e "import('sharp')" > /dev/null 2>&1; then
+      d=""
+      [ -z "$diffs" ] || d="$diffs/${f%.png}-diff.png"
+      out="$(node "$here/compare.mjs" "$a" "$b" "$d" 2>&1)"
+      case "$out" in
+      0\ of\ *\ pixels\ differ) continue ;; # the bytes differ, the pixels do not (metadata)
+      esac
+    fi
+    fail "$f: $out"
     ;;
   *.html)
     cmp -s "$a" "$b" || fail "$f: the DOM differs (diff $a $b)"
