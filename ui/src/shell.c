@@ -5,8 +5,12 @@
 uint32_t route = R_DECKS;
 int64_t route_deck;
 cd_id app_content;
-static cd_region page = {0};
-cd_id page_root(void) { return page.shown ? page.root : 0; }
+cd_region page_region = {0};
+cd_id page_root(void) { return page_region.shown ? page_region.root : 0; }
+void page_root_done(void) {
+  cd_name_open(page_region.root);
+  cd_close();
+}
 
 static int parse_route(const char *p, uint32_t len) {
   uint32_t end = 0;
@@ -41,19 +45,12 @@ void cd_on_url(const uint8_t *path, uint32_t len) {
   page_show();
 }
 
-static void page_hide(void) {
-  decks_forget();
-  settings_forget();
-  deck_forget();
-  cd_region_hide(&page);
-  badges[1] = (badge){0, 0, 0};
-}
-
-/* Builds the screen for route under .app-content, as one element the page region owns. Nothing
- * until the settings and the first decks answer are in: the React app's first frames drew the setup
+/* Builds the screen for route under .app-content, as one element the page region owns, and the
+ * regions the screen shows are the page's children: they go with it, and so does what the screen
+ * registered with cd_on_free. Nothing until the settings and the first decks answer are in: the React app's first frames drew the setup
  * screen over a collection that was fine (its mode starts "unconfigured"). */
 void page_show(void) {
-  page_hide();
+  cd_region_hide(&page_region);
   if (!settings_loaded || (route != R_SETTINGS && !decks_known)) return;
   /* A deck that is not in the list. With the collection answering, it is gone (deleted, here or
    * elsewhere) and the page says so. Without (locked, no profile), the list is no evidence either
@@ -64,18 +61,13 @@ void page_show(void) {
     route = R_DECKS;
     cd_url_replace("/decks", 6);
   }
-  if (!cd_region_show(&page, 1)) return;
+  if (!cd_region_show(&page_region, 1)) return;
   cd_at(app_content, 0);
   if (route == R_SETTINGS) settings_build();
   else if (route == R_DECKS) decks_build();
   else if (gone) deck_gone_build();
   else deck_build();
-  cd_name_open(page.root);
-  cd_close();
-  cd_region_end(&page);
-  if (route == R_DECKS) decks_rows();
-  else if (route == R_SETTINGS) settings_after();
-  else if (!gone) deck_after();
+  cd_region_end(&page_region);
 }
 
 /* Coming back to the tab is when the answer most likely changed: you were just in Anki. As

@@ -8,8 +8,8 @@
 static int shown, has_text;
 static int64_t form_deck;
 static cd_id box, input, go_button, go_text;
-static cd_region inner = {0};
-static cd_region too_long = {0}; /* the paste is more than MAX_PASTE bytes: said, after the box */
+static cd_region inner = {.up = &page_region};
+static cd_region too_long = {.up = &page_region}; /* the paste is more than MAX_PASTE bytes: said, after the box */
 static lang_pair langs;
 static uint32_t line_count;
 
@@ -34,21 +34,18 @@ static uint32_t placeholder(char *ph) {
   return n + sizeof C - 1;
 }
 
+static void form_gone(void *ctx) {
+  (void)ctx;
+  shown = 0;
+}
+
 void form_build(int64_t deck_id, const lang_pair *l) {
   shown = 1;
+  cd_on_free(0, form_gone, 0);
   form_deck = deck_id;
   langs = *l;
   box = el_id(CD_LIT("div"), CD_LIT("card-form-container"));
-  inner.parent = 0;
   cd_close();
-}
-
-void form_forget(void) {
-  if (!shown) return;
-  shown = 0;
-  bulk_forget();
-  cd_region_hide(&too_long);
-  cd_region_hide(&inner);
 }
 
 /* The box's value, whole, into a new MAX_PASTE buffer (the caller frees it), or 0 when it does not
@@ -102,7 +99,7 @@ ON_EVENT(go_pressed);
 
 static void form_draw(void) {
   if (!shown) return;
-  bulk_forget();
+  bulk_discard();
   cd_region_hide(&too_long);
   cd_region_hide(&inner);
   if (!cd_region_show(&inner, 1)) return;
@@ -192,7 +189,7 @@ ON_EVENT(typed) {
     cd_set_attr(input, r, CD_LIT("10")); /* and the box at its tallest, as for any long paste */
   }
   cd_free(v);
-  bulk_forget(); /* typing again puts the last run away */
+  bulk_discard(); /* typing again puts the last run away */
 }
 ON_EVENT(key_down) {
   if (!shown || e->key != 13 || (e->mods & CD_MOD_SHIFT)) return;
