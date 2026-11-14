@@ -87,13 +87,6 @@ ON_EVENT(shown_again) {
 ON_EVENT(open_settings) { go("/settings", 9); }
 
 /* ---- every hook cdom calls ---- */
-void cd_on_store(uint32_t token, const uint8_t *p, int32_t len) {
-  switch (token >> 24) {
-  case STORE_SETTINGS: settings_got(p, len); break;
-  case STORE_DECK_LANGS: deck_langs_got(token & 0xffffff, p, len); break;
-  }
-}
-
 void cd_on_audio_loaded(uint32_t token, uint32_t clip) { chips_audio_loaded(token, clip); }
 void cd_on_audio_ended(uint32_t voice) { chips_audio_ended(voice); }
 
