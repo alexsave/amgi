@@ -17,8 +17,6 @@ static uint64_t rows_hash;
 static text notes_error;
 static uint32_t want_offset;
 static cd_id name_h1, title_box, sub_line, listhead_count, list_box, name_input;
-static cd_bound name_label;                         /* the name button's text: the name, or Renaming… */
-static int name_is_input;                           /* name_box holds the input (renaming), not the button */
 static cd_region name_box = {.up = &page_region};  /* the h1's contents: the name's button, or its input while renaming */
 static cd_region name_err = {.up = &page_region};  /* p.deck-name-error, under the h1 */
 static int renaming, rename_saving, rename_cancelled;
@@ -165,44 +163,29 @@ ON_RENDER(sub_view) {
 /* DeckName: the title, renamed where it is read. The button, or the input while renaming. */
 ON_RENDER(name_view) {
   const deck *d = deck_by_id(deck_id);
-  if (!d) {
-    cd_region_hide(&name_box);
-    return;
+  cd_region_hide(&name_box);
+  if (!d || !cd_region_show(&name_box, 1)) return;
+  cd_at(name_h1, 0);
+  if (!renaming) {
+    cd_id name_button = el_id(CD_LIT("button"), CD_LIT("deck-name-button"));
+    cd_attr(CD_LIT("type"), CD_LIT("button"));
+    cd_attr(CD_LIT("title"), CD_LIT("Rename this deck"));
+    cd_on(name_button, CD_EV_CLICK, rename_pressed, 0);
+    cd_text(rename_saving ? CD_LIT("Renaming…") : d->name);
+    cd_close();
+  } else {
+    name_input = cd_open_id(CD_LIT("input"));
+    cd_class(CD_LIT("deck-name-input"));
+    cd_attr(CD_LIT("aria-label"), CD_LIT("Deck name"));
+    uint32_t n;
+    const char *name = cd_bytes(d->name, &n);
+    cd_str value = CD_LIT("value");
+    attr_tmp(value, name, n);
+    cd_on(name_input, CD_EV_FOCUSOUT, name_left, 0);
+    cd_on(name_input, CD_EV_KEYDOWN, name_key, 0);
+    cd_close();
   }
-  /* The button stays while the name changes (its text is bound: Renaming… or the name); the input is drawn from the
-   * name each time it is asked, and the two swap by region. */
-  if (renaming || name_is_input || !name_box.shown) {
-    cd_region_hide(&name_box);
-    if (!cd_region_show(&name_box, 1)) return;
-    cd_at(name_h1, 0);
-    name_is_input = renaming;
-    if (!renaming) {
-      cd_id name_button = el_id(CD_LIT("button"), CD_LIT("deck-name-button"));
-      cd_attr(CD_LIT("type"), CD_LIT("button"));
-      cd_attr(CD_LIT("title"), CD_LIT("Rename this deck"));
-      cd_on(name_button, CD_EV_CLICK, rename_pressed, 0);
-      cd_str shows = rename_saving ? CD_LIT("Renaming…") : d->name;
-      cd_text(shows);
-      cd_id text = cd_id_new();
-      cd_name_text(text);
-      cd_bind_text(&name_label, text);
-      cd_bound_shows(&name_label, shows);
-      cd_close();
-    } else {
-      name_input = cd_open_id(CD_LIT("input"));
-      cd_class(CD_LIT("deck-name-input"));
-      cd_attr(CD_LIT("aria-label"), CD_LIT("Deck name"));
-      uint32_t n;
-      const char *name = cd_bytes(d->name, &n);
-      cd_str value = CD_LIT("value");
-      attr_tmp(value, name, n);
-      cd_on(name_input, CD_EV_FOCUSOUT, name_left, 0);
-      cd_on(name_input, CD_EV_KEYDOWN, name_key, 0);
-      cd_close();
-    }
-    cd_region_end(&name_box);
-  }
-  if (!renaming) cd_bound_set(&name_label, rename_saving ? CD_LIT("Renaming…") : d->name);
+  cd_region_end(&name_box);
   if (renaming) cd_call(name_input, CD_LIT("focus")); /* autoFocus */
   cd_region_hide(&name_err);
   if (!renaming && rename_error.len && cd_region_show(&name_err, 1)) {
