@@ -29,7 +29,6 @@ static int32_t editor_row = -1;
 static cd_region sub = {.up = &page_region};       /* the count and the languages: all the children of p.deck-cards-sub */
 static cd_region body = {.up = &page_region};      /* div.empty-deck or ol.note-rows */
 static cd_region pager = {.up = &page_region};
-/* What the pager's buttons and range say, set on every draw and written only when changed. */
 static cd_bound prev_off, next_off, range_lo, range_hi;
 static cd_region editor = {.up = &body}; /* in a row of the body */
 static cd_id known_select, learning_select;
@@ -41,10 +40,6 @@ enum { DANGER_IDLE, DANGER_CHECKING, DANGER_DELETING };
 static int danger_state;
 static text danger_error;
 
-/* Views are renders (cd_dirty): the screen draws them from state in the flush that ends the entry. One rule, with
- * two guards that cover different vectors:
- * - dirty() asks only while the screen is shown: it covers an ask made after the screen went (a late answer, a timer);
- * - screen_gone's cd_undirty covers an ask made earlier in the same entry, before the screen went. */
 static void dirty(cd_render_fn view) {
   if (shown) cd_dirty(view, 0);
 }

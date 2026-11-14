@@ -6,7 +6,6 @@
 
 static cd_region view = {.up = &page_region};
 static cd_region failure = {.up = &view}; /* p.starter-deck-error, before the note: shown while error is set */
-/* What the button says and whether it and the two selects are off: set by patch_view, written only when changed. */
 static cd_bound cta_label, cta_off, sel_off[2];
 static cd_id parent_node, known_sel, learning_sel, note_node;
 static int shown, loaded, offered, busy;
@@ -39,8 +38,6 @@ ON_EVENT(build_pressed);
 ON_ANSWER(state_answered);
 ON_ANSWER(built);
 
-/* The view is a render. Two guards, for two vectors: dirty() asks only while the screen shows it, which covers an ask
- * made after the screen went (a late answer); the cd_undirty in gone covers an ask made earlier in the same entry. */
 ON_RENDER(draw);
 ON_RENDER(patch_view);
 /* draw builds the offer when what it is made of changes (the languages, the answer); patch_view sets what a press changes

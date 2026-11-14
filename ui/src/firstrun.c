@@ -42,8 +42,6 @@ ON_EVENT(profile_chosen);
 ON_ANSWER(profiles_answered);
 ON_ANSWER(installed_answered);
 
-/* The view is a render. Two guards, for two vectors: dirty() asks only while the screen shows it, which covers an ask
- * made after the screen went (a late answer); the cd_undirty in gone covers an ask made earlier in the same entry. */
 ON_RENDER(draw);
 static void dirty(void) {
   if (shown) cd_dirty(draw, 0);
