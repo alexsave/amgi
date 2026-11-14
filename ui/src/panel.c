@@ -29,8 +29,6 @@ static const char *name_of(const char *code) {
 ON_RENDER(error_view);
 ON_RENDER(labels_view);
 
-/* The views are renders. Two guards, for two vectors: dirty() asks only while the panel is open, which covers an ask
- * made after the editor went (a late answer); the cd_undirty in gone covers an ask made earlier in the same entry. */
 static void dirty(cd_render_fn view) {
   if (open_) cd_dirty(view, 0);
 }

@@ -9,9 +9,6 @@ static cd_id modal_form, modal_input, modal_buttons;
 static text modal_error;
 static int shown, setup, creating;
 
-/* The views are renders (cd_dirty), drawn from state in the flush that ends the entry. Two guards, for two vectors:
- * dirty() asks only while its owner is up (alive: the screen, or the dialog), which covers an ask made after it went
- * (a late answer); the cd_undirty in the owner's cleanup covers an ask made earlier in the same entry. */
 static void dirty(cd_render_fn view, const int *alive) {
   if (*alive) cd_dirty(view, 0);
 }
@@ -30,7 +27,6 @@ static void screen_gone(void *ctx) {
   cd_undirty(rows_view, 0);
 }
 
-/* The screen, then its rows (or the setup screen) as regions of the page. */
 void decks_build(void) {
   shown = 1;
   cd_on_free(0, screen_gone, 0);
