@@ -204,6 +204,12 @@ ON_ANSWER(created) {
   wire_deck_created d;
   answer a = take(&h, WK_DECK_CREATED, status, p, len, &d);
   creating = 0;
+  /* The answer can come after the person left the decks page: the modal and its ids went with the
+   * page. Draw nothing and close nothing then, and do not navigate: a made deck only joins the list. */
+  if (!modal.shown) {
+    if (a.ok) refresh_decks();
+    return;
+  }
   if (a.ok) {
     dialog_close(modal.root);
     open_after_refresh(d.id);
