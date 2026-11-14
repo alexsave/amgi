@@ -56,6 +56,8 @@ int input_value(cd_id id, char *dst, uint32_t cap, uint32_t *len);
 /* A cd_on handler, defined: static, and either argument may go unused. */
 #define ON_EVENT(name) \
   static void name(const cd_event_rec *e __attribute__((unused)), void *ctx __attribute__((unused)))
+/* A cd_dirty render, defined: static, ctx unused. */
+#define ON_RENDER(name) static void name(void *ctx __attribute__((unused)))
 /* A small index carried in a handler's ctx (a row, a slot), and back. */
 #define CTX_OF(i) ((void *)(uintptr_t)(i))
 #define CTX_INDEX(ctx) ((uint32_t)(uintptr_t)(ctx))

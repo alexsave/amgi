@@ -15,8 +15,8 @@ static int shown, setup, creating;
 static void dirty(cd_render_fn view, const int *alive) {
   if (*alive) cd_dirty(view, 0);
 }
-static void rows_view(void *ctx);
-static void modal_error_view(void *ctx);
+ON_RENDER(rows_view);
+ON_RENDER(modal_error_view);
 
 ON_EVENT(new_deck);
 ON_EVENT(open_deck) {
@@ -64,8 +64,7 @@ int decks_setup_shown(void) { return shown && setup; }
 void decks_rows(void) { dirty(rows_view, &shown); }
 
 /* The list, or what stands in for it; the setup screen and the starter offer come with it. */
-static void rows_view(void *ctx) {
-  (void)ctx;
+ON_RENDER(rows_view) {
   if (setup) {
     firstrun_show(page_root());
     return;
@@ -110,8 +109,7 @@ static void rows_view(void *ctx) {
   if (ready()) starter_show(page_root());
 }
 
-static void modal_error_view(void *ctx) {
-  (void)ctx;
+ON_RENDER(modal_error_view) {
   cd_region_hide(&modal_err);
   if (!modal_error.len || !cd_region_show(&modal_err, 1)) return;
   cd_at(modal_form, modal_buttons);
