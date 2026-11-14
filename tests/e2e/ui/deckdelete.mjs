@@ -124,7 +124,9 @@ const watchdog = setTimeout(async () => {
   process.exit(1);
 }, 240000);
 const pageErrors = [];
+const held = []; // Fetch.requestPaused ids of the held requests
 b.onEvent = (d) => {
+  if (d.method === 'Fetch.requestPaused') held.push(d.params.requestId);
   if (d.method === 'Runtime.exceptionThrown') pageErrors.push(d.params.exceptionDetails.exception?.description || d.params.exceptionDetails.text);
   if (d.method === 'Runtime.consoleAPICalled' && d.params.type === 'error') pageErrors.push(d.params.args.map((a) => a.value ?? a.description).join(' '));
 };
@@ -147,7 +149,20 @@ try {
   await b.evaluate(`document.querySelector('.deck-danger').scrollIntoView({ block: 'end', behavior: 'instant' })`);
   await sleep(300);
   await shot(b, '60-deck-delete-section');
-  check(await ask(b), 'Delete deck asks, in a modal dialog, the action focused');
+  // The press, with the deck's summary held on its way: the button reads Checking… and is off, and is the node that was
+  // there, patched in place and not built again (marked here with a property a new node would not have).
+  await b.send('Fetch.enable', { patterns: [{ urlPattern: `*/api/anki/decks/${ids['한국어']}`, requestStage: 'Request' }] });
+  await b.evaluate(`document.querySelector('.deck-danger-btn').__mark = 1`);
+  await click(b, '.deck-danger-btn');
+  for (let i = 0; i < 100 && !held.length; i++) await sleep(100);
+  const checking = await b.evaluate(`(() => { const e = document.querySelector('.deck-danger-btn');
+    return { text: e.textContent, off: e.disabled, mark: e.__mark }; })()`);
+  check(held.length === 1 && checking.text === 'Checking…' && checking.off && checking.mark === 1,
+    `Delete deck says Checking… on the same button (patched, not built again): ${JSON.stringify(checking)}`);
+  await b.send('Fetch.continueRequest', { requestId: held[0] });
+  await b.send('Fetch.disable');
+  check(await until(b, `${dialogOpen} && document.activeElement?.classList.contains('submit-btn')`, 100),
+    'Delete deck asks, in a modal dialog, the action focused');
   const asked = await b.evaluate(dialogText);
   check(asked === 'Delete “한국어”? | This deletes “한국어” and its subdeck, with the 6 cards in them and the 4 notes they belong to. | '
     + 'Their review history goes too, on every device you sync with.', `it names the deck, its subdeck and the counts: ${asked}`);
@@ -156,6 +171,7 @@ try {
   await click(b, 'dialog.confirm-dialog .cancel-btn');
   check(await until(b, `!document.querySelector('dialog.confirm-dialog')`), 'Cancel closes it');
   check(await until(b, `document.querySelector('.deck-danger-btn')?.textContent === 'Delete deck' && !document.querySelector('.deck-danger-btn').disabled`), 'and the button is back');
+  check(await b.evaluate(`document.querySelector('.deck-danger-btn').__mark === 1`), 'and it is still the node that was marked');
   check(/\|한국어\|한국어::일상 표현\|/.test(`|${inAnki().match(/DECKS: (.*)/)[1]}|`), 'and the deck is still in Anki');
   await ask(b);
   await key(b, 'Escape', 'Escape', 27);
