@@ -32,20 +32,25 @@ static uint32_t cached_clip(const text *f) {
   return CD_AUDIO_FAILED;
 }
 
-static void title_into(chip *c) {
-  if (c->state == BROKEN) {
-    cd_set_attr(c->node, CD_LIT("title"), CD_LIT("That clip could not be loaded"));
-    return;
-  }
-  char t[160];
+/* "Play the <label> recording", into t (160 bytes): the chip's title, for its build and for coming back from broken. */
+static uint32_t play_title(const chip *c, char *t) {
   static const char A[] = "Play the ", B[] = " recording";
   uint32_t n = sizeof A - 1, l = c->label.len < 120 ? c->label.len : 120;
   __builtin_memcpy(t, A, n);
   __builtin_memcpy(t + n, c->label.p, l);
   n += l;
   __builtin_memcpy(t + n, B, sizeof B - 1);
+  return n + sizeof B - 1;
+}
+
+static void title_into(chip *c) {
+  if (c->state == BROKEN) {
+    cd_set_attr(c->node, CD_LIT("title"), CD_LIT("That clip could not be loaded"));
+    return;
+  }
+  char t[160];
   cd_str title = CD_LIT("title");
-  cd_set_attr(c->node, title, cd_tmp(t, n + sizeof B - 1));
+  cd_set_attr(c->node, title, cd_tmp(t, play_title(c, t)));
 }
 
 static cd_str class_of(const chip *c) {
@@ -96,14 +101,8 @@ int32_t chip_build(cd_region *owner, const char *filename, uint32_t flen, const 
   cd_attr(CD_LIT("type"), CD_LIT("button"));
   cd_class(class_of(c));
   char t[160];
-  static const char A[] = "Play the ", B[] = " recording";
-  uint32_t n = sizeof A - 1, l = c->label.len < 120 ? c->label.len : 120;
-  __builtin_memcpy(t, A, n);
-  __builtin_memcpy(t + n, label, l);
-  n += l;
-  __builtin_memcpy(t + n, B, sizeof B - 1);
   cd_str title = CD_LIT("title");
-  attr_tmp(title, t, n + sizeof B - 1);
+  attr_tmp(title, t, play_title(c, t));
   cd_on_free(owner, chip_gone, CTX_OF(c->gen << SLOT_BITS | (uint32_t)slot));
   cd_on(c->node, CD_EV_CLICK, pressed, CTX_OF(slot));
   cd_open(CD_LIT("span"));

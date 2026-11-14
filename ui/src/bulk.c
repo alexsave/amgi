@@ -78,9 +78,19 @@ static uint32_t row_note(const row *r, char *d) {
   return cat(d, 0, r->cue.p ? r->cue.p : "", r->cue.len);
 }
 
-static void head_draw(void) {
+static void head_draw(void *ctx);
+
+/* The head is a render. Two guards, for two vectors: dirty_head() asks only while the run is shown, which covers an ask
+ * made after the run went (a late answer, a tick); the cd_undirty in run_gone covers an ask made earlier in the same
+ * entry. The rows stay direct calls (row_draw): they are list rows, and a list's rows are not renders. */
+static void dirty_head(void) {
+  if (shown) cd_dirty(head_draw, 0);
+}
+
+static void head_draw(void *ctx) {
+  (void)ctx;
   cd_region_hide(&head_view);
-  if (!shown || !cd_region_show(&head_view, 1)) return;
+  if (!cd_region_show(&head_view, 1)) return;
   cd_at(head, 0);
   uint32_t done = 0, skipped = 0, failed = 0, waiting = 0;
   for (uint32_t i = 0; i < nrows; i++) {
@@ -172,7 +182,7 @@ static void row_draw(uint32_t i) {
 
 static void changed(uint32_t i) {
   row_draw(i);
-  head_draw();
+  dirty_head();
 }
 
 /* ---- writing ---- */
@@ -231,7 +241,7 @@ static void maybe_done(void) {
   if (retried) return;
   if (running) {
     running = 0;
-    head_draw();
+    dirty_head();
     refresh_decks();
     deck_reload();
     if (finished) finished();
@@ -286,7 +296,7 @@ static void stop_for_daily_cap(uint32_t i, const char *m, uint32_t n) {
       row_draw(k);
     }
   }
-  head_draw();
+  dirty_head();
 }
 
 /* The countdown on waiting rows, a second at a time: a display of the wait each row was given. */
@@ -305,7 +315,7 @@ static void tick(void *ctx) {
       any |= rows[k].wait_left > 0;
     }
   }
-  head_draw();
+  dirty_head();
   if (any) tick_start();
 }
 
@@ -424,7 +434,7 @@ ON_ANSWER(write_answered) {
     }
     row_draw(b[k]);
   }
-  head_draw();
+  dirty_head();
   cd_free(b);
   batches[batch] = 0;
   batch_head = batch + 1;
@@ -467,7 +477,7 @@ ON_ANSWER(keys_answered) {
       }
     cd_free(buf);
   }
-  head_draw();
+  dirty_head();
   begin();
 }
 
@@ -482,7 +492,7 @@ static void run_gone(void *ctx) {
     text *ts[] = {&r->line, &r->cue, &r->target, &r->cue_clip, &r->target_clip, &r->cue_ref, &r->target_ref, &r->error};
     for (uint32_t k = 0; k < sizeof ts / sizeof *ts; k++) text_free(ts[k]);
   }
-  cd_free(rows);
+  cd_free(rows); /* each row's view region keeps its ids and fns buffers, which cdom owns and does not release when the region is taken away: they leak until cdom frees them on take-away (a cdom fix is routed) */
   rows = 0;
   nrows = 0;
   for (uint32_t k = 0; k < nkeys; k++) text_free(&keys[k]);
@@ -498,6 +508,7 @@ static void run_gone(void *ctx) {
   tick_timer = flush_timer = 0;
   text_free(&daily_cap);
   shown = 0;
+  cd_undirty(head_draw, 0);
   run++;
 }
 
@@ -532,7 +543,7 @@ void bulk_start(cd_id form_box, int64_t deck, const notetype *type, const lang_p
   cd_close();
   cd_close();
   cd_region_end(&view);
-  head_draw();
+  dirty_head();
   for (uint32_t i = 0; i < n; i++) row_draw(i);
   /* the deck's own lines first: a line already a card is not made again */
   keys_left = 0;

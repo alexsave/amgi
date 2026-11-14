@@ -42,8 +42,15 @@ ON_EVENT(profile_chosen);
 ON_ANSWER(profiles_answered);
 ON_ANSWER(installed_answered);
 
-static void draw(void) {
-  if (!shown) return;
+/* The view is a render. Two guards, for two vectors: dirty() asks only while the screen shows it, which covers an ask
+ * made after the screen went (a late answer); the cd_undirty in gone covers an ask made earlier in the same entry. */
+static void draw(void *ctx);
+static void dirty(void) {
+  if (shown) cd_dirty(draw, 0);
+}
+
+static void draw(void *ctx) {
+  (void)ctx;
   cd_region_hide(&view);
   if (!cd_region_show(&view, 1)) return;
   const profile *pr = picked();
@@ -138,6 +145,7 @@ static void choose(uint32_t i) {
 static void gone(void *ctx) {
   (void)ctx;
   shown = 0;
+  cd_undirty(draw, 0);
 }
 
 void firstrun_show(cd_id parent) {
@@ -147,19 +155,19 @@ void firstrun_show(cd_id parent) {
   text_set(&chosen, settings[S_COLLECTION].p ? settings[S_COLLECTION].p : "", settings[S_COLLECTION].len);
   scan_loading = 1;
   text_free(&scan_error);
-  draw();
+  dirty();
   ask(profiles_answered, 0, "GET", "/profiles", WIRE_NONE, 0);
 }
 
 ON_EVENT(profile_chosen) {
   if (CTX_INDEX(ctx) < nprofiles) choose(CTX_INDEX(ctx));
-  draw();
+  dirty();
 }
 ON_EVENT(install_pressed) {
   if (install_running) return;
   install_running = 1;
   install_failed = 0;
-  draw();
+  dirty();
   wire_q_install q = {{settings[S_BASE_DIR].p ? settings[S_BASE_DIR].p : "", settings[S_BASE_DIR].len}};
   ask(installed_answered, 0, "POST", "/install", WK_Q_INSTALL, &q);
 }
@@ -188,7 +196,7 @@ ON_ANSWER(profiles_answered) {
   } else {
     text_set(&scan_error, m, answer_message(&a, m, sizeof m));
   }
-  draw();
+  dirty();
 }
 ON_ANSWER(installed_answered) {
   char m[600];
@@ -204,5 +212,5 @@ ON_ANSWER(installed_answered) {
     install_failed = 1;
     text_set(&install_message, m, answer_message(&a, m, sizeof m));
   }
-  draw();
+  dirty();
 }

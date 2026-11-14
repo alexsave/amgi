@@ -36,8 +36,15 @@ ON_EVENT(build_pressed);
 ON_ANSWER(state_answered);
 ON_ANSWER(built);
 
-static void draw(void) {
-  if (!shown) return;
+/* The view is a render. Two guards, for two vectors: dirty() asks only while the screen shows it, which covers an ask
+ * made after the screen went (a late answer); the cd_undirty in gone covers an ask made earlier in the same entry. */
+static void draw(void *ctx);
+static void dirty(void) {
+  if (shown) cd_dirty(draw, 0);
+}
+
+static void draw(void *ctx) {
+  (void)ctx;
   cd_region_hide(&view);
   if (!loaded || !offered || !cd_region_show(&view, 1)) return;
   cd_at(parent_node, 0);
@@ -94,6 +101,7 @@ static void draw(void) {
 static void gone(void *ctx) {
   (void)ctx;
   shown = 0;
+  cd_undirty(draw, 0);
 }
 
 void starter_show(cd_id parent) {
@@ -117,13 +125,13 @@ ON_EVENT(language_picked) {
   if (i >= NLANGUAGES) return;
   if (which) learning = i;
   else known = i;
-  draw();
+  dirty();
 }
 ON_EVENT(build_pressed) {
   if (busy || learning >= NLANGUAGES || learning == known) return;
   busy = 1;
   text_free(&error);
-  draw();
+  dirty();
   static const char P[] = "amgi starter - ";
   char name[64];
   uint32_t l = zlen(LANGUAGES[learning].name);
@@ -153,7 +161,7 @@ ON_ANSWER(state_answered) {
     for (uint32_t i = 0; i < NLANGUAGES && learning == NLANGUAGES; i++)
       if (offered_langs >> i & 1 && i != known) learning = i;
   }
-  draw();
+  dirty();
 }
 ON_ANSWER(built) {
   wire_starter_built b;
@@ -171,5 +179,5 @@ ON_ANSWER(built) {
   busy = 0;
   char m[600];
   text_set(&error, m, answer_message(&a, m, sizeof m));
-  draw();
+  dirty();
 }

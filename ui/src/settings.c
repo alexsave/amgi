@@ -143,10 +143,18 @@ static void path_text(const char *p, uint32_t n) {
 }
 
 static void screen_gone(void *ctx);
-static void scan_view(void);
-static void saved_view(void);
-static void install_view(void);
-static void scan(void);
+static void scan_view(void *ctx);
+static void saved_view(void *ctx);
+static void install_view(void *ctx);
+static void scan_begin(void);
+static void scan_ask(const char *base, uint32_t n);
+
+/* The views are renders, drawn from state in the flush that ends the entry. Two guards, for two vectors: dirty() asks
+ * only while the screen is shown, which covers an ask made after the screen went (a late answer, the saved timer); the
+ * cd_undirty in screen_gone covers an ask made earlier in the same entry. */
+static void dirty(cd_render_fn view) {
+  if (shown) cd_dirty(view, 0);
+}
 
 /* The screen, then what the answers fill in (the scan, the messages) as regions of the page. */
 void settings_build(void) {
@@ -211,17 +219,21 @@ void settings_build(void) {
   cd_close();
 
   cd_close(); /* .preferences-section */
-  cd_close(); /* .settings-content */
-  page_root_done(); /* .settings-page */
-  scan_view();
-  saved_view();
-  install_view();
-  scan();
+  cd_close(); /* .settings-content: .settings-page stays open for the shell to close */
+  dirty(scan_view);
+  dirty(saved_view);
+  dirty(install_view);
+  /* the scan starts with the folder the box was built with: no DOM read while the page builds */
+  scan_begin();
+  scan_ask(draft[S_BASE_DIR].p ? draft[S_BASE_DIR].p : "", draft[S_BASE_DIR].len);
 }
 
 static void screen_gone(void *ctx) {
   (void)ctx;
   shown = 0;
+  cd_undirty(scan_view, 0);
+  cd_undirty(saved_view, 0);
+  cd_undirty(install_view, 0);
   cd_timer_stop(saved_timer); /* a stale one would hide the message of a screen opened again within two seconds */
   saved_timer = 0;
   saved_shown = 0;
@@ -239,8 +251,8 @@ ON_EVENT(profile_picked) {
 
 /* The scan's part of the screen, built again whenever the scan changes: the button's label, then
  * (once done) the error, the missing-folder or no-profile message, or the profile radios. */
-static void scan_view(void) {
-  if (!shown) return;
+static void scan_view(void *ctx) {
+  (void)ctx;
   cd_set_text_node(scan_text, scan_loading ? CD_LIT("Scanning…") : CD_LIT("Scan for profiles"));
   cd_set_bool(scan_button, CD_LIT("disabled"), scan_loading);
   cd_region_hide(&scan_out);
@@ -299,27 +311,35 @@ ON_ANSWER(installed_answered);
  * MAX_BASE_DIR, else 0. */
 static int base_dir_value(char *buf, uint32_t *n) { return input_value(base_input, buf, MAX_BASE_DIR - 1, n); }
 
-static void scan(void) {
+static void scan_begin(void) {
   scan_loading = 1;
   text_free(&scan_error);
-  scan_view();
-  /* The typed override, without saving it: a scan is a preview, not a commitment. */
+  dirty(scan_view);
+}
+
+/* The folder as typed (or as the box was built), without saving it: a scan is a preview, not a commitment. */
+static void scan_ask(const char *base, uint32_t n) {
   text probe[S_FIELDS];
   for (int f = 0; f < S_FIELDS; f++) probe[f] = settings[f];
+  probe[S_BASE_DIR] = (text){(char *)base, n};
+  ask_as(probe, profiles_answered, 0, "GET", "/profiles", WIRE_NONE, 0);
+}
+
+static void scan(void) {
+  scan_begin();
   char buf[MAX_BASE_DIR];
   uint32_t n;
   if (!base_dir_value(buf, &n)) {
     scan_loading = 0;
     text_setz(&scan_error, TOO_LONG_BASE);
-    scan_view();
+    dirty(scan_view);
     return;
   }
-  probe[S_BASE_DIR] = (text){buf, n};
-  ask_as(probe, profiles_answered, 0, "GET", "/profiles", WIRE_NONE, 0);
+  scan_ask(buf, n);
 }
 
-static void saved_view(void) {
-  if (!shown) return;
+static void saved_view(void *ctx) {
+  (void)ctx;
   cd_region_hide(&saved_msg);
   if ((!saved_shown && !save_error.len) || !cd_region_show(&saved_msg, 1)) return;
   cd_at(section, saved_slot);
@@ -333,8 +353,8 @@ static void saved_view(void) {
 
 /* The install's message, after its button: the server's sentence and, on a line of its own, the
  * add-ons folder it installed into (path_text), in a success box; or the error in an error box. */
-static void install_view(void) {
-  if (!shown) return;
+static void install_view(void *ctx) {
+  (void)ctx;
   cd_set_text_node(install_text, install_running ? CD_LIT("Installing…") : CD_LIT("Install into Anki"));
   cd_set_bool(install_button, CD_LIT("disabled"), install_running);
   cd_region_hide(&install_msg);
@@ -356,7 +376,7 @@ static void saved_gone(void *ctx) {
   (void)ctx;
   saved_timer = 0;
   saved_shown = 0;
-  saved_view();
+  dirty(saved_view);
 }
 
 /* "Anki settings saved." only once the store has them: a reload before then would lose them. */
@@ -365,11 +385,11 @@ static void saved_written(void *ctx, uint32_t ok) {
   if (!ok) {
     text_setz(&save_error, "This browser did not keep the settings: they apply until the page is reloaded");
     saved_shown = 0;
-    saved_view();
+    dirty(saved_view);
     return;
   }
   saved_shown = 1;
-  saved_view();
+  dirty(saved_view);
   cd_timer_stop(saved_timer); /* the message lasts two seconds from the latest save, not the first */
   saved_timer = cd_timer_cb(2000, saved_gone, 0);
 }
@@ -386,7 +406,7 @@ static void save(void) {
   if (too_long) {
     text_setz(&save_error, too_long);
     saved_shown = 0;
-    saved_view();
+    dirty(saved_view);
     return;
   }
   text_set(&draft[S_BASE_DIR], base, nb);
@@ -394,7 +414,7 @@ static void save(void) {
   text_set(&draft[S_BRIDGE_TOKEN], token, nt);
   for (int f = 0; f < S_FIELDS; f++) text_set(&settings[f], draft[f].p, draft[f].len);
   saved_shown = 0;
-  saved_view();
+  dirty(saved_view);
   settings_save(saved_written, 0);
   poll_status();
   refresh_decks();
@@ -405,14 +425,14 @@ static void install(void) {
   install_ok = -1;
   text_free(&install_message);
   text_free(&install_dir);
-  install_view();
+  dirty(install_view);
   char buf[MAX_BASE_DIR];
   uint32_t n;
   if (!base_dir_value(buf, &n)) {
     install_running = 0;
     install_ok = 0;
     text_setz(&install_message, TOO_LONG_BASE);
-    install_view();
+    dirty(install_view);
     return;
   }
   wire_q_install q = {{buf, n}};
@@ -451,7 +471,7 @@ ON_ANSWER(profiles_answered) {
     char m[512];
     text_set(&scan_error, m, answer_message(&a, m, sizeof m));
   }
-  scan_view();
+  dirty(scan_view);
 }
 ON_ANSWER(installed_answered) {
   wire_installed in;
@@ -467,6 +487,6 @@ ON_ANSWER(installed_answered) {
     text_set(&install_message, m, answer_message(&a, m, sizeof m));
     text_free(&install_dir);
   }
-  install_view();
+  dirty(install_view);
   refresh_decks();
 }
