@@ -41,8 +41,8 @@ ON_ANSWER(built);
 
 /* The view is a render. Two guards, for two vectors: dirty() asks only while the screen shows it, which covers an ask
  * made after the screen went (a late answer); the cd_undirty in gone covers an ask made earlier in the same entry. */
-static void draw(void *ctx);
-static void patch_view(void *ctx);
+ON_RENDER(draw);
+ON_RENDER(patch_view);
 /* draw builds the offer when what it is made of changes (the languages, the answer); patch_view sets what a press changes
  * (busy: the button's words, what is off, the failure) on the offer that is there, so a press builds nothing. */
 static void dirty(void) {
@@ -59,8 +59,7 @@ static void view_gone(void *ctx) {
   cd_undirty(patch_view, 0); /* the offer it patches is gone; draw builds the next from the state as it is */
 }
 
-static void draw(void *ctx) {
-  (void)ctx;
+ON_RENDER(draw) {
   cd_region_hide(&view);
   if (!loaded || !offered || !cd_region_show(&view, 1)) return;
   cd_at(parent_node, 0);
@@ -119,8 +118,7 @@ static void draw(void *ctx) {
   dirty_patch(); /* the failure, if there is one */
 }
 
-static void patch_view(void *ctx) {
-  (void)ctx;
+ON_RENDER(patch_view) {
   cd_bound_set(&cta_label, busy ? CD_LIT("Building the deck…") : CD_LIT("Make me a starter deck"));
   cd_bound_set_num(&cta_off, cta_is_off());
   cd_bound_set_num(&sel_off[0], busy);

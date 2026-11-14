@@ -44,13 +44,12 @@ ON_ANSWER(installed_answered);
 
 /* The view is a render. Two guards, for two vectors: dirty() asks only while the screen shows it, which covers an ask
  * made after the screen went (a late answer); the cd_undirty in gone covers an ask made earlier in the same entry. */
-static void draw(void *ctx);
+ON_RENDER(draw);
 static void dirty(void) {
   if (shown) cd_dirty(draw, 0);
 }
 
-static void draw(void *ctx) {
-  (void)ctx;
+ON_RENDER(draw) {
   cd_region_hide(&view);
   if (!cd_region_show(&view, 1)) return;
   const profile *pr = picked();

@@ -145,9 +145,9 @@ static void path_text(const char *p, uint32_t n) {
 }
 
 static void screen_gone(void *ctx);
-static void scan_view(void *ctx);
-static void saved_view(void *ctx);
-static void install_view(void *ctx);
+ON_RENDER(scan_view);
+ON_RENDER(saved_view);
+ON_RENDER(install_view);
 static void scan_begin(void);
 static void scan_ask(const char *base, uint32_t n);
 
@@ -262,8 +262,7 @@ ON_EVENT(profile_picked) {
 
 /* The scan's part of the screen, built again whenever the scan changes: the button's label, then
  * (once done) the error, the missing-folder or no-profile message, or the profile radios. */
-static void scan_view(void *ctx) {
-  (void)ctx;
+ON_RENDER(scan_view) {
   cd_bound_set(&scan_label, scan_loading ? CD_LIT("Scanning…") : CD_LIT("Scan for profiles"));
   cd_bound_set_num(&scan_off, scan_loading);
   cd_region_hide(&scan_out);
@@ -349,8 +348,7 @@ static void scan(void) {
   scan_ask(buf, n);
 }
 
-static void saved_view(void *ctx) {
-  (void)ctx;
+ON_RENDER(saved_view) {
   cd_region_hide(&saved_msg);
   if ((!saved_shown && !save_error.len) || !cd_region_show(&saved_msg, 1)) return;
   cd_at(section, saved_slot);
@@ -364,8 +362,7 @@ static void saved_view(void *ctx) {
 
 /* The install's message, after its button: the server's sentence and, on a line of its own, the
  * add-ons folder it installed into (path_text), in a success box; or the error in an error box. */
-static void install_view(void *ctx) {
-  (void)ctx;
+ON_RENDER(install_view) {
   cd_bound_set(&install_label, install_running ? CD_LIT("Installing…") : CD_LIT("Install into Anki"));
   cd_bound_set_num(&install_off, install_running);
   cd_region_hide(&install_msg);

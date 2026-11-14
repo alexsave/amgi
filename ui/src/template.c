@@ -32,8 +32,7 @@ ON_EVENT(check_again);
 ON_EVENT(dismiss);
 
 /* A top-level view: it has no screen to go, so nothing asks it after it is gone and nothing needs to undo an ask. */
-static void draw(void *ctx) {
-  (void)ctx;
+ON_RENDER(draw) {
   cd_region_hide(&view);
   if (dismissed || phase == P_CHECKING || phase == P_IDLE || !cd_region_show(&view, 1)) return;
   cd_at(app_content, page_root());
