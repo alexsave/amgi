@@ -46,9 +46,9 @@ async function click(b, selector) {
   }
 }
 const type = (b, text) => b.send('Input.insertText', { text });
-const key = async (b, k, code, keyCode) => {
-  await b.send('Input.dispatchKeyEvent', { type: 'keyDown', key: k, code, windowsVirtualKeyCode: keyCode });
-  await b.send('Input.dispatchKeyEvent', { type: 'keyUp', key: k, code, windowsVirtualKeyCode: keyCode });
+const key = async (b, k, code, keyCode, modifiers = 0) => {
+  await b.send('Input.dispatchKeyEvent', { type: 'keyDown', key: k, code, windowsVirtualKeyCode: keyCode, modifiers });
+  await b.send('Input.dispatchKeyEvent', { type: 'keyUp', key: k, code, windowsVirtualKeyCode: keyCode, modifiers });
 };
 const decksShown = `document.querySelectorAll('.deck-item').length`;
 
@@ -89,15 +89,23 @@ try {
   check(await until(b, `!!document.querySelector('.modal-overlay #deckName') && document.activeElement?.id === 'deckName'`), 'New Deck opens the modal, the name focused');
   await sleep(300);
   await shot(b, '12-modal');
-  // The modal is modal: Tab past its last control stays inside it, Escape closes it, and the focus goes
-  // back to the button that opened it.
-  const inModal = `!!document.querySelector('.modal-overlay')?.contains(document.activeElement)`;
-  let strayed = -1;
-  for (let i = 0; i < 6 && strayed < 0; i++) {
-    await key(b, 'Tab', 'Tab', 9);
-    if (!(await b.evaluate(inModal))) strayed = i + 1;
+  // The modal is modal: from its name input, Tab six times and Shift+Tab six times (more than it has
+  // controls, so the focus goes round and past both ends) never focuses the page behind it. A press
+  // "strays" when the focus is on an element outside the modal and is not the body: after the last
+  // control the focus can leave the document for the browser's own UI, which headless Chrome reports
+  // as the body, and that is not the page behind. Then Escape closes it, and the focus goes back to
+  // the button that opened it.
+  const strayed = [];
+  for (const [label, modifiers] of [['Tab', 0], ['Shift+Tab', 8]]) {
+    for (let i = 1; i <= 6; i++) {
+      await key(b, 'Tab', 'Tab', 9, modifiers);
+      const at = await b.evaluate(`(() => { const a = document.activeElement;
+        return a && a !== document.body && !document.querySelector('.modal-overlay')?.contains(a) ? a.outerHTML.slice(0, 80) : null; })()`);
+      if (at) strayed.push(`${label} press ${i}: ${at}`);
+    }
   }
-  check(strayed < 0, `Tab through every control keeps the focus inside the modal${strayed > 0 ? ` (left it at press ${strayed}: ${await b.evaluate(`document.activeElement?.outerHTML.slice(0, 80)`)})` : ''}`);
+  check(!strayed.length, `Tab and Shift+Tab never focus the page behind the modal${strayed.length ? ` (${strayed.join(' / ')})` : ''}`);
+  await click(b, '#deckName');
   await key(b, 'Escape', 'Escape', 27);
   check(await until(b, `!document.querySelector('.modal-overlay')`), 'Escape closes the modal');
   check(await b.evaluate(`document.activeElement === document.querySelector('.deck-actions .action-btn')`),
