@@ -17,6 +17,8 @@ static uint64_t rows_hash;
 static text notes_error;
 static uint32_t want_offset;
 static cd_id name_h1, title_box, sub_line, listhead_count, list_box, name_input;
+static cd_bound name_label;                         /* the name button's text: the name, or Renaming… */
+static int name_is_input;                           /* name_box holds the input (renaming), not the button */
 static cd_region name_box = {.up = &page_region};  /* the h1's contents: the name's button, or its input while renaming */
 static cd_region name_err = {.up = &page_region};  /* p.deck-name-error, under the h1 */
 static int renaming, rename_saving, rename_cancelled;
@@ -29,10 +31,14 @@ static int32_t editor_row = -1;
 static cd_region sub = {.up = &page_region};       /* the count and the languages: all the children of p.deck-cards-sub */
 static cd_region body = {.up = &page_region};      /* div.empty-deck or ol.note-rows */
 static cd_region pager = {.up = &page_region};
+/* What the pager's buttons and range say, set on every draw and written only when changed. */
+static cd_bound prev_off, next_off, range_lo, range_hi;
 static cd_region editor = {.up = &body}; /* in a row of the body */
 static cd_id known_select, learning_select;
 /* Deleting the deck, last on the page: the section's contents, what it is doing, why it failed. */
 static cd_region danger = {.up = &page_region};
+static cd_region danger_err = {.up = &danger}; /* p.deck-danger-error, after the button: shown while danger_error is set */
+static cd_bound danger_label, danger_off;      /* the button's words and its disabled state */
 enum { DANGER_IDLE, DANGER_CHECKING, DANGER_DELETING };
 static int danger_state;
 static text danger_error;
@@ -48,6 +54,7 @@ static void name_view(void *ctx);
 static void sub_view(void *ctx);
 static void rows_view(void *ctx);
 static void danger_view(void *ctx);
+static void pager_view(void *ctx);
 
 ON_EVENT(back) { go("/decks", 6); }
 ON_ANSWER(notes_answered);
@@ -160,29 +167,44 @@ static void sub_view(void *ctx) {
 static void name_view(void *ctx) {
   (void)ctx;
   const deck *d = deck_by_id(deck_id);
-  cd_region_hide(&name_box);
-  if (!d || !cd_region_show(&name_box, 1)) return;
-  cd_at(name_h1, 0);
-  if (!renaming) {
-    cd_id name_button = el_id(CD_LIT("button"), CD_LIT("deck-name-button"));
-    cd_attr(CD_LIT("type"), CD_LIT("button"));
-    cd_attr(CD_LIT("title"), CD_LIT("Rename this deck"));
-    cd_on(name_button, CD_EV_CLICK, rename_pressed, 0);
-    cd_text(rename_saving ? CD_LIT("Renaming…") : d->name);
-    cd_close();
-  } else {
-    name_input = cd_open_id(CD_LIT("input"));
-    cd_class(CD_LIT("deck-name-input"));
-    cd_attr(CD_LIT("aria-label"), CD_LIT("Deck name"));
-    uint32_t n;
-    const char *name = cd_bytes(d->name, &n);
-    cd_str value = CD_LIT("value");
-    attr_tmp(value, name, n);
-    cd_on(name_input, CD_EV_FOCUSOUT, name_left, 0);
-    cd_on(name_input, CD_EV_KEYDOWN, name_key, 0);
-    cd_close();
+  if (!d) {
+    cd_region_hide(&name_box);
+    return;
   }
-  cd_region_end(&name_box);
+  /* The button stays while the name changes (its text is bound: Renaming… or the name); the input is drawn from the
+   * name each time it is asked, and the two swap by region. */
+  if (renaming || name_is_input || !name_box.shown) {
+    cd_region_hide(&name_box);
+    if (!cd_region_show(&name_box, 1)) return;
+    cd_at(name_h1, 0);
+    name_is_input = renaming;
+    if (!renaming) {
+      cd_id name_button = el_id(CD_LIT("button"), CD_LIT("deck-name-button"));
+      cd_attr(CD_LIT("type"), CD_LIT("button"));
+      cd_attr(CD_LIT("title"), CD_LIT("Rename this deck"));
+      cd_on(name_button, CD_EV_CLICK, rename_pressed, 0);
+      cd_str shows = rename_saving ? CD_LIT("Renaming…") : d->name;
+      cd_text(shows);
+      cd_id text = cd_id_new();
+      cd_name_text(text);
+      cd_bind_text(&name_label, text);
+      cd_bound_shows(&name_label, shows);
+      cd_close();
+    } else {
+      name_input = cd_open_id(CD_LIT("input"));
+      cd_class(CD_LIT("deck-name-input"));
+      cd_attr(CD_LIT("aria-label"), CD_LIT("Deck name"));
+      uint32_t n;
+      const char *name = cd_bytes(d->name, &n);
+      cd_str value = CD_LIT("value");
+      attr_tmp(value, name, n);
+      cd_on(name_input, CD_EV_FOCUSOUT, name_left, 0);
+      cd_on(name_input, CD_EV_KEYDOWN, name_key, 0);
+      cd_close();
+    }
+    cd_region_end(&name_box);
+  }
+  if (!renaming) cd_bound_set(&name_label, rename_saving ? CD_LIT("Renaming…") : d->name);
   if (renaming) cd_call(name_input, CD_LIT("focus")); /* autoFocus */
   cd_region_hide(&name_err);
   if (!renaming && rename_error.len && cd_region_show(&name_err, 1)) {
@@ -234,6 +256,7 @@ static void screen_gone(void *ctx) {
   cd_undirty(sub_view, 0);
   cd_undirty(rows_view, 0);
   cd_undirty(danger_view, 0);
+  cd_undirty(pager_view, 0);
   renaming = rename_saving = 0;
   text_free(&rename_error);
   danger_state = DANGER_IDLE;
@@ -468,10 +491,9 @@ static void rows_gone(void *ctx) {
 static void rows_view(void *ctx) {
   (void)ctx;
   cd_region_hide(&body); /* the open editor, and every chip, go with it */
-  cd_region_hide(&pager);
   if (!cd_region_show(&body, 1)) return;
   cd_on_free(0, rows_gone, 0);
-  cd_at(list_box, 0);
+  cd_at(list_box, pager.shown ? pager.root : 0); /* the pager stays, after the rows */
   if (notes_error.len) {
     el(CD_LIT("div"), CD_LIT("empty-deck"));
     cd_name_open(body.root);
@@ -500,59 +522,96 @@ static void rows_view(void *ctx) {
   for (uint32_t i = 0; editing >= 0 && notes_known && i < page_notes.nnotes; i++)
     if (page_notes.notes[i].id == editing) editor_open(i);
   cd_region_end(&body);
+  dirty(pager_view);
+}
 
+/* The pager under the rows: built when there is more than the one page, then kept, its buttons and its range set from
+ * the page each time the rows are drawn (they write only what changed). */
+static void pager_view(void *ctx) {
+  (void)ctx;
   uint32_t n = notes_known && notetypes_known ? page_notes.nnotes : 0;
-  if (!n || (!page_notes.offset && !page_notes.has_more) || !cd_region_show(&pager, 1)) return;
-  cd_at(list_box, 0);
-  el(CD_LIT("div"), CD_LIT("card-list-pager"));
-  cd_name_open(pager.root);
-  cd_attr(CD_LIT("style"), CD_LIT("display: flex; justify-content: center; gap: 1rem; align-items: center; margin-top: 1rem;"));
-  for (int which = 0; which < 2; which++) {
-    if (which) {
-      cd_open(CD_LIT("small"));
-      cd_attr(CD_LIT("style"), CD_LIT("opacity: 0.75;"));
-      cd_text_num(page_notes.offset + 1);
-      cd_text(CD_LIT("–"));
-      cd_text_num(page_notes.offset + n);
+  if (!n || (!page_notes.offset && !page_notes.has_more)) {
+    cd_region_hide(&pager);
+    return;
+  }
+  int off[2] = {!page_notes.offset || notes_loading, !page_notes.has_more || notes_loading};
+  if (!pager.shown && cd_region_show(&pager, 1)) {
+    cd_at(list_box, 0);
+    el(CD_LIT("div"), CD_LIT("card-list-pager"));
+    cd_name_open(pager.root);
+    cd_attr(CD_LIT("style"), CD_LIT("display: flex; justify-content: center; gap: 1rem; align-items: center; margin-top: 1rem;"));
+    for (int which = 0; which < 2; which++) {
+      if (which) {
+        cd_open(CD_LIT("small"));
+        cd_attr(CD_LIT("style"), CD_LIT("opacity: 0.75;"));
+        cd_text_num(page_notes.offset + 1);
+        cd_id lo = cd_id_new();
+        cd_name_text(lo);
+        cd_bind_text(&range_lo, lo);
+        cd_bound_shows_num(&range_lo, page_notes.offset + 1);
+        cd_text(CD_LIT("–"));
+        cd_text_num(page_notes.offset + n);
+        cd_id hi = cd_id_new();
+        cd_name_text(hi);
+        cd_bind_text(&range_hi, hi);
+        cd_bound_shows_num(&range_hi, page_notes.offset + n);
+        cd_close();
+      }
+      cd_id step = el_id(CD_LIT("button"), CD_LIT("back-btn"));
+      if (off[which]) cd_attr(CD_LIT("disabled"), CD_LIT(""));
+      cd_bind_bool(which ? &next_off : &prev_off, step, CD_LIT("disabled"));
+      cd_bound_shows_num(which ? &next_off : &prev_off, off[which]);
+      cd_on(step, CD_EV_CLICK, which ? next_pressed : prev_pressed, 0);
+      cd_text(which ? CD_LIT("Next →") : CD_LIT("← Prev"));
       cd_close();
     }
-    cd_id step = el_id(CD_LIT("button"), CD_LIT("back-btn"));
-    int off = which ? !page_notes.has_more || notes_loading : !page_notes.offset || notes_loading;
-    if (off) cd_attr(CD_LIT("disabled"), CD_LIT(""));
-    cd_on(step, CD_EV_CLICK, which ? next_pressed : prev_pressed, 0);
-    cd_text(which ? CD_LIT("Next →") : CD_LIT("← Prev"));
     cd_close();
+    cd_region_end(&pager);
   }
-  cd_close();
-  cd_region_end(&pager);
+  cd_bound_set_num(&prev_off, off[0]);
+  cd_bound_set_num(&next_off, off[1]);
+  cd_bound_set_num(&range_lo, page_notes.offset + 1);
+  cd_bound_set_num(&range_hi, page_notes.offset + n);
 }
 
 /* The danger section's contents: what deleting means, the button (what it is doing, while it is),
  * and why the last try failed. */
 static void danger_view(void *ctx) {
   (void)ctx;
-  cd_region_hide(&danger);
-  if (!danger.parent || !cd_region_show(&danger, 1)) return;
-  cd_at(danger.parent, 0);
-  el(CD_LIT("div"), CD_LIT("deck-danger-text"));
-  el_text(CD_LIT("h3"), 0, CD_LIT("Delete this deck"));
-  el_text(CD_LIT("p"), 0, CD_LIT("The deck, its subdecks and every card in them, on every device you sync with."));
-  cd_close();
-  cd_id del = el_id(CD_LIT("button"), CD_LIT("deck-danger-btn"));
-  cd_attr(CD_LIT("type"), CD_LIT("button"));
-  if (danger_state != DANGER_IDLE) cd_attr(CD_LIT("disabled"), CD_LIT(""));
-  cd_on(del, CD_EV_CLICK, deck_delete_pressed, 0);
-  cd_text(danger_state == DANGER_CHECKING   ? CD_LIT("Checking…")
-          : danger_state == DANGER_DELETING ? CD_LIT("Deleting…")
-                                            : CD_LIT("Delete deck"));
-  cd_close();
-  if (danger_error.len) {
+  if (!danger.shown && danger.parent && cd_region_show(&danger, 1)) {
+    cd_at(danger.parent, 0);
+    el(CD_LIT("div"), CD_LIT("deck-danger-text"));
+    el_text(CD_LIT("h3"), 0, CD_LIT("Delete this deck"));
+    el_text(CD_LIT("p"), 0, CD_LIT("The deck, its subdecks and every card in them, on every device you sync with."));
+    cd_close();
+    cd_id del = el_id(CD_LIT("button"), CD_LIT("deck-danger-btn"));
+    cd_attr(CD_LIT("type"), CD_LIT("button"));
+    cd_bind_bool(&danger_off, del, CD_LIT("disabled"));
+    cd_bound_shows_num(&danger_off, 0);
+    cd_on(del, CD_EV_CLICK, deck_delete_pressed, 0);
+    cd_text(CD_LIT("Delete deck"));
+    cd_id label = cd_id_new();
+    cd_name_text(label);
+    cd_bind_text(&danger_label, label);
+    cd_bound_shows(&danger_label, CD_LIT("Delete deck"));
+    cd_close();
+    cd_region_end(&danger);
+  }
+  if (!danger.shown) return; /* the Default deck has no such section */
+  cd_bound_set(&danger_label, danger_state == DANGER_CHECKING   ? CD_LIT("Checking…")
+                              : danger_state == DANGER_DELETING ? CD_LIT("Deleting…")
+                                                                : CD_LIT("Delete deck"));
+  cd_bound_set_num(&danger_off, danger_state != DANGER_IDLE);
+  cd_region_hide(&danger_err);
+  if (danger_error.len && cd_region_show(&danger_err, 1)) {
+    cd_at(danger.parent, 0);
     el(CD_LIT("p"), CD_LIT("deck-danger-error"));
+    cd_name_open(danger_err.root);
     cd_attr(CD_LIT("role"), CD_LIT("alert"));
     tmp_text(danger_error.p, danger_error.len);
     cd_close();
+    cd_region_end(&danger_err);
   }
-  cd_region_end(&danger);
 }
 
 void deck_decks_changed(void) {

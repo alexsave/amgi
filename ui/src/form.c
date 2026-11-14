@@ -7,7 +7,8 @@
 
 static int shown, has_text;
 static int64_t form_deck;
-static cd_id box, input, go_button, go_text;
+static cd_id box, input;
+static cd_bound go_label, go_off; /* the button's words and whether it is off */
 static cd_region inner = {.up = &page_region};
 static cd_region too_long = {.up = &page_region}; /* the paste is more than MAX_PASTE bytes: said, after the box */
 static lang_pair langs;
@@ -95,11 +96,11 @@ static void follow_text(const char *v, uint32_t n) {
     char t2[32] = "Make ";
     uint32_t k = 5 + cd_fmt(t2 + 5, (int32_t)line_count, 0, CD_UNIT_NONE);
     __builtin_memcpy(t2 + k, " cards", 6);
-    cd_set_text_node(go_text, cd_tmp(t2, k + 6));
+    cd_bound_set_bytes(&go_label, t2, k + 6);
   } else {
-    cd_set_text_node(go_text, CD_LIT("Make the card"));
+    cd_bound_set(&go_label, CD_LIT("Make the card"));
   }
-  cd_set_bool(go_button, CD_LIT("disabled"), !ready() || !has_text);
+  cd_bound_set_num(&go_off, !ready() || !has_text);
 }
 
 ON_EVENT(typed);
@@ -140,13 +141,18 @@ static void form_draw(void *ctx) {
     cd_on(input, CD_EV_INPUT, typed, 0);
     cd_on(input, CD_EV_KEYDOWN, key_down, 0);
     cd_close();
-    go_button = el_id(CD_LIT("button"), 0);
+    cd_id go_button = el_id(CD_LIT("button"), 0);
     cd_attr(CD_LIT("type"), CD_LIT("button"));
     cd_class(CD_LIT("card-form-go"));
     cd_attr(CD_LIT("disabled"), CD_LIT(""));
     cd_on(go_button, CD_EV_CLICK, go_pressed, 0);
     cd_text(CD_LIT("Make the card"));
-    cd_name_text(go_text = cd_id_new());
+    cd_id go_text = cd_id_new();
+    cd_name_text(go_text);
+    cd_bind_text(&go_label, go_text);
+    cd_bound_shows(&go_label, CD_LIT("Make the card"));
+    cd_bind_bool(&go_off, go_button, CD_LIT("disabled"));
+    cd_bound_shows_num(&go_off, 1);
     cd_close();
     cd_close();
   }
