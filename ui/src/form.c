@@ -35,7 +35,7 @@ static uint32_t placeholder(char *ph) {
   return n + sizeof C - 1;
 }
 
-static void form_draw(void *ctx);
+ON_RENDER(form_draw);
 
 /* The box is a render. Two guards, for two vectors: dirty() asks only while the form is shown, which covers an ask made
  * after the screen went (a late answer); the cd_undirty in form_gone covers an ask made earlier in the same entry. */
@@ -107,8 +107,7 @@ ON_EVENT(typed);
 ON_EVENT(key_down);
 ON_EVENT(go_pressed);
 
-static void form_draw(void *ctx) {
-  (void)ctx;
+ON_RENDER(form_draw) {
   bulk_discard();
   cd_region_hide(&too_long);
   cd_region_hide(&inner);

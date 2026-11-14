@@ -78,7 +78,7 @@ static uint32_t row_note(const row *r, char *d) {
   return cat(d, 0, r->cue.p ? r->cue.p : "", r->cue.len);
 }
 
-static void head_draw(void *ctx);
+ON_RENDER(head_draw);
 
 /* The head is a render. Two guards, for two vectors: dirty_head() asks only while the run is shown, which covers an ask
  * made after the run went (a late answer, a tick); the cd_undirty in run_gone covers an ask made earlier in the same
@@ -87,8 +87,7 @@ static void dirty_head(void) {
   if (shown) cd_dirty(head_draw, 0);
 }
 
-static void head_draw(void *ctx) {
-  (void)ctx;
+ON_RENDER(head_draw) {
   cd_region_hide(&head_view);
   if (!cd_region_show(&head_view, 1)) return;
   cd_at(head, 0);

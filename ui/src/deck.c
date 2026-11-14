@@ -50,11 +50,11 @@ static text danger_error;
 static void dirty(cd_render_fn view) {
   if (shown) cd_dirty(view, 0);
 }
-static void name_view(void *ctx);
-static void sub_view(void *ctx);
-static void rows_view(void *ctx);
-static void danger_view(void *ctx);
-static void pager_view(void *ctx);
+ON_RENDER(name_view);
+ON_RENDER(sub_view);
+ON_RENDER(rows_view);
+ON_RENDER(danger_view);
+ON_RENDER(pager_view);
 
 ON_EVENT(back) { go("/decks", 6); }
 ON_ANSWER(notes_answered);
@@ -109,8 +109,7 @@ void deck_langs_loaded(int64_t id, const lang_pair *p) {
   page_show();
 }
 
-static void sub_view(void *ctx) {
-  (void)ctx;
+ON_RENDER(sub_view) {
   cd_region_hide(&sub);
   const deck *d = deck_by_id(deck_id);
   if (!d || !cd_region_show(&sub, 1)) return;
@@ -164,8 +163,7 @@ static void sub_view(void *ctx) {
 }
 
 /* DeckName: the title, renamed where it is read. The button, or the input while renaming. */
-static void name_view(void *ctx) {
-  (void)ctx;
+ON_RENDER(name_view) {
   const deck *d = deck_by_id(deck_id);
   if (!d) {
     cd_region_hide(&name_box);
@@ -488,8 +486,7 @@ static void rows_gone(void *ctx) {
   rows_hash = 0;
 }
 
-static void rows_view(void *ctx) {
-  (void)ctx;
+ON_RENDER(rows_view) {
   cd_region_hide(&body); /* the open editor, and every chip, go with it */
   if (!cd_region_show(&body, 1)) return;
   cd_on_free(0, rows_gone, 0);
@@ -527,8 +524,7 @@ static void rows_view(void *ctx) {
 
 /* The pager under the rows: built when there is more than the one page, then kept, its buttons and its range set from
  * the page each time the rows are drawn (they write only what changed). */
-static void pager_view(void *ctx) {
-  (void)ctx;
+ON_RENDER(pager_view) {
   uint32_t n = notes_known && notetypes_known ? page_notes.nnotes : 0;
   if (!n || (!page_notes.offset && !page_notes.has_more)) {
     cd_region_hide(&pager);
@@ -576,8 +572,7 @@ static void pager_view(void *ctx) {
 
 /* The danger section's contents: what deleting means, the button (what it is doing, while it is),
  * and why the last try failed. */
-static void danger_view(void *ctx) {
-  (void)ctx;
+ON_RENDER(danger_view) {
   if (!danger.shown && danger.parent && cd_region_show(&danger, 1)) {
     cd_at(danger.parent, 0);
     el(CD_LIT("div"), CD_LIT("deck-danger-text"));

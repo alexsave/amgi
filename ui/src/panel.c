@@ -28,8 +28,8 @@ static const char *name_of(const char *code) {
   return n ? n : code;
 }
 
-static void error_view(void *ctx);
-static void labels_view(void *ctx);
+ON_RENDER(error_view);
+ON_RENDER(labels_view);
 
 /* The views are renders. Two guards, for two vectors: dirty() asks only while the panel is open, which covers an ask
  * made after the editor went (a late answer); the cd_undirty in gone covers an ask made earlier in the same entry. */
@@ -37,8 +37,7 @@ static void dirty(cd_render_fn view) {
   if (open_) cd_dirty(view, 0);
 }
 
-static void error_view(void *ctx) {
-  (void)ctx;
+ON_RENDER(error_view) {
   cd_region_hide(&err);
   if (!error.len || !cd_region_show(&err, 1)) return;
   cd_at(root, foot);
@@ -55,8 +54,7 @@ static void set_error(const answer *a) {
   dirty(error_view);
 }
 
-static void labels_view(void *ctx) {
-  (void)ctx;
+ON_RENDER(labels_view) {
   for (int s = 0; s < 2; s++) {
     if (busy == s + 1) {
       cd_bound_set(&redo_label[s], CD_LIT("Redoing…"));
