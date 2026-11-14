@@ -16,6 +16,24 @@ void el_text(cd_str tag, cd_str cls, cd_str s) {
   cd_text(s);
   cd_close();
 }
+void text_bound(cd_bound *b, cd_str v) {
+  cd_text(v);
+  cd_id node = cd_id_new();
+  cd_name_text(node);
+  cd_bind_text(b, node);
+  cd_bound_shows(b, v);
+}
+void text_bound_num(cd_bound *b, uint32_t n) {
+  cd_text_num(n);
+  cd_id node = cd_id_new();
+  cd_name_text(node);
+  cd_bind_text(b, node);
+  cd_bound_shows_num(b, n);
+}
+void bool_bound(cd_bound *b, cd_id el, cd_str prop, uint32_t v) {
+  cd_bind_bool(b, el, prop);
+  cd_bound_shows_num(b, v);
+}
 void tmp_text(const char *p, uint32_t len) { cd_text(cd_tmp(p, len)); }
 void attr_tmp(cd_str name, const char *p, uint32_t len) { cd_attr(name, cd_tmp(p, len)); }
 /* This stays until cdom has a whole-or-nothing input read.
