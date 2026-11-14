@@ -47,11 +47,11 @@ export function shotter(out, name) {
     // input's caret blinks. Two runs of the same screen must give the same pixels, so before capturing:
     // finish every finite animation (the end state, as a still page shows it), pause every infinite one
     // at its start, hide the caret with a temporary style, and wait two frames so the page has painted
-    // that. The style is removed after; the page is otherwise untouched.
+    // that. The style is removed and the paused animations play on after; the page is otherwise untouched.
     await b.evaluate(`(async () => {
       for (const a of document.getAnimations()) {
         const t = a.effect?.getComputedTiming().iterations;
-        if (t === Infinity) { a.pause(); a.currentTime = 0; } else a.finish();
+        if (t === Infinity) { a.pause(); a.currentTime = 0; (window.__shot_paused ||= []).push(a); } else a.finish();
       }
       const s = document.createElement('style');
       s.id = '__shot_still';
@@ -61,7 +61,11 @@ export function shotter(out, name) {
     })()`);
     const { result } = await b.send('Page.captureScreenshot', { format: 'png' });
     fs.writeFileSync(path.join(out, `${name}-${file}.png`), Buffer.from(result.data, 'base64'));
-    await b.evaluate(`document.getElementById('__shot_still')?.remove()`);
+    await b.evaluate(`(() => {
+      document.getElementById('__shot_still')?.remove();
+      for (const a of window.__shot_paused || []) a.play();
+      window.__shot_paused = [];
+    })()`);
     const html = await b.evaluate(`(document.getElementById('amgi') || document.body).outerHTML`);
     fs.writeFileSync(path.join(out, `${name}-${file}.html`), html);
   };
