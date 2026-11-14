@@ -18,7 +18,8 @@ void el_text(cd_str tag, cd_str cls, cd_str s) {
 }
 void tmp_text(const char *p, uint32_t len) { cd_text(cd_tmp(p, len)); }
 void attr_tmp(cd_str name, const char *p, uint32_t len) { cd_attr(name, cd_tmp(p, len)); }
-/* cd_input_text answers the whole length; when that is more than cap only the whole characters that
+/* This stays until cdom has a whole-or-nothing input read.
+ * cd_input_text answers the whole length; when that is more than cap only the whole characters that
  * fit were written, so the value did not fit and none of it is read. */
 int input_value(cd_id id, char *dst, uint32_t cap, uint32_t *len) {
   uint32_t n = cd_input_text(id, dst, cap);

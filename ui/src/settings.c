@@ -207,6 +207,9 @@ void settings_build(void) {
 void settings_forget(void) {
   if (!shown) return;
   shown = 0;
+  cd_timer_stop(saved_timer); /* a stale one would hide the message of a screen opened again within two seconds */
+  saved_timer = 0;
+  saved_shown = 0;
   text_free(&save_error);
   cd_region_hide(&scan_out);
   cd_region_hide(&saved_msg);
@@ -343,8 +346,12 @@ void settings_after(void) {
   scan();
 }
 
+/* The pending "saved" timer, 0 when none: kept by hand until cdom has a timer handle that replaces itself (a possible cd_timer_set). */
+static uint32_t saved_timer;
+
 static void saved_gone(void *ctx) {
   (void)ctx;
+  saved_timer = 0;
   saved_shown = 0;
   saved_view();
 }
@@ -360,7 +367,8 @@ static void saved_written(void *ctx, uint32_t ok) {
   }
   saved_shown = 1;
   saved_view();
-  cd_timer_cb(2000, saved_gone, 0);
+  cd_timer_stop(saved_timer); /* the message lasts two seconds from the latest save, not the first */
+  saved_timer = cd_timer_cb(2000, saved_gone, 0);
 }
 
 static void save(void) {
