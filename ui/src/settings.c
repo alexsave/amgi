@@ -79,7 +79,7 @@ static profile *profiles;
 static uint32_t nprofiles;
 static int scan_loading, scan_exists = -1, saved_shown, install_running, install_ok = -1;
 static text scan_base, scan_error, install_message, install_dir, save_error;
-static cd_id section, base_input, url_input, token_input, saved_slot,
+static cd_id section, scan_button, scan_text, install_button, install_text, base_input, url_input, token_input, saved_slot,
   install_block;
 /* the scan's messages or the profile list, after "Bridge token" and before Save: the scan answers
  * after the screen is drawn, and nothing a person may be aiming at sits below it but Save */
@@ -87,8 +87,6 @@ static cd_region scan_out = {.up = &page_region};
 static cd_region saved_msg = {.up = &page_region};  /* "Anki settings saved.", or why they were not */
 static cd_region install_msg = {.up = &page_region};
 static int shown;
-/* What the two buttons say and whether they are off, set on every draw of their view and written only when changed. */
-static cd_bound scan_label, scan_off, install_label, install_off;
 /* The pending "saved" timer, 0 when none: kept by hand until cdom has a timer handle that replaces itself (a possible cd_timer_set). */
 static uint32_t saved_timer;
 
@@ -195,12 +193,7 @@ void settings_build(void) {
   cd_close();
   if (!draft[S_BASE_DIR].len) cd_text(CD_LIT(" - set the override below to install somewhere else."));
   cd_close();
-  cd_id install_text, scan_text;
-  cd_id install_button = save_button(install_pressed, CD_LIT("Install into Anki"), &install_text);
-  cd_bind_text(&install_label, install_text);
-  cd_bound_shows(&install_label, CD_LIT("Install into Anki"));
-  cd_bind_bool(&install_off, install_button, CD_LIT("disabled"));
-  cd_bound_shows_num(&install_off, 0);
+  install_button = save_button(install_pressed, CD_LIT("Install into Anki"), &install_text);
   cd_close();
 
   row_open();
@@ -209,11 +202,7 @@ void settings_build(void) {
   cd_close();
 
   row_open();
-  cd_id scan_button = save_button(scan_pressed, CD_LIT("Scan for profiles"), &scan_text);
-  cd_bind_text(&scan_label, scan_text);
-  cd_bound_shows(&scan_label, CD_LIT("Scan for profiles"));
-  cd_bind_bool(&scan_off, scan_button, CD_LIT("disabled"));
-  cd_bound_shows_num(&scan_off, 0);
+  scan_button = save_button(scan_pressed, CD_LIT("Scan for profiles"), &scan_text);
   cd_close();
 
   row_open();
@@ -263,8 +252,8 @@ ON_EVENT(profile_picked) {
 /* The scan's part of the screen, built again whenever the scan changes: the button's label, then
  * (once done) the error, the missing-folder or no-profile message, or the profile radios. */
 ON_RENDER(scan_view) {
-  cd_bound_set(&scan_label, scan_loading ? CD_LIT("Scanning…") : CD_LIT("Scan for profiles"));
-  cd_bound_set_num(&scan_off, scan_loading);
+  cd_set_text_node(scan_text, scan_loading ? CD_LIT("Scanning…") : CD_LIT("Scan for profiles"));
+  cd_set_bool(scan_button, CD_LIT("disabled"), scan_loading);
   cd_region_hide(&scan_out);
   int none = !scan_loading && scan_exists == 1 && !nprofiles, missing = !scan_loading && scan_exists == 0;
   if (!scan_error.len && !none && !missing && !nprofiles) return;
@@ -363,8 +352,8 @@ ON_RENDER(saved_view) {
 /* The install's message, after its button: the server's sentence and, on a line of its own, the
  * add-ons folder it installed into (path_text), in a success box; or the error in an error box. */
 ON_RENDER(install_view) {
-  cd_bound_set(&install_label, install_running ? CD_LIT("Installing…") : CD_LIT("Install into Anki"));
-  cd_bound_set_num(&install_off, install_running);
+  cd_set_text_node(install_text, install_running ? CD_LIT("Installing…") : CD_LIT("Install into Anki"));
+  cd_set_bool(install_button, CD_LIT("disabled"), install_running);
   cd_region_hide(&install_msg);
   if (!install_message.len || !cd_region_show(&install_msg, 1)) return;
   cd_at(install_block, 0); /* last in the block, after the button */
