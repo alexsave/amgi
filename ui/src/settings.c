@@ -48,10 +48,8 @@ static void settings_read(const uint8_t *p, uint32_t len) {
   }
 }
 
-void settings_load(void) {
-  cd_store_get(STORE_TOKEN(STORE_SETTINGS, 1), STORE_KEY, sizeof STORE_KEY - 1, CD_STORE_DEADLINE_MS);
-}
-void settings_got(const uint8_t *p, int32_t len) {
+static void settings_got(void *ctx, const uint8_t *p, int32_t len) {
+  (void)ctx;
   if (settings_loaded) return;
   if (len >= 0) {
     settings_stored = 1;
@@ -61,12 +59,15 @@ void settings_got(const uint8_t *p, int32_t len) {
   page_show();
   state_start();
 }
-static void kept_anyway(void *ctx, uint32_t ok) { (void)ctx, (void)ok; }
+void settings_load(void) {
+  cd_store_get_cb(settings_got, 0, STORE_KEY, sizeof STORE_KEY - 1, CD_STORE_DEADLINE_MS);
+}
+void store_put_ignored(void *ctx, uint32_t ok) { (void)ctx, (void)ok; }
 void settings_save(cd_store_done_fn done, void *ctx) {
   settings_stored = 1;
   char *block = cd_alloc(settings_room(settings));
   uint32_t n = settings_block(block, settings);
-  cd_store_put_cb(done ? done : kept_anyway, ctx, STORE_KEY, sizeof STORE_KEY - 1, block, n);
+  cd_store_put_cb(done ? done : store_put_ignored, ctx, STORE_KEY, sizeof STORE_KEY - 1, block, n);
   cd_free(block);
 }
 

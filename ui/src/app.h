@@ -93,6 +93,8 @@ void holder_free(holder *h);
 void ask_media(cd_http_fn fn, void *ctx, const char *name, uint32_t len);
 /* The token form and its hook are poisoned: a request's answer is its callback's. */
 #pragma GCC poison cd_http cd_on_http
+/* The store is the same: cd_store_get_cb, cd_store_put_cb and cd_store_del_cb answer to their callback. */
+#pragma GCC poison cd_store_get cd_store_put cd_store_del cd_on_store cd_on_store_put cd_on_store_del
 /* The answer's failure as a sentence (the server's error, or what went wrong on the way). */
 uint32_t answer_message(const answer *a, char *dst, uint32_t cap);
 
@@ -107,8 +109,8 @@ uint32_t settings_room(const text *s);
 /* settings[] into the store; done, when not 0, hears whether the store kept them (cd_store_put_cb) */
 void settings_save(cd_store_done_fn done, void *ctx);
 void settings_load(void);                 /* from the store; settings_loaded once it answers */
-void settings_got(const uint8_t *p, int32_t len);
-void deck_langs_got(uint32_t token, const uint8_t *p, int32_t len);
+/* The done callback for a store put whose outcome nobody acts on (a cache, a preference): the one no-op. */
+void store_put_ignored(void *ctx, uint32_t ok);
 
 /* ---- the state DeckContext held (state.c) ---- */
 typedef struct { int64_t id; cd_str name; uint32_t count; } deck;
@@ -233,9 +235,4 @@ void confirm_close(void);
 /* After the next decks answer, open deck id (a deck just made: the list must know it first). */
 void open_after_refresh(int64_t id);
 
-/* Store tokens: the caller's id in the top byte, which cd_on_store (shell.c) routes by, and cdom keeps
- * every token from CD_TOKEN_CDOM (0x80000000) up for itself: so no caller id may reach 0x80. */
-enum { STORE_SETTINGS = 1, STORE_DECK_LANGS, STORE_CALLERS /* one past the last */ };
-_Static_assert(STORE_CALLERS <= 0x80, "a store caller id past 0x7f makes tokens in cdom's own range");
-#define STORE_TOKEN(caller, n) ((uint32_t)(caller) << 24 | (uint32_t)(n))
 #endif
