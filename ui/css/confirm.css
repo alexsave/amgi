@@ -1,6 +1,31 @@
 /* The page's own confirmation (ui/src/modal.c), a <dialog> opened with showModal: the deck list's
    .modal-content box and .modal-actions buttons, the browser's backdrop dimmed as .modal-overlay
-   dims. The only CSS the C UI adds: the React app asked with window.confirm, which draws nothing. */
+   dims. The only CSS the C UI adds: the React app asked with window.confirm, which draws nothing, and
+   the create-deck modal below is now a <dialog> too. */
+/* The create-deck modal (ui/src/decks.c) is the same kind of <dialog>, its .modal-overlay drawing
+ * the dim and centring the box as it does on a div: the dialog's own UA styles (the margin, padding,
+ * border, size limits, scrolling, canvas colours, and a backdrop of its own) are cancelled so it
+ * draws exactly as the div did, and what the top layer changes is only the stacking. */
+dialog.modal-overlay {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  border: 0;
+  overflow: visible;
+  color: inherit;
+}
+
+dialog.modal-overlay:not([open]) {
+  display: none;
+}
+
+dialog.modal-overlay::backdrop {
+  background: transparent;
+}
+
 dialog.confirm-dialog {
   color: var(--text-primary);
   text-align: left;
