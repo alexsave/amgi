@@ -20,8 +20,8 @@ const char *language_name(const char *code, uint32_t len) {
  * deckLanguagePrefs.js defaults (en, ko) when there is none. One load at a time is all a screen
  * needs; a later load wins over an earlier one still in flight. */
 #define KEY_PREFIX "amgi:deck-languages:"
-static int64_t loading_deck = -1;
-static uint32_t loading_seq;
+static int64_t loading_deck;
+static cd_req loading;
 
 static uint32_t key_for(char *dst, int64_t id) {
   __builtin_memcpy(dst, KEY_PREFIX, sizeof KEY_PREFIX - 1);
@@ -35,9 +35,9 @@ static int copy_code(char *dst, const char *p, uint32_t n) {
   return 1;
 }
 
-/* The answer to a load: ctx is the load's sequence number, so one a later load overtook is dropped. */
+/* The answer to a load: ctx is the load's request, so one a later load overtook, or one already answered, is dropped. */
 static void deck_langs_got(void *ctx, const uint8_t *p, int32_t len) {
-  if ((uint32_t)(uintptr_t)ctx != loading_seq || loading_deck < 0) return;
+  if (!cd_req_current(&loading, ctx, 0)) return;
   lang_pair pair = {"en", "ko"};
   if (len > 0) {
     const char *s = (const char *)p;
@@ -47,16 +47,14 @@ static void deck_langs_got(void *ctx, const uint8_t *p, int32_t len) {
     if (sp < (uint32_t)len && copy_code(got.known, s, sp) && copy_code(got.learning, s + sp + 1, (uint32_t)len - sp - 1))
       pair = got;
   }
-  int64_t id = loading_deck;
-  loading_deck = -1;
-  deck_langs_loaded(id, &pair);
+  cd_req_end(&loading, 1);
+  deck_langs_loaded(loading_deck, &pair);
 }
 
 void deck_langs_load(int64_t deck_id) {
   char key[64];
   loading_deck = deck_id;
-  loading_seq = (loading_seq + 1) & 0xffff;
-  cd_store_get_cb(deck_langs_got, (void *)(uintptr_t)loading_seq, key, key_for(key, deck_id), CD_STORE_DEADLINE_MS);
+  cd_store_get_cb(deck_langs_got, cd_req_begin(&loading, 0), key, key_for(key, deck_id), CD_STORE_DEADLINE_MS);
 }
 
 void deck_langs_save(int64_t deck_id, const lang_pair *p) {
