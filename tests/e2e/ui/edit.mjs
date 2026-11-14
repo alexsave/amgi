@@ -312,7 +312,7 @@ try {
   check(await until(b, `${badge} === 'Anki connected'`, 150), 'and let go');
   check(await until(b, `document.querySelectorAll('.note-row-target')[1]?.textContent === '고쳤어요'`, 150), 'the page of notes read again shows the changed note');
   const marks = await b.evaluate(`[...document.querySelectorAll('.note-rows > li')].map(li => [li.mark, li.querySelector('.note-row').mark].join())`);
-  check(marks.join(' ') === 'li0,row0 li1, li2,row2', `the rows nothing changed in keep their nodes, the changed row is built again inside its li (${marks.join(' ')})`);
+  check(marks.join(' ') === 'li0,row0 li1, li2,row2', `the note rows keep their nodes through a reload (patched, not rebuilt): the rows nothing changed in keep theirs, the changed row is built again inside its li (${marks.join(' ')})`);
   check(await b.evaluate(`!!document.querySelector('.note-rows > li:nth-child(2).is-open .card-panel') && document.querySelector('.note-rows > li:nth-child(2) .note-row-edit').textContent === 'Close' && document.querySelectorAll('.note-rows > li.is-open').length === 1 && document.querySelector('.card-panel-value-big').value === '고쳤어요'`),
     'and the open editor is still open in its row, showing the change');
   await click(b, '.note-rows > li:nth-child(2) .note-row-edit'); // Close
@@ -339,7 +339,7 @@ try {
   const want10 = before10.map((n) => (n === typedName || n.startsWith(typedName + '::') ? renamedTo + n.slice(typedName.length) : n));
   check(await until(b, `${deckNames}.includes(${JSON.stringify(renamedTo)})`, 150), `the list shows the new name (${renamedTo})`);
   const after10 = await b.evaluate(`[...document.querySelectorAll('.deck-item')].map(item => [item.mark, item.querySelector('h3').mark, item.querySelector('h3').textContent])`);
-  check(after10.length === want10.length && after10.every(([m, hm]) => m && m === hm), 'every item of the list keeps its nodes through the refresh (each still carries its mark)');
+  check(after10.length === want10.length && after10.every(([m, hm]) => m && m === hm), 'the deck list keeps its rows through a refresh (patched, not rebuilt): each item still carries its mark');
   check(after10.every(([m, , t]) => want10[before10.indexOf(m)] === t), `and each shows its own deck's name now (${after10.map((r) => r[2]).join(' | ')})`);
   await click(b, `.deck-item:nth-child(${1 + (await b.evaluate(`${deckNames}.indexOf(${JSON.stringify(renamedTo)})`))})`);
   check(await until(b, `/^\\/deck\\/\\d+$/.test(location.pathname) && document.querySelector('.deck-name-button')?.textContent === ${JSON.stringify(renamedTo)}`, 150),
