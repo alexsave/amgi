@@ -146,6 +146,24 @@ try {
   await shot(b, '34-daily-cap');
   await control('daily=0');
 
+  // 6. A clip recorded again in an open editor: its chip is built again in its place, outside any build, and
+  // the editor owns it. Twice, so the second replaces a chip the first made.
+  const clips = `[...document.querySelectorAll('.card-panel-clips > *')].map(e => e.className.trim()).join(' | ')`;
+  await click(b, '.note-rows .note-row-edit:not(.note-row-edit-off)');
+  check(await until(b, `!!document.querySelector('.card-panel')`), 'a card opens in its row');
+  const before = await b.evaluate(clips);
+  for (const time of ['once', 'twice']) {
+    await b.evaluate(`document.querySelectorAll('.card-panel .audio-chip-target').forEach((e) => { e.dataset.old = '1'; })`);
+    await click(b, '.card-panel-redo');
+    check(await until(b, `!!document.querySelector('.card-panel .audio-chip-target:not([data-old])') && !document.querySelector('.card-panel-redo').disabled`, 300),
+      `Redo ${time}: the target's chip is built again`);
+    check((await b.evaluate(clips)) === before, `Redo ${time}: the chips and buttons are where they were (${await b.evaluate(clips)})`);
+  }
+  await click(b, '.card-panel .audio-chip-target');
+  check(await until(b, `!!document.querySelector('.card-panel .audio-chip-target.is-playing')`, 100), 'the chip made last plays its new clip');
+  await click(b, '.note-rows .note-row-edit:not(.note-row-edit-off)');
+  check(await until(b, `!document.querySelector('.card-panel')`), 'closing the card takes the panel, the chips it made and its voice');
+
   check(!pageErrors.length, `no page errors${pageErrors.length ? `: ${pageErrors.join(' / ')}` : ''}`);
 } finally {
   clearTimeout(watchdog);
