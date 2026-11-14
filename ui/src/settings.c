@@ -304,7 +304,7 @@ ON_ANSWER(installed_answered);
 
 /* The typed folder into buf (MAX_BASE_DIR bytes): 1 with *n its length when it is shorter than
  * MAX_BASE_DIR, else 0. */
-static int base_dir_value(char *buf, uint32_t *n) { return input_value(base_input, buf, MAX_BASE_DIR - 1, n); }
+static int base_dir_value(char *buf, uint32_t *n) { return cd_input_whole(base_input, buf, MAX_BASE_DIR - 1, n); }
 
 static void scan_begin(void) {
   scan_loading = 1;
@@ -392,8 +392,8 @@ static void save(void) {
   char base[MAX_BASE_DIR], url[2048], token[2048];
   uint32_t nb, nu, nt;
   const char *too_long = !base_dir_value(base, &nb) ? TOO_LONG_BASE
-    : !input_value(url_input, url, sizeof url, &nu) ? "The bridge address is too long"
-    : !input_value(token_input, token, sizeof token, &nt) ? "The bridge token is too long"
+    : !cd_input_whole(url_input, url, sizeof url, &nu) ? "The bridge address is too long"
+    : !cd_input_whole(token_input, token, sizeof token, &nt) ? "The bridge token is too long"
     : 0;
   text_free(&save_error);
   if (too_long) {
