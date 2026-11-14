@@ -36,6 +36,30 @@ void bool_bound(cd_bound *b, cd_id el, cd_str prop, uint32_t v) {
 }
 void tmp_text(const char *p, uint32_t len) { cd_text(cd_tmp(p, len)); }
 void attr_tmp(cd_str name, const char *p, uint32_t len) { cd_attr(name, cd_tmp(p, len)); }
+uint32_t idkeys_key(idkeys *k, int64_t id) {
+  uint32_t free_slot = k->n;
+  for (uint32_t i = 0; i < k->n; i++) {
+    if (k->e[i].id == id) return i + 1;
+    if (!k->e[i].id && free_slot == k->n) free_slot = i;
+  }
+  if (free_slot == k->n) {
+    k->e = cd_realloc(k->e, (k->n + 1) * sizeof *k->e);
+    k->e[k->n++] = (idkey){0, 0};
+  }
+  k->e[free_slot].id = id;
+  return free_slot + 1;
+}
+void *idkeys_row(idkeys *k, uint32_t key, uint32_t size) {
+  idkey *s = &k->e[key - 1];
+  if (!s->row) {
+    s->row = cd_alloc(size);
+    __builtin_memset(s->row, 0, size);
+  }
+  return s->row;
+}
+void idkeys_drop(idkeys *k, uint32_t key) { k->e[key - 1].id = 0; }
+int64_t idkeys_id(const idkeys *k, uint32_t key) { return key && key <= k->n ? k->e[key - 1].id : 0; }
+
 /* This stays until cdom has a whole-or-nothing input read.
  * cd_input_text answers the whole length; when that is more than cap only the whole characters that
  * fit were written, so the value did not fit and none of it is read. */
