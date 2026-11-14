@@ -489,7 +489,7 @@ static void run_gone(void *ctx) {
     text *ts[] = {&r->line, &r->cue, &r->target, &r->cue_clip, &r->target_clip, &r->cue_ref, &r->target_ref, &r->error};
     for (uint32_t k = 0; k < sizeof ts / sizeof *ts; k++) text_free(ts[k]);
   }
-  cd_free(rows); /* each row's view region keeps its ids and fns buffers, which cdom owns and does not release when the region is taken away: they leak until cdom frees them on take-away (a cdom fix is routed) */
+  cd_free(rows);
   rows = 0;
   nrows = 0;
   for (uint32_t k = 0; k < nkeys; k++) text_free(&keys[k]);
