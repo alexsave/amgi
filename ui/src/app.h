@@ -50,15 +50,6 @@ void text_bound_num(cd_bound *b, uint32_t n);    /* the same, a number's text */
 void bool_bound(cd_bound *b, cd_id el, cd_str prop, uint32_t v); /* el's boolean prop bound to b, recorded as v */
 void tmp_text(const char *p, uint32_t len);       /* a one-off text node */
 void attr_tmp(cd_str name, const char *p, uint32_t len);
-/* The keys of a keyed list (cd_list) for rows named by a 64-bit id: a key is its slot's number plus one, exact for as long as the
- * row lives (a deck id or a note id does not fit a cd_list's 32-bit key, and is never cut). id 0 is a free slot. A slot's row
- * (the caller's struct, made once and reused) outlives the id that held the slot, so a region in it keeps its buffers. */
-typedef struct { int64_t id; void *row; } idkey;
-typedef struct { idkey *e; uint32_t n; } idkeys;
-uint32_t idkeys_key(idkeys *k, int64_t id);                       /* id's key, a free slot taken for an id not seen */
-void *idkeys_row(idkeys *k, uint32_t key, uint32_t size);          /* the slot's row, zeroed and made on first use */
-void idkeys_drop(idkeys *k, uint32_t key);                         /* the row is gone: its slot is free */
-int64_t idkeys_id(const idkeys *k, uint32_t key);                  /* 0 for a key that holds no row */
 /* An input's value, whole, into dst: 1 with *len its length in bytes when it fits in cap, else 0
  * with *len 0, and the caller says the value is too long. A value is never read cut short (a cut
  * paste drops lines without a word). The one caller of cd_input_text, poisoned for every other file. */

@@ -17,8 +17,7 @@ typedef struct {
   uint32_t wait_timer;               /* the wait before asking again (cd_timer_cb's token, 0: none yet) */
   int same_both, retrying;
   int64_t note_id;
-  cd_region view;                    /* all the children of its li: its chips go with it */
-  int stale;                         /* what it shows is not what it holds: the next render builds it again */
+  cd_region view;                    /* in the run's view; its chips go with it */
 } row;
 
 static row *rows;
@@ -32,13 +31,11 @@ static text daily_cap;               /* the day's cap message, once hit */
 static text *keys;                   /* the deck's dedupe keys */
 static uint32_t nkeys;
 static uint32_t next_pending, active;
-static uint32_t *row_keys;             /* the list's keys: the rows by index, one to nrows (an index is stable in a run) */
 static uint32_t tick_timer, flush_timer; /* the countdown's next second, the write of what is buffered (0: none) */
 static uint32_t *buffered, nbuffered;   /* rows finished and not written yet */
 static uint32_t **batches, *batch_n, nbatches, batch_head; /* written one at a time, in order */
 static int writing;
-static cd_id head;
-static cd_list run_rows;
+static cd_id list, head;
 static cd_region view = {.up = &page_region}, head_view = {.up = &view};
 static holder h;
 static void (*finished)(void);
@@ -82,8 +79,8 @@ static uint32_t row_note(const row *r, char *d) {
 }
 
 ON_RENDER(head_draw);
-ON_RENDER(rows_draw);
 
+/* The rows stay direct calls (row_draw): they are list rows, and a list's rows are not renders. */
 static void dirty_head(void) {
   if (shown) cd_dirty(head_draw, 0);
 }
@@ -126,19 +123,25 @@ ON_RENDER(head_draw) {
 
 ON_EVENT(retry_pressed);
 
-/* A row's li, class and contents, in its region, from what the row holds now. */
-static void row_draw(row *r, cd_id li) {
-  r->stale = 0;
-  switch (r->status) {
-  case QUEUED: cd_set_class(li, CD_LIT("bulk-run-row is-queued")); break;
-  case MAKING: cd_set_class(li, CD_LIT("bulk-run-row is-making")); break;
-  case WAITING: cd_set_class(li, CD_LIT("bulk-run-row is-waiting")); break;
-  case DONE: cd_set_class(li, CD_LIT("bulk-run-row is-done")); break;
-  case SKIPPED: cd_set_class(li, CD_LIT("bulk-run-row is-skipped")); break;
-  default: cd_set_class(li, CD_LIT("bulk-run-row is-error")); break;
-  }
+static void row_draw(uint32_t i) {
+  if (!shown) return;
+  row *r = &rows[i];
+  cd_region_hide(&r->view);
   if (!cd_region_show(&r->view, 1)) return;
-  cd_at(li, 0);
+  cd_id before = 0;
+  for (uint32_t k = i + 1; k < nrows && !before; k++)
+    if (rows[k].view.shown) before = rows[k].view.root;
+  cd_at(list, before);
+  cd_open(CD_LIT("li"));
+  cd_name_open(r->view.root);
+  switch (r->status) {
+  case QUEUED: cd_class(CD_LIT("bulk-run-row is-queued")); break;
+  case MAKING: cd_class(CD_LIT("bulk-run-row is-making")); break;
+  case WAITING: cd_class(CD_LIT("bulk-run-row is-waiting")); break;
+  case DONE: cd_class(CD_LIT("bulk-run-row is-done")); break;
+  case SKIPPED: cd_class(CD_LIT("bulk-run-row is-skipped")); break;
+  default: cd_class(CD_LIT("bulk-run-row is-error")); break;
+  }
   el(CD_LIT("span"), CD_LIT("bulk-run-state"));
   tmp_text(STATUS_LABEL[r->status], zlen(STATUS_LABEL[r->status]));
   cd_close();
@@ -161,7 +164,7 @@ static void row_draw(row *r, cd_id li) {
     cd_id retry = el_id(CD_LIT("button"), 0);
     cd_attr(CD_LIT("type"), CD_LIT("button"));
     cd_class(CD_LIT("bulk-run-retry"));
-    cd_on(retry, CD_EV_CLICK, retry_pressed, CTX_OF((uint32_t)(r - rows)));
+    cd_on(retry, CD_EV_CLICK, retry_pressed, CTX_OF(i));
     cd_text(CD_LIT("Retry"));
     cd_close();
   } else {
@@ -170,44 +173,12 @@ static void row_draw(row *r, cd_id li) {
     chip_build(0, r->target_clip.p, r->target_clip.len, l ? l : langs.learning, TONE_TARGET);
   }
   cd_close();
+  cd_close();
   cd_region_end(&r->view);
 }
 
-/* The rows are a keyed list in the run's ol, each owning a region for its contents (and so its chips). A render patches the
- * ones that changed, however many changed in the entry; the keys never change, so none is inserted after the first fill. */
-static cd_id row_create(void *ctx, uint32_t i, uint32_t *data) {
-  (void)ctx;
-  (void)data;
-  row *r = &rows[i];
-  cd_id li = cd_open_id(CD_LIT("li"));
-  r->view.parent = li;
-  cd_close();
-  row_draw(r, li);
-  return li;
-}
-static void row_patch(void *ctx, uint32_t i, cd_item *it) {
-  (void)ctx;
-  row *r = &rows[i];
-  if (!r->stale) return;
-  cd_region_hide(&r->view);
-  row_draw(r, it->node);
-}
-/* The list's DOM goes with the run's view: each row's region is taken away as the item goes. */
-static void row_destroy(void *ctx, cd_item *it) {
-  (void)ctx;
-  cd_region_forget(&rows[it->key - 1].view);
-}
-static const cd_list_fns RUN_ROWS = {0, row_create, row_patch, row_destroy};
-
-ON_RENDER(rows_draw) { cd_list_update(&run_rows, row_keys, nrows, &RUN_ROWS); }
-
-static void row_changed(uint32_t i) {
-  rows[i].stale = 1;
-  if (shown) cd_dirty(rows_draw, 0);
-}
-
 static void changed(uint32_t i) {
-  row_changed(i);
+  row_draw(i);
   dirty_head();
 }
 
@@ -319,7 +290,7 @@ static void stop_for_daily_cap(uint32_t i, const char *m, uint32_t n) {
       r->status = BROKEN;
       r->wait_left = 0;
       text_set(&r->error, m, n);
-      row_changed(k);
+      row_draw(k);
     }
   }
   dirty_head();
@@ -337,7 +308,7 @@ static void tick(void *ctx) {
   for (uint32_t k = 0; k < nrows; k++) {
     if (rows[k].wait_left > 0) {
       rows[k].wait_left--;
-      row_changed(k);
+      row_draw(k);
       any |= rows[k].wait_left > 0;
     }
   }
@@ -458,7 +429,7 @@ ON_ANSWER(write_answered) {
       r->status = DONE;
       r->note_id = k < w.nresults ? w.results[k].note_id : 0;
     }
-    row_changed(b[k]);
+    row_draw(b[k]);
   }
   dirty_head();
   cd_free(b);
@@ -498,7 +469,7 @@ ON_ANSWER(keys_answered) {
     for (uint32_t k = 0; k < nkeys; k++)
       if (same(keys[k].p, keys[k].len, buf, kn)) {
         rows[i].status = SKIPPED;
-        row_changed(i);
+        row_draw(i);
         break;
       }
     cd_free(buf);
@@ -509,12 +480,9 @@ ON_ANSWER(keys_answered) {
 
 /* The run's view goes (a new run, the form drawn again, or the page left): the one place the run's state
  * goes, its timers stopped with it. Nothing more is drawn, and the answers still in flight are dropped by
- * their run. The head's view is the view's child, and is gone before this; each row's region is the list's, forgotten here. */
+ * their run. The rows' views, the head's and their chips are the view's children, and are gone before this. */
 static void run_gone(void *ctx) {
   (void)ctx;
-  cd_list_forget(&run_rows, &RUN_ROWS);
-  cd_free(row_keys);
-  row_keys = 0;
   for (uint32_t i = 0; i < nrows; i++) {
     row *r = &rows[i];
     cd_timer_stop(r->wait_timer);
@@ -538,7 +506,6 @@ static void run_gone(void *ctx) {
   text_free(&daily_cap);
   shown = 0;
   cd_undirty(head_draw, 0);
-  cd_undirty(rows_draw, 0);
   run++;
 }
 
@@ -555,11 +522,10 @@ void bulk_start(cd_id form_box, int64_t deck, const notetype *type, const lang_p
   finished = on_finished;
   idx = amgi_fields_of(type->fields, type->nfields);
   rows = cd_alloc((n ? n : 1) * sizeof *rows);
-  row_keys = cd_alloc((n ? n : 1) * sizeof *row_keys);
   nrows = n;
   for (uint32_t i = 0; i < n; i++) {
     __builtin_memset(&rows[i], 0, sizeof rows[i]);
-    row_keys[i] = i + 1;
+    rows[i].view.up = &view;
     text_set(&rows[i].line, lines[i].p, lines[i].len);
   }
   if (!cd_region_show(&view, 1)) return;
@@ -570,13 +536,12 @@ void bulk_start(cd_id form_box, int64_t deck, const notetype *type, const lang_p
   head = el_id(CD_LIT("p"), CD_LIT("bulk-run-head"));
   head_view.parent = head;
   cd_close();
-  run_rows.parent = el_id(CD_LIT("ol"), CD_LIT("bulk-run-rows"));
-  run_rows.owns_parent = 1;
+  list = el_id(CD_LIT("ol"), CD_LIT("bulk-run-rows"));
   cd_close();
   cd_close();
   cd_region_end(&view);
   dirty_head();
-  for (uint32_t i = 0; i < n; i++) row_changed(i);
+  for (uint32_t i = 0; i < n; i++) row_draw(i);
   /* the deck's own lines first: a line already a card is not made again */
   keys_left = 0;
   int32_t fields[2] = {idx.cue, idx.target};

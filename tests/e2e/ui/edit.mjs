@@ -284,67 +284,6 @@ try {
   check(await until(b, `${badge} === 'Anki connected'`, 150), 'and let go once more');
   check(pageErrors.length === errorsBeforeBadge, `a mode change after Settings was left throws nothing${pageErrors.length > errorsBeforeBadge ? ` (${pageErrors.slice(errorsBeforeBadge).join(' / ')})` : ''}`);
 
-  // 9. The note rows are patched, not rebuilt: a row's li and its .note-row carry a mark (a JS property), a note is changed
-  // through its card, and the page of notes is read again (Anki takes the file and lets it go, as in step 5). The rows nothing
-  // changed in keep their nodes; the changed row is built again inside its li, with the new text, and its editor stays open.
-  const deckNames = `[...document.querySelectorAll('.deck-item h3')].map(h => h.textContent)`;
-  const openDeckNamed = async (deckName) => {
-    await until(b, `${deckNames}.includes(${JSON.stringify(deckName)})`, 150);
-    await click(b, `.deck-item:nth-child(${1 + (await b.evaluate(`${deckNames}.indexOf(${JSON.stringify(deckName)})`))})`);
-    await until(b, `document.querySelectorAll('.note-rows > li').length === 3`, 150);
-  };
-  await openDeckNamed(typedName);
-  await b.evaluate(`document.querySelectorAll('.note-rows > li').forEach((li, i) => { li.mark = 'li' + i; li.querySelector('.note-row').mark = 'row' + i; })`);
-  await click(b, '.note-rows > li:nth-child(2) .note-row-edit');
-  await until(b, `!!document.querySelector('.card-panel-value-big')`);
-  await click(b, '.card-panel-value-big');
-  await selectAll(b);
-  await b.send('Input.insertText', { text: '고쳤어요' });
-  await key(b, 'Enter', 'Enter', 13);
-  await sleep(1500); // saved when the field is left
-  const holder5 = holdCollectionOpen(collection);
-  await holder5.held;
-  try {
-    check(await until(b, `${badge} === 'Anki locked'`, 150), 'locked, with a note changed through its card');
-  } finally {
-    await holder5.release();
-  }
-  check(await until(b, `${badge} === 'Anki connected'`, 150), 'and let go');
-  check(await until(b, `document.querySelectorAll('.note-row-target')[1]?.textContent === '고쳤어요'`, 150), 'the page of notes read again shows the changed note');
-  const marks = await b.evaluate(`[...document.querySelectorAll('.note-rows > li')].map(li => [li.mark, li.querySelector('.note-row').mark].join())`);
-  check(marks.join(' ') === 'li0,row0 li1, li2,row2', `the note rows keep their nodes through a reload (patched, not rebuilt): the rows nothing changed in keep theirs, the changed row is built again inside its li (${marks.join(' ')})`);
-  check(await b.evaluate(`!!document.querySelector('.note-rows > li:nth-child(2).is-open .card-panel') && document.querySelector('.note-rows > li:nth-child(2) .note-row-edit').textContent === 'Close' && document.querySelectorAll('.note-rows > li.is-open').length === 1 && document.querySelector('.card-panel-value-big').value === '고쳤어요'`),
-    'and the open editor is still open in its row, showing the change');
-  await click(b, '.note-rows > li:nth-child(2) .note-row-edit'); // Close
-
-  // 10. The deck list is patched, not rebuilt: a deck is renamed on its page while the answer that follows is held, the
-  // person goes back to the list (drawn from the decks it had), and the answer comes. Every item keeps its nodes, and each
-  // shows its deck's name; a click opens the deck the item stands for.
-  await click(b, '.deck-name-button');
-  await until(b, `document.activeElement?.classList.contains('deck-name-input')`);
-  await b.send('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'End', code: 'End', windowsVirtualKeyCode: 35, commands: ['moveToEndOfLine'] });
-  await b.send('Input.insertText', { text: ' 넷' });
-  const renamedTo = await b.evaluate(`document.activeElement.value`);
-  await b.send('Fetch.enable', { patterns: [{ urlPattern: '*/api/anki/decks', requestStage: 'Request' }] });
-  held.length = 0;
-  await key(b, 'Enter', 'Enter', 13);
-  for (let i = 0; i < 100 && !held.length; i++) await sleep(100);
-  check(held.length === 1, 'the deck list asked again after the rename is held in flight');
-  await click(b, '.back-btn');
-  await until(b, `document.querySelectorAll('.deck-item').length === 7`, 150);
-  const before10 = await b.evaluate(deckNames);
-  await b.evaluate(`document.querySelectorAll('.deck-item').forEach((item) => { item.mark = item.querySelector('h3').textContent; item.querySelector('h3').mark = item.mark; })`);
-  await b.send('Fetch.continueRequest', { requestId: held[0] });
-  await b.send('Fetch.disable');
-  const want10 = before10.map((n) => (n === typedName || n.startsWith(typedName + '::') ? renamedTo + n.slice(typedName.length) : n));
-  check(await until(b, `${deckNames}.includes(${JSON.stringify(renamedTo)})`, 150), `the list shows the new name (${renamedTo})`);
-  const after10 = await b.evaluate(`[...document.querySelectorAll('.deck-item')].map(item => [item.mark, item.querySelector('h3').mark, item.querySelector('h3').textContent])`);
-  check(after10.length === want10.length && after10.every(([m, hm]) => m && m === hm), 'the deck list keeps its rows through a refresh (patched, not rebuilt): each item still carries its mark');
-  check(after10.every(([m, , t]) => want10[before10.indexOf(m)] === t), `and each shows its own deck's name now (${after10.map((r) => r[2]).join(' | ')})`);
-  await click(b, `.deck-item:nth-child(${1 + (await b.evaluate(`${deckNames}.indexOf(${JSON.stringify(renamedTo)})`))})`);
-  check(await until(b, `/^\\/deck\\/\\d+$/.test(location.pathname) && document.querySelector('.deck-name-button')?.textContent === ${JSON.stringify(renamedTo)}`, 150),
-    'and an item opens the deck it stands for');
-
   check(!pageErrors.length, `no page errors${pageErrors.length ? `: ${pageErrors.join(' / ')}` : ''}`);
 } finally {
   clearTimeout(watchdog);

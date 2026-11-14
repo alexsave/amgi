@@ -10,6 +10,10 @@ static lang_pair langs = {"en", "ko"};
 static int langs_open;
 static holder h_notes;
 static wire_notes page_notes;     /* the page on screen; its strings live in h_notes */
+/* What the rows on screen show, as a hash of the page (page_hash). A page that answers the same
+ * again (the reload after a mode change: Anki opened or closed, the lock taken or let go) leaves
+ * them as they are, so an open editor keeps its typing, its caret and its focus. 0: no rows. */
+static uint64_t rows_hash;
 static text notes_error;
 static uint32_t want_offset;
 static cd_id name_h1, title_box, sub_line, listhead_count, list_box, name_input;
@@ -18,29 +22,15 @@ static cd_region name_err = {.up = &page_region};  /* p.deck-name-error, under t
 static int renaming, rename_saving, rename_cancelled;
 static text rename_error;
 static int64_t editing = -1, deleting = -1;
-/* The notes: a keyed list in ol.note-rows, a row per note, patched when the page answers again (the reload after a mode
- * change: Anki opened or closed, the lock taken or let go), so a row nothing changed in keeps its nodes, its hover and an
- * open editor its typing, its caret and its focus. A row's key is its note's slot in note_keys (a note id is 64 bits).
- * A row owns a region, the children of its li: its text, its chips and the open editor go with it, and it is built again
- * when row_hash says what the row draws changed. The open card's editor is opened and closed in place in its row: building
- * the row again would leave the pointer over a new node the browser does not count as hovered until the mouse moves. */
-typedef struct {
-  cd_region r;
-  cd_id li, edit;   /* the row, and its Edit button's text (0 when the note type is not amgi's) */
-  int64_t id;
-  uint32_t key;
-  uint64_t last;    /* row_hash of what the row was built from */
-  int open;         /* the li says is-open and the button Close: the editor is, or is being, in this row */
-} note_row;
-static idkeys note_keys;
-static cd_list note_list;
-static int listing;                  /* ol.note-rows holds note_list's rows */
-static note_row *editor_at;          /* the row the editor is in, or 0 */
+/* The open card's editor, opened and closed in place in its row: building the rows again would
+ * leave the pointer over a new node the browser does not count as hovered until the mouse moves. */
+static cd_id *row_li, *row_edit;   /* each row's li and its Edit button's text, by row */
+static int32_t editor_row = -1;
 static cd_region sub = {.up = &page_region};       /* the count and the languages: all the children of p.deck-cards-sub */
 static cd_region body = {.up = &page_region};      /* div.empty-deck or ol.note-rows */
 static cd_region pager = {.up = &page_region};
 static cd_bound prev_off, next_off, range_lo, range_hi;
-static cd_region editor;                           /* in the open row: its .up is that row's region, set while the editor is hidden */
+static cd_region editor = {.up = &body}; /* in a row of the body */
 static cd_id known_select, learning_select;
 /* Deleting the deck, last on the page: the section's contents, what it is doing, why it failed. */
 static cd_region danger = {.up = &page_region};
@@ -314,39 +304,28 @@ void deck_build(void) {
   form_notetypes_known();
 }
 
-static const wire_note *note_with(int64_t id) {
-  for (uint32_t i = 0; i < page_notes.nnotes; i++)
-    if (page_notes.notes[i].id == id) return &page_notes.notes[i];
-  return 0;
-}
-
-/* The editor goes, whichever way (closed, or its row gone or built again): the row it was in has no editor. */
 static void editor_gone(void *ctx) {
   (void)ctx;
-  editor_at = 0;
+  editor_row = -1;
 }
 
 static void editor_close(void) {
-  note_row *r = editor_at;
-  if (!r) return;
+  if (editor_row < 0) return;
+  int32_t row = editor_row;
   cd_region_hide(&editor); /* the panel goes with it */
-  r->open = 0;
-  cd_set_class(r->li, CD_LIT("note-row-wrap"));
-  cd_set_text_node(r->edit, CD_LIT("Edit"));
+  cd_set_class(row_li[row], CD_LIT("note-row-wrap"));
+  cd_set_text_node(row_edit[row], CD_LIT("Edit"));
 }
 
-static void editor_open(note_row *r) {
-  const wire_note *n = note_with(r->id);
-  const notetype *t = n ? notetype_by_id(n->notetype_id) : 0;
-  if (!t || !r->edit) return;
-  editor.up = &r->r; /* while hidden: the region a row's chips and editor share goes with the row */
-  if (!cd_region_show(&editor, 1)) return;
+static void editor_open(uint32_t i) {
+  const wire_note *n = &page_notes.notes[i];
+  const notetype *t = notetype_by_id(n->notetype_id);
+  if (!t || !row_edit[i] || !cd_region_show(&editor, 1)) return;
   cd_on_free(0, editor_gone, 0);
-  editor_at = r;
-  r->open = 1;
-  cd_set_class(r->li, CD_LIT("note-row-wrap is-open"));
-  cd_set_text_node(r->edit, CD_LIT("Close"));
-  cd_at(r->li, 0);
+  editor_row = (int32_t)i;
+  cd_set_class(row_li[i], CD_LIT("note-row-wrap is-open"));
+  cd_set_text_node(row_edit[i], CD_LIT("Close"));
+  cd_at(row_li[i], 0);
   el(CD_LIT("div"), CD_LIT("note-row-editor"));
   cd_name_open(editor.root);
   panel_build(&editor, n->id, &n->fields, t->fields, t->nfields, &langs);
@@ -362,39 +341,8 @@ static wire_str field_named(const wire_note *n, const notetype *t, const char *n
   return (wire_str){"", 0};
 }
 
-/* FNV-1a over everything a row draws from: its note's id, type (name and field names, which pick the prompt, the cue and the
- * clips), fields, the languages its chips are labelled with, and whether its card is being deleted. A row's last value. */
-static uint64_t mix(uint64_t h, const void *p, uint32_t n) {
-  const uint8_t *b = p;
-  for (uint32_t i = 0; i < n; i++) h = (h ^ b[i]) * 0x100000001b3ull;
-  return h;
-}
-static uint64_t mix_text(uint64_t h, const char *p, uint32_t n) {
-  h = mix(h, &n, sizeof n);
-  return mix(h, p, n);
-}
-static uint64_t row_hash(const wire_note *n) {
-  const notetype *t = notetype_by_id(n->notetype_id);
-  uint64_t h = 0xcbf29ce484222325ull;
-  h = mix(h, &n->id, sizeof n->id);
-  h = mix(h, &n->notetype_id, sizeof n->notetype_id);
-  if (t) {
-    h = mix_text(h, t->name.p, t->name.len);
-    h = mix(h, &t->sort_field, sizeof t->sort_field);
-    for (uint32_t i = 0; i < t->nfields; i++) h = mix_text(h, t->fields[i].p, t->fields[i].len);
-  }
-  int flags = (t != 0) | (deleting == n->id) << 1;
-  h = mix(h, &flags, sizeof flags);
-  h = mix_text(h, langs.known, zlen(langs.known));
-  h = mix_text(h, langs.learning, zlen(langs.learning));
-  h = mix(h, &n->fields.n, sizeof n->fields.n);
-  for (uint32_t i = 0; i < n->fields.n; i++) h = mix_text(h, n->fields.v[i].p, n->fields.v[i].len);
-  return h;
-}
-
-/* A row's contents, in its region: all the children of its li. The editor opens in it when it is this note's. */
-static void row_fill(note_row *r, const wire_note *n) {
-  if (!cd_region_show(&r->r, 1)) return;
+static void row_build(uint32_t i) {
+  const wire_note *n = &page_notes.notes[i];
   const notetype *t = notetype_by_id(n->notetype_id);
   int amgi = t && same_z(t->name.p, t->name.len, AMGI_NOTETYPE_NAME);
   /* DeckContext's mapAnkiNoteToCard: the prompt is the guessed text field (the first field when the
@@ -408,8 +356,9 @@ static void row_fill(note_row *r, const wire_note *n) {
   char *front = cd_alloc(prompt.len + 1);
   uint32_t flen = strip_html(front, prompt);
 
-  r->edit = 0;
-  cd_at(r->li, 0);
+  int open = 0; /* the editor opens after the rows are built: editor_open */
+  row_li[i] = el_id(CD_LIT("li"), CD_LIT("note-row-wrap"));
+  row_edit[i] = 0;
   el(CD_LIT("div"), CD_LIT("note-row"));
   el(CD_LIT("span"), CD_LIT("note-row-target"));
   tmp_text(front, flen);
@@ -442,9 +391,9 @@ static void row_fill(note_row *r, const wire_note *n) {
     cd_id edit = el_id(CD_LIT("button"), 0);
     cd_attr(CD_LIT("type"), CD_LIT("button"));
     cd_class(CD_LIT("note-row-edit"));
-    cd_on(edit, CD_EV_CLICK, edit_pressed, CTX_OF(r->key));
-    cd_text(CD_LIT("Edit"));
-    cd_name_text(r->edit = cd_id_new());
+    cd_on(edit, CD_EV_CLICK, edit_pressed, CTX_OF(i));
+    cd_text(open ? CD_LIT("Close") : CD_LIT("Edit"));
+    cd_name_text(row_edit[i] = cd_id_new());
     cd_close();
   } else {
     el(CD_LIT("span"), CD_LIT("note-row-edit note-row-edit-off"));
@@ -465,7 +414,7 @@ static void row_fill(note_row *r, const wire_note *n) {
     attr_tmp(aria, label, (uint32_t)sizeof D - 1 + flen);
     cd_free(label);
   }
-  cd_on(del, CD_EV_CLICK, delete_pressed, CTX_OF(r->key));
+  cd_on(del, CD_EV_CLICK, delete_pressed, CTX_OF(i));
   if (deleting == n->id) {
     cd_attr(CD_LIT("disabled"), CD_LIT(""));
     cd_text(CD_LIT("…"));
@@ -474,96 +423,80 @@ static void row_fill(note_row *r, const wire_note *n) {
   }
   cd_close();
   cd_close(); /* .note-row */
-  cd_region_end(&r->r);
-  cd_free(front);
-  r->last = row_hash(n);
-  if (editing == n->id) editor_open(r);
-}
-
-static cd_id note_create(void *ctx, uint32_t i, uint32_t *data) {
-  (void)ctx;
-  (void)data;
-  const wire_note *n = &page_notes.notes[i];
-  uint32_t key = idkeys_key(&note_keys, n->id);
-  note_row *r = idkeys_row(&note_keys, key, sizeof *r);
-  r->id = n->id;
-  r->key = key;
-  r->open = 0;
-  r->li = el_id(CD_LIT("li"), CD_LIT("note-row-wrap"));
-  r->r.parent = r->li;
   cd_close();
-  row_fill(r, n);
-  return r->li;
+  cd_free(front);
 }
 
-/* The row survived: built again, its own contents only, when what it draws from changed. */
-static void note_patch(void *ctx, uint32_t i, cd_item *it) {
-  (void)ctx;
-  note_row *r = note_keys.e[it->key - 1].row;
-  const wire_note *n = &page_notes.notes[i];
-  if (row_hash(n) == r->last) return;
-  cd_region_hide(&r->r); /* the chips and the open editor go with it */
-  if (r->open) {
-    r->open = 0;
-    cd_set_class(r->li, CD_LIT("note-row-wrap"));
+/* FNV-1a over everything the rows draw from: the page's place, each note's id, type, fields and
+ * tags, and the page's own state a row shows. */
+static uint64_t mix(uint64_t h, const void *p, uint32_t n) {
+  const uint8_t *b = p;
+  for (uint32_t i = 0; i < n; i++) h = (h ^ b[i]) * 0x100000001b3ull;
+  return h;
+}
+static uint64_t mix_strs(uint64_t h, const wire_strs *v) {
+  h = mix(h, &v->n, sizeof v->n);
+  for (uint32_t i = 0; i < v->n; i++) {
+    h = mix(h, &v->v[i].len, sizeof v->v[i].len);
+    h = mix(h, v->v[i].p, v->v[i].len);
   }
-  row_fill(r, n);
+  return h;
 }
-
-/* The note left the page: its region goes, and with it a chip, and the editor if it is open here (editing stays: the editor
- * opens again when the note comes back on a page). */
-static void note_destroy(void *ctx, cd_item *it) {
-  (void)ctx;
-  cd_region_forget(&((note_row *)note_keys.e[it->key - 1].row)->r);
-  idkeys_drop(&note_keys, it->key);
+static uint64_t page_hash(void) {
+  uint64_t h = 0xcbf29ce484222325ull;
+  /* what else a row shows: the card being deleted, and the languages its chips are labelled with */
+  h = mix(h, &deleting, sizeof deleting);
+  h = mix(h, &langs, sizeof langs);
+  h = mix(h, &page_notes.offset, sizeof page_notes.offset);
+  h = mix(h, &page_notes.has_more, sizeof page_notes.has_more);
+  for (uint32_t i = 0; i < page_notes.nnotes; i++) {
+    const wire_note *n = &page_notes.notes[i];
+    h = mix(h, &n->id, sizeof n->id);
+    h = mix(h, &n->notetype_id, sizeof n->notetype_id);
+    h = mix_strs(h, &n->fields);
+    h = mix_strs(h, &n->tags);
+  }
+  return h | 1; /* never 0, which means no rows */
 }
-
-static const cd_list_fns NOTE_ROWS = {0, note_create, note_patch, note_destroy};
 
 static void rows_gone(void *ctx) {
   (void)ctx;
-  cd_list_forget(&note_list, &NOTE_ROWS);
-  listing = 0;
+  rows_hash = 0;
 }
 
 ON_RENDER(rows_view) {
-  int list = !notes_error.len && notes_known && notetypes_known && page_notes.nnotes;
-  if (!(list && listing)) { /* a notice is built each time; the list once, then patched */
-    cd_region_hide(&body);
-    if (!cd_region_show(&body, 1)) return;
-    cd_at(list_box, pager.shown ? pager.root : 0); /* the pager stays, after the rows */
-    if (notes_error.len) {
-      el(CD_LIT("div"), CD_LIT("empty-deck"));
-      cd_name_open(body.root);
-      cd_open(CD_LIT("p"));
-      cd_text(CD_LIT("Could not load this deck's notes: "));
-      tmp_text(notes_error.p, notes_error.len);
-      cd_close();
-      cd_close();
-    } else if (!list) {
-      el(CD_LIT("div"), CD_LIT("empty-deck"));
-      cd_name_open(body.root);
-      cd_open(CD_LIT("p"));
-      cd_text(notes_known && notetypes_known && !notes_loading ? CD_LIT("No notes in this deck yet.") : CD_LIT("Loading notes…"));
-      cd_close();
-      cd_close();
-    } else {
-      el(CD_LIT("ol"), CD_LIT("note-rows"));
-      cd_name_open(body.root);
-      cd_close();
-      note_list.parent = body.root;
-      note_list.owns_parent = 1;
-      listing = 1;
-      cd_on_free(0, rows_gone, 0);
-    }
-    cd_region_end(&body);
+  cd_region_hide(&body); /* the open editor, and every chip, go with it */
+  if (!cd_region_show(&body, 1)) return;
+  cd_on_free(0, rows_gone, 0);
+  cd_at(list_box, pager.shown ? pager.root : 0); /* the pager stays, after the rows */
+  if (notes_error.len) {
+    el(CD_LIT("div"), CD_LIT("empty-deck"));
+    cd_name_open(body.root);
+    cd_open(CD_LIT("p"));
+    cd_text(CD_LIT("Could not load this deck's notes: "));
+    tmp_text(notes_error.p, notes_error.len);
+    cd_close();
+    cd_close();
+  } else if (!notes_known || !notetypes_known || !page_notes.nnotes) {
+    el(CD_LIT("div"), CD_LIT("empty-deck"));
+    cd_name_open(body.root);
+    cd_open(CD_LIT("p"));
+    cd_text(notes_known && notetypes_known && !notes_loading ? CD_LIT("No notes in this deck yet.") : CD_LIT("Loading notes…"));
+    cd_close();
+    cd_close();
+  } else {
+    el(CD_LIT("ol"), CD_LIT("note-rows"));
+    cd_name_open(body.root);
+    row_li = cd_realloc(row_li, (page_notes.nnotes + 1) * sizeof *row_li);
+    row_edit = cd_realloc(row_edit, (page_notes.nnotes + 1) * sizeof *row_edit);
+    for (uint32_t i = 0; i < page_notes.nnotes; i++) row_build(i);
+    cd_close();
+    rows_hash = page_hash();
   }
-  if (list) {
-    uint32_t *keys = cd_alloc(page_notes.nnotes * sizeof *keys);
-    for (uint32_t i = 0; i < page_notes.nnotes; i++) keys[i] = idkeys_key(&note_keys, page_notes.notes[i].id);
-    cd_list_update(&note_list, keys, page_notes.nnotes, &NOTE_ROWS);
-    cd_free(keys);
-  }
+  /* inside the body's build, so the editor is the body's child whether the body is built by the page or by an answer */
+  for (uint32_t i = 0; editing >= 0 && notes_known && i < page_notes.nnotes; i++)
+    if (page_notes.notes[i].id == editing) editor_open(i);
+  cd_region_end(&body);
   dirty(pager_view);
 }
 
@@ -813,7 +746,7 @@ ON_ANSWER(notes_answered) {
   wire_notes next = {0};
   answer a = take(&h_next, WK_NOTES, status, p, len, &next);
   notes_loading = 0;
-  if (!a.ok && listing && want_offset == page_notes.offset) {
+  if (!a.ok && rows_hash && want_offset == page_notes.offset) {
     /* The same page asked for again, and not answered: Anki took the file (the badge says so) or the
      * bridge went. The rows on screen are still what the deck holds; keep them, and an open editor. */
     holder_free(&h_next);
@@ -826,6 +759,7 @@ ON_ANSWER(notes_answered) {
   if (a.ok) {
     notes_known = 1;
     text_free(&notes_error);
+    if (rows_hash && notetypes_known && page_hash() == rows_hash) return; /* the same rows: keep them */
   } else {
     char m[512];
     text_set(&notes_error, m, answer_message(&a, m, sizeof m));
@@ -847,18 +781,19 @@ ON_EVENT(prev_pressed) {
 ON_EVENT(next_pressed) {
   if (page_notes.has_more && !notes_loading) ask_notes(page_notes.offset + PAGE_SIZE);
 }
-/* ctx of both: the row's key */
 ON_EVENT(edit_pressed) {
-  int64_t id = idkeys_id(&note_keys, CTX_INDEX(ctx));
-  if (!id) return;
+  uint32_t i = CTX_INDEX(ctx);
+  if (i >= page_notes.nnotes) return;
+  int64_t id = page_notes.notes[i].id;
   int was = editing == id;
   editor_close();
   editing = was ? -1 : id;
-  if (!was) editor_open(note_keys.e[CTX_INDEX(ctx) - 1].row);
+  if (!was) editor_open(i);
 }
 ON_EVENT(delete_pressed) {
-  const wire_note *n = note_with(idkeys_id(&note_keys, CTX_INDEX(ctx)));
-  if (!n || deleting >= 0) return;
+  uint32_t i = CTX_INDEX(ctx);
+  if (i >= page_notes.nnotes || deleting >= 0) return;
+  const wire_note *n = &page_notes.notes[i];
   const notetype *t = notetype_by_id(n->notetype_id);
   field_guess g = {0, -1, -1};
   if (t) g = guess_fields(t->fields, t->nfields, t->sort_field);

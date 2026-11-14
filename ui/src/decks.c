@@ -2,19 +2,12 @@
 #include "app.h"
 
 
-static cd_region rows = {.up = &page_region};  /* what .deck-list holds: all its children (a notice, or the list's rows) */
+static cd_region rows = {.up = &page_region};  /* the rows: all the children of .deck-list */
 static cd_region modal = {.up = &page_region}; /* CreateDeckModal, between the header and the list */
 static cd_region modal_err = {.up = &modal};
 static cd_id modal_form, modal_input, modal_buttons;
 static text modal_error;
 static int shown, setup, creating;
-
-/* The deck list: a keyed list in .deck-list, its rows patched from decks[] and kept across an answer. A row's key is its deck's
- * slot in deck_keys (a deck id is 64 bits). What a row last showed is its own: the name's interned id, the count. */
-typedef struct { cd_id name, count, plural; cd_str shown_name; uint32_t shown_count; } deck_row;
-static idkeys deck_keys;
-static cd_list deck_list;
-static int listing;                              /* .deck-list holds deck_list's rows */
 
 static void dirty(cd_render_fn view, const int *alive) {
   if (*alive) cd_dirty(view, 0);
@@ -24,8 +17,8 @@ ON_RENDER(modal_error_view);
 
 ON_EVENT(new_deck);
 ON_EVENT(open_deck) {
-  int64_t id = idkeys_id(&deck_keys, CTX_INDEX(ctx)); /* ctx: the row's key */
-  if (id) go_deck(id);
+  uint32_t i = CTX_INDEX(ctx);
+  if (i < ndecks) go_deck(decks[i].id);
 }
 
 static void screen_gone(void *ctx) {
@@ -66,111 +59,48 @@ int decks_setup_shown(void) { return shown && setup; }
 
 void decks_rows(void) { dirty(rows_view, &shown); }
 
-static const char *plural_of(uint32_t count) { return count != 1 ? "s" : ""; }
-
-static cd_id deck_create(void *ctx, uint32_t i, uint32_t *data) {
-  (void)ctx;
-  (void)data;
-  const deck *d = &decks[i];
-  uint32_t key = idkeys_key(&deck_keys, d->id);
-  deck_row *r = idkeys_row(&deck_keys, key, sizeof *r);
-  cd_id item = el_id(CD_LIT("div"), CD_LIT("deck-item"));
-  cd_on(item, CD_EV_CLICK, open_deck, CTX_OF(key));
-  el(CD_LIT("div"), CD_LIT("deck-info"));
-  el(CD_LIT("h3"), 0);
-  cd_text(d->name);
-  cd_name_text(r->name = cd_id_new());
-  cd_close();
-  cd_open(CD_LIT("small"));
-  /* three text nodes, as DeckItem's JSX makes them: the browser shapes text node by text node,
-   * and "3 notes" as one run kerns the "3" 1 px from where React draws it. The third is empty for one note. */
-  cd_text_num(d->count);
-  cd_name_text(r->count = cd_id_new());
-  cd_text(CD_LIT(" note"));
-  cd_text(cd_internz(plural_of(d->count)));
-  cd_name_text(r->plural = cd_id_new());
-  cd_close();
-  cd_close();
-  cd_close();
-  r->shown_name = d->name;
-  r->shown_count = d->count;
-  return item;
-}
-
-static void deck_patch(void *ctx, uint32_t i, cd_item *it) {
-  (void)ctx;
-  const deck *d = &decks[i];
-  deck_row *r = deck_keys.e[it->key - 1].row;
-  if (d->name != r->shown_name) {
-    cd_set_text_node(r->name, d->name);
-    r->shown_name = d->name;
-  }
-  if (d->count == r->shown_count) return;
-  cd_set_text_node_num(r->count, d->count);
-  if ((d->count != 1) != (r->shown_count != 1)) cd_set_text_node(r->plural, cd_internz(plural_of(d->count)));
-  r->shown_count = d->count;
-}
-
-static void deck_destroy(void *ctx, cd_item *it) {
-  (void)ctx;
-  deck_row *r = deck_keys.e[it->key - 1].row;
-  cd_id_free(r->name);
-  cd_id_free(r->count);
-  cd_id_free(r->plural);
-  idkeys_drop(&deck_keys, it->key);
-}
-
-static const cd_list_fns DECK_ROWS = {0, deck_create, deck_patch, deck_destroy};
-
-/* The list's DOM goes with the region that holds it; its ids and rows are the list's own. */
-static void list_gone(void *ctx) {
-  (void)ctx;
-  cd_list_forget(&deck_list, &DECK_ROWS);
-  listing = 0;
-}
-
-/* The list, or what stands in for it; the setup screen and the starter offer come with it. A notice is built each time;
- * the list is built once, then patched. */
+/* The list, or what stands in for it; the setup screen and the starter offer come with it. */
 ON_RENDER(rows_view) {
   if (setup) {
     firstrun_show(page_root());
     return;
   }
-  int list = ready() && ndecks;
-  if (!(list && listing)) {
-    cd_region_hide(&rows);
-    if (!cd_region_show(&rows, 1)) return;
-    cd_at(rows.parent, 0);
-    if (!ready()) {
-      /* Not ready wins over whatever decks are still in hand: a list you cannot act on, under a
-       * badge saying so, read as data loss. Say what the mode means instead. */
-      el(CD_LIT("div"), CD_LIT("empty-deck-state"));
-      cd_open(CD_LIT("p"));
-      cd_attr(CD_LIT("style"), CD_LIT("max-width: 32rem; text-align: center; color: var(--text-secondary);"));
-      cd_text(cd_internz(present(mode)->title));
+  cd_region_hide(&rows);
+  if (!cd_region_show(&rows, 1)) return;
+  cd_at(rows.parent, 0);
+  if (!ready()) {
+    /* Not ready wins over whatever decks are still in hand: a list you cannot act on, under a
+     * badge saying so, read as data loss. Say what the mode means instead. */
+    el(CD_LIT("div"), CD_LIT("empty-deck-state"));
+    cd_open(CD_LIT("p"));
+    cd_attr(CD_LIT("style"), CD_LIT("max-width: 32rem; text-align: center; color: var(--text-secondary);"));
+    cd_text(cd_internz(present(mode)->title));
+    cd_close();
+    cd_close();
+  } else if (!ndecks) {
+    el(CD_LIT("div"), CD_LIT("empty-deck-state"));
+    cd_on(el_id(CD_LIT("button"), CD_LIT("create-first-deck-btn")), CD_EV_CLICK, new_deck, 0);
+    icon(ICON_PLUS, 0, CD_LIT("height: 20px; width: 20px;"));
+    el_text(CD_LIT("span"), 0, CD_LIT("Create your first deck"));
+    cd_close();
+    cd_close();
+  } else {
+    for (uint32_t i = 0; i < ndecks; i++) {
+      cd_on(el_id(CD_LIT("div"), CD_LIT("deck-item")), CD_EV_CLICK, open_deck, CTX_OF(i));
+      el(CD_LIT("div"), CD_LIT("deck-info"));
+      el_text(CD_LIT("h3"), 0, decks[i].name);
+      cd_open(CD_LIT("small"));
+      /* three text nodes, as DeckItem's JSX makes them: the browser shapes text node by text node,
+       * and "3 notes" as one run kerns the "3" 1 px from where React draws it */
+      cd_text_num(decks[i].count);
+      cd_text(CD_LIT(" note"));
+      if (decks[i].count != 1) cd_text(CD_LIT("s"));
       cd_close();
       cd_close();
-    } else if (!ndecks) {
-      el(CD_LIT("div"), CD_LIT("empty-deck-state"));
-      cd_on(el_id(CD_LIT("button"), CD_LIT("create-first-deck-btn")), CD_EV_CLICK, new_deck, 0);
-      icon(ICON_PLUS, 0, CD_LIT("height: 20px; width: 20px;"));
-      el_text(CD_LIT("span"), 0, CD_LIT("Create your first deck"));
       cd_close();
-      cd_close();
-    } else {
-      deck_list.parent = rows.parent;
-      deck_list.owns_parent = 1;
-      listing = 1;
-      cd_on_free(0, list_gone, 0);
     }
-    cd_region_end(&rows);
   }
-  if (list) {
-    uint32_t *keys = cd_alloc(ndecks * sizeof *keys);
-    for (uint32_t i = 0; i < ndecks; i++) keys[i] = idkeys_key(&deck_keys, decks[i].id);
-    cd_list_update(&deck_list, keys, ndecks, &DECK_ROWS);
-    cd_free(keys);
-  }
+  cd_region_end(&rows);
   /* Below the list, and only when ready: the free sample deck, for a machine with no key. */
   if (ready()) starter_show(page_root());
 }
