@@ -24,7 +24,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(here, '..', '..', '..');
 const cdom = process.env.CDOM || path.join(root, 'cdom');
 const { sleep } = await import(path.join(cdom, 'tools', 'cdp.mjs'));
-const { launchChrome } = await import('./chrome.mjs');
+const { launchChrome, shotter } = await import('./chrome.mjs');
 const { holdCollectionOpen } = createRequire(import.meta.url)('../../server/plusaudio/collection/helpers/anki-python.js');
 const [base, name, work, outArg] = process.argv.slice(2);
 const out = outArg || path.join(here, '..', '..', '..', 'ui', 'out', 'shots');
@@ -70,10 +70,7 @@ async function open(settings) {
   await seed(b, base, { baseDir: settings.base, collection: settings.collection || '', ...settings.bridge });
   return b;
 }
-const shot = async (b, file) => {
-  const { result } = await b.send('Page.captureScreenshot', { format: 'png' });
-  fs.writeFileSync(path.join(out, `${name}-${file}.png`), Buffer.from(result.data, 'base64'));
-};
+const shot = shotter(out, name);
 const badge = `document.querySelector('nav.navbar span[title]')?.textContent`;
 const steps = `[...document.querySelectorAll('.first-run-step-text')].map(s => s.textContent).join(' | ')`;
 

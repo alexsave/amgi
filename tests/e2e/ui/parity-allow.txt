@@ -1,0 +1,4 @@
+# Shots that legitimately differ between two runs of the same screen (a clock, a timing), one per line:
+#   <file> <reason>
+# <file> is the name as it sits in the shots folder (a .png, or the .html beside it).
+# Every entry needs its reason: a line without one is refused by parity.sh.
