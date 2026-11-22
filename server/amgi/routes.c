@@ -328,6 +328,9 @@ static void h_audio(rq *q) {
   amgi_audio(q->a, &q->o, q->t.mode, q->body, q->res);
 }
 
+/* Asked several times a second while cards are made: it reads no setting and opens no collection. */
+static void h_progress(rq *q) { amgi_progress(q->a, q->res); }
+
 static void h_starter_get(rq *q) { amgi_starter_get(q->a, q->res); }
 static void h_starter_post(rq *q) {
   if (!ready(q)) return;
@@ -416,6 +419,7 @@ static const amgi_route ROUTES[] = {
   {"GET", "starter", "/api/anki/starter", -1, h_starter_get},
   {"POST", "starter", "/api/anki/starter", WK_Q_STARTER, h_starter_post},
   {"GET", "media/:filename", "/api/anki/media/:filename", -1, h_media},
+  {"GET", "progress", "/api/anki/progress", -1, h_progress},
 };
 #define NROUTES (sizeof ROUTES / sizeof *ROUTES)
 
@@ -524,8 +528,8 @@ static void dispatch(cb_ctx *ctx, size_t i, const cb_http_req *req, cb_http_res 
 #define THUNK(i) \
   static void h##i(cb_ctx *ctx, const cb_http_req *req, cb_http_res *res) { dispatch(ctx, i, req, res); }
 THUNK(0) THUNK(1) THUNK(2) THUNK(3) THUNK(4) THUNK(5) THUNK(6) THUNK(7) THUNK(8) THUNK(9) THUNK(10)
-THUNK(11) THUNK(12) THUNK(13) THUNK(14) THUNK(15) THUNK(16) THUNK(17) THUNK(18) THUNK(19) THUNK(20)
-_Static_assert(NROUTES == 21, "one cbase handler per route");
+THUNK(11) THUNK(12) THUNK(13) THUNK(14) THUNK(15) THUNK(16) THUNK(17) THUNK(18) THUNK(19) THUNK(20) THUNK(21)
+_Static_assert(NROUTES == 22, "one cbase handler per route");
 
 /* ---- the page and its files ---- */
 static void h_root(cb_ctx *ctx, const cb_http_req *req, cb_http_res *res) {
@@ -589,6 +593,7 @@ static const cb_route AMGI_ROUTES[] = {
   {.method = "GET", .pattern = "/api/anki/starter", .flags = CB_ROUTE_POOL, .fn = h18},
   {.method = "POST", .pattern = "/api/anki/starter", .flags = CB_ROUTE_POOL, .fn = h19},
   {.method = "GET", .pattern = "/api/anki/media/:filename", .flags = CB_ROUTE_POOL, .fn = h20},
+  {.method = "GET", .pattern = "/api/anki/progress", .flags = CB_ROUTE_POOL, .fn = h21},
   ANY("/api/anki/*", h_api_fallback),
   ANY("/", h_root),
   ANY("/decks", h_page),
@@ -611,6 +616,7 @@ void amgi_slow_full(cb_ctx *ctx, const cb_http_req *req, cb_http_res *res) {
   e.has_retry = 1;
   e.retry_after_ms = 2000;
   e.not_started = 1;
+  e.no_slot = 1;
   amgi_send_error(&a, res, 429, &e);
   ar_free(&a);
 }

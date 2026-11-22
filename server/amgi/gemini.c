@@ -503,7 +503,7 @@ static str grpc_message(arena *a, str m) {
   return t;
 }
 
-int gem_generate(arena *a, const char *model, const gem_request *req, gem_response *out, gem_err *e) {
+int gem_generate(arena *a, progress *p, const char *model, const gem_request *req, gem_response *out, gem_err *e) {
   if (!g_channel) return gem_fail(a, e, GE_FATAL, "%s", MISSING_KEY_MESSAGE), -1;
   const char *key = getenv("GEMINI_API_KEY");
   if (!key || !*key) return gem_fail(a, e, GE_FATAL, "%s", MISSING_KEY_MESSAGE), -1;
@@ -522,7 +522,9 @@ int gem_generate(arena *a, const char *model, const gem_request *req, gem_respon
         e->retry_after_ms = wait;
         break;
       }
+      progress_wait(p, wait);
       sleep_ms(wait);
+      progress_wait(p, 0);
       waited += wait;
       continue;
     }
@@ -676,13 +678,13 @@ int gem_audio_to_wav(arena *a, str mime, str bytes, str *wav, str *error) {
   return -1;
 }
 
-int gem_synthesize(arena *a, str text, const char *voice, str *wav, gem_err *e) {
+int gem_synthesize(arena *a, progress *p, str text, const char *voice, str *wav, gem_err *e) {
   gem_request req = {0};
   req.parts[0].text = text;
   req.nparts = 1;
   req.voice = voice;
   gem_response r;
-  if (gem_generate(a, TTS_MODEL, &req, &r, e)) return -1;
+  if (gem_generate(a, p, TTS_MODEL, &req, &r, e)) return -1;
   gem_part_out *audio[64];
   size_t n = 0;
   for (size_t i = 0; i < r.nparts && n < 64; i++)

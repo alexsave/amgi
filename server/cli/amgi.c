@@ -796,7 +796,7 @@ static int cmd_card(int argc, char **argv) {
     fields[l.idx.target] = (wire_str){back, (uint32_t)strlen(back)};
   } else {
     wire_q_card_text q = {{text, (uint32_t)strlen(text)}, {from, (uint32_t)strlen(from)}, {to, (uint32_t)strlen(to)},
-                          (uint8_t)(no_audio ? 0 : 1)};
+                          (uint8_t)(no_audio ? 0 : 1), 0 /* unwatched */};
     const wire_card_text *t = generate(&a, &s, &q, &rc);
     if (!t) goto out;
     fields[l.idx.cue] = t->front_text;

@@ -1,19 +1,29 @@
-/* BulkRun: the lines being made into cards, one row each, five at a time. Each line asks for its
- * card's text and clips (POST /card-text); Gemini's limits come back as 429s, which the row waits
+/* BulkRun: the lines being made into cards, one row each, five at a time, each saying the step it is at.
+ * The steps before and after a card's request are the page's own (checking for duplicates, the slot, the
+ * batch, the write); those inside it are the server's, polled while any card is out (GET /progress).
+ * Each line asks for its card's text and clips (POST /card-text); Gemini's limits come back as 429s, which the row waits
  * out with a countdown (notStarted: nothing was spent, wait and ask again; started: wait, within
  * the card's budget, the server's maxWaitMs; dailyCap: the day is spent, every line still to go
  * stops). Finished cards are written in batches (ten, or every three seconds) so closing the tab
  * cannot cost more than a few, and the deck is refreshed once at the end. */
 #include "app.h"
 
-enum { QUEUED, MAKING, WAITING, DONE, SKIPPED, BROKEN };
+/* CHECKING: the deck's lines are not known yet. QUEUED: no slot yet, the page's or (wait_left) the server's.
+ * MAKING: the request is out, at `step`. WAITING: Gemini's limit, until it is asked again. BATCHED: made, its
+ * write not sent. SAVING: the write is out. */
+enum { CHECKING, QUEUED, MAKING, WAITING, BATCHED, SAVING, DONE, SKIPPED, BROKEN };
 #define CONCURRENCY 5
 #define FLUSH_SIZE 10
 #define FLUSH_MS 3000
+#define POLL_FIRST_MS 50 /* a card just asked for: its first step, soon */
+#define POLL_MS 250      /* from one progress answer to the next question, so never two out */
 
 typedef struct {
   text line, cue, target, cue_clip, target_clip, cue_ref, target_ref, error;
   uint32_t status, wait_left, budget_ms;
+  uint32_t progress_id;              /* this request's, new each time the line is asked */
+  uint32_t step, step_take, step_takes; /* what the server last said of it (WP_*) */
+  uint32_t step_wait;                /* seconds left of the server's own wait on Gemini's limit */
   uint32_t wait_timer;               /* the wait before asking again (cd_timer_cb's token, 0: none yet) */
   int same_both, retrying;
   int64_t note_id;
@@ -39,6 +49,9 @@ static cd_id list, head;
 static cd_region view = {.up = &page_region}, head_view = {.up = &view};
 static holder h;
 static void (*finished)(void);
+static cd_timer_slot poll_timer;
+static int poll_out;
+static uint32_t last_progress_id;    /* from one draw a page, so two tabs' cards do not share a number */
 
 /* A request's ctx: the run that asked and the row or batch it is for. A request cannot be taken
  * back, so an answer for a run that is over (a later run, or the view gone) is dropped by its run. */
@@ -50,8 +63,39 @@ static int current(void *ctx, uint32_t *i) {
 ON_ANSWER(keys_answered);
 ON_ANSWER(line_answered);
 ON_ANSWER(write_answered);
+ON_ANSWER(progress_answered);
 
-static const char *const STATUS_LABEL[] = {"queued", "making…", "rate limited", "in the deck", "already here", "failed"};
+static const char *const STATUS_LABEL[] = {
+  [CHECKING] = "checking for duplicates",
+  [QUEUED] = "waiting for slot",
+  [MAKING] = "waiting for slot", /* asked, and the server has not started it (WP_NONE) */
+  [WAITING] = "waiting for rate limit",
+  [BATCHED] = "waiting for batch",
+  [SAVING] = "writing to Anki",
+  [DONE] = "in the deck",
+  [SKIPPED] = "already here",
+  [BROKEN] = "failed",
+};
+static const char *const STEP_LABEL[] = {
+  [WP_WRITING] = "writing both sides",
+  [WP_TARGET_REUSE] = "checking target reuse",
+  [WP_TARGET_RECORDING] = "recording target",
+  [WP_TARGET_TRANSCRIBING] = "transcribing target",
+  [WP_TARGET_JUDGING] = "judging target",
+  [WP_TARGET_STORING] = "storing target",
+  [WP_CUE_REUSE] = "checking cue reuse",
+  [WP_CUE_RECORDING] = "recording cue",
+  [WP_CUE_TRANSCRIBING] = "transcribing cue",
+  [WP_CUE_JUDGING] = "judging cue",
+  [WP_CUE_STORING] = "storing cue",
+};
+_Static_assert(sizeof STEP_LABEL / sizeof *STEP_LABEL == WP_STEPS, "every step the server names has its words");
+
+static int rate_limited(const row *r) { return r->status == WAITING || (r->status == MAKING && r->step_wait); }
+static const char *state_label(const row *r) {
+  if (rate_limited(r)) return STATUS_LABEL[WAITING];
+  return r->status == MAKING && r->step ? STEP_LABEL[r->step] : STATUS_LABEL[r->status];
+}
 
 static uint32_t seconds(uint32_t ms) { return ms < 1000 ? 1 : (ms + 999) / 1000; }
 
@@ -65,15 +109,11 @@ static uint32_t catn(char *d, uint32_t n, uint32_t v) { return n + cd_fmt(d + n,
 /* What a row says on its right, in the order a person needs it (BulkRun's rowNote). */
 static uint32_t row_note(const row *r, char *d) {
   if (r->status == BROKEN) return cat(d, 0, r->error.p ? r->error.p : "", r->error.len);
-  if (r->status == WAITING || r->wait_left > 0) {
-    uint32_t n = 0;
-    if (r->wait_left > 0) {
-      n = catz(d, 0, r->status == WAITING ? "rate limited, retrying in " : "waiting for rate limit, retrying in ");
-      n = catn(d, n, r->wait_left);
-      return catz(d, n, "s…");
-    }
-    return r->status == WAITING ? catz(d, 0, "rate limited, retrying…") : 0;
+  if (r->status == WAITING || r->wait_left > 0) { /* asked again when it is over */
+    if (!r->wait_left) return catz(d, 0, "retrying…");
+    return catz(d, catn(d, catz(d, 0, "retrying in "), r->wait_left), "s…");
   }
+  if (rate_limited(r)) return catz(d, catn(d, catz(d, 0, "continuing in "), r->step_wait), "s…");
   if (r->same_both) return catz(d, 0, "both sides came back the same - open it and fix the wording");
   return cat(d, 0, r->cue.p ? r->cue.p : "", r->cue.len);
 }
@@ -94,7 +134,7 @@ ON_RENDER(head_draw) {
     done += rows[i].status == DONE;
     skipped += rows[i].status == SKIPPED;
     failed += rows[i].status == BROKEN;
-    waiting += rows[i].status == WAITING || rows[i].wait_left > 0;
+    waiting += rate_limited(&rows[i]);
   }
   char t[96];
   uint32_t n;
@@ -134,16 +174,27 @@ static void row_draw(uint32_t i) {
   cd_at(list, before);
   cd_open("li");
   cd_name_open(r->view.root);
-  switch (r->status) {
+  switch (rate_limited(r) ? WAITING : r->status) {
+  case CHECKING:
   case QUEUED: cd_class("bulk-run-row is-queued"); break;
-  case MAKING: cd_class("bulk-run-row is-making"); break;
+  case MAKING:
+  case BATCHED:
+  case SAVING: cd_class("bulk-run-row is-making"); break;
   case WAITING: cd_class("bulk-run-row is-waiting"); break;
   case DONE: cd_class("bulk-run-row is-done"); break;
   case SKIPPED: cd_class("bulk-run-row is-skipped"); break;
   default: cd_class("bulk-run-row is-error"); break;
   }
   el("span", "bulk-run-state");
-  tmp_text(STATUS_LABEL[r->status], zlen(STATUS_LABEL[r->status]));
+  cd_text(state_label(r));
+  if (r->status == MAKING && !r->step_wait && r->step_take > 1) {
+    el("span", "bulk-run-take");
+    cd_text("take ");
+    cd_text_num(r->step_take);
+    cd_text(" of ");
+    cd_text_num(r->step_takes);
+    cd_close();
+  }
   cd_close();
   el("span", "bulk-run-text");
   const text *shown_text = r->target.len ? &r->target : &r->line;
@@ -212,6 +263,8 @@ static void write_next(void) {
   wire_str *all = cd_alloc((n * (nt->nfields + 1)) * sizeof *all);
   for (uint32_t k = 0; k < n; k++) {
     row *r = &rows[b[k]];
+    r->status = SAVING;
+    row_draw(b[k]);
     wire_str *f = all + k * (nt->nfields + 1);
     for (uint32_t j = 0; j < nt->nfields; j++) f[j] = (wire_str){"", 0};
     if (idx.cue >= 0) f[idx.cue] = (wire_str){r->cue.p, r->cue.len};
@@ -247,15 +300,72 @@ static void maybe_done(void) {
   }
 }
 
+/* ---- the steps inside a card's request ---- */
+static void poll(void *ctx) {
+  (void)ctx;
+  if (poll_out) return;
+  for (uint32_t i = 0; i < nrows; i++)
+    if (rows[i].status == MAKING) {
+      poll_out = 1;
+      ask(progress_answered, asked(0), "GET", "/progress", WIRE_NONE, 0);
+      return;
+    }
+}
+
+ON_ANSWER(progress_answered) {
+  uint32_t unused;
+  if (!current(ctx, &unused)) return;
+  poll_out = 0;
+  wire_progress w;
+  answer a = take(&h, WK_PROGRESS, status, p, len, &w);
+  if (a.ok) {
+    for (uint32_t i = 0; i < nrows; i++) {
+      row *r = &rows[i];
+      if (r->status != MAKING) continue; /* it answered while this was out */
+      for (uint32_t k = 0; k < w.ncards; k++) {
+        const wire_card_progress *c = &w.cards[k];
+        if (c->id != r->progress_id || c->step >= WP_STEPS) continue;
+        uint32_t wait = c->wait_ms ? seconds(c->wait_ms) : 0;
+        int written = c->back_text.len && !r->target.len;
+        if (c->step == r->step && c->take == r->step_take && wait == r->step_wait && !written) break;
+        r->step = c->step;
+        r->step_take = c->take;
+        r->step_takes = c->takes;
+        r->step_wait = wait;
+        if (written) {
+          text_set(&r->cue, c->front_text.p, c->front_text.len);
+          text_set(&r->target, c->back_text.p, c->back_text.len);
+        }
+        changed(i);
+        break;
+      }
+    }
+  } /* not answered: the rows keep the step they last heard */
+  cd_timer_set(&poll_timer, POLL_MS, poll, 0);
+}
+
 /* ---- the lines ---- */
+/* What the line's last request made or said goes: the sides and the step. */
+static void attempt_forget(row *r) {
+  text *made[] = {&r->cue, &r->target, &r->cue_clip, &r->target_clip, &r->cue_ref, &r->target_ref};
+  for (uint32_t k = 0; k < sizeof made / sizeof *made; k++) text_free(made[k]);
+  r->step = r->step_take = r->step_takes = r->step_wait = 0;
+  r->same_both = 0;
+}
 static void line_ask(uint32_t i) {
   row *r = &rows[i];
+  attempt_forget(r);
   r->status = MAKING;
   r->wait_left = 0;
+  if (!last_progress_id) last_progress_id = cd_rand();
+  if (!++last_progress_id) last_progress_id = 1; /* 0 names no card */
+  r->progress_id = last_progress_id;
   text_free(&r->error);
   changed(i);
-  wire_q_card_text q = {{r->line.p, r->line.len}, {langs.known, zlen(langs.known)}, {langs.learning, zlen(langs.learning)}, 1};
+  wire_q_card_text q = {{r->line.p, r->line.len}, {langs.known, zlen(langs.known)}, {langs.learning, zlen(langs.learning)}, 1,
+                        r->progress_id};
   ask(line_answered, asked(i), "POST", "/card-text", WK_Q_CARD_TEXT, &q);
+  if (!poll_out) cd_timer_set(&poll_timer, POLL_FIRST_MS, poll, 0);
 }
 
 static void start_more(void);
@@ -355,6 +465,8 @@ ON_ANSWER(line_answered) {
     text_set(&r->target_ref, c.audio.reference.p, c.audio.reference.len);
     wire_str f = trim(c.front_text), b = trim(c.back_text);
     r->same_both = same(f.p, f.len, b.p, b.len);
+    r->status = BATCHED;
+    r->step_wait = 0;
     changed(i);
     queue_write(i);
     line_ended(i);
@@ -362,6 +474,7 @@ ON_ANSWER(line_answered) {
   }
   char m[700];
   uint32_t n = answer_message(&a, m, sizeof m);
+  attempt_forget(r); /* it made no card: the row is the typed line again */
   if (a.err.daily_cap) {
     stop_for_daily_cap(i, m, n);
     line_ended(i);
@@ -378,7 +491,7 @@ ON_ANSWER(line_answered) {
   if (status == 429 && a.err.retry_after_ms != WIRE_NONE) {
     uint32_t wait = a.err.retry_after_ms;
     if (a.err.not_started) {
-      wait_then_ask(i, wait, QUEUED);
+      wait_then_ask(i, wait, a.err.no_slot == 1 ? QUEUED : WAITING);
       return;
     }
     uint32_t budget = a.err.max_wait_ms;
@@ -442,6 +555,11 @@ ON_ANSWER(write_answered) {
 /* ---- the run ---- */
 static void begin(void) {
   next_pending = 0;
+  for (uint32_t i = 0; i < nrows; i++)
+    if (rows[i].status == CHECKING) {
+      rows[i].status = QUEUED;
+      row_draw(i);
+    }
   start_more();
   if (!nrows) maybe_done();
 }
@@ -501,6 +619,8 @@ static void run_gone(void *ctx) {
   writing = active = 0;
   cd_timer_stop(tick_timer);
   cd_timer_stop(flush_timer);
+  cd_timer_clear(&poll_timer);
+  poll_out = 0; /* its answer, if one is out, is another run's and is dropped */
   tick_timer = flush_timer = 0;
   text_free(&daily_cap);
   shown = 0;
@@ -524,6 +644,7 @@ void bulk_start(cd_id form_box, int64_t deck, const notetype *type, const lang_p
   nrows = n;
   for (uint32_t i = 0; i < n; i++) {
     __builtin_memset(&rows[i], 0, sizeof rows[i]);
+    rows[i].status = CHECKING;
     rows[i].view.up = &view;
     text_set(&rows[i].line, lines[i].p, lines[i].len);
   }

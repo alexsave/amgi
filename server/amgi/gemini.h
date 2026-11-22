@@ -11,6 +11,7 @@
 
 #include "../collection/util.h"
 #include "gate.h"
+#include "progress.h"
 
 /* What a failure is, as gemini.ts's error classes and plusaudioCli.js's exit codes make it:
  *   GE_ERROR  a plain Error (retryable inside the audio loop; a 500 at the route)
@@ -72,8 +73,8 @@ void gv_list_item(buf *items, const buf *value);
 int gem_open(char *err, size_t cap);
 void gem_close(void);
 /* createGeminiClient's generateContent: through the gate, one unary call, the quota and status
- * rules. 0 and *out, or -1 with *e. */
-int gem_generate(arena *a, const char *model, const gem_request *req, gem_response *out, gem_err *e);
+ * rules. 0 and *out, or -1 with *e. p hears of every wait on the gate. */
+int gem_generate(arena *a, progress *p, const char *model, const gem_request *req, gem_response *out, gem_err *e);
 /* For tests: the gate the client asks (the process's by default). */
 void gem_set_gate(gate *g);
 
@@ -81,7 +82,7 @@ void gem_set_gate(gate *g);
 /* pickVoice: drawn from the pool, never the previous attempt's (NULL for none). */
 const char *gem_pick_voice(const char *previous);
 /* synthesize: one clip as a whole WAV file. */
-int gem_synthesize(arena *a, str text, const char *voice, str *wav, gem_err *e);
+int gem_synthesize(arena *a, progress *p, str text, const char *voice, str *wav, gem_err *e);
 /* audioPartToWav and pcmToWav, for tests. */
 int gem_audio_to_wav(arena *a, str mime, str bytes, str *wav, str *error);
 str gem_pcm_to_wav(arena *a, str pcm, uint32_t rate, uint32_t channels);

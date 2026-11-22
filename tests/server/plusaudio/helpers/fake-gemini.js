@@ -110,7 +110,8 @@ function respond(stream, entry) {
 /**
  * Starts the fake. Resolves once it listens.
  *
- * @param {object} script  per kind: a value, or a function (body, index) => value, where value is
+ * @param {object} script  per kind: a value, or a function (body, index) => value (or a Promise of one:
+ *   the call is held until it settles), where value is
  *   speech: a raw answer (default: a WAV answer)
  *   transcribe: the transcript string
  *   judge: {heard, matches, reason}
@@ -137,7 +138,7 @@ async function fakeGemini(script = {}, { port = 0, control } = {}) {
   server.on('stream', (stream, headers) => {
     const chunks = [];
     stream.on('data', (chunk) => chunks.push(chunk));
-    stream.on('end', () => {
+    stream.on('end', async () => {
       if (control && headers[':path'].startsWith('/control')) {
         control(new URL(headers[':path'], 'http://fake').searchParams);
         stream.respond({ ':status': 204 });
@@ -159,6 +160,7 @@ async function fakeGemini(script = {}, { port = 0, control } = {}) {
       let entry = script[kind];
       if (typeof entry === 'function') entry = entry(body, index, model);
       if (Array.isArray(entry)) entry = entry[Math.min(index, entry.length - 1)];
+      if (typeof entry?.then === 'function') entry = await entry; // a test holding the call
 
       let reply;
       if (entry && entry.raw) reply = entry;

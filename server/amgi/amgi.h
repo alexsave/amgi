@@ -10,6 +10,7 @@
  *   starter.c   starterDeck.js and starterPhrases.js
  *   gate.c      plusaudio/lib/rateGate.js, the one rate gate of the process
  *   gemini*.c   the Gemini client (gemini.ts, geminiWire.ts, geminiSpeech.ts) on cbase's gRPC
+ *   progress.c  the step each card being made is at (GET /progress)
  *   cards.c     the card generation flow (cardGeneration.ts, cardPrompts.ts, cardText.ts, sideOrder.js,
  *               audio.js, cardText.js)
  *
@@ -54,6 +55,7 @@ typedef struct {
   int has_retry;          /* retryAfterMs and maxWaitMs, and a Retry-After header */
   uint32_t retry_after_ms;
   int not_started, daily_cap;
+  int no_slot;            /* not started for want of a worker, not for Gemini's limit */
 } amgi_error;
 void amgi_send_error(arena *a, cb_http_res *res, int status, const amgi_error *e);
 void amgi_send_message(arena *a, cb_http_res *res, int status, str message); /* {error: message} */
@@ -121,6 +123,7 @@ amgi_fields amgi_field_indexes(arena *a, const col_notetype *nt);
 /* ---- gen.c: POST /card-text and POST /audio ---- */
 void amgi_card_text(arena *a, const amgi_ops *o, const char *mode, const wire_q_card_text *q, cb_http_res *res);
 void amgi_audio(arena *a, const amgi_ops *o, const char *mode, const wire_q_audio *q, cb_http_res *res);
+void amgi_progress(arena *a, cb_http_res *res); /* GET /progress: the cards being made now */
 /* The Gemini channel and the gate: opened at serve_open, closed at serve_close. */
 int amgi_gen_open(char *err, size_t cap);
 void amgi_gen_close(void);
