@@ -48,7 +48,7 @@ ON_RENDER(draw) {
   } else if (phase == P_OFFERED) {
     el_text("span", 0,
             "amgi has a newer card design, and Anki is open. Installing it rewrites amgi’s add-on while Anki is "
-                   "running, so it is waiting for you.");
+            "running, so it is waiting for you.");
     button("Install now", install_now, 0);
     button("Dismiss", dismiss, 1);
   } else if (phase == P_BEHIND) {

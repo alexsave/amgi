@@ -66,10 +66,10 @@ ON_RENDER(draw) {
   el_text("h3", "starter-deck-title", "Try it without a Gemini key");
   el("p", "starter-deck-lead");
   cd_text("amgi writes and records cards with Google Gemini, and there is no key set here, so it cannot make one "
-                 "yet. This deck is ");
+          "yet. This deck is ");
   cd_text_num(phrase_count);
   cd_text(" everyday phrases that came with amgi, already recorded in both languages - a real deck you can review, "
-                 "edit and delete.");
+          "edit and delete.");
   cd_close();
   el("div", "starter-deck-pair");
   for (int which = 0; which < 2; which++) {

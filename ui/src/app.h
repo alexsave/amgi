@@ -44,12 +44,12 @@ uint32_t paste_lines(const char *s, uint32_t len, wire_str *out, uint32_t cap, c
  * A string parameter is plain C (cdom.h, strings). What is kept past the call (a bound value, a bound
  * prop's name) must be read-only data: a literal, a const table's entry, or a ternary of those. Bytes
  * that change go through tmp_text, attr_tmp or cd_tmp. */
-void el(const char *tag, const char *cls);                  /* cd_open, then class when cls */
-cd_id el_id(const char *tag, const char *cls);              /* the same, named with a new id (cd_open_id) */
-void el_text(const char *tag, const char *cls, const char *s);   /* an element holding one text, closed */
+void el(const char *tag, const char *cls);                        /* cd_open, then class when cls */
+cd_id el_id(const char *tag, const char *cls);                    /* the same, named with a new id (cd_open_id) */
+void el_text(const char *tag, const char *cls, const char *s);    /* an element holding one text, closed */
 /* These stay local: cdom_ui.h has elements, a button and a string builder, but no builder that emits and binds in one call. */
-void text_bound(cd_bound *b, const char *v);          /* a text node showing v, named, bound to b, recorded as shown */
-void text_bound_num(cd_bound *b, uint32_t n);    /* the same, a number's text */
+void text_bound(cd_bound *b, const char *v);                      /* a text node showing v, named, bound to b, recorded as shown */
+void text_bound_num(cd_bound *b, uint32_t n);                     /* the same, a number's text */
 void bool_bound(cd_bound *b, cd_id el, const char *prop, uint32_t v); /* el's boolean prop bound to b, recorded as v */
 void tmp_text(const char *p, uint32_t len);       /* a one-off text node */
 void attr_tmp(const char *name, const char *p, uint32_t len);
