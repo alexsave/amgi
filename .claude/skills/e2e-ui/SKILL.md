@@ -24,7 +24,8 @@ You need two things, neither of which this repo can vendor:
 
    Point `ANKI_PYTHON_BIN` at that interpreter for every command below.
 2. **A real `.apkg` to seed the fixture from.**
-   Any shared deck works - grab a small one from [AnkiWeb's shared decks](https://ankiweb.net/shared/decks/), or export one from your own Anki (File > Export, "Anki Package").
+   It must hold exactly one deck, named `Showcase source`, with three notes: the drives count seven decks in all and open that one by name.
+   Export one from Anki (File > Export, "Anki Package"); any other package fails the shoot, deckdelete and bulk drives.
    Point `ANKI_FIXTURE_APKG` at its path.
 
 ```bash
