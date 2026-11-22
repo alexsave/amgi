@@ -184,6 +184,10 @@ try {
         heights.add(Math.round(at.height));
       }
     }
+    if (mobile) {
+      const list = await b.evaluate(`[...document.querySelectorAll('.note-row')].map(r => Math.round(r.querySelector('.note-row-target').getBoundingClientRect().width))`);
+      check(list.length > 0 && Math.min(...list) >= 250, `${width}px: every card in the deck's list has room for its text (${Math.min(...list)}px)`);
+    }
     if (mobile) check((await b.evaluate(row)).textWidth >= 250, `${width}px: the card's text has a line of its own`);
     check(heights.size === 1, `${width}px: the row never changes height as its step changes (${[...heights]})`);
     await sleep(300);
