@@ -109,14 +109,36 @@ test('not a git checkout (a tarball): a clear error, not a bare make failure', (
   assert.match(r.stderr, /not a git checkout: clone with --recurse-submodules/);
 });
 
-test('a submodule left at another commit than the repo records: named, not changed', () => {
+test('a submodule left at another commit than the repo records: the build stops, with the command', () => {
   const top = superproject('moved');
   const clone = path.join(tmp, 'moved-clone');
   git(tmp, 'clone', '-q', '--recurse-submodules', top, clone);
   git(path.join(clone, 'cbase'), 'commit', '-q', '--allow-empty', '-m', 'local');
   const head = git(path.join(clone, 'cbase'), 'rev-parse', 'HEAD');
   const r = run(clone);
-  assert.equal(r.status, 0, r.stderr);
-  assert.match(r.stderr, /^amgi: the submodule\(s\) cbase are checked out at another commit/);
+  assert.equal(r.status, 1, 'the script stops what called it');
+  assert.equal(r.stderr, 'amgi: cbase is not at the commit this repo records. Run:\n\n'
+    + '  git submodule update --init --recursive\n\n');
   assert.equal(git(path.join(clone, 'cbase'), 'rev-parse', 'HEAD'), head, 'the local commit is left alone');
+});
+
+test('a pin being moved on purpose builds once it is staged', () => {
+  const top = superproject('bump');
+  const clone = path.join(tmp, 'bump-clone');
+  git(tmp, 'clone', '-q', '--recurse-submodules', top, clone);
+  git(path.join(clone, 'cdom'), 'commit', '-q', '--allow-empty', '-m', 'newer');
+  git(clone, 'add', 'cdom');
+  const r = run(clone);
+  assert.equal(r.status, 0, r.stderr);
+  assert.equal(r.stderr, '');
+});
+
+test('both left behind: both are named', () => {
+  const top = superproject('both');
+  const clone = path.join(tmp, 'both-clone');
+  git(tmp, 'clone', '-q', '--recurse-submodules', top, clone);
+  for (const name of ['cbase', 'cdom']) git(path.join(clone, name), 'commit', '-q', '--allow-empty', '-m', 'local');
+  const r = run(clone);
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /^amgi: cbase and cdom are not at the commit this repo records\. Run:\n/);
 });

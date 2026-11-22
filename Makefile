@@ -20,7 +20,7 @@ start dev: build
 build: ui server
 
 submodules:
-	server/tools/submodules.sh
+	@server/tools/submodules.sh
 
 ui: submodules
 	ui/build.sh
