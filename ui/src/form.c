@@ -51,7 +51,7 @@ void form_build(int64_t deck_id, const lang_pair *l) {
   cd_on_free(0, form_gone, 0);
   form_deck = deck_id;
   langs = *l;
-  box = el_id(CD_LIT("div"), CD_LIT("card-form-container"));
+  box = el_id("div", "card-form-container");
   cd_close();
 }
 
@@ -64,9 +64,9 @@ static char *take_text(uint32_t *n) {
     cd_region_hide(&too_long);
   } else if (cd_region_show(&too_long, 1)) {
     cd_at(box, 0);
-    el(CD_LIT("p"), CD_LIT("card-form-error"));
+    el("p", "card-form-error");
     cd_name_open(too_long.root);
-    cd_text(CD_LIT("This is too long to make cards from at once (64 KB at most). Make them in parts."));
+    cd_text("This is too long to make cards from at once (64 KB at most). Make them in parts.");
     cd_close();
     cd_region_end(&too_long);
   }
@@ -88,17 +88,16 @@ static void follow_text(const char *v, uint32_t n) {
   for (uint32_t i = 0; i < n; i++) newlines += v[i] == '\n';
   uint32_t rows = newlines ? (newlines + 2 < 10 ? newlines + 2 : 10) : 1;
   char rn[12];
-  cd_str r = CD_LIT("rows");
-  cd_set_attr(input, r, cd_tmp(rn, cd_fmt(rn, (int32_t)rows, 0, CD_UNIT_NONE)));
+  cd_set_attr(input, "rows", cd_tmp(rn, cd_fmt(rn, (int32_t)rows, 0, CD_UNIT_NONE)));
   if (line_count > 1) {
     char t2[32] = "Make ";
     uint32_t k = 5 + cd_fmt(t2 + 5, (int32_t)line_count, 0, CD_UNIT_NONE);
     __builtin_memcpy(t2 + k, " cards", 6);
     cd_set_text_node(go_text, cd_tmp(t2, k + 6));
   } else {
-    cd_set_text_node(go_text, CD_LIT("Make the card"));
+    cd_set_text_node(go_text, "Make the card");
   }
-  cd_set_bool(go_button, CD_LIT("disabled"), !ready() || !has_text);
+  cd_set_bool(go_button, "disabled", !ready() || !has_text);
 }
 
 ON_EVENT(typed);
@@ -112,38 +111,37 @@ ON_RENDER(form_draw) {
   if (!cd_region_show(&inner, 1)) return;
   cd_at(box, 0);
   if (!notetypes_known) {
-    el(CD_LIT("p"), CD_LIT("card-form-hint"));
+    el("p", "card-form-hint");
     cd_name_open(inner.root);
-    cd_text(CD_LIT("Loading…"));
+    cd_text("Loading…");
     cd_close();
   } else if (!amgi_notetype()) {
     /* With Anki closed the installer makes the note type itself; it is missing only when Anki was
      * open during the install, or it was deleted: one fix either way. */
-    el(CD_LIT("p"), CD_LIT("card-form-hint"));
+    el("p", "card-form-hint");
     cd_name_open(inner.root);
-    cd_text(CD_LIT("Restart Anki once and it will add the “" AMGI_NOTETYPE_NAME "” card type to your collection. amgi "
-                   "builds every card on that type."));
+    cd_text("Restart Anki once and it will add the “" AMGI_NOTETYPE_NAME "” card type to your collection. amgi "
+            "builds every card on that type.");
     cd_close();
   } else {
-    el(CD_LIT("div"), CD_LIT("card-form-lead"));
+    el("div", "card-form-lead");
     cd_name_open(inner.root);
-    input = cd_open_id(CD_LIT("textarea"));
-    cd_attr(CD_LIT("id"), CD_LIT("amgiCardInput"));
-    cd_class(CD_LIT("card-form-input"));
-    cd_attr(CD_LIT("rows"), CD_LIT("1"));
+    input = cd_open_id("textarea");
+    cd_attr("id", "amgiCardInput");
+    cd_class("card-form-input");
+    cd_attr("rows", "1");
     char ph[160];
-    cd_str p = CD_LIT("placeholder");
-    attr_tmp(p, ph, placeholder(ph));
-    if (!ready()) cd_attr(CD_LIT("disabled"), CD_LIT(""));
+    attr_tmp("placeholder", ph, placeholder(ph));
+    if (!ready()) cd_attr("disabled", "");
     cd_on(input, CD_EV_INPUT, typed, 0);
     cd_on(input, CD_EV_KEYDOWN, key_down, 0);
     cd_close();
-    go_button = el_id(CD_LIT("button"), 0);
-    cd_attr(CD_LIT("type"), CD_LIT("button"));
-    cd_class(CD_LIT("card-form-go"));
-    cd_attr(CD_LIT("disabled"), CD_LIT(""));
+    go_button = el_id("button", 0);
+    cd_attr("type", "button");
+    cd_class("card-form-go");
+    cd_attr("disabled", "");
     cd_on(go_button, CD_EV_CLICK, go_pressed, 0);
-    cd_text(CD_LIT("Make the card"));
+    cd_text("Make the card");
     cd_name_text(go_text = cd_id_new());
     cd_close();
     cd_close();
@@ -158,15 +156,14 @@ void form_langs_changed(const lang_pair *l) {
   langs = *l;
   if (!shown || !inner.shown || !amgi_notetype() || !notetypes_known) return;
   char ph[160];
-  cd_str p = CD_LIT("placeholder");
-  cd_set_attr(input, p, cd_tmp(ph, placeholder(ph)));
+  cd_set_attr(input, "placeholder", cd_tmp(ph, placeholder(ph)));
 }
 
 static void finished(void) {
   /* the lines are cards now: the box empties. The box may be about to be drawn again (the note types arrived in this
    * entry): draw it now, so input names the box that is there, not the one the draw takes away. */
   cd_render_now();
-  cd_set_str(input, CD_LIT("value"), CD_LIT(""));
+  cd_set_str(input, "value", "");
   follow_text("", 0);
 }
 
@@ -194,8 +191,7 @@ ON_EVENT(typed) {
   char *v = take_text(&n);
   follow_text(v ? v : "", n); /* too long: no text to make cards of, the button off */
   if (!v) {
-    cd_str r = CD_LIT("rows");
-    cd_set_attr(input, r, CD_LIT("10")); /* and the box at its tallest, as for any long paste */
+    cd_set_attr(input, "rows", "10"); /* and the box at its tallest, as for any long paste */
   }
   cd_free(v);
   bulk_discard(); /* typing again puts the last run away */

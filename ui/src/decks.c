@@ -30,22 +30,22 @@ static void screen_gone(void *ctx) {
 void decks_build(void) {
   shown = 1;
   cd_on_free(0, screen_gone, 0);
-  el(CD_LIT("div"), CD_LIT("deck-management"));
+  el("div", "deck-management");
   /* Setup is the whole screen (FirstRun), not an empty state inside the list: "Decks" and a New
    * Deck button over a machine that cannot make one yet is chrome for a thing that does not exist. */
   setup = decks_setup_wanted();
   if (!setup) {
-    el(CD_LIT("div"), CD_LIT("deck-header"));
-    el_text(CD_LIT("h2"), 0, CD_LIT("Decks"));
-    el(CD_LIT("div"), CD_LIT("deck-actions"));
-    cd_id new_button = el_id(CD_LIT("button"), CD_LIT("action-btn"));
-    cd_attr(CD_LIT("title"), CD_LIT("New Deck"));
+    el("div", "deck-header");
+    el_text("h2", 0, "Decks");
+    el("div", "deck-actions");
+    cd_id new_button = el_id("button", "action-btn");
+    cd_attr("title", "New Deck");
     cd_on(new_button, CD_EV_CLICK, new_deck, 0);
     icon(ICON_PLUS, 0, 0);
     cd_close();
     cd_close();
     cd_close();
-    rows.parent = el_id(CD_LIT("div"), CD_LIT("deck-list"));
+    rows.parent = el_id("div", "deck-list");
     cd_close();
   }
   decks_rows();
@@ -71,30 +71,32 @@ ON_RENDER(rows_view) {
   if (!ready()) {
     /* Not ready wins over whatever decks are still in hand: a list you cannot act on, under a
      * badge saying so, read as data loss. Say what the mode means instead. */
-    el(CD_LIT("div"), CD_LIT("empty-deck-state"));
-    cd_open(CD_LIT("p"));
-    cd_attr(CD_LIT("style"), CD_LIT("max-width: 32rem; text-align: center; color: var(--text-secondary);"));
-    cd_text(cd_internz(present(mode)->title));
+    el("div", "empty-deck-state");
+    cd_open("p");
+    cd_attr("style", "max-width: 32rem; text-align: center; color: var(--text-secondary);");
+    cd_text(present(mode)->title);
     cd_close();
     cd_close();
   } else if (!ndecks) {
-    el(CD_LIT("div"), CD_LIT("empty-deck-state"));
-    cd_on(el_id(CD_LIT("button"), CD_LIT("create-first-deck-btn")), CD_EV_CLICK, new_deck, 0);
-    icon(ICON_PLUS, 0, CD_LIT("height: 20px; width: 20px;"));
-    el_text(CD_LIT("span"), 0, CD_LIT("Create your first deck"));
+    el("div", "empty-deck-state");
+    cd_on(el_id("button", "create-first-deck-btn"), CD_EV_CLICK, new_deck, 0);
+    icon(ICON_PLUS, 0, "height: 20px; width: 20px;");
+    el_text("span", 0, "Create your first deck");
     cd_close();
     cd_close();
   } else {
     for (uint32_t i = 0; i < ndecks; i++) {
-      cd_on(el_id(CD_LIT("div"), CD_LIT("deck-item")), CD_EV_CLICK, open_deck, CTX_OF(i));
-      el(CD_LIT("div"), CD_LIT("deck-info"));
-      el_text(CD_LIT("h3"), 0, decks[i].name);
-      cd_open(CD_LIT("small"));
+      cd_on(el_id("div", "deck-item"), CD_EV_CLICK, open_deck, CTX_OF(i));
+      el("div", "deck-info");
+      el("h3", 0);
+      tmp_text(decks[i].name.p, decks[i].name.len);
+      cd_close();
+      cd_open("small");
       /* three text nodes, as DeckItem's JSX makes them: the browser shapes text node by text node,
        * and "3 notes" as one run kerns the "3" 1 px from where React draws it */
       cd_text_num(decks[i].count);
-      cd_text(CD_LIT(" note"));
-      if (decks[i].count != 1) cd_text(CD_LIT("s"));
+      cd_text(" note");
+      if (decks[i].count != 1) cd_text("s");
       cd_close();
       cd_close();
       cd_close();
@@ -109,7 +111,7 @@ ON_RENDER(modal_error_view) {
   cd_region_hide(&modal_err);
   if (!modal_error.len || !cd_region_show(&modal_err, 1)) return;
   cd_at(modal_form, modal_buttons);
-  el(CD_LIT("div"), CD_LIT("error-message"));
+  el("div", "error-message");
   cd_name_open(modal_err.root);
   tmp_text(modal_error.p, modal_error.len);
   cd_close();
@@ -137,41 +139,41 @@ static void modal_open(void) {
   if (!shown || setup || !cd_region_show(&modal, 1)) return;
   cd_on_free(0, modal_gone, 0);
   cd_at(page_root(), rows.parent);
-  el(CD_LIT("dialog"), CD_LIT("modal-overlay"));
+  el("dialog", "modal-overlay");
   cd_name_open(modal.root);
   cd_on(modal.root, CD_EV_CLOSE, modal_closed, 0);
-  el(CD_LIT("div"), CD_LIT("modal-content"));
-  el(CD_LIT("div"), CD_LIT("modal-header"));
-  el_text(CD_LIT("h3"), 0, CD_LIT("Create New Deck"));
-  cd_on(el_id(CD_LIT("button"), CD_LIT("close-btn")), CD_EV_CLICK, modal_dismiss, 0);
-  icon_with(ICON_X, 0, 0, CD_LIT("icon"));
+  el("div", "modal-content");
+  el("div", "modal-header");
+  el_text("h3", 0, "Create New Deck");
+  cd_on(el_id("button", "close-btn"), CD_EV_CLICK, modal_dismiss, 0);
+  icon_with(ICON_X, 0, 0, "icon");
   cd_close();
   cd_close();
-  modal_form = cd_open_id(CD_LIT("form"));
-  cd_attr(CD_LIT("autocomplete"), CD_LIT("off"));
+  modal_form = cd_open_id("form");
+  cd_attr("autocomplete", "off");
   cd_on(modal_form, CD_EV_SUBMIT, modal_submitted, 0);
-  el(CD_LIT("div"), CD_LIT("form-group"));
-  cd_open(CD_LIT("label"));
-  cd_attr(CD_LIT("for"), CD_LIT("deckName"));
-  cd_text(CD_LIT("Deck Name"));
+  el("div", "form-group");
+  cd_open("label");
+  cd_attr("for", "deckName");
+  cd_text("Deck Name");
   cd_close();
-  modal_input = cd_open_id(CD_LIT("input"));
-  cd_attr(CD_LIT("id"), CD_LIT("deckName"));
-  cd_attr(CD_LIT("type"), CD_LIT("text"));
-  cd_attr(CD_LIT("placeholder"), CD_LIT("e.g. Korean::Verbs"));
-  cd_attr(CD_LIT("value"), CD_LIT(""));
+  modal_input = cd_open_id("input");
+  cd_attr("id", "deckName");
+  cd_attr("type", "text");
+  cd_attr("placeholder", "e.g. Korean::Verbs");
+  cd_attr("value", "");
   cd_close();
-  cd_open(CD_LIT("small"));
-  cd_attr(CD_LIT("style"), CD_LIT("display: block; margin-top: 0.35rem; opacity: 0.75;"));
-  cd_text(CD_LIT("Use "));
-  el_text(CD_LIT("code"), 0, CD_LIT("::"));
-  cd_text(CD_LIT(" to nest under a parent deck (created automatically if it does not exist yet)."));
+  cd_open("small");
+  cd_attr("style", "display: block; margin-top: 0.35rem; opacity: 0.75;");
+  cd_text("Use ");
+  el_text("code", 0, "::");
+  cd_text(" to nest under a parent deck (created automatically if it does not exist yet).");
   cd_close();
   cd_close();
-  modal_buttons = el_id(CD_LIT("div"), CD_LIT("button-row"));
-  el(CD_LIT("button"), CD_LIT("primary-btn"));
-  cd_attr(CD_LIT("type"), CD_LIT("submit"));
-  cd_text(CD_LIT("Create Deck"));
+  modal_buttons = el_id("div", "button-row");
+  el("button", "primary-btn");
+  cd_attr("type", "submit");
+  cd_text("Create Deck");
   cd_close();
   cd_close();
   cd_close(); /* form */

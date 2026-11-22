@@ -37,7 +37,7 @@ ON_RENDER(error_view) {
   cd_region_hide(&err);
   if (!error.len || !cd_region_show(&err, 1)) return;
   cd_at(root, foot);
-  el(CD_LIT("p"), CD_LIT("card-panel-error"));
+  el("p", "card-panel-error");
   cd_name_open(err.root);
   tmp_text(error.p, error.len);
   cd_close();
@@ -53,7 +53,7 @@ static void set_error(const answer *a) {
 ON_RENDER(labels_view) {
   for (int s = 0; s < 2; s++) {
     if (busy == s + 1) {
-      cd_set_text_node(redo_text[s], CD_LIT("Redoing…"));
+      cd_set_text_node(redo_text[s], "Redoing…");
     } else {
       static const char R[] = "Redo ";
       const char *n = name_of(s ? langs.known : langs.learning);
@@ -63,10 +63,10 @@ ON_RENDER(labels_view) {
       __builtin_memcpy(t + sizeof R - 1, n, l);
       cd_set_text_node(redo_text[s], cd_tmp(t, (uint32_t)sizeof R - 1 + l));
     }
-    cd_set_bool(redo_btn[s], CD_LIT("disabled"), busy != 0);
+    cd_set_bool(redo_btn[s], "disabled", busy != 0);
   }
-  cd_set_text_node(delete_text, deleting ? CD_LIT("Deleting…") : CD_LIT("Delete card"));
-  cd_set_bool(delete_btn, CD_LIT("disabled"), deleting);
+  cd_set_text_node(delete_text, deleting ? "Deleting…" : "Delete card");
+  cd_set_bool(delete_btn, "disabled", deleting);
 }
 
 static wire_str clip_of(int32_t i) {
@@ -104,28 +104,27 @@ void panel_build(cd_region *editor, int64_t id, const wire_strs *f, const text *
   busy = deleting = 0;
   text_free(&error);
 
-  root = el_id(CD_LIT("div"), CD_LIT("card-panel"));
-  el(CD_LIT("div"), CD_LIT("card-panel-fields"));
+  root = el_id("div", "card-panel");
+  el("div", "card-panel-fields");
   for (uint32_t k = 0; k < KEYS; k++) {
     int32_t i = index_of_key(k);
     inputs[k] = 0;
     if (i < 0) continue;
-    el(CD_LIT("label"), CD_LIT("card-panel-field"));
-    el(CD_LIT("span"), CD_LIT("card-panel-label"));
+    el("label", "card-panel-field");
+    el("span", "card-panel-label");
     if (k == K_NOTES) {
-      cd_text(CD_LIT("Notes"));
-      el_text(CD_LIT("em"), 0, CD_LIT(" optional"));
+      cd_text("Notes");
+      el_text("em", 0, " optional");
     } else {
       const char *n = name_of(k == K_TARGET ? langs.learning : langs.known);
       tmp_text(n, zlen(n));
     }
     cd_close();
-    inputs[k] = cd_open_id(CD_LIT("input"));
-    cd_attr(CD_LIT("type"), CD_LIT("text"));
-    cd_class(k == K_TARGET ? CD_LIT("card-panel-value card-panel-value-big") : CD_LIT("card-panel-value"));
-    cd_str value = CD_LIT("value");
-    attr_tmp(value, fields[i].p, fields[i].len);
-    cd_attr(CD_LIT("placeholder"), k == K_NOTES ? CD_LIT("anything you want on the answer") : CD_LIT(""));
+    inputs[k] = cd_open_id("input");
+    cd_attr("type", "text");
+    cd_class(k == K_TARGET ? "card-panel-value card-panel-value-big" : "card-panel-value");
+    attr_tmp("value", fields[i].p, fields[i].len);
+    cd_attr("placeholder", k == K_NOTES ? "anything you want on the answer" : "");
     cd_on(inputs[k], CD_EV_FOCUSOUT, field_left, CTX_OF(k));
     cd_on(inputs[k], CD_EV_KEYDOWN, field_key, CTX_OF(k));
     cd_close();
@@ -133,28 +132,28 @@ void panel_build(cd_region *editor, int64_t id, const wire_strs *f, const text *
   }
   cd_close();
 
-  clips_box = el_id(CD_LIT("div"), CD_LIT("card-panel-clips"));
+  clips_box = el_id("div", "card-panel-clips");
   wire_str cue = clip_of(idx.cue_audio), target = clip_of(idx.target_audio);
   chips[0] = chip_build(0, cue.p, cue.len, name_of(langs.known), TONE_CUE);
   chips[1] = chip_build(0, target.p, target.len, name_of(langs.learning), TONE_TARGET);
   for (int s = 0; s < 2; s++) {
-    redo_btn[s] = el_id(CD_LIT("button"), 0);
-    cd_attr(CD_LIT("type"), CD_LIT("button"));
-    cd_class(CD_LIT("card-panel-redo"));
+    redo_btn[s] = el_id("button", 0);
+    cd_attr("type", "button");
+    cd_class("card-panel-redo");
     cd_on(redo_btn[s], CD_EV_CLICK, s ? redo_cue : redo_target, 0);
-    cd_text(CD_LIT(" "));
+    cd_text(" ");
     cd_name_text(redo_text[s] = cd_id_new());
     cd_close();
   }
   cd_close();
 
-  foot = el_id(CD_LIT("div"), CD_LIT("card-panel-foot"));
-  el_text(CD_LIT("span"), 0, CD_LIT("Changes save as you make them, straight into Anki."));
-  delete_btn = el_id(CD_LIT("button"), 0);
-  cd_attr(CD_LIT("type"), CD_LIT("button"));
-  cd_class(CD_LIT("card-panel-delete"));
+  foot = el_id("div", "card-panel-foot");
+  el_text("span", 0, "Changes save as you make them, straight into Anki.");
+  delete_btn = el_id("button", 0);
+  cd_attr("type", "button");
+  cd_class("card-panel-delete");
   cd_on(delete_btn, CD_EV_CLICK, delete_pressed, 0);
-  cd_text(CD_LIT("Delete card"));
+  cd_text("Delete card");
   cd_name_text(delete_text = cd_id_new());
   cd_close();
   cd_close();
@@ -234,7 +233,7 @@ static void removed(void *ctx) {
 
 /* ctx: the field's key (K_*) */
 ON_EVENT(field_key) {
-  if (open_ && e->key == 13) cd_call(inputs[CTX_INDEX(ctx)], CD_LIT("blur")); /* Enter leaves the field: it saves */
+  if (open_ && e->key == 13) cd_call(inputs[CTX_INDEX(ctx)], "blur"); /* Enter leaves the field: it saves */
 }
 ON_EVENT(field_left) {
   if (open_) commit(CTX_INDEX(ctx));

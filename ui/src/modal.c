@@ -7,10 +7,10 @@
 /* The two modal dialogs' shared half: open one the browser makes modal, with the focus where its
  * first keystroke belongs, and close it. What follows a close is the dialog's own CD_EV_CLOSE handler. */
 void dialog_show(cd_id dialog, cd_id focus) {
-  cd_call(dialog, CD_LIT("showModal"));
-  cd_call(focus, CD_LIT("focus"));
+  cd_call(dialog, "showModal");
+  cd_call(focus, "focus");
 }
-void dialog_close(cd_id dialog) { cd_call(dialog, CD_LIT("close")); }
+void dialog_close(cd_id dialog) { cd_call(dialog, "close"); }
 
 static cd_region box = {0};
 static void (*on_yes)(void *);
@@ -46,35 +46,35 @@ void confirm_ask(const char *title, const char *body, uint32_t blen, const char 
   answered = 0;
   if (!cd_region_show(&box, 1)) return;
   cd_at(app_content, 0);
-  el(CD_LIT("dialog"), CD_LIT("modal-content confirm-dialog"));
+  el("dialog", "modal-content confirm-dialog");
   cd_name_open(box.root);
   dialog = box.root;
   cd_on(dialog, CD_EV_CLOSE, closed, 0);
-  el(CD_LIT("div"), CD_LIT("modal-header"));
-  el(CD_LIT("h3"), 0);
+  el("div", "modal-header");
+  el("h3", 0);
   tmp_text(title, zlen(title));
   cd_close();
   cd_close();
   if (blen) {
-    el(CD_LIT("p"), 0);
+    el("p", 0);
     tmp_text(body, blen);
     cd_close();
   }
   if (note) {
-    el(CD_LIT("p"), CD_LIT("confirm-note"));
+    el("p", "confirm-note");
     tmp_text(note, zlen(note));
     cd_close();
   }
-  el(CD_LIT("div"), CD_LIT("modal-actions"));
+  el("div", "modal-actions");
   if (then) {
-    cd_id cancel = el_id(CD_LIT("button"), CD_LIT("cancel-btn"));
-    cd_attr(CD_LIT("type"), CD_LIT("button"));
+    cd_id cancel = el_id("button", "cancel-btn");
+    cd_attr("type", "button");
     cd_on(cancel, CD_EV_CLICK, cancel_pressed, 0);
-    cd_text(CD_LIT("Cancel"));
+    cd_text("Cancel");
     cd_close();
   }
-  yes_button = el_id(CD_LIT("button"), CD_LIT("submit-btn"));
-  cd_attr(CD_LIT("type"), CD_LIT("button"));
+  yes_button = el_id("button", "submit-btn");
+  cd_attr("type", "button");
   cd_on(yes_button, CD_EV_CLICK, yes_pressed, 0);
   tmp_text(yes, zlen(yes));
   cd_close();
