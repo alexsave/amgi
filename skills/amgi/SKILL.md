@@ -11,7 +11,7 @@ amgi checks for an open Anki itself (a `-wal` or `-shm` beside the collection co
 Before its first write amgi copies the collection to `amgi-collection-backups/` beside `collection.anki2`.
 Never edit `collection.anki2` yourself.
 
-## Install once (from the repository root; no Node needed)
+## Install once (from the repository root)
 
 An installer or the user does this once per checkout; an agent whose folder already has `server/build/amgi` skips straight to "Each time".
 Prerequisites: make, Xcode's command line tools, and `brew install sqlite icu4c@78 openssl@3`.

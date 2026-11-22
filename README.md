@@ -42,7 +42,7 @@ https://github.com/user-attachments/assets/731cb0b9-276a-4f10-89d0-6e3fdefa2896
 3. Review in Anki: the prompt plays, the microphone opens by itself, and your voice is played back against the native recording.
    Every note makes two cards, one in each direction.
 
-There is no login and no hosted backend: your key, your machine, your Anki collection.
+amgi runs on your machine, with your key and your Anki collection.
 With no key, amgi offers a starter deck of ten recorded phrases, in any pair of its 18 languages.
 
 The hands-free loop runs on Anki desktop and AnkiDroid 2.25+ (turn on Advanced > "Allow templates to record audio").
@@ -82,15 +82,15 @@ Settings (`/settings`) holds the profile and the bridge address and token.
 ```bash
 make start      # builds ui/out and server/build/amgi, then serves http://127.0.0.1:3000 (CBASE_LISTEN or PORT to move it)
 make build      # the same, not started
-npm install     # once, for the tests and the linter (dev only)
+npm install     # once, for the tests and the linter (Node 24.12, 25.1 or 26 and later)
 npm run lint
 npm test        # builds, then the C unit tests (ASan, UBSan), the node:test suites (the server's contract, plusaudio, anki, ui) and the add-on's Python tests
 npm run e2e     # builds, then every browser drive against fresh servers (see .claude/skills/e2e-ui)
 make -C server check   # cbase's whole check with amgi as its product (its gates, unit tests and smokes)
 ```
 
-The page is C, compiled to WebAssembly on [cdom](https://github.com/alexsave/cdom) (the submodule at `cdom/`) by `ui/Makefile`, which builds on cdom's own make fragment (`cdom.mk`) and which `ui/build.sh` runs: the C owns the DOM, one call per change, and there is no JavaScript framework.
-The server is C: `server/build/amgi`, the amgi app (`server/app/`, `server/amgi/`) on [cbase](https://github.com/alexsave/cbase)'s `serve` (the submodule at `cbase/`), with the Anki collection code (`server/collection/`), the rate gate and the Gemini client (gRPC over HTTP/2, cbase's) in the same process, and no Node.
+The page is C, compiled to WebAssembly on [cdom](https://github.com/alexsave/cdom) (the submodule at `cdom/`) by `ui/Makefile`, which builds on cdom's own make fragment (`cdom.mk`) and which `ui/build.sh` runs: the C owns the DOM, one call per change.
+The server is C: `server/build/amgi`, the amgi app (`server/app/`, `server/amgi/`) on [cbase](https://github.com/alexsave/cbase)'s `serve` (the submodule at `cbase/`), with the Anki collection code (`server/collection/`), the rate gate and the Gemini client (gRPC over HTTP/2, cbase's) in the same process.
 `server/build/amgi` is also the command line for agents and scripts (`amgi up`, `amgi deck add`, `amgi card add`, `amgi down`; `skills/amgi/SKILL.md`), a client of the same server on loopback.
 `make start` starts it through cbase's `make serve` (`make -C server serve`, run from the repository root): it listens on `CBASE_LISTEN` (`127.0.0.1:3000` by default, or `PORT`), says `cbase: listening <host>:<port>` on stdout, answers only a `Host` of `127.0.0.1`, `localhost` or `[::1]` at that port (against DNS rebinding), sends no CORS headers, and reads `.env.local` through cbase's `CBASE_ENV_FILE`.
 `.claude/skills/e2e-ui/` and `tests/e2e/ui/` drive the app in headless Chrome against a fixture Anki collection.
