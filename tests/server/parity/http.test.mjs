@@ -48,6 +48,7 @@ const ANSWERS = [
   ['POST', /^notes$/, 'note_added'], ['POST', /^notes\/bulk$/, 'notes_added'], ['PATCH', /^notes\/[^/]+$/, 'note_changed'],
   ['DELETE', /^notes\/[^/]+$/, 'note_changed'], ['POST', /^card-text$/, 'card_text'], ['POST', /^audio$/, 'clip'],
   ['GET', /^starter$/, 'starter_state'], ['POST', /^starter$/, 'starter_built'],
+  ['GET', /^progress$/, 'progress'],
 ];
 function answerKind(method, apiPath) {
   const hit = ANSWERS.find(([m, re]) => m === method && re.test(apiPath));

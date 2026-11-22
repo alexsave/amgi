@@ -55,7 +55,6 @@ typedef struct {
   int has_retry;          /* retryAfterMs and maxWaitMs, and a Retry-After header */
   uint32_t retry_after_ms;
   int not_started, daily_cap;
-  int no_slot;            /* not started for want of a worker, not for Gemini's limit */
 } amgi_error;
 void amgi_send_error(arena *a, cb_http_res *res, int status, const amgi_error *e);
 void amgi_send_message(arena *a, cb_http_res *res, int status, str message); /* {error: message} */
