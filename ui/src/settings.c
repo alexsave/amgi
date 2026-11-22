@@ -179,7 +179,7 @@ void settings_build(void) {
   label(0, "Install amgi into Anki");
   el_text("p", "preference-help",
           "Adds amgi’s microphone and bridge add-ons, and the “amgi Listening” note type, to the Anki on this "
-                 "machine. Safe to run again to update them.");
+          "machine. Safe to run again to update them.");
   el("p", "preference-help");
   cd_text("Installs into ");
   cd_open("code");

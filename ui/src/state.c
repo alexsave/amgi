@@ -233,9 +233,9 @@ void badge_build(badge *b) {
   b->span = cd_open_id("span");
   cd_attr("title", p->title);
   cd_attr("style", "display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.7rem; "
-                                  "font-weight: 600; letter-spacing: 0.02em; border: 1px solid var(--border-color); "
-                                  "border-radius: 999px; padding: 0.2rem 0.6rem; color: var(--text-secondary); "
-                                  "white-space: nowrap;");
+                   "font-weight: 600; letter-spacing: 0.02em; border: 1px solid var(--border-color); "
+                   "border-radius: 999px; padding: 0.2rem 0.6rem; color: var(--text-secondary); "
+                   "white-space: nowrap;");
   b->dot = cd_open_id("span");
   attr_tmp("style", style_buf, dot_style(p->color));
   cd_close();
