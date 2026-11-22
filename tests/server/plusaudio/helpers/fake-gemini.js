@@ -190,11 +190,18 @@ async function fakeGemini(script = {}, { port = 0, control } = {}) {
  *   transcribe  the text whose tone it hears, so every clip passes
  *   judge       matches
  *   state.daily: every text call refused for the day; the line "broken line" fails its first call.
+ *   state.delay: ms every answer takes, so a person (or a drive) can see each step.
+ *   state.mishear: how many more clips are heard wrong and judged wrong (each is recorded again).
  */
 function e2eScript(state = { perMinute: Infinity, daily: false }, now = () => Date.now()) {
   const windows = new Map();
   const spoken = [];
   let broken = false;
+  let misjudge = 0;
+  const later = (handler) => (...args) => {
+    const value = handler(...args);
+    return state.delay ? new Promise((resolve) => setTimeout(resolve, state.delay, value)) : value;
+  };
   const tone = (said) => {
     const rate = 24000;
     const pcm = new Int16Array(rate / 2);
@@ -212,7 +219,7 @@ function e2eScript(state = { perMinute: Infinity, daily: false }, now = () => Da
   };
   return {
     state,
-    text: (body) => {
+    text: later((body) => {
       if (state.daily) return dailyQuotaExhausted();
       const input = (/Their input: "([^"\n]+)"/.exec(textOf(body)) || [])[1] || 'line';
       if (input === 'broken line' && !broken) {
@@ -221,8 +228,8 @@ function e2eScript(state = { perMinute: Infinity, daily: false }, now = () => Da
       }
       const number = (input.match(/\d+/) || [String(input.length)])[0];
       return { known_text: input, learning_text: `${number}번 문장이에요.`, sense_tag: '', register: 'polite', spoken_reading: '' };
-    },
-    speech: (body, index, model) => {
+    }),
+    speech: later((body, index, model) => {
       const t = now();
       const starts = (windows.get(model) || []).filter((s) => t - s < 60_000);
       windows.set(model, starts);
@@ -232,14 +239,25 @@ function e2eScript(state = { perMinute: Infinity, daily: false }, now = () => Da
       }
       starts.push(t);
       return wavAnswer(tone(textOf(body)));
-    },
-    transcribe: (body) => heard(body),
-    judge: (body) => ({ heard: heard(body), matches: true, reason: 'fake server' }),
+    }),
+    transcribe: later((body) => {
+      if (!state.mishear) return heard(body);
+      state.mishear -= 1;
+      misjudge += 1;
+      return 'something else entirely';
+    }),
+    judge: later((body) => {
+      const wrong = misjudge > 0;
+      if (wrong) misjudge -= 1;
+      return { heard: heard(body), matches: !wrong, reason: 'fake server' };
+    }),
     transcriptJudge: { matches: true },
-    /** POST /control?perMinute=N&daily=0|1: the limits from now on; the minute's count starts again. */
+    /** POST /control?perMinute=N&daily=0|1&delay=MS&mishear=N: from now on; the minute's count starts again. */
     control(params) {
       if (params.has('perMinute')) state.perMinute = Number(params.get('perMinute'));
       if (params.has('daily')) state.daily = params.get('daily') === '1';
+      if (params.has('delay')) state.delay = Number(params.get('delay'));
+      if (params.has('mishear')) state.mishear = Number(params.get('mishear'));
       windows.clear();
     },
   };

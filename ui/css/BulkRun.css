@@ -143,6 +143,39 @@
   align-items: center;
 }
 
+/* A phone has no room for four columns: the step and the clips share a line, the card's text and its note
+   have one each. All three lines are reserved, so the row still keeps one height from queued to done. */
+@media (max-width: 768px) {
+  .bulk-run-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: 1.65rem minmax(1.3rem, auto) minmax(1.2rem, auto);
+    grid-template-areas: "state clips" "text text" "cue cue";
+    gap: 0.15rem 0.5rem;
+  }
+
+  .bulk-run-state {
+    grid-area: state;
+    width: auto;
+    align-self: center;
+  }
+
+  .bulk-run-clips {
+    grid-area: clips;
+    min-width: 0;
+  }
+
+  .bulk-run-text {
+    grid-area: text;
+    line-height: 1.3rem;
+  }
+
+  .bulk-run-cue {
+    grid-area: cue;
+    line-height: 1.2rem;
+  }
+}
+
 .bulk-run-foot {
   margin: 0.6rem 0 0;
   font-size: 0.75rem;
