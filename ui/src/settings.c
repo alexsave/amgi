@@ -90,27 +90,26 @@ static int shown;
 /* The "saved" message's timer: setting it again replaces the pending one, so the message lasts two seconds from the latest save. */
 static cd_timer_slot saved_timer;
 
-static void row_open(void) { el(CD_LIT("div"), CD_LIT("preference-item")); }
-static void label(const char *for_id, cd_str s) {
-  cd_open(CD_LIT("label"));
-  if (for_id) cd_attr(CD_LIT("for"), cd_internz(for_id));
+static void row_open(void) { el("div", "preference-item"); }
+static void label(const char *for_id, const char *s) {
+  cd_open("label");
+  if (for_id) cd_attr("for", for_id);
   cd_text(s);
   cd_close();
 }
-static cd_id text_input(const char *id, const text *value, cd_str placeholder) {
-  cd_id node = cd_open_id(CD_LIT("input"));
-  cd_attr(CD_LIT("id"), cd_internz(id));
-  cd_attr(CD_LIT("type"), CD_LIT("text"));
-  cd_str v = CD_LIT("value");
-  attr_tmp(v, value->p ? value->p : "", value->len);
-  cd_attr(CD_LIT("placeholder"), placeholder);
+static cd_id text_input(const char *id, const text *value, const char *placeholder) {
+  cd_id node = cd_open_id("input");
+  cd_attr("id", id);
+  cd_attr("type", "text");
+  attr_tmp("value", value->p ? value->p : "", value->len);
+  cd_attr("placeholder", placeholder);
   cd_close();
   return node;
 }
-static cd_id save_button(cd_event_fn on_click, cd_str s, cd_id *txt) {
-  cd_id b = el_id(CD_LIT("button"), 0);
-  cd_attr(CD_LIT("type"), CD_LIT("button"));
-  cd_class(CD_LIT("save-button"));
+static cd_id save_button(cd_event_fn on_click, const char *s, cd_id *txt) {
+  cd_id b = el_id("button", 0);
+  cd_attr("type", "button");
+  cd_class("save-button");
   cd_on(b, CD_EV_CLICK, on_click, 0);
   cd_text(s);
   if (txt) cd_name_text(*txt = cd_id_new());
@@ -131,11 +130,11 @@ static void path_text(const char *p, uint32_t n) {
     uint32_t j = i;
     while (j < n && p[j] != '/') j++;
     if (j < n) j++; /* the slash stays with its part */
-    el(CD_LIT("span"), CD_LIT("path-part"));
+    el("span", "path-part");
     tmp_text(p + i, j - i);
     cd_close();
     if (j < n) {
-      cd_open(CD_LIT("wbr"));
+      cd_open("wbr");
       cd_close();
     }
     i = j;
@@ -158,60 +157,60 @@ void settings_build(void) {
   for (int f = 0; f < S_FIELDS; f++) text_set(&draft[f], settings[f].p ? settings[f].p : "", settings[f].len);
   if (!settings_stored || !draft[S_BRIDGE_URL].len) text_setz(&draft[S_BRIDGE_URL], DEFAULT_BRIDGE_URL);
   shown = 1;
-  el(CD_LIT("div"), CD_LIT("settings-page"));
-  el(CD_LIT("div"), CD_LIT("settings-header"));
-  cd_on(el_id(CD_LIT("button"), CD_LIT("back-button")), CD_EV_CLICK, back, 0);
-  cd_text(CD_LIT("← Back"));
+  el("div", "settings-page");
+  el("div", "settings-header");
+  cd_on(el_id("button", "back-button"), CD_EV_CLICK, back, 0);
+  cd_text("← Back");
   cd_close();
-  el_text(CD_LIT("h2"), 0, CD_LIT("Settings"));
+  el_text("h2", 0, "Settings");
   cd_close();
 
-  el(CD_LIT("div"), CD_LIT("settings-content"));
-  el_text(CD_LIT("h3"), 0, CD_LIT("Anki (local)"));
-  section = el_id(CD_LIT("div"), CD_LIT("preferences-section"));
+  el("div", "settings-content");
+  el_text("h3", 0, "Anki (local)");
+  section = el_id("div", "preferences-section");
 
   row_open();
-  cd_attr(CD_LIT("style"), CD_LIT("align-items: flex-start;")); /* on the labels' edge, the badge its own width */
-  label(0, CD_LIT("Current mode"));
+  cd_attr("style", "align-items: flex-start;"); /* on the labels' edge, the badge its own width */
+  label(0, "Current mode");
   badge_build(&badges[1]);
   cd_close();
 
-  install_block = el_id(CD_LIT("div"), CD_LIT("preference-item install-block"));
-  label(0, CD_LIT("Install amgi into Anki"));
-  el_text(CD_LIT("p"), CD_LIT("preference-help"),
-          CD_LIT("Adds amgi’s microphone and bridge add-ons, and the “amgi Listening” note type, to the Anki on this "
-                 "machine. Safe to run again to update them."));
-  el(CD_LIT("p"), CD_LIT("preference-help"));
-  cd_text(CD_LIT("Installs into "));
-  cd_open(CD_LIT("code"));
+  install_block = el_id("div", "preference-item install-block");
+  label(0, "Install amgi into Anki");
+  el_text("p", "preference-help",
+          "Adds amgi’s microphone and bridge add-ons, and the “amgi Listening” note type, to the Anki on this "
+                 "machine. Safe to run again to update them.");
+  el("p", "preference-help");
+  cd_text("Installs into ");
+  cd_open("code");
   if (draft[S_BASE_DIR].len) path_text(draft[S_BASE_DIR].p, draft[S_BASE_DIR].len);
-  else cd_text(CD_LIT("your default Anki data folder"));
+  else cd_text("your default Anki data folder");
   cd_close();
-  if (!draft[S_BASE_DIR].len) cd_text(CD_LIT(" - set the override below to install somewhere else."));
+  if (!draft[S_BASE_DIR].len) cd_text(" - set the override below to install somewhere else.");
   cd_close();
-  install_button = save_button(install_pressed, CD_LIT("Install into Anki"), &install_text);
-  cd_close();
-
-  row_open();
-  label("ankiBaseDir", CD_LIT("Anki data folder (optional override)"));
-  base_input = text_input("ankiBaseDir", &draft[S_BASE_DIR], CD_LIT("Leave blank to use the default Anki2 folder for this OS"));
+  install_button = save_button(install_pressed, "Install into Anki", &install_text);
   cd_close();
 
   row_open();
-  scan_button = save_button(scan_pressed, CD_LIT("Scan for profiles"), &scan_text);
+  label("ankiBaseDir", "Anki data folder (optional override)");
+  base_input = text_input("ankiBaseDir", &draft[S_BASE_DIR], "Leave blank to use the default Anki2 folder for this OS");
   cd_close();
 
   row_open();
-  label("bridgeUrl", CD_LIT("Bridge address"));
-  url_input = text_input("bridgeUrl", &draft[S_BRIDGE_URL], CD_LIT("http://127.0.0.1:8798"));
-  cd_close();
-  row_open();
-  label("bridgeToken", CD_LIT("Bridge token"));
-  token_input = text_input("bridgeToken", &draft[S_BRIDGE_TOKEN], CD_LIT("From Anki's Tools > amgi: Bridge status…"));
+  scan_button = save_button(scan_pressed, "Scan for profiles", &scan_text);
   cd_close();
 
-  saved_slot = el_id(CD_LIT("div"), CD_LIT("preference-item"));
-  save_button(save_pressed, CD_LIT("Save Anki settings"), 0);
+  row_open();
+  label("bridgeUrl", "Bridge address");
+  url_input = text_input("bridgeUrl", &draft[S_BRIDGE_URL], "http://127.0.0.1:8798");
+  cd_close();
+  row_open();
+  label("bridgeToken", "Bridge token");
+  token_input = text_input("bridgeToken", &draft[S_BRIDGE_TOKEN], "From Anki's Tools > amgi: Bridge status…");
+  cd_close();
+
+  saved_slot = el_id("div", "preference-item");
+  save_button(save_pressed, "Save Anki settings", 0);
   cd_close();
 
   cd_close(); /* .preferences-section */
@@ -247,40 +246,40 @@ ON_EVENT(profile_picked) {
 /* The scan's part of the screen, built again whenever the scan changes: the button's label, then
  * (once done) the error, the missing-folder or no-profile message, or the profile radios. */
 ON_RENDER(scan_view) {
-  cd_set_text_node(scan_text, scan_loading ? CD_LIT("Scanning…") : CD_LIT("Scan for profiles"));
-  cd_set_bool(scan_button, CD_LIT("disabled"), scan_loading);
+  cd_set_text_node(scan_text, scan_loading ? "Scanning…" : "Scan for profiles");
+  cd_set_bool(scan_button, "disabled", scan_loading);
   cd_region_hide(&scan_out);
   int none = !scan_loading && scan_exists == 1 && !nprofiles, missing = !scan_loading && scan_exists == 0;
   if (!scan_error.len && !none && !missing && !nprofiles) return;
   if (!cd_region_show(&scan_out, 1)) return;
   cd_at(section, saved_msg.shown ? saved_msg.root : saved_slot); /* above Save's own message */
-  cd_open(CD_LIT("div"));
+  cd_open("div");
   cd_name_open(scan_out.root);
   if (scan_error.len) {
-    cd_class(CD_LIT("message error"));
+    cd_class("message error");
     tmp_text(scan_error.p, scan_error.len);
   } else if (missing) {
-    cd_class(CD_LIT("message error"));
-    cd_text(CD_LIT("No Anki data folder was found at"));
-    el(CD_LIT("code"), CD_LIT("message-path")); /* a line of its own: a long path is no sentence */
+    cd_class("message error");
+    cd_text("No Anki data folder was found at");
+    el("code", "message-path"); /* a line of its own: a long path is no sentence */
     path_text(scan_base.p ? scan_base.p : "", scan_base.len);
     cd_close();
-    cd_text(CD_LIT("If Anki is not installed yet, install it and open it once to create a profile, then scan again."));
+    cd_text("If Anki is not installed yet, install it and open it once to create a profile, then scan again.");
   } else if (none) {
-    cd_class(CD_LIT("message error"));
-    cd_text(CD_LIT("Found the Anki data folder but no profile with a collection in it yet - open Anki once to create one."));
+    cd_class("message error");
+    cd_text("Found the Anki data folder but no profile with a collection in it yet - open Anki once to create one.");
   } else {
-    cd_class(CD_LIT("preference-item"));
-    cd_attr(CD_LIT("style"), CD_LIT("flex-direction: column; align-items: stretch; gap: 0.4rem;"));
-    label(0, CD_LIT("Profile"));
+    cd_class("preference-item");
+    cd_attr("style", "flex-direction: column; align-items: stretch; gap: 0.4rem;");
+    label(0, "Profile");
     for (uint32_t i = 0; i < nprofiles; i++) {
-      cd_open(CD_LIT("label"));
-      cd_attr(CD_LIT("style"), CD_LIT("display: flex; gap: 0.5rem; align-items: center; font-weight: 400;"));
-      cd_id radio = cd_open_id(CD_LIT("input"));
-      cd_attr(CD_LIT("type"), CD_LIT("radio"));
-      cd_attr(CD_LIT("name"), CD_LIT("ankiProfile"));
+      cd_open("label");
+      cd_attr("style", "display: flex; gap: 0.5rem; align-items: center; font-weight: 400;");
+      cd_id radio = cd_open_id("input");
+      cd_attr("type", "radio");
+      cd_attr("name", "ankiProfile");
       if (same(profiles[i].path.p, profiles[i].path.len, draft[S_COLLECTION].p, draft[S_COLLECTION].len))
-        cd_attr(CD_LIT("checked"), CD_LIT(""));
+        cd_attr("checked", "");
       cd_on(radio, CD_EV_CHANGE, profile_picked, CTX_OF(i));
       cd_close();
       tmp_text(profiles[i].name.p, profiles[i].name.len);
@@ -336,10 +335,10 @@ ON_RENDER(saved_view) {
   cd_region_hide(&saved_msg);
   if ((!saved_shown && !save_error.len) || !cd_region_show(&saved_msg, 1)) return;
   cd_at(section, saved_slot);
-  el(CD_LIT("div"), save_error.len ? CD_LIT("message error") : CD_LIT("message success"));
+  el("div", save_error.len ? "message error" : "message success");
   cd_name_open(saved_msg.root);
   if (save_error.len) tmp_text(save_error.p, save_error.len);
-  else cd_text(CD_LIT("Anki settings saved."));
+  else cd_text("Anki settings saved.");
   cd_close();
   cd_region_end(&saved_msg);
 }
@@ -347,16 +346,16 @@ ON_RENDER(saved_view) {
 /* The install's message, after its button: the server's sentence and, on a line of its own, the
  * add-ons folder it installed into (path_text), in a success box; or the error in an error box. */
 ON_RENDER(install_view) {
-  cd_set_text_node(install_text, install_running ? CD_LIT("Installing…") : CD_LIT("Install into Anki"));
-  cd_set_bool(install_button, CD_LIT("disabled"), install_running);
+  cd_set_text_node(install_text, install_running ? "Installing…" : "Install into Anki");
+  cd_set_bool(install_button, "disabled", install_running);
   cd_region_hide(&install_msg);
   if (!install_message.len || !cd_region_show(&install_msg, 1)) return;
   cd_at(install_block, 0); /* last in the block, after the button */
-  el(CD_LIT("div"), install_ok == 1 ? CD_LIT("message success") : CD_LIT("message error"));
+  el("div", install_ok == 1 ? "message success" : "message error");
   cd_name_open(install_msg.root);
   tmp_text(install_message.p, install_message.len);
   if (install_dir.len) {
-    el(CD_LIT("code"), CD_LIT("message-path"));
+    el("code", "message-path");
     path_text(install_dir.p, install_dir.len);
     cd_close();
   }

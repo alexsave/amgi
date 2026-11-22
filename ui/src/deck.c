@@ -108,47 +108,47 @@ ON_RENDER(sub_view) {
   if (!d || !cd_region_show(&sub, 1)) return;
   cd_at(sub_line, 0);
   cd_text_num(d->count);
-  cd_text(CD_LIT(" card"));
-  if (d->count != 1) cd_text(CD_LIT("s"));
-  cd_text(CD_LIT(" · "));
-  el(CD_LIT("span"), CD_LIT("deck-langs"));
+  cd_text(" card");
+  if (d->count != 1) cd_text("s");
+  cd_text(" · ");
+  el("span", "deck-langs");
   if (!langs_open) {
     const char *k = lang_label(langs.known), *l = lang_label(langs.learning);
     tmp_text(k, zlen(k));
-    cd_text(CD_LIT(" → "));
+    cd_text(" → ");
     tmp_text(l, zlen(l));
-    cd_id change = el_id(CD_LIT("button"), 0);
-    cd_attr(CD_LIT("type"), CD_LIT("button"));
+    cd_id change = el_id("button", 0);
+    cd_attr("type", "button");
     cd_on(change, CD_EV_CLICK, langs_open_pressed, 0);
-    cd_text(CD_LIT("Change"));
+    cd_text("Change");
     cd_close();
   } else {
     for (int which = 0; which < 2; which++) {
       const char *cur = which ? langs.learning : langs.known;
-      cd_id sel = cd_open_id(CD_LIT("select"));
-      cd_attr(CD_LIT("aria-label"), which ? CD_LIT("Language you are learning") : CD_LIT("Language you already know"));
+      cd_id sel = cd_open_id("select");
+      cd_attr("aria-label", which ? "Language you are learning" : "Language you already know");
       cd_on(sel, CD_EV_CHANGE, language_changed, CTX_OF(which));
       if (which) learning_select = sel;
       else known_select = sel;
       for (uint32_t i = 0; i < NLANGUAGES; i++) {
-        cd_open(CD_LIT("option"));
-        cd_attr(CD_LIT("value"), cd_internz(LANGUAGES[i].code));
-        if (same_z(cur, zlen(cur), LANGUAGES[i].code)) cd_attr(CD_LIT("selected"), CD_LIT(""));
-        cd_text(cd_internz(LANGUAGES[i].name));
+        cd_open("option");
+        cd_attr("value", LANGUAGES[i].code);
+        if (same_z(cur, zlen(cur), LANGUAGES[i].code)) cd_attr("selected", "");
+        cd_text(LANGUAGES[i].name);
         cd_close();
       }
       cd_close();
       if (!which) {
-        cd_open(CD_LIT("span"));
-        cd_attr(CD_LIT("aria-hidden"), CD_LIT("true"));
-        cd_text(CD_LIT("→"));
+        cd_open("span");
+        cd_attr("aria-hidden", "true");
+        cd_text("→");
         cd_close();
       }
     }
-    cd_id done = el_id(CD_LIT("button"), 0);
-    cd_attr(CD_LIT("type"), CD_LIT("button"));
+    cd_id done = el_id("button", 0);
+    cd_attr("type", "button");
     cd_on(done, CD_EV_CLICK, langs_done_pressed, 0);
-    cd_text(CD_LIT("Done"));
+    cd_text("Done");
     cd_close();
   }
   cd_close();
@@ -162,30 +162,28 @@ ON_RENDER(name_view) {
   if (!d || !cd_region_show(&name_box, 1)) return;
   cd_at(name_h1, 0);
   if (!renaming) {
-    cd_id name_button = el_id(CD_LIT("button"), CD_LIT("deck-name-button"));
-    cd_attr(CD_LIT("type"), CD_LIT("button"));
-    cd_attr(CD_LIT("title"), CD_LIT("Rename this deck"));
+    cd_id name_button = el_id("button", "deck-name-button");
+    cd_attr("type", "button");
+    cd_attr("title", "Rename this deck");
     cd_on(name_button, CD_EV_CLICK, rename_pressed, 0);
-    cd_text(rename_saving ? CD_LIT("Renaming…") : d->name);
+    if (rename_saving) cd_text("Renaming…");
+    else tmp_text(d->name.p, d->name.len);
     cd_close();
   } else {
-    name_input = cd_open_id(CD_LIT("input"));
-    cd_class(CD_LIT("deck-name-input"));
-    cd_attr(CD_LIT("aria-label"), CD_LIT("Deck name"));
-    uint32_t n;
-    const char *name = cd_bytes(d->name, &n);
-    cd_str value = CD_LIT("value");
-    attr_tmp(value, name, n);
+    name_input = cd_open_id("input");
+    cd_class("deck-name-input");
+    cd_attr("aria-label", "Deck name");
+    attr_tmp("value", d->name.p, d->name.len);
     cd_on(name_input, CD_EV_FOCUSOUT, name_left, 0);
     cd_on(name_input, CD_EV_KEYDOWN, name_key, 0);
     cd_close();
   }
   cd_region_end(&name_box);
-  if (renaming) cd_call(name_input, CD_LIT("focus")); /* autoFocus */
+  if (renaming) cd_call(name_input, "focus"); /* autoFocus */
   cd_region_hide(&name_err);
   if (!renaming && rename_error.len && cd_region_show(&name_err, 1)) {
     cd_at(title_box, sub_line);
-    el(CD_LIT("p"), CD_LIT("deck-name-error"));
+    el("p", "deck-name-error");
     cd_name_open(name_err.root);
     tmp_text(rename_error.p, rename_error.len);
     cd_close();
@@ -207,7 +205,7 @@ static void rename_commit(void) {
     return;
   }
   uint32_t n;
-  const char *old = d ? cd_bytes(d->name, &n) : (n = 0, "");
+  const char *old = d && d->name.p ? (n = d->name.len, d->name.p) : (n = 0, "");
   if (!d || rename_cancelled || !typed.len || same(typed.p, typed.len, old, n)) {
     rename_cancelled = 0;
     dirty(name_view);
@@ -251,7 +249,7 @@ static void screen_gone(void *ctx) {
 void deck_build(void) {
   cd_on_free(0, screen_gone, 0);
   const deck *d = deck_by_id(route_deck);
-  el(CD_LIT("div"), CD_LIT("deck-cards"));
+  el("div", "deck-cards");
   if (!langs_known || deck_id != route_deck) {
     /* the pair is on its way from the store (deck_langs_loaded draws the screen again) */
     langs_known = 0;
@@ -259,27 +257,27 @@ void deck_build(void) {
     return;
   }
   shown = 1;
-  el(CD_LIT("div"), CD_LIT("deck-cards-header"));
-  title_box = el_id(CD_LIT("div"), CD_LIT("deck-cards-title"));
-  name_h1 = cd_open_id(CD_LIT("h1"));
+  el("div", "deck-cards-header");
+  title_box = el_id("div", "deck-cards-title");
+  name_h1 = cd_open_id("h1");
   name_box.parent = name_h1;
   cd_close();
   (void)d;
-  sub_line = el_id(CD_LIT("p"), CD_LIT("deck-cards-sub"));
+  sub_line = el_id("p", "deck-cards-sub");
   sub.parent = sub_line;
   cd_close();
   cd_close();
-  cd_on(el_id(CD_LIT("button"), CD_LIT("back-btn")), CD_EV_CLICK, back, 0);
-  cd_text(CD_LIT("← Decks"));
+  cd_on(el_id("button", "back-btn"), CD_EV_CLICK, back, 0);
+  cd_text("← Decks");
   cd_close();
   cd_close();
 
-  el(CD_LIT("div"), CD_LIT("deck-content"));
+  el("div", "deck-content");
   form_build(deck_id, &langs);
-  list_box = el_id(CD_LIT("div"), CD_LIT("deck-cards-list"));
-  el(CD_LIT("div"), CD_LIT("deck-cards-listhead"));
-  el_text(CD_LIT("h3"), 0, CD_LIT("Cards in this deck"));
-  cd_open(CD_LIT("span"));
+  list_box = el_id("div", "deck-cards-list");
+  el("div", "deck-cards-listhead");
+  el_text("h3", 0, "Cards in this deck");
+  cd_open("span");
   cd_text_num(d->count);
   cd_name_text(listhead_count = cd_id_new());
   cd_close();
@@ -290,8 +288,8 @@ void deck_build(void) {
    * server refuses it on both transports. */
   danger.parent = 0; /* none, for Default */
   if (deck_id != 1) {
-    danger.parent = el_id(CD_LIT("section"), CD_LIT("deck-danger"));
-    cd_attr(CD_LIT("aria-label"), CD_LIT("Delete this deck"));
+    danger.parent = el_id("section", "deck-danger");
+    cd_attr("aria-label", "Delete this deck");
     cd_close();
   }
   cd_close();
@@ -313,8 +311,8 @@ static void editor_close(void) {
   if (editor_row < 0) return;
   int32_t row = editor_row;
   cd_region_hide(&editor); /* the panel goes with it */
-  cd_set_class(row_li[row], CD_LIT("note-row-wrap"));
-  cd_set_text_node(row_edit[row], CD_LIT("Edit"));
+  cd_set_class(row_li[row], "note-row-wrap");
+  cd_set_text_node(row_edit[row], "Edit");
 }
 
 static void editor_open(uint32_t i) {
@@ -323,10 +321,10 @@ static void editor_open(uint32_t i) {
   if (!t || !row_edit[i] || !cd_region_show(&editor, 1)) return;
   cd_on_free(0, editor_gone, 0);
   editor_row = (int32_t)i;
-  cd_set_class(row_li[i], CD_LIT("note-row-wrap is-open"));
-  cd_set_text_node(row_edit[i], CD_LIT("Close"));
+  cd_set_class(row_li[i], "note-row-wrap is-open");
+  cd_set_text_node(row_edit[i], "Close");
   cd_at(row_li[i], 0);
-  el(CD_LIT("div"), CD_LIT("note-row-editor"));
+  el("div", "note-row-editor");
   cd_name_open(editor.root);
   panel_build(&editor, n->id, &n->fields, t->fields, t->nfields, &langs);
   cd_close();
@@ -357,20 +355,20 @@ static void row_build(uint32_t i) {
   uint32_t flen = strip_html(front, prompt);
 
   int open = 0; /* the editor opens after the rows are built: editor_open */
-  row_li[i] = el_id(CD_LIT("li"), CD_LIT("note-row-wrap"));
+  row_li[i] = el_id("li", "note-row-wrap");
   row_edit[i] = 0;
-  el(CD_LIT("div"), CD_LIT("note-row"));
-  el(CD_LIT("span"), CD_LIT("note-row-target"));
+  el("div", "note-row");
+  el("span", "note-row-target");
   tmp_text(front, flen);
   cd_close();
-  el(CD_LIT("span"), CD_LIT("note-row-cue"));
+  el("span", "note-row-cue");
   if (amgi) {
     wire_str cue = field_named(n, t, "Cue");
     char *c = cd_alloc(cue.len + 1);
     tmp_text(c, strip_tags(c, cue));
     cd_free(c);
   } else {
-    el(CD_LIT("span"), CD_LIT("note-row-type"));
+    el("span", "note-row-type");
     if (t) {
       tmp_text(t->name.p, t->name.len);
     } else {
@@ -378,46 +376,45 @@ static void row_build(uint32_t i) {
       tmp_text(nm, 10 + id_dec(nm + 10, n->notetype_id));
     }
     cd_close();
-    cd_text(CD_LIT(" not an amgi card"));
+    cd_text(" not an amgi card");
   }
   cd_close();
-  el(CD_LIT("span"), CD_LIT("note-row-clips"));
+  el("span", "note-row-clips");
   wire_str cue_clip = audio_src(field_named(n, t, "CueAudio")), target_clip = audio_src(field_named(n, t, "TargetAudio"));
   chip_build(0, cue_clip.p, cue_clip.len, lang_label(langs.known), TONE_CUE);
   chip_build(0, target_clip.p, target_clip.len, lang_label(langs.learning), TONE_TARGET);
-  if (amgi && !has_audio) el_text(CD_LIT("small"), CD_LIT("note-row-noaudio"), CD_LIT("no audio yet"));
+  if (amgi && !has_audio) el_text("small", "note-row-noaudio", "no audio yet");
   cd_close();
   if (amgi) {
-    cd_id edit = el_id(CD_LIT("button"), 0);
-    cd_attr(CD_LIT("type"), CD_LIT("button"));
-    cd_class(CD_LIT("note-row-edit"));
+    cd_id edit = el_id("button", 0);
+    cd_attr("type", "button");
+    cd_class("note-row-edit");
     cd_on(edit, CD_EV_CLICK, edit_pressed, CTX_OF(i));
-    cd_text(open ? CD_LIT("Close") : CD_LIT("Edit"));
+    cd_text(open ? "Close" : "Edit");
     cd_name_text(row_edit[i] = cd_id_new());
     cd_close();
   } else {
-    el(CD_LIT("span"), CD_LIT("note-row-edit note-row-edit-off"));
-    cd_attr(CD_LIT("title"), CD_LIT("amgi only edits its own note type"));
-    cd_text(CD_LIT("—"));
+    el("span", "note-row-edit note-row-edit-off");
+    cd_attr("title", "amgi only edits its own note type");
+    cd_text("—");
     cd_close();
   }
-  cd_id del = el_id(CD_LIT("button"), 0);
-  cd_attr(CD_LIT("type"), CD_LIT("button"));
-  cd_class(CD_LIT("note-row-delete"));
-  cd_attr(CD_LIT("title"), CD_LIT("Delete this card"));
+  cd_id del = el_id("button", 0);
+  cd_attr("type", "button");
+  cd_class("note-row-delete");
+  cd_attr("title", "Delete this card");
   {
     static const char D[] = "Delete ";
     char *label = cd_alloc(sizeof D + flen);
     __builtin_memcpy(label, D, sizeof D - 1);
     __builtin_memcpy(label + sizeof D - 1, front, flen);
-    cd_str aria = CD_LIT("aria-label");
-    attr_tmp(aria, label, (uint32_t)sizeof D - 1 + flen);
+    attr_tmp("aria-label", label, (uint32_t)sizeof D - 1 + flen);
     cd_free(label);
   }
   cd_on(del, CD_EV_CLICK, delete_pressed, CTX_OF(i));
   if (deleting == n->id) {
-    cd_attr(CD_LIT("disabled"), CD_LIT(""));
-    cd_text(CD_LIT("…"));
+    cd_attr("disabled", "");
+    cd_text("…");
   } else {
     icon(ICON_TRASH, 0, 0);
   }
@@ -470,22 +467,22 @@ ON_RENDER(rows_view) {
   cd_on_free(0, rows_gone, 0);
   cd_at(list_box, pager.shown ? pager.root : 0); /* the pager stays, after the rows */
   if (notes_error.len) {
-    el(CD_LIT("div"), CD_LIT("empty-deck"));
+    el("div", "empty-deck");
     cd_name_open(body.root);
-    cd_open(CD_LIT("p"));
-    cd_text(CD_LIT("Could not load this deck's notes: "));
+    cd_open("p");
+    cd_text("Could not load this deck's notes: ");
     tmp_text(notes_error.p, notes_error.len);
     cd_close();
     cd_close();
   } else if (!notes_known || !notetypes_known || !page_notes.nnotes) {
-    el(CD_LIT("div"), CD_LIT("empty-deck"));
+    el("div", "empty-deck");
     cd_name_open(body.root);
-    cd_open(CD_LIT("p"));
-    cd_text(notes_known && notetypes_known && !notes_loading ? CD_LIT("No notes in this deck yet.") : CD_LIT("Loading notes…"));
+    cd_open("p");
+    cd_text(notes_known && notetypes_known && !notes_loading ? "No notes in this deck yet." : "Loading notes…");
     cd_close();
     cd_close();
   } else {
-    el(CD_LIT("ol"), CD_LIT("note-rows"));
+    el("ol", "note-rows");
     cd_name_open(body.root);
     row_li = cd_realloc(row_li, (page_notes.nnotes + 1) * sizeof *row_li);
     row_edit = cd_realloc(row_edit, (page_notes.nnotes + 1) * sizeof *row_edit);
@@ -511,23 +508,23 @@ ON_RENDER(pager_view) {
   int off[2] = {!page_notes.offset || notes_loading, !page_notes.has_more || notes_loading};
   if (!pager.shown && cd_region_show(&pager, 1)) {
     cd_at(list_box, 0);
-    el(CD_LIT("div"), CD_LIT("card-list-pager"));
+    el("div", "card-list-pager");
     cd_name_open(pager.root);
-    cd_attr(CD_LIT("style"), CD_LIT("display: flex; justify-content: center; gap: 1rem; align-items: center; margin-top: 1rem;"));
+    cd_attr("style", "display: flex; justify-content: center; gap: 1rem; align-items: center; margin-top: 1rem;");
     for (int which = 0; which < 2; which++) {
       if (which) {
-        cd_open(CD_LIT("small"));
-        cd_attr(CD_LIT("style"), CD_LIT("opacity: 0.75;"));
+        cd_open("small");
+        cd_attr("style", "opacity: 0.75;");
         text_bound_num(&range_lo, page_notes.offset + 1);
-        cd_text(CD_LIT("–"));
+        cd_text("–");
         text_bound_num(&range_hi, page_notes.offset + n);
         cd_close();
       }
-      cd_id step = el_id(CD_LIT("button"), CD_LIT("back-btn"));
-      if (off[which]) cd_attr(CD_LIT("disabled"), CD_LIT(""));
-      bool_bound(which ? &next_off : &prev_off, step, CD_LIT("disabled"), off[which]);
+      cd_id step = el_id("button", "back-btn");
+      if (off[which]) cd_attr("disabled", "");
+      bool_bound(which ? &next_off : &prev_off, step, "disabled", off[which]);
       cd_on(step, CD_EV_CLICK, which ? next_pressed : prev_pressed, 0);
-      cd_text(which ? CD_LIT("Next →") : CD_LIT("← Prev"));
+      cd_text(which ? "Next →" : "← Prev");
       cd_close();
     }
     cd_close();
@@ -544,29 +541,29 @@ ON_RENDER(pager_view) {
 ON_RENDER(danger_view) {
   if (!danger.shown && danger.parent && cd_region_show(&danger, 1)) {
     cd_at(danger.parent, 0);
-    el(CD_LIT("div"), CD_LIT("deck-danger-text"));
-    el_text(CD_LIT("h3"), 0, CD_LIT("Delete this deck"));
-    el_text(CD_LIT("p"), 0, CD_LIT("The deck, its subdecks and every card in them, on every device you sync with."));
+    el("div", "deck-danger-text");
+    el_text("h3", 0, "Delete this deck");
+    el_text("p", 0, "The deck, its subdecks and every card in them, on every device you sync with.");
     cd_close();
-    cd_id del = el_id(CD_LIT("button"), CD_LIT("deck-danger-btn"));
-    cd_attr(CD_LIT("type"), CD_LIT("button"));
-    bool_bound(&danger_off, del, CD_LIT("disabled"), 0);
+    cd_id del = el_id("button", "deck-danger-btn");
+    cd_attr("type", "button");
+    bool_bound(&danger_off, del, "disabled", 0);
     cd_on(del, CD_EV_CLICK, deck_delete_pressed, 0);
-    text_bound(&danger_label, CD_LIT("Delete deck"));
+    text_bound(&danger_label, "Delete deck");
     cd_close();
     cd_region_end(&danger);
   }
   if (!danger.shown) return; /* the Default deck has no such section */
-  cd_bound_set(&danger_label, danger_state == DANGER_CHECKING   ? CD_LIT("Checking…")
-                              : danger_state == DANGER_DELETING ? CD_LIT("Deleting…")
-                                                                : CD_LIT("Delete deck"));
+  cd_bound_set(&danger_label, danger_state == DANGER_CHECKING   ? "Checking…"
+                              : danger_state == DANGER_DELETING ? "Deleting…"
+                                                                : "Delete deck");
   cd_bound_set_num(&danger_off, danger_state != DANGER_IDLE);
   cd_region_hide(&danger_err);
   if (danger_error.len && cd_region_show(&danger_err, 1)) {
     cd_at(danger.parent, 0);
-    el(CD_LIT("p"), CD_LIT("deck-danger-error"));
+    el("p", "deck-danger-error");
     cd_name_open(danger_err.root);
-    cd_attr(CD_LIT("role"), CD_LIT("alert"));
+    cd_attr("role", "alert");
     tmp_text(danger_error.p, danger_error.len);
     cd_close();
     cd_region_end(&danger_err);
@@ -827,7 +824,7 @@ ON_EVENT(rename_pressed) {
 }
 ON_EVENT(name_left) { rename_commit(); }
 ON_EVENT(name_key) {
-  if (e->key == 13) cd_call(name_input, CD_LIT("blur")); /* Enter: leaving the field saves */
+  if (e->key == 13) cd_call(name_input, "blur"); /* Enter: leaving the field saves */
   if (e->key == 27) {                                   /* Escape abandons the edit */
     rename_cancelled = 1;
     renaming = 0;
@@ -861,14 +858,14 @@ ON_EVENT(language_changed) {
  * Anki, or on another device and synced. Said, with the way back, rather than an empty page or a
  * silent jump. Built under page.root as deck_build is. */
 void deck_gone_build(void) {
-  el(CD_LIT("div"), CD_LIT("deck-cards"));
-  el(CD_LIT("div"), CD_LIT("deck-gone"));
-  el_text(CD_LIT("h1"), 0, CD_LIT("This deck no longer exists"));
-  el_text(CD_LIT("p"), 0, CD_LIT("It was deleted, here, in Anki, or on another device you sync with."));
-  cd_id back_button = el_id(CD_LIT("button"), CD_LIT("back-btn"));
-  cd_attr(CD_LIT("type"), CD_LIT("button"));
+  el("div", "deck-cards");
+  el("div", "deck-gone");
+  el_text("h1", 0, "This deck no longer exists");
+  el_text("p", 0, "It was deleted, here, in Anki, or on another device you sync with.");
+  cd_id back_button = el_id("button", "back-btn");
+  cd_attr("type", "button");
   cd_on(back_button, CD_EV_CLICK, back, 0);
-  cd_text(CD_LIT("← Decks"));
+  cd_text("← Decks");
   cd_close();
   cd_close();
 }

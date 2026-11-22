@@ -40,16 +40,19 @@ uint32_t dedupe_key(char *dst, wire_str s);
 /* What lyricsParse.js's parseLyricsPaste was: the lines a paste makes cards of (see text.c). */
 uint32_t paste_lines(const char *s, uint32_t len, wire_str *out, uint32_t cap, char *keys);
 
-/* ---- the DOM, shorthand (dom.c) ---- */
-void el(cd_str tag, cd_str cls);                  /* cd_open, then class when cls */
-cd_id el_id(cd_str tag, cd_str cls);              /* the same, named with a new id (cd_open_id) */
-void el_text(cd_str tag, cd_str cls, cd_str s);   /* an element holding one text, closed */
+/* ---- the DOM, shorthand (dom.c) ----
+ * A string parameter is plain C (cdom.h, strings). What is kept past the call (a bound value, a bound
+ * prop's name) must be read-only data: a literal, a const table's entry, or a ternary of those. Bytes
+ * that change go through tmp_text, attr_tmp or cd_tmp. */
+void el(const char *tag, const char *cls);                  /* cd_open, then class when cls */
+cd_id el_id(const char *tag, const char *cls);              /* the same, named with a new id (cd_open_id) */
+void el_text(const char *tag, const char *cls, const char *s);   /* an element holding one text, closed */
 /* These stay local: cdom_ui.h has elements, a button and a string builder, but no builder that emits and binds in one call. */
-void text_bound(cd_bound *b, cd_str v);          /* a text node showing v, named, bound to b, recorded as shown */
+void text_bound(cd_bound *b, const char *v);          /* a text node showing v, named, bound to b, recorded as shown */
 void text_bound_num(cd_bound *b, uint32_t n);    /* the same, a number's text */
-void bool_bound(cd_bound *b, cd_id el, cd_str prop, uint32_t v); /* el's boolean prop bound to b, recorded as v */
+void bool_bound(cd_bound *b, cd_id el, const char *prop, uint32_t v); /* el's boolean prop bound to b, recorded as v */
 void tmp_text(const char *p, uint32_t len);       /* a one-off text node */
-void attr_tmp(cd_str name, const char *p, uint32_t len);
+void attr_tmp(const char *name, const char *p, uint32_t len);
 /* A cd_on handler, defined: static, and either argument may go unused. */
 #define ON_EVENT(name) \
   static void name(const cd_event_rec *e __attribute__((unused)), void *ctx __attribute__((unused)))
@@ -68,8 +71,8 @@ void attr_tmp(cd_str name, const char *p, uint32_t len);
  * poisoned, so a direct use of any of them does not compile. */
 #pragma GCC poison cd_listen cd_listen_window cd_tag_set cd_tag cd_on_event
 /* heroicons 24/outline as @heroicons/react renders them: one or two paths, an optional style. */
-void icon(const char *d1, const char *d2, cd_str style);
-void icon_with(const char *d1, const char *d2, cd_str style, cd_str cls); /* with a class (className="icon") */
+void icon(const char *d1, const char *d2, const char *style);
+void icon_with(const char *d1, const char *d2, const char *style, const char *cls); /* with a class (className="icon") */
 extern const char ICON_COG[], ICON_COG_HUB[], ICON_PLUS[], ICON_TRASH[], ICON_X[];
 
 /* A timer is cd_timer_cb's callback, stopped with cd_timer_stop: the raw token form and its hook
@@ -118,7 +121,7 @@ void settings_load(void);                 /* from the store; settings_loaded onc
 void store_put_ignored(void *ctx, uint32_t ok);
 
 /* ---- the state DeckContext held (state.c) ---- */
-typedef struct { int64_t id; cd_str name; uint32_t count; } deck;
+typedef struct { int64_t id; text name; uint32_t count; } deck; /* name: the list's own copy (state.c) */
 extern deck *decks;
 extern uint32_t ndecks;
 extern int decks_known;         /* a decks answer has come */

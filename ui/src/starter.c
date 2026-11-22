@@ -22,13 +22,13 @@ static uint32_t index_of(const char *code, uint32_t len) {
 }
 
 static void option(uint32_t i, uint32_t selected) {
-  cd_open(CD_LIT("option"));
-  cd_attr(CD_LIT("value"), cd_internz(LANGUAGES[i].code));
-  if (i == selected) cd_attr(CD_LIT("selected"), CD_LIT(""));
+  cd_open("option");
+  cd_attr("value", LANGUAGES[i].code);
+  if (i == selected) cd_attr("selected", "");
   /* {flag(code)} {label(code)}: three text nodes */
-  cd_text(cd_internz(LANGUAGES[i].flag));
-  cd_text(CD_LIT(" "));
-  cd_text(cd_internz(LANGUAGES[i].name));
+  cd_text(LANGUAGES[i].flag);
+  cd_text(" ");
+  cd_text(LANGUAGES[i].name);
   cd_close();
 }
 
@@ -60,24 +60,24 @@ ON_RENDER(draw) {
   cd_region_hide(&view);
   if (!loaded || !offered || !cd_region_show(&view, 1)) return;
   cd_at(parent_node, 0);
-  el(CD_LIT("div"), CD_LIT("starter-deck"));
+  el("div", "starter-deck");
   cd_name_open(view.root);
   cd_on_free(0, view_gone, 0);
-  el_text(CD_LIT("h3"), CD_LIT("starter-deck-title"), CD_LIT("Try it without a Gemini key"));
-  el(CD_LIT("p"), CD_LIT("starter-deck-lead"));
-  cd_text(CD_LIT("amgi writes and records cards with Google Gemini, and there is no key set here, so it cannot make one "
-                 "yet. This deck is "));
+  el_text("h3", "starter-deck-title", "Try it without a Gemini key");
+  el("p", "starter-deck-lead");
+  cd_text("amgi writes and records cards with Google Gemini, and there is no key set here, so it cannot make one "
+                 "yet. This deck is ");
   cd_text_num(phrase_count);
-  cd_text(CD_LIT(" everyday phrases that came with amgi, already recorded in both languages - a real deck you can review, "
-                 "edit and delete."));
+  cd_text(" everyday phrases that came with amgi, already recorded in both languages - a real deck you can review, "
+                 "edit and delete.");
   cd_close();
-  el(CD_LIT("div"), CD_LIT("starter-deck-pair"));
+  el("div", "starter-deck-pair");
   for (int which = 0; which < 2; which++) {
-    el(CD_LIT("label"), CD_LIT("starter-deck-field"));
-    el_text(CD_LIT("span"), 0, which ? CD_LIT("I am learning") : CD_LIT("I know"));
-    cd_id sel = cd_open_id(CD_LIT("select"));
-    if (busy) cd_attr(CD_LIT("disabled"), CD_LIT(""));
-    bool_bound(&sel_off[which], sel, CD_LIT("disabled"), busy);
+    el("label", "starter-deck-field");
+    el_text("span", 0, which ? "I am learning" : "I know");
+    cd_id sel = cd_open_id("select");
+    if (busy) cd_attr("disabled", "");
+    bool_bound(&sel_off[which], sel, "disabled", busy);
     cd_on(sel, CD_EV_CHANGE, language_picked, CTX_OF(which));
     if (which) learning_sel = sel;
     else known_sel = sel;
@@ -88,20 +88,20 @@ ON_RENDER(draw) {
     cd_close();
   }
   cd_close();
-  cd_id cta = el_id(CD_LIT("button"), 0);
-  cd_attr(CD_LIT("type"), CD_LIT("button"));
-  cd_class(CD_LIT("starter-deck-cta"));
-  if (cta_is_off()) cd_attr(CD_LIT("disabled"), CD_LIT(""));
-  bool_bound(&cta_off, cta, CD_LIT("disabled"), cta_is_off());
+  cd_id cta = el_id("button", 0);
+  cd_attr("type", "button");
+  cd_class("starter-deck-cta");
+  if (cta_is_off()) cd_attr("disabled", "");
+  bool_bound(&cta_off, cta, "disabled", cta_is_off());
   cd_on(cta, CD_EV_CLICK, build_pressed, 0);
-  text_bound(&cta_label, busy ? CD_LIT("Building the deck…") : CD_LIT("Make me a starter deck"));
+  text_bound(&cta_label, busy ? "Building the deck…" : "Make me a starter deck");
   cd_close();
-  note_node = el_id(CD_LIT("p"), CD_LIT("starter-deck-note"));
-  cd_text(CD_LIT("To make your own cards, put "));
-  el_text(CD_LIT("code"), 0, CD_LIT("GEMINI_API_KEY=…"));
-  cd_text(CD_LIT(" in "));
-  el_text(CD_LIT("code"), 0, CD_LIT(".env.local"));
-  cd_text(CD_LIT(" and restart amgi (get a key at aistudio.google.com/apikey)."));
+  note_node = el_id("p", "starter-deck-note");
+  cd_text("To make your own cards, put ");
+  el_text("code", 0, "GEMINI_API_KEY=…");
+  cd_text(" in ");
+  el_text("code", 0, ".env.local");
+  cd_text(" and restart amgi (get a key at aistudio.google.com/apikey).");
   cd_close();
   cd_close();
   cd_region_end(&view);
@@ -109,14 +109,14 @@ ON_RENDER(draw) {
 }
 
 ON_RENDER(patch_view) {
-  cd_bound_set(&cta_label, busy ? CD_LIT("Building the deck…") : CD_LIT("Make me a starter deck"));
+  cd_bound_set(&cta_label, busy ? "Building the deck…" : "Make me a starter deck");
   cd_bound_set_num(&cta_off, cta_is_off());
   cd_bound_set_num(&sel_off[0], busy);
   cd_bound_set_num(&sel_off[1], busy);
   cd_region_hide(&failure);
   if (!error.len || !cd_region_show(&failure, 1)) return;
   cd_at(view.root, note_node);
-  el(CD_LIT("p"), CD_LIT("starter-deck-error"));
+  el("p", "starter-deck-error");
   cd_name_open(failure.root);
   tmp_text(error.p, error.len);
   cd_close();

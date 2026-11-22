@@ -132,40 +132,39 @@ static void row_draw(uint32_t i) {
   for (uint32_t k = i + 1; k < nrows && !before; k++)
     if (rows[k].view.shown) before = rows[k].view.root;
   cd_at(list, before);
-  cd_open(CD_LIT("li"));
+  cd_open("li");
   cd_name_open(r->view.root);
   switch (r->status) {
-  case QUEUED: cd_class(CD_LIT("bulk-run-row is-queued")); break;
-  case MAKING: cd_class(CD_LIT("bulk-run-row is-making")); break;
-  case WAITING: cd_class(CD_LIT("bulk-run-row is-waiting")); break;
-  case DONE: cd_class(CD_LIT("bulk-run-row is-done")); break;
-  case SKIPPED: cd_class(CD_LIT("bulk-run-row is-skipped")); break;
-  default: cd_class(CD_LIT("bulk-run-row is-error")); break;
+  case QUEUED: cd_class("bulk-run-row is-queued"); break;
+  case MAKING: cd_class("bulk-run-row is-making"); break;
+  case WAITING: cd_class("bulk-run-row is-waiting"); break;
+  case DONE: cd_class("bulk-run-row is-done"); break;
+  case SKIPPED: cd_class("bulk-run-row is-skipped"); break;
+  default: cd_class("bulk-run-row is-error"); break;
   }
-  el(CD_LIT("span"), CD_LIT("bulk-run-state"));
+  el("span", "bulk-run-state");
   tmp_text(STATUS_LABEL[r->status], zlen(STATUS_LABEL[r->status]));
   cd_close();
-  el(CD_LIT("span"), CD_LIT("bulk-run-text"));
+  el("span", "bulk-run-text");
   const text *shown_text = r->target.len ? &r->target : &r->line;
   tmp_text(shown_text->p, shown_text->len);
   cd_close();
   char *note = cd_alloc(r->error.len + r->cue.len + 160);
   uint32_t nn = row_note(r, note);
-  el(CD_LIT("span"), CD_LIT("bulk-run-cue"));
+  el("span", "bulk-run-cue");
   if (nn) {
-    cd_str title = CD_LIT("title");
-    attr_tmp(title, note, nn);
+    attr_tmp("title", note, nn);
     tmp_text(note, nn);
   }
   cd_close();
   cd_free(note);
-  el(CD_LIT("span"), CD_LIT("bulk-run-clips"));
+  el("span", "bulk-run-clips");
   if (r->status == BROKEN) {
-    cd_id retry = el_id(CD_LIT("button"), 0);
-    cd_attr(CD_LIT("type"), CD_LIT("button"));
-    cd_class(CD_LIT("bulk-run-retry"));
+    cd_id retry = el_id("button", 0);
+    cd_attr("type", "button");
+    cd_class("bulk-run-retry");
     cd_on(retry, CD_EV_CLICK, retry_pressed, CTX_OF(i));
-    cd_text(CD_LIT("Retry"));
+    cd_text("Retry");
     cd_close();
   } else {
     const char *k = language_name(langs.known, zlen(langs.known)), *l = language_name(langs.learning, zlen(langs.learning));
@@ -531,12 +530,12 @@ void bulk_start(cd_id form_box, int64_t deck, const notetype *type, const lang_p
   if (!cd_region_show(&view, 1)) return;
   cd_on_free(0, run_gone, 0);
   cd_at(form_box, 0);
-  el(CD_LIT("div"), CD_LIT("bulk-run"));
+  el("div", "bulk-run");
   cd_name_open(view.root);
-  head = el_id(CD_LIT("p"), CD_LIT("bulk-run-head"));
+  head = el_id("p", "bulk-run-head");
   head_view.parent = head;
   cd_close();
-  list = el_id(CD_LIT("ol"), CD_LIT("bulk-run-rows"));
+  list = el_id("ol", "bulk-run-rows");
   cd_close();
   cd_close();
   cd_region_end(&view);

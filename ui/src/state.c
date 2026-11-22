@@ -42,16 +42,17 @@ void refresh_decks(void) { ask(decks_answered, 0, "GET", "/decks", WIRE_NONE, 0)
 void decks_drop_tree(int64_t id) {
   const deck *gone = deck_by_id(id);
   if (!gone) return;
-  uint32_t glen;
-  const char *g = cd_bytes(gone->name, &glen);
+  uint32_t glen = gone->name.len;
   char *prefix = cd_alloc(glen + 3);
-  __builtin_memcpy(prefix, g, glen);
+  if (glen) __builtin_memcpy(prefix, gone->name.p, glen);
   __builtin_memcpy(prefix + glen, "::", 2);
   uint32_t kept = 0;
   for (uint32_t i = 0; i < ndecks; i++) {
-    uint32_t n;
-    const char *name = cd_bytes(decks[i].name, &n);
-    if (decks[i].id == id || (n > glen + 2 && same(name, glen + 2, prefix, glen + 2))) continue;
+    const text *name = &decks[i].name;
+    if (decks[i].id == id || (name->len > glen + 2 && same(name->p, glen + 2, prefix, glen + 2))) {
+      text_free(&decks[i].name);
+      continue;
+    }
     decks[kept++] = decks[i];
   }
   ndecks = kept;
@@ -114,12 +115,15 @@ ON_ANSWER(decks_answered) {
   int was_known = decks_known;
   decks_known = 1;
   if (a.ok) {
+    for (uint32_t i = 0; i < ndecks; i++) text_free(&decks[i].name);
     if (d.ndecks > decks_cap) {
       decks_cap = d.ndecks;
       decks = cd_realloc(decks, decks_cap * sizeof *decks);
     }
-    for (uint32_t i = 0; i < d.ndecks; i++)
-      decks[i] = (deck){d.decks[i].id, cd_intern(d.decks[i].name.p, d.decks[i].name.len), d.decks[i].note_count};
+    for (uint32_t i = 0; i < d.ndecks; i++) {
+      decks[i] = (deck){d.decks[i].id, {0, 0}, d.decks[i].note_count};
+      text_set(&decks[i].name, d.decks[i].name.p, d.decks[i].name.len);
+    }
     ndecks = d.ndecks;
     set_mode(d.mode);
     ask(install_answered, 0, "GET", "/install", WIRE_NONE, 0);
@@ -226,17 +230,16 @@ static uint32_t dot_style(const char *color) {
 
 void badge_build(badge *b) {
   const presentation *p = badge_now();
-  b->span = cd_open_id(CD_LIT("span"));
-  cd_attr(CD_LIT("title"), cd_internz(p->title));
-  cd_attr(CD_LIT("style"), CD_LIT("display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.7rem; "
+  b->span = cd_open_id("span");
+  cd_attr("title", p->title);
+  cd_attr("style", "display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.7rem; "
                                   "font-weight: 600; letter-spacing: 0.02em; border: 1px solid var(--border-color); "
                                   "border-radius: 999px; padding: 0.2rem 0.6rem; color: var(--text-secondary); "
-                                  "white-space: nowrap;"));
-  b->dot = cd_open_id(CD_LIT("span"));
-  cd_str style = CD_LIT("style");
-  attr_tmp(style, style_buf, dot_style(p->color));
+                                  "white-space: nowrap;");
+  b->dot = cd_open_id("span");
+  attr_tmp("style", style_buf, dot_style(p->color));
   cd_close();
-  cd_text(cd_internz(p->label));
+  cd_text(p->label);
   cd_name_text(b->label = cd_id_new());
   cd_close();
 }
@@ -246,9 +249,8 @@ void badges_update(void) {
   for (int i = 0; i < 2; i++) {
     badge *b = &badges[i];
     if (!b->span) continue;
-    cd_set_attr(b->span, CD_LIT("title"), cd_internz(p->title));
-    cd_str style = CD_LIT("style");
-    cd_set_attr(b->dot, style, cd_tmp(style_buf, dot_style(p->color)));
-    cd_set_text_node(b->label, cd_internz(p->label));
+    cd_set_attr(b->span, "title", p->title);
+    cd_set_attr(b->dot, "style", cd_tmp(style_buf, dot_style(p->color)));
+    cd_set_text_node(b->label, p->label);
   }
 }

@@ -9,7 +9,7 @@
 #                     replaced window.confirm)
 #   out/wire.wasm     the wire writers for the Node tests and tools (wire/wire_node.c, no cdom code)
 #   out/wire_dump, out/text_dump   natively, under ASan and UBSan, for tests/ui: the app's wire
-#                     walkers, and src/text.c with src/fields.c
+#                     walkers, and src/text.c with src/fields.c (C23, cdom.mk's HOST_STD: cdom.h needs it)
 #   out/wire_py       writes ../anki/addon/amgi_bridge/wire_schema.py from wire.c's table, so the
 #                     Anki bridge add-on holds no layout of its own
 #
@@ -17,7 +17,7 @@
 #   make -C ui sizes  the sizes of app.wasm, the shim and index.html, with brotli's when installed
 #
 # CDOM moves the cdom checkout and WASM_CC the wasm compiler (cdom.mk: Homebrew's LLVM by default).
-# No Node on this path: make, awk and clang.
+# No Node on this path: make, clang and a host C compiler (cdom builds its link and page tools with it).
 CDOM ?= ../cdom
 ifeq ($(wildcard $(CDOM)/cdom.mk),)
   $(error the cdom submodule is not checked out (ui/../cdom): git submodule update --init --recursive)
@@ -76,7 +76,7 @@ $(OUT)/wire_dump: ../tests/ui/wire_dump.c wire/wire.c wire/wire.h
 
 $(OUT)/text_dump: ../tests/ui/text_dump.c src/text.c src/fields.c $(APP_HDR) $(CDOM_HEADERS)
 	@mkdir -p $(@D)
-	$(HOST_CC) $(SAN) $(WARN) -I$(CDOM)/src -o $@ ../tests/ui/text_dump.c src/text.c src/fields.c
+	$(HOST_CC) $(HOST_STD) $(SAN) $(WARN) -I$(CDOM)/src -o $@ ../tests/ui/text_dump.c src/text.c src/fields.c
 
 $(OUT)/wire_py: wire/wire_py.c wire/wire.c wire/wire.h
 	@mkdir -p $(@D)
