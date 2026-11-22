@@ -15,6 +15,7 @@
 #include "gate.h"
 #include "gemini.h"
 #include "messages.h"
+#include "progress.h"
 
 int amgi_generation_available(void) {
   const char *k = getenv("GEMINI_API_KEY");
@@ -74,12 +75,13 @@ static int admission_refused(arena *a, cb_http_res *res) {
 typedef struct { str filename, reference; int reused; } clip;
 
 /* generateAndStoreClip: 0, or -1 having answered. */
-static int store_clip(arena *a, const amgi_ops *o, str text, str language, str reading, int fresh, clip *out,
+static int store_clip(arena *a, progress *p, const amgi_ops *o, str text, str language, str reading, int fresh, clip *out,
                       cb_http_res *res) {
   str name = amgi_media_name(a, text, language, "wav");
   col_err ce = {0};
   if (!fresh) {
     int has;
+    progress_audio(p, AUDIO_REUSE, 0, 0);
     if (ops_has_media(a, o, name, &has, &ce)) return fail_plain(a, res, ce.message), -1;
     if (has) {
       *out = (clip){name, amgi_audio_reference(a, name), 1};
@@ -89,14 +91,16 @@ static int store_clip(arena *a, const amgi_ops *o, str text, str language, str r
   if (!amgi_generation_available()) return fail_plain(a, res, S(MISSING_KEY_MESSAGE)), -1;
   str wav;
   gem_err e = {0};
-  if (card_generate_audio(a, text, language, reading, &wav, &e)) return fail(a, res, &e, "audio generation failed"), -1;
+  if (card_generate_audio(a, p, text, language, reading, &wav, &e)) return fail(a, res, &e, "audio generation failed"), -1;
   str stored;
+  progress_audio(p, AUDIO_STORING, 0, 0);
   if (ops_add_media(a, o, name, wav.p, wav.n, &stored, &ce)) return fail_plain(a, res, ce.message), -1;
   *out = (clip){stored, amgi_audio_reference(a, stored), 0};
   return 0;
 }
 
-void amgi_card_text(arena *a, const amgi_ops *o, const char *mode, const wire_q_card_text *q, cb_http_res *res) {
+static void make_card(arena *a, progress *p, const amgi_ops *o, const char *mode, const wire_q_card_text *q,
+                      cb_http_res *res) {
   str input = js_trim(amgi_str(q->user_input)), known = amgi_str(q->known_language), learning = amgi_str(q->learning_language);
   if (!input.n || !known.n || !learning.n) {
     amgi_send_message(a, res, 400, S("userInput, knownLanguage and learningLanguage are required"));
@@ -109,18 +113,35 @@ void amgi_card_text(arena *a, const amgi_ops *o, const char *mode, const wire_q_
   }
   card_text t;
   gem_err e = {0};
-  if (card_generate_text(a, input, known, learning, card_detect_input_language(a, input, known, learning), &t, &e)) {
+  if (card_generate_text(a, p, input, known, learning, card_detect_input_language(a, input, known, learning), &t, &e)) {
     fail(a, res, &e, "card text generation failed");
     return;
   }
   /* Before any audio: the clips are recorded from these two strings. */
   t = card_correct_swapped_sides(a, t, learning);
+  progress_texts(p, t.front_text, t.back_text);
   clip audio, cue = {{"", 0}, {"", 0}, 0};
-  if (store_clip(a, o, t.back_text, learning, t.spoken_reading, 0, &audio, res)) return;
-  if (q->include_cue_audio == 1 && store_clip(a, o, t.front_text, known, S(""), 0, &cue, res)) return;
+  progress_side(p, 0);
+  if (store_clip(a, p, o, t.back_text, learning, t.spoken_reading, 0, &audio, res)) return;
+  if (q->include_cue_audio == 1) {
+    progress_side(p, 1);
+    if (store_clip(a, p, o, t.front_text, known, S(""), 0, &cue, res)) return;
+  }
   wire_card_text w = {wire_mode_of(mode, (uint32_t)strlen(mode)), amgi_ws(t.front_text), amgi_ws(t.back_text),
                       {amgi_ws(audio.filename), amgi_ws(audio.reference)}, {amgi_ws(cue.filename), amgi_ws(cue.reference)}};
   amgi_send_wire(a, res, 200, WK_CARD_TEXT, &w);
+}
+
+/* The entry's one begin and one end, around every way make_card returns. */
+void amgi_card_text(arena *a, const amgi_ops *o, const char *mode, const wire_q_card_text *q, cb_http_res *res) {
+  progress *p = progress_begin(q->progress_id);
+  make_card(a, p, o, mode, q, res);
+  progress_end(p);
+}
+
+void amgi_progress(arena *a, cb_http_res *res) {
+  wire_progress w = progress_list(a);
+  amgi_send_wire(a, res, 200, WK_PROGRESS, &w);
 }
 
 void amgi_audio(arena *a, const amgi_ops *o, const char *mode, const wire_q_audio *q, cb_http_res *res) {
@@ -131,7 +152,7 @@ void amgi_audio(arena *a, const amgi_ops *o, const char *mode, const wire_q_audi
   }
   if (admission_refused(a, res)) return;
   clip c;
-  if (store_clip(a, o, text, language, S(""), q->fresh == 1, &c, res)) return;
+  if (store_clip(a, NULL, o, text, language, S(""), q->fresh == 1, &c, res)) return;
   wire_clip w = {wire_mode_of(mode, (uint32_t)strlen(mode)), amgi_ws(c.filename), amgi_ws(c.reference), (uint8_t)c.reused};
   amgi_send_wire(a, res, 200, WK_CLIP, &w);
 }

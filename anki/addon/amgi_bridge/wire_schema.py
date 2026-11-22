@@ -33,6 +33,7 @@ KINDS = {
         ("notStarted", BOOL, None),
         ("dailyCap", BOOL, None),
         ("maxWaitMs", OPT, None),
+        ("noSlot", OPT, None),
     )),
     "status": (1, (
         ("mode", MODE, None),
@@ -205,6 +206,7 @@ KINDS = {
         ("knownLanguage", STR, None),
         ("learningLanguage", STR, None),
         ("includeCueAudio", BOOL, None),
+        ("progressId", U32, None),
     )),
     "q_audio": (27, (
         ("text", STR, None),
@@ -308,5 +310,16 @@ KINDS = {
     "b_q_media": (44, (
         ("filename", STR, None),
         ("data", BYTES, None),
+    )),
+    "progress": (45, (
+        ("cards", LIST, (
+            ("id", U32, None),
+            ("step", U32, None),
+            ("take", U32, None),
+            ("takes", U32, None),
+            ("waitMs", U32, None),
+            ("frontText", STR, None),
+            ("backText", STR, None),
+        )),
     )),
 }

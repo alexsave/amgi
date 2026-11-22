@@ -44,9 +44,16 @@
 
 .bulk-run-state {
   flex: none;
-  width: 6.2rem;
+  width: 8.6rem; /* "checking for duplicates", on one line */
   font-size: 0.72rem;
+  line-height: 1.1;
   color: var(--text-secondary);
+}
+
+/* A second line only for a take after the first, inside the height the row reserves. */
+.bulk-run-take {
+  display: block;
+  opacity: 0.8;
 }
 
 .bulk-run-row.is-making .bulk-run-state {

@@ -34,8 +34,9 @@ card_text card_correct_swapped_sides(arena *a, card_text t, str learning);
 const char *card_detect_input_language(arena *a, str input, str known, str learning);
 
 /* ---- cardGeneration.ts ---- */
-int card_generate_text(arena *a, str user_input, str known, str learning, const char *input_language, card_text *out,
-                       gem_err *e);
+/* p hears each step as it begins (progress.h; NULL: nobody watches). */
+int card_generate_text(arena *a, progress *p, str user_input, str known, str learning, const char *input_language,
+                       card_text *out, gem_err *e);
 /* generateCardAudio: a whole WAV that passed validation, or -1 with *e. */
-int card_generate_audio(arena *a, str text, str language, str reading, str *wav, gem_err *e);
+int card_generate_audio(arena *a, progress *p, str text, str language, str reading, str *wav, gem_err *e);
 #endif

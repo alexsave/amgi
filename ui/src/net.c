@@ -66,7 +66,7 @@ void holder_free(holder *h) {
 
 answer take(holder *h, uint32_t kind, uint32_t status, const uint8_t *p, uint32_t len, void *out) {
   answer a = {status, 0, {0}};
-  a.err.retry_after_ms = a.err.max_wait_ms = WIRE_NONE;
+  a.err.retry_after_ms = a.err.max_wait_ms = a.err.no_slot = WIRE_NONE;
   a.err.error = (wire_str){"", 0};
   holder_free(h);
   h->bytes = cd_alloc(len ? len : 1);
