@@ -340,6 +340,8 @@
   font-size: 0.7rem;
   border: 1px solid var(--border-color);
   border-radius: 5px;
+  display: inline-block; /* inside the line, which hides what overflows it: an inline box's border was cut */
+  line-height: 1.2;
   padding: 0.1rem 0.35rem;
   margin-right: 0.35rem;
 }
@@ -440,6 +442,26 @@
   border-top: 1px solid var(--border-color);
   border-radius: 0;
   background: transparent;
+}
+
+/* A phone: the card's two sides have a line each, and what is pressed (the clips, Edit, delete) the line below. */
+@media (max-width: 768px) {
+  .note-row {
+    flex-wrap: wrap;
+    row-gap: 0.3rem;
+    column-gap: 0.5rem;
+  }
+
+  .note-row-target,
+  .note-row-cue {
+    flex-basis: 100%;
+  }
+
+  .note-row-clips {
+    flex: 1 1 auto;
+    flex-wrap: wrap;
+    min-width: 0;
+  }
 }
 
 /* The deck name, edited where it is read. */
