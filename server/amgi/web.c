@@ -226,6 +226,7 @@ void amgi_send_error(arena *a, cb_http_res *res, int status, const amgi_error *e
   w.max_wait_ms = e->has_retry ? MAX_WAIT_MS : WIRE_NONE;
   w.not_started = (uint8_t)(e->not_started ? 1 : 0);
   w.daily_cap = (uint8_t)(e->daily_cap ? 1 : 0);
+  w.no_slot = e->no_slot ? 1 : WIRE_NONE;
   if (e->has_retry) {
     /* rateLimit.js: Retry-After is the wait in whole seconds, at least one. */
     char secs[24];

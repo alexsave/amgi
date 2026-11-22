@@ -28,7 +28,8 @@ uint32_t wire_mode_of(const char *s, uint32_t len) {
 SCHEMA(s_error, wire_error,
   F(wire_error, "mode", WT_MODE, mode), F(wire_error, "error", WT_STR, error),
   F(wire_error, "retryAfterMs", WT_OPT, retry_after_ms), F(wire_error, "notStarted", WT_BOOL, not_started),
-  F(wire_error, "dailyCap", WT_BOOL, daily_cap), F(wire_error, "maxWaitMs", WT_OPT, max_wait_ms));
+  F(wire_error, "dailyCap", WT_BOOL, daily_cap), F(wire_error, "maxWaitMs", WT_OPT, max_wait_ms),
+  F(wire_error, "noSlot", WT_OPT, no_slot));
 SCHEMA(s_status, wire_status,
   F(wire_status, "mode", WT_MODE, mode), F(wire_status, "schemaVersion", WT_U32, schema_version),
   F(wire_status, "detail", WT_STR, detail));
@@ -83,6 +84,12 @@ SCHEMA(s_card_text, wire_card_text,
 SCHEMA(s_clip, wire_clip,
   F(wire_clip, "mode", WT_MODE, mode), F(wire_clip, "filename", WT_STR, filename),
   F(wire_clip, "reference", WT_STR, reference), F(wire_clip, "reused", WT_BOOL, reused));
+SCHEMA(s_card_progress, wire_card_progress,
+  F(wire_card_progress, "id", WT_U32, id), F(wire_card_progress, "step", WT_U32, step),
+  F(wire_card_progress, "take", WT_U32, take), F(wire_card_progress, "takes", WT_U32, takes),
+  F(wire_card_progress, "waitMs", WT_U32, wait_ms), F(wire_card_progress, "frontText", WT_STR, front_text),
+  F(wire_card_progress, "backText", WT_STR, back_text));
+SCHEMA(s_progress, wire_progress, LIST(wire_progress, "cards", cards, ncards, s_card_progress));
 SCHEMA(s_starter_state, wire_starter_state,
   F(wire_starter_state, "offered", WT_BOOL, offered),
   F(wire_starter_state, "generationAvailable", WT_BOOL, generation_available),
@@ -119,7 +126,8 @@ SCHEMA(s_q_note_update, wire_q_note_update,
 SCHEMA(s_q_card_text, wire_q_card_text,
   F(wire_q_card_text, "userInput", WT_STR, user_input), F(wire_q_card_text, "knownLanguage", WT_STR, known_language),
   F(wire_q_card_text, "learningLanguage", WT_STR, learning_language),
-  F(wire_q_card_text, "includeCueAudio", WT_BOOL, include_cue_audio));
+  F(wire_q_card_text, "includeCueAudio", WT_BOOL, include_cue_audio),
+  F(wire_q_card_text, "progressId", WT_U32, progress_id));
 SCHEMA(s_q_audio, wire_q_audio,
   F(wire_q_audio, "text", WT_STR, text), F(wire_q_audio, "language", WT_STR, language),
   F(wire_q_audio, "fresh", WT_BOOL, fresh));
@@ -194,6 +202,7 @@ static const struct { const char *name; const wire_schema *schema; } KINDS[WK_KI
   [WK_B_MEDIA_EXISTS] = {"b_media_exists", &s_b_media_exists},
   [WK_B_MEDIA_DATA] = {"b_media_data", &s_b_media_data}, [WK_B_MEDIA_ADDED] = {"b_media_added", &s_b_media_added},
   [WK_B_Q_MEDIA] = {"b_q_media", &s_b_q_media},
+  [WK_PROGRESS] = {"progress", &s_progress},
 };
 const char *wire_kind_name(uint32_t kind) { return kind < WK_KINDS ? KINDS[kind].name : 0; }
 const wire_schema *wire_schema_of(uint32_t kind) { return kind < WK_KINDS ? KINDS[kind].schema : 0; }

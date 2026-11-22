@@ -137,7 +137,7 @@ int main(int argc, char **argv) {
   str wav = {0};
   gem_err e = {0};
   str reading = o.reading ? str_c(o.reading) : (str){"", 0};
-  int failed = card_generate_audio(&a, str_c(o.text), str_c(o.language), reading, &wav, &e) != 0;
+  int failed = card_generate_audio(&a, NULL, str_c(o.text), str_c(o.language), reading, &wav, &e) != 0;
   int code = 0;
   if (failed) {
     fprintf(stderr, "%.*s\n", (int)e.message.n, e.message.p);

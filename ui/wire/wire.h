@@ -76,13 +76,25 @@ enum {
   WK_B_NOTE, WK_B_NOTES_ADDED, WK_B_NOTE_REMOVED, WK_B_DECK_SUMMARY, WK_B_DECK_REMOVED, WK_B_MEDIA_EXISTS,
   WK_B_MEDIA_DATA, WK_B_MEDIA_ADDED,
   WK_B_Q_MEDIA,
+  /* answers added since (a kind's number is its byte on the wire: a new one goes at the end) */
+  WK_PROGRESS,
   WK_KINDS
 };
 /* The kind's name as the server's route table spells it ("decks", "q_note"); 0 past the last. */
 const char *wire_kind_name(uint32_t kind);
 
-/* A 4xx or 5xx answer. retry_after_ms and max_wait_ms are WIRE_NONE unless Gemini's limit answered. */
-typedef struct { uint32_t mode; wire_str error; uint32_t retry_after_ms; uint8_t not_started, daily_cap; uint32_t max_wait_ms; } wire_error;
+/* The steps of making a card, as GET /progress names the one running (server/amgi/progress.h says them,
+ * ui/src/bulk.c STEP_LABEL words them). The audio steps are once for each side, in one order. */
+enum {
+  WP_NONE, WP_WRITING,
+  WP_TARGET_REUSE, WP_TARGET_RECORDING, WP_TARGET_TRANSCRIBING, WP_TARGET_JUDGING, WP_TARGET_STORING,
+  WP_CUE_REUSE, WP_CUE_RECORDING, WP_CUE_TRANSCRIBING, WP_CUE_JUDGING, WP_CUE_STORING,
+  WP_STEPS
+};
+
+/* A 4xx or 5xx answer. retry_after_ms and max_wait_ms are WIRE_NONE unless Gemini's limit answered.
+ * no_slot is 1 when a notStarted refusal was for want of a worker, and WIRE_NONE otherwise. */
+typedef struct { uint32_t mode; wire_str error; uint32_t retry_after_ms; uint8_t not_started, daily_cap; uint32_t max_wait_ms, no_slot; } wire_error;
 typedef struct { uint32_t mode, schema_version; wire_str detail; } wire_status;
 typedef struct { int64_t id; wire_str name; uint32_t note_count; } wire_deck;
 typedef struct { uint32_t mode; wire_deck *decks; uint32_t ndecks; } wire_decks;
@@ -103,6 +115,10 @@ typedef struct { uint32_t mode; int64_t note_id; wire_str warning; } wire_note_c
 typedef struct { wire_str filename, reference; } wire_clip_ref;
 typedef struct { uint32_t mode; wire_str front_text, back_text; wire_clip_ref audio, cue_audio; } wire_card_text;
 typedef struct { uint32_t mode; wire_str filename, reference; uint8_t reused; } wire_clip;
+/* A card being made: its request's progress_id, its step (WP_*), which take of how many (0 of 0: the step
+ * has none), the wait left on Gemini's limit (0: none), and its two sides once they are written. */
+typedef struct { uint32_t id, step, take, takes, wait_ms; wire_str front_text, back_text; } wire_card_progress;
+typedef struct { wire_card_progress *cards; uint32_t ncards; } wire_progress;
 typedef struct { uint8_t offered, generation_available; wire_strs languages; uint32_t phrase_count; } wire_starter_state;
 typedef struct { uint32_t mode; int64_t deck_id; wire_str deck_name; uint32_t added, already_there; } wire_starter_built;
 typedef struct { uint8_t ok, needs_restart; wire_str message, addons_dir; } wire_installed;
@@ -117,7 +133,8 @@ typedef struct { wire_str known, learning, name; } wire_q_starter;
 typedef struct { int64_t deck_id, notetype_id; wire_strs fields, tags; wire_str language; int32_t learning_field_index; } wire_q_note;
 typedef struct { wire_q_note *notes; uint32_t nnotes; } wire_q_notes;
 typedef struct { wire_strs fields; wire_str language; int32_t learning_field_index; } wire_q_note_update;
-typedef struct { wire_str user_input, known_language, learning_language; uint8_t include_cue_audio; } wire_q_card_text;
+typedef struct { wire_str user_input, known_language, learning_language; uint8_t include_cue_audio;
+                 uint32_t progress_id; /* the asker's own number for GET /progress, or 0 */ } wire_q_card_text;
 typedef struct { wire_str text, language; uint8_t fresh; } wire_q_audio;
 
 /* The bridge add-on's messages: what bridge_ops.py answers, field for field. schema_version is

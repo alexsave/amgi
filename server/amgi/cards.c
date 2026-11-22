@@ -835,7 +835,7 @@ static int parse_structured(arena *a, str text, const format *f, fields *out, ge
   return 0;
 }
 
-static int parse_completion(arena *a, const char *system, str prompt, const format *f, fields *out, gem_err *e) {
+static int parse_completion(arena *a, progress *p, const char *system, str prompt, const format *f, fields *out, gem_err *e) {
   buf schema = {0};
   schema_of(f, &schema);
   gem_request req = {0};
@@ -846,21 +846,22 @@ static int parse_completion(arena *a, const char *system, str prompt, const form
   req.schema = &schema;
   req.thinking = 1;
   gem_response r;
-  int rc = gem_generate(a, TEXT_MODEL, &req, &r, e);
+  int rc = gem_generate(a, p, TEXT_MODEL, &req, &r, e);
   buf_free(&schema);
   if (rc) return -1;
   return parse_structured(a, gem_response_text(a, &r), f, out, e);
 }
 
 /* ---- generateCardText, the 'generate' mode ---- */
-int card_generate_text(arena *a, str user_input, str known, str learning, const char *input_language, card_text *out,
-                       gem_err *e) {
+int card_generate_text(arena *a, progress *p, str user_input, str known, str learning, const char *input_language,
+                       card_text *out, gem_err *e) {
   str base = card_generation_prompt(a, user_input, known, learning, input_language);
   str prompt = base;
   card_text last = {0};
   for (int attempt = 1; attempt <= 2; attempt++) {
     fields f = {0};
-    if (parse_completion(a, CARD_GENERATION_SYSTEM_PROMPT, prompt, &GENERATED_CARD_FORMAT, &f, e)) return -1;
+    progress_writing(p, (uint32_t)attempt, 2);
+    if (parse_completion(a, p, CARD_GENERATION_SYSTEM_PROMPT, prompt, &GENERATED_CARD_FORMAT, &f, e)) return -1;
     /* assembleCard */
     const char *repaired = card_unspeakable_reason(a, f.s[1]);
     last.front_text = card_compose_known_side(a, f.s[0], f.s[2], card_register_tag(a, learning, f.s[3]));
@@ -892,7 +893,7 @@ int card_generate_text(arena *a, str user_input, str known, str learning, const 
 
 static int stops(const gem_err *e) { return e->kind == GE_FATAL || e->kind == GE_DAILY || e->kind == GE_RATE; }
 
-static int transcribe(arena *a, str wav, str language, str *out, gem_err *e) {
+static int transcribe(arena *a, progress *p, str wav, str language, str *out, gem_err *e) {
   str name = card_language_name(a, language);
   gem_request req = {0};
   req.role = "user";
@@ -905,12 +906,12 @@ static int transcribe(arena *a, str wav, str language, str *out, gem_err *e) {
   req.nparts = 2;
   req.thinking = 1;
   gem_response r;
-  if (gem_generate(a, TRANSCRIBE_MODEL, &req, &r, e)) return -1;
+  if (gem_generate(a, p, TRANSCRIBE_MODEL, &req, &r, e)) return -1;
   *out = gem_response_text(a, &r);
   return 0;
 }
 
-static int judge(arena *a, str wav, str spoken, str language, str reading, int *matches, str *heard, str *reason, gem_err *e) {
+static int judge(arena *a, progress *p, str wav, str spoken, str language, str reading, int *matches, str *heard, str *reason, gem_err *e) {
   str name = card_language_name(a, language);
   str reading_line = reading.n ? str_c(ar_fmt(a,
                                               "\nIt must be read aloud as: %.*s. This writing system allows more than one "
@@ -930,7 +931,7 @@ static int judge(arena *a, str wav, str spoken, str language, str reading, int *
   req.schema = &schema;
   req.thinking = 1;
   gem_response r;
-  int rc = gem_generate(a, JUDGE_MODEL, &req, &r, e);
+  int rc = gem_generate(a, p, JUDGE_MODEL, &req, &r, e);
   buf_free(&schema);
   if (rc) return -1;
   fields f = {0};
@@ -939,7 +940,7 @@ static int judge(arena *a, str wav, str spoken, str language, str reading, int *
   return 0;
 }
 
-int card_generate_audio(arena *a, str text, str language, str reading, str *wav, gem_err *e) {
+int card_generate_audio(arena *a, progress *p, str text, str language, str reading, str *wav, gem_err *e) {
   const int max_attempts = 3;
   str spoken = card_spoken_form(a, text);
   str expected = card_reading_is_ambiguous(a, language) ? js_trim(reading) : S("");
@@ -950,7 +951,14 @@ int card_generate_audio(arena *a, str text, str language, str reading, str *wav,
     gem_err ae = {0};
     voice = gem_pick_voice(voice);
     str audio, transcript;
-    if (gem_synthesize(a, spoken, voice, &audio, &ae) || transcribe(a, audio, language, &transcript, &ae)) {
+    uint32_t take = (uint32_t)attempt, takes = (uint32_t)max_attempts;
+    progress_audio(p, AUDIO_RECORDING, take, takes);
+    int failed = gem_synthesize(a, p, spoken, voice, &audio, &ae);
+    if (!failed) {
+      progress_audio(p, AUDIO_TRANSCRIBING, take, takes);
+      failed = transcribe(a, p, audio, language, &transcript, &ae);
+    }
+    if (failed) {
       if (stops(&ae)) return *e = ae, -1;
       last_failure = ae.message;
       continue;
@@ -960,7 +968,8 @@ int card_generate_audio(arena *a, str text, str language, str reading, str *wav,
     int matches;
     str heard, reason;
     gem_err je = {0};
-    if (judge(a, audio, spoken, language, expected, &matches, &heard, &reason, &je)) {
+    progress_audio(p, AUDIO_JUDGING, take, takes);
+    if (judge(a, p, audio, spoken, language, expected, &matches, &heard, &reason, &je)) {
       if (stops(&je)) return *e = je, -1;
       if (same) return *wav = audio, 0; /* the words are right and only the reading was in question */
       fields f = {0};
@@ -968,7 +977,7 @@ int card_generate_audio(arena *a, str text, str language, str reading, str *wav,
                               "Expected phrase (language: %.*s): \"%.*s\"\nTranscription: \"%.*s\"\nCould this transcription "
                               "plausibly come from audio of the expected phrase?",
                               (int)language.n, language.p, (int)spoken.n, spoken.p, (int)transcript.n, transcript.p));
-      if (parse_completion(a, TRANSCRIPT_JUDGE_SYSTEM_PROMPT, user, &TRANSCRIPTION_MATCH_FORMAT, &f, &ae)) {
+      if (parse_completion(a, p, TRANSCRIPT_JUDGE_SYSTEM_PROMPT, user, &TRANSCRIPTION_MATCH_FORMAT, &f, &ae)) {
         if (stops(&ae)) return *e = ae, -1;
         last_failure = ae.message;
         continue;
