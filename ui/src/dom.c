@@ -1,21 +1,21 @@
 /* Shorthand over cdom's builder, and the icons. */
 #include "app.h"
 
-void el(cd_str tag, cd_str cls) {
+void el(const char *tag, const char *cls) {
   cd_open(tag);
   if (cls) cd_class(cls);
 }
-cd_id el_id(cd_str tag, cd_str cls) {
+cd_id el_id(const char *tag, const char *cls) {
   cd_id id = cd_open_id(tag);
   if (cls) cd_class(cls);
   return id;
 }
-void el_text(cd_str tag, cd_str cls, cd_str s) {
+void el_text(const char *tag, const char *cls, const char *s) {
   el(tag, cls);
   cd_text(s);
   cd_close();
 }
-void text_bound(cd_bound *b, cd_str v) {
+void text_bound(cd_bound *b, const char *v) {
   cd_text(v);
   cd_id node = cd_id_new();
   cd_name_text(node);
@@ -29,37 +29,37 @@ void text_bound_num(cd_bound *b, uint32_t n) {
   cd_bind_text(b, node);
   cd_bound_shows_num(b, n);
 }
-void bool_bound(cd_bound *b, cd_id el, cd_str prop, uint32_t v) {
+void bool_bound(cd_bound *b, cd_id el, const char *prop, uint32_t v) {
   cd_bind_bool(b, el, prop);
   cd_bound_shows_num(b, v);
 }
 void tmp_text(const char *p, uint32_t len) { cd_text(cd_tmp(p, len)); }
-void attr_tmp(cd_str name, const char *p, uint32_t len) { cd_attr(name, cd_tmp(p, len)); }
+void attr_tmp(const char *name, const char *p, uint32_t len) { cd_attr(name, cd_tmp(p, len)); }
 
-void icon_with(const char *d1, const char *d2, cd_str style, cd_str cls) {
-  cd_open(CD_LIT("svg"));
-  cd_attr(CD_LIT("xmlns"), CD_LIT("http://www.w3.org/2000/svg"));
-  cd_attr(CD_LIT("fill"), CD_LIT("none"));
-  cd_attr(CD_LIT("viewBox"), CD_LIT("0 0 24 24"));
-  cd_attr(CD_LIT("stroke-width"), CD_LIT("1.5"));
-  cd_attr(CD_LIT("stroke"), CD_LIT("currentColor"));
-  cd_attr(CD_LIT("aria-hidden"), CD_LIT("true"));
-  cd_attr(CD_LIT("data-slot"), CD_LIT("icon"));
-  if (cls) cd_attr(CD_LIT("class"), cls);
-  if (style) cd_attr(CD_LIT("style"), style);
+void icon_with(const char *d1, const char *d2, const char *style, const char *cls) {
+  cd_open("svg");
+  cd_attr("xmlns", "http://www.w3.org/2000/svg");
+  cd_attr("fill", "none");
+  cd_attr("viewBox", "0 0 24 24");
+  cd_attr("stroke-width", "1.5");
+  cd_attr("stroke", "currentColor");
+  cd_attr("aria-hidden", "true");
+  cd_attr("data-slot", "icon");
+  if (cls) cd_attr("class", cls);
+  if (style) cd_attr("style", style);
   for (int i = 0; i < 2; i++) {
     const char *d = i ? d2 : d1;
     if (!d) continue;
-    cd_open(CD_LIT("path"));
-    cd_attr(CD_LIT("stroke-linecap"), CD_LIT("round"));
-    cd_attr(CD_LIT("stroke-linejoin"), CD_LIT("round"));
-    cd_attr(CD_LIT("d"), cd_internz(d));
+    cd_open("path");
+    cd_attr("stroke-linecap", "round");
+    cd_attr("stroke-linejoin", "round");
+    cd_attr("d", d);
     cd_close();
   }
   cd_close();
 }
 
-void icon(const char *d1, const char *d2, cd_str style) { icon_with(d1, d2, style, 0); }
+void icon(const char *d1, const char *d2, const char *style) { icon_with(d1, d2, style, 0); }
 
 const char ICON_COG[] =
   "M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083."

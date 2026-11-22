@@ -18,14 +18,13 @@ static const profile *picked(void) {
   return 0;
 }
 
-static void step(cd_str state, const char *mark, const char *s, uint32_t n) {
-  cd_open(CD_LIT("li"));
-  cd_str cls = state; /* "first-run-step <state>" */
-  cd_class(cls);
-  el(CD_LIT("span"), CD_LIT("first-run-mark"));
+static void step(const char *state, const char *mark, const char *s, uint32_t n) {
+  cd_open("li");
+  cd_class(state); /* "first-run-step <state>" */
+  el("span", "first-run-mark");
   tmp_text(mark, zlen(mark));
   cd_close();
-  el(CD_LIT("span"), CD_LIT("first-run-step-text"));
+  el("span", "first-run-step-text");
   tmp_text(s, n);
   cd_close();
   cd_close();
@@ -53,77 +52,77 @@ ON_RENDER(draw) {
   const profile *pr = picked();
   int needs_choice = nprofiles > 1 && !pr, no_anki = !scan_loading && base_exists == 0;
   cd_at(view.parent, 0);
-  el(CD_LIT("div"), CD_LIT("first-run"));
-  el_text(CD_LIT("h2"), CD_LIT("first-run-title"), CD_LIT("Set amgi up in your Anki"));
-  el_text(CD_LIT("p"), CD_LIT("first-run-lead"), CD_LIT("One press: the add-ons, and the card type amgi builds decks with."));
-  cd_id cta = el_id(CD_LIT("button"), 0);
-  cd_attr(CD_LIT("type"), CD_LIT("button"));
-  cd_class(CD_LIT("first-run-cta"));
-  if (install_running || no_anki) cd_attr(CD_LIT("disabled"), CD_LIT(""));
+  el("div", "first-run");
+  el_text("h2", "first-run-title", "Set amgi up in your Anki");
+  el_text("p", "first-run-lead", "One press: the add-ons, and the card type amgi builds decks with.");
+  cd_id cta = el_id("button", 0);
+  cd_attr("type", "button");
+  cd_class("first-run-cta");
+  if (install_running || no_anki) cd_attr("disabled", "");
   cd_on(cta, CD_EV_CLICK, install_pressed, 0);
-  cd_text(install_running ? CD_LIT("Installing…") : install_done ? CD_LIT("Install again") : CD_LIT("Install into Anki"));
+  cd_text(install_running ? "Installing…" : install_done ? "Install again" : "Install into Anki");
   cd_close();
   if (base_dir.len) {
-    el(CD_LIT("p"), CD_LIT("first-run-path"));
-    cd_open(CD_LIT("code"));
+    el("p", "first-run-path");
+    cd_open("code");
     tmp_text(base_dir.p, base_dir.len);
     cd_close();
     if (pr) {
-      cd_text(CD_LIT(" · profile “"));
+      cd_text(" · profile “");
       tmp_text(pr->name.p, pr->name.len);
-      cd_text(CD_LIT("”"));
+      cd_text("”");
     }
     cd_close();
   }
   if (no_anki)
-    el_text(CD_LIT("p"), CD_LIT("first-run-error"),
-            CD_LIT("No Anki data folder on this machine. Install Anki from apps.ankiweb.net and open it once, then reload."));
+    el_text("p", "first-run-error",
+            "No Anki data folder on this machine. Install Anki from apps.ankiweb.net and open it once, then reload.");
   if (scan_error.len) {
-    el(CD_LIT("p"), CD_LIT("first-run-error"));
+    el("p", "first-run-error");
     tmp_text(scan_error.p, scan_error.len);
     cd_close();
   }
   if (install_failed) {
-    el(CD_LIT("p"), CD_LIT("first-run-error"));
+    el("p", "first-run-error");
     tmp_text(install_message.p, install_message.len);
     cd_close();
   }
   if (needs_choice) {
-    el(CD_LIT("div"), CD_LIT("first-run-choices"));
-    el_text(CD_LIT("p"), CD_LIT("first-run-step-text"), CD_LIT("More than one Anki profile here. Which one?"));
+    el("div", "first-run-choices");
+    el_text("p", "first-run-step-text", "More than one Anki profile here. Which one?");
     for (uint32_t i = 0; i < nprofiles; i++) {
-      cd_id choice = el_id(CD_LIT("button"), 0);
-      cd_attr(CD_LIT("type"), CD_LIT("button"));
-      cd_class(CD_LIT("first-run-choice"));
+      cd_id choice = el_id("button", 0);
+      cd_attr("type", "button");
+      cd_class("first-run-choice");
       cd_on(choice, CD_EV_CLICK, profile_chosen, CTX_OF(i));
       tmp_text(profiles[i].name.p, profiles[i].name.len);
       cd_close();
     }
     cd_close();
   }
-  el(CD_LIT("ol"), CD_LIT("first-run-steps"));
+  el("ol", "first-run-steps");
   char s[400];
   uint32_t n = 0;
   if (scan_loading) {
-    step(CD_LIT("first-run-step now"), "1", "Looking for Anki…", zlen("Looking for Anki…"));
+    step("first-run-step now", "1", "Looking for Anki…", zlen("Looking for Anki…"));
   } else if (pr) {
     n = cat(s, 0, "Found Anki: profile “", zlen("Found Anki: profile “"));
     uint32_t l = pr->name.len < 300 ? pr->name.len : 300;
     n = cat(s, n, pr->name.p, l);
     n = cat(s, n, "”", zlen("”"));
     if (nprofiles == 1) n = cat(s, n, ", picked for you", 16);
-    step(CD_LIT("first-run-step done"), "✓", s, n);
+    step("first-run-step done", "✓", s, n);
   } else {
-    step(CD_LIT("first-run-step next"), "1", "Could not find an Anki profile", zlen("Could not find an Anki profile"));
+    step("first-run-step next", "1", "Could not find an Anki profile", zlen("Could not find an Anki profile"));
   }
   const char *t2 = install_done ? "Installed the add-ons and the card type"
                    : install_running ? "Installing the add-ons and the card type"
                                      : "Install the add-ons and the card type";
-  step(install_done ? CD_LIT("first-run-step done") : install_running ? CD_LIT("first-run-step now") : CD_LIT("first-run-step next"),
+  step(install_done ? "first-run-step done" : install_running ? "first-run-step now" : "first-run-step next",
        install_done ? "✓" : "2", t2, zlen(t2));
   const char *t3 = install_done && !needs_restart ? "The card type is already in your collection - add cards now"
                                                   : "Restart Anki, and amgi notices by itself";
-  step(install_done ? CD_LIT("first-run-step now") : CD_LIT("first-run-step next"), "3", t3, zlen(t3));
+  step(install_done ? "first-run-step now" : "first-run-step next", "3", t3, zlen(t3));
   cd_close();
   cd_close();
   cd_region_end(&view);

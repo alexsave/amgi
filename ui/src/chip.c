@@ -45,30 +45,29 @@ static uint32_t play_title(const chip *c, char *t) {
 
 static void title_into(chip *c) {
   if (c->state == BROKEN) {
-    cd_set_attr(c->node, CD_LIT("title"), CD_LIT("That clip could not be loaded"));
+    cd_set_attr(c->node, "title", "That clip could not be loaded");
     return;
   }
   char t[160];
-  cd_str title = CD_LIT("title");
-  cd_set_attr(c->node, title, cd_tmp(t, play_title(c, t)));
+  cd_set_attr(c->node, "title", cd_tmp(t, play_title(c, t)));
 }
 
-static cd_str class_of(const chip *c) {
+static const char *class_of(const chip *c) {
   /* `audio-chip audio-chip-${tone} ${playing ? 'is-playing' : ''}`, the trailing space included */
-  if (c->tone == TONE_CUE) return c->state == PLAYING ? CD_LIT("audio-chip audio-chip-cue is-playing") : CD_LIT("audio-chip audio-chip-cue ");
-  return c->state == PLAYING ? CD_LIT("audio-chip audio-chip-target is-playing") : CD_LIT("audio-chip audio-chip-target ");
+  if (c->tone == TONE_CUE) return c->state == PLAYING ? "audio-chip audio-chip-cue is-playing" : "audio-chip audio-chip-cue ";
+  return c->state == PLAYING ? "audio-chip audio-chip-target is-playing" : "audio-chip audio-chip-target ";
 }
 
 static void set_state(chip *c, uint32_t state) {
   uint32_t was = c->state;
   c->state = state;
   cd_set_class(c->node, class_of(c));
-  cd_set_bool(c->node, CD_LIT("disabled"), state == LOADING);
+  cd_set_bool(c->node, "disabled", state == LOADING);
   if ((was == BROKEN) != (state == BROKEN)) title_into(c);
   if (state == BROKEN && !c->bad) {
     cd_at(c->node, 0);
-    c->bad = el_id(CD_LIT("span"), CD_LIT("audio-chip-bad"));
-    cd_text(CD_LIT("missing"));
+    c->bad = el_id("span", "audio-chip-bad");
+    cd_text("missing");
     cd_close();
   } else if (state != BROKEN && c->bad) {
     cd_remove(c->bad);
@@ -97,19 +96,18 @@ int32_t chip_build(cd_region *owner, const char *filename, uint32_t flen, const 
   c->voice = 0;
   text_set(&c->filename, filename, flen);
   text_setz(&c->label, label);
-  c->node = cd_open_id(CD_LIT("button"));
-  cd_attr(CD_LIT("type"), CD_LIT("button"));
+  c->node = cd_open_id("button");
+  cd_attr("type", "button");
   cd_class(class_of(c));
   char t[160];
-  cd_str title = CD_LIT("title");
-  attr_tmp(title, t, play_title(c, t));
+  attr_tmp("title", t, play_title(c, t));
   cd_on_free(owner, chip_gone, CTX_OF(c->gen << SLOT_BITS | (uint32_t)slot));
   cd_on(c->node, CD_EV_CLICK, pressed, CTX_OF(slot));
-  cd_open(CD_LIT("span"));
-  cd_class(CD_LIT("audio-chip-tri"));
-  cd_attr(CD_LIT("aria-hidden"), CD_LIT("true"));
+  cd_open("span");
+  cd_class("audio-chip-tri");
+  cd_attr("aria-hidden", "true");
   cd_close();
-  el(CD_LIT("span"), CD_LIT("audio-chip-lang"));
+  el("span", "audio-chip-lang");
   tmp_text(label, zlen(label));
   cd_close();
   cd_close();

@@ -17,11 +17,11 @@ static int anki_open(void) {
          mode == WIRE_MODE_BRIDGE_OUTDATED;
 }
 
-static void button(cd_str label, cd_event_fn on_click, int aria) {
-  cd_id b = el_id(CD_LIT("button"), 0);
-  cd_attr(CD_LIT("type"), CD_LIT("button"));
-  cd_class(CD_LIT("template-update-dismiss"));
-  if (aria) cd_attr(CD_LIT("aria-label"), CD_LIT("Dismiss this notice"));
+static void button(const char *label, cd_event_fn on_click, int aria) {
+  cd_id b = el_id("button", 0);
+  cd_attr("type", "button");
+  cd_class("template-update-dismiss");
+  if (aria) cd_attr("aria-label", "Dismiss this notice");
   cd_on(b, CD_EV_CLICK, on_click, 0);
   cd_text(label);
   cd_close();
@@ -36,36 +36,36 @@ ON_RENDER(draw) {
   cd_region_hide(&view);
   if (dismissed || phase == P_CHECKING || phase == P_IDLE || !cd_region_show(&view, 1)) return;
   cd_at(app_content, page_root());
-  cd_open(CD_LIT("div"));
-  cd_class(phase == P_UPDATING ? CD_LIT("template-update is-updating")
-           : phase == P_OFFERED ? CD_LIT("template-update is-offered")
-           : phase == P_BEHIND  ? CD_LIT("template-update is-behind")
-                                : CD_LIT("template-update is-failed"));
-  cd_attr(CD_LIT("role"), CD_LIT("status"));
+  cd_open("div");
+  cd_class(phase == P_UPDATING ? "template-update is-updating"
+           : phase == P_OFFERED ? "template-update is-offered"
+           : phase == P_BEHIND  ? "template-update is-behind"
+                                : "template-update is-failed");
+  cd_attr("role", "status");
   cd_name_open(view.root);
   if (phase == P_UPDATING) {
-    el_text(CD_LIT("span"), 0, CD_LIT("Updating amgi’s files in Anki…"));
+    el_text("span", 0, "Updating amgi’s files in Anki…");
   } else if (phase == P_OFFERED) {
-    el_text(CD_LIT("span"), 0,
-            CD_LIT("amgi has a newer card design, and Anki is open. Installing it rewrites amgi’s add-on while Anki is "
-                   "running, so it is waiting for you."));
-    button(CD_LIT("Install now"), install_now, 0);
-    button(CD_LIT("Dismiss"), dismiss, 1);
+    el_text("span", 0,
+            "amgi has a newer card design, and Anki is open. Installing it rewrites amgi’s add-on while Anki is "
+                   "running, so it is waiting for you.");
+    button("Install now", install_now, 0);
+    button("Dismiss", dismiss, 1);
   } else if (phase == P_BEHIND) {
-    cd_open(CD_LIT("span"));
-    cd_text(CD_LIT("amgi has a newer card design. Anki picks it up when it next opens your collection, so "));
-    el_text(CD_LIT("strong"), 0, CD_LIT("restart Anki"));
-    cd_text(CD_LIT(" to see it."));
+    cd_open("span");
+    cd_text("amgi has a newer card design. Anki picks it up when it next opens your collection, so ");
+    el_text("strong", 0, "restart Anki");
+    cd_text(" to see it.");
     cd_close();
-    button(CD_LIT("Check again"), check_again, 0);
-    button(CD_LIT("Dismiss"), dismiss, 1);
+    button("Check again", check_again, 0);
+    button("Dismiss", dismiss, 1);
   } else {
-    cd_open(CD_LIT("span"));
-    cd_text(CD_LIT("Could not update amgi’s files in Anki: "));
+    cd_open("span");
+    cd_text("Could not update amgi’s files in Anki: ");
     tmp_text(message.p, message.len);
     cd_close();
-    button(CD_LIT("Try again"), check_again, 0);
-    button(CD_LIT("Dismiss"), dismiss, 1);
+    button("Try again", check_again, 0);
+    button("Dismiss", dismiss, 1);
   }
   cd_close();
   cd_region_end(&view);
