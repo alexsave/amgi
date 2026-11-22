@@ -1,63 +1,55 @@
 # amgi
 
-https://github.com/user-attachments/assets/731cb0b9-276a-4f10-89d0-6e3fdefa2896
-
-Flashcards that make you **speak**, built on top of Anki instead of next to it.
-
-amgi reaches into your real Anki collection to generate cards with native-sounding audio.
-Anki does the scheduling, sync and review.
-Reviewing uses a card template this repo ships: the prompt plays, the microphone opens by itself, and your voice is played back against the native recording.
-
-There is no login and no hosted backend.
-Card text, speech and the check that each clip says what the card says all come from Google Gemini, with your own key, from your own machine.
+Flashcards that make you **speak**, built on top of Anki.
 
 ## Quick start
 
-You need:
-
-- **Anki** (desktop), from [apps.ankiweb.net](https://apps.ankiweb.net).
-  Open it once so it creates a profile, then quit it.
-- **LLVM's clang**, for the page, which is C built to WebAssembly (`brew install llvm`; Apple's clang has no WebAssembly target).
-  `brew install binaryen brotli` is optional: a smaller build, and its sizes in the build's last line.
-- **The server's C libraries**: sqlite, ICU 78 and OpenSSL from Homebrew (`brew install sqlite icu4c@78 openssl@3`).
-  The server is C, on [cbase](https://github.com/alexsave/cbase), and `make start` builds it with Xcode's command line tools (`xcode-select --install`).
-- No Node: building and starting amgi is make, clang and the shell. Node (24.12, 25.1 or 26 and later) is for the tests and the linter only.
-- **A Gemini API key** from [aistudio.google.com/apikey](https://aistudio.google.com/apikey).
-  The free tier allows 10 requests per day per model, and a card needs five to seven, so enable billing on the key's project for real use.
+**1. Get the submodules** (in your clone)
 
 ```bash
-git clone --recurse-submodules https://github.com/alexsave/amgi.git && cd amgi
+git submodule update --init --recursive
 ```
 
-Put the key in a file called `.env.local` at the top of the repo:
+**2. Put your [Gemini key](https://aistudio.google.com/apikey) in `.env.local`**
 
 ```
-GEMINI_API_KEY=...
+GEMINI_API_KEY=your-key
 ```
 
-The server reads it strictly (`KEY=VALUE`, no blank around the `=`, a value in quotes loses them), and says which line it could not read.
-Updating an existing clone: `git pull` and then `make start`; it checks out any submodule a pull added (the server's `cbase/`), and `git submodule update --init --recursive` does the same by hand.
-Then build it and start it:
+**3. Run**
 
 ```bash
 make start
 ```
 
-1. Open <http://localhost:3000> and press **Install into Anki**.
-   That copies two add-ons and the card template into your Anki data folder.
-   With Anki closed it also adds the `amgi Listening` note type right away.
-   With Anki open, restart Anki once instead.
-2. Create a deck and paste in the phrases you want cards for, one per line.
-   amgi writes the target-language side, records both sides, and keeps a clip only if transcribing it back matches the card.
-3. Review in Anki as with any deck.
+**4. Open <http://localhost:3000>**
+
+https://github.com/user-attachments/assets/731cb0b9-276a-4f10-89d0-6e3fdefa2896
+
+## Requirements
+
+- macOS with Xcode's command line tools: `xcode-select --install`
+- `brew install llvm sqlite icu4c@78 openssl@3`
+- [Anki](https://apps.ankiweb.net) desktop, opened once and then quit
+- Billing on the Gemini key for real use: the free tier allows 10 requests a day per model, and a card needs five to seven
+
+## Using it
+
+1. Press **Install into Anki**.
+   If Anki was open, restart it once.
+2. Create a deck and paste in phrases, one per line.
+   amgi writes the other side, records both, and checks each recording against its text.
+3. Review in Anki: the prompt plays, the microphone opens by itself, and your voice is played back against the native recording.
    Every note makes two cards, one in each direction.
 
-No key yet?
-Without one, amgi offers a starter deck of ten everyday phrases, already recorded, in any pair of its 18 languages.
+There is no login and no hosted backend: your key, your machine, your Anki collection.
+With no key, amgi offers a starter deck of ten recorded phrases, in any pair of its 18 languages.
 
 The hands-free loop runs on Anki desktop and AnkiDroid 2.25+ (turn on Advanced > "Allow templates to record audio").
-AnkiMobile plays the audio but needs one tap to end your turn.
+AnkiMobile needs one tap to end your turn.
 See [anki/README.md](anki/README.md) for the per-client table.
+
+After a `git pull`, run steps 1 and 3 again.
 
 ## What the add-ons do
 
