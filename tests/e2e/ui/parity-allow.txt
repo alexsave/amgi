@@ -10,3 +10,11 @@ cdom-33-failed.png the fake Gemini answers the five concurrent lines in arrival 
 cdom-33-failed.html the fake Gemini answers the five concurrent lines in arrival order, so card order varies run to run
 cdom-34-daily-cap.png the fake Gemini answers the five concurrent lines in arrival order, so card order varies run to run
 cdom-34-daily-cap.html the fake Gemini answers the five concurrent lines in arrival order, so card order varies run to run
+cdom-35-step-1280.png the deck list under the forced step holds the seven concurrent lines of the run before it, in arrival order, so card order varies run to run
+cdom-35-step-1280.html the deck list under the forced step holds the seven concurrent lines of the run before it, in arrival order, so card order varies run to run
+cdom-35-step-390.png the deck list under the forced step holds the seven concurrent lines of the run before it, in arrival order, so card order varies run to run
+cdom-35-step-390.html the deck list under the forced step holds the seven concurrent lines of the run before it, in arrival order, so card order varies run to run
+cdom-36-step-wait-1280.png the deck list under the forced step holds the seven concurrent lines of the run before it, in arrival order, so card order varies run to run
+cdom-36-step-wait-1280.html the deck list under the forced step holds the seven concurrent lines of the run before it, in arrival order, so card order varies run to run
+cdom-36-step-wait-390.png the deck list under the forced step holds the seven concurrent lines of the run before it, in arrival order, so card order varies run to run
+cdom-36-step-wait-390.html the deck list under the forced step holds the seven concurrent lines of the run before it, in arrival order, so card order varies run to run
