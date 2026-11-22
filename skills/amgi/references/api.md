@@ -91,7 +91,8 @@ A failure is the `error` kind, `{error}`, with a 4xx or 5xx status, except an un
 | `GET /notetypes` | `{notetypes: [{id, name, fieldNames, sortFieldIndex}]}` |
 | `GET /decks/:id/notes?offset=&limit=` | `{notes: [{id, notetypeId, fields, tags}], offset, limit, hasMore}`, at most 200 a page, subdecks included |
 | `GET /decks/:id/notes/field-values?notetypeId=&fieldIndex=` | `{values}`: one field of every note of that type in the deck, for duplicate checks. Both parameters are required whole numbers (400 otherwise) |
-| `POST /card-text` `{userInput, knownLanguage, learningLanguage, includeCueAudio}` | Writes one card's text, records and stores its clips; adds no note |
+| `POST /card-text` `{userInput, knownLanguage, learningLanguage, includeCueAudio, progressId}` | Writes one card's text, records and stores its clips; adds no note. `progressId` is optional: a number of your own, to follow it in `GET /progress` |
+| `GET /progress` | `{cards: [{id, step, take, takes, waitMs, frontText, backText}]}`: the cards being made now that gave a `progressId`. `step` is a `WP_*` of `ui/wire/wire.h`; `waitMs` is above 0 while the step waits for Gemini's limit; the texts are empty until both sides are written |
 | `POST /audio` `{text, language, fresh}` | One validated clip, stored: `{filename, reference, reused}` |
 | `POST /notes` `{deckId, notetypeId, fields, tags, language, learningFieldIndex}` | Adds one note; `fields` is a list in the note type's field order |
 | `POST /notes/bulk` `{notes: [...]}` | The same shape per note, in one write; one result per note, and one bad note never aborts the rest |

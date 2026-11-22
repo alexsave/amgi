@@ -612,11 +612,10 @@ void amgi_slow_full(cb_ctx *ctx, const cb_http_req *req, cb_http_res *res) {
   (void)ctx, (void)req;
   arena a = {0};
   amgi_error e = {0};
-  e.error = S("amgi is making as many cards as it can at once; this one waits 2s before starting.");
+  e.error = S(WIRE_NO_SLOT_ERROR);
   e.has_retry = 1;
   e.retry_after_ms = 2000;
   e.not_started = 1;
-  e.no_slot = 1;
   amgi_send_error(&a, res, 429, &e);
   ar_free(&a);
 }

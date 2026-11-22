@@ -491,7 +491,7 @@ ON_ANSWER(line_answered) {
   if (status == 429 && a.err.retry_after_ms != WIRE_NONE) {
     uint32_t wait = a.err.retry_after_ms;
     if (a.err.not_started) {
-      wait_then_ask(i, wait, a.err.no_slot == 1 ? QUEUED : WAITING);
+      wait_then_ask(i, wait, same_z(a.err.error.p, a.err.error.len, WIRE_NO_SLOT_ERROR) ? QUEUED : WAITING);
       return;
     }
     uint32_t budget = a.err.max_wait_ms;

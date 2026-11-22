@@ -93,8 +93,10 @@ enum {
 };
 
 /* A 4xx or 5xx answer. retry_after_ms and max_wait_ms are WIRE_NONE unless Gemini's limit answered.
- * no_slot is 1 when a notStarted refusal was for want of a worker, and WIRE_NONE otherwise. */
-typedef struct { uint32_t mode; wire_str error; uint32_t retry_after_ms; uint8_t not_started, daily_cap; uint32_t max_wait_ms, no_slot; } wire_error;
+ * A notStarted refusal is Gemini's limit, or every worker busy (routes.c amgi_slow_full), which is this
+ * sentence and nothing else: both ends take it from here, so the page can say which of the two it waits for. */
+#define WIRE_NO_SLOT_ERROR "amgi is making as many cards as it can at once; this one waits 2s before starting."
+typedef struct { uint32_t mode; wire_str error; uint32_t retry_after_ms; uint8_t not_started, daily_cap; uint32_t max_wait_ms; } wire_error;
 typedef struct { uint32_t mode, schema_version; wire_str detail; } wire_status;
 typedef struct { int64_t id; wire_str name; uint32_t note_count; } wire_deck;
 typedef struct { uint32_t mode; wire_deck *decks; uint32_t ndecks; } wire_decks;

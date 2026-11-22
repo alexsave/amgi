@@ -24,7 +24,9 @@ function refusesCutShort(bytes) {
 
 test('every kind in the schema is one the server can name', () => {
   assert.deepEqual(Object.keys(KIND).slice(0, 3), ['error', 'status', 'decks']);
-  assert.equal(Object.keys(KIND).length, 45);
+  assert.equal(Object.keys(KIND).length, 46);
+  assert.equal(KIND.b_q_media, 44, 'the kinds that were there keep their numbers');
+  assert.equal(KIND.progress, 45, 'a new one goes at the end');
 });
 
 test('bytes (the bridge\'s media): any octets, as the app reads them, and back the same', () => {
@@ -88,6 +90,13 @@ test('card text: nested keys (audio.reference)', () => {
   assert.match(read(bytes), /audio\.filename=t\.wav\naudio\.reference=<audio src="t\.wav"><\/audio>\ncueAudio\.filename=c\.wav\ncueAudio\.reference=r\n/);
 });
 
+test('progress: a list of cards, each with its step, its take, its wait and its sides', () => {
+  const bytes = encode('progress', { cards: [{ id: 4294967295, step: 11, take: 3, takes: 3, waitMs: 1200, frontText: 'apple', backText: '사과' }] });
+  assert.deepEqual(decode('progress', bytes), { cards: [{ id: 4294967295, step: 11, take: 3, takes: 3, waitMs: 1200, frontText: 'apple', backText: '사과' }] });
+  assert.match(read(bytes), /^kind=progress\n[\s\S]*사과[\s\S]*rewritten=same\n$/);
+  refusesCutShort(bytes);
+});
+
 test('install state: a null upToDate stays unknown', () => {
   assert.match(read(encode('install_state', { installed: true, upToDate: null, collectionChecked: true, collectionStale: ['a', 'b'] })),
     /installed=1\nupToDate=2\ncollectionChecked=1\ncollectionStale=\[a\|b\]\nready=0\n/);
@@ -101,7 +110,7 @@ test('requests: the server reads back what was written, absent fields left out',
   const bulk = { notes: [note, { ...note, fields: ['b'] }] };
   assert.deepEqual(decode('q_notes', encode('q_notes', bulk)), bulk);
   assert.deepEqual(decode('q_card_text', encode('q_card_text', { userInput: '안녕', knownLanguage: 'en', learningLanguage: 'ko', includeCueAudio: true })),
-    { userInput: '안녕', knownLanguage: 'en', learningLanguage: 'ko', includeCueAudio: true });
+    { userInput: '안녕', knownLanguage: 'en', learningLanguage: 'ko', includeCueAudio: true, progressId: 0 }, 'no progressId is 0: a card nobody watches');
   const bytes = encode('q_notes', bulk);
   assert.equal(decode('q_notes', bytes.subarray(0, bytes.length - 1)), null);
   assert.equal(decode('q_note', bytes), null); // the wrong kind

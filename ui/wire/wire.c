@@ -28,8 +28,7 @@ uint32_t wire_mode_of(const char *s, uint32_t len) {
 SCHEMA(s_error, wire_error,
   F(wire_error, "mode", WT_MODE, mode), F(wire_error, "error", WT_STR, error),
   F(wire_error, "retryAfterMs", WT_OPT, retry_after_ms), F(wire_error, "notStarted", WT_BOOL, not_started),
-  F(wire_error, "dailyCap", WT_BOOL, daily_cap), F(wire_error, "maxWaitMs", WT_OPT, max_wait_ms),
-  F(wire_error, "noSlot", WT_OPT, no_slot));
+  F(wire_error, "dailyCap", WT_BOOL, daily_cap), F(wire_error, "maxWaitMs", WT_OPT, max_wait_ms));
 SCHEMA(s_status, wire_status,
   F(wire_status, "mode", WT_MODE, mode), F(wire_status, "schemaVersion", WT_U32, schema_version),
   F(wire_status, "detail", WT_STR, detail));

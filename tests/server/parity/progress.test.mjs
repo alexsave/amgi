@@ -4,6 +4,7 @@
 // (checking reuse, storing) as surely as the slow ones. No sleeps decide anything here.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import http from 'node:http';
 import { createRequire } from 'node:module';
 import { BRIDGE_PROTOCOL, WIRE_MIME, decode, encode } from '../../../ui/wire/wire.mjs';
@@ -15,6 +16,7 @@ const { fakeGemini, quotaExhausted, wavAnswer } = createRequire(import.meta.url)
 const [WRITING, TARGET_REUSE, TARGET_RECORDING, TARGET_TRANSCRIBING, TARGET_JUDGING, TARGET_STORING,
   CUE_REUSE, CUE_RECORDING, CUE_TRANSCRIBING, CUE_JUDGING, CUE_STORING] = Array.from({ length: 11 }, (_, i) => i + 1);
 
+const NO_SLOT = /#define WIRE_NO_SLOT_ERROR "([^"]+)"/.exec(fs.readFileSync(new URL('../../../ui/wire/wire.h', import.meta.url), 'utf8'))[1];
 const FRONT = 'Where is the station?';
 const BACK = '역이 어디예요?';
 const CARD = { known_text: FRONT, learning_text: BACK, sense_tag: '', register: 'polite', spoken_reading: '' };
@@ -221,7 +223,7 @@ test('a card refused for want of a slot says so, apart from the rate limit', asy
   const refused = await r.card(13);
   assert.equal(refused.status, 429);
   assert.equal(refused.body.notStarted, true);
-  assert.equal(refused.body.noSlot, 1);
+  assert.equal(refused.body.error, NO_SLOT, 'the sentence the page tells the slot from the limit by');
   for (const release of held) release(undefined);
   await Promise.all(running);
 });

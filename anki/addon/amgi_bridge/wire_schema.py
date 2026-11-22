@@ -33,7 +33,6 @@ KINDS = {
         ("notStarted", BOOL, None),
         ("dailyCap", BOOL, None),
         ("maxWaitMs", OPT, None),
-        ("noSlot", OPT, None),
     )),
     "status": (1, (
         ("mode", MODE, None),
