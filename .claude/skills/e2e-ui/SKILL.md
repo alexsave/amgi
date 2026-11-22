@@ -16,7 +16,6 @@ This skill covers the app: the deck browser and card builder, and the two transp
 You need two things, neither of which this repo can vendor:
 
 1. **A Python with the `anki` library importable.**
-   It does not need Anki itself installed, and does not need `aqt` (Anki's Qt/GUI package).
 
    ```bash
    python3 -m venv .venv && .venv/bin/pip install anki   # or: uv venv && uv pip install anki
