@@ -28,7 +28,9 @@ async function rig(t) {
     return queues.get(kind);
   };
   const open = new Set();
+  let over = false; // the test has ended: what is asked from here on fails at once (a retry, say)
   const held = (kind) => new Promise((resolve) => {
+    if (over) return resolve(undefined);
     const release = (value) => {
       open.delete(release);
       resolve(value);
@@ -65,6 +67,7 @@ async function rig(t) {
   await new Promise((resolve) => addon.listen(0, '127.0.0.1', resolve));
   const app = await startServer({ key: 'fake', base: gemini.baseUrl });
   t.after(async () => {
+    over = true;
     for (const release of [...open]) release(undefined);
     await app.stop();
     await gemini.close();
