@@ -16,7 +16,7 @@ Never edit `collection.anki2` with sqlite3 or any other tool: see `collection-in
 ## Run it
 
 Needs make and LLVM's clang (`brew install llvm`) to build the page, Homebrew's sqlite, ICU 78 and OpenSSL (`brew install sqlite icu4c@78 openssl@3`) and Xcode's command line tools to build the server, desktop Anki opened once so it has a profile, and a Gemini key.
-The command line needs only `make server` (no LLVM, no Node); `make build` and `make start` also build the page, which needs LLVM.
+The command line needs `make server`; `make build` and `make start` also build the page, which needs LLVM.
 Node (24.12, 25.1 or 26+) is for the tests, the linter, and a script that calls the raw API through `ui/wire/wire.mjs` (below).
 
 ```bash
