@@ -4,7 +4,7 @@
 
 MAGIC = 0x32574D41
 MIME = "application/x-amgi-wire"
-BRIDGE_PROTOCOL = 1
+BRIDGE_PROTOCOL = 2
 NONE = 0xFFFFFFFF
 ABSENT = -2147483648
 UNKNOWN = 2
@@ -320,5 +320,18 @@ KINDS = {
             ("frontText", STR, None),
             ("backText", STR, None),
         )),
+    )),
+    "note": (46, (
+        ("mode", MODE, None),
+        ("id", I64, None),
+        ("notetypeId", I64, None),
+        ("fields", STRS, None),
+        ("tags", STRS, None),
+    )),
+    "b_note_read": (47, (
+        ("id", I64, None),
+        ("notetypeId", I64, None),
+        ("fields", STRS, None),
+        ("tags", STRS, None),
     )),
 }

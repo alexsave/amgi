@@ -356,6 +356,24 @@ int col_bridge_count_notes(arena *a, const col_bridge *b, double deck, int64_t *
   return col_bridge_list_notes(a, b, deck, 0, 1, &p, out, err);
 }
 
+typedef struct { const col_bridge *b; double note; col_note *out; } get_note_args;
+static void get_note_body(cx *c, void *arg) {
+  get_note_args *d = arg;
+  str id = js_number(c, d->note);
+  wire_b_note_read r;
+  call k = {d->b, "GET", str_c(ar_fmt(c->a, "/notes/%.*s", (int)id.n, id.p)), WK_B_NOTE_READ, 0, 0, NULL, DEFAULT_TIMEOUT_MS, &r, 0};
+  fetch(c, &k);
+  d->out->id = r.id;
+  d->out->notetype_id = r.notetype_id;
+  d->out->fields = from_wss(c, r.fields, &d->out->nfields);
+  d->out->tags = from_wss(c, r.tags, &d->out->ntags);
+}
+int col_bridge_get_note(arena *a, const col_bridge *b, double note, col_note *out, col_err *err) {
+  memset(out, 0, sizeof *out);
+  get_note_args d = {b, note, out};
+  return run(a, get_note_body, &d, err);
+}
+
 typedef struct { const col_bridge *b; double deck, nt, field; str **out; size_t *n; } values_args;
 static void values_body(cx *c, void *arg) {
   values_args *d = arg;

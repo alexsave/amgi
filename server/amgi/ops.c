@@ -73,6 +73,9 @@ int ops_update_note(arena *a, const amgi_ops *o, double note, const str *fields,
   return col_bridge_update_note(a, BR, note, fields, nfields, has_language, language, has_lfi, lfi, note_id, has_warning,
                                 warning, e);
 }
+int ops_get_note(arena *a, const amgi_ops *o, double note, col_note *out, col_err *e) {
+  return ops_is_direct(o) ? col_get_note(a, o->path, note, out, e) : col_bridge_get_note(a, BR, note, out, e);
+}
 int ops_remove_note(arena *a, const amgi_ops *o, double note, int64_t *note_id, col_err *e) {
   int64_t removed;
   return ops_is_direct(o) ? col_remove_note(a, o->path, note, note_id, &removed, e)

@@ -88,6 +88,7 @@ int ops_add_notes(arena *a, const amgi_ops *o, const col_new_note *notes, size_t
 int ops_update_note(arena *a, const amgi_ops *o, double note, const str *fields, size_t nfields, int has_language,
                     str language, int has_lfi, double lfi, int *has_note_id, int64_t *note_id, int *has_warning,
                     str *warning, col_err *e);
+int ops_get_note(arena *a, const amgi_ops *o, double note, col_note *out, col_err *e);
 int ops_remove_note(arena *a, const amgi_ops *o, double note, int64_t *note_id, col_err *e);
 int ops_has_media(arena *a, const amgi_ops *o, str name, int *out, col_err *e);
 int ops_read_media(arena *a, const amgi_ops *o, str name, int *found, str *bytes, col_err *e);

@@ -157,6 +157,9 @@ class AqtBridgeDispatcher:
     def list_notes(self, deck_id: int, *, offset: int, limit: int) -> dict:
         return self._run_read(lambda col: bridge_ops.list_notes_in_deck(col, deck_id, offset=offset, limit=limit))
 
+    def get_note(self, note_id: int) -> dict:
+        return self._run_read(lambda col: bridge_ops.get_note(col, note_id))
+
     def list_field_values(self, deck_id: int, notetype_id: int, field_index: int) -> list:
         return self._run_read(lambda col: bridge_ops.list_field_values(col, deck_id, notetype_id, field_index))
 

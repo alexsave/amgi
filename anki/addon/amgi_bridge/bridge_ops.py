@@ -427,6 +427,17 @@ def rename_deck(col: "Collection", deck_id: int, human_name: str) -> OpResult:
     return OpResult(payload=payload, changes=changes)
 
 
+def get_note(col: "Collection", note_id: int) -> dict:
+    """One note by id, as list_notes_in_deck lists it (`col.get_note` does the
+    field and tag splitting there too). A note that is not there is
+    NoteNotFound, which the bridge answers 404, so a caller can tell "gone"
+    from a bad request."""
+    if col.db.scalar("select count() from notes where id = ?", int(note_id)) == 0:
+        raise NoteNotFound(f"no note with id {note_id} in this collection")
+    note = col.get_note(int(note_id))
+    return {"id": note.id, "notetypeId": note.mid, "fields": list(note.fields), "tags": list(note.tags)}
+
+
 def remove_note(col: "Collection", note_id: int) -> OpResult:
     """Delete one note and its cards.
 
@@ -445,6 +456,12 @@ class DeckNotFound(LookupError):
     """A deck id the collection does not have: the bridge answers 404 for it
     (bridge_server reads `http_status`), so the app can tell "already gone"
     from a bad request."""
+
+    http_status = 404
+
+
+class NoteNotFound(LookupError):
+    """A note id the collection does not have: 404, as DeckNotFound is."""
 
     http_status = 404
 

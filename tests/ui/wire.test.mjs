@@ -24,7 +24,7 @@ function refusesCutShort(bytes) {
 
 test('every kind in the schema is one the server can name', () => {
   assert.deepEqual(Object.keys(KIND).slice(0, 3), ['error', 'status', 'decks']);
-  assert.equal(Object.keys(KIND).length, 46);
+  assert.equal(Object.keys(KIND).length, 48);
   assert.equal(KIND.b_q_media, 44, 'the kinds that were there keep their numbers');
   assert.equal(KIND.progress, 45, 'a new one goes at the end');
 });
@@ -82,6 +82,9 @@ test('deck summary and deck removed: what deleting a deck takes, and what it too
   const removed = encode('deck_removed', { mode: 'direct', id: 1794149693370, name: '한국어', decks: 2, cards: 6, notes: 4 });
   assert.equal(read(removed), 'kind=deck_removed\nmode=direct\nid=1794149693370\nname=한국어\ndecks=2\ncards=6\nnotes=4\nrewritten=same\n');
   refusesCutShort(removed);
+  const one = encode('note', { mode: 'direct', id: 1794149693370, notetypeId: 1794095498266, fields: ['역이 어디예요?', 'b'], tags: ['amgi'] });
+  assert.equal(read(one), 'kind=note\nmode=direct\nid=1794149693370\nnotetypeId=1794095498266\nfields=[역이 어디예요?|b]\ntags=[amgi]\nrewritten=same\n');
+  refusesCutShort(one);
 });
 
 test('card text: nested keys (audio.reference)', () => {

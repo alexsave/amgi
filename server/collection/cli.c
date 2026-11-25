@@ -207,6 +207,13 @@ static void put_page(buf *b, const col_page *p, int with_total, int64_t total) {
   }
 }
 
+static void put_note_one(buf *b, const col_note *n) {
+  buf_fmt(b, "ok %lld %lld ", (long long)n->id, (long long)n->notetype_id);
+  put_strs(b, n->fields, n->nfields);
+  buf_ch(b, ' ');
+  put_strs(b, n->tags, n->ntags);
+}
+
 static void put_status(buf *b, const col_bridge_status *st) {
   buf_fmt(b, " %d ", st->profile_open ? 1 : 0);
   enc(b, st->profile_name);
@@ -313,6 +320,10 @@ static int run_bridge(arena *a, str verb, str *t, size_t n, str *more, size_t nm
       return put_err(b, &e), 1;
     buf_c(b, "ok ");
     enc(b, has_w ? w : (str){NULL, 0});
+  } else if (str_eq_c(verb, "getNote")) {
+    col_note cn;
+    if (col_bridge_get_note(a, br, num(ARG(0)), &cn, &e)) return put_err(b, &e), 1;
+    put_note_one(b, &cn);
   } else if (str_eq_c(verb, "removeNote")) {
     int64_t id, removed;
     if (col_bridge_remove_note(a, br, num(ARG(0)), &id, &removed, &e)) return put_err(b, &e), 1;
@@ -473,6 +484,10 @@ static void run(arena *a, str line, str *more, size_t nmore, buf *b) {
       return put_err(b, &e);
     buf_c(b, "ok ");
     enc(b, has_w ? w : (str){NULL, 0});
+  } else if (str_eq_c(verb, "getNote")) {
+    col_note cn;
+    if (col_get_note(a, g_path, num(ARG(0)), &cn, &e)) return put_err(b, &e);
+    put_note_one(b, &cn);
   } else if (str_eq_c(verb, "removeNote")) {
     int64_t id, removed;
     if (col_remove_note(a, g_path, num(ARG(0)), &id, &removed, &e)) return put_err(b, &e);

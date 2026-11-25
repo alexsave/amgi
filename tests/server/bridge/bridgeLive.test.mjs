@@ -134,8 +134,17 @@ maybe(`the bridge protocol against the real add-on server and a real collection`
 
     assert.deepEqual(await ops.renameDeck(made.deck.id, '한국어::여행 2'), { id: made.deck.id, name: '한국어::여행 2' });
 
+    // One note by id: the page's own row for it, then a 404 with the add-on's sentence once it is gone.
+    const read = await ops.getNote(bulk[0].noteId);
+    const listed = (await ops.listNotesInDeck(made.deck.id, { limit: 50 })).notes.find((n) => n.id === bulk[0].noteId);
+    assert.deepEqual(read, listed);
+    assert.deepEqual(read.fields, ['감사합니다', 'Thank you']);
+    assert.deepEqual(await ops.getNote(one.noteId), { id: one.noteId, notetypeId: basic.id, fields: ['yeogi eodiyeyo', 'Where?'], tags: ['amgi'] },
+      'a tagged note, edited: its tags and its fields as they are now');
     const removed = await ops.removeNote(bulk[0].noteId);
     assert.deepEqual(removed, { noteId: bulk[0].noteId, cardsRemoved: 1 });
+    await assert.rejects(ops.getNote(bulk[0].noteId), (error) => error instanceof BridgeError && error.status === 404
+      && error.message.includes(`no note with id ${bulk[0].noteId}`));
 
     const summary = await ops.deckRemovalSummary(existing.id);
     assert.deepEqual(summary, { id: existing.id, name: 'Existing', subdecks: 1, cards: 1, notes: 1 });
