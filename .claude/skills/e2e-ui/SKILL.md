@@ -56,6 +56,8 @@ Wipes and rebuilds `.e2e/fixture` (gitignored) every run, from nothing, with the
 make build && tests/e2e/ui/e2e.sh           # or: npm run e2e
 ```
 
+`DRIVES="languages edit" tests/e2e/ui/e2e.sh` runs only the drives it names (and `incident1842` only when named), for iterating on one screen; run the whole suite before you call it done.
+
 `tests/e2e/ui/e2e.sh` starts what the drives need, each on a free port, and stops it all on exit: the fake Gemini and three app servers (`server/build/amgi serve`, started with `CBASE_LISTEN=127.0.0.1:0`, their `cbase: listening <host>:<port>` line read for the port) that differ only in their key - any key (the screens), none (the starter deck is offered), and one pointed at the fake.
 Then `tests/e2e/ui/drives.sh` runs the drives one at a time, one headless Chrome each, every one on a fresh copy of the fixture, and prints each drive's `ok` count and every `FAIL` line:
 
