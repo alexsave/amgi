@@ -28,9 +28,10 @@
 
 #define WIRE_MAGIC 0x32574d41u /* "AMW2" */
 #define WIRE_MIME "application/x-amgi-wire"
-/* The bridge protocol's version. 1 is the first binary one; the add-on that spoke JSON sent none.
+/* The bridge protocol's version. 1 is the first binary one; the add-on that spoke JSON sent none. 2 added
+ * GET /notes/:id (b_note_read).
  * Change it with any change to a b_* kind or to a request kind the bridge reads. */
-#define WIRE_BRIDGE_PROTOCOL 1u
+#define WIRE_BRIDGE_PROTOCOL 2u
 
 /* Field types. */
 enum {
@@ -78,6 +79,8 @@ enum {
   WK_B_Q_MEDIA,
   /* answers added since (a kind's number is its byte on the wire: a new one goes at the end) */
   WK_PROGRESS,
+  WK_NOTE, /* GET /notes/:id: the one note */
+  WK_B_NOTE_READ, /* the bridge's answer to it */
   WK_KINDS
 };
 /* The kind's name as the server's route table spells it ("decks", "q_note"); 0 past the last. */
@@ -106,6 +109,7 @@ typedef struct { wire_str base_dir; uint8_t base_dir_exists; wire_profile *profi
 typedef struct { int64_t id; wire_str name; wire_strs field_names; uint32_t sort_field_index; } wire_notetype;
 typedef struct { uint32_t mode; wire_notetype *notetypes; uint32_t nnotetypes; } wire_notetypes;
 typedef struct { int64_t id, notetype_id; wire_strs fields, tags; } wire_note;
+typedef struct { uint32_t mode; wire_note note; } wire_note_one; /* GET /notes/:id */
 typedef struct { uint32_t mode; wire_note *notes; uint32_t nnotes; uint32_t offset, limit; uint8_t has_more; } wire_notes;
 typedef struct { uint32_t mode; wire_strs values; } wire_field_values;
 typedef struct { uint32_t mode; int64_t id; wire_str name; uint8_t created; } wire_deck_created;
@@ -154,6 +158,7 @@ typedef struct { wire_note *notes; uint32_t nnotes; uint32_t total, offset, limi
 typedef struct { wire_strs values; } wire_b_values;
 typedef struct { int64_t id; wire_str name; uint8_t created; } wire_b_deck_created;
 typedef struct { int64_t note_id; wire_str warning; } wire_b_note; /* a note added or changed */
+typedef struct { int64_t id, notetype_id; wire_strs fields, tags; } wire_b_note_read; /* a note read: wire_note's fields */
 typedef struct { wire_note_result *results; uint32_t nresults; } wire_b_notes_added;
 typedef struct { int64_t note_id; uint32_t cards_removed; } wire_b_note_removed;
 typedef struct { int64_t id; wire_str name; uint32_t subdecks, cards, notes; } wire_b_deck_summary;

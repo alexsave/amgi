@@ -154,6 +154,7 @@ The shapes below are its fields, by name; the layouts themselves are written dow
 | `POST /decks` `{name}` | `Collection.createDeck(name)` | Creates missing `::` ancestors; returns the existing deck (`created: false`) on a name match rather than duplicating - see `bridge_ops.create_deck`'s docstring for why this matches even Anki's own real Unicode case-folding, not just the ASCII approximation `decks.js`'s own module comment documents as a known gap on the Node side. |
 | `POST /notes` `{deckId, notetypeId, fields, tags}` | `Collection.addNote({deckId, notetypeId, fields, tags})` | |
 | `POST /notes/bulk` `{notes: [{deckId, notetypeId, fields, tags, language, learningFieldIndex}, ...]}` | `Collection.addNotesBulk(notes)`-shaped loop in `directClient.js` | The bulk-add-from-paste screen's write path. Runs as one `CollectionOp` on the bridge side (see `bridge_ops.add_notes_bulk`) rather than one per note, so a 60-line paste produces one undo step and one UI refresh instead of 60. Response is `{results: [{ok, noteId, guid, cardIds, warning?} \| {ok: false, error}, ...]}`, one entry per note in the same order, so one bad line never aborts the rest of the batch. |
+| `GET /notes/:id` | `Collection.getNote(id)` | One note, as `listNotesInDeck` lists it: `{id, notetypeId, fields, tags}`. A note that is not there is a 404 (protocol 2 added this route). |
 | `PATCH /notes/:id` `{fields}` | `Collection.updateNote(id, fields)` | Never touches tags or regenerates cards, on either side. |
 | `DELETE /notes/:id` | `Collection.removeNote(id)` | Through `col.remove_notes`: the note, its cards, and their graves. Response is `{noteId, cardsRemoved}`. |
 | `PATCH /decks/:id` `{name}` | `Collection.renameDeck(id, name)` | Through `col.decks.rename`, subdecks included. Response is `{id, name}`; an unknown deck is a 404. |
@@ -319,9 +320,9 @@ To check it:
    `bridge_server.py` and `bridge_ops.py` are proven directly (see "Testing" above); what is not proven without Qt is the wiring around them in `__init__.py` and `bridge_dispatch.py`.
    To check: enable the bridge in `Tools > amgi: Bridge status...`, confirm the dialog reports a port and the checkbox stays checked, then from a browser console on a page served from an allowed origin (for example `http://localhost:3000`), run
    ```js
-   fetch("http://127.0.0.1:8798/status", { headers: { "X-Amgi-Bridge-Token": "<paste the token>", "X-Amgi-Bridge-Protocol": "1" } }).then(r => console.log(r.status, r.headers.get("X-Amgi-Bridge-Protocol")))
+   fetch("http://127.0.0.1:8798/status", { headers: { "X-Amgi-Bridge-Token": "<paste the token>", "X-Amgi-Bridge-Protocol": "2" } }).then(r => console.log(r.status, r.headers.get("X-Amgi-Bridge-Protocol")))
    ```
-   and confirm it logs `200 1` (the body is a `b_status` message, not text). From a page on a *different* origin, confirm the same call fails.
+   and confirm it logs `200 2` (the body is a `b_status` message, not text). From a page on a *different* origin, confirm the same call fails.
 
 7. **The bridge tears down and reopens cleanly across a profile switch.**
    Enable the bridge, switch to a different Anki profile (`File > Switch Profile`), and confirm `Tools > amgi: Bridge status...` shows "Not running" until it is enabled again for that profile - `gui_hooks.profile_will_close` is what is supposed to make this happen (`_stop_bridge` in `__init__.py`), and has not run inside real Anki.

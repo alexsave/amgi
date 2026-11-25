@@ -95,6 +95,8 @@ int col_status(arena *a, str path, col_state *out, col_err *err);
 int col_list_decks(arena *a, str path, col_deck **out, size_t *n, col_err *err);
 int col_list_notetypes(arena *a, str path, col_notetype **out, size_t *n, col_err *err);
 int col_list_notes(arena *a, str path, double deck, double offset, double limit, col_page *out, col_err *err);
+/* One note by id; a note that is not there is status 404 in err. */
+int col_get_note(arena *a, str path, double note, col_note *out, col_err *err);
 int col_count_notes(arena *a, str path, double deck, int64_t *out, col_err *err);
 int col_field_values(arena *a, str path, double deck, double notetype, double field, str **out, size_t *n, col_err *err);
 int col_create_notetype(arena *a, str path, const col_spec *spec, const col_media *media, size_t nmedia,

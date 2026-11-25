@@ -11,7 +11,7 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { sandboxEnv } from '../repo/sandbox-home.cjs';
-import { KIND, decode, encode } from '../../ui/wire/wire.mjs';
+import { BRIDGE_PROTOCOL, KIND, decode, encode } from '../../ui/wire/wire.mjs';
 
 const ROOT = path.resolve(import.meta.dirname, '..', '..');
 const ADDON = path.join(ROOT, 'anki', 'addon', 'amgi_bridge');
@@ -71,6 +71,7 @@ const SAMPLES = {
   b_deck: { id: 7, name: 'Renamed' },
   b_note: { noteId: 1794163006800, warning: 'looks fully romanised' },
   b_notes_added: { results: [{ ok: true, noteId: 9 }, { ok: false, error: 'unknown note type 999' }] },
+  b_note_read: { id: 1794095498270, notetypeId: 1794095498266, fields: ['역이 어디예요?', 'a\u001fb'], tags: ['amgi', 'ko'] },
   b_note_removed: { noteId: 9, cardsRemoved: 2 },
   b_deck_summary: { id: 9, name: 'Korean', subdecks: 1, cards: 6, notes: 4 },
   b_deck_removed: { id: 9, name: 'Korean', decks: 2, cards: 6, notes: 4 },
@@ -83,6 +84,11 @@ const SAMPLES = {
   q_notes: { notes: [{ deckId: 1, notetypeId: 2, fields: ['x'], tags: ['t'] }, { deckId: 1, notetypeId: 2, fields: [], tags: [], learningFieldIndex: 0 }] },
   q_note_update: { fields: ['x', 'y'], language: '' },
 };
+
+test('the bridge protocol is past the version before GET /notes/:id (b_note_read), so an older add-on is refused, not guessed at', () => {
+  assert.ok(BRIDGE_PROTOCOL >= 2, `protocol ${BRIDGE_PROTOCOL}`);
+  assert.ok('b_note_read' in KIND);
+});
 
 test('every bridge kind the server writes, the add-on reads and writes back byte for byte', () => {
   const bridgeKinds = Object.keys(KIND).filter((k) => k.startsWith('b_'));
@@ -108,6 +114,7 @@ for kind, value in (
     ("b_status", {"profileOpen": True, "profileName": None, "collectionOpen": False, "schemaVersion": None,
                   "ankiVersion": "25.09.2", "qtVersion": "6.9"}),
     ("b_note_removed", {"noteId": 2 ** 40 + 5, "cardsRemoved": 3}),
+    ("b_note_read", {"id": 2 ** 40 + 7, "notetypeId": 2 ** 40 + 9, "fields": ["앞", "back"], "tags": ["amgi"]}),
     ("b_media_data", {"found": True, "data": bytes([0, 255, 10])}),
     ("b_deck_created", {"deck": {"id": 42, "name": "Korean::Verbs"}, "created": True}),
 ):
@@ -124,8 +131,10 @@ test('what the add-on writes from its own values, the server reads as those valu
   assert.deepEqual(decode('b_status', bodies[1]),
     { profileOpen: true, profileName: '', collectionOpen: false, ankiVersion: '25.09.2', qtVersion: '6.9' }, 'None is "" or absent');
   assert.deepEqual(decode('b_note_removed', bodies[2]), { noteId: 2 ** 40 + 5, cardsRemoved: 3 });
-  assert.deepEqual(decode('b_media_data', bodies[3]), { found: true, data: Buffer.from([0, 255, 10]) });
-  assert.deepEqual(decode('b_deck_created', bodies[4]), { 'deck.id': 42, 'deck.name': 'Korean::Verbs', created: true });
+  assert.deepEqual(decode('b_note_read', bodies[3]),
+    { id: 2 ** 40 + 7, notetypeId: 2 ** 40 + 9, fields: ['앞', 'back'], tags: ['amgi'] });
+  assert.deepEqual(decode('b_media_data', bodies[4]), { found: true, data: Buffer.from([0, 255, 10]) });
+  assert.deepEqual(decode('b_deck_created', bodies[5]), { 'deck.id': 42, 'deck.name': 'Korean::Verbs', created: true });
 });
 
 test('the add-on refuses what the server would: short, long, another kind, a list that lies', () => {

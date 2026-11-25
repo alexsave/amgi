@@ -96,6 +96,7 @@ A failure is the `error` kind, `{error}`, with a 4xx or 5xx status, except an un
 | `POST /audio` `{text, language, fresh}` | One validated clip, stored: `{filename, reference, reused}` |
 | `POST /notes` `{deckId, notetypeId, fields, tags, language, learningFieldIndex}` | Adds one note; `fields` is a list in the note type's field order |
 | `POST /notes/bulk` `{notes: [...]}` | The same shape per note, in one write; one result per note, and one bad note never aborts the rest |
+| `GET /notes/:id` | `{id, notetypeId, fields, tags}`: one note, as the deck listing shows it; 404 when there is no such note |
 | `PATCH /notes/:id` `{fields, language, learningFieldIndex}` | Replaces a note's fields in place |
 | `DELETE /notes/:id` | Deletes a note and its cards, with their review history. Ask first |
 | `GET /media/:filename` | A stored clip's bytes; the name percent-encoded (400 when it is not a valid encoding, a plain-text 404 when there is no such clip) |

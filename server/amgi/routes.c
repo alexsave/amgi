@@ -310,6 +310,17 @@ static void h_note_patch(rq *q) {
   amgi_send_wire(q->a, q->res, 200, WK_NOTE_CHANGED, &w);
 }
 
+/* GET /notes/:id: the one note, as decks/:id/notes lists it. A note that is not there is 404. */
+static void h_note_get(rq *q) {
+  if (!ready(q)) return;
+  col_note n;
+  col_err e = {0};
+  if (ops_get_note(q->a, &q->o, amgi_js_number(q->params[0]), &n, &e))
+    return e.status == 404 ? amgi_send_message(q->a, q->res, 404, e.message) : fail500(q, &e);
+  wire_note_one w = {mode_of(q), {n.id, n.notetype_id, strs_of(q->a, n.fields, n.nfields), strs_of(q->a, n.tags, n.ntags)}};
+  amgi_send_wire(q->a, q->res, 200, WK_NOTE, &w);
+}
+
 static void h_note_delete(rq *q) {
   if (!ready(q)) return;
   int64_t note_id;
@@ -420,6 +431,7 @@ static const amgi_route ROUTES[] = {
   {"POST", "starter", "/api/anki/starter", WK_Q_STARTER, h_starter_post},
   {"GET", "media/:filename", "/api/anki/media/:filename", -1, h_media},
   {"GET", "progress", "/api/anki/progress", -1, h_progress},
+  {"GET", "notes/:id", "/api/anki/notes/:id", -1, h_note_get},
 };
 #define NROUTES (sizeof ROUTES / sizeof *ROUTES)
 
@@ -528,8 +540,8 @@ static void dispatch(cb_ctx *ctx, size_t i, const cb_http_req *req, cb_http_res 
 #define THUNK(i) \
   static void h##i(cb_ctx *ctx, const cb_http_req *req, cb_http_res *res) { dispatch(ctx, i, req, res); }
 THUNK(0) THUNK(1) THUNK(2) THUNK(3) THUNK(4) THUNK(5) THUNK(6) THUNK(7) THUNK(8) THUNK(9) THUNK(10)
-THUNK(11) THUNK(12) THUNK(13) THUNK(14) THUNK(15) THUNK(16) THUNK(17) THUNK(18) THUNK(19) THUNK(20) THUNK(21)
-_Static_assert(NROUTES == 22, "one cbase handler per route");
+THUNK(11) THUNK(12) THUNK(13) THUNK(14) THUNK(15) THUNK(16) THUNK(17) THUNK(18) THUNK(19) THUNK(20) THUNK(21) THUNK(22)
+_Static_assert(NROUTES == 23, "one cbase handler per route");
 
 /* ---- the page and its files ---- */
 static void h_root(cb_ctx *ctx, const cb_http_req *req, cb_http_res *res) {
@@ -594,6 +606,7 @@ static const cb_route AMGI_ROUTES[] = {
   {.method = "POST", .pattern = "/api/anki/starter", .flags = CB_ROUTE_POOL, .fn = h19},
   {.method = "GET", .pattern = "/api/anki/media/:filename", .flags = CB_ROUTE_POOL, .fn = h20},
   {.method = "GET", .pattern = "/api/anki/progress", .flags = CB_ROUTE_POOL, .fn = h21},
+  {.method = "GET", .pattern = "/api/anki/notes/:id", .flags = CB_ROUTE_POOL, .fn = h22},
   ANY("/api/anki/*", h_api_fallback),
   ANY("/", h_root),
   ANY("/decks", h_page),

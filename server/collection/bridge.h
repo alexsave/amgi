@@ -38,6 +38,8 @@ int col_bridge_list_notetypes(arena *a, const col_bridge *b, col_notetype **out,
 /* The page with the bridge's total (transport.js derives hasMore from it). */
 int col_bridge_list_notes(arena *a, const col_bridge *b, double deck, double offset, double limit, col_page *out,
                           int64_t *total, col_err *err);
+/* One note by id; a note that is not there is the add-on's 404, as status 404 in err. */
+int col_bridge_get_note(arena *a, const col_bridge *b, double note, col_note *out, col_err *err);
 int col_bridge_count_notes(arena *a, const col_bridge *b, double deck, int64_t *out, col_err *err);
 int col_bridge_field_values(arena *a, const col_bridge *b, double deck, double notetype, double field, str **out, size_t *n,
                             col_err *err);

@@ -41,8 +41,9 @@ Handler files are under `src/server/api/anki/`.
 | 19 | GET /starter | none | starter_state | starter/route.js:13 | Is the free starter deck offered, in which languages. Needs no transport. | fs read of TSV and media dir, in-process audio-store name hash, env GEMINI_API_KEY | router, file ops |
 | 20 | POST /starter | q_starter | starter_built | starter/route.js:17 | Build the 10-phrase starter deck: create deck, dedupe, copy shipped clips, add notes. | transport, in-process buildStarterDeck, fs, in-process audio-store and lyricsParse | router, spawn, file ops |
 | 21 | GET /media/:filename | none | none (raw bytes) | media/[filename]/route.js:14 | Serve one clip from the collection's media folder. Content-Type by extension, `Cache-Control: private, max-age=31536000, immutable`, Content-Length. 404 text `no such clip`. | transport.readMedia (direct: folder read; bridge: base64 over JSON), mediaType.js | router, static or file read, content-type table, spawn (bridge mode) |
+| 22 | GET /notes/:id | none | note | (added after this read) | One note by id: `{mode, id, notetypeId, fields, tags}`, as the deck listing shows it. 404 if gone. | transport, collection read | router, spawn |
 
-Route count: 21 API routes (20 wire-kinded, 1 raw bytes). Plus non-API: `/` (307 to `/decks`), page paths, `/app.wasm`, `/app.css`, public icons.
+Route count: 21 API routes (20 wire-kinded, 1 raw bytes), and GET /notes/:id (22) added since. Plus non-API: `/` (307 to `/decks`), page paths, `/app.wasm`, `/app.css`, public icons.
 
 ## 2. Per-route detail
 
@@ -129,6 +130,10 @@ Field lists are from `ui/wire/wire.h` structs and the `wire.c` SCHEMA table (JS 
 - PATCH request `q_note_update`: fields[], language, learningFieldIndex. 400 `fields is required` when not an array.
 - Answers: mode, noteId, warning (string; PATCH may carry a romanisation warning).
 - DELETE leaves graves so AnkiWeb does not push the note back.
+
+### 2.22 GET /notes/:id (note)
+- Answer `wire_note_one`: mode, id, notetypeId, fields, tags; the same row `GET /decks/:id/notes` lists, read by id.
+- A note that is not there is a 404 `error` (`no note with id N in this collection`); the command line's `card remove` reads it before and after the delete.
 
 ### 2.17 POST /card-text (card_text)
 - Request `q_card_text`: userInput, knownLanguage, learningLanguage, includeCueAudio (bool).

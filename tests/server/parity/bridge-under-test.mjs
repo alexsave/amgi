@@ -106,6 +106,10 @@ function opsOver(impl) {
       const [id, name, decks, cards, notes] = ok(await cmd(`removeDeck ${deckId}`));
       return { id: Number(id), name: dec(name), decks: Number(decks), cards: Number(cards), notes: Number(notes) };
     },
+    async getNote(noteId) {
+      const [id, mid, fields, tags] = ok(await cmd(`getNote ${noteId}`));
+      return { id: Number(id), notetypeId: Number(mid), fields: items(fields).map(dec), tags: items(tags).map(dec) };
+    },
     async removeNote(noteId) {
       const [id, removed] = ok(await cmd(`removeNote ${noteId}`));
       return { noteId: Number(id), cardsRemoved: Number(removed) };

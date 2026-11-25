@@ -46,7 +46,7 @@ const ANSWERS = [
   ['GET', /^decks\/[^/]+\/notes\/field-values$/, 'field_values'], ['GET', /^install$/, 'install_state'],
   ['POST', /^install$/, 'installed'], ['GET', /^profiles$/, 'profiles'], ['GET', /^notetypes$/, 'notetypes'],
   ['POST', /^notes$/, 'note_added'], ['POST', /^notes\/bulk$/, 'notes_added'], ['PATCH', /^notes\/[^/]+$/, 'note_changed'],
-  ['DELETE', /^notes\/[^/]+$/, 'note_changed'], ['POST', /^card-text$/, 'card_text'], ['POST', /^audio$/, 'clip'],
+  ['GET', /^notes\/[^/]+$/, 'note'], ['DELETE', /^notes\/[^/]+$/, 'note_changed'], ['POST', /^card-text$/, 'card_text'], ['POST', /^audio$/, 'clip'],
   ['GET', /^starter$/, 'starter_state'], ['POST', /^starter$/, 'starter_built'],
   ['GET', /^progress$/, 'progress'],
 ];
@@ -65,6 +65,7 @@ function idKind(key, list, kind) {
     if (list === 'notetypes') return 'M';
     if (list === 'decks') return 'D';
     if (['deck_renamed', 'deck_summary', 'deck_removed'].includes(kind)) return 'D';
+    if (kind === 'note') return 'N';
   }
   return null;
 }
@@ -327,7 +328,7 @@ describe('the HTTP contract', { concurrency: false }, () => {
         ['GET', '/api/anki/decks/1/notes'], ['GET', '/api/anki/decks/1/notes/field-values?notetypeId=1&fieldIndex=0'],
         ['POST', '/api/anki/notes', ['q_note', { deckId: 1, notetypeId: 1, fields: ['a', 'b'] }]],
         ['POST', '/api/anki/notes/bulk', ['q_notes', { notes: [] }]], ['PATCH', '/api/anki/notes/1', ['q_note_update', { fields: [] }]],
-        ['DELETE', '/api/anki/notes/1'], ['GET', '/api/anki/media/clip.ogg'],
+        ['GET', '/api/anki/notes/1'], ['DELETE', '/api/anki/notes/1'], ['GET', '/api/anki/media/clip.ogg'],
         ['POST', '/api/anki/card-text', ['q_card_text', { userInput: 'x', knownLanguage: 'en', learningLanguage: 'ko' }]],
         ['POST', '/api/anki/audio', ['q_audio', { text: 'x', language: 'ko' }]],
         ['POST', '/api/anki/starter', ['q_starter', { known: 'en', learning: 'ko' }]],
@@ -438,7 +439,11 @@ describe('the HTTP contract', { concurrency: false }, () => {
       await call(ctx, s('edit note, wrong field count'), 'PATCH', `/api/anki/notes/${noteId}`, { headers: h, bases, body: ['q_note_update', { fields: ['one'] }] });
       await call(ctx, s('edit a note not there'), 'PATCH', '/api/anki/notes/999', { headers: h, bases, body: ['q_note_update', { fields: ['a', 'b'] }] });
       await call(ctx, s('notes after the edits'), 'GET', `/api/anki/decks/${madeId}/notes`, { headers: h, bases });
+      await call(ctx, s('read note'), 'GET', `/api/anki/notes/${noteId}`, { headers: h, bases });
+      await call(ctx, s('read a note not there'), 'GET', '/api/anki/notes/999', { headers: h, bases });
+      await call(ctx, s('read note, id not a number'), 'GET', '/api/anki/notes/abc', { headers: h, bases });
       await call(ctx, s('delete note'), 'DELETE', `/api/anki/notes/${noteId}`, { headers: h, bases });
+      await call(ctx, s('read note after it is deleted'), 'GET', `/api/anki/notes/${noteId}`, { headers: h, bases });
       await call(ctx, s('delete note again'), 'DELETE', `/api/anki/notes/${noteId}`, { headers: h, bases });
 
       await call(ctx, s('clip'), 'GET', '/api/anki/media/clip.ogg', { headers: h, bases });

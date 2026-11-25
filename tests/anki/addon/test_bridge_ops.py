@@ -221,6 +221,26 @@ class RenameDeckTests(BridgeOpsTestCase):
         self.assertEqual(raised.exception.http_status, 404)
 
 
+class GetNoteTests(BridgeOpsTestCase):
+    def test_reads_one_note_as_the_deck_listing_shows_it(self):
+        deck_id = self.col.decks.id("Korean")
+        added = bridge_ops.add_note(
+            self.col, deck_id=deck_id, notetype_id=self._basic_notetype_id(), fields=["a\nb", "c"], tags=["amgi", "ko"]
+        )
+        nid = added.payload["noteId"]
+        bridge_ops.add_note(self.col, deck_id=deck_id, notetype_id=self._basic_notetype_id(), fields=["other", "x"])
+        note = bridge_ops.get_note(self.col, nid)
+        self.assertEqual(note, {"id": nid, "notetypeId": self._basic_notetype_id(), "fields": ["a\nb", "c"], "tags": ["amgi", "ko"]})
+        listed = [n for n in bridge_ops.list_notes_in_deck(self.col, deck_id)["notes"] if n["id"] == nid]
+        self.assertEqual(listed, [note])
+
+    def test_an_unknown_note_is_a_404(self):
+        with self.assertRaises(bridge_ops.NoteNotFound) as raised:
+            bridge_ops.get_note(self.col, 12345)
+        self.assertEqual(raised.exception.http_status, 404)
+        self.assertIn("no note with id 12345", str(raised.exception))
+
+
 class RemoveNoteTests(BridgeOpsTestCase):
     def test_removes_the_note_and_its_cards_with_graves(self):
         from anki.collection import OpChanges
