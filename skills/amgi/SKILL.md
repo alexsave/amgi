@@ -40,8 +40,9 @@ A write prints what reading it back finds.
 Output is tab-separated: `deck ID NOTES NAME KNOWN LEARNING` (`-` and `-` when the deck has no pair), `would-remove ID NOTES CARDS SUBDECKS NAME` and `removed ID NOTES CARDS DECKS NAME` (for `deck remove`), `would-remove ID FRONT BACK` and `removed ID FRONT BACK` (for `card remove`), `note ID FRONT BACK CUE_AUDIO TARGET_AUDIO` (`-` when absent), `status MODE SCHEMA PID PORT PROFILE COLLECTION`, `install READY ADDONS UP_TO_DATE NOTE_TYPE_CHECKED`.
 Exit codes: 0 ok, 1 other (amgi not up, server error), 2 locked, 3 not found, 4 usage, 5 Gemini.
 `deck add` is find-or-create: the same name again prints the same deck line, exits 0, and says `amgi: the deck was already there` on stderr.
-With `--from` and `--to` the pair is set on the deck it found or made, replacing one it had; a code that is not one of the languages, or the same code twice, exits 1 with the list, and the deck is made first, so it stays without a pair.
-`--from` without `--to` (or the reverse) is exit 4.
+With `--from` and `--to` the pair is set on the deck it found or made, replacing one it had.
+A code that is not one of the languages, or the same code twice, is refused before anything is made: exit 4, the sentence naming the codes, and no deck.
+`--from` without `--to` (or the reverse) is exit 4 too.
 `up` serves on 127.0.0.1:3000 in the background (`--port N`; `--profile NAME` when there are several); pid file `server/build/amgi.pid`, log `server/build/amgi.log` (both in the directory `AMGI_STATE_DIR` names, when that is set).
 A second `up` from the same checkout prints `amgi up: already running pid=... port=...` and exits 0.
 Another checkout's `up`, or `make start`, on the same port makes `up` exit 1 with "Address already in use": pass `--port`.

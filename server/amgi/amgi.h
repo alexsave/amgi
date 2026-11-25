@@ -79,6 +79,9 @@ int ops_list_notes(arena *a, const amgi_ops *o, double deck, double offset, doub
 int ops_field_values(arena *a, const amgi_ops *o, double deck, double nt, double field, str **out, size_t *n, col_err *e);
 int ops_create_deck(arena *a, const amgi_ops *o, str name, col_deck_made *out, col_err *e);
 int ops_rename_deck(arena *a, const amgi_ops *o, double deck, str name, int64_t *id, str *out_name, col_err *e);
+/* Why a deck's pair is refused (both codes must be the language table's, and differ), as the one sentence the route answers 400
+ * with and the command line says before it makes anything; empty when the pair is fine. */
+str amgi_languages_refusal(arena *a, str known, str learning);
 int ops_set_deck_languages(arena *a, const amgi_ops *o, double deck, str known, str learning, col_deck_languages *out, col_err *e);
 int ops_removal_summary(arena *a, const amgi_ops *o, double deck, col_removal *out, col_err *e);
 int ops_remove_deck(arena *a, const amgi_ops *o, double deck, col_removal *out, col_err *e);

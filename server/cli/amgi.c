@@ -662,14 +662,23 @@ static int cmd_deck(int argc, char **argv) {
   if (parse_opts(argc, argv, 3, opts, 2, &name)) return usage(NULL);
   if (!name || !name[0]) return usage("deck add takes one NAME (quote it when it has spaces; A::B is subdeck B of A)");
   if (!from != !to) return usage("--from and --to come together: give both (the deck's known and learning language) or neither");
-  if (from && (!from[0] || !to[0])) return usage("--from and --to each take a language code (en, ko, ...)");
+  if (from) {
+    /* the server owns this rule for every client; asking it here only keeps a refused pair from leaving a deck made without one */
+    arena v = {0};
+    str why = amgi_languages_refusal(&v, str_c(from), str_c(to));
+    if (why.n) {
+      fprintf(stderr, "amgi: %.*s: no deck was made\n", (int)why.n, why.p);
+      ar_free(&v);
+      return RC_USAGE;
+    }
+    ar_free(&v);
+  }
   if ((rc = need_up(&s))) return rc;
   arena a = {0};
   wire_q_deck_name q = {{name, (uint32_t)strlen(name)}};
   const wire_deck_created *made = send_call(&a, &s, "POST", "/api/anki/decks", WK_Q_DECK_NAME, &q, WK_DECK_CREATED, CALL_MS, &rc, NULL);
   if (made && from) {
-    /* the pair goes to the deck the server made or found; the deck is made first, so a refused pair leaves it
-     * there without one (adding it again is find-or-create) */
+    /* the pair goes to the deck the server made or found (the codes were checked above, so the server refusing now is a race or a bug) */
     char path[96];
     snprintf(path, sizeof path, "/api/anki/decks/%lld/languages", (long long)made->id);
     wire_q_deck_languages pair = {{from, (uint32_t)strlen(from)}, {to, (uint32_t)strlen(to)}};
