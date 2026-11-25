@@ -16,7 +16,7 @@ This skill covers the app: the deck browser and card builder, and the two transp
 You need two things, neither of which this repo can vendor:
 
 1. **A Python with the `anki` library importable.**
-   On a Mac with Anki.app installed, `tests/anki-python.sh` finds one by itself: Anki.app's own library with a CPython of the version it was built for (`uv python install X.Y` when there is none), through a wrapper at `server/build/anki-python`.
+   On a Mac with Anki.app installed, `tests/anki-python.sh` finds one by itself: Anki.app's own library with a CPython of the version it was built for (`uv python install X.Y` when there is none), through a venv at `server/build/anki-venv` (a `.pth` in its site-packages names the library, so `python -I` works too).
    `npm test` runs it first and fails, saying what is missing, when it finds nothing.
    Elsewhere, make one:
 
