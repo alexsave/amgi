@@ -297,6 +297,8 @@ static void test_gemini(void) {
   ar_free(&a);
 }
 
+static int has(str s, const char *needle) { return memmem(s.p, s.n, needle, strlen(needle)) != NULL; }
+
 /* ---- cards.c: the parts the fake Gemini cannot show (the rest is held by the golden files under
  * tests/server/parity/golden and the fake-Gemini drives) ---- */
 static void test_cards(void) {
@@ -306,11 +308,96 @@ static void test_cards(void) {
   CHECK(STR_IS(s.front_text, "hello") && STR_IS(s.back_text, "안녕") && s.spoken_reading.n == 0, "swapped, the reading dropped");
   s = card_correct_swapped_sides(&a, t, S("es"));
   CHECK(STR_IS(s.front_text, "안녕"), "nothing to tell apart for a Latin-script language");
-  CHECK(card_detect_input_language(&a, S("그대 still with you"), S("en"), S("ko")) && !strcmp(card_detect_input_language(&a, S("그대 still"), S("en"), S("ko")), "learning"),
-        "any Hangul is the learning side");
-  CHECK(!strcmp(card_detect_input_language(&a, S("hello"), S("en"), S("ko")), "known"), "Latin and no Hangul is the known side");
-  CHECK(!card_detect_input_language(&a, S("123"), S("en"), S("ko")), "no letters at all says nothing");
-  CHECK(!card_detect_input_language(&a, S("hello"), S("ja"), S("ko")), "a non-Latin known language says nothing");
+  const char *in_ko = card_detect_input_language(&a, S("그대 still with you"), S("ko"));
+  CHECK(in_ko && !strcmp(in_ko, "learning"), "any Hangul is the learning side");
+  CHECK(!card_detect_input_language(&a, S("hello"), S("ko")), "Latin letters are never declared to be the known language");
+  CHECK(!card_detect_input_language(&a, S("123"), S("ko")), "no letters at all says nothing");
+  CHECK(!card_detect_input_language(&a, S("고양이"), S("es")), "a Latin-script learning language has no script to tell it by");
+  /* Spanish pasted into an English -> Chinese deck is only the meaning to translate: the prompt's both-ways rule reads it. */
+  str hola = card_generation_prompt(&a, S("hola amigo"), S("en"), S("zh_cn"), card_detect_input_language(&a, S("hola amigo"), S("zh_cn")));
+  CHECK(has(hola, "If the input is in any other language, translate it into both.") && !has(hola, "The input is written in English"),
+        "hola amigo, English -> Chinese: both ways");
+  const char *zh = card_detect_input_language(&a, S("车站在哪里"), S("zh_cn"));
+  str station = card_generation_prompt(&a, S("车站在哪里"), S("en"), S("zh_cn"), zh);
+  CHECK(has(station, "The input is written in Mandarin Chinese.") && !has(station, "If the input is in any other language"),
+        "a Chinese input in an English -> Chinese deck is the learning side");
+  ar_free(&a);
+}
+
+/* ---- the deck-languages request (cards.c): its text, its schema, its system prompt ---- */
+static void test_deck_languages_request(void) {
+  arena a = {0};
+  str names[] = {S("Front"), S("Back"), S("Audio")};
+  str fields[] = {S("<div>hello&nbsp;<b>world</b></div>"), S("你好[sound:a.mp3]"), S("[sound:b.mp3]")};
+  card_sample one = {S("Basic"), names, fields, 3};
+  str p = card_deck_languages_prompt(&a, S("Mandarin::Phrases"), &one, 1, S(""));
+  CHECK(has(p, "Deck name: Mandarin::Phrases") && has(p, "Note 1, note type \"Basic\"") && has(p, "Front: hello world\n") &&
+        has(p, "Back: 你好\n"), "the deck's name, the note type, the fields with tags, entities and [sound:] gone: %.*s", (int)p.n, p.p);
+  CHECK(!has(p, "<") && !has(p, "sound") && !has(p, "Audio"), "no tag, no sound reference, and an emptied field is not listed");
+  CHECK(!has(p, "Fact"), "no fact when the notes say none");
+  CHECK(has(card_deck_languages_prompt(&a, S("D"), &one, 1, S("ko")), "Fact, read from the deck's own cards: the language this deck teaches is Korean (ko)"),
+        "the learning language the notes agree on is stated as fact");
+  /* a field is cut to 80 characters, never inside one */
+  char longa[400] = {0};
+  memset(longa, 'a', 200);
+  str lf[] = {str_c(longa)};
+  str ln[] = {S("Front")};
+  card_sample ls = {S("Basic"), ln, lf, 1};
+  str cut = card_deck_languages_prompt(&a, S("D"), &ls, 1, S(""));
+  CHECK(has(cut, "aaa...\n"), "cut with an ellipsis");
+  size_t run = 0, best = 0;
+  for (size_t i = 0; i < cut.n; i++) {
+    run = cut.p[i] == 'a' ? run + 1 : 0;
+    if (run > best) best = run;
+  }
+  CHECK(best == 80, "exactly 80 characters kept, not %zu", best);
+  char korean[800] = {0};
+  for (int i = 0; i < 100; i++) memcpy(korean + i * 3, "일", 3);
+  lf[0] = str_c(korean);
+  str kcut = card_deck_languages_prompt(&a, S("D"), &ls, 1, S(""));
+  size_t chars = 0, bad = 0, from = 0;
+  for (size_t i = 0; i < kcut.n; i++)
+    if (!memcmp(kcut.p + i, "Front: ", 7)) from = i + 7;
+  for (size_t i = from; i < kcut.n && kcut.p[i] != '.' && kcut.p[i] != '\n'; i++) {
+    unsigned char c = (unsigned char)kcut.p[i];
+    if ((c & 0xC0) != 0x80) chars++;
+    if (c >= 0x80 && (c & 0xC0) != 0x80 && (c & 0xF0) != 0xE0) bad++;
+  }
+  CHECK(chars == 80 && bad == 0, "80 Korean characters, each whole: %zu chars, %zu odd", chars, bad);
+  /* at most ten notes */
+  card_sample many[14];
+  for (int i = 0; i < 14; i++) many[i] = ls;
+  lf[0] = S("x");
+  str ten = card_deck_languages_prompt(&a, S("D"), many, 14, S(""));
+  CHECK(has(ten, "Note 10,") && !has(ten, "Note 11,"), "ten notes at most");
+  CHECK(has(card_deck_languages_prompt(&a, S("D"), NULL, 0, S("")), "The deck has no notes."), "an empty deck says so");
+  /* the schema: learning and known are each the table's codes, in its order, then none; confidence is high or low */
+  buf expect = {0}, item = {0}, items = {0}, list = {0};
+  for (uint32_t i = 0; i <= NLANGUAGES; i++) {
+    item.n = 0;
+    gv_string(&item, i < NLANGUAGES ? LANGUAGES[i].code : "none");
+    gv_list_item(&items, &item);
+  }
+  gv_list_of(&list, &items);
+  gv_field(&expect, "enum", &list);
+  buf schema = {0};
+  card_schema_deck_languages(&a, &schema);
+  size_t found = 0;
+  for (size_t i = 0; i + expect.n <= schema.n; i++)
+    if (!memcmp(schema.p + i, expect.p, expect.n)) found++;
+  CHECK(found == 2, "learning and known each take the 18 codes and none, in the table's order (%zu)", found);
+  CHECK(memmem(schema.p, schema.n, "confidence", 10) && memmem(schema.p, schema.n, "high", 4) && memmem(schema.p, schema.n, "low", 3),
+        "confidence is high or low");
+  buf_free(&expect), buf_free(&item), buf_free(&items), buf_free(&list), buf_free(&schema);
+  const char *sys = card_deck_languages_system(&a);
+  int all = 1;
+  for (uint32_t i = 0; i < NLANGUAGES; i++) {
+    char one_code[96];
+    snprintf(one_code, sizeof one_code, "%s (%s)", LANGUAGES[i].code, LANGUAGES[i].english);
+    all = all && strstr(sys, one_code);
+  }
+  CHECK(all && strstr(sys, "zh_cn is Mandarin Chinese in simplified characters") && strstr(sys, "zh_hk is Cantonese") && strstr(sys, "\"none\""),
+        "the system prompt names every code with its English name");
   ar_free(&a);
 }
 
@@ -343,6 +430,7 @@ int main(void) {
   test_web();
   test_gemini();
   test_cards();
+  test_deck_languages_request();
   test_languages();
   printf("app unit: %d checks, %d failed\n", checks, failures);
   return failures ? 1 : 0;

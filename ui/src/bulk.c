@@ -362,8 +362,7 @@ static void line_ask(uint32_t i) {
   r->progress_id = last_progress_id;
   text_free(&r->error);
   changed(i);
-  wire_q_card_text q = {{r->line.p, r->line.len}, {langs.known, zlen(langs.known)}, {langs.learning, zlen(langs.learning)}, 1,
-                        r->progress_id};
+  wire_q_card_text q = {{r->line.p, r->line.len}, deck_id, 1, r->progress_id};
   ask(line_answered, asked(i), "POST", "/card-text", WK_Q_CARD_TEXT, &q);
   if (!poll_out) cd_timer_set(&poll_timer, POLL_FIRST_MS, poll, 0);
 }

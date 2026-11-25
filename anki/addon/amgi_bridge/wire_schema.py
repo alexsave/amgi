@@ -204,8 +204,7 @@ KINDS = {
     )),
     "q_card_text": (26, (
         ("userInput", STR, None),
-        ("knownLanguage", STR, None),
-        ("learningLanguage", STR, None),
+        ("deckId", I64, None),
         ("includeCueAudio", BOOL, None),
         ("progressId", U32, None),
     )),
@@ -352,5 +351,13 @@ KINDS = {
         ("id", I64, None),
         ("known", STR, None),
         ("learning", STR, None),
+    )),
+    "deck_languages_found": (51, (
+        ("mode", MODE, None),
+        ("id", I64, None),
+        ("stored", BOOL, None),
+        ("known", STR, None),
+        ("learning", STR, None),
+        ("foundBy", STR, None),
     )),
 }

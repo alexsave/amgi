@@ -39,6 +39,10 @@ SCHEMA(s_decks, wire_decks, F(wire_decks, "mode", WT_MODE, mode), LIST(wire_deck
 SCHEMA(s_deck_languages, wire_deck_languages,
   F(wire_deck_languages, "mode", WT_MODE, mode), F(wire_deck_languages, "id", WT_I64, id),
   F(wire_deck_languages, "known", WT_STR, known), F(wire_deck_languages, "learning", WT_STR, learning));
+SCHEMA(s_deck_languages_found, wire_deck_languages_found,
+  F(wire_deck_languages_found, "mode", WT_MODE, mode), F(wire_deck_languages_found, "id", WT_I64, id),
+  F(wire_deck_languages_found, "stored", WT_BOOL, stored), F(wire_deck_languages_found, "known", WT_STR, known),
+  F(wire_deck_languages_found, "learning", WT_STR, learning), F(wire_deck_languages_found, "foundBy", WT_STR, found_by));
 SCHEMA(s_install_state, wire_install_state,
   F(wire_install_state, "installed", WT_BOOL, installed), F(wire_install_state, "upToDate", WT_TRI, up_to_date),
   F(wire_install_state, "collectionChecked", WT_BOOL, collection_checked),
@@ -133,8 +137,7 @@ SCHEMA(s_q_note_update, wire_q_note_update,
   F(wire_q_note_update, "fields", WT_STRS, fields), F(wire_q_note_update, "language", WT_STR, language),
   F(wire_q_note_update, "learningFieldIndex", WT_I32, learning_field_index));
 SCHEMA(s_q_card_text, wire_q_card_text,
-  F(wire_q_card_text, "userInput", WT_STR, user_input), F(wire_q_card_text, "knownLanguage", WT_STR, known_language),
-  F(wire_q_card_text, "learningLanguage", WT_STR, learning_language),
+  F(wire_q_card_text, "userInput", WT_STR, user_input), F(wire_q_card_text, "deckId", WT_I64, deck_id),
   F(wire_q_card_text, "includeCueAudio", WT_BOOL, include_cue_audio),
   F(wire_q_card_text, "progressId", WT_U32, progress_id));
 SCHEMA(s_q_audio, wire_q_audio,
@@ -224,6 +227,7 @@ static const struct { const char *name; const wire_schema *schema; } KINDS[WK_KI
   [WK_NOTE] = {"note", &s_note_one}, [WK_B_NOTE_READ] = {"b_note_read", &s_b_note_read},
   [WK_Q_DECK_LANGUAGES] = {"q_deck_languages", &s_q_deck_languages}, [WK_DECK_LANGUAGES] = {"deck_languages", &s_deck_languages},
   [WK_B_DECK_LANGUAGES] = {"b_deck_languages", &s_b_deck_languages},
+  [WK_DECK_LANGUAGES_FOUND] = {"deck_languages_found", &s_deck_languages_found},
 };
 const char *wire_kind_name(uint32_t kind) { return kind < WK_KINDS ? KINDS[kind].name : 0; }
 const wire_schema *wire_schema_of(uint32_t kind) { return kind < WK_KINDS ? KINDS[kind].schema : 0; }

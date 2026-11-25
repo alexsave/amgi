@@ -107,3 +107,26 @@ str amgi_languages_refusal(arena *a, str known, str learning) {
   }
   return str_eq(known, learning) ? S("known and learning must be two different languages") : S("");
 }
+
+/* "English -> Korean": a pair as every sentence about a deck's languages names it, the table's English names (a code it does not
+ * know, which a stored pair never is, is shown as it is). */
+static str language_english(str code) {
+  const lang_entry *l = lang_find(code.p, (uint32_t)code.n);
+  return l ? str_c(l->english) : code;
+}
+str amgi_pair_names(arena *a, str known, str learning) {
+  str k = language_english(known), l = language_english(learning);
+  return str_c(ar_fmt(a, "%.*s -> %.*s", (int)k.n, k.p, (int)l.n, l.p));
+}
+str amgi_no_languages_refusal(void) {
+  return S("This deck has no languages yet: choose them first (amgi deck add NAME --from K --to L, or Change on the deck's page).");
+}
+str amgi_language_mismatch_refusal(arena *a, str known, str learning, str language) {
+  str pair = amgi_pair_names(a, known, learning), lang = language_english(language);
+  return str_c(ar_fmt(a, "This deck is %.*s; this card is in %.*s.", (int)pair.n, pair.p, (int)lang.n, lang.p));
+}
+const col_deck *amgi_find_deck(const col_deck *decks, size_t n, int64_t id) {
+  for (size_t i = 0; i < n; i++)
+    if (decks[i].id == id) return &decks[i];
+  return NULL;
+}
