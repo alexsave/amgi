@@ -43,8 +43,9 @@ Handler files are under `src/server/api/anki/`.
 | 21 | GET /media/:filename | none | none (raw bytes) | media/[filename]/route.js:14 | Serve one clip from the collection's media folder. Content-Type by extension, `Cache-Control: private, max-age=31536000, immutable`, Content-Length. 404 text `no such clip`. | transport.readMedia (direct: folder read; bridge: base64 over JSON), mediaType.js | router, static or file read, content-type table, spawn (bridge mode) |
 | 22 | GET /notes/:id | none | note | (added after this read) | One note by id: `{mode, id, notetypeId, fields, tags}`, as the deck listing shows it. 404 if gone. | transport, collection read | router, spawn |
 | 23 | PUT /decks/:id/languages | q_deck_languages | deck_languages | (added after this read) | Store the deck's language pair in the deck. Both codes must be the table's (ui/wire/lang.c) and differ, else 400. 404 if the deck is gone. | transport, collection write (Anki's own `col.decks.update_dict` on the bridge) | router, spawn |
+| 24 | POST /decks/:id/languages/detect | none | deck_languages_found | (added after this read) | The deck's pair, or the one found for it: stored pair as it stands, else its amgi notes' Language field and one Gemini text request, stored only when certain. Never an error for a Gemini failure. 404 if the deck is gone. | transport, collection read, collection write (when it stores), Gemini (slow pool) | router, spawn |
 
-Route count: 21 API routes (20 wire-kinded, 1 raw bytes), and GET /notes/:id (22) and PUT /decks/:id/languages (23) added since. Plus non-API: `/` (307 to `/decks`), page paths, `/app.wasm`, `/app.css`, public icons.
+Route count: 21 API routes (20 wire-kinded, 1 raw bytes), and GET /notes/:id (22), PUT /decks/:id/languages (23) and POST /decks/:id/languages/detect (24) added since. Plus non-API: `/` (307 to `/decks`), page paths, `/app.wasm`, `/app.css`, public icons.
 
 ## 2. Per-route detail
 
@@ -123,15 +124,24 @@ Field lists are from `ui/wire/wire.h` structs and the `wire.c` SCHEMA table (JS 
 - Answer: mode, list of {id, name, fieldNames[], sortFieldIndex}.
 - Node objects also carry `templates` (used by collectionDrift in-process) but the wire omits them.
 
+### 2.4c POST /decks/:id/languages/detect (deck_languages_found)
+- No request body. Answer `deck_languages_found`: mode, id, stored (bool), known, learning, foundBy (`"stored"`, `"notes"`, `"gemini"` or `""`). With `stored` false, known and learning are only a guess for the page to preselect, `""` each when there is none; nothing is ever defaulted.
+- Order of truth, the first that applies (`server/amgi/detect.c`): (a) the deck has a stored pair: answered, `foundBy` `stored`, nothing read or asked; (b) the amgi Listening notes of the deck: when every non-empty Language value is the same table code, it is the learning language as fact; (c) with a Gemini key and at least one note, one text request on the cards' model with a strict schema (`learning` and `known`: the 18 codes or `none`; `confidence`: `high` or `low`) over the deck's name, the note types and field names, and up to 10 notes' fields (HTML and `[sound:]` removed, each cut to about 80 characters); (d) otherwise nothing is stored.
+- Stored (and `stored` true) only when confidence is `high`, both codes are the table's, they differ, and learning is the fact when there is one. `foundBy` is `notes` when there was a fact (it decided learning, Gemini only supplied known), else `gemini`.
+- Not stored: the guess is the fact for learning (else Gemini's code when it is the table's) and Gemini's known when it is the table's and not the learning code. A failed, refused or unreadable Gemini call is logged and answered as a guess, so the page can still let the person pick.
+- 404 `This deck no longer exists.` when the deck is gone. Runs on the slow pool, like 2.17 and 2.18.
+
 ### 2.13 POST /notes (note_added)
 - Request `q_note`: deckId i64, notetypeId i64, fields[], tags[], language, learningFieldIndex (i32, ABSENT when missing).
 - 400 `deckId, notetypeId and fields are required` when `!deckId`, `!notetypeId` or fields not an array (note: 0 ids count as missing).
 - Answer: mode, noteId.
+- The deck's stored pair decides the note's language: a deck with no pair refuses the note (409 `This deck has no languages yet: choose them first (...)`); a non-empty `language` that is not the deck's learning language is refused (409 `This deck is <Known> -> <Learning>; this card is in <Lang>.`); an empty `language` takes the deck's, and an empty Language field of the note type is filled with it.
 - Edge: `language` and `learningFieldIndex` feed the romanisation guard in `cardText.ts looksRomanized`, so the add can be refused with a 400 message from there.
 
 ### 2.14 POST /notes/bulk (notes_added)
 - Request `q_notes`: list of `q_note`. 400 on empty list or any note missing deckId, notetypeId or fields.
 - Answer: mode, list of {ok, noteId, error}.
+- The same deck rule per note (the deck list is read once): a note it refuses is that note's `{ok: false, error}` with the same sentence, and the rest are added.
 - Edge: one request holds a whole paste. Default cbase body cap is 1 MiB (`CBASE_MAX_BODY 1048576`); a paste of thousands of lines is likely under that but this needs a measurement and a raised `CBASE_MAX_BODY` if not. Per-note errors are inside a 200.
 
 ### 2.15 PATCH /notes/:id (note_changed) and 2.16 DELETE /notes/:id (note_changed)
@@ -144,9 +154,10 @@ Field lists are from `ui/wire/wire.h` structs and the `wire.c` SCHEMA table (JS 
 - A note that is not there is a 404 `error` (`no note with id N in this collection`); the command line's `card remove` reads it before and after the delete.
 
 ### 2.17 POST /card-text (card_text)
-- Request `q_card_text`: userInput, knownLanguage, learningLanguage, includeCueAudio (bool).
-- 400 `userInput, knownLanguage and learningLanguage are required` when trimmed userInput or either language is empty.
-- Order of checks: transport (409), body (400), `admissionRefusal()` (429 notStarted), then generation.
+- Request `q_card_text`: userInput, deckId, includeCueAudio (bool), progressId. The card's languages are the deck's stored pair, read by the server; the request names no language.
+- 400 `userInput and deckId are required` when trimmed userInput is empty or deckId is 0; 404 `This deck no longer exists.`; 409 `This deck has no languages yet: choose them first (amgi deck add NAME --from K --to L, or Change on the deck's page).` when the deck has no pair.
+- The input may be in any language: it is only the meaning to put into the deck's pair. Only an input in the learning language's own script is told to the model as the learning side; otherwise the prompt's both-ways rule reads it.
+- Order of checks: transport (409), body (400), the deck (404, 409), `admissionRefusal()` (429 notStarted), then generation.
 - Missing `GEMINI_API_KEY`: handler throws `MISSING_KEY_MESSAGE`, which is a 500 `error` (no subprocess started).
 - Pipeline: `generate-card-text.js --known --learning --input [--input-language known|learning]` (flag set by in-process `detectInputLanguage`); read card text (JSON line today, `amgi-card-text 1` layout on json-subprocess); `correctSwappedSides` (in-process, may swap sides and clear the reading); `generateAndStoreClip` for back_text in the learning language with the reading; if includeCueAudio, a second clip for front_text in the known language with no reading.
 - Answer `wire_card_text`: mode, front_text, back_text, audio.filename, audio.reference, cueAudio.filename, cueAudio.reference. The reading (`spoken_reading`) is NOT on the wire: it is used inside the request and dropped (one-pass rule).

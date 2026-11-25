@@ -7,12 +7,14 @@
 // generativelanguage.googleapis.com, and only the far end is ours.
 //
 // Every model call amgi makes goes through cardGeneration/gemini.ts's one
-// client, and this fake tells the four kinds of request apart the way the
-// real service would see them:
+// client, and this fake tells the kinds of request apart the way the real
+// service would see them:
 //
 //   speech      generationConfig.responseModalities includes "AUDIO"
 //   judge       an inlineData audio part AND a responseJsonSchema
 //   transcribe  an inlineData audio part, no schema
+//   languages   a responseJsonSchema with learning, known and confidence (the
+//               languages of a deck that has no stored pair)
 //   text        a responseJsonSchema and no audio (card text, and the
 //               transcript fallback judge, whose schema has only `matches`)
 //
@@ -52,7 +54,8 @@ function kindOf(body) {
   if (hasAudio) return 'transcribe';
   if (config.responseJsonSchema) {
     const properties = Object.keys(config.responseJsonSchema.properties || {});
-    return properties.length === 1 && properties[0] === 'matches' ? 'transcriptJudge' : 'text';
+    if (properties.length === 1 && properties[0] === 'matches') return 'transcriptJudge';
+    return ['learning', 'known', 'confidence'].every((key) => properties.includes(key)) ? 'languages' : 'text';
   }
   return 'unknown';
 }
@@ -117,6 +120,7 @@ function respond(stream, entry) {
  *   judge: {heard, matches, reason}
  *   text: card fields object, or an array of them taken in order
  *   transcriptJudge: {matches}
+ *   languages: {learning, known, confidence}: codes of the language table or 'none', and 'high' or 'low'
  *   Any kind may instead give a raw answer: answer(response), grpcError(...), quotaExhausted(...),
  *   {raw: true, httpStatus, body} for a non-gRPC reply, or {raw: true, hang: true} for none.
  * @param {object} [options]
@@ -189,6 +193,7 @@ async function fakeGemini(script = {}, { port = 0, control } = {}) {
  *               the RetryInfo of the oldest request's minute
  *   transcribe  the text whose tone it hears, so every clip passes
  *   judge       matches
+ *   languages   state.languages: {learning, known, confidence} (default Korean taught in English, high), or null for a failed call
  *   state.daily: every text call refused for the day; the line "broken line" fails its first call.
  *   state.delay: ms every answer takes, so a person (or a drive) can see each step.
  *   state.mishear: how many more clips are heard wrong and judged wrong (each is recorded again).
@@ -252,12 +257,24 @@ function e2eScript(state = { perMinute: Infinity, daily: false }, now = () => Da
       return { heard: heard(body), matches: !wrong, reason: 'fake server' };
     }),
     transcriptJudge: { matches: true },
-    /** POST /control?perMinute=N&daily=0|1&delay=MS&mishear=N: from now on; the minute's count starts again. */
+    languages: later(() => {
+      if (state.languages === null) return grpcError(13, 'The model is overloaded. Please try again later.');
+      return state.languages ?? { learning: 'ko', known: 'en', confidence: 'high' };
+    }),
+    /**
+     * POST /control?perMinute=N&daily=0|1&delay=MS&mishear=N&languages=LEARNING,KNOWN,CONFIDENCE|fail: from now on; the minute's
+     * count starts again. languages is what a deck's languages are answered with, e.g. languages=ko,en,low (a code of the table
+     * or none each; high or low), or fail for a call that fails.
+     */
     control(params) {
       if (params.has('perMinute')) state.perMinute = Number(params.get('perMinute'));
       if (params.has('daily')) state.daily = params.get('daily') === '1';
       if (params.has('delay')) state.delay = Number(params.get('delay'));
       if (params.has('mishear')) state.mishear = Number(params.get('mishear'));
+      if (params.has('languages')) {
+        const [learning, known, confidence] = params.get('languages').split(',');
+        state.languages = learning === 'fail' ? null : { learning, known, confidence };
+      }
       windows.clear();
     },
   };

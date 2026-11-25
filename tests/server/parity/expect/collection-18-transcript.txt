@@ -409,7 +409,9 @@ ok <T> amgi%20starter 10 0
 > starter en ko amgi%20starter
 ok <T> amgi%20starter 0 10
 > starter ko ja amgi%20starter
-ok <T> amgi%20starter 10 0
+err error This%20deck%20is%20English%20-%3E%20Korean%3B%20this%20card%20is%20in%20Japanese.
+> starter ko ja amgi%20starter%20ja
+ok <T> amgi%20starter%20ja 10 0
 # parallel: ok ok ok ok ok ok ok ok
 > existingFieldValues 1794170430287 1794170430283 0
 ok [%EC%97%AD%EC%9D%B4%20%EC%96%B4%EB%94%94%EC%98%88%EC%9A%94%3F,parallel,parallel,parallel,parallel,parallel,parallel]

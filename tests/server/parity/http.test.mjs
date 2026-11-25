@@ -29,6 +29,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { BRIDGE_PROTOCOL, WIRE_MIME, decode, encode } from '../../../ui/wire/wire.mjs';
+import { Impl } from './impl-process.mjs';
+import { dec, enc, items, noteTokens } from './protocol.mjs';
 import { ROOT, startFakeGemini, startServer } from './servers.mjs';
 
 const require = createRequire(import.meta.url);
@@ -42,7 +44,8 @@ const FIXTURES = path.join(ROOT, 'tests', 'server', 'parity', 'fixtures');
 const ANSWERS = [
   ['GET', /^status$/, 'status'], ['GET', /^decks$/, 'decks'], ['POST', /^decks$/, 'deck_created'],
   ['PATCH', /^decks\/[^/]+$/, 'deck_renamed'], ['GET', /^decks\/[^/]+$/, 'deck_summary'],
-  ['DELETE', /^decks\/[^/]+$/, 'deck_removed'], ['PUT', /^decks\/[^/]+\/languages$/, 'deck_languages'], ['GET', /^decks\/[^/]+\/notes$/, 'notes'],
+  ['DELETE', /^decks\/[^/]+$/, 'deck_removed'], ['PUT', /^decks\/[^/]+\/languages$/, 'deck_languages'],
+  ['POST', /^decks\/[^/]+\/languages\/detect$/, 'deck_languages_found'], ['GET', /^decks\/[^/]+\/notes$/, 'notes'],
   ['GET', /^decks\/[^/]+\/notes\/field-values$/, 'field_values'], ['GET', /^install$/, 'install_state'],
   ['POST', /^install$/, 'installed'], ['GET', /^profiles$/, 'profiles'], ['GET', /^notetypes$/, 'notetypes'],
   ['POST', /^notes$/, 'note_added'], ['POST', /^notes\/bulk$/, 'notes_added'], ['PATCH', /^notes\/[^/]+$/, 'note_changed'],
@@ -64,7 +67,7 @@ function idKind(key, list, kind) {
     if (list === 'notes') return 'N';
     if (list === 'notetypes') return 'M';
     if (list === 'decks') return 'D';
-    if (['deck_renamed', 'deck_summary', 'deck_removed', 'deck_languages'].includes(kind)) return 'D';
+    if (['deck_renamed', 'deck_summary', 'deck_removed', 'deck_languages', 'deck_languages_found'].includes(kind)) return 'D';
     if (kind === 'note') return 'N';
   }
   return null;
@@ -234,7 +237,33 @@ async function fakeAddon(status, headers, body) {
   return { url: `http://127.0.0.1:${server.address().port}`, close: () => new Promise((resolve) => server.close(resolve)) };
 }
 
+/**
+ * A deck of amgi Listening notes, one for each of `languages` (their Language field), and no stored pair: what a collection holds from
+ * before decks had one. Made through the collection core directly, since the routes refuse a note for a deck with no pair. The note type
+ * must be installed (POST /install) first.
+ */
+async function amgiDeckWithNotes(p, name, languages) {
+  const impl = new Impl();
+  try {
+    await impl.cmd(`open ${enc(p.collection)}`);
+    const deckId = Number((await impl.cmd(`createDeck ${enc(name)}`)).split(' ')[1]);
+    const [, ...rows] = (await impl.cmd('listNotetypes')).split('\n');
+    const nt = rows.map((r) => r.split(' ')).find((t) => dec(t[1]) === 'amgi Listening');
+    assert.ok(nt, 'the amgi Listening note type is installed');
+    const names = items(nt[4]).map((n) => dec(n).toLowerCase());
+    for (const [i, language] of languages.entries()) {
+      const fields = names.map((n) => ({ cue: `line ${i}`, target: `줄 ${i}`, language }[n] ?? ''));
+      const added = await impl.cmd(`addNote ${noteTokens({ deckId, notetypeId: Number(nt[0]), fields })}`);
+      assert.ok(added.startsWith('ok '), `a note is added: ${added}`);
+    }
+    return deckId;
+  } finally {
+    await impl.close();
+  }
+}
+
 const ids = (decks) => Object.fromEntries(decks.map((d) => [d.name, d.id]));
+
 
 before(() => {
   norm = normaliser();
@@ -325,12 +354,13 @@ describe('the HTTP contract', { concurrency: false }, () => {
       for (const [m, u, body] of [
         ['GET', '/api/anki/status'], ['GET', '/api/anki/decks'], ['POST', '/api/anki/decks', ['q_deck_name', { name: 'x' }]],
         ['GET', '/api/anki/decks/1'], ['DELETE', '/api/anki/decks/2'],
-        ['PUT', '/api/anki/decks/1/languages', ['q_deck_languages', { known: 'en', learning: 'ko' }]], ['GET', '/api/anki/notetypes'],
+        ['PUT', '/api/anki/decks/1/languages', ['q_deck_languages', { known: 'en', learning: 'ko' }]],
+        ['POST', '/api/anki/decks/1/languages/detect'], ['GET', '/api/anki/notetypes'],
         ['GET', '/api/anki/decks/1/notes'], ['GET', '/api/anki/decks/1/notes/field-values?notetypeId=1&fieldIndex=0'],
         ['POST', '/api/anki/notes', ['q_note', { deckId: 1, notetypeId: 1, fields: ['a', 'b'] }]],
         ['POST', '/api/anki/notes/bulk', ['q_notes', { notes: [] }]], ['PATCH', '/api/anki/notes/1', ['q_note_update', { fields: [] }]],
         ['GET', '/api/anki/notes/1'], ['DELETE', '/api/anki/notes/1'], ['GET', '/api/anki/media/clip.ogg'],
-        ['POST', '/api/anki/card-text', ['q_card_text', { userInput: 'x', knownLanguage: 'en', learningLanguage: 'ko' }]],
+        ['POST', '/api/anki/card-text', ['q_card_text', { userInput: 'x', deckId: 1 }]],
         ['POST', '/api/anki/audio', ['q_audio', { text: 'x', language: 'ko' }]],
         ['POST', '/api/anki/starter', ['q_starter', { known: 'en', learning: 'ko' }]],
       ]) {
@@ -416,7 +446,7 @@ describe('the HTTP contract', { concurrency: false }, () => {
       const langs = (known, learning) => ['q_deck_languages', { known, learning }];
       await call(ctx, s('languages of a deck, before'), 'GET', '/api/anki/decks', { headers: h, bases });
       await call(ctx, s('set languages'), 'PUT', `/api/anki/decks/${madeId}/languages`, { headers: h, bases, body: langs('en', 'zh_cn') });
-      await call(ctx, s('set languages again'), 'PUT', `/api/anki/decks/${madeId}/languages`, { headers: h, bases, body: langs('ko', 'en') });
+      await call(ctx, s('set languages again'), 'PUT', `/api/anki/decks/${madeId}/languages`, { headers: h, bases, body: langs('en', 'ko') });
       await call(ctx, s('set languages of the Default deck'), 'PUT', '/api/anki/decks/1/languages', { headers: h, bases, body: langs('en', 'ko') });
       await call(ctx, s('set languages, an unknown code'), 'PUT', `/api/anki/decks/${madeId}/languages`, { headers: h, bases, body: langs('en', 'xx') });
       await call(ctx, s('set languages, a code in capitals'), 'PUT', `/api/anki/decks/${madeId}/languages`, { headers: h, bases, body: langs('EN', 'ko') });
@@ -427,12 +457,25 @@ describe('the HTTP contract', { concurrency: false }, () => {
       await call(ctx, s('set languages, body not the right kind'), 'PUT', `/api/anki/decks/${madeId}/languages`, { headers: h, bases, body: ['q_deck_name', { name: 'x' }] });
       await call(ctx, s('languages of a deck, after'), 'GET', '/api/anki/decks', { headers: h, bases });
 
+      // Detecting a deck's pair: a stored one is the answer as it stands, an empty deck has nothing to read from, a deck that is not there is a 404.
+      await call(ctx, s('detect: a deck with a pair'), 'POST', `/api/anki/decks/${madeId}/languages/detect`, { headers: h, bases });
+      await call(ctx, s('detect: an empty deck'), 'POST', `/api/anki/decks/${decks.Empty}/languages/detect`, { headers: h, bases });
+      await call(ctx, s('detect: a deck not there'), 'POST', '/api/anki/decks/999/languages/detect', { headers: h, bases });
+      await call(ctx, s('detect: deck id not a number'), 'POST', '/api/anki/decks/abc/languages/detect', { headers: h, bases });
+
       const added = await call(ctx, s('add note'), 'POST', '/api/anki/notes', {
         headers: h, bases, body: ['q_note', { deckId: madeId, notetypeId: basic, fields: ['hello', 'world'], tags: ['a', 'b'] }],
       });
       const noteId = added.decoded.noteId;
       await call(ctx, s('add note, romanised'), 'POST', '/api/anki/notes', {
         headers: h, bases, body: ['q_note', { deckId: madeId, notetypeId: basic, fields: ['annyeong', 'hi'], language: 'ko', learningFieldIndex: 0 }],
+      });
+      // The deck's pair decides a note's language: another is refused, and a deck with no pair takes no note.
+      await call(ctx, s('add note, another language than the deck\'s'), 'POST', '/api/anki/notes', {
+        headers: h, bases, body: ['q_note', { deckId: madeId, notetypeId: basic, fields: ['konnichiwa', 'hi'], language: 'ja', learningFieldIndex: 0 }],
+      });
+      await call(ctx, s('add note, a deck with no languages'), 'POST', '/api/anki/notes', {
+        headers: h, bases, body: ['q_note', { deckId: ex, notetypeId: basic, fields: ['a', 'b'] }],
       });
       await call(ctx, s('add note, no deck'), 'POST', '/api/anki/notes', { headers: h, bases, body: ['q_note', { notetypeId: basic, fields: ['a', 'b'] }] });
       await call(ctx, s('add note, no note type'), 'POST', '/api/anki/notes', { headers: h, bases, body: ['q_note', { deckId: madeId, fields: ['a', 'b'] }] });
@@ -442,6 +485,11 @@ describe('the HTTP contract', { concurrency: false }, () => {
         headers: h, bases, body: ['q_notes', { notes: [
           { deckId: madeId, notetypeId: basic, fields: ['bulk 1', 'x'] }, { deckId: madeId, notetypeId: basic, fields: ['bad'] },
           { deckId: madeId, notetypeId: basic, fields: ['bulk 3', 'x'], language: 'ja', learningFieldIndex: 0 },
+        ] }],
+      });
+      await call(ctx, s('bulk add, one note in a deck with no languages'), 'POST', '/api/anki/notes/bulk', {
+        headers: h, bases, body: ['q_notes', { notes: [
+          { deckId: ex, notetypeId: basic, fields: ['bulk 4', 'x'] }, { deckId: madeId, notetypeId: basic, fields: ['bulk 5', 'x'], language: 'ko' },
         ] }],
       });
       await call(ctx, s('bulk add, empty'), 'POST', '/api/anki/notes/bulk', { headers: h, bases, body: ['q_notes', { notes: [] }] });
@@ -496,14 +544,18 @@ describe('the HTTP contract', { concurrency: false }, () => {
       });
       await call(ctx, s('starter'), 'POST', '/api/anki/starter', { headers: h, bases, body: ['q_starter', { known: 'en', learning: 'ko' }] });
       await call(ctx, s('starter again'), 'POST', '/api/anki/starter', { headers: h, bases, body: ['q_starter', { known: 'en', learning: 'ko', name: 'amgi starter' }] });
+      await call(ctx, s('decks after the starter'), 'GET', '/api/anki/decks', { headers: h, bases });
+      await call(ctx, s('starter, the deck is in another pair'), 'POST', '/api/anki/starter', { headers: h, bases, body: ['q_starter', { known: 'ko', learning: 'en' }] });
       await call(ctx, s('starter, same languages'), 'POST', '/api/anki/starter', { headers: h, bases, body: ['q_starter', { known: 'ko', learning: 'ko' }] });
       await call(ctx, s('starter, unknown pair'), 'POST', '/api/anki/starter', { headers: h, bases, body: ['q_starter', { known: 'en', learning: 'xx' }] });
       await call(ctx, s('starter, no languages'), 'POST', '/api/anki/starter', { headers: h, bases, body: ['q_starter', {}] });
       await call(ctx, s('starter state'), 'GET', '/api/anki/starter', { headers: h, bases });
 
       // Generation's own checks, before any Gemini call: missing fields.
-      await call(ctx, s('card text, no input'), 'POST', '/api/anki/card-text', { headers: h, bases, body: ['q_card_text', { userInput: '  ', knownLanguage: 'en', learningLanguage: 'ko' }] });
-      await call(ctx, s('card text, no language'), 'POST', '/api/anki/card-text', { headers: h, bases, body: ['q_card_text', { userInput: 'x', knownLanguage: 'en' }] });
+      await call(ctx, s('card text, no input'), 'POST', '/api/anki/card-text', { headers: h, bases, body: ['q_card_text', { userInput: '  ', deckId: madeId }] });
+      await call(ctx, s('card text, no deck'), 'POST', '/api/anki/card-text', { headers: h, bases, body: ['q_card_text', { userInput: 'x' }] });
+      await call(ctx, s('card text, a deck with no languages'), 'POST', '/api/anki/card-text', { headers: h, bases, body: ['q_card_text', { userInput: 'x', deckId: decks.Empty }] });
+      await call(ctx, s('card text, a deck not there'), 'POST', '/api/anki/card-text', { headers: h, bases, body: ['q_card_text', { userInput: 'x', deckId: 999 }] });
       await call(ctx, s('audio, no text'), 'POST', '/api/anki/audio', { headers: h, bases, body: ['q_audio', { text: ' ', language: 'ko' }] });
       await call(ctx, s('audio, no language'), 'POST', '/api/anki/audio', { headers: h, bases, body: ['q_audio', { text: 'x' }] });
     });
@@ -547,11 +599,74 @@ describe('the HTTP contract: Gemini, against the fake', { concurrency: false }, 
     try {
       const ctx = { server: keyless.url };
       const p = profile();
+      await call(ctx, 'keyless: set languages', 'PUT', '/api/anki/decks/1/languages', { headers: p.headers, bases: [p.base], body: ['q_deck_languages', { known: 'en', learning: 'ko' }] });
       await call(ctx, 'keyless: starter state', 'GET', '/api/anki/starter');
-      await call(ctx, 'keyless: card text', 'POST', '/api/anki/card-text', { headers: p.headers, bases: [p.base], body: ['q_card_text', { userInput: 'hello', knownLanguage: 'en', learningLanguage: 'ko' }] });
+      await call(ctx, 'keyless: card text', 'POST', '/api/anki/card-text', { headers: p.headers, bases: [p.base], body: ['q_card_text', { userInput: 'hello', deckId: 1 }] });
       await call(ctx, 'keyless: audio', 'POST', '/api/anki/audio', { headers: p.headers, bases: [p.base], body: ['q_audio', { text: '안녕', language: 'ko' }] });
     } finally {
       await keyless.stop();
+    }
+  });
+
+  test('a deck with no stored pair: what its amgi notes say, and what Gemini adds', async () => {
+    const fake = await startFakeGemini();
+    const keyless = await startServer({ key: '', base: null });
+    const app = await startServer({ key: 'fake', base: fake.url });
+    try {
+      const p = profile();
+      const h = p.headers;
+      const bases = [p.base];
+      const none = { server: keyless.url };
+      const gemini = { server: app.url };
+      await call(none, 'detect: install', 'POST', '/api/anki/install', { headers: h, bases, body: ['q_install', {}] });
+      await amgiDeckWithNotes(p, 'Seoul', ['ko', 'ko']);
+      await amgiDeckWithNotes(p, 'Mixed', ['ko', 'ja']);
+      await amgiDeckWithNotes(p, 'Broken', ['ko']);
+      const decks = ids((await call(none, 'detect: decks', 'GET', '/api/anki/decks', { headers: h, bases })).decoded.decks);
+      const detect = (ctx, name, deck) => call(ctx, name, 'POST', `/api/anki/decks/${decks[deck]}/languages/detect`, { headers: h, bases });
+      const says = (languages) => controlFake(fake.url, `languages=${languages}`);
+
+      // No key: nothing is asked. The notes' own Language field is the only evidence, and it is a guess for learning, never a stored pair.
+      await detect(none, 'detect, no key: amgi notes that agree', 'Seoul');
+      await detect(none, 'detect, no key: amgi notes that disagree', 'Mixed');
+      await detect(none, 'detect, no key: other notes', 'Existing');
+      await detect(none, 'detect, no key: no notes', 'Empty');
+
+      // Gemini sure of both languages: stored, and the deck list says so.
+      await detect(gemini, 'detect, Gemini high: other notes', 'Existing');
+      await call(gemini, 'detect: the deck list shows it', 'GET', '/api/anki/decks', { headers: h, bases });
+      await detect(gemini, 'detect, Gemini high: a stored deck is not asked again', 'Existing');
+      // Not sure, or not a language deck: nothing stored, the guess for the page to preselect.
+      await says('ko,en,low');
+      await detect(gemini, 'detect, Gemini low', 'Korean::문장');
+      await says('none,none,high');
+      await detect(gemini, 'detect, Gemini says none', 'Existing::Child');
+      await says('ko,ko,high');
+      await detect(gemini, 'detect, Gemini says the same language twice', 'Mixed');
+      await says('xx,en,high');
+      await detect(gemini, 'detect, Gemini answers outside its schema', 'Korean::문장');
+      // The notes' fact decides learning: a contradicting answer is not stored, and an agreeing one is found by the notes.
+      await says('ja,en,high');
+      await detect(gemini, 'detect, Gemini contradicts the notes', 'Seoul');
+      await says('fail');
+      await detect(gemini, 'detect, Gemini fails', 'Broken');
+      await says('ko,en,high');
+      await detect(gemini, 'detect, Gemini agrees with the notes', 'Seoul');
+      await call(gemini, 'detect: the deck list at the end', 'GET', '/api/anki/decks', { headers: h, bases });
+
+      // A note added to a deck whose Language field is empty takes the deck's learning language.
+      const types = (await call(gemini, 'detect: notetypes', 'GET', '/api/anki/notetypes', { headers: h, bases })).decoded.notetypes;
+      const listening = types.find((n) => n.name === 'amgi Listening');
+      const at = (name) => listening.fieldNames.findIndex((n) => n.toLowerCase() === name);
+      const blank = listening.fieldNames.map(() => '');
+      blank[at('cue')] = 'hello';
+      blank[at('target')] = '안녕';
+      await call(gemini, 'detect: add a note with no language', 'POST', '/api/anki/notes', { headers: h, bases, body: ['q_note', { deckId: decks.Seoul, notetypeId: listening.id, fields: blank }] });
+      await call(gemini, 'detect: the note has the deck\'s language', 'GET', `/api/anki/decks/${decks.Seoul}/notes?limit=1&offset=2`, { headers: h, bases });
+    } finally {
+      await app.stop();
+      await keyless.stop();
+      await fake.stop();
     }
   });
 
@@ -563,24 +678,25 @@ describe('the HTTP contract: Gemini, against the fake', { concurrency: false }, 
       const p = profile();
       const h = p.headers;
       const bases = [p.base];
-      await call(ctx, 'fake: card text with cue audio', 'POST', '/api/anki/card-text', { headers: h, bases, body: ['q_card_text', { userInput: 'line 7', knownLanguage: 'en', learningLanguage: 'ko', includeCueAudio: true }] });
-      await call(ctx, 'fake: card text without', 'POST', '/api/anki/card-text', { headers: h, bases, body: ['q_card_text', { userInput: 'line 8', knownLanguage: 'en', learningLanguage: 'ko' }] });
+      await call(ctx, 'fake: set languages', 'PUT', '/api/anki/decks/1/languages', { headers: h, bases, body: ['q_deck_languages', { known: 'en', learning: 'ko' }] });
+      await call(ctx, 'fake: card text with cue audio', 'POST', '/api/anki/card-text', { headers: h, bases, body: ['q_card_text', { userInput: 'line 7', deckId: 1, includeCueAudio: true }] });
+      await call(ctx, 'fake: card text without', 'POST', '/api/anki/card-text', { headers: h, bases, body: ['q_card_text', { userInput: 'line 8', deckId: 1 }] });
       const clip = await call(ctx, 'fake: audio', 'POST', '/api/anki/audio', { headers: h, bases, body: ['q_audio', { text: '안녕하세요', language: 'ko' }] });
       await call(ctx, 'fake: audio again, reused', 'POST', '/api/anki/audio', { headers: h, bases, body: ['q_audio', { text: '안녕하세요', language: 'ko' }] });
       await call(ctx, 'fake: audio fresh', 'POST', '/api/anki/audio', { headers: h, bases, body: ['q_audio', { text: '안녕하세요', language: 'ko', fresh: true }] });
-      await call(ctx, 'fake: a failing line', 'POST', '/api/anki/card-text', { headers: h, bases, body: ['q_card_text', { userInput: 'broken line', knownLanguage: 'en', learningLanguage: 'ko' }] });
+      await call(ctx, 'fake: a failing line', 'POST', '/api/anki/card-text', { headers: h, bases, body: ['q_card_text', { userInput: 'broken line', deckId: 1 }] });
       await call(ctx, 'fake: the clip it made', 'GET', `/api/anki/media/${clip.decoded.filename}`, { headers: h, bases });
       await controlFake(fake.url, 'perMinute=1');
       // One speech call is allowed this minute; the second, the cue clip, is refused with about a
       // minute to wait, longer than the generator sits through: the card answers 429 at once.
       await call(ctx, 'fake: limited after starting', 'POST', '/api/anki/card-text', {
-        headers: h, bases, jitter: [40000, 76000], body: ['q_card_text', { userInput: 'line 9', knownLanguage: 'en', learningLanguage: 'ko', includeCueAudio: true }],
+        headers: h, bases, jitter: [40000, 76000], body: ['q_card_text', { userInput: 'line 9', deckId: 1, includeCueAudio: true }],
       });
       await call(ctx, 'fake: refused before starting', 'POST', '/api/anki/audio', {
         headers: h, bases, jitter: [30000, 76000], body: ['q_audio', { text: '다음', language: 'ko' }],
       });
       await call(ctx, 'fake: card refused before starting', 'POST', '/api/anki/card-text', {
-        headers: h, bases, jitter: [30000, 76000], body: ['q_card_text', { userInput: 'line 10', knownLanguage: 'en', learningLanguage: 'ko' }],
+        headers: h, bases, jitter: [30000, 76000], body: ['q_card_text', { userInput: 'line 10', deckId: 1 }],
       });
     } finally {
       await app.stop();
@@ -594,9 +710,10 @@ describe('the HTTP contract: Gemini, against the fake', { concurrency: false }, 
     try {
       const ctx = { server: app.url };
       const p = profile();
+      await call(ctx, 'fake: set languages for the cap', 'PUT', '/api/anki/decks/1/languages', { headers: p.headers, bases: [p.base], body: ['q_deck_languages', { known: 'en', learning: 'ko' }] });
       await controlFake(fake.url, 'daily=1');
-      await call(ctx, 'fake: daily cap', 'POST', '/api/anki/card-text', { headers: p.headers, bases: [p.base], body: ['q_card_text', { userInput: 'line 1', knownLanguage: 'en', learningLanguage: 'ko' }] });
-      await call(ctx, 'fake: daily cap again', 'POST', '/api/anki/card-text', { headers: p.headers, bases: [p.base], body: ['q_card_text', { userInput: 'line 2', knownLanguage: 'en', learningLanguage: 'ko' }] });
+      await call(ctx, 'fake: daily cap', 'POST', '/api/anki/card-text', { headers: p.headers, bases: [p.base], body: ['q_card_text', { userInput: 'line 1', deckId: 1 }] });
+      await call(ctx, 'fake: daily cap again', 'POST', '/api/anki/card-text', { headers: p.headers, bases: [p.base], body: ['q_card_text', { userInput: 'line 2', deckId: 1 }] });
     } finally {
       await app.stop();
       await fake.stop();
