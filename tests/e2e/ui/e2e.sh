@@ -46,8 +46,13 @@ tests/e2e/ui/drives.sh cdom "$app" "$keyless" "$faked" "$gemini" "$shots"
 failed=$?
 # Incident 18:42: the page loaded twice while Anki holds the collection after its own backup dropped
 # its lock (a server and a temp HOME of its own; the build above already ran).
-make -s -C server build/anki_standin && INCIDENT1842_NO_BUILD=1 tests/e2e/ui/incident1842.sh > "$logs/incident1842.log" 2>&1
-incident=$?
-echo "incident1842: $(grep -c '^ok' "$logs/incident1842.log") ok"
-grep -v '^ok' "$logs/incident1842.log"
+# With DRIVES set (some of drives.sh's drives, by name), only those run, and this only when it is named too.
+incident=0
+case " ${DRIVES:-incident1842} " in
+  *" incident1842 "*)
+    make -s -C server build/anki_standin && INCIDENT1842_NO_BUILD=1 tests/e2e/ui/incident1842.sh > "$logs/incident1842.log" 2>&1
+    incident=$?
+    echo "incident1842: $(grep -c '^ok' "$logs/incident1842.log") ok"
+    grep -v '^ok' "$logs/incident1842.log" ;;
+esac
 [ $failed -eq 0 ] && [ $incident -eq 0 ]
