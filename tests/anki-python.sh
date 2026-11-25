@@ -6,15 +6,16 @@
 #   ANKI_PYTHON_BIN set    that interpreter is used as given (and checked)
 #   macOS with Anki.app    Anki.app's own `anki` library (Contents/Resources/app_packages) is built for one
 #                          CPython (Contents/Frameworks/Python.framework/Versions/X.Y); a python X.Y is
-#                          found on PATH or under uv's python dir, and a wrapper with absolute paths
-#                          (the tests start their Python children under a temp HOME, where $HOME-relative
-#                          paths do not exist) is written to server/build/anki-python
+#                          found on PATH or under uv's python dir, and a venv of it is made in
+#                          server/build/anki-venv whose site-packages holds a .pth naming that library:
+#                          it needs no environment, so it works under the tests' temp HOMEs and under
+#                          python -I (which ignores PYTHONPATH), and it prints server/build/anki-venv/bin/python
 #   otherwise              a python3 on PATH that already imports anki
 set -uo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
-wrapper="$root/server/build/anki-python"
+venv="$root/server/build/anki-venv"
 
-check() { "$@" -c "import anki.collection" > /dev/null 2>&1; }
+check() { "$@" -c "import anki.collection" > /dev/null 2>&1; } # check PYTHON [FLAGS]
 
 fail() {
   {
@@ -48,11 +49,11 @@ if [ -d "$libs" ]; then
     [ -n "$py" ] && [ -x "$py" ] || continue
     abs="$(cd "$(dirname "$py")" && pwd -P)/$(basename "$py")"
     if PYTHONPATH="$libs" check "$abs"; then
-      mkdir -p "$root/server/build"
-      printf '#!/bin/sh\nPYTHONPATH=%s${PYTHONPATH:+:$PYTHONPATH} exec %s "$@"\n' "'$libs'" "'$abs'" > "$wrapper.new"
-      chmod +x "$wrapper.new" && mv "$wrapper.new" "$wrapper"
-      check "$wrapper" || fail "the wrapper $wrapper (python $abs, library $libs) cannot import anki.collection"
-      echo "$wrapper"
+      rm -rf "$venv"
+      "$abs" -m venv --without-pip "$venv" || fail "python $abs could not make the venv $venv"
+      printf '%s\n' "$libs" > "$venv/lib/python$ver/site-packages/anki-app.pth"
+      check "$venv/bin/python" -I || fail "the venv $venv (python $abs, library $libs) cannot import anki.collection under -I"
+      echo "$venv/bin/python"
       exit 0
     fi
   done
