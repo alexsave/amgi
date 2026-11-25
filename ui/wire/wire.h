@@ -85,6 +85,7 @@ enum {
   WK_Q_DECK_LANGUAGES, /* PUT /decks/:id/languages: the deck's pair (and the bridge's request, the same) */
   WK_DECK_LANGUAGES, /* its answer */
   WK_B_DECK_LANGUAGES, /* the bridge's answer to it */
+  WK_DECK_LANGUAGES_FOUND, /* POST /decks/:id/languages/detect: the pair found, stored or only guessed */
   WK_KINDS
 };
 /* The kind's name as the server's route table spells it ("decks", "q_note"); 0 past the last. */
@@ -138,6 +139,9 @@ typedef struct { uint8_t ok, needs_restart; wire_str message, addons_dir; } wire
 typedef struct { uint32_t mode; int64_t id; wire_str name; uint32_t subdecks, cards, notes; } wire_deck_summary;
 typedef struct { uint32_t mode; int64_t id; wire_str name; uint32_t decks, cards, notes; } wire_deck_removed;
 typedef struct { uint32_t mode; int64_t id; wire_str known, learning; } wire_deck_languages; /* PUT /decks/:id/languages */
+/* POST /decks/:id/languages/detect: stored is 1 when the deck has a pair now (found_by says how: "stored", "notes" or "gemini");
+ * with stored 0, known and learning are only a guess for the page to preselect ("" each when there is none), found_by "". */
+typedef struct { uint32_t mode; int64_t id; uint8_t stored; wire_str known, learning, found_by; } wire_deck_languages_found;
 
 typedef struct { wire_str name; } wire_q_deck_name;
 typedef struct { wire_str known, learning; } wire_q_deck_languages;
@@ -146,7 +150,8 @@ typedef struct { wire_str known, learning, name; } wire_q_starter;
 typedef struct { int64_t deck_id, notetype_id; wire_strs fields, tags; wire_str language; int32_t learning_field_index; } wire_q_note;
 typedef struct { wire_q_note *notes; uint32_t nnotes; } wire_q_notes;
 typedef struct { wire_strs fields; wire_str language; int32_t learning_field_index; } wire_q_note_update;
-typedef struct { wire_str user_input, known_language, learning_language; uint8_t include_cue_audio;
+/* The card's languages are the deck's: the server reads the deck's stored pair, so a request names the deck and no languages. */
+typedef struct { wire_str user_input; int64_t deck_id; uint8_t include_cue_audio;
                  uint32_t progress_id; /* the asker's own number for GET /progress, or 0 */ } wire_q_card_text;
 typedef struct { wire_str text, language; uint8_t fresh; } wire_q_audio;
 

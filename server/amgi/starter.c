@@ -197,6 +197,18 @@ int amgi_starter_build(arena *a, const amgi_ops *o, str known, str learning, str
   amgi_fields idx = amgi_field_indexes(a, nt);
   col_deck_made deck;
   if (ops_create_deck(a, o, deck_name, &deck, &e)) return *message = e.message, -1;
+  /* The deck owns the pair: it is stored before the first note, and a deck that is already there in another pair is not
+   * given this one (its cards would be in two). */
+  col_deck *decks;
+  size_t nd;
+  if (ops_list_decks(a, o, &decks, &nd, &e)) return *message = e.message, -1;
+  const col_deck *there = amgi_find_deck(decks, nd, deck.id);
+  if (there && there->known.n && !(str_eq(there->known, known) && str_eq(there->learning, learning)))
+    return *message = amgi_language_mismatch_refusal(a, there->known, there->learning, learning), -1;
+  if (!there || !there->known.n) {
+    col_deck_languages stored;
+    if (ops_set_deck_languages(a, o, (double)deck.id, known, learning, &stored, &e)) return *message = e.message, -1;
+  }
 
   str *already = NULL;
   size_t nalready = 0;

@@ -612,11 +612,6 @@ str card_generation_prompt(arena *a, str user_input, str known_code, str learnin
                        "already contains from another language exactly as they are. known_text is its translation into "
                        "%.*s, and must contain no %.*s at all.",
                        L, K, L);
-  else if (input_language && !strcmp(input_language, "known"))
-    direction = ar_fmt(a,
-                       "DIRECTION. The input is written in %.*s. known_text IS that input, corrected only for obvious typos, "
-                       "and learning_text is its translation into %.*s.",
-                       K, L);
   else
     direction = ar_fmt(a,
                        "DIRECTION. If the input is written in %.*s, known_text is that input, corrected only for obvious "
@@ -647,7 +642,8 @@ str card_unspeakable_retry_prompt(arena *a, str previous, str rejected, const ch
 typedef struct {
   const char *key, *type;        /* "string" or "boolean" */
   const char *description;       /* or NULL */
-  int register_enum;             /* enum: casual, polite, formal */
+  const char *const *enum_values; /* the only values the property takes (a string's), or NULL for any */
+  size_t nenum;
 } prop;
 typedef struct { const char *name; const prop *props; size_t n; } format;
 
@@ -661,19 +657,19 @@ typedef struct { const char *name; const prop *props; size_t n; } format;
   "zhuyin/bopomofo for Chinese) - never romanised. Empty unless the writing system leaves the reading open (Japanese, " \
   "Chinese)."
 static const prop GENERATED_PROPS[] = {
-  {"known_text", "string", "The known-language side: one natural utterance, no annotation of any kind", 0},
-  {"learning_text", "string", "The learning-language side: one natural utterance in one sense, no annotation of any kind", 0},
-  {"sense_tag", "string", SENSE_TAG_DESCRIPTION, 0},
-  {"register", "string", REGISTER_DESCRIPTION, 1},
-  {"spoken_reading", "string", SPOKEN_READING_DESCRIPTION, 0},
+  {"known_text", "string", "The known-language side: one natural utterance, no annotation of any kind", NULL, 0},
+  {"learning_text", "string", "The learning-language side: one natural utterance in one sense, no annotation of any kind", NULL, 0},
+  {"sense_tag", "string", SENSE_TAG_DESCRIPTION, NULL, 0},
+  {"register", "string", REGISTER_DESCRIPTION, REGISTER_LEVELS, N(REGISTER_LEVELS)},
+  {"spoken_reading", "string", SPOKEN_READING_DESCRIPTION, NULL, 0},
 };
 static const prop VERDICT_PROPS[] = {
-  {"heard", "string", "What the audio actually says, as heard", 0},
+  {"heard", "string", "What the audio actually says, as heard", NULL, 0},
   {"matches", "boolean",
-   "True if the audio says exactly the expected phrase in the expected language with intelligible pronunciation", 0},
-  {"reason", "string", "Brief justification for the verdict", 0},
+   "True if the audio says exactly the expected phrase in the expected language with intelligible pronunciation", NULL, 0},
+  {"reason", "string", "Brief justification for the verdict", NULL, 0},
 };
-static const prop MATCH_PROPS[] = {{"matches", "boolean", NULL, 0}};
+static const prop MATCH_PROPS[] = {{"matches", "boolean", NULL, NULL, 0}};
 static const format GENERATED_CARD_FORMAT = {"flashcard_generation", GENERATED_PROPS, N(GENERATED_PROPS)};
 static const format AUDIO_VERDICT_FORMAT = {"audio_verdict", VERDICT_PROPS, N(VERDICT_PROPS)};
 static const format TRANSCRIPTION_MATCH_FORMAT = {"transcription_match", MATCH_PROPS, N(MATCH_PROPS)};
@@ -691,11 +687,11 @@ static void schema_of(const format *f, buf *out) {
     buf body = {0}, v = {0};
     value_string(&v, f->props[i].type);
     gv_field(&body, "type", &v);
-    if (f->props[i].register_enum) {
+    if (f->props[i].nenum) {
       buf items = {0}, item = {0}, list = {0};
-      for (size_t k = 0; k < N(REGISTER_LEVELS); k++) {
+      for (size_t k = 0; k < f->props[i].nenum; k++) {
         item.n = 0;
-        value_string(&item, REGISTER_LEVELS[k]);
+        value_string(&item, f->props[i].enum_values[k]);
         gv_list_item(&items, &item);
       }
       gv_list_of(&list, &items);
@@ -780,6 +776,12 @@ static str slice_units(str s, size_t max) {
   return s;
 }
 
+static int in_enum(const prop *p, str s) {
+  for (size_t k = 0; k < p->nenum; k++)
+    if (str_eq_c(s, p->enum_values[k])) return 1;
+  return 0;
+}
+
 typedef struct { str s[5]; int b[5]; } fields;
 /* 0 and the fields, or -1 with the error parseStructured throws. */
 static int parse_structured(arena *a, str text, const format *f, fields *out, gem_err *e) {
@@ -798,10 +800,10 @@ static int parse_structured(arena *a, str text, const format *f, fields *out, ge
         if (!x || x->type == AJ_NULL) detail = str_c(ar_fmt(a, "%s is missing", p->key));
         else if ((want_bool && x->type != AJ_BOOL) || (!want_bool && x->type != AJ_STR))
           detail = str_c(ar_fmt(a, "%s is %s, not a %s", p->key, type_desc(x), p->type));
-        else if (p->register_enum && register_level(x->s) < 0) {
+        else if (p->nenum && !in_enum(p, x->s)) {
           str shown = slice_units(usv(a, x->s), 40);
           buf names = {0};
-          for (size_t k = 0; k < N(REGISTER_LEVELS); k++) buf_fmt(&names, "%s%s", k ? ", " : "", REGISTER_LEVELS[k]);
+          for (size_t k = 0; k < p->nenum; k++) buf_fmt(&names, "%s%s", k ? ", " : "", p->enum_values[k]);
           detail = str_c(ar_fmt(a, "%s is \"%.*s\", not one of %.*s", p->key, (int)shown.n, shown.p, (int)names.n, names.p));
           buf_free(&names);
         } else if (want_bool) {
@@ -855,6 +857,146 @@ int card_generate_text(arena *a, progress *p, str user_input, str known, str lea
     prompt = card_unspeakable_retry_prompt(a, base, f.s[1], repaired);
   }
   *out = last;
+  return 0;
+}
+
+/* ---- which languages a deck is in (a deck with no stored pair: server/amgi/detect.c says when this runs) ---- */
+#define NONE_CODE "none"
+static const char *const CONFIDENCES[] = {"high", "low"};
+/* learning and known each take one of the language table's codes or "none", so their enum is built from the table, once
+ * for each call, and the table stays the one list. */
+static format deck_languages_format(arena *a) {
+  const char **codes = ar_alloc(a, (NLANGUAGES + 2) * sizeof *codes);
+  for (uint32_t i = 0; i < NLANGUAGES; i++) codes[i] = LANGUAGES[i].code;
+  codes[NLANGUAGES] = NONE_CODE;
+  prop *props = ar_alloc(a, 3 * sizeof *props);
+  props[0] = (prop){"learning", "string", "The language the deck teaches: the code of the language its cards are about, or none", codes, NLANGUAGES + 1};
+  props[1] = (prop){"known", "string", "The language the deck explains in: the code of the language the learner already speaks, or none", codes, NLANGUAGES + 1};
+  props[2] = (prop){"confidence", "string", "high only when the cards make both languages plain, else low", CONFIDENCES, N(CONFIDENCES)};
+  return (format){"deck_languages", props, 3};
+}
+void card_schema_deck_languages(arena *a, buf *out) {
+  format f = deck_languages_format(a);
+  schema_of(&f, out);
+}
+
+#define DECK_LANGUAGES_SYSTEM_PROMPT_HEAD                                                                              \
+  "You identify the languages of a flashcard deck for a language-learning app. You are given the deck's name and a "   \
+  "sample of its cards. Say which language the deck teaches (learning) and which language its cards explain it in "    \
+  "(known), each as one of these codes: "
+#define DECK_LANGUAGES_SYSTEM_PROMPT_TAIL                                                                              \
+  ". zh_cn is Mandarin Chinese in simplified characters; zh_hk is Cantonese. Answer \"" NONE_CODE "\" for a field when " \
+  "the deck is not a language deck or when its language is not in the list. Answer confidence \"high\" only when the "  \
+  "cards make both languages plain, and \"low\" otherwise."
+const char *card_deck_languages_system(arena *a) {
+  buf b = {0};
+  buf_c(&b, DECK_LANGUAGES_SYSTEM_PROMPT_HEAD);
+  for (uint32_t i = 0; i < NLANGUAGES; i++) buf_fmt(&b, "%s%s (%s)", i ? ", " : "", LANGUAGES[i].code, LANGUAGES[i].english);
+  buf_c(&b, DECK_LANGUAGES_SYSTEM_PROMPT_TAIL);
+  str s = buf_str(a, &b);
+  buf_free(&b);
+  return str_z(a, s);
+}
+
+#define SAMPLE_NOTES 10
+#define SAMPLE_FIELD_CHARS 80
+/* A field as the sample shows it: tags and [sound:...] gone, the common entities read, runs of white space one space, cut to
+ * SAMPLE_FIELD_CHARS characters (never inside one: a UTF-8 sequence stays whole) with "..." when it was cut. */
+static str sample_text(arena *a, str raw) {
+  buf b = {0};
+  for (size_t i = 0; i < raw.n;) {
+    char c = raw.p[i];
+    if (c == '<') {
+      size_t e = i + 1;
+      while (e < raw.n && raw.p[e] != '>') e++;
+      if (e < raw.n) {
+        str tag = str_sub(raw, i + 1, e);
+        int block = str_eq_c(tag, "br") || str_eq_c(tag, "br/") || str_eq_c(tag, "br /") || str_eq_c(tag, "p") ||
+                    str_eq_c(tag, "/p") || str_eq_c(tag, "div") || str_eq_c(tag, "/div");
+        if (block) buf_ch(&b, ' ');
+        i = e + 1;
+        continue;
+      }
+    } else if (c == '[' && i + 7 <= raw.n && !memcmp(raw.p + i, "[sound:", 7)) {
+      size_t e = i + 7;
+      while (e < raw.n && raw.p[e] != ']') e++;
+      if (e < raw.n) {
+        i = e + 1;
+        continue;
+      }
+    } else if (c == '&') {
+      static const struct { const char *name, *to; } ENTITIES[] = {
+        {"&nbsp;", " "}, {"&amp;", "&"}, {"&lt;", "<"}, {"&gt;", ">"}, {"&quot;", "\""}};
+      int hit = 0;
+      for (size_t k = 0; k < N(ENTITIES) && !hit; k++) {
+        size_t n = strlen(ENTITIES[k].name);
+        if (i + n <= raw.n && !memcmp(raw.p + i, ENTITIES[k].name, n)) buf_c(&b, ENTITIES[k].to), i += n, hit = 1;
+      }
+      if (hit) continue;
+    }
+    buf_ch(&b, c);
+    i++;
+  }
+  str plain = buf_str(a, &b);
+  buf_free(&b);
+  buf out = {0};
+  size_t chars = 0;
+  int pending_space = 0, cut = 0;
+  for (size_t at = 0; at < plain.n;) {
+    size_t from = at;
+    uint32_t cp = utf8_next(plain, &at);
+    if (js_space(cp)) {
+      pending_space = chars > 0;
+      continue;
+    }
+    if (chars + (pending_space ? 2 : 1) > SAMPLE_FIELD_CHARS) {
+      cut = 1;
+      break;
+    }
+    if (pending_space) buf_ch(&out, ' '), chars++;
+    pending_space = 0;
+    buf_put(&out, plain.p + from, at - from);
+    chars++;
+  }
+  if (cut) buf_c(&out, "...");
+  str r = buf_str(a, &out);
+  buf_free(&out);
+  return r;
+}
+
+str card_deck_languages_prompt(arena *a, str deck_name, const card_sample *notes, size_t n, str fact_code) {
+  buf b = {0};
+  str name = sample_text(a, deck_name);
+  buf_fmt(&b, "Deck name: %.*s\n", (int)name.n, name.p);
+  const lang_entry *fact = fact_code.n ? lang_find(fact_code.p, (uint32_t)fact_code.n) : NULL;
+  if (fact)
+    buf_fmt(&b, "\nFact, read from the deck's own cards: the language this deck teaches is %s (%s). Answer learning with it.\n",
+            fact->english, fact->code);
+  size_t shown = 0;
+  for (size_t i = 0; i < n && shown < SAMPLE_NOTES; i++, shown++) {
+    const card_sample *c = &notes[i];
+    str nt = sample_text(a, c->notetype);
+    buf_fmt(&b, "\nNote %zu, note type \"%.*s\":\n", shown + 1, (int)nt.n, nt.p);
+    for (size_t f = 0; f < c->nfields; f++) {
+      str v = sample_text(a, c->fields[f]);
+      if (!v.n) continue;
+      str fn = sample_text(a, c->field_names[f]);
+      buf_fmt(&b, "  %.*s: %.*s\n", (int)fn.n, fn.p, (int)v.n, v.p);
+    }
+  }
+  if (!shown) buf_c(&b, "\nThe deck has no notes.\n");
+  str s = buf_str(a, &b);
+  buf_free(&b);
+  return s;
+}
+
+int card_detect_deck_languages(arena *a, str deck_name, const card_sample *notes, size_t n, str fact_code, card_deck_guess *out,
+                               gem_err *e) {
+  format f = deck_languages_format(a);
+  fields x = {0};
+  str prompt = card_deck_languages_prompt(a, deck_name, notes, n, fact_code);
+  if (parse_completion(a, NULL, card_deck_languages_system(a), prompt, &f, &x, e)) return -1;
+  *out = (card_deck_guess){x.s[0], x.s[1], str_eq_c(x.s[2], "high")};
   return 0;
 }
 
@@ -985,11 +1127,9 @@ card_text card_correct_swapped_sides(arena *a, card_text t, str learning) {
   return (card_text){t.back_text, t.front_text, S("")};
 }
 
-const char *card_detect_input_language(arena *a, str input, str known, str learning) {
-  if (!card_uses_non_latin_script(a, learning)) return NULL;
-  if (card_has_native_script(a, input, learning)) return "learning";
-  if (card_uses_non_latin_script(a, known)) return NULL;
-  for (size_t i = 0; i < input.n; i++)
-    if ((input.p[i] >= 'a' && input.p[i] <= 'z') || (input.p[i] >= 'A' && input.p[i] <= 'Z')) return "known";
-  return NULL;
+/* Which side the input is on, when its script says so: "learning" for the learning language's own script, else NULL. The
+ * input may be in any language (it is only the meaning to put into the deck's pair), so a Latin-letter input is never
+ * declared to be the known language; the prompt's both-ways rule reads it. */
+const char *card_detect_input_language(arena *a, str input, str learning) {
+  return card_uses_non_latin_script(a, learning) && card_has_native_script(a, input, learning) ? "learning" : NULL;
 }
