@@ -276,6 +276,36 @@ class DeckLanguagesCrossTransportTests(_SeededCollection):
         finally:
             col.close()
 
+    def test_the_c_core_leaves_other_add_ons_values_exactly_as_anki_wrote_them(self):
+        col = self._open()
+        try:
+            did = col.decks.id("Chinese")
+            deck = col.decks.get(did)
+            deck["ratio"] = 1.0
+            deck["accent"] = "é \u2028 \"quoted\""
+            deck["nested"] = {"amgiLanguages": "es fr", "list": [1, 2.50, {"k": "v}"}]}
+            col.decks.save(deck)
+            before = bytes(col.db.scalar("select common from decks where id = ?", did))
+        finally:
+            col.close()
+        self.assertIn(b"1.0", before, "Anki keeps the float as 1.0")
+        run_c(self.collection_path, "setDeckLanguages", {"deckId": did, "known": "en", "learning": "zh_cn"})
+        col = self._open()
+        try:
+            after = bytes(col.db.scalar("select common from decks where id = ?", did))
+            deck = col.decks.get(did)
+        finally:
+            col.close()
+        self.assertEqual(deck["amgiLanguages"], "en zh_cn", "the top-level key, not the nested one")
+        self.assertEqual(deck["nested"], {"amgiLanguages": "es fr", "list": [1, 2.5, {"k": "v}"}]})
+        self.assertIsInstance(deck["ratio"], float)
+        self.assertEqual(deck["accent"], "é \u2028 \"quoted\"")
+        # byte for byte: the C core added its key and nothing else changed
+        # (the area's text, past the protobuf field's length, which grew by the key)
+        old, new = before[before.index(b"{"):], after[after.index(b"{"):]
+        self.assertTrue(new.endswith(b',"amgiLanguages":"en zh_cn"}'), new)
+        self.assertEqual(new[: -len(b',"amgiLanguages":"en zh_cn"}')], old[:-1])
+
     def test_anki_sets_a_pair_and_the_c_core_lists_it(self):
         col = self._open()
         try:

@@ -218,26 +218,97 @@ static str id_key(cx *c, double id) {
  * It is one key of the deck's own add-on area, where Anki keeps every key it does not know and where an
  * add-on's `deck["key"] = ...; col.decks.save(deck)` writes: "amgiLanguages": "<known> <learning>", one
  * string, the two codes of lang.h with one space between them ("en zh_cn"). Schema 11 has it as a key of
- * the deck's dict in col.decks. Schema 18 has the area as JSON in field 255 (`other`) of the deck's
- * `common` protobuf. The JSON there is Anki's format, not amgi's: only this file reads and writes it.
+ * the deck's dict in col.decks, which this file parses and rewrites whole anyway (every schema 11 write
+ * does), so the pair is set there with the quarantine's parser. Schema 18 has the area as JSON text in
+ * field 255 (`other`) of the deck's `common` protobuf, and there nothing is parsed: a scanner walks the
+ * top-level object, skipping every value uninterpreted, to find this one key's value; a write changes only
+ * that value's bytes, so every other add-on's bytes (1.0, escapes, nested objects) stay as they were.
  * Anything that is not that string (an object, a number, extra spaces, an unknown code, the same code
  * twice) reads as no pair. */
 #define PAIR_KEY "amgiLanguages"
 #define OTHER_FIELD 255
 
-static void pair_of(const aj *v, str *known, str *learning) {
+/* "<known> <learning>" (text, with no escapes left) as two different known codes, or no pair. */
+static void pair_split(str v, str *known, str *learning) {
   *known = *learning = S("");
-  if (!v || v->type != AJ_STR) return;
-  const char *sp = memchr(v->s.p, ' ', v->s.n);
+  const char *sp = memchr(v.p, ' ', v.n);
   if (!sp) return;
-  str k = {v->s.p, (size_t)(sp - v->s.p)}, l = {sp + 1, v->s.n - k.n - 1};
+  str k = {v.p, (size_t)(sp - v.p)}, l = {sp + 1, v.n - k.n - 1};
   if (!lang_pair_ok(k.p, (uint32_t)k.n, l.p, (uint32_t)l.n)) return;
   *known = k, *learning = l;
 }
 
-/* The value to store: "<known> <learning>". */
+/* schema 11: the deck dict's value */
+static void pair_of(const aj *v, str *known, str *learning) {
+  *known = *learning = S("");
+  if (v && v->type == AJ_STR) pair_split(v->s, known, learning);
+}
+
 static aj *pair_value(cx *c, str known, str learning) {
   return aj_str(c->a, str_cat(c->a, str_cat(c->a, known, S(" ")), learning));
+}
+
+/* ---- schema 18's add-on area: one scan, no parse ---- */
+static size_t skip_ws(str t, size_t i) {
+  while (i < t.n && (t.p[i] == ' ' || t.p[i] == '\t' || t.p[i] == '\n' || t.p[i] == '\r')) i++;
+  return i;
+}
+/* Past the string whose opening quote is at i, or 0 when it never ends. */
+static size_t skip_string(str t, size_t i) {
+  for (i++; i < t.n; i++) {
+    if (t.p[i] == '\\') i++;
+    else if (t.p[i] == '"') return i + 1;
+  }
+  return 0;
+}
+/* Past the value that starts at i (a string; an object or array, strings inside it skipped; or a number or
+ * literal up to the next separator), or 0 when there is none or it never ends. Its inside is not checked. */
+static size_t skip_value(str t, size_t i) {
+  if (i >= t.n) return 0;
+  if (t.p[i] == '"') return skip_string(t, i);
+  if (t.p[i] == '{' || t.p[i] == '[') {
+    int depth = 0;
+    for (; i < t.n; i++) {
+      if (t.p[i] == '"') {
+        if (!(i = skip_string(t, i))) return 0;
+        i--;
+      } else if (t.p[i] == '{' || t.p[i] == '[') depth++;
+      else if ((t.p[i] == '}' || t.p[i] == ']') && --depth == 0) return i + 1;
+    }
+    return 0;
+  }
+  size_t from = i;
+  while (i < t.n && !strchr(",}] \t\r\n", t.p[i])) i++;
+  return i > from ? i : 0;
+}
+
+/* Where the area's top-level key PAIR_KEY has its value (the last one, as a JSON reader takes it), and where the
+ * object closes. 0 when the text is not an object at the top level. */
+typedef struct { size_t vs, ve; int found; size_t close; int empty; } area;
+static int area_scan(str t, area *r) {
+  memset(r, 0, sizeof *r);
+  size_t i = skip_ws(t, 0);
+  if (i >= t.n || t.p[i] != '{') return 0;
+  i = skip_ws(t, i + 1);
+  if (i < t.n && t.p[i] == '}') r->empty = 1;
+  while (i < t.n && t.p[i] != '}') {
+    if (t.p[i] != '"') return 0;
+    size_t ke = skip_string(t, i);
+    if (!ke) return 0;
+    str key = {t.p + i + 1, ke - i - 2};
+    i = skip_ws(t, ke);
+    if (i >= t.n || t.p[i] != ':') return 0;
+    i = skip_ws(t, i + 1);
+    size_t ve = skip_value(t, i);
+    if (!ve) return 0;
+    if (str_eq_c(key, PAIR_KEY)) r->vs = i, r->ve = ve, r->found = 1;
+    i = skip_ws(t, ve);
+    if (i < t.n && t.p[i] == ',') i = skip_ws(t, i + 1);
+    else if (i >= t.n || t.p[i] != '}') return 0;
+  }
+  if (i >= t.n) return 0;
+  r->close = i;
+  return skip_ws(t, i + 1) == t.n;
 }
 
 /* The last field 255 of a `common` blob. */
@@ -250,31 +321,45 @@ static void other_scan_body(cx *c, void *arg) {
     if (f.number == OTHER_FIELD && f.wire == 2) o->other = (str){(const char *)f.bytes, f.len}, o->has = 1;
 }
 
-/* A listing never fails over one deck's blob: a malformed one has no pair. */
+/* A listing never fails over one deck's blob: a malformed one has no pair. The value must be a string with no
+ * backslash in it. */
 static void pair_18(cx *c, str common, str *known, str *learning) {
   other_scan o = {common, S(""), 0};
+  area r;
   *known = *learning = S("");
-  if (cx_try(c, other_scan_body, &o) || !o.has) return;
-  const char *why;
-  aj *v = anki_json_parse(c->a, o.other, &why);
-  if (v) pair_of(aj_get(v, S(PAIR_KEY)), known, learning);
+  if (cx_try(c, other_scan_body, &o) || !o.has || !area_scan(o.other, &r) || !r.found) return;
+  str v = {o.other.p + r.vs, r.ve - r.vs};
+  if (v.n < 2 || v.p[0] != '"' || v.p[v.n - 1] != '"' || memchr(v.p, '\\', v.n)) return;
+  pair_split((str){v.p + 1, v.n - 2}, known, learning);
 }
 
 /* `common` with amgi's key set in field 255 and everything else as it was: every other field is copied
  * byte for byte in its order, then field 255 last (Anki's encoder writes in number order, and 255 is the
- * highest), its JSON object with other add-ons' keys kept in their order and amgi's one string key set or replaced. An area that is not a JSON
- * object is refused rather than overwritten: it is another add-on's. */
+ * highest). In the area only the key's value changes (or the key is added before the closing brace); an
+ * area that is absent is `{"amgiLanguages":"..."}`, and one that is not an object is refused rather than
+ * overwritten: it is another add-on's. */
 static str common_with_pair(cx *c, str common, str known, str learning) {
   other_scan o = {common, S(""), 0};
   if (cx_try(c, other_scan_body, &o)) cx_rethrow(c);
-  aj *area = aj_obj(c->a);
-  if (o.has) {
-    const char *why;
-    aj *v = anki_json_parse(c->a, o.other, &why);
-    if (!v || v->type != AJ_OBJ) cx_throw(c, NULL, 0, "the deck's add-on data is not a JSON object: nothing was written");
-    area = v;
+  str value = str_cat(c->a, str_cat(c->a, str_cat(c->a, S("\""), known), str_cat(c->a, S(" "), learning)), S("\""));
+  str json;
+  if (!o.has) {
+    json = str_cat(c->a, str_cat(c->a, S("{\"" PAIR_KEY "\":"), value), S("}"));
+  } else {
+    area r;
+    if (!area_scan(o.other, &r)) cx_throw(c, NULL, 0, "the deck's add-on data is not a JSON object: nothing was written");
+    str t = o.other;
+    if (r.found) {
+      json = str_cat(c->a, str_cat(c->a, str_sub(t, 0, r.vs), value), str_sub(t, r.ve, t.n));
+    } else {
+      str add = str_cat(c->a, str_cat(c->a, r.empty ? S("") : S(","), S("\"" PAIR_KEY "\":")), value);
+      /* before the closing brace, after the last value (not after the whitespace that follows it) */
+      size_t at = r.close;
+      while (at > 0 && (t.p[at - 1] == ' ' || t.p[at - 1] == '\t' || t.p[at - 1] == '\n' || t.p[at - 1] == '\r')) at--;
+      if (r.empty) at = skip_ws(t, 0) + 1;
+      json = str_cat(c->a, str_cat(c->a, str_sub(t, 0, at), add), str_sub(t, at, t.n));
+    }
   }
-  aj_set(c->a, area, S(PAIR_KEY), pair_value(c, known, learning));
   buf out = {0};
   size_t at = 0, from = 0;
   pb_field f;
@@ -282,12 +367,7 @@ static str common_with_pair(cx *c, str common, str known, str learning) {
     if (f.number != OTHER_FIELD) buf_put(&out, common.p + from, at - from);
     from = at;
   }
-  size_t nkeys;
-  aj_keys(c->a, area, &nkeys);
-  if (nkeys) {
-    str json = anki_json_stringify(c->a, area);
-    pb_bytes_field(&out, OTHER_FIELD, json.p, json.n);
-  }
+  pb_bytes_field(&out, OTHER_FIELD, json.p, json.n);
   str result = buf_str(c->a, &out);
   buf_free(&out);
   return result;
