@@ -26,7 +26,6 @@
 #include <unistd.h>
 
 #include "amgi.h"
-#include "lang.h"
 #include "messages.h"
 #include "cbase/app.h"
 #include "net/files.h"
@@ -187,15 +186,8 @@ static void h_deck_delete(rq *q) {
 static void h_deck_languages_put(rq *q) {
   if (!ready(q)) return;
   const wire_q_deck_languages *b = q->body;
-  if (!lang_known(b->known.p, b->known.len) || !lang_known(b->learning.p, b->learning.len)) {
-    buf codes = {0};
-    for (uint32_t i = 0; i < NLANGUAGES; i++) buf_fmt(&codes, "%s%s", i ? ", " : "", LANGUAGES[i].code);
-    str msg = str_c(ar_fmt(q->a, "known and learning must each be one of the languages amgi has: %.*s", (int)codes.n, codes.p));
-    buf_free(&codes);
-    return amgi_send_message(q->a, q->res, 400, msg);
-  }
-  if (str_eq(amgi_str(b->known), amgi_str(b->learning)))
-    return amgi_send_message(q->a, q->res, 400, S("known and learning must be two different languages"));
+  str why = amgi_languages_refusal(q->a, amgi_str(b->known), amgi_str(b->learning));
+  if (why.n) return amgi_send_message(q->a, q->res, 400, why);
   col_deck_languages r;
   col_err e = {0};
   if (ops_set_deck_languages(q->a, &q->o, amgi_js_number(q->params[0]), amgi_str(b->known), amgi_str(b->learning), &r, &e))
