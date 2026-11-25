@@ -1,6 +1,7 @@
 # Adds to a fixture collection what the UI's screens need beyond the e2e-ui skill's own fixture: a
-# Korean deck with a subdeck, plain Basic notes in it, a deck longer than a page, and two "amgi Listening" notes with real
-# clips (a WAV and an MP3, made by ffmpeg) so the deck page shows its audio chips.
+# Korean deck (its language pair stored, English to Korean) with a subdeck, plain Basic notes in it, a deck longer than a page,
+# two "amgi Listening" notes with real clips (a WAV and an MP3, made by ffmpeg) so the deck page shows its audio chips, and a
+# Chinese deck of amgi notes made as the command line made them before decks kept a pair: Language zh_cn, no stored pair.
 #   <python with anki> tests/e2e/ui/fixture-extra.py <dir>/collection.anki2
 import os
 import subprocess
@@ -11,6 +12,9 @@ from anki.collection import Collection
 
 col = Collection(sys.argv[1])
 parent = col.decks.id("한국어")
+korean = col.decks.get(parent)
+korean["amgiLanguages"] = "en ko"  # where amgi keeps a deck's pair (the deck's add-on area)
+col.decks.save(korean)
 child = col.decks.id("한국어::일상 표현")
 basic = col.models.by_name("Basic")
 for front, back in [("역이 어디예요?", "Where is the station?"), ("감사합니다", "Thank you")]:
@@ -52,5 +56,12 @@ note.fields[fields["Cue"]] = "No clip yet"
 note.fields[fields["Target"]] = "아직 없어요"
 note.fields[fields["Language"]] = "ko"
 col.add_note(note, long_deck)
+chinese = col.decks.id("Chinese")
+for cue, target in [("Where is the station?", "车站在哪里？"), ("Thank you", "谢谢")]:
+    note = col.new_note(amgi)
+    note.fields[fields["Cue"]] = cue
+    note.fields[fields["Target"]] = target
+    note.fields[fields["Language"]] = "zh_cn"
+    col.add_note(note, chinese)
 col.close()
-print("added the Korean decks and two amgi notes with clips")
+print("added the Korean decks, a Chinese deck with no stored pair and two amgi notes with clips")

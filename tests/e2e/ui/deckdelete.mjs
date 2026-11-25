@@ -178,7 +178,7 @@ try {
   check(await until(b, `!document.querySelector('dialog.confirm-dialog')`), 'Escape closes it too');
   await ask(b);
   await click(b, 'dialog.confirm-dialog .submit-btn');
-  check(await until(b, `location.pathname === '/decks' && document.querySelectorAll('.deck-item').length === 5`, 150),
+  check(await until(b, `location.pathname === '/decks' && document.querySelectorAll('.deck-item').length === 6`, 150),
     `Delete takes it, back on the list: ${await b.evaluate(deckNames)}`);
   check(!(await b.evaluate(`${deckNames}.some(n => n.startsWith('한국어'))`)), 'the deck and its subdeck are off the list');
   let anki = inAnki();
@@ -251,13 +251,13 @@ try {
   await sleep(300);
   await shot(b, '63-deck-gone');
   await click(b, '.deck-gone .back-btn');
-  check(await until(b, `location.pathname === '/decks' && document.querySelectorAll('.deck-item').length === 1`, 150), 'its button goes back to the list (Default alone now)');
+  check(await until(b, `location.pathname === '/decks' && document.querySelectorAll('.deck-item').length === 2`, 150), 'its button goes back to the list (Default and Chinese now)');
 
   // 8. The page of a deck that is gone, opened directly.
   await goto(b, `${base}/deck/${ids['Long']}`);
   check(await until(b, `document.querySelector('.deck-gone h1')?.textContent === 'This deck no longer exists'`, 150), 'a gone deck\'s address says it no longer exists');
   anki = inAnki();
-  check(/DECKS: Default\n/.test(anki) && /INTEGRITY: ok/.test(anki), `Anki: only Default is left, the file whole (${anki.trim().replaceAll('\n', '; ')})`);
+  check(/DECKS: Chinese\|Default\n/.test(anki) && /INTEGRITY: ok/.test(anki), `Anki: only Default and Chinese are left, the file whole (${anki.trim().replaceAll('\n', '; ')})`);
 
   check(!pageErrors.length, `no page errors${pageErrors.length ? `: ${pageErrors.join(' / ')}` : ''}`);
 } finally {

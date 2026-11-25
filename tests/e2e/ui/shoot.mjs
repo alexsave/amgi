@@ -99,7 +99,7 @@ try {
 
   await goto(b, `${base}/decks`);
   const decks = await until(b, settled);
-  check(decks === 7, `deck list shows 7 decks (saw ${decks})`);
+  check(decks === 8, `deck list shows 8 decks (saw ${decks})`);
   const names = await b.evaluate(`[...document.querySelectorAll('.deck-item h3')].map(h => h.textContent).join(' | ')`);
   check(names.includes('한국어::일상 표현'), `Korean deck names arrive intact: ${names}`);
   await sleep(400);
@@ -112,7 +112,7 @@ try {
   await shot(b, '02-settings');
 
   await back(b);
-  const backed = await until(b, `location.pathname === '/decks' && (${settled}) === 7 && !document.querySelector('.settings-page')`);
+  const backed = await until(b, `location.pathname === '/decks' && (${settled}) === 8 && !document.querySelector('.settings-page')`);
   check(backed, 'the back button returns to /decks and its list');
   await sleep(400);
   await shot(b, '03-back');
@@ -138,11 +138,11 @@ try {
   check(await until(b, `document.querySelectorAll('.deck-langs select').length === 2`), 'Change opens the language selects');
   await sleep(300);
   await shot(b, '04b-langs');
-  await click(b, '.deck-langs button');
-  check(await until(b, `!document.querySelector('.deck-langs select')`), 'Done closes them');
+  await click(b, '.deck-langs button:last-child');
+  check(await until(b, `!document.querySelector('.deck-langs select')`), 'Cancel closes them');
 
   await back(b);
-  check(await until(b, `location.pathname === '/decks' && (${settled}) === 7`), 'back again lands on the list');
+  check(await until(b, `location.pathname === '/decks' && (${settled}) === 8`), 'back again lands on the list');
   await sleep(400);
   await shot(b, '05-back-again');
 
@@ -162,7 +162,7 @@ try {
   await sleep(300);
   await shot(b, '07-long-page2');
   await goto(b, `${base}/decks`);
-  check(await until(b, `(${settled}) === 7`), 'the list again, loaded at /decks');
+  check(await until(b, `(${settled}) === 8`), 'the list again, loaded at /decks');
 
   // Settings while its profile scan is in flight, held by the drive (no timing in it): a person aims
   // at the bridge rows, the scan answers, the click lands. Every row must be where it was aimed at.
