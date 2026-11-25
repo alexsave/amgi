@@ -29,9 +29,10 @@
 #define WIRE_MAGIC 0x32574d41u /* "AMW2" */
 #define WIRE_MIME "application/x-amgi-wire"
 /* The bridge protocol's version. 1 is the first binary one; the add-on that spoke JSON sent none. 2 added
- * GET /notes/:id (b_note_read).
+ * GET /notes/:id (b_note_read). 3 added a deck's language pair: the list's rows carry it
+ * (b_deck_listed) and PUT /decks/:id/languages sets it (q_deck_languages, b_deck_languages).
  * Change it with any change to a b_* kind or to a request kind the bridge reads. */
-#define WIRE_BRIDGE_PROTOCOL 2u
+#define WIRE_BRIDGE_PROTOCOL 3u
 
 /* Field types. */
 enum {
@@ -81,6 +82,9 @@ enum {
   WK_PROGRESS,
   WK_NOTE, /* GET /notes/:id: the one note */
   WK_B_NOTE_READ, /* the bridge's answer to it */
+  WK_Q_DECK_LANGUAGES, /* PUT /decks/:id/languages: the deck's pair (and the bridge's request, the same) */
+  WK_DECK_LANGUAGES, /* its answer */
+  WK_B_DECK_LANGUAGES, /* the bridge's answer to it */
   WK_KINDS
 };
 /* The kind's name as the server's route table spells it ("decks", "q_note"); 0 past the last. */
@@ -101,7 +105,8 @@ enum {
 #define WIRE_NO_SLOT_ERROR "amgi is making as many cards as it can at once; this one waits 2s before starting."
 typedef struct { uint32_t mode; wire_str error; uint32_t retry_after_ms; uint8_t not_started, daily_cap; uint32_t max_wait_ms; } wire_error;
 typedef struct { uint32_t mode, schema_version; wire_str detail; } wire_status;
-typedef struct { int64_t id; wire_str name; uint32_t note_count; } wire_deck;
+/* known and learning: the deck's stored language pair (lang.h's codes), both "" when it has none */
+typedef struct { int64_t id; wire_str name; uint32_t note_count; wire_str known, learning; } wire_deck;
 typedef struct { uint32_t mode; wire_deck *decks; uint32_t ndecks; } wire_decks;
 typedef struct { uint8_t installed, up_to_date, collection_checked; wire_strs stale; uint8_t ready; wire_str base_dir; } wire_install_state;
 typedef struct { wire_str name, collection_path; } wire_profile;
@@ -132,8 +137,10 @@ typedef struct { uint8_t ok, needs_restart; wire_str message, addons_dir; } wire
  * no card. What it took (DELETE /decks/:id): the decks removed, the cards, the notes. */
 typedef struct { uint32_t mode; int64_t id; wire_str name; uint32_t subdecks, cards, notes; } wire_deck_summary;
 typedef struct { uint32_t mode; int64_t id; wire_str name; uint32_t decks, cards, notes; } wire_deck_removed;
+typedef struct { uint32_t mode; int64_t id; wire_str known, learning; } wire_deck_languages; /* PUT /decks/:id/languages */
 
 typedef struct { wire_str name; } wire_q_deck_name;
+typedef struct { wire_str known, learning; } wire_q_deck_languages;
 typedef struct { wire_str base_dir_override; } wire_q_install;
 typedef struct { wire_str known, learning, name; } wire_q_starter;
 typedef struct { int64_t deck_id, notetype_id; wire_strs fields, tags; wire_str language; int32_t learning_field_index; } wire_q_note;
@@ -148,8 +155,10 @@ typedef struct { wire_str text, language; uint8_t fresh; } wire_q_audio;
 typedef struct { uint8_t profile_open; wire_str profile_name; uint8_t collection_open; uint32_t schema_version;
                  wire_str anki_version, qt_version; } wire_b_status;
 typedef struct { wire_str error; } wire_b_error;
-typedef struct { int64_t id; wire_str name; } wire_b_deck; /* a deck listed, or renamed */
-typedef struct { wire_b_deck *decks; uint32_t ndecks; } wire_b_decks;
+typedef struct { int64_t id; wire_str name; } wire_b_deck; /* a deck renamed */
+typedef struct { int64_t id; wire_str name, known, learning; } wire_b_deck_listed; /* a deck in the list, with its pair ("" when none) */
+typedef struct { wire_b_deck_listed *decks; uint32_t ndecks; } wire_b_decks;
+typedef struct { int64_t id; wire_str known, learning; } wire_b_deck_languages;
 typedef struct { uint32_t ord; wire_str name, question_format, answer_format; } wire_b_template;
 typedef struct { int64_t id; wire_str name, kind; uint32_t sort_field_index; wire_strs field_names;
                  wire_b_template *templates; uint32_t ntemplates; } wire_b_notetype;

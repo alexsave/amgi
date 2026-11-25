@@ -33,8 +33,12 @@ SCHEMA(s_status, wire_status,
   F(wire_status, "mode", WT_MODE, mode), F(wire_status, "schemaVersion", WT_U32, schema_version),
   F(wire_status, "detail", WT_STR, detail));
 SCHEMA(s_deck, wire_deck,
-  F(wire_deck, "id", WT_I64, id), F(wire_deck, "name", WT_STR, name), F(wire_deck, "noteCount", WT_U32, note_count));
+  F(wire_deck, "id", WT_I64, id), F(wire_deck, "name", WT_STR, name), F(wire_deck, "noteCount", WT_U32, note_count),
+  F(wire_deck, "known", WT_STR, known), F(wire_deck, "learning", WT_STR, learning));
 SCHEMA(s_decks, wire_decks, F(wire_decks, "mode", WT_MODE, mode), LIST(wire_decks, "decks", decks, ndecks, s_deck));
+SCHEMA(s_deck_languages, wire_deck_languages,
+  F(wire_deck_languages, "mode", WT_MODE, mode), F(wire_deck_languages, "id", WT_I64, id),
+  F(wire_deck_languages, "known", WT_STR, known), F(wire_deck_languages, "learning", WT_STR, learning));
 SCHEMA(s_install_state, wire_install_state,
   F(wire_install_state, "installed", WT_BOOL, installed), F(wire_install_state, "upToDate", WT_TRI, up_to_date),
   F(wire_install_state, "collectionChecked", WT_BOOL, collection_checked),
@@ -114,6 +118,8 @@ SCHEMA(s_deck_removed, wire_deck_removed,
   F(wire_deck_removed, "cards", WT_U32, cards), F(wire_deck_removed, "notes", WT_U32, notes));
 
 SCHEMA(s_q_deck_name, wire_q_deck_name, F(wire_q_deck_name, "name", WT_STR, name));
+SCHEMA(s_q_deck_languages, wire_q_deck_languages,
+  F(wire_q_deck_languages, "known", WT_STR, known), F(wire_q_deck_languages, "learning", WT_STR, learning));
 SCHEMA(s_q_install, wire_q_install, F(wire_q_install, "baseDirOverride", WT_STR, base_dir_override));
 SCHEMA(s_q_starter, wire_q_starter,
   F(wire_q_starter, "known", WT_STR, known), F(wire_q_starter, "learning", WT_STR, learning),
@@ -142,7 +148,13 @@ SCHEMA(s_b_status, wire_b_status,
   F(wire_b_status, "schemaVersion", WT_OPT, schema_version), F(wire_b_status, "ankiVersion", WT_STR, anki_version),
   F(wire_b_status, "qtVersion", WT_STR, qt_version));
 SCHEMA(s_b_deck, wire_b_deck, F(wire_b_deck, "id", WT_I64, id), F(wire_b_deck, "name", WT_STR, name));
-SCHEMA(s_b_decks, wire_b_decks, LIST(wire_b_decks, "decks", decks, ndecks, s_b_deck));
+SCHEMA(s_b_deck_listed, wire_b_deck_listed,
+  F(wire_b_deck_listed, "id", WT_I64, id), F(wire_b_deck_listed, "name", WT_STR, name),
+  F(wire_b_deck_listed, "known", WT_STR, known), F(wire_b_deck_listed, "learning", WT_STR, learning));
+SCHEMA(s_b_decks, wire_b_decks, LIST(wire_b_decks, "decks", decks, ndecks, s_b_deck_listed));
+SCHEMA(s_b_deck_languages, wire_b_deck_languages,
+  F(wire_b_deck_languages, "id", WT_I64, id), F(wire_b_deck_languages, "known", WT_STR, known),
+  F(wire_b_deck_languages, "learning", WT_STR, learning));
 SCHEMA(s_b_template, wire_b_template,
   F(wire_b_template, "ord", WT_U32, ord), F(wire_b_template, "name", WT_STR, name),
   F(wire_b_template, "questionFormat", WT_STR, question_format),
@@ -210,6 +222,8 @@ static const struct { const char *name; const wire_schema *schema; } KINDS[WK_KI
   [WK_B_Q_MEDIA] = {"b_q_media", &s_b_q_media},
   [WK_PROGRESS] = {"progress", &s_progress},
   [WK_NOTE] = {"note", &s_note_one}, [WK_B_NOTE_READ] = {"b_note_read", &s_b_note_read},
+  [WK_Q_DECK_LANGUAGES] = {"q_deck_languages", &s_q_deck_languages}, [WK_DECK_LANGUAGES] = {"deck_languages", &s_deck_languages},
+  [WK_B_DECK_LANGUAGES] = {"b_deck_languages", &s_b_deck_languages},
 };
 const char *wire_kind_name(uint32_t kind) { return kind < WK_KINDS ? KINDS[kind].name : 0; }
 const wire_schema *wire_schema_of(uint32_t kind) { return kind < WK_KINDS ? KINDS[kind].schema : 0; }
