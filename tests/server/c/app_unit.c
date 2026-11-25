@@ -18,6 +18,7 @@
 #include "../../../server/amgi/gate.h"
 #include "../../../server/amgi/gemini.h"
 #include "../../../server/collection/rng.h"
+#include "../../../ui/wire/lang.h"
 
 static int failures, checks;
 #define CHECK(cond, ...)                         \
@@ -313,11 +314,36 @@ static void test_cards(void) {
   ar_free(&a);
 }
 
+/* ---- the one language table (ui/wire/lang.c): the page and the server read the same one ---- */
+static void test_languages(void) {
+  /* The 18 codes the page offered before the table moved, in its order. */
+  static const char *const CODES[] = {"en", "zh_cn", "es", "fr", "pt", "ru", "id", "de", "ja",
+                                      "tr", "zh_hk", "vi", "ko", "it", "th", "hi", "ur", "ar"};
+  CHECK(NLANGUAGES == sizeof CODES / sizeof *CODES, "%u languages", NLANGUAGES);
+  for (uint32_t i = 0; i < NLANGUAGES && i < sizeof CODES / sizeof *CODES; i++)
+    CHECK(!strcmp(LANGUAGES[i].code, CODES[i]), "language %u is %s, not %s", i, LANGUAGES[i].code, CODES[i]);
+  CHECK(!strcmp(LANGUAGES[1].name, "中文") && !strcmp(LANGUAGES[12].name, "한국어"), "the native names are the page's");
+  CHECK(!strcmp(LANGUAGES[1].english, "Mandarin Chinese") && !strcmp(LANGUAGES[10].english, "Cantonese"), "the English names are the prompts'");
+  for (uint32_t i = 0; i < NLANGUAGES; i++)
+    CHECK(LANGUAGES[i].flag[0] && LANGUAGES[i].name[0] && LANGUAGES[i].english[0], "language %u is whole", i);
+  arena a = {0};
+  CHECK(STR_IS(card_language_name(&a, S("zh-CN")), "Mandarin Chinese"), "card_language_name takes its names from the table");
+  CHECK(STR_IS(card_language_name(&a, S("xx")), "xx") && STR_IS(card_language_name(&a, S("")), "the target language"), "and keeps its fallbacks");
+  ar_free(&a);
+  CHECK(lang_known("ko", 2) && lang_known("zh_cn", 5) && !lang_known("zh", 2) && !lang_known("KO", 2) && !lang_known("", 0) &&
+          !lang_known("ko ", 3) && !lang_known("kox", 3) && !lang_known("xx", 2),
+        "lang_known is the exact code");
+  CHECK(lang_pair_ok("en", 2, "ko", 2) && !lang_pair_ok("en", 2, "en", 2) && !lang_pair_ok("en", 2, "xx", 2) &&
+          !lang_pair_ok("", 0, "ko", 2),
+        "a pair is two different known codes");
+}
+
 int main(void) {
   test_gate();
   test_web();
   test_gemini();
   test_cards();
+  test_languages();
   printf("app unit: %d checks, %d failed\n", checks, failures);
   return failures ? 1 : 0;
 }
