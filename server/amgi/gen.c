@@ -101,11 +101,29 @@ static int store_clip(arena *a, progress *p, const amgi_ops *o, str text, str la
 
 static void make_card(arena *a, progress *p, const amgi_ops *o, const char *mode, const wire_q_card_text *q,
                       cb_http_res *res) {
-  str input = js_trim(amgi_str(q->user_input)), known = amgi_str(q->known_language), learning = amgi_str(q->learning_language);
-  if (!input.n || !known.n || !learning.n) {
-    amgi_send_message(a, res, 400, S("userInput, knownLanguage and learningLanguage are required"));
+  str input = js_trim(amgi_str(q->user_input));
+  if (!input.n || !q->deck_id) {
+    amgi_send_message(a, res, 400, S("userInput and deckId are required"));
     return;
   }
+  /* The deck owns the card's languages: its stored pair, read once here, so no client can make a card in another pair. */
+  col_deck *decks;
+  size_t ndecks;
+  col_err ce = {0};
+  if (ops_list_decks(a, o, &decks, &ndecks, &ce)) {
+    fail_plain(a, res, ce.message);
+    return;
+  }
+  const col_deck *deck = amgi_find_deck(decks, ndecks, q->deck_id);
+  if (!deck) {
+    amgi_send_message(a, res, 404, S("This deck no longer exists."));
+    return;
+  }
+  if (!deck->known.n) {
+    amgi_send_message(a, res, 409, amgi_no_languages_refusal());
+    return;
+  }
+  str known = deck->known, learning = deck->learning;
   if (admission_refused(a, res)) return;
   if (!amgi_generation_available()) {
     fail_plain(a, res, S(MISSING_KEY_MESSAGE));
@@ -113,7 +131,7 @@ static void make_card(arena *a, progress *p, const amgi_ops *o, const char *mode
   }
   card_text t;
   gem_err e = {0};
-  if (card_generate_text(a, p, input, known, learning, card_detect_input_language(a, input, known, learning), &t, &e)) {
+  if (card_generate_text(a, p, input, known, learning, card_detect_input_language(a, input, learning), &t, &e)) {
     fail(a, res, &e, "card text generation failed");
     return;
   }

@@ -110,6 +110,24 @@ static col_new_note new_note(arena *a, const wire_q_note *n) {
   return c;
 }
 
+/* A deck's pair decides its notes' language. The note's `language` is its learning language: empty takes the deck's, another is
+ * refused, and a deck with no pair takes no note. The Language field of a note type that has one is the deck's too: it is
+ * filled when the caller left it empty. Returns "" when the note stands (c->language now the deck's), else the sentence it is
+ * refused with. A deck that is not in the list is left to the transport, whose own answer for it is the recorded one. */
+static str note_language(arena *a, const col_deck *decks, size_t n, const col_notetype *nts, size_t nnt, col_new_note *c) {
+  const col_deck *d = amgi_find_deck(decks, n, (int64_t)c->deck_id);
+  if (!d) return S("");
+  if (!d->known.n) return amgi_no_languages_refusal();
+  if (c->language.n && !str_eq(c->language, d->learning)) return amgi_language_mismatch_refusal(a, d->known, d->learning, c->language);
+  c->language = d->learning;
+  for (size_t i = 0; i < nnt; i++) {
+    if ((double)nts[i].id != c->notetype_id) continue;
+    amgi_fields idx = amgi_field_indexes(a, &nts[i]);
+    if (idx.language >= 0 && (size_t)idx.language < c->nfields && !c->fields[idx.language].n) c->fields[idx.language] = d->learning;
+  }
+  return S("");
+}
+
 /* ---- the handlers ---- */
 static void h_status(rq *q) {
   if (!resolve(q)) return;
@@ -194,6 +212,13 @@ static void h_deck_languages_put(rq *q) {
     return deck_failed(q, &e);
   wire_deck_languages w = {mode_of(q), r.id, amgi_ws(r.known), amgi_ws(r.learning)};
   amgi_send_wire(q->a, q->res, 200, WK_DECK_LANGUAGES, &w);
+}
+
+/* POST /decks/:id/languages/detect: the pair a deck has, or finds from its notes and Gemini (detect.c). Runs on the slow pool
+ * like the other Gemini routes. */
+static void h_deck_languages_detect(rq *q) {
+  if (!ready(q)) return;
+  amgi_deck_languages_detect(q->a, &q->o, q->t.mode, amgi_js_number(q->params[0]), q->res);
 }
 
 /* Number(searchParams.get(key)): a missing parameter is Number(null), 0. */
@@ -282,8 +307,14 @@ static void h_notes_post(rq *q) {
   /* Array.isArray(fields) always holds: the wire decodes a list, empty or not. */
   if (!b->deck_id || !b->notetype_id) return amgi_send_message(q->a, q->res, 400, S("deckId, notetypeId and fields are required"));
   col_new_note note = new_note(q->a, b);
-  col_added r;
+  col_deck *decks;
+  col_notetype *nts;
+  size_t nd, nnt;
   col_err e = {0};
+  if (ops_list_decks(q->a, &q->o, &decks, &nd, &e) || ops_list_notetypes(q->a, &q->o, &nts, &nnt, &e)) return fail500(q, &e);
+  str why = note_language(q->a, decks, nd, nts, nnt, &note);
+  if (why.n) return amgi_send_message(q->a, q->res, 409, why);
+  col_added r;
   if (ops_add_note(q->a, &q->o, &note, &r, &e)) return fail400(q, &e);
   wire_note_added w = {mode_of(q), r.note_id};
   amgi_send_wire(q->a, q->res, 200, WK_NOTE_ADDED, &w);
@@ -296,16 +327,33 @@ static void h_notes_bulk(rq *q) {
   for (uint32_t i = 0; i < b->nnotes; i++)
     if (!b->notes[i].deck_id || !b->notes[i].notetype_id)
       return amgi_send_message(q->a, q->res, 400, S("each note requires deckId, notetypeId and fields"));
-  col_new_note *notes = ar_alloc(q->a, (b->nnotes + 1) * sizeof *notes);
-  for (uint32_t i = 0; i < b->nnotes; i++) notes[i] = new_note(q->a, &b->notes[i]);
-  col_added *r;
-  size_t nr;
+  col_deck *decks;
+  col_notetype *nts;
+  size_t nd, nnt;
   col_err e = {0};
-  if (ops_add_notes(q->a, &q->o, notes, b->nnotes, &r, &nr, &e)) return fail400(q, &e);
-  wire_notes_added w = {mode_of(q), ar_alloc(q->a, (nr + 1) * sizeof(wire_note_result)), (uint32_t)nr};
-  for (size_t i = 0; i < nr; i++)
-    w.results[i] = (wire_note_result){(uint8_t)(r[i].ok ? 1 : 0), r[i].ok ? r[i].note_id : 0,
-                                      amgi_ws(r[i].ok ? S("") : r[i].error)};
+  if (ops_list_decks(q->a, &q->o, &decks, &nd, &e) || ops_list_notetypes(q->a, &q->o, &nts, &nnt, &e)) return fail500(q, &e);
+  /* Each note on its own deck's pair: a note refused for it is that note's error result, and the rest go in together. */
+  str *refused = ar_alloc(q->a, (b->nnotes + 1) * sizeof *refused);
+  col_new_note *accepted = ar_alloc(q->a, (b->nnotes + 1) * sizeof *accepted);
+  size_t na = 0;
+  for (uint32_t i = 0; i < b->nnotes; i++) {
+    col_new_note note = new_note(q->a, &b->notes[i]);
+    refused[i] = note_language(q->a, decks, nd, nts, nnt, &note);
+    if (!refused[i].n) accepted[na++] = note;
+  }
+  col_added *r = NULL;
+  size_t nr = 0;
+  if (na && ops_add_notes(q->a, &q->o, accepted, na, &r, &nr, &e)) return fail400(q, &e);
+  wire_notes_added w = {mode_of(q), ar_alloc(q->a, (b->nnotes + 1) * sizeof(wire_note_result)), b->nnotes};
+  size_t at = 0;
+  for (uint32_t i = 0; i < b->nnotes; i++) {
+    if (refused[i].n) {
+      w.results[i] = (wire_note_result){0, 0, amgi_ws(refused[i])};
+      continue;
+    }
+    const col_added *x = at < nr ? &r[at++] : &(col_added){0};
+    w.results[i] = (wire_note_result){(uint8_t)(x->ok ? 1 : 0), x->ok ? x->note_id : 0, amgi_ws(x->ok ? S("") : x->error)};
+  }
   amgi_send_wire(q->a, q->res, 200, WK_NOTES_ADDED, &w);
 }
 
@@ -448,6 +496,7 @@ static const amgi_route ROUTES[] = {
   {"GET", "progress", "/api/anki/progress", -1, h_progress},
   {"GET", "notes/:id", "/api/anki/notes/:id", -1, h_note_get},
   {"PUT", "decks/:id/languages", "/api/anki/decks/:id/languages", WK_Q_DECK_LANGUAGES, h_deck_languages_put},
+  {"POST", "decks/:id/languages/detect", "/api/anki/decks/:id/languages/detect", -1, h_deck_languages_detect},
 };
 #define NROUTES (sizeof ROUTES / sizeof *ROUTES)
 
@@ -556,8 +605,8 @@ static void dispatch(cb_ctx *ctx, size_t i, const cb_http_req *req, cb_http_res 
 #define THUNK(i) \
   static void h##i(cb_ctx *ctx, const cb_http_req *req, cb_http_res *res) { dispatch(ctx, i, req, res); }
 THUNK(0) THUNK(1) THUNK(2) THUNK(3) THUNK(4) THUNK(5) THUNK(6) THUNK(7) THUNK(8) THUNK(9) THUNK(10)
-THUNK(11) THUNK(12) THUNK(13) THUNK(14) THUNK(15) THUNK(16) THUNK(17) THUNK(18) THUNK(19) THUNK(20) THUNK(21) THUNK(22) THUNK(23)
-_Static_assert(NROUTES == 24, "one cbase handler per route");
+THUNK(11) THUNK(12) THUNK(13) THUNK(14) THUNK(15) THUNK(16) THUNK(17) THUNK(18) THUNK(19) THUNK(20) THUNK(21) THUNK(22) THUNK(23) THUNK(24)
+_Static_assert(NROUTES == 25, "one cbase handler per route");
 
 /* ---- the page and its files ---- */
 static void h_root(cb_ctx *ctx, const cb_http_req *req, cb_http_res *res) {
@@ -594,9 +643,9 @@ static void h_other(cb_ctx *ctx, const cb_http_req *req, cb_http_res *res) {
   ar_free(&a);
 }
 
-/* POST /notes/bulk takes a whole paste in one body; every other route the server's default. The two
- * Gemini routes run on cbase's slow pool (CB_ROUTE_SLOW): a card holds its thread for as long as
- * Gemini takes, and the status poll, the clips and the deck list never wait behind one. */
+/* POST /notes/bulk takes a whole paste in one body; every other route the server's default. The three
+ * Gemini routes (card-text, audio, and a deck's languages detect) run on cbase's slow pool (CB_ROUTE_SLOW): a card holds its
+ * thread for as long as Gemini takes, and the status poll, the clips and the deck list never wait behind one. */
 #define BULK_MAX_BODY ((size_t)256 << 20)
 #define ANY(p, f) {.method = "*", .pattern = (p), .flags = CB_ROUTE_POOL, .fn = (f)}
 static const cb_route AMGI_ROUTES[] = {
@@ -624,6 +673,7 @@ static const cb_route AMGI_ROUTES[] = {
   {.method = "GET", .pattern = "/api/anki/progress", .flags = CB_ROUTE_POOL, .fn = h21},
   {.method = "GET", .pattern = "/api/anki/notes/:id", .flags = CB_ROUTE_POOL, .fn = h22},
   {.method = "PUT", .pattern = "/api/anki/decks/:id/languages", .flags = CB_ROUTE_POOL, .fn = h23},
+  {.method = "POST", .pattern = "/api/anki/decks/:id/languages/detect", .flags = CB_ROUTE_SLOW, .fn = h24},
   ANY("/api/anki/*", h_api_fallback),
   ANY("/", h_root),
   ANY("/decks", h_page),

@@ -24,10 +24,11 @@ function refusesCutShort(bytes) {
 
 test('every kind in the schema is one the server can name', () => {
   assert.deepEqual(Object.keys(KIND).slice(0, 3), ['error', 'status', 'decks']);
-  assert.equal(Object.keys(KIND).length, 51);
+  assert.equal(Object.keys(KIND).length, 52);
   assert.equal(KIND.b_q_media, 44, 'the kinds that were there keep their numbers');
   assert.equal(KIND.progress, 45, 'a new one goes at the end');
   assert.deepEqual([KIND.note, KIND.b_note_read, KIND.q_deck_languages, KIND.deck_languages, KIND.b_deck_languages], [46, 47, 48, 49, 50]);
+  assert.equal(KIND.deck_languages_found, 51, 'a new one goes at the end');
 });
 
 test('bytes (the bridge\'s media): any octets, as the app reads them, and back the same', () => {
@@ -52,6 +53,10 @@ test('a deck\'s languages: the request, and the answer that says what is stored'
   const q = encode('q_deck_languages', { known: 'en', learning: 'zh_cn' });
   assert.equal(read(q), 'kind=q_deck_languages\nknown=en\nlearning=zh_cn\nrewritten=same\n');
   refusesCutShort(q);
+  const f = encode('deck_languages_found', { mode: 'direct', id: 1794149693370, stored: true, known: 'en', learning: 'ko', foundBy: 'notes' });
+  assert.equal(read(f), 'kind=deck_languages_found\nmode=direct\nid=1794149693370\nstored=1\nknown=en\nlearning=ko\nfoundBy=notes\nrewritten=same\n');
+  assert.deepEqual(decode('deck_languages_found', encode('deck_languages_found', { mode: 'direct', id: 7 })),
+    { mode: 'direct', id: 7, stored: false, known: '', learning: '', foundBy: '' }, 'a guess with nothing to guess from');
   const a = encode('deck_languages', { mode: 'bridge', id: 1794149693370, known: 'ko', learning: 'en' });
   assert.equal(read(a), 'kind=deck_languages\nmode=bridge\nid=1794149693370\nknown=ko\nlearning=en\nrewritten=same\n');
   refusesCutShort(a);
@@ -122,8 +127,8 @@ test('requests: the server reads back what was written, absent fields left out',
   assert.deepEqual(decode('q_note', encode('q_note', bare)), bare); // no learningFieldIndex: none comes back
   const bulk = { notes: [note, { ...note, fields: ['b'] }] };
   assert.deepEqual(decode('q_notes', encode('q_notes', bulk)), bulk);
-  assert.deepEqual(decode('q_card_text', encode('q_card_text', { userInput: '안녕', knownLanguage: 'en', learningLanguage: 'ko', includeCueAudio: true })),
-    { userInput: '안녕', knownLanguage: 'en', learningLanguage: 'ko', includeCueAudio: true, progressId: 0 }, 'no progressId is 0: a card nobody watches');
+  assert.deepEqual(decode('q_card_text', encode('q_card_text', { userInput: '안녕', deckId: 1794149693370, includeCueAudio: true })),
+    { userInput: '안녕', deckId: 1794149693370, includeCueAudio: true, progressId: 0 }, 'no progressId is 0: a card nobody watches');
   const bytes = encode('q_notes', bulk);
   assert.equal(decode('q_notes', bytes.subarray(0, bytes.length - 1)), null);
   assert.equal(decode('q_note', bytes), null); // the wrong kind

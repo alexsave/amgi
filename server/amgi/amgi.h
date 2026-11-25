@@ -11,6 +11,7 @@
  *   gate.c      plusaudio/lib/rateGate.js, the one rate gate of the process
  *   gemini*.c   the Gemini client (gemini.ts, geminiWire.ts, geminiSpeech.ts) on cbase's gRPC
  *   progress.c  the step each card being made is at (GET /progress)
+ *   detect.c    the languages of a deck with no stored pair, read from its notes and one Gemini request
  *   cards.c     the card generation flow (cardGeneration.ts, cardPrompts.ts, cardText.ts, sideOrder.js,
  *               audio.js, cardText.js)
  *
@@ -82,6 +83,11 @@ int ops_rename_deck(arena *a, const amgi_ops *o, double deck, str name, int64_t 
 /* Why a deck's pair is refused (both codes must be the language table's, and differ), as the one sentence the route answers 400
  * with and the command line says before it makes anything; empty when the pair is fine. */
 str amgi_languages_refusal(arena *a, str known, str learning);
+/* The sentences about a deck's pair, each with this one owner: the routes answer with them and the command line says them. */
+str amgi_pair_names(arena *a, str known, str learning);                 /* "English -> Korean" */
+str amgi_no_languages_refusal(void);                                    /* a deck with no stored pair: choose them first */
+str amgi_language_mismatch_refusal(arena *a, str known, str learning, str language); /* a card in another language than the deck's */
+const col_deck *amgi_find_deck(const col_deck *decks, size_t n, int64_t id);         /* the deck with this id in a list, or NULL */
 int ops_set_deck_languages(arena *a, const amgi_ops *o, double deck, str known, str learning, col_deck_languages *out, col_err *e);
 int ops_removal_summary(arena *a, const amgi_ops *o, double deck, col_removal *out, col_err *e);
 int ops_remove_deck(arena *a, const amgi_ops *o, double deck, col_removal *out, col_err *e);
@@ -132,6 +138,9 @@ void amgi_progress(arena *a, cb_http_res *res); /* GET /progress: the cards bein
 int amgi_gen_open(char *err, size_t cap);
 void amgi_gen_close(void);
 int amgi_generation_available(void); /* Boolean(process.env.GEMINI_API_KEY) */
+
+/* ---- detect.c: POST /decks/:id/languages/detect ---- */
+void amgi_deck_languages_detect(arena *a, const amgi_ops *o, const char *mode, double deck_id, cb_http_res *res);
 
 /* ---- media names (plusaudio/lib/audio-store.js) and the reference a field holds (deck.js) ---- */
 str amgi_media_name(arena *a, str text, str language, const char *extension);
