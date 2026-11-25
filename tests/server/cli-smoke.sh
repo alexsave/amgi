@@ -3,26 +3,31 @@
 # collection under a temp HOME: a locked collection refused, up, a second up, install, deck add (twice: find-or-create),
 # card add (the manual form: no Gemini), card list, deck list, deck remove (dry run, then --yes), the error exits, down.
 #   make build && tests/server/cli-smoke.sh
+# The CLI's pid file and log are in AMGI_STATE_DIR (a directory under the sandbox), so this runs
+# beside an amgi up from the same checkout without touching it.
 # Every process here runs with the temp HOME (tests/e2e/ui/sandbox-home.sh), so nothing can reach a
 # real Anki profile. No Gemini call is made: the generate form is only run without a key (exit 5).
 set -uo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 root="$(cd "$here/../.." && pwd)"
 amgi="$root/server/build/amgi"
-pidfile="$root/server/build/amgi.pid"
 . "$root/tests/e2e/ui/sandbox-home.sh"
 home="$(fresh_home)"
+# the CLI's pid file and log go in a directory of this run's own, so an amgi up running from this
+# checkout (server/build/amgi.pid) is neither in the way nor touched
+state="$sandbox_root/state"
+mkdir -p "$state"
+pidfile="$state/amgi.pid"
 unset CBASE_ENV_FILE GEMINI_API_KEY GEMINI_API_BASE
 
 [ -x "$amgi" ] || { echo "no $amgi: make build first" >&2; exit 1; }
-[ -e "$pidfile" ] && { echo "$pidfile exists: an amgi up is running from this checkout; amgi down first" >&2; exit 1; }
 
 profile="$home/Library/Application Support/Anki2/User 1"
 mkdir -p "$profile"
 cp -R "$root/tests/server/parity/fixtures/schema18/." "$profile/"
 collection="$profile/collection.anki2"
 
-run() { env "HOME=$home" "$amgi" "$@"; }
+run() { env "HOME=$home" "AMGI_STATE_DIR=$state" "$amgi" "$@"; }
 cleanup() { [ -e "$pidfile" ] && run down > /dev/null; rm -rf "$sandbox_root"; }
 trap cleanup EXIT
 
