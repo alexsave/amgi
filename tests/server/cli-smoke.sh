@@ -1,7 +1,8 @@
 #!/bin/bash
 # The amgi command line end to end, as an agent drives it (skills/amgi/SKILL.md), on a throwaway
 # collection under a temp HOME: a locked collection refused, up, a second up, install, deck add (twice: find-or-create),
-# card add (the manual form: no Gemini), card list, deck list, deck remove (dry run, then --yes), the error exits, down.
+# card add (the manual form: no Gemini; a deck's languages decide the card), card list, deck list, deck remove (dry run, then --yes),
+# the error exits, down.
 #   make build && tests/server/cli-smoke.sh
 # The CLI's pid file and log are in AMGI_STATE_DIR (a directory under the sandbox), so this runs
 # beside an amgi up from the same checkout without touching it.
@@ -72,13 +73,31 @@ first="$out"
 expect 0 "^deck${tab}[0-9]+${tab}0${tab}Spanish${tab}-${tab}-\$" deck add Spanish
 [ "$out" = "$first" ] || { echo "FAIL a second deck add is another deck: $first / $out"; fails=$((fails + 1)); }
 [ "$err" = "amgi: the deck was already there" ] || { echo "FAIL a second deck add said: $err"; fails=$((fails + 1)); }
+# a deck with no pair takes no card: the server is asked to find one (its amgi cards, one Gemini request; there is neither here), and
+# without --from and --to that is a usage error, said before anything is added
+expect 4 - card add --deck Spanish --front "Where is the station?" --back "¿Dónde está la estación?"
+case "$err" in *"the deck has no languages yet: pass --from and --to"*"nothing added") ;; *) echo "FAIL the no-languages message: $err"; fails=$((fails + 1)) ;; esac
+expect 4 - card add --deck Spanish --front "Where is the station?" --back "¿Dónde está la estación?" --to es
+expect 4 - card add --deck Spanish --text "Good morning"
+expect 0 "^deck${tab}[0-9]+${tab}0${tab}Spanish${tab}-${tab}-\$" deck list
+# --from and --to set a deck's pair once, as the explicit choice, and the card goes on in it
 expect 0 "^note${tab}[0-9]+${tab}Where is the station\\?${tab}¿Dónde está la estación\\?${tab}-${tab}-\$" \
-  card add --deck Spanish --front "Where is the station?" --back "¿Dónde está la estación?" --to es
+  card add --deck Spanish --front "Where is the station?" --back "¿Dónde está la estación?" --from en --to es
+expect 0 "^deck${tab}[0-9]+${tab}1${tab}Spanish${tab}en${tab}es\$" deck list
+# the deck's pair decides every card after: another --to or --from is refused and names the deck's own, and adds nothing
+expect 4 - card add --deck Spanish --front a --back b --to ja
+case "$err" in *"is English -> Spanish"*"nothing added"*) ;; *) echo "FAIL the other-pair message: $err"; fails=$((fails + 1)) ;; esac
+expect 4 - card add --deck Spanish --front a --back b --from ko --to es
+expect 4 - card add --deck Spanish --text "Good morning" --to ja
+expect 0 - card list --deck Spanish
+[ "$(printf '%s\n' "$out" | grep -c "^note${tab}")" = 1 ] || { echo "FAIL a refused card add added a note: $out"; fails=$((fails + 1)); }
 expect 0 "^note${tab}[0-9]+${tab}Where is the station\\?${tab}" card list --deck Spanish
-expect 0 "^deck${tab}[0-9]+${tab}1${tab}Spanish${tab}-${tab}-\$" deck list
+expect 0 "^deck${tab}[0-9]+${tab}1${tab}Spanish${tab}en${tab}es\$" deck list
 expect 3 - card add --deck Nope --front a --back b
 expect 3 - card list --deck Nope
 expect 5 - card add --deck Spanish --text "Good morning" --from en --to es
+case "$err" in *"--key-file"*) ;; *) echo "FAIL the no-key message does not say --key-file: $err"; fails=$((fails + 1)) ;; esac
+expect 5 - card add --deck Spanish --text "Good morning"
 case "$err" in *"--key-file"*) ;; *) echo "FAIL the no-key message does not say --key-file: $err"; fails=$((fails + 1)) ;; esac
 # card remove: without --yes nothing goes; with it the note is gone; an unknown or malformed ID deletes nothing
 expect 0 "^note${tab}[0-9]+${tab}Where is the station" card list --deck Spanish
@@ -91,17 +110,17 @@ case "$err" in "amgi: no note 12345 "*"nothing deleted") ;; *) echo "FAIL the un
 expect 0 "^would-remove${tab}$nid${tab}Where is the station\\?${tab}¿Dónde está la estación\\?\$" card remove "$nid"
 expect 0 "^note${tab}$nid${tab}" card list --deck Spanish
 expect 0 "^removed${tab}$nid${tab}Where is the station\\?${tab}¿Dónde está la estación\\?\$" card remove "$nid" --yes
-expect 0 "^deck${tab}[0-9]+${tab}0${tab}Spanish${tab}-${tab}-\$" deck list
+expect 0 "^deck${tab}[0-9]+${tab}0${tab}Spanish${tab}en${tab}es\$" deck list
 expect 3 - card remove "$nid" --yes
 case "$err" in "amgi: no note $nid "*"nothing deleted") ;; *) echo "FAIL the second remove's message: $err"; fails=$((fails + 1)) ;; esac
-expect 0 - card add --deck Spanish --front "Where is the station?" --back "¿Dónde está la estación?" --to es
+expect 0 - card add --deck Spanish --front "Where is the station?" --back "¿Dónde está la estación?"   # no --to: the deck has its pair
 # a deck's language pair: deck add --from KNOWN --to LEARNING stores it in the deck (and says it), deck list prints it,
 # a pair without its other half, or a bad one, is a usage error (and the server, asked directly, refuses it too: the HTTP suite)
 expect 0 "^deck${tab}[0-9]+${tab}0${tab}Hanzi${tab}en${tab}ko\$" deck add Hanzi --from en --to ko
 expect 0 "^deck${tab}[0-9]+${tab}0${tab}Hanzi${tab}ko${tab}zh_cn\$" deck add Hanzi --from ko --to zh_cn
 [ "$err" = "amgi: the deck was already there" ] || { echo "FAIL a pair on a deck that was there said: $err"; fails=$((fails + 1)); }
 expect 0 "^deck${tab}[0-9]+${tab}0${tab}Hanzi${tab}ko${tab}zh_cn\$" deck list
-expect 0 "^deck${tab}[0-9]+${tab}1${tab}Spanish${tab}-${tab}-\$" deck list
+expect 0 "^deck${tab}[0-9]+${tab}1${tab}Spanish${tab}en${tab}es\$" deck list
 expect 4 - deck add Hanzi --from en
 expect 4 - deck add Hanzi --to ko
 expect 4 - deck add Hanzi --from en --to
@@ -117,7 +136,7 @@ expect 0 "^deck${tab}[0-9]+${tab}0${tab}Hanzi${tab}ko${tab}zh_cn\$" deck list
 expect 0 - deck remove Hanzi --yes
 # deck remove: without --yes nothing goes; with it the deck is gone; a wrong name and Default delete nothing
 expect 0 "^would-remove${tab}[0-9]+${tab}1${tab}1${tab}0${tab}Spanish\$" deck remove Spanish
-expect 0 "^deck${tab}[0-9]+${tab}1${tab}Spanish${tab}-${tab}-\$" deck list
+expect 0 "^deck${tab}[0-9]+${tab}1${tab}Spanish${tab}en${tab}es\$" deck list
 expect 3 - deck remove Nope --yes
 expect 4 - deck remove Default --yes
 expect 0 "^deck${tab}1${tab}" deck list
