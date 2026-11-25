@@ -16,12 +16,15 @@ This skill covers the app: the deck browser and card builder, and the two transp
 You need two things, neither of which this repo can vendor:
 
 1. **A Python with the `anki` library importable.**
+   On a Mac with Anki.app installed, `tests/anki-python.sh` finds one by itself: Anki.app's own library with a CPython of the version it was built for (`uv python install X.Y` when there is none), through a wrapper at `server/build/anki-python`.
+   `npm test` runs it first and fails, saying what is missing, when it finds nothing.
+   Elsewhere, make one:
 
    ```bash
    python3 -m venv .venv && .venv/bin/pip install anki   # or: uv venv && uv pip install anki
    ```
 
-   Point `ANKI_PYTHON_BIN` at that interpreter for every command below.
+   Point `ANKI_PYTHON_BIN` at that interpreter (or at `"$(tests/anki-python.sh)"`) for every command below.
 2. **A real `.apkg` to seed the fixture from.**
    It must hold exactly one deck, named `Showcase source`, with three notes: the drives count seven decks in all and open that one by name.
    Export one from Anki (File > Export, "Anki Package"); any other package fails the shoot, deckdelete and bulk drives.
@@ -35,7 +38,7 @@ node --test tests/server/parity/collection.test.mjs   # confirms both actually w
 
 That test is not part of this skill - it is the proof that the C collection core writes what the real Anki library writes - but it exercises exactly the same `ANKI_PYTHON_BIN`/`ANKI_FIXTURE_APKG` machinery this skill's scripts reuse (`scripts/fixture.js` wraps `tests/server/plusaudio/collection/helpers/anki-python.js` rather than re-implementing it), so a green run here means the fixture-building and lock-holding steps below will work too.
 
-`npm test` needs only `ANKI_PYTHON_BIN`: the collection tests that import a shared deck build their own small one with Anki (`buildSharedDeckPackage` in that helper), so no test depends on what is in your package.
+`npm test` needs only that interpreter (it sets `ANKI_PYTHON_BIN` itself): the collection tests that import a shared deck build their own small one with Anki (`buildSharedDeckPackage` in that helper), so no test depends on what is in your package.
 `ANKI_FIXTURE_APKG` is for the browser drives: `tests/e2e/ui/fixture.sh` imports it into the UI fixture every drive copies (its decks are the list the screens show), and `states.mjs` builds its "before amgi" collection the same way (`scripts/fixture.js`).
 
 ## Building the fixture

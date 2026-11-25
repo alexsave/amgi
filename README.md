@@ -84,7 +84,7 @@ make start      # builds ui/out and server/build/amgi, then serves http://127.0.
 make build      # the same, not started
 npm install     # once, for the tests and the linter (Node 24.12, 25.1 or 26 and later)
 npm run lint
-npm test        # builds, then the C unit tests (ASan, UBSan), the node:test suites (the server's contract, plusaudio, anki, ui) and the add-on's Python tests
+npm test        # builds, then the C unit tests (ASan, UBSan), the command line's smoke (tests/server/cli-smoke.sh), the node:test suites (the server's contract, plusaudio, anki, ui) and the add-on's Python tests
 npm run e2e     # builds, then every browser drive against fresh servers (see .claude/skills/e2e-ui)
 make -C server check   # cbase's whole check with amgi as its product (its gates, unit tests and smokes)
 ```
@@ -93,6 +93,9 @@ The page is C, compiled to WebAssembly on [cdom](https://github.com/alexsave/cdo
 The server is C: `server/build/amgi`, the amgi app (`server/app/`, `server/amgi/`) on [cbase](https://github.com/alexsave/cbase)'s `serve` (the submodule at `cbase/`), with the Anki collection code (`server/collection/`), the rate gate and the Gemini client (gRPC over HTTP/2, cbase's) in the same process.
 `server/build/amgi` is also the command line for agents and scripts (`amgi up`, `amgi deck add`, `amgi card add`, `amgi down`; `skills/amgi/SKILL.md`), a client of the same server on loopback.
 `make start` starts it through cbase's `make serve` (`make -C server serve`, run from the repository root): it listens on `CBASE_LISTEN` (`127.0.0.1:3000` by default, or `PORT`), says `cbase: listening <host>:<port>` on stdout, answers only a `Host` of `127.0.0.1`, `localhost` or `[::1]` at that port (against DNS rebinding), sends no CORS headers, and reads `.env.local` through cbase's `CBASE_ENV_FILE`.
+The Anki-backed tests never skip: `npm test` first runs `tests/anki-python.sh`, which finds a Python that imports the `anki` library (`ANKI_PYTHON_BIN` when set, else Anki.app's own library with a matching CPython, found on `PATH` or under uv's python directory) and fails, saying what is missing, when there is none.
+It exports the result as `ANKI_PYTHON_BIN` for every suite it runs.
+The command line keeps its pid file and log beside its binary, or in the directory `AMGI_STATE_DIR` names, which is how the smoke runs beside an `amgi up` from the same checkout.
 `.claude/skills/e2e-ui/` and `tests/e2e/ui/` drive the app in headless Chrome against a fixture Anki collection.
 `tests/e2e/anki/drive.js` does the same for the card template.
 `tests/server/parity/` holds the server's contract: an HTTP suite over every route and error shape, compared byte for byte with a recording (made from the Node server the C one replaced), and a collection runner that applies one operation list to schema 11 and 18 fixtures through the C core and compares every row afterwards.
