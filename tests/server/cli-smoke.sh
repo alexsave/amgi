@@ -75,6 +75,19 @@ expect 3 - card add --deck Nope --front a --back b
 expect 3 - card list --deck Nope
 expect 5 - card add --deck Spanish --text "Good morning" --from en --to es
 case "$err" in *"--key-file"*) ;; *) echo "FAIL the no-key message does not say --key-file: $err"; fails=$((fails + 1)) ;; esac
+# card remove: without --yes nothing goes; with it the note is gone; an unknown or malformed ID deletes nothing
+expect 0 "^note${tab}[0-9]+${tab}Where is the station" card list --deck Spanish
+nid="$(printf '%s' "$out" | cut -f2)"
+expect 4 - card remove
+expect 4 - card remove abc --yes
+expect 4 - card remove -5
+expect 3 - card remove 12345 --yes
+expect 0 "^would-remove${tab}$nid${tab}Where is the station\\?${tab}¿Dónde está la estación\\?\$" card remove "$nid"
+expect 0 "^note${tab}$nid${tab}" card list --deck Spanish
+expect 0 "^removed${tab}$nid${tab}Where is the station\\?${tab}¿Dónde está la estación\\?\$" card remove "$nid" --yes
+expect 0 "^deck${tab}[0-9]+${tab}0${tab}Spanish\$" deck list
+expect 3 - card remove "$nid" --yes
+expect 0 - card add --deck Spanish --front "Where is the station?" --back "¿Dónde está la estación?" --to es
 # deck remove: without --yes nothing goes; with it the deck is gone; a wrong name and Default delete nothing
 expect 0 "^would-remove${tab}[0-9]+${tab}1${tab}1${tab}0${tab}Spanish\$" deck remove Spanish
 expect 0 "^deck${tab}[0-9]+${tab}1${tab}Spanish\$" deck list

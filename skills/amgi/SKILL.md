@@ -36,7 +36,7 @@ server/build/amgi down
 Language codes: `en`, `ko`, `ja`, `zh_cn`, `zh_hk`, `es`, `fr`, `pt`, `ru`, `id`, `de`, `tr`, `vi`, `it`, `th`, `hi`, `ur`, `ar`.
 `card add --deck D --front TEXT --back TEXT` makes a card with no Gemini call and no audio.
 A write prints what reading it back finds.
-Output is tab-separated: `deck ID NOTES NAME`, `would-remove ID NOTES CARDS SUBDECKS NAME`, `removed ID NOTES CARDS DECKS NAME`, `note ID FRONT BACK CUE_AUDIO TARGET_AUDIO` (`-` when absent), `status MODE SCHEMA PID PORT PROFILE COLLECTION`, `install READY ADDONS UP_TO_DATE NOTE_TYPE_CHECKED`.
+Output is tab-separated: `deck ID NOTES NAME`, `would-remove ID NOTES CARDS SUBDECKS NAME` and `removed ID NOTES CARDS DECKS NAME` (for `deck remove`), `would-remove ID FRONT BACK` and `removed ID FRONT BACK` (for `card remove`), `note ID FRONT BACK CUE_AUDIO TARGET_AUDIO` (`-` when absent), `status MODE SCHEMA PID PORT PROFILE COLLECTION`, `install READY ADDONS UP_TO_DATE NOTE_TYPE_CHECKED`.
 Exit codes: 0 ok, 1 other (amgi not up, server error), 2 locked, 3 not found, 4 usage, 5 Gemini.
 `deck add` is find-or-create: the same name again prints the same deck line, exits 0, and says `amgi: the deck was already there` on stderr.
 `up` serves on 127.0.0.1:3000 in the background (`--port N`; `--profile NAME` when there are several); pid file `server/build/amgi.pid`, log `server/build/amgi.log`.
@@ -46,13 +46,16 @@ Another checkout's `up`, or `make start`, on the same port makes `up` exit 1 wit
 `deck remove NAME --yes` deletes the deck, its subdecks, their cards and the notes left with no card, and prints `removed`.
 It matches the exact name only (none: exit 3), refuses the Default deck (exit 4), and deletes nothing in either case.
 The audio files of a removed deck stay in `collection.media` until Anki's Tools > Check Media.
+`card remove ID` deletes nothing: it prints `would-remove ID FRONT BACK` and says to pass `--yes`.
+`card remove ID --yes` deletes that one note, its cards and their review history, and prints `removed ID FRONT BACK`.
+`ID` is the note ID that `card list` prints after `note`; an ID that is no note exits 3, and a missing or non-numeric ID exits 4, both deleting nothing.
 
 ## Which commands write
 
-Read-only: `status`, `deck list`, `card list`, and `deck remove` without `--yes`.
-Writes: `deck add`, `card add`, `deck remove --yes`, `install`.
+Read-only: `status`, `deck list`, `card list`, and `deck remove` and `card remove` without `--yes`.
+Writes: `deck add`, `card add`, `deck remove --yes`, `card remove --yes`, `install`.
 `card add --text` stores two audio clips in `collection.media` as soon as Gemini answers, even if no note is then added.
-Ask the user before `deck remove --yes` on a deck the user did not ask to delete.
+Ask the user before `deck remove --yes` on a deck, or `card remove --yes` on a note, that the user did not ask to delete.
 `install` is NOT part of adding a card: when amgi is installed, `amgi status` prints a line starting `install<TAB>yes`; run `amgi install` only when the user asks.
 
 ## The key and Gemini's limits

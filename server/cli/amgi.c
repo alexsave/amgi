@@ -9,6 +9,7 @@
  *   amgi deck add NAME | amgi deck list | amgi deck remove NAME [--yes]
  *   amgi card add --deck NAME (--front TEXT --back TEXT [--to LANG] | --text TEXT --from LANG --to LANG [--no-audio])
  *   amgi card list --deck NAME
+ *   amgi card remove ID [--yes]
  *
  * Every command is a call to the running server's routes (server/amgi/routes.c) in the wire format,
  * through cbase's loopback client, so the server's handlers stay the one owner of every rule: the
@@ -18,6 +19,8 @@
  *   deck ID NOTES NAME
  *   would-remove ID NOTES CARDS SUBDECKS NAME           (deck remove without --yes: nothing deleted)
  *   removed ID NOTES CARDS DECKS NAME                   (deck remove --yes: what the delete took)
+ *   would-remove ID FRONT BACK                          (card remove without --yes: nothing deleted)
+ *   removed ID FRONT BACK                               (card remove --yes: the note and its cards are gone)
  *   note ID FRONT BACK CUE_AUDIO TARGET_AUDIO          (an audio field is its [sound:...] reference, or -)
  *   status MODE SCHEMA PID PORT PROFILE COLLECTION
  *   install READY ADDONS UP_TO_DATE NOTE_TYPE_CHECKED  (each yes, no or unknown)
@@ -77,6 +80,7 @@ static const char USAGE[] =
   "  amgi card add --deck NAME --front TEXT --back TEXT [--to LANG]\n"
   "  amgi card add --deck NAME --text TEXT --from LANG --to LANG [--no-audio]\n"
   "  amgi card list --deck NAME\n"
+  "  amgi card remove ID [--yes]     (ID is the note ID card list prints; without --yes: what it would remove, and nothing is deleted)\n"
   "  amgi serve        (the server in the foreground; make start runs it)\n"
   "exit: 0 ok, 1 other failure, 2 locked (Anki open), 3 not found, 4 usage, 5 Gemini\n";
 
@@ -752,8 +756,89 @@ static const wire_card_text *generate(arena *a, const up_state *s, const wire_q_
   }
 }
 
+/* The note with this id, searched through every deck's notes (there is no route to read one note), or NULL
+ * with *rc 0 when there is none. */
+static const wire_note *find_note(arena *a, const up_state *s, int64_t id, int *rc) {
+  const wire_decks *ds = get(a, s, "/api/anki/decks", WK_DECKS, rc);
+  if (!ds) return NULL;
+  for (uint32_t k = 0; k < ds->ndecks; k++)
+    for (uint32_t offset = 0;;) {
+      char path[128];
+      snprintf(path, sizeof path, "/api/anki/decks/%lld/notes?offset=%u&limit=200", (long long)ds->decks[k].id, offset);
+      const wire_notes *ns = get(a, s, path, WK_NOTES, rc);
+      if (!ns) return NULL;
+      for (uint32_t i = 0; i < ns->nnotes; i++)
+        if (ns->notes[i].id == id) return &ns->notes[i];
+      if (!ns->has_more || !ns->nnotes) break;
+      offset += ns->nnotes;
+    }
+  *rc = RC_OK;
+  return NULL;
+}
+
+/* card remove ID [--yes]: the note card list prints. Without --yes it only says what a delete would take;
+ * with it, DELETE /notes/:id (the note, its cards and their review history), then a read-back that it is gone. */
+static int card_remove(int argc, char **argv) {
+  const char *arg = NULL;
+  int yes = 0;
+  opt opts[] = {{"--yes", NULL, &yes}};
+  if (parse_opts(argc, argv, 3, opts, 1, &arg) || !arg || !arg[0]) return usage("card remove takes one note ID (from card list), and --yes to delete");
+  char *end;
+  errno = 0;
+  long long id = strtoll(arg, &end, 10);
+  if (*end || errno || id <= 0 || arg[0] == '+') return usage("card remove takes a note ID: the number card list prints after note");
+  up_state s;
+  int rc = need_up(&s);
+  if (rc) return rc;
+  arena a = {0};
+  const wire_note *n = find_note(&a, &s, id, &rc);
+  if (!n) {
+    if (!rc) {
+      fprintf(stderr, "amgi: no note %lld (card list shows the note IDs): nothing deleted\n", id);
+      rc = RC_NOT_FOUND;
+    }
+    goto out;
+  }
+  const wire_notetypes *nts = get(&a, &s, "/api/anki/notetypes", WK_NOTETYPES, &rc);
+  if (!nts) goto out;
+  listening l = {0};
+  find_listening(&a, nts, &l);
+  int amgi = l.nt && n->notetype_id == l.nt->id;
+  int front = amgi ? l.idx.cue : 0, back = amgi ? l.idx.target : 1;
+  char path[96];
+  snprintf(path, sizeof path, "/api/anki/notes/%lld", id);
+  if (yes) {
+    answer x;
+    if ((rc = call(&a, &s, "DELETE", path, -1, NULL, CALL_MS, &x))) goto out;
+    if (x.status != 200) {
+      rc = failed(&a, &x, path);
+      goto out;
+    }
+    if (!as_kind(&a, &x, WK_NOTE_CHANGED)) {
+      fprintf(stderr, "amgi: DELETE %s answered something other than note_changed\n", path);
+      rc = RC_FAIL;
+      goto out;
+    }
+    arena b = {0}; /* the read-back: no deck has it now */
+    const wire_note *gone = find_note(&b, &s, id, &rc);
+    if (gone) fprintf(stderr, "amgi: note %lld was removed but its deck still shows it\n", id), rc = RC_FAIL;
+    ar_free(&b);
+    if (rc) goto out;
+  }
+  printf("%s\t%lld\t", yes ? "removed" : "would-remove", id);
+  if ((uint32_t)front < n->fields.n) put_w(n->fields.v[front]);
+  putchar('\t');
+  if ((uint32_t)back < n->fields.n) put_w(n->fields.v[back]);
+  putchar('\n');
+  if (!yes) fputs("amgi: nothing was deleted; run it again with --yes to delete the note, its cards and their review history\n", stderr);
+out:
+  ar_free(&a);
+  return rc;
+}
+
 static int cmd_card(int argc, char **argv) {
-  if (argc < 3 || (strcmp(argv[2], "add") && strcmp(argv[2], "list"))) return usage("card takes add or list");
+  if (argc >= 3 && !strcmp(argv[2], "remove")) return card_remove(argc, argv);
+  if (argc < 3 || (strcmp(argv[2], "add") && strcmp(argv[2], "list"))) return usage("card takes add, list or remove ID");
   int add = !strcmp(argv[2], "add");
   const char *deck = NULL, *front = NULL, *back = NULL, *text = NULL, *from = NULL, *to = NULL;
   int no_audio = 0;
