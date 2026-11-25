@@ -73,7 +73,7 @@ try {
   await b.send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 900, deviceScaleFactor: 2, mobile: false });
   await seed(b, base, { baseDir: ankiDir, collection, profile: 'User 1' });
   await goto(b, `${base}/decks`);
-  await until(b, `document.querySelectorAll('.deck-item').length === 7`, 150);
+  await until(b, `document.querySelectorAll('.deck-item').length === 8`, 150);
   const i = await b.evaluate(`[...document.querySelectorAll('.deck-item h3')].findIndex(h => h.textContent === '한국어')`);
   await click(b, `.deck-item:nth-child(${i + 1})`);
   check(await until(b, `document.querySelectorAll('.note-rows > li').length === 4`, 150), 'the deck page, four notes');
@@ -88,7 +88,7 @@ try {
   let last = perVisit;
   for (let v = 1; v < visits && last === perVisit; v++) {
     await click(b, '.back-btn');
-    await until(b, `document.querySelectorAll('.deck-item').length === 7`, 150);
+    await until(b, `document.querySelectorAll('.deck-item').length === 8`, 150);
     await click(b, `.deck-item:nth-child(${i + 1})`);
     await until(b, `document.querySelectorAll('.note-rows > li').length === 4`, 150);
     await until(b, `${chipsOf} === ${perVisit}`, 50);

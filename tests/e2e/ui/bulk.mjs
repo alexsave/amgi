@@ -85,7 +85,7 @@ try {
   await b.send('Network.enable');
   await seed(b, base, { baseDir: ankiDir, collection, profile: 'User 1' });
   await goto(b, `${base}/decks`);
-  await until(b, `document.querySelectorAll('.deck-item').length === 7`, 150);
+  await until(b, `document.querySelectorAll('.deck-item').length === 8`, 150);
   const i = await b.evaluate(`[...document.querySelectorAll('.deck-item h3')].findIndex(h => h.textContent === 'Showcase source')`);
   await click(b, `.deck-item:nth-child(${i + 1})`);
   check(await until(b, `!!document.querySelector('#amgiCardInput') && document.querySelectorAll('.note-rows > li').length === 3`, 150), 'the deck page and its form');

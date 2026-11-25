@@ -26,7 +26,7 @@ You need two things, neither of which this repo can vendor:
 
    Point `ANKI_PYTHON_BIN` at that interpreter (or at `"$(tests/anki-python.sh)"`) for every command below.
 2. **A real `.apkg` to seed the fixture from.**
-   It must hold exactly one deck, named `Showcase source`, with three notes: the drives count seven decks in all and open that one by name.
+   It must hold exactly one deck, named `Showcase source`, with three notes: the drives count eight decks in all and open that one by name.
    Export one from Anki (File > Export, "Anki Package"); any other package fails the shoot, deckdelete and bulk drives.
    Point `ANKI_FIXTURE_APKG` at its path.
 
@@ -62,6 +62,7 @@ Then `tests/e2e/ui/drives.sh` runs the drives one at a time, one headless Chrome
 - `shoot.mjs`: the deck list, settings, a deck, its language picker, paging through a long deck, the back button, and first-paint timings.
 - `flows.mjs`: first run, install, the create-deck modal, the card-design notice, the starter deck.
 - `edit.mjs`: the card panel (edit, redo, a failed redo), deleting through the confirm dialog, renaming a deck.
+- `languages.mjs`: a deck's languages (the deck's own, from GET /decks): a stored pair drawn at once, Change and its Save written to the file (checked with Anki), the same code refused on both sides, a save that fails under a real lock, the deck with zh_cn notes and no pair found once (held in flight), and the picker for a deck the server cannot decide, each shot at 1280 and at phone width.
 - `deckdelete.mjs`: deleting a deck from the bottom of its page: not offered for Default, the confirmation's counts, Cancel and Escape, a deck with a subdeck, an empty one, Anki holding the file (the failure under the button), a deck deleted underneath the page and a gone deck's address ("This deck no longer exists"), each delete checked in the file with Anki itself.
 - `bulk.mjs`: making cards against the fake Gemini, including a per-minute limit (the countdown), a failure, and a spent daily cap.
 - `limits.mjs`: text one byte too long for each box (a new deck's name and a rename past 512 bytes, a paste past 64 KB, a card field past 4096 bytes, a bridge token past 2048, an Anki data folder path of 1500 bytes refused by Save and Scan alike), each refused with a message and nothing kept.

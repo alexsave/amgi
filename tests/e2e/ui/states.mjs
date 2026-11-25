@@ -84,7 +84,7 @@ try {
   const ready = folder('state-ready', 'all');
   b = await open({ base: ready });
   await goto(b, `${base}/`);
-  check(await until(b, `document.querySelectorAll('.deck-item').length === 7 && !document.querySelector('.first-run') && location.pathname === '/decks'`, 150),
+  check(await until(b, `document.querySelectorAll('.deck-item').length === 8 && !document.querySelector('.first-run') && location.pathname === '/decks'`, 150),
     `ready: the profile is picked and the list shows at /decks (${await b.evaluate('location.pathname')}, ${await b.evaluate(steps)})`);
   check(await b.evaluate(badge) === 'Anki connected', 'ready: the badge says connected');
   await sleep(300);
