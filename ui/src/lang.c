@@ -1,19 +1,9 @@
-/* The languages (src/constants/languages.js, in its order), and the pair each deck remembers. */
+/* The languages are wire/lang.c's table; this is the page's lookup of one, and the pair each deck remembers. */
 #include "app.h"
 
-const language LANGUAGES[] = {
-  {"en", "English", "🇺🇸"}, {"zh_cn", "中文", "🇨🇳"}, {"es", "Español", "🇪🇸"}, {"fr", "Français", "🇫🇷"},
-  {"pt", "Português", "🇵🇹"}, {"ru", "Русский", "🇷🇺"}, {"id", "Bahasa Indonesia", "🇮🇩"}, {"de", "Deutsch", "🇩🇪"},
-  {"ja", "日本語", "🇯🇵"}, {"tr", "Türkçe", "🇹🇷"}, {"zh_hk", "廣東話", "🇭🇰"}, {"vi", "Tiếng Việt", "🇻🇳"},
-  {"ko", "한국어", "🇰🇷"}, {"it", "Italiano", "🇮🇹"}, {"th", "ภาษาไทย", "🇹🇭"}, {"hi", "हिन्दी", "🇮🇳"},
-  {"ur", "اردو", "🇵🇰"}, {"ar", "العربية", "🇸🇦"},
-};
-const uint32_t NLANGUAGES = sizeof LANGUAGES / sizeof *LANGUAGES;
-
 const char *language_name(const char *code, uint32_t len) {
-  for (uint32_t i = 0; i < NLANGUAGES; i++)
-    if (same_z(code, len, LANGUAGES[i].code)) return LANGUAGES[i].name;
-  return 0;
+  const lang_entry *l = lang_find(code, len);
+  return l ? l->name : 0;
 }
 
 /* A deck's pair in the store under "amgi:deck-languages:<id>", as "<known> <learning>": the

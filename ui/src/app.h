@@ -9,6 +9,7 @@
 #include "cdom_net.h"
 #include "cdom_store.h"
 #include "cdom_url.h"
+#include "../wire/lang.h"
 #include "../wire/wire.h"
 
 /* ---- text (text.c) ---- */
@@ -159,10 +160,7 @@ void badge_build(badge *b);
 void badges_update(void);
 extern badge badges[2];
 
-/* ---- languages (lang.c): src/constants/languages.js ---- */
-typedef struct { const char *code, *name, *flag; } language;
-extern const language LANGUAGES[];
-extern const uint32_t NLANGUAGES;
+/* ---- languages (wire/lang.h is the table; lang.c here is the page's side) ---- */
 const char *language_name(const char *code, uint32_t len); /* the code itself when unknown */
 /* A deck's pair, remembered per deck in the store ("amgi:deck-languages:<id>": "known learning"). */
 typedef struct { char known[8], learning[8]; } lang_pair;
