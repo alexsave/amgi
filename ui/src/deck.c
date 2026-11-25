@@ -4,10 +4,15 @@
 
 #define PAGE_SIZE 20
 
-static int shown, langs_known, notes_loading, notes_known;
+static int shown, notes_loading, notes_known;
 static int64_t deck_id = -1;
-static lang_pair langs = {"en", "ko"};
-static int langs_open;
+/* The deck's pair ("" known: none yet). finding: the server is working it out (asked once a visit, detect_deck).
+ * The picker is open with a pair stored (Change, langs_open) or with none (the guess, or nothing, in pick). */
+static lang_pair langs, pick;
+static int langs_open, finding, langs_saving;
+static int64_t detect_deck = -1;
+static uint32_t langs_ask; /* the last languages request this page made: an answer to an older one, or one for a deck left, is dropped */
+static text langs_error;
 static holder h_notes;
 static wire_notes page_notes;     /* the page on screen; its strings live in h_notes */
 /* What the rows on screen show, as a hash of the page (page_hash). A page that answers the same
@@ -27,11 +32,12 @@ static int64_t editing = -1, deleting = -1;
 static cd_id *row_li, *row_edit;   /* each row's li and its Edit button's text, by row */
 static int32_t editor_row = -1;
 static cd_region sub = {.up = &page_region};       /* the count and the languages: all the children of p.deck-cards-sub */
+static cd_region langs_err = {.up = &page_region}; /* p.deck-name-error, after the line: shown while langs_error is set */
 static cd_region body = {.up = &page_region};      /* div.empty-deck or ol.note-rows */
 static cd_region pager = {.up = &page_region};
 static cd_bound prev_off, next_off, range_lo, range_hi;
 static cd_region editor = {.up = &body}; /* in a row of the body */
-static cd_id known_select, learning_select;
+static cd_id known_select, learning_select, save_button;
 /* Deleting the deck, last on the page: the section's contents, what it is doing, why it failed. */
 static cd_region danger = {.up = &page_region};
 static cd_region danger_err = {.up = &danger}; /* p.deck-danger-error, after the button: shown while danger_error is set */
@@ -55,8 +61,11 @@ ON_ANSWER(renamed);
 ON_ANSWER(note_deleted);
 ON_ANSWER(summary_answered);
 ON_ANSWER(deck_removed);
+ON_ANSWER(languages_found);
+ON_ANSWER(languages_saved);
 ON_EVENT(langs_open_pressed);
-ON_EVENT(langs_done_pressed);
+ON_EVENT(langs_save_pressed);
+ON_EVENT(langs_cancel_pressed);
 ON_EVENT(language_changed);
 ON_EVENT(rename_pressed);
 ON_EVENT(name_left);
@@ -92,18 +101,30 @@ void deck_reload(void) {
   if (shown && deck_id >= 0) ask_notes(notes_known ? page_notes.offset : 0);
 }
 
-/* The deck's own pair is loaded from the store before the screen is drawn (as localStorage was
- * read during React's render), so its labels are never drawn with the defaults first. */
-void deck_langs_loaded(int64_t id, const lang_pair *p) {
-  if (id != route_deck) return;
-  langs = *p;
-  deck_id = id;
-  langs_known = 1;
-  page_show();
+/* The picker's Save: both chosen (the two can never be the same code: language_changed refuses it), and no save under way. */
+static void pick_sync(void) {
+  cd_set_bool(known_select, "disabled", langs_saving);
+  cd_set_bool(learning_select, "disabled", langs_saving);
+  cd_set_bool(save_button, "disabled", langs_saving || !lang_pair_ok(pick.known, zlen(pick.known), pick.learning, zlen(pick.learning)));
+}
+
+/* The pair, or the lack of one, changed: the form and the rows' chips follow. */
+static void langs_apply(void) {
+  form_langs_changed(&langs, finding);
+  dirty(rows_view);
+  dirty(sub_view);
+}
+
+static void deck_path(char *path, const char *tail, uint32_t tlen) {
+  __builtin_memcpy(path, "/decks/", 7);
+  uint32_t n = 7 + id_dec(path + 7, deck_id);
+  __builtin_memcpy(path + n, tail, tlen);
+  path[n + tlen] = 0;
 }
 
 ON_RENDER(sub_view) {
   cd_region_hide(&sub);
+  cd_region_hide(&langs_err);
   const deck *d = deck_by_id(deck_id);
   if (!d || !cd_region_show(&sub, 1)) return;
   cd_at(sub_line, 0);
@@ -112,7 +133,9 @@ ON_RENDER(sub_view) {
   if (d->count != 1) cd_text("s");
   cd_text(" · ");
   el("span", "deck-langs");
-  if (!langs_open) {
+  if (finding) {
+    cd_text("Finding this deck's languages…");
+  } else if (!langs_open && langs.known[0]) {
     const char *k = lang_label(langs.known), *l = lang_label(langs.learning);
     tmp_text(k, zlen(k));
     cd_text(" → ");
@@ -124,12 +147,20 @@ ON_RENDER(sub_view) {
     cd_close();
   } else {
     for (int which = 0; which < 2; which++) {
-      const char *cur = which ? langs.learning : langs.known;
+      const char *cur = which ? pick.learning : pick.known;
       cd_id sel = cd_open_id("select");
       cd_attr("aria-label", which ? "Language you are learning" : "Language you already know");
       cd_on(sel, CD_EV_CHANGE, language_changed, CTX_OF(which));
       if (which) learning_select = sel;
       else known_select = sel;
+      if (!cur[0]) {
+        cd_open("option");
+        cd_attr("value", "");
+        cd_attr("disabled", "");
+        cd_attr("selected", "");
+        cd_text("Choose…");
+        cd_close();
+      }
       for (uint32_t i = 0; i < NLANGUAGES; i++) {
         cd_open("option");
         cd_attr("value", LANGUAGES[i].code);
@@ -145,14 +176,30 @@ ON_RENDER(sub_view) {
         cd_close();
       }
     }
-    cd_id done = el_id("button", 0);
+    save_button = el_id("button", 0);
     cd_attr("type", "button");
-    cd_on(done, CD_EV_CLICK, langs_done_pressed, 0);
-    cd_text("Done");
+    cd_on(save_button, CD_EV_CLICK, langs_save_pressed, 0);
+    cd_text("Save");
     cd_close();
+    if (langs.known[0]) {
+      cd_on(el_id("button", 0), CD_EV_CLICK, langs_cancel_pressed, 0);
+      cd_attr("type", "button");
+      cd_text("Cancel");
+      cd_close();
+    }
+    pick_sync();
   }
   cd_close();
   cd_region_end(&sub);
+  if (langs_error.len && cd_region_show(&langs_err, 1)) {
+    cd_at(title_box, 0);
+    el("p", "deck-name-error");
+    cd_name_open(langs_err.root);
+    cd_attr("role", "alert");
+    tmp_text(langs_error.p, langs_error.len);
+    cd_close();
+    cd_region_end(&langs_err);
+  }
 }
 
 /* DeckName: the title, renamed where it is read. The button, or the input while renaming. */
@@ -238,7 +285,10 @@ static void screen_gone(void *ctx) {
   langs_open = 0;
   if (route != R_DECK || route_deck != deck_id) {
     editing = deleting = -1;
-    langs_known = 0;
+    detect_deck = -1;
+    langs_ask++;
+    finding = langs_saving = 0;
+    text_free(&langs_error);
     notes_known = 0;
     holder_free(&h_notes);
   }
@@ -249,20 +299,26 @@ static void screen_gone(void *ctx) {
 void deck_build(void) {
   cd_on_free(0, screen_gone, 0);
   const deck *d = deck_by_id(route_deck);
-  el("div", "deck-cards");
-  if (!langs_known || deck_id != route_deck) {
-    /* the pair is on its way from the store (deck_langs_loaded draws the screen again) */
-    langs_known = 0;
-    deck_langs_load(route_deck);
-    return;
+  deck_id = route_deck;
+  /* the pair is the deck's own (the list has it); a deck without one is worked out by the server, once a visit */
+  if (d->pair.known[0]) {
+    langs = d->pair;
+    finding = 0;
+  } else if (detect_deck != deck_id) {
+    char path[48];
+    detect_deck = deck_id;
+    langs = pick = (lang_pair){"", ""};
+    finding = 1;
+    deck_path(path, "/languages/detect", 17);
+    ask(languages_found, CTX_OF(++langs_ask), "POST", path, WIRE_NONE, 0);
   }
+  el("div", "deck-cards");
   shown = 1;
   el("div", "deck-cards-header");
   title_box = el_id("div", "deck-cards-title");
   name_h1 = cd_open_id("h1");
   name_box.parent = name_h1;
   cd_close();
-  (void)d;
   sub_line = el_id("p", "deck-cards-sub");
   sub.parent = sub_line;
   cd_close();
@@ -273,7 +329,7 @@ void deck_build(void) {
   cd_close();
 
   el("div", "deck-content");
-  form_build(deck_id, &langs);
+  form_build(deck_id, &langs, finding);
   list_box = el_id("div", "deck-cards-list");
   el("div", "deck-cards-listhead");
   el_text("h3", 0, "Cards in this deck");
@@ -571,7 +627,7 @@ ON_RENDER(danger_view) {
 }
 
 void deck_decks_changed(void) {
-  if (!shown || !langs_known) return;
+  if (!shown) return;
   const deck *d = deck_by_id(deck_id);
   if (!d) {
     page_show(); /* the deck went: back to the list */
@@ -767,7 +823,7 @@ ON_ANSWER(notes_answered) {
 
 /* Called when the note types arrive (state.c): the rows can name their types now. */
 void deck_notetypes_known(void) {
-  if (!shown || !langs_known) return;
+  if (!shown) return;
   form_notetypes_known();
   if (notes_known) dirty(rows_view);
 }
@@ -833,25 +889,79 @@ ON_EVENT(name_key) {
 }
 ON_EVENT(langs_open_pressed) {
   langs_open = 1;
+  pick = langs;
+  text_free(&langs_error);
   dirty(sub_view);
 }
-ON_EVENT(langs_done_pressed) {
+ON_EVENT(langs_cancel_pressed) {
   langs_open = 0;
+  text_free(&langs_error);
   dirty(sub_view);
 }
-/* ctx: 0 the language known, 1 the one learnt */
+/* ctx: 0 the language known, 1 the one learnt. One side cannot take the other's code: the select goes back to its own. */
 ON_EVENT(language_changed) {
   char code[8];
   int learning = CTX_INDEX(ctx) == 1;
   uint32_t n;
+  char *mine = learning ? pick.learning : pick.known, *other = learning ? pick.known : pick.learning;
   /* the options are the app's own codes: one that does not fit is no language */
   if (!cd_input_whole(learning ? learning_select : known_select, code, sizeof code - 1, &n) || !language_name(code, n))
     return;
+  if (same_z(code, n, other)) {
+    cd_set_str(learning ? learning_select : known_select, "value", cd_tmp(mine, zlen(mine)));
+    return;
+  }
   code[n] = 0;
-  __builtin_memcpy(learning ? langs.learning : langs.known, code, n + 1);
-  deck_langs_save(deck_id, &langs);
-  form_langs_changed(&langs);
-  dirty(rows_view); /* the chips carry the language names */
+  __builtin_memcpy(mine, code, n + 1);
+  pick_sync();
+}
+ON_EVENT(langs_save_pressed) {
+  if (langs_saving || !lang_pair_ok(pick.known, zlen(pick.known), pick.learning, zlen(pick.learning))) return;
+  char path[48];
+  langs_saving = 1;
+  text_free(&langs_error);
+  pick_sync();
+  wire_q_deck_languages q = {{pick.known, zlen(pick.known)}, {pick.learning, zlen(pick.learning)}};
+  deck_path(path, "/languages", 10);
+  ask(languages_saved, CTX_OF(++langs_ask), "PUT", path, WK_Q_DECK_LANGUAGES, &q);
+}
+
+static int still_open(void *ctx) { return shown && CTX_INDEX(ctx) == langs_ask; }
+
+static holder h_found, h_saved;
+
+ON_ANSWER(languages_found) {
+  wire_deck_languages_found f;
+  answer a = take(&h_found, WK_DECK_LANGUAGES_FOUND, status, p, len, &f);
+  lang_pair got = {"", ""};
+  if (a.ok) lang_pair_set(&got, f.known, f.learning);
+  if (a.ok && f.stored) deck_pair_set(f.id, &got);
+  if (!still_open(ctx)) return;
+  finding = 0;
+  if (a.ok && f.stored) langs = got;
+  else pick = got; /* the guess, or nothing */
+  langs_apply();
+}
+
+ON_ANSWER(languages_saved) {
+  wire_deck_languages r;
+  answer a = take(&h_saved, WK_DECK_LANGUAGES, status, p, len, &r);
+  lang_pair got;
+  if (a.ok) {
+    lang_pair_set(&got, r.known, r.learning);
+    deck_pair_set(r.id, &got);
+  }
+  if (!still_open(ctx)) return;
+  langs_saving = 0;
+  if (a.ok) {
+    langs = got;
+    langs_open = 0;
+    langs_apply();
+  } else {
+    char m[600];
+    text_set(&langs_error, m, answer_message(&a, m, sizeof m));
+    dirty(sub_view);
+  }
 }
 
 /* A deck page for a deck that is not in the list while the collection answers: deleted here, in

@@ -10,7 +10,8 @@ static int64_t form_deck;
 static cd_id box, input, go_button, go_text;
 static cd_region inner = {.up = &page_region};
 static cd_region too_long = {.up = &page_region}; /* the paste is more than MAX_PASTE bytes: said, after the box */
-static lang_pair langs;
+static lang_pair langs;     /* "" known: the deck has no pair, and the form is off */
+static int finding;         /* ... because the server is still looking for it */
 static uint32_t line_count;
 
 static const char *lang_label(const char *code) {
@@ -20,6 +21,12 @@ static const char *lang_label(const char *code) {
 
 static uint32_t placeholder(char *ph) {
   static const char A[] = "Type or paste in ", B[] = " or ", C[] = ". One line per card.";
+  if (!langs.known[0]) {
+    const char *w = finding ? "Finding this deck's languages…" : "Choose this deck's languages first";
+    uint32_t wl = zlen(w);
+    __builtin_memcpy(ph, w, wl);
+    return wl;
+  }
   const char *k = lang_label(langs.known), *l = lang_label(langs.learning);
   uint32_t n = 0, kl = zlen(k), ll = zlen(l);
   __builtin_memcpy(ph + n, A, sizeof A - 1);
@@ -46,8 +53,9 @@ static void form_gone(void *ctx) {
   cd_undirty(form_draw, 0);
 }
 
-void form_build(int64_t deck_id, const lang_pair *l) {
+void form_build(int64_t deck_id, const lang_pair *l, int finding_pair) {
   shown = 1;
+  finding = finding_pair;
   cd_on_free(0, form_gone, 0);
   form_deck = deck_id;
   langs = *l;
@@ -132,7 +140,7 @@ ON_RENDER(form_draw) {
     cd_attr("rows", "1");
     char ph[160];
     attr_tmp("placeholder", ph, placeholder(ph));
-    if (!ready()) cd_attr("disabled", "");
+    if (!ready() || !langs.known[0]) cd_attr("disabled", "");
     cd_on(input, CD_EV_INPUT, typed, 0);
     cd_on(input, CD_EV_KEYDOWN, key_down, 0);
     cd_close();
@@ -152,9 +160,11 @@ ON_RENDER(form_draw) {
 }
 
 void form_notetypes_known(void) { dirty(); }
-void form_langs_changed(const lang_pair *l) {
+void form_langs_changed(const lang_pair *l, int finding_pair) {
   langs = *l;
+  finding = finding_pair;
   if (!shown || !inner.shown || !amgi_notetype() || !notetypes_known) return;
+  cd_set_bool(input, "disabled", !ready() || !langs.known[0]);
   char ph[160];
   cd_set_attr(input, "placeholder", cd_tmp(ph, placeholder(ph)));
 }
@@ -168,7 +178,7 @@ static void finished(void) {
 }
 
 static void submit(void) {
-  if (!has_text || !amgi_notetype()) return;
+  if (!has_text || !amgi_notetype() || !langs.known[0]) return;
   uint32_t n;
   char *v = take_text(&n);
   if (!v) return;

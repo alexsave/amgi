@@ -30,6 +30,11 @@ const deck *deck_by_id(int64_t id) {
   return 0;
 }
 
+void deck_pair_set(int64_t id, const lang_pair *p) {
+  for (uint32_t i = 0; i < ndecks; i++)
+    if (decks[i].id == id) decks[i].pair = *p;
+}
+
 ON_ANSWER(status_answered);
 ON_ANSWER(decks_answered);
 ON_ANSWER(install_answered);
@@ -121,7 +126,8 @@ ON_ANSWER(decks_answered) {
       decks = cd_realloc(decks, decks_cap * sizeof *decks);
     }
     for (uint32_t i = 0; i < d.ndecks; i++) {
-      decks[i] = (deck){d.decks[i].id, {0, 0}, d.decks[i].note_count};
+      decks[i] = (deck){d.decks[i].id, {0, 0}, d.decks[i].note_count, {"", ""}};
+      lang_pair_set(&decks[i].pair, d.decks[i].known, d.decks[i].learning);
       text_set(&decks[i].name, d.decks[i].name.p, d.decks[i].name.len);
     }
     ndecks = d.ndecks;

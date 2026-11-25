@@ -215,6 +215,11 @@
   cursor: pointer;
 }
 
+.card-form-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .card-form-go:disabled {
   opacity: 0.45;
   cursor: default;
