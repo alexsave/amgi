@@ -97,8 +97,8 @@ const ALLOWED = [
     why: `FORCED by Gemini: cardGeneration.ts's readStructured in C reads each structured answer (card text, the audio verdict, the transcript match) once, through model_answer_parse, and checks every field against its format. ${ANSWER_FORMAT}.`,
   },
   {
-    file: 'server/collection/decks.c', count: 5, kind: 'anki',
-    why: `${ANKI}the C port of decks.js and deck-remove.js: a schema 11 collection's col.decks and col.conf are JSON columns, read and rewritten through the quarantine.`,
+    file: 'server/collection/decks.c', count: 9, kind: 'anki',
+    why: `${ANKI}the C port of decks.js and deck-remove.js: a schema 11 collection's col.decks and col.conf are JSON columns, read and rewritten through the quarantine; and a deck's language pair, one string key in the deck's own add-on area, which Anki keeps as JSON (field 255 of a schema 18 deck's common, a key of a schema 11 deck's dict).`,
   },
   {
     file: 'server/collection/notes.c', count: 5, kind: 'anki',
