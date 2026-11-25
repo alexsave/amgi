@@ -167,6 +167,11 @@
 < 409 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="unconfigured" error="No Anki profile is selected yet. Open Settings to pick one." notStarted=false dailyCap=false}
 < bytes 414d573200063b0000004e6f20416e6b692070726f66696c652069732073656c6563746564207965742e204f70656e2053657474696e677320746f207069636b206f6e652effffffff0000ffffffff
+== unconfigured: POST /api/anki/decks/1/languages/detect
+> POST /api/anki/decks/1/languages/detect
+< 409 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="unconfigured" error="No Anki profile is selected yet. Open Settings to pick one." notStarted=false dailyCap=false}
+< bytes 414d573200063b0000004e6f20416e6b692070726f66696c652069732073656c6563746564207965742e204f70656e2053657474696e677320746f207069636b206f6e652effffffff0000ffffffff
 == unconfigured: GET /api/anki/notetypes
 > GET /api/anki/notetypes
 < 409 content-type=application/x-amgi-wire cache-control=no-store
@@ -254,6 +259,11 @@
 < bytes 414d573200035d0000004e6f20636f6c6c656374696f6e2e616e6b69322077617320666f756e64206174207468652073656c65637465642070726f66696c652e204f70656e2053657474696e677320746f207069636b206120646966666572656e74206f6e652effffffff0000ffffffff
 == not-found: PUT /api/anki/decks/1/languages
 > PUT /api/anki/decks/1/languages
+< 409 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="not-found" error="No collection.anki2 was found at the selected profile. Open Settings to pick a different one." notStarted=false dailyCap=false}
+< bytes 414d573200035d0000004e6f20636f6c6c656374696f6e2e616e6b69322077617320666f756e64206174207468652073656c65637465642070726f66696c652e204f70656e2053657474696e677320746f207069636b206120646966666572656e74206f6e652effffffff0000ffffffff
+== not-found: POST /api/anki/decks/1/languages/detect
+> POST /api/anki/decks/1/languages/detect
 < 409 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="not-found" error="No collection.anki2 was found at the selected profile. Open Settings to pick a different one." notStarted=false dailyCap=false}
 < bytes 414d573200035d0000004e6f20636f6c6c656374696f6e2e616e6b69322077617320666f756e64206174207468652073656c65637465642070726f66696c652e204f70656e2053657474696e677320746f207069636b206120646966666572656e74206f6e652effffffff0000ffffffff
@@ -347,6 +357,11 @@
 < 409 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="unsupported-schema" error="This collection uses a schema version amgi does not support yet." notStarted=false dailyCap=false}
 < bytes 414d57320004400000005468697320636f6c6c656374696f6e2075736573206120736368656d612076657273696f6e20616d676920646f6573206e6f7420737570706f7274207965742effffffff0000ffffffff
+== unsupported-schema: POST /api/anki/decks/1/languages/detect
+> POST /api/anki/decks/1/languages/detect
+< 409 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="unsupported-schema" error="This collection uses a schema version amgi does not support yet." notStarted=false dailyCap=false}
+< bytes 414d57320004400000005468697320636f6c6c656374696f6e2075736573206120736368656d612076657273696f6e20616d676920646f6573206e6f7420737570706f7274207965742effffffff0000ffffffff
 == unsupported-schema: GET /api/anki/notetypes
 > GET /api/anki/notetypes
 < 409 content-type=application/x-amgi-wire cache-control=no-store
@@ -434,6 +449,11 @@
 < bytes 414d573200086200000054686520636f6c6c656374696f6e2066696c652069732064616d616765643b20616d676920646964206e6f74206f70656e2069742e20416e6b692063616e20726573746f72652069742066726f6d206f6e65206f6620697473206261636b7570732effffffff0000ffffffff
 == damaged: PUT /api/anki/decks/1/languages
 > PUT /api/anki/decks/1/languages
+< 409 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="damaged" error="The collection file is damaged; amgi did not open it. Anki can restore it from one of its backups." notStarted=false dailyCap=false}
+< bytes 414d573200086200000054686520636f6c6c656374696f6e2066696c652069732064616d616765643b20616d676920646964206e6f74206f70656e2069742e20416e6b692063616e20726573746f72652069742066726f6d206f6e65206f6620697473206261636b7570732effffffff0000ffffffff
+== damaged: POST /api/anki/decks/1/languages/detect
+> POST /api/anki/decks/1/languages/detect
 < 409 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="damaged" error="The collection file is damaged; amgi did not open it. Anki can restore it from one of its backups." notStarted=false dailyCap=false}
 < bytes 414d573200086200000054686520636f6c6c656374696f6e2066696c652069732064616d616765643b20616d676920646964206e6f74206f70656e2069742e20416e6b692063616e20726573746f72652069742066726f6d206f6e65206f6620697473206261636b7570732effffffff0000ffffffff
@@ -527,6 +547,11 @@
 < 409 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="locked" error="Anki is open on this collection and the local bridge is not reachable. Either close Anki, or turn on the bridge in Anki (Tools > amgi: Bridge status...) and paste its token into Settings." notStarted=false dailyCap=false}
 < bytes 414d57320002bb000000416e6b69206973206f70656e206f6e207468697320636f6c6c656374696f6e20616e6420746865206c6f63616c20627269646765206973206e6f7420726561636861626c652e2045697468657220636c6f736520416e6b692c206f72207475726e206f6e207468652062726964676520696e20416e6b692028546f6f6c73203e20616d67693a20427269646765207374617475732e2e2e2920616e642070617374652069747320746f6b656e20696e746f2053657474696e67732effffffff0000ffffffff
+== locked (a -wal beside it): POST /api/anki/decks/1/languages/detect
+> POST /api/anki/decks/1/languages/detect
+< 409 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="locked" error="Anki is open on this collection and the local bridge is not reachable. Either close Anki, or turn on the bridge in Anki (Tools > amgi: Bridge status...) and paste its token into Settings." notStarted=false dailyCap=false}
+< bytes 414d57320002bb000000416e6b69206973206f70656e206f6e207468697320636f6c6c656374696f6e20616e6420746865206c6f63616c20627269646765206973206e6f7420726561636861626c652e2045697468657220636c6f736520416e6b692c206f72207475726e206f6e207468652062726964676520696e20416e6b692028546f6f6c73203e20616d67693a20427269646765207374617475732e2e2e2920616e642070617374652069747320746f6b656e20696e746f2053657474696e67732effffffff0000ffffffff
 == locked (a -wal beside it): GET /api/anki/notetypes
 > GET /api/anki/notetypes
 < 409 content-type=application/x-amgi-wire cache-control=no-store
@@ -614,6 +639,11 @@
 < bytes 414d573200063b0000004e6f20416e6b692070726f66696c652069732073656c6563746564207965742e204f70656e2053657474696e677320746f207069636b206f6e652effffffff0000ffffffff
 == malformed escape: PUT /api/anki/decks/1/languages
 > PUT /api/anki/decks/1/languages
+< 409 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="unconfigured" error="No Anki profile is selected yet. Open Settings to pick one." notStarted=false dailyCap=false}
+< bytes 414d573200063b0000004e6f20416e6b692070726f66696c652069732073656c6563746564207965742e204f70656e2053657474696e677320746f207069636b206f6e652effffffff0000ffffffff
+== malformed escape: POST /api/anki/decks/1/languages/detect
+> POST /api/anki/decks/1/languages/detect
 < 409 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="unconfigured" error="No Anki profile is selected yet. Open Settings to pick one." notStarted=false dailyCap=false}
 < bytes 414d573200063b0000004e6f20416e6b692070726f66696c652069732073656c6563746564207965742e204f70656e2053657474696e677320746f207069636b206f6e652effffffff0000ffffffff
@@ -889,8 +919,8 @@
 == s18 set languages again
 > PUT /api/anki/decks/10000003/languages
 < 200 content-type=application/x-amgi-wire cache-control=no-store
-< deck_languages {mode="direct" id=10000003 known="ko" learning="en"}
-< bytes 414d573231008396980000000000020000006b6f02000000656e
+< deck_languages {mode="direct" id=10000003 known="en" learning="ko"}
+< bytes 414d57323100839698000000000002000000656e020000006b6f
 == s18 set languages of the Default deck
 > PUT /api/anki/decks/1/languages
 < 200 content-type=application/x-amgi-wire cache-control=no-store
@@ -934,8 +964,28 @@
 == s18 languages of a deck, after
 > GET /api/anki/decks
 < 200 content-type=application/x-amgi-wire cache-control=no-store
-< decks {mode="direct" decks=[{id=1 name="Default" noteCount=0 known="en" learning="ko"}, {id=1794170430284 name="Existing" noteCount=4 known="" learning=""}, {id=1794170430285 name="Existing::Child" noteCount=1 known="" learning=""}, {id=1794170430286 name="Korean" noteCount=3 known="" learning=""}, {id=1794170430287 name="Korean::문장" noteCount=3 known="" learning=""}, {id=1794170430288 name="Café" noteCount=2 known="" learning=""}, {id=1794170430289 name="Empty" noteCount=0 known="" learning=""}, {id=1794170430294 name="Filtered" noteCount=1 known="" learning=""}, {id=10000004 name="Made" noteCount=0 known="" learning=""}, {id=10000003 name="Renamed::Deep" noteCount=0 known="ko" learning="en"}, {id=10000005 name="Renamed" noteCount=0 known="" learning=""}]}
-< bytes 414d573202000b00000001000000000000000700000044656661756c740000000002000000656e020000006b6f4c23e4bca1010000080000004578697374696e670400000000000000000000004d23e4bca10100000f0000004578697374696e673a3a4368696c640100000000000000000000004e23e4bca1010000060000004b6f7265616e0300000000000000000000004f23e4bca10100000e0000004b6f7265616e3a3aebacb8ec9ea50300000000000000000000005023e4bca101000005000000436166c3a90200000000000000000000005123e4bca101000005000000456d7074790000000000000000000000005623e4bca10100000800000046696c74657265640100000000000000000000008496980000000000040000004d61646500000000000000000000000083969800000000000d00000052656e616d65643a3a4465657000000000020000006b6f02000000656e85969800000000000700000052656e616d6564000000000000000000000000
+< decks {mode="direct" decks=[{id=1 name="Default" noteCount=0 known="en" learning="ko"}, {id=1794170430284 name="Existing" noteCount=4 known="" learning=""}, {id=1794170430285 name="Existing::Child" noteCount=1 known="" learning=""}, {id=1794170430286 name="Korean" noteCount=3 known="" learning=""}, {id=1794170430287 name="Korean::문장" noteCount=3 known="" learning=""}, {id=1794170430288 name="Café" noteCount=2 known="" learning=""}, {id=1794170430289 name="Empty" noteCount=0 known="" learning=""}, {id=1794170430294 name="Filtered" noteCount=1 known="" learning=""}, {id=10000004 name="Made" noteCount=0 known="" learning=""}, {id=10000003 name="Renamed::Deep" noteCount=0 known="en" learning="ko"}, {id=10000005 name="Renamed" noteCount=0 known="" learning=""}]}
+< bytes 414d573202000b00000001000000000000000700000044656661756c740000000002000000656e020000006b6f4c23e4bca1010000080000004578697374696e670400000000000000000000004d23e4bca10100000f0000004578697374696e673a3a4368696c640100000000000000000000004e23e4bca1010000060000004b6f7265616e0300000000000000000000004f23e4bca10100000e0000004b6f7265616e3a3aebacb8ec9ea50300000000000000000000005023e4bca101000005000000436166c3a90200000000000000000000005123e4bca101000005000000456d7074790000000000000000000000005623e4bca10100000800000046696c74657265640100000000000000000000008496980000000000040000004d61646500000000000000000000000083969800000000000d00000052656e616d65643a3a446565700000000002000000656e020000006b6f85969800000000000700000052656e616d6564000000000000000000000000
+== s18 detect: a deck with a pair
+> POST /api/anki/decks/10000003/languages/detect
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< deck_languages_found {mode="direct" id=10000003 stored=true known="en" learning="ko" foundBy="stored"}
+< bytes 414d5732330083969800000000000102000000656e020000006b6f0600000073746f726564
+== s18 detect: an empty deck
+> POST /api/anki/decks/1794170430289/languages/detect
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< deck_languages_found {mode="direct" id=1794170430289 stored=false known="" learning="" foundBy=""}
+< bytes 414d573233005123e4bca101000000000000000000000000000000
+== s18 detect: a deck not there
+> POST /api/anki/decks/999/languages/detect
+< 404 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="" error="This deck no longer exists." notStarted=false dailyCap=false}
+< bytes 414d573200091b00000054686973206465636b206e6f206c6f6e676572206578697374732effffffff0000ffffffff
+== s18 detect: deck id not a number
+> POST /api/anki/decks/abc/languages/detect
+< 404 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="" error="This deck no longer exists." notStarted=false dailyCap=false}
+< bytes 414d573200091b00000054686973206465636b206e6f206c6f6e676572206578697374732effffffff0000ffffffff
 == s18 add note
 > POST /api/anki/notes
 < 200 content-type=application/x-amgi-wire cache-control=no-store
@@ -946,6 +996,16 @@
 < 200 content-type=application/x-amgi-wire cache-control=no-store
 < note_added {mode="direct" noteId=30000002}
 < bytes 414d57320a0082c3c90100000000
+== s18 add note, another language than the deck's
+> POST /api/anki/notes
+< 409 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="" error="This deck is English -> Korean; this card is in Japanese." notStarted=false dailyCap=false}
+< bytes 414d573200093900000054686973206465636b20697320456e676c697368202d3e204b6f7265616e3b2074686973206361726420697320696e204a6170616e6573652effffffff0000ffffffff
+== s18 add note, a deck with no languages
+> POST /api/anki/notes
+< 409 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="" error="This deck has no languages yet: choose them first (amgi deck add NAME --from K --to L, or Change on the deck's page)." notStarted=false dailyCap=false}
+< bytes 414d573200097500000054686973206465636b20686173206e6f206c616e677561676573207965743a2063686f6f7365207468656d2066697273742028616d6769206465636b20616464204e414d45202d2d66726f6d204b202d2d746f204c2c206f72204368616e6765206f6e20746865206465636b27732070616765292effffffff0000ffffffff
 == s18 add note, no deck
 > POST /api/anki/notes
 < 400 content-type=application/x-amgi-wire cache-control=no-store
@@ -969,8 +1029,13 @@
 == s18 bulk add
 > POST /api/anki/notes/bulk
 < 200 content-type=application/x-amgi-wire cache-control=no-store
-< notes_added {mode="direct" results=[{ok=true noteId=30000003 error=""}, {ok=false noteId=0 error="note type \"Basic\" has 2 fields, got 1"}, {ok=true noteId=30000004 error=""}]}
-< bytes 414d57320b00030000000183c3c9010000000000000000000000000000000000250000006e6f746520747970652022426173696322206861732032206669656c64732c20676f7420310184c3c9010000000000000000
+< notes_added {mode="direct" results=[{ok=true noteId=30000003 error=""}, {ok=false noteId=0 error="note type \"Basic\" has 2 fields, got 1"}, {ok=false noteId=0 error="This deck is English -> Korean; this card is in Japanese."}]}
+< bytes 414d57320b00030000000183c3c9010000000000000000000000000000000000250000006e6f746520747970652022426173696322206861732032206669656c64732c20676f7420310000000000000000003900000054686973206465636b20697320456e676c697368202d3e204b6f7265616e3b2074686973206361726420697320696e204a6170616e6573652e
+== s18 bulk add, one note in a deck with no languages
+> POST /api/anki/notes/bulk
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< notes_added {mode="direct" results=[{ok=false noteId=0 error="This deck has no languages yet: choose them first (amgi deck add NAME --from K --to L, or Change on the deck's page)."}, {ok=true noteId=30000004 error=""}]}
+< bytes 414d57320b00020000000000000000000000007500000054686973206465636b20686173206e6f206c616e677561676573207965743a2063686f6f7365207468656d2066697273742028616d6769206465636b20616464204e414d45202d2d66726f6d204b202d2d746f204c2c206f72204368616e6765206f6e20746865206465636b27732070616765292e0184c3c9010000000000000000
 == s18 bulk add, empty
 > POST /api/anki/notes/bulk
 < 400 content-type=application/x-amgi-wire cache-control=no-store
@@ -1004,8 +1069,8 @@
 == s18 notes after the edits
 > GET /api/anki/decks/10000003/notes
 < 200 content-type=application/x-amgi-wire cache-control=no-store
-< notes {mode="direct" notes=[{id=30000001 notetypeId=1794170430283 fields=["privet", "x"] tags=["a", "b"]}, {id=30000002 notetypeId=1794170430283 fields=["annyeong", "hi"] tags=[]}, {id=30000003 notetypeId=1794170430283 fields=["bulk 1", "x"] tags=[]}, {id=30000004 notetypeId=1794170430283 fields=["bulk 3", "x"] tags=[]}] offset=0 limit=50 hasMore=false}
-< bytes 414d573206000400000081c3c901000000004b23e4bca101000002000000060000007072697665740100000078020000000100000061010000006282c3c901000000004b23e4bca10100000200000008000000616e6e79656f6e670200000068690000000083c3c901000000004b23e4bca1010000020000000600000062756c6b203101000000780000000084c3c901000000004b23e4bca1010000020000000600000062756c6b2033010000007800000000000000003200000000
+< notes {mode="direct" notes=[{id=30000001 notetypeId=1794170430283 fields=["privet", "x"] tags=["a", "b"]}, {id=30000002 notetypeId=1794170430283 fields=["annyeong", "hi"] tags=[]}, {id=30000003 notetypeId=1794170430283 fields=["bulk 1", "x"] tags=[]}, {id=30000004 notetypeId=1794170430283 fields=["bulk 5", "x"] tags=[]}] offset=0 limit=50 hasMore=false}
+< bytes 414d573206000400000081c3c901000000004b23e4bca101000002000000060000007072697665740100000078020000000100000061010000006282c3c901000000004b23e4bca10100000200000008000000616e6e79656f6e670200000068690000000083c3c901000000004b23e4bca1010000020000000600000062756c6b203101000000780000000084c3c901000000004b23e4bca1010000020000000600000062756c6b2035010000007800000000000000003200000000
 == s18 read note
 > GET /api/anki/notes/30000001
 < 200 content-type=application/x-amgi-wire cache-control=no-store
@@ -1125,8 +1190,8 @@
 == s18 decks at the end
 > GET /api/anki/decks
 < 200 content-type=application/x-amgi-wire cache-control=no-store
-< decks {mode="direct" decks=[{id=1 name="Default" noteCount=0 known="en" learning="ko"}, {id=1794170430286 name="Korean" noteCount=3 known="" learning=""}, {id=1794170430287 name="Korean::문장" noteCount=3 known="" learning=""}, {id=1794170430288 name="Café" noteCount=2 known="" learning=""}, {id=1794170430289 name="Empty" noteCount=0 known="" learning=""}, {id=10000004 name="Made" noteCount=0 known="" learning=""}, {id=10000003 name="Renamed::Deep" noteCount=3 known="ko" learning="en"}, {id=10000005 name="Renamed" noteCount=3 known="" learning=""}]}
-< bytes 414d573202000800000001000000000000000700000044656661756c740000000002000000656e020000006b6f4e23e4bca1010000060000004b6f7265616e0300000000000000000000004f23e4bca10100000e0000004b6f7265616e3a3aebacb8ec9ea50300000000000000000000005023e4bca101000005000000436166c3a90200000000000000000000005123e4bca101000005000000456d7074790000000000000000000000008496980000000000040000004d61646500000000000000000000000083969800000000000d00000052656e616d65643a3a4465657003000000020000006b6f02000000656e85969800000000000700000052656e616d6564030000000000000000000000
+< decks {mode="direct" decks=[{id=1 name="Default" noteCount=0 known="en" learning="ko"}, {id=1794170430286 name="Korean" noteCount=3 known="" learning=""}, {id=1794170430287 name="Korean::문장" noteCount=3 known="" learning=""}, {id=1794170430288 name="Café" noteCount=2 known="" learning=""}, {id=1794170430289 name="Empty" noteCount=0 known="" learning=""}, {id=10000004 name="Made" noteCount=0 known="" learning=""}, {id=10000003 name="Renamed::Deep" noteCount=3 known="en" learning="ko"}, {id=10000005 name="Renamed" noteCount=3 known="" learning=""}]}
+< bytes 414d573202000800000001000000000000000700000044656661756c740000000002000000656e020000006b6f4e23e4bca1010000060000004b6f7265616e0300000000000000000000004f23e4bca10100000e0000004b6f7265616e3a3aebacb8ec9ea50300000000000000000000005023e4bca101000005000000436166c3a90200000000000000000000005123e4bca101000005000000456d7074790000000000000000000000008496980000000000040000004d61646500000000000000000000000083969800000000000d00000052656e616d65643a3a446565700300000002000000656e020000006b6f85969800000000000700000052656e616d6564030000000000000000000000
 == s18 install state before
 > GET /api/anki/install
 < 200 content-type=application/x-amgi-wire cache-control=no-store
@@ -1162,6 +1227,16 @@
 < 200 content-type=application/x-amgi-wire cache-control=no-store
 < starter_built {mode="direct" deckId=10000006 deckName="amgi starter" added=0 alreadyThere=10}
 < bytes 414d5732100086969800000000000c000000616d67692073746172746572000000000a000000
+== s18 decks after the starter
+> GET /api/anki/decks
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< decks {mode="direct" decks=[{id=1 name="Default" noteCount=0 known="en" learning="ko"}, {id=1794170430286 name="Korean" noteCount=3 known="" learning=""}, {id=1794170430287 name="Korean::문장" noteCount=3 known="" learning=""}, {id=1794170430288 name="Café" noteCount=2 known="" learning=""}, {id=1794170430289 name="Empty" noteCount=0 known="" learning=""}, {id=10000004 name="Made" noteCount=0 known="" learning=""}, {id=10000003 name="Renamed::Deep" noteCount=3 known="en" learning="ko"}, {id=10000005 name="Renamed" noteCount=3 known="" learning=""}, {id=10000006 name="amgi starter" noteCount=10 known="en" learning="ko"}]}
+< bytes 414d573202000900000001000000000000000700000044656661756c740000000002000000656e020000006b6f4e23e4bca1010000060000004b6f7265616e0300000000000000000000004f23e4bca10100000e0000004b6f7265616e3a3aebacb8ec9ea50300000000000000000000005023e4bca101000005000000436166c3a90200000000000000000000005123e4bca101000005000000456d7074790000000000000000000000008496980000000000040000004d61646500000000000000000000000083969800000000000d00000052656e616d65643a3a446565700300000002000000656e020000006b6f85969800000000000700000052656e616d656403000000000000000000000086969800000000000c000000616d676920737461727465720a00000002000000656e020000006b6f
+== s18 starter, the deck is in another pair
+> POST /api/anki/starter
+< 400 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="" error="This deck is English -> Korean; this card is in English." notStarted=false dailyCap=false}
+< bytes 414d573200093800000054686973206465636b20697320456e676c697368202d3e204b6f7265616e3b2074686973206361726420697320696e20456e676c6973682effffffff0000ffffffff
 == s18 starter, same languages
 > POST /api/anki/starter
 < 400 content-type=application/x-amgi-wire cache-control=no-store
@@ -1185,13 +1260,23 @@
 == s18 card text, no input
 > POST /api/anki/card-text
 < 400 content-type=application/x-amgi-wire cache-control=no-store
-< error {mode="" error="userInput, knownLanguage and learningLanguage are required" notStarted=false dailyCap=false}
-< bytes 414d573200093a00000075736572496e7075742c206b6e6f776e4c616e677561676520616e64206c6561726e696e674c616e677561676520617265207265717569726564ffffffff0000ffffffff
-== s18 card text, no language
+< error {mode="" error="userInput and deckId are required" notStarted=false dailyCap=false}
+< bytes 414d573200092100000075736572496e70757420616e64206465636b496420617265207265717569726564ffffffff0000ffffffff
+== s18 card text, no deck
 > POST /api/anki/card-text
 < 400 content-type=application/x-amgi-wire cache-control=no-store
-< error {mode="" error="userInput, knownLanguage and learningLanguage are required" notStarted=false dailyCap=false}
-< bytes 414d573200093a00000075736572496e7075742c206b6e6f776e4c616e677561676520616e64206c6561726e696e674c616e677561676520617265207265717569726564ffffffff0000ffffffff
+< error {mode="" error="userInput and deckId are required" notStarted=false dailyCap=false}
+< bytes 414d573200092100000075736572496e70757420616e64206465636b496420617265207265717569726564ffffffff0000ffffffff
+== s18 card text, a deck with no languages
+> POST /api/anki/card-text
+< 409 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="" error="This deck has no languages yet: choose them first (amgi deck add NAME --from K --to L, or Change on the deck's page)." notStarted=false dailyCap=false}
+< bytes 414d573200097500000054686973206465636b20686173206e6f206c616e677561676573207965743a2063686f6f7365207468656d2066697273742028616d6769206465636b20616464204e414d45202d2d66726f6d204b202d2d746f204c2c206f72204368616e6765206f6e20746865206465636b27732070616765292effffffff0000ffffffff
+== s18 card text, a deck not there
+> POST /api/anki/card-text
+< 404 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="" error="This deck no longer exists." notStarted=false dailyCap=false}
+< bytes 414d573200091b00000054686973206465636b206e6f206c6f6e676572206578697374732effffffff0000ffffffff
 == s18 audio, no text
 > POST /api/anki/audio
 < 400 content-type=application/x-amgi-wire cache-control=no-store
@@ -1354,8 +1439,8 @@
 == s11 set languages again
 > PUT /api/anki/decks/10000007/languages
 < 200 content-type=application/x-amgi-wire cache-control=no-store
-< deck_languages {mode="direct" id=10000007 known="ko" learning="en"}
-< bytes 414d573231008796980000000000020000006b6f02000000656e
+< deck_languages {mode="direct" id=10000007 known="en" learning="ko"}
+< bytes 414d57323100879698000000000002000000656e020000006b6f
 == s11 set languages of the Default deck
 > PUT /api/anki/decks/1/languages
 < 200 content-type=application/x-amgi-wire cache-control=no-store
@@ -1399,8 +1484,28 @@
 == s11 languages of a deck, after
 > GET /api/anki/decks
 < 200 content-type=application/x-amgi-wire cache-control=no-store
-< decks {mode="direct" decks=[{id=1 name="Default" noteCount=0 known="en" learning="ko"}, {id=1794170430305 name="Korean" noteCount=3 known="" learning=""}, {id=1794170430306 name="Korean::문장" noteCount=3 known="" learning=""}, {id=1794170430308 name="Empty" noteCount=0 known="" learning=""}, {id=1794170430309 name="Filtered" noteCount=1 known="" learning=""}, {id=1794170430303 name="Existing" noteCount=4 known="" learning=""}, {id=1794170430307 name="Café" noteCount=2 known="" learning=""}, {id=1794170430304 name="Existing::Child" noteCount=1 known="" learning=""}, {id=10000008 name="Made" noteCount=0 known="" learning=""}, {id=10000007 name="Renamed::Deep" noteCount=0 known="ko" learning="en"}, {id=10000009 name="Renamed" noteCount=0 known="" learning=""}]}
-< bytes 414d573202000b00000001000000000000000700000044656661756c740000000002000000656e020000006b6f6123e4bca1010000060000004b6f7265616e0300000000000000000000006223e4bca10100000e0000004b6f7265616e3a3aebacb8ec9ea50300000000000000000000006423e4bca101000005000000456d7074790000000000000000000000006523e4bca10100000800000046696c74657265640100000000000000000000005f23e4bca1010000080000004578697374696e670400000000000000000000006323e4bca101000005000000436166c3a90200000000000000000000006023e4bca10100000f0000004578697374696e673a3a4368696c640100000000000000000000008896980000000000040000004d61646500000000000000000000000087969800000000000d00000052656e616d65643a3a4465657000000000020000006b6f02000000656e89969800000000000700000052656e616d6564000000000000000000000000
+< decks {mode="direct" decks=[{id=1 name="Default" noteCount=0 known="en" learning="ko"}, {id=1794170430305 name="Korean" noteCount=3 known="" learning=""}, {id=1794170430306 name="Korean::문장" noteCount=3 known="" learning=""}, {id=1794170430308 name="Empty" noteCount=0 known="" learning=""}, {id=1794170430309 name="Filtered" noteCount=1 known="" learning=""}, {id=1794170430303 name="Existing" noteCount=4 known="" learning=""}, {id=1794170430307 name="Café" noteCount=2 known="" learning=""}, {id=1794170430304 name="Existing::Child" noteCount=1 known="" learning=""}, {id=10000008 name="Made" noteCount=0 known="" learning=""}, {id=10000007 name="Renamed::Deep" noteCount=0 known="en" learning="ko"}, {id=10000009 name="Renamed" noteCount=0 known="" learning=""}]}
+< bytes 414d573202000b00000001000000000000000700000044656661756c740000000002000000656e020000006b6f6123e4bca1010000060000004b6f7265616e0300000000000000000000006223e4bca10100000e0000004b6f7265616e3a3aebacb8ec9ea50300000000000000000000006423e4bca101000005000000456d7074790000000000000000000000006523e4bca10100000800000046696c74657265640100000000000000000000005f23e4bca1010000080000004578697374696e670400000000000000000000006323e4bca101000005000000436166c3a90200000000000000000000006023e4bca10100000f0000004578697374696e673a3a4368696c640100000000000000000000008896980000000000040000004d61646500000000000000000000000087969800000000000d00000052656e616d65643a3a446565700000000002000000656e020000006b6f89969800000000000700000052656e616d6564000000000000000000000000
+== s11 detect: a deck with a pair
+> POST /api/anki/decks/10000007/languages/detect
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< deck_languages_found {mode="direct" id=10000007 stored=true known="en" learning="ko" foundBy="stored"}
+< bytes 414d5732330087969800000000000102000000656e020000006b6f0600000073746f726564
+== s11 detect: an empty deck
+> POST /api/anki/decks/1794170430308/languages/detect
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< deck_languages_found {mode="direct" id=1794170430308 stored=false known="" learning="" foundBy=""}
+< bytes 414d573233006423e4bca101000000000000000000000000000000
+== s11 detect: a deck not there
+> POST /api/anki/decks/999/languages/detect
+< 404 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="" error="This deck no longer exists." notStarted=false dailyCap=false}
+< bytes 414d573200091b00000054686973206465636b206e6f206c6f6e676572206578697374732effffffff0000ffffffff
+== s11 detect: deck id not a number
+> POST /api/anki/decks/abc/languages/detect
+< 404 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="" error="This deck no longer exists." notStarted=false dailyCap=false}
+< bytes 414d573200091b00000054686973206465636b206e6f206c6f6e676572206578697374732effffffff0000ffffffff
 == s11 add note
 > POST /api/anki/notes
 < 200 content-type=application/x-amgi-wire cache-control=no-store
@@ -1411,6 +1516,16 @@
 < 200 content-type=application/x-amgi-wire cache-control=no-store
 < note_added {mode="direct" noteId=30000006}
 < bytes 414d57320a0086c3c90100000000
+== s11 add note, another language than the deck's
+> POST /api/anki/notes
+< 409 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="" error="This deck is English -> Korean; this card is in Japanese." notStarted=false dailyCap=false}
+< bytes 414d573200093900000054686973206465636b20697320456e676c697368202d3e204b6f7265616e3b2074686973206361726420697320696e204a6170616e6573652effffffff0000ffffffff
+== s11 add note, a deck with no languages
+> POST /api/anki/notes
+< 409 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="" error="This deck has no languages yet: choose them first (amgi deck add NAME --from K --to L, or Change on the deck's page)." notStarted=false dailyCap=false}
+< bytes 414d573200097500000054686973206465636b20686173206e6f206c616e677561676573207965743a2063686f6f7365207468656d2066697273742028616d6769206465636b20616464204e414d45202d2d66726f6d204b202d2d746f204c2c206f72204368616e6765206f6e20746865206465636b27732070616765292effffffff0000ffffffff
 == s11 add note, no deck
 > POST /api/anki/notes
 < 400 content-type=application/x-amgi-wire cache-control=no-store
@@ -1434,8 +1549,13 @@
 == s11 bulk add
 > POST /api/anki/notes/bulk
 < 200 content-type=application/x-amgi-wire cache-control=no-store
-< notes_added {mode="direct" results=[{ok=true noteId=30000007 error=""}, {ok=false noteId=0 error="note type \"Basic\" has 2 fields, got 1"}, {ok=true noteId=30000008 error=""}]}
-< bytes 414d57320b00030000000187c3c9010000000000000000000000000000000000250000006e6f746520747970652022426173696322206861732032206669656c64732c20676f7420310188c3c9010000000000000000
+< notes_added {mode="direct" results=[{ok=true noteId=30000007 error=""}, {ok=false noteId=0 error="note type \"Basic\" has 2 fields, got 1"}, {ok=false noteId=0 error="This deck is English -> Korean; this card is in Japanese."}]}
+< bytes 414d57320b00030000000187c3c9010000000000000000000000000000000000250000006e6f746520747970652022426173696322206861732032206669656c64732c20676f7420310000000000000000003900000054686973206465636b20697320456e676c697368202d3e204b6f7265616e3b2074686973206361726420697320696e204a6170616e6573652e
+== s11 bulk add, one note in a deck with no languages
+> POST /api/anki/notes/bulk
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< notes_added {mode="direct" results=[{ok=false noteId=0 error="This deck has no languages yet: choose them first (amgi deck add NAME --from K --to L, or Change on the deck's page)."}, {ok=true noteId=30000008 error=""}]}
+< bytes 414d57320b00020000000000000000000000007500000054686973206465636b20686173206e6f206c616e677561676573207965743a2063686f6f7365207468656d2066697273742028616d6769206465636b20616464204e414d45202d2d66726f6d204b202d2d746f204c2c206f72204368616e6765206f6e20746865206465636b27732070616765292e0188c3c9010000000000000000
 == s11 bulk add, empty
 > POST /api/anki/notes/bulk
 < 400 content-type=application/x-amgi-wire cache-control=no-store
@@ -1469,8 +1589,8 @@
 == s11 notes after the edits
 > GET /api/anki/decks/10000007/notes
 < 200 content-type=application/x-amgi-wire cache-control=no-store
-< notes {mode="direct" notes=[{id=30000005 notetypeId=1794170430302 fields=["privet", "x"] tags=["a", "b"]}, {id=30000006 notetypeId=1794170430302 fields=["annyeong", "hi"] tags=[]}, {id=30000007 notetypeId=1794170430302 fields=["bulk 1", "x"] tags=[]}, {id=30000008 notetypeId=1794170430302 fields=["bulk 3", "x"] tags=[]}] offset=0 limit=50 hasMore=false}
-< bytes 414d573206000400000085c3c901000000005e23e4bca101000002000000060000007072697665740100000078020000000100000061010000006286c3c901000000005e23e4bca10100000200000008000000616e6e79656f6e670200000068690000000087c3c901000000005e23e4bca1010000020000000600000062756c6b203101000000780000000088c3c901000000005e23e4bca1010000020000000600000062756c6b2033010000007800000000000000003200000000
+< notes {mode="direct" notes=[{id=30000005 notetypeId=1794170430302 fields=["privet", "x"] tags=["a", "b"]}, {id=30000006 notetypeId=1794170430302 fields=["annyeong", "hi"] tags=[]}, {id=30000007 notetypeId=1794170430302 fields=["bulk 1", "x"] tags=[]}, {id=30000008 notetypeId=1794170430302 fields=["bulk 5", "x"] tags=[]}] offset=0 limit=50 hasMore=false}
+< bytes 414d573206000400000085c3c901000000005e23e4bca101000002000000060000007072697665740100000078020000000100000061010000006286c3c901000000005e23e4bca10100000200000008000000616e6e79656f6e670200000068690000000087c3c901000000005e23e4bca1010000020000000600000062756c6b203101000000780000000088c3c901000000005e23e4bca1010000020000000600000062756c6b2035010000007800000000000000003200000000
 == s11 read note
 > GET /api/anki/notes/30000005
 < 200 content-type=application/x-amgi-wire cache-control=no-store
@@ -1590,8 +1710,8 @@
 == s11 decks at the end
 > GET /api/anki/decks
 < 200 content-type=application/x-amgi-wire cache-control=no-store
-< decks {mode="direct" decks=[{id=1 name="Default" noteCount=0 known="en" learning="ko"}, {id=1794170430305 name="Korean" noteCount=3 known="" learning=""}, {id=1794170430306 name="Korean::문장" noteCount=3 known="" learning=""}, {id=1794170430308 name="Empty" noteCount=0 known="" learning=""}, {id=1794170430307 name="Café" noteCount=2 known="" learning=""}, {id=10000008 name="Made" noteCount=0 known="" learning=""}, {id=10000007 name="Renamed::Deep" noteCount=3 known="ko" learning="en"}, {id=10000009 name="Renamed" noteCount=3 known="" learning=""}]}
-< bytes 414d573202000800000001000000000000000700000044656661756c740000000002000000656e020000006b6f6123e4bca1010000060000004b6f7265616e0300000000000000000000006223e4bca10100000e0000004b6f7265616e3a3aebacb8ec9ea50300000000000000000000006423e4bca101000005000000456d7074790000000000000000000000006323e4bca101000005000000436166c3a90200000000000000000000008896980000000000040000004d61646500000000000000000000000087969800000000000d00000052656e616d65643a3a4465657003000000020000006b6f02000000656e89969800000000000700000052656e616d6564030000000000000000000000
+< decks {mode="direct" decks=[{id=1 name="Default" noteCount=0 known="en" learning="ko"}, {id=1794170430305 name="Korean" noteCount=3 known="" learning=""}, {id=1794170430306 name="Korean::문장" noteCount=3 known="" learning=""}, {id=1794170430308 name="Empty" noteCount=0 known="" learning=""}, {id=1794170430307 name="Café" noteCount=2 known="" learning=""}, {id=10000008 name="Made" noteCount=0 known="" learning=""}, {id=10000007 name="Renamed::Deep" noteCount=3 known="en" learning="ko"}, {id=10000009 name="Renamed" noteCount=3 known="" learning=""}]}
+< bytes 414d573202000800000001000000000000000700000044656661756c740000000002000000656e020000006b6f6123e4bca1010000060000004b6f7265616e0300000000000000000000006223e4bca10100000e0000004b6f7265616e3a3aebacb8ec9ea50300000000000000000000006423e4bca101000005000000456d7074790000000000000000000000006323e4bca101000005000000436166c3a90200000000000000000000008896980000000000040000004d61646500000000000000000000000087969800000000000d00000052656e616d65643a3a446565700300000002000000656e020000006b6f89969800000000000700000052656e616d6564030000000000000000000000
 == s11 install state before
 > GET /api/anki/install
 < 200 content-type=application/x-amgi-wire cache-control=no-store
@@ -1627,6 +1747,16 @@
 < 400 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="Restart Anki once so it adds the \"amgi Listening\" card type, then try again." notStarted=false dailyCap=false}
 < bytes 414d573200094c0000005265737461727420416e6b69206f6e636520736f2069742061646473207468652022616d6769204c697374656e696e6722206361726420747970652c207468656e2074727920616761696e2effffffff0000ffffffff
+== s11 decks after the starter
+> GET /api/anki/decks
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< decks {mode="direct" decks=[{id=1 name="Default" noteCount=0 known="en" learning="ko"}, {id=1794170430305 name="Korean" noteCount=3 known="" learning=""}, {id=1794170430306 name="Korean::문장" noteCount=3 known="" learning=""}, {id=1794170430308 name="Empty" noteCount=0 known="" learning=""}, {id=1794170430307 name="Café" noteCount=2 known="" learning=""}, {id=10000008 name="Made" noteCount=0 known="" learning=""}, {id=10000007 name="Renamed::Deep" noteCount=3 known="en" learning="ko"}, {id=10000009 name="Renamed" noteCount=3 known="" learning=""}]}
+< bytes 414d573202000800000001000000000000000700000044656661756c740000000002000000656e020000006b6f6123e4bca1010000060000004b6f7265616e0300000000000000000000006223e4bca10100000e0000004b6f7265616e3a3aebacb8ec9ea50300000000000000000000006423e4bca101000005000000456d7074790000000000000000000000006323e4bca101000005000000436166c3a90200000000000000000000008896980000000000040000004d61646500000000000000000000000087969800000000000d00000052656e616d65643a3a446565700300000002000000656e020000006b6f89969800000000000700000052656e616d6564030000000000000000000000
+== s11 starter, the deck is in another pair
+> POST /api/anki/starter
+< 400 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="" error="Restart Anki once so it adds the \"amgi Listening\" card type, then try again." notStarted=false dailyCap=false}
+< bytes 414d573200094c0000005265737461727420416e6b69206f6e636520736f2069742061646473207468652022616d6769204c697374656e696e6722206361726420747970652c207468656e2074727920616761696e2effffffff0000ffffffff
 == s11 starter, same languages
 > POST /api/anki/starter
 < 400 content-type=application/x-amgi-wire cache-control=no-store
@@ -1650,13 +1780,23 @@
 == s11 card text, no input
 > POST /api/anki/card-text
 < 400 content-type=application/x-amgi-wire cache-control=no-store
-< error {mode="" error="userInput, knownLanguage and learningLanguage are required" notStarted=false dailyCap=false}
-< bytes 414d573200093a00000075736572496e7075742c206b6e6f776e4c616e677561676520616e64206c6561726e696e674c616e677561676520617265207265717569726564ffffffff0000ffffffff
-== s11 card text, no language
+< error {mode="" error="userInput and deckId are required" notStarted=false dailyCap=false}
+< bytes 414d573200092100000075736572496e70757420616e64206465636b496420617265207265717569726564ffffffff0000ffffffff
+== s11 card text, no deck
 > POST /api/anki/card-text
 < 400 content-type=application/x-amgi-wire cache-control=no-store
-< error {mode="" error="userInput, knownLanguage and learningLanguage are required" notStarted=false dailyCap=false}
-< bytes 414d573200093a00000075736572496e7075742c206b6e6f776e4c616e677561676520616e64206c6561726e696e674c616e677561676520617265207265717569726564ffffffff0000ffffffff
+< error {mode="" error="userInput and deckId are required" notStarted=false dailyCap=false}
+< bytes 414d573200092100000075736572496e70757420616e64206465636b496420617265207265717569726564ffffffff0000ffffffff
+== s11 card text, a deck with no languages
+> POST /api/anki/card-text
+< 409 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="" error="This deck has no languages yet: choose them first (amgi deck add NAME --from K --to L, or Change on the deck's page)." notStarted=false dailyCap=false}
+< bytes 414d573200097500000054686973206465636b20686173206e6f206c616e677561676573207965743a2063686f6f7365207468656d2066697273742028616d6769206465636b20616464204e414d45202d2d66726f6d204b202d2d746f204c2c206f72204368616e6765206f6e20746865206465636b27732070616765292effffffff0000ffffffff
+== s11 card text, a deck not there
+> POST /api/anki/card-text
+< 404 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="" error="This deck no longer exists." notStarted=false dailyCap=false}
+< bytes 414d573200091b00000054686973206465636b206e6f206c6f6e676572206578697374732effffffff0000ffffffff
 == s11 audio, no text
 > POST /api/anki/audio
 < 400 content-type=application/x-amgi-wire cache-control=no-store
@@ -1712,6 +1852,11 @@
 < 200 content-type=application/x-amgi-wire cache-control=no-store
 < status {mode="direct" schemaVersion=18 detail=""}
 < bytes 414d573201001200000000000000
+== keyless: set languages
+> PUT /api/anki/decks/1/languages
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< deck_languages {mode="direct" id=1 known="en" learning="ko"}
+< bytes 414d57323100010000000000000002000000656e020000006b6f
 == keyless: starter state
 > GET /api/anki/starter
 < 200 content-type=application/x-amgi-wire cache-control=no-store
@@ -1727,6 +1872,111 @@
 < 500 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="GEMINI_API_KEY is not set, so nothing was generated: get a key at https://aistudio.google.com/apikey, add it to .env.local and restart amgi." notStarted=false dailyCap=false}
 < bytes 414d573200098c00000047454d494e495f4150495f4b4559206973206e6f74207365742c20736f206e6f7468696e67207761732067656e6572617465643a206765742061206b65792061742068747470733a2f2f616973747564696f2e676f6f676c652e636f6d2f6170696b65792c2061646420697420746f202e656e762e6c6f63616c20616e64207265737461727420616d67692effffffff0000ffffffff
+== detect: install
+> POST /api/anki/install
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< installed {ok=true needsRestart=false message="Installed. The \"amgi Listening\" card type is already in your collection, so you can add cards now. Anki picks the add-ons up the next time it starts." addonsDir="<base>/addons21"}
+< bytes 414d573211010095000000496e7374616c6c65642e205468652022616d6769204c697374656e696e67222063617264207479706520697320616c726561647920696e20796f757220636f6c6c656374696f6e2c20736f20796f752063616e20616464206361726473206e6f772e20416e6b69207069636b7320746865206164642d6f6e7320757020746865206e6578742074696d65206974207374617274732e0f0000003c626173653e2f6164646f6e733231
+== detect: decks
+> GET /api/anki/decks
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< decks {mode="direct" decks=[{id=1 name="Default" noteCount=0 known="" learning=""}, {id=1794170430284 name="Existing" noteCount=4 known="" learning=""}, {id=1794170430285 name="Existing::Child" noteCount=1 known="" learning=""}, {id=1794170430286 name="Korean" noteCount=3 known="" learning=""}, {id=1794170430287 name="Korean::문장" noteCount=3 known="" learning=""}, {id=1794170430288 name="Café" noteCount=2 known="" learning=""}, {id=1794170430289 name="Empty" noteCount=0 known="" learning=""}, {id=1794170430294 name="Filtered" noteCount=1 known="" learning=""}, {id=10000010 name="Seoul" noteCount=2 known="" learning=""}, {id=10000011 name="Mixed" noteCount=2 known="" learning=""}, {id=10000012 name="Broken" noteCount=1 known="" learning=""}]}
+< bytes 414d573202000b00000001000000000000000700000044656661756c740000000000000000000000004c23e4bca1010000080000004578697374696e670400000000000000000000004d23e4bca10100000f0000004578697374696e673a3a4368696c640100000000000000000000004e23e4bca1010000060000004b6f7265616e0300000000000000000000004f23e4bca10100000e0000004b6f7265616e3a3aebacb8ec9ea50300000000000000000000005023e4bca101000005000000436166c3a90200000000000000000000005123e4bca101000005000000456d7074790000000000000000000000005623e4bca10100000800000046696c74657265640100000000000000000000008a969800000000000500000053656f756c0200000000000000000000008b96980000000000050000004d697865640200000000000000000000008c969800000000000600000042726f6b656e010000000000000000000000
+== detect, no key: amgi notes that agree
+> POST /api/anki/decks/10000010/languages/detect
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< deck_languages_found {mode="direct" id=10000010 stored=false known="" learning="ko" foundBy=""}
+< bytes 414d573233008a969800000000000000000000020000006b6f00000000
+== detect, no key: amgi notes that disagree
+> POST /api/anki/decks/10000011/languages/detect
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< deck_languages_found {mode="direct" id=10000011 stored=false known="" learning="" foundBy=""}
+< bytes 414d573233008b9698000000000000000000000000000000000000
+== detect, no key: other notes
+> POST /api/anki/decks/1794170430284/languages/detect
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< deck_languages_found {mode="direct" id=1794170430284 stored=false known="" learning="" foundBy=""}
+< bytes 414d573233004c23e4bca101000000000000000000000000000000
+== detect, no key: no notes
+> POST /api/anki/decks/1794170430289/languages/detect
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< deck_languages_found {mode="direct" id=1794170430289 stored=false known="" learning="" foundBy=""}
+< bytes 414d573233005123e4bca101000000000000000000000000000000
+== detect, Gemini high: other notes
+> POST /api/anki/decks/1794170430284/languages/detect
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< deck_languages_found {mode="direct" id=1794170430284 stored=true known="en" learning="ko" foundBy="gemini"}
+< bytes 414d573233004c23e4bca10100000102000000656e020000006b6f0600000067656d696e69
+== detect: the deck list shows it
+> GET /api/anki/decks
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< decks {mode="direct" decks=[{id=1 name="Default" noteCount=0 known="" learning=""}, {id=1794170430284 name="Existing" noteCount=4 known="en" learning="ko"}, {id=1794170430285 name="Existing::Child" noteCount=1 known="" learning=""}, {id=1794170430286 name="Korean" noteCount=3 known="" learning=""}, {id=1794170430287 name="Korean::문장" noteCount=3 known="" learning=""}, {id=1794170430288 name="Café" noteCount=2 known="" learning=""}, {id=1794170430289 name="Empty" noteCount=0 known="" learning=""}, {id=1794170430294 name="Filtered" noteCount=1 known="" learning=""}, {id=10000010 name="Seoul" noteCount=2 known="" learning=""}, {id=10000011 name="Mixed" noteCount=2 known="" learning=""}, {id=10000012 name="Broken" noteCount=1 known="" learning=""}]}
+< bytes 414d573202000b00000001000000000000000700000044656661756c740000000000000000000000004c23e4bca1010000080000004578697374696e670400000002000000656e020000006b6f4d23e4bca10100000f0000004578697374696e673a3a4368696c640100000000000000000000004e23e4bca1010000060000004b6f7265616e0300000000000000000000004f23e4bca10100000e0000004b6f7265616e3a3aebacb8ec9ea50300000000000000000000005023e4bca101000005000000436166c3a90200000000000000000000005123e4bca101000005000000456d7074790000000000000000000000005623e4bca10100000800000046696c74657265640100000000000000000000008a969800000000000500000053656f756c0200000000000000000000008b96980000000000050000004d697865640200000000000000000000008c969800000000000600000042726f6b656e010000000000000000000000
+== detect, Gemini high: a stored deck is not asked again
+> POST /api/anki/decks/1794170430284/languages/detect
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< deck_languages_found {mode="direct" id=1794170430284 stored=true known="en" learning="ko" foundBy="stored"}
+< bytes 414d573233004c23e4bca10100000102000000656e020000006b6f0600000073746f726564
+== detect, Gemini low
+> POST /api/anki/decks/1794170430287/languages/detect
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< deck_languages_found {mode="direct" id=1794170430287 stored=false known="en" learning="ko" foundBy=""}
+< bytes 414d573233004f23e4bca10100000002000000656e020000006b6f00000000
+== detect, Gemini says none
+> POST /api/anki/decks/1794170430285/languages/detect
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< deck_languages_found {mode="direct" id=1794170430285 stored=false known="" learning="" foundBy=""}
+< bytes 414d573233004d23e4bca101000000000000000000000000000000
+== detect, Gemini says the same language twice
+> POST /api/anki/decks/10000011/languages/detect
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< deck_languages_found {mode="direct" id=10000011 stored=false known="" learning="ko" foundBy=""}
+< bytes 414d573233008b969800000000000000000000020000006b6f00000000
+== detect, Gemini answers outside its schema
+> POST /api/anki/decks/1794170430287/languages/detect
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< deck_languages_found {mode="direct" id=1794170430287 stored=false known="" learning="" foundBy=""}
+< bytes 414d573233004f23e4bca101000000000000000000000000000000
+== detect, Gemini contradicts the notes
+> POST /api/anki/decks/10000010/languages/detect
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< deck_languages_found {mode="direct" id=10000010 stored=false known="en" learning="ko" foundBy=""}
+< bytes 414d573233008a969800000000000002000000656e020000006b6f00000000
+== detect, Gemini fails
+> POST /api/anki/decks/10000012/languages/detect
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< deck_languages_found {mode="direct" id=10000012 stored=false known="" learning="ko" foundBy=""}
+< bytes 414d573233008c969800000000000000000000020000006b6f00000000
+== detect, Gemini agrees with the notes
+> POST /api/anki/decks/10000010/languages/detect
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< deck_languages_found {mode="direct" id=10000010 stored=true known="en" learning="ko" foundBy="notes"}
+< bytes 414d573233008a969800000000000102000000656e020000006b6f050000006e6f746573
+== detect: the deck list at the end
+> GET /api/anki/decks
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< decks {mode="direct" decks=[{id=1 name="Default" noteCount=0 known="" learning=""}, {id=1794170430284 name="Existing" noteCount=4 known="en" learning="ko"}, {id=1794170430285 name="Existing::Child" noteCount=1 known="" learning=""}, {id=1794170430286 name="Korean" noteCount=3 known="" learning=""}, {id=1794170430287 name="Korean::문장" noteCount=3 known="" learning=""}, {id=1794170430288 name="Café" noteCount=2 known="" learning=""}, {id=1794170430289 name="Empty" noteCount=0 known="" learning=""}, {id=1794170430294 name="Filtered" noteCount=1 known="" learning=""}, {id=10000010 name="Seoul" noteCount=2 known="en" learning="ko"}, {id=10000011 name="Mixed" noteCount=2 known="" learning=""}, {id=10000012 name="Broken" noteCount=1 known="" learning=""}]}
+< bytes 414d573202000b00000001000000000000000700000044656661756c740000000000000000000000004c23e4bca1010000080000004578697374696e670400000002000000656e020000006b6f4d23e4bca10100000f0000004578697374696e673a3a4368696c640100000000000000000000004e23e4bca1010000060000004b6f7265616e0300000000000000000000004f23e4bca10100000e0000004b6f7265616e3a3aebacb8ec9ea50300000000000000000000005023e4bca101000005000000436166c3a90200000000000000000000005123e4bca101000005000000456d7074790000000000000000000000005623e4bca10100000800000046696c74657265640100000000000000000000008a969800000000000500000053656f756c0200000002000000656e020000006b6f8b96980000000000050000004d697865640200000000000000000000008c969800000000000600000042726f6b656e010000000000000000000000
+== detect: notetypes
+> GET /api/anki/notetypes
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< notetypes {mode="direct" notetypes=[{id=1794170430283 name="Basic" fieldNames=["Front", "Back"] sortFieldIndex=0}, {id=1794170430284 name="Basic (and reversed card)" fieldNames=["Front", "Back"] sortFieldIndex=0}, {id=1794170430285 name="Basic (optional reversed card)" fieldNames=["Front", "Back", "Add Reverse"] sortFieldIndex=0}, {id=1794170430286 name="Basic (type in the answer)" fieldNames=["Front", "Back"] sortFieldIndex=0}, {id=1794170430287 name="Cloze" fieldNames=["Text", "Back Extra"] sortFieldIndex=0}, {id=1794170430288 name="Image Occlusion" fieldNames=["Occlusion", "Image", "Header", "Back Extra", "Comments"] sortFieldIndex=0}, {id=1794170430289 name="Retro's sentences" fieldNames=["Sentence", "Audio", "Sort"] sortFieldIndex=0}, {id=20000001 name="amgi Listening" fieldNames=["Cue", "CueAudio", "Target", "TargetAudio", "Language", "Notes"] sortFieldIndex=0}]}
+< bytes 414d57320500080000004b23e4bca1010000050000004261736963020000000500000046726f6e74040000004261636b000000004c23e4bca10100001900000042617369632028616e64207265766572736564206361726429020000000500000046726f6e74040000004261636b000000004d23e4bca10100001e000000426173696320286f7074696f6e616c207265766572736564206361726429030000000500000046726f6e74040000004261636b0b0000004164642052657665727365000000004e23e4bca10100001a000000426173696320287479706520696e2074686520616e7377657229020000000500000046726f6e74040000004261636b000000004f23e4bca101000005000000436c6f7a650200000004000000546578740a0000004261636b204578747261000000005023e4bca10100000f000000496d616765204f63636c7573696f6e05000000090000004f63636c7573696f6e05000000496d616765060000004865616465720a0000004261636b20457874726108000000436f6d6d656e7473000000005123e4bca101000011000000526574726f27732073656e74656e636573030000000800000053656e74656e636505000000417564696f04000000536f727400000000012d3101000000000e000000616d6769204c697374656e696e67060000000300000043756508000000437565417564696f060000005461726765740b000000546172676574417564696f080000004c616e6775616765050000004e6f74657300000000
+== detect: add a note with no language
+> POST /api/anki/notes
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< note_added {mode="direct" noteId=30000009}
+< bytes 414d57320a0089c3c90100000000
+== detect: the note has the deck's language
+> GET /api/anki/decks/10000010/notes?limit=1&offset=2
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< notes {mode="direct" notes=[{id=30000009 notetypeId=20000001 fields=["hello", "", "안녕", "", "ko", ""] tags=[]}] offset=2 limit=1 hasMore=false}
+< bytes 414d573206000100000089c3c90100000000012d310100000000060000000500000068656c6c6f0000000006000000ec9588eb859500000000020000006b6f0000000000000000020000000100000000
+== fake: set languages
+> PUT /api/anki/decks/1/languages
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< deck_languages {mode="direct" id=1 known="en" learning="ko"}
+< bytes 414d57323100010000000000000002000000656e020000006b6f
 == fake: card text with cue audio
 > POST /api/anki/card-text
 < 200 content-type=application/x-amgi-wire cache-control=no-store
@@ -1777,6 +2027,11 @@
 < 429 content-type=application/x-amgi-wire cache-control=no-store retry-after=<checked>
 < error {mode="" error="Gemini's per-minute limit is reached; this card waits <n>s before starting." retryAfterMs=1 notStarted=true dailyCap=false maxWaitMs=180000}
 < bytes 414d573200094b00000047656d696e692773207065722d6d696e757465206c696d697420697320726561636865643b20746869732063617264207761697473203c6e3e73206265666f7265207374617274696e672e01000000010020bf0200
+== fake: set languages for the cap
+> PUT /api/anki/decks/1/languages
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< deck_languages {mode="direct" id=1 known="en" learning="ko"}
+< bytes 414d57323100010000000000000002000000656e020000006b6f
 == fake: daily cap
 > POST /api/anki/card-text
 < 429 content-type=application/x-amgi-wire cache-control=no-store

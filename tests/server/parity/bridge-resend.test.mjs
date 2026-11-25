@@ -16,6 +16,9 @@ import { startServer } from './servers.mjs';
 
 const STATUS = encode('b_status', { profileOpen: true, profileName: 'User 1', collectionOpen: true, schemaVersion: 18, ankiVersion: '26.09.4', qtVersion: '6.9' });
 
+const DECKS = encode('b_decks', { decks: [{ id: 1, name: 'Default', known: 'en', learning: 'ko' }] }); // the pair a note is added under
+const NOTETYPES = encode('b_notetypes', { notetypes: [] });
+
 /** The stand-in: every request it read, by method and path. */
 async function silentWriter() {
   const seen = [];
@@ -39,9 +42,10 @@ async function silentWriter() {
         seen.push(`${method} ${path}`);
         heads.push(head);
         if (method === 'GET') {
+          const body = path === '/decks' ? DECKS : path === '/notetypes' ? NOTETYPES : STATUS;
           socket.write(`HTTP/1.1 200 OK\r\nContent-Type: ${WIRE_MIME}\r\nX-Amgi-Bridge-Protocol: ${BRIDGE_PROTOCOL}\r\n`
-            + `Content-Length: ${STATUS.length}\r\nConnection: keep-alive\r\n\r\n`);
-          socket.write(STATUS);
+            + `Content-Length: ${body.length}\r\nConnection: keep-alive\r\n\r\n`);
+          socket.write(body);
         } else {
           socket.destroy(); // read, and gone without a word
           return;

@@ -304,8 +304,9 @@ async function operations(t, impl, schema) {
   await t.cmd('installNotetype');
   await t.cmd('installDrift');
   await t.cmd('installNotetype');
-  for (const [known, learning] of [['en', 'ko'], ['en', 'ko'], ['ko', 'ja']]) {
-    await t.cmd(`starter ${enc(known)} ${enc(learning)} ${enc('amgi starter')}`);
+  // A starter deck stores its pair; the same deck asked for another pair is refused (its cards would be in two), and another deck takes it.
+  for (const [known, learning, name] of [['en', 'ko', 'amgi starter'], ['en', 'ko', 'amgi starter'], ['ko', 'ja', 'amgi starter'], ['ko', 'ja', 'amgi starter ja']]) {
+    await t.cmd(`starter ${enc(known)} ${enc(learning)} ${enc(name)}`);
   }
 
   // Concurrent writes, as five bulk lanes and a status poll reach one server at once.
