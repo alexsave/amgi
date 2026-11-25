@@ -86,7 +86,45 @@ def list_decks(col: "Collection") -> list[dict]:
     # include_filtered=True (the default): server/collection/decks.c's
     # listDecks is a plain, unfiltered `SELECT id, name FROM decks`, and this
     # matches it rather than diverging to hide filtered decks.
-    return [{"id": d.id, "name": d.name} for d in col.decks.all_names_and_ids()]
+    #
+    # Each deck's language pair rides along: it is one key of the deck's own add-on area (LANGUAGES_KEY),
+    # which `all_names_and_ids` does not carry, so the legacy dicts come in one `col.decks.all()` call and
+    # are looked up by id (the names keep their order). A value that is not two words reads as no pair
+    # (""); the server checks the codes themselves.
+    pairs = {int(d["id"]): _pair_of(d) for d in col.decks.all()}
+    return [
+        {"id": d.id, "name": d.name, "known": pairs.get(d.id, ("", ""))[0], "learning": pairs.get(d.id, ("", ""))[1]}
+        for d in col.decks.all_names_and_ids()
+    ]
+
+
+# The deck's own add-on area is where Anki keeps every key it does not know, and what an add-on writes with
+# `deck[key] = ...; col.decks.save(deck)`. amgi's pair is this key, one string "<known> <learning>" ("en zh_cn"):
+# server/collection/decks.c writes the same when Anki is closed.
+LANGUAGES_KEY = "amgiLanguages"
+
+
+def _pair_of(deck: dict) -> tuple:
+    """The two halves of the stored string, or ("", "") when it is not exactly two words split by one space."""
+    value = deck.get(LANGUAGES_KEY)
+    if isinstance(value, str):
+        parts = value.split(" ")
+        if len(parts) == 2 and parts[0] and parts[1]:
+            return parts[0], parts[1]
+    return "", ""
+
+
+def set_deck_languages(col: "Collection", deck_id: int, known: str, learning: str) -> OpResult:
+    """Store the deck's language pair in the deck, through Anki's own API (`col.decks.update_dict`, which `save`
+    calls for a deck dict but which, unlike `save`, hands back the OpChanges a CollectionOp needs; it is what
+    keeps the deck's mtime, usn and the collection's mod right for sync). The codes are the server's to have
+    checked. A deck that is not there is DeckNotFound, 404."""
+    deck = col.decks.get(int(deck_id), default=False)
+    if deck is None:
+        raise DeckNotFound(f"no deck with id {deck_id} in this collection")
+    deck[LANGUAGES_KEY] = f"{known} {learning}"
+    changes = col.decks.update_dict(deck)
+    return OpResult(payload={"id": int(deck_id), "known": known, "learning": learning}, changes=changes)
 
 
 def list_notetypes(col: "Collection") -> list[dict]:

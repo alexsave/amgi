@@ -13,7 +13,7 @@
 // Commands, and what each answers (the answer's first token is "ok" or "err"):
 //   open <collection path>                           ok
 //   status                                           ok <status> <schemaVersion|!>
-//   listDecks                                        ok <n>, then n lines: <id> <name>
+//   listDecks                                        ok <n>, then n lines: <id> <name> <known|~> <learning|~> (~: no pair)
 //   countNotesInDeck <deck>                          ok <count>
 //   listNotetypes                                    ok <n>, then n lines:
 //                                                      <id> <name> <kind> <sortFieldIndex> [fieldNames] [templates]
@@ -23,6 +23,7 @@
 //   existingFieldValues <deck> <notetype> <field>    ok [values]
 //   createDeck <name>                                ok <id> <name> <created 0|1>
 //   renameDeck <deck> <name>                         ok <id> <name> <childrenRenamed>
+//   setDeckLanguages <deck> <known> <learning>       ok <id> <known> <learning>
 //   deckRemovalSummary <deck>                        ok <id> <name> <subdecks> <cards> <notes>
 //   removeDeck <deck>                                ok <id> <name> <decks> <cards> <notes>
 //   addNote <note>                                   ok <noteId> <guid> [cardIds] <warning|!>

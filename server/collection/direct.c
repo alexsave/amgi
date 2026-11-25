@@ -11,6 +11,7 @@
 /* Declared by the files that define them. */
 void deck_create(cx *c, conn *k, str human, col_deck_made *out);
 void deck_rename(cx *c, conn *k, double deck_id, str human, col_renamed *out);
+void deck_set_languages(cx *c, conn *k, double deck_id, str known, str learning, col_deck_languages *out);
 void deck_summary(cx *c, conn *k, double deck_id, col_removal *out);
 void deck_remove(cx *c, conn *k, double deck_id, col_removal *out);
 void note_insert(cx *c, conn *k, const col_notetype *nts, size_t nnt, const col_new_note *note, col_added *out);
@@ -195,7 +196,7 @@ static void list_decks_conn(cx *c, conn *k, void *arg) {
   decks_out *o = arg;
   deck_row *rows = list_decks_for_schema(c, k, &o->n, NULL);
   o->decks = ar_alloc(c->a, (o->n + 1) * sizeof *o->decks);
-  for (size_t i = 0; i < o->n; i++) o->decks[i] = (col_deck){rows[i].id, rows[i].name};
+  for (size_t i = 0; i < o->n; i++) o->decks[i] = (col_deck){rows[i].id, rows[i].name, rows[i].known, rows[i].learning};
 }
 static void list_decks_fn(cx *c, str path, void *arg) { with_collection(c, path, list_decks_conn, arg); }
 int col_list_decks(arena *a, str path, col_deck **out, size_t *n, col_err *err) {
@@ -356,6 +357,18 @@ int col_rename_deck(arena *a, str path, double deck, str name, col_renamed *out,
   memset(out, 0, sizeof *out);
   rename_args2 r = {deck, name, out};
   return locked(a, path, rename_path, &r, err);
+}
+
+typedef struct { double deck; str known, learning; col_deck_languages *out; } languages_args;
+static void languages_conn(cx *c, conn *k, void *arg) {
+  languages_args *l = arg;
+  deck_set_languages(c, k, l->deck, l->known, l->learning, l->out);
+}
+static void languages_path(cx *c, str path, void *arg) { with_write(c, path, languages_conn, arg); }
+int col_set_deck_languages(arena *a, str path, double deck, str known, str learning, col_deck_languages *out, col_err *err) {
+  memset(out, 0, sizeof *out);
+  languages_args l = {deck, known, learning, out};
+  return locked(a, path, languages_path, &l, err);
 }
 
 typedef struct { double note; col_note *out; } get_note_args;

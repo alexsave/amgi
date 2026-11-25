@@ -43,6 +43,10 @@ int ops_rename_deck(arena *a, const amgi_ops *o, double deck, str name, int64_t 
   *id = d.id, *out_name = d.name;
   return 0;
 }
+int ops_set_deck_languages(arena *a, const amgi_ops *o, double deck, str known, str learning, col_deck_languages *out, col_err *e) {
+  return ops_is_direct(o) ? col_set_deck_languages(a, o->path, deck, known, learning, out, e)
+                          : col_bridge_set_deck_languages(a, BR, deck, known, learning, out, e);
+}
 int ops_removal_summary(arena *a, const amgi_ops *o, double deck, col_removal *out, col_err *e) {
   return ops_is_direct(o) ? col_removal_summary(a, o->path, deck, out, e) : col_bridge_removal_summary(a, BR, deck, out, e);
 }

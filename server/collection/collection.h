@@ -34,7 +34,9 @@ typedef struct {
 } col_err;
 
 typedef struct { const char *status; int schema; } col_state; /* status "ok" (schema set), "locked", ... */
-typedef struct { int64_t id; str name; } col_deck;
+/* known and learning: the deck's stored language pair (lang.h's codes), both empty when it has none (or
+ * what it holds is not two known codes). */
+typedef struct { int64_t id; str name, known, learning; } col_deck;
 typedef struct { int64_t ord; str name, question, answer; } col_template;
 typedef struct {
   int64_t id;
@@ -74,6 +76,7 @@ typedef struct {
 
 typedef struct { int64_t id; str name; int created; } col_deck_made;
 typedef struct { int64_t id; str name; int64_t children; } col_renamed;
+typedef struct { int64_t id; str known, learning; } col_deck_languages;
 typedef struct { int64_t id; str name; int64_t subdecks, decks, cards, notes; } col_removal; /* subdecks: summary; decks: removal */
 
 typedef struct { str name, front, back; } col_spec_template;
@@ -105,6 +108,9 @@ int col_create_deck(arena *a, str path, str name, col_deck_made *out, col_err *e
 int col_add_note(arena *a, str path, const col_new_note *note, col_added *out, col_err *err);
 int col_add_notes(arena *a, str path, const col_new_note *notes, size_t n, col_added *out, col_err *err);
 int col_rename_deck(arena *a, str path, double deck, str name, col_renamed *out, col_err *err);
+/* The deck's pair, in Anki's own add-on area of the deck (decks.c says where); a deck that is not there is
+ * status 404 in err. The codes are the caller's to have checked. */
+int col_set_deck_languages(arena *a, str path, double deck, str known, str learning, col_deck_languages *out, col_err *err);
 int col_removal_summary(arena *a, str path, double deck, col_removal *out, col_err *err);
 int col_remove_deck(arena *a, str path, double deck, col_removal *out, col_err *err);
 int col_remove_note(arena *a, str path, double note, int64_t *note_id, int64_t *cards_removed, col_err *err);

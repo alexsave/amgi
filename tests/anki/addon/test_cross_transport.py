@@ -18,9 +18,11 @@ from __future__ import annotations
 
 import os
 import shutil
+import socket
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 
 sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "anki", "addon", "amgi_bridge")))
@@ -77,6 +79,8 @@ def run_c(collection_path: str, op: str, args: dict):
         line = "createDeck " + _enc(args["name"])
     elif op == "listDecks":
         line = "listDecks"
+    elif op == "setDeckLanguages":
+        line = "setDeckLanguages %d %s %s" % (args["deckId"], _enc(args["known"]), _enc(args["learning"]))
     elif op == "listNotetypes":
         line = "listNotetypes"
     elif op == "addNote":
@@ -104,7 +108,10 @@ def run_c(collection_path: str, op: str, args: dict):
     if op == "createDeck":
         return {"deck": {"id": int(answer[1]), "name": _dec(answer[2])}, "created": answer[3] == "1"}
     if op == "listDecks":
-        return [{"id": int(r.split(" ")[0]), "name": _dec(r.split(" ")[1])} for r in rows[: int(answer[1])]]
+        return [{"id": int(r.split(" ")[0]), "name": _dec(r.split(" ")[1]), "known": _dec(r.split(" ")[2]),
+                 "learning": _dec(r.split(" ")[3])} for r in rows[: int(answer[1])]]
+    if op == "setDeckLanguages":
+        return {"id": int(answer[1]), "known": _dec(answer[2]), "learning": _dec(answer[3])}
     if op == "listNotetypes":
         out = []
         for r in rows[: int(answer[1])]:
@@ -128,7 +135,9 @@ def _require_anki_and_c() -> None:
         raise unittest.SkipTest("no server/build/collection_cli (make -C server)")
 
 
-class CrossTransportTests(unittest.TestCase):
+class _SeededCollection(unittest.TestCase):
+    """A closed, freshly made collection in a temporary folder: the only state either transport may touch."""
+
     def setUp(self):
         _require_anki_and_c()
         self.tmpdir = tempfile.mkdtemp()
@@ -152,6 +161,8 @@ class CrossTransportTests(unittest.TestCase):
 
         return Collection(self.collection_path)
 
+
+class CrossTransportTests(_SeededCollection):
     def test_a_deck_the_c_core_creates_is_recognised_not_duplicated_by_the_bridge(self):
         c_created = run_c(self.collection_path, "createDeck", {"name": "Korean::Verbs"})
         self.assertTrue(c_created["created"])
@@ -237,6 +248,134 @@ class CrossTransportTests(unittest.TestCase):
         self.assertEqual(note["notetypeId"], basic["id"])
         self.assertEqual(note["fields"], ["py front", "py back"])
         self.assertEqual(note["tags"], ["from-py"])
+
+
+class DeckLanguagesCrossTransportTests(_SeededCollection):
+    """A deck's language pair is one string in the deck's own add-on area. The C core writes it with Anki closed
+    and Anki's own library reads it as it reads any add-on's key; Anki writes it and the C core lists it; and a
+    write of the C core's reaches another device through Anki's own sync server."""
+
+    def test_the_c_core_sets_a_pair_anki_reads_it_and_another_add_ons_key_survives(self):
+        col = self._open()
+        try:
+            did = col.decks.id("Chinese")
+            deck = col.decks.get(did)
+            deck["otherAddon"] = 1
+            col.decks.save(deck)
+        finally:
+            col.close()
+        answer = run_c(self.collection_path, "setDeckLanguages", {"deckId": did, "known": "en", "learning": "zh_cn"})
+        self.assertEqual(answer, {"id": did, "known": "en", "learning": "zh_cn"})
+        col = self._open()
+        try:
+            deck = col.decks.get(did)
+            self.assertEqual(deck["amgiLanguages"], "en zh_cn")
+            self.assertEqual(deck["otherAddon"], 1, "another add-on's key is still there")
+            self.assertEqual(deck["name"], "Chinese")
+            self.assertEqual(col.decks.get(1).get("amgiLanguages"), None, "no other deck got one")
+        finally:
+            col.close()
+
+    def test_anki_sets_a_pair_and_the_c_core_lists_it(self):
+        col = self._open()
+        try:
+            did = col.decks.id("Korean")
+            other = col.decks.id("Other")
+            bridge_ops.set_deck_languages(col, did, "ko", "en")
+        finally:
+            col.close()
+        listed = {d["id"]: d for d in run_c(self.collection_path, "listDecks", {})}
+        self.assertEqual((listed[did]["known"], listed[did]["learning"]), ("ko", "en"))
+        self.assertEqual((listed[other]["known"], listed[other]["learning"]), ("", ""))
+        # and the C core replaces what Anki wrote, which Anki reads back
+        run_c(self.collection_path, "setDeckLanguages", {"deckId": did, "known": "ja", "learning": "en"})
+        col = self._open()
+        try:
+            self.assertEqual(col.decks.get(did)["amgiLanguages"], "ja en")
+        finally:
+            col.close()
+
+    def test_a_c_core_write_moves_col_mod_and_the_decks_own_mtime_and_usn(self):
+        col = self._open()
+        try:
+            did = col.decks.id("Chinese")
+            mod_before = col.db.scalar("select mod from col")
+        finally:
+            col.close()
+        time.sleep(0.01)
+        run_c(self.collection_path, "setDeckLanguages", {"deckId": did, "known": "en", "learning": "zh_cn"})
+        col = self._open()
+        try:
+            self.assertGreater(col.db.scalar("select mod from col"), mod_before, "col.mod moved, or sync reports no changes")
+            self.assertEqual(col.db.scalar("select usn from decks where id = ?", did), -1)
+            self.assertGreaterEqual(col.db.scalar("select mtime_secs from decks where id = ?", did), int(time.time()) - 60)
+        finally:
+            col.close()
+
+    def test_a_pair_the_c_core_writes_reaches_another_device_through_anki_own_sync_server(self):
+        from anki.collection import Collection
+
+        base = tempfile.mkdtemp()
+        self.addCleanup(lambda: shutil.rmtree(base, ignore_errors=True))
+        probe = socket.socket()
+        probe.bind(("127.0.0.1", 0))
+        port = probe.getsockname()[1]
+        probe.close()
+        env = dict(os.environ, SYNC_USER1="u:p", SYNC_BASE=os.path.join(base, "srv"), SYNC_HOST="127.0.0.1", SYNC_PORT=str(port))
+        server = subprocess.Popen(
+            [sys.executable, "-c", "from anki.syncserver import run_sync_server; run_sync_server()"],
+            env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        )
+        self.addCleanup(lambda: (server.kill(), server.wait()))
+        for _ in range(100):
+            try:
+                socket.create_connection(("127.0.0.1", port), timeout=0.2).close()
+                break
+            except OSError:
+                time.sleep(0.1)
+        else:
+            self.fail("Anki's sync server did not come up")
+        endpoint = f"http://127.0.0.1:{port}/"
+
+        def sync(col, upload=False):
+            auth = col.sync_login("u", "p", endpoint=endpoint)
+            out = col.sync_collection(auth, sync_media=False)
+            if out.required in (out.FULL_UPLOAD, out.FULL_SYNC) and upload:
+                col.close_for_full_sync()
+                col.full_upload_or_download(auth=auth, server_usn=out.server_media_usn, upload=True)
+                col.reopen(after_full_sync=True)
+            elif out.required in (out.FULL_DOWNLOAD, out.FULL_SYNC):
+                col.close_for_full_sync()
+                col.full_upload_or_download(auth=auth, server_usn=out.server_media_usn, upload=False)
+                col.reopen(after_full_sync=True)
+
+        path_a, path_b = (os.path.join(base, n, "collection.anki2") for n in ("A", "B"))
+        os.makedirs(os.path.dirname(path_a))
+        os.makedirs(os.path.dirname(path_b))
+        a = Collection(path_a)
+        did = a.decks.id("Chinese")
+        bridge_ops.set_deck_languages(a, did, "en", "ja")
+        sync(a, upload=True)
+        b = Collection(path_b)
+        sync(b)
+        self.assertEqual(b.decks.get(did).get("amgiLanguages"), "en ja", "device B has the deck and its pair after the first download")
+        # An ordinary incremental round first (B changes it through Anki's own API, both sync), so that A's
+        # collection and the server's agree on col.mod: the state in which a write that leaves col.mod
+        # where it was is never offered to the server (measured against this very sync server).
+        bridge_ops.set_deck_languages(b, did, "en", "ko")
+        sync(b)
+        sync(a)
+        self.assertEqual(a.decks.get(did).get("amgiLanguages"), "en ko", "device A got B's change")
+        # the C core changes A's file with Anki closed; both devices then sync, an ordinary incremental one
+        a.close()
+        run_c(path_a, "setDeckLanguages", {"deckId": did, "known": "en", "learning": "zh_cn"})
+        a = Collection(path_a)
+        self.assertEqual(a.decks.get(did).get("amgiLanguages"), "en zh_cn", "Anki reads the C core's write")
+        sync(a)
+        sync(b)
+        self.assertEqual(b.decks.get(did).get("amgiLanguages"), "en zh_cn", "device B got the pair A's C-core write made")
+        a.close()
+        b.close()
 
 
 if __name__ == "__main__":

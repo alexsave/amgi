@@ -72,7 +72,55 @@ class ListDecksTests(BridgeOpsTestCase):
     def test_a_newly_created_deck_appears(self):
         did = self.col.decks.id("Korean")
         decks = bridge_ops.list_decks(self.col)
-        self.assertIn({"id": did, "name": "Korean"}, decks)
+        self.assertIn({"id": did, "name": "Korean", "known": "", "learning": ""}, decks)
+
+    def test_a_deck_lists_the_pair_stored_in_it_and_the_others_have_none(self):
+        did = self.col.decks.id("Korean")
+        other = self.col.decks.id("Other")
+        bridge_ops.set_deck_languages(self.col, did, "en", "ko")
+        by_name = {d["name"]: d for d in bridge_ops.list_decks(self.col)}
+        self.assertEqual((by_name["Korean"]["known"], by_name["Korean"]["learning"]), ("en", "ko"))
+        self.assertEqual((by_name["Other"]["known"], by_name["Other"]["learning"]), ("", ""))
+        self.assertEqual((by_name["Default"]["known"], by_name["Default"]["learning"]), ("", ""))
+        self.assertEqual(other, by_name["Other"]["id"])
+
+    def test_a_value_that_is_not_two_words_reads_as_no_pair(self):
+        did = self.col.decks.id("Korean")
+        for bad in ({"known": "en", "learning": "ko"}, 5, "en", "en  ko", " en ko", "en ko ja", ""):
+            deck = self.col.decks.get(did)
+            deck[bridge_ops.LANGUAGES_KEY] = bad
+            self.col.decks.save(deck)
+            listed = next(d for d in bridge_ops.list_decks(self.col) if d["id"] == did)
+            self.assertEqual((listed["known"], listed["learning"]), ("", ""), repr(bad))
+
+
+class SetDeckLanguagesTests(BridgeOpsTestCase):
+    def test_stores_one_string_in_the_deck_and_keeps_another_add_ons_key(self):
+        from anki.collection import OpChanges
+
+        did = self.col.decks.id("Korean")
+        deck = self.col.decks.get(did)
+        deck["otherAddon"] = 1
+        self.col.decks.save(deck)
+        result = bridge_ops.set_deck_languages(self.col, did, "en", "zh_cn")
+        self.assertIsInstance(result.changes, OpChanges)
+        self.assertEqual(result.payload, {"id": did, "known": "en", "learning": "zh_cn"})
+        stored = self.col.decks.get(did)
+        self.assertEqual(stored["amgiLanguages"], "en zh_cn")
+        self.assertEqual(stored["otherAddon"], 1)
+
+    def test_replaces_a_pair_and_takes_the_default_deck(self):
+        did = self.col.decks.id("Korean")
+        bridge_ops.set_deck_languages(self.col, did, "en", "ko")
+        bridge_ops.set_deck_languages(self.col, did, "ko", "en")
+        self.assertEqual(self.col.decks.get(did)["amgiLanguages"], "ko en")
+        bridge_ops.set_deck_languages(self.col, 1, "en", "ja")
+        self.assertEqual(self.col.decks.get(1)["amgiLanguages"], "en ja")
+
+    def test_a_deck_that_is_not_there_is_a_404(self):
+        with self.assertRaises(bridge_ops.DeckNotFound) as raised:
+            bridge_ops.set_deck_languages(self.col, 12345, "en", "ko")
+        self.assertEqual(raised.exception.http_status, 404)
 
 
 class ListNotetypesTests(BridgeOpsTestCase):

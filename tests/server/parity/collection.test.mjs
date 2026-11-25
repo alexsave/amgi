@@ -50,11 +50,11 @@ function freshCopy(schema) {
  * clocks collide (a note and its card made in the same millisecond share a number).
  */
 const ARG_KINDS = {
-  countNotesInDeck: ['D'], listNotesInDeck: ['D'], existingFieldValues: ['D', 'M'], renameDeck: ['D'],
+  countNotesInDeck: ['D'], listNotesInDeck: ['D'], existingFieldValues: ['D', 'M'], renameDeck: ['D'], setDeckLanguages: ['D'],
   deckRemovalSummary: ['D'], removeDeck: ['D'], addNote: ['D', 'M'], updateNote: ['N'], getNote: ['N'], removeNote: ['N'],
 };
 const ANSWER_KINDS = {
-  createDeck: ['D'], renameDeck: ['D'], deckRemovalSummary: ['D'], removeDeck: ['D'], addNote: ['N', 'G', ['C']],
+  createDeck: ['D'], renameDeck: ['D'], setDeckLanguages: ['D'], deckRemovalSummary: ['D'], removeDeck: ['D'], addNote: ['N', 'G', ['C']],
   getNote: ['N', 'M'], removeNote: ['N'], createNotetype: [null, 'M'],
 };
 const ROW_KINDS = {
@@ -248,6 +248,14 @@ async function operations(t, impl, schema) {
   await t.cmd(`renameDeck 999 ${enc('Nowhere')}`);
   await t.cmd(`renameDeck ${after['Straße']} ${enc('Sub::Deep::Straße')}`);
   await t.cmd(`renameDeck ${decks.Korean} ${enc('한국어')}`);
+  await t.cmd('listDecks');
+
+  // A deck's language pair, stored in the deck: set, replaced, the Default deck, a deck that is not there; the list says it.
+  await t.cmd(`setDeckLanguages ${created} ${enc('en')} ${enc('ko')}`);
+  await t.cmd(`setDeckLanguages ${created} ${enc('en')} ${enc('zh_cn')}`);
+  await t.cmd(`setDeckLanguages 1 ${enc('ko')} ${enc('en')}`);
+  await t.cmd(`setDeckLanguages ${decks.Korean} ${enc('zh_hk')} ${enc('ja')}`);
+  await t.cmd(`setDeckLanguages 999 ${enc('en')} ${enc('ko')}`);
   await t.cmd('listDecks');
 
   // Media: a new name, the same bytes again, other bytes under a taken name, names cleaned.
