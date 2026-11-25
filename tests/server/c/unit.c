@@ -741,6 +741,51 @@ static void deck_languages(void) {
       wn = common_of(want, HEAD, sizeof HEAD, "{\"otherAddon\":1,\"amgiLanguages\":\"fr it\"}");
       got = get_text(&a, path.p, "SELECT common FROM decks WHERE id = ?", made.id);
       CHECK(got.n == wn && !memcmp(got.p, want, wn), "a new key goes after the other add-on's");
+      /* the area is scanned, not parsed: every byte of the other add-ons' values stays (1.0, an accent, escapes, a nested
+       * object holding the same key, the key's name inside a string), and only this key's own top-level value is read or
+       * changed */
+      struct { const char *in, *pair_before, *out; } areas[] = {
+        {"{\"x\":1.0,\"y\":\"\xc3\xa9\",\"z\":{\"amgiLanguages\":\"es fr\"},\"s\":\"a \\\"amgiLanguages\\\":\\\"de it\\\" b\"}", "|",
+         "{\"x\":1.0,\"y\":\"\xc3\xa9\",\"z\":{\"amgiLanguages\":\"es fr\"},\"s\":\"a \\\"amgiLanguages\\\":\\\"de it\\\" b\",\"amgiLanguages\":\"fr it\"}"},
+        {"{\"x\":1.0,\"amgiLanguages\":\"de it\",\"z\":{\"amgiLanguages\":\"es fr\"},\"e\":1E+2}", "de|it",
+         "{\"x\":1.0,\"amgiLanguages\":\"fr it\",\"z\":{\"amgiLanguages\":\"es fr\"},\"e\":1E+2}"},
+        {"{\"amgiLanguages\":\"de it\",\"a\":1,\"amgiLanguages\":\"es fr\"}", "es|fr",
+         "{\"amgiLanguages\":\"de it\",\"a\":1,\"amgiLanguages\":\"fr it\"}"},
+        {"{\"amgiLanguagesX\":\"de it\",\"Xamgi\":1}", "|", "{\"amgiLanguagesX\":\"de it\",\"Xamgi\":1,\"amgiLanguages\":\"fr it\"}"},
+        {"{}", "|", "{\"amgiLanguages\":\"fr it\"}"},
+        {"{ \n}", "|", "{\"amgiLanguages\":\"fr it\" \n}"},
+        {" {\"a\" : [1, {\"b\":\"}\"}] ,\n \"amgiLanguages\" :  \"de it\" }\n", "de|it",
+         " {\"a\" : [1, {\"b\":\"}\"}] ,\n \"amgiLanguages\" :  \"fr it\" }\n"},
+        {"{\"a\":[1,2] }", "|", "{\"a\":[1,2],\"amgiLanguages\":\"fr it\" }"},
+        {"{\"amgiLanguages\":\"en\\u0020ko\",\"k\":null}", "|", "{\"amgiLanguages\":\"fr it\",\"k\":null}"},
+        {"{\"amgiLanguages\":{\"known\":\"en\"},\"k\":true}", "|", "{\"amgiLanguages\":\"fr it\",\"k\":true}"},
+      };
+      for (size_t i = 0; i < sizeof areas / sizeof *areas; i++) {
+        n = common_of(blob, HEAD, sizeof HEAD, areas[i].in);
+        put_common(path.p, made.id, blob, n);
+        CHECK(!strcmp(listed_pair(&a, path, made.id), areas[i].pair_before), "area %zu reads as %s, not %s", i, areas[i].pair_before,
+              listed_pair(&a, path, made.id));
+        CHECK(col_set_deck_languages(&a, path, (double)made.id, S("fr"), S("it"), &out, &e) == 0, "area %zu: written", i);
+        wn = common_of(want, HEAD, sizeof HEAD, areas[i].out);
+        got = get_text(&a, path.p, "SELECT common FROM decks WHERE id = ?", made.id);
+        CHECK(got.n == wn && !memcmp(got.p, want, wn), "area %zu: only the key's own value changed, got %.*s", i, (int)got.n, got.p);
+        CHECK_STR(str_c(listed_pair(&a, path, made.id)), "fr|it");
+      }
+      /* no area at all: the object is made; a malformed one is refused */
+      put_common(path.p, made.id, HEAD, sizeof HEAD);
+      CHECK(col_set_deck_languages(&a, path, (double)made.id, S("fr"), S("it"), &out, &e) == 0, "no area");
+      wn = common_of(want, HEAD, sizeof HEAD, "{\"amgiLanguages\":\"fr it\"}");
+      got = get_text(&a, path.p, "SELECT common FROM decks WHERE id = ?", made.id);
+      CHECK(got.n == wn && !memcmp(got.p, want, wn), "an absent area becomes the one-key object");
+      static const char *const MALFORMED[] = {"{\"a\":1", "{\"a\" 1}", "{\"a\":1,}x", "{a:1}", "{\"a\":}", "{\"a\":1} x", "\"s\"", "{\"a\":\"unterminated}"};
+      for (size_t i = 0; i < sizeof MALFORMED / sizeof *MALFORMED; i++) {
+        n = common_of(blob, HEAD, sizeof HEAD, MALFORMED[i]);
+        put_common(path.p, made.id, blob, n);
+        CHECK_STR(str_c(listed_pair(&a, path, made.id)), "|");
+        CHECK(col_set_deck_languages(&a, path, (double)made.id, S("en"), S("ko"), &out, &e) < 0, "malformed area %s is refused", MALFORMED[i]);
+        got = get_text(&a, path.p, "SELECT common FROM decks WHERE id = ?", made.id);
+        CHECK(got.n == n && !memcmp(got.p, blob, n), "and left as it was");
+      }
       /* an area that is not a JSON object is another add-on's: refused, not overwritten */
       n = common_of(blob, NO_HEAD, 0, "[1]");
       put_common(path.p, made.id, blob, n);
