@@ -61,7 +61,8 @@ function throughPython(messages) {
 const SAMPLES = {
   b_error: { error: 'this amgi add-on speaks bridge protocol 2: press Install into Anki again' },
   b_status: { profileOpen: true, profileName: '사용자 1', collectionOpen: true, schemaVersion: 18, ankiVersion: '25.09.2', qtVersion: '6.9' },
-  b_decks: { decks: [{ id: 1, name: 'Default' }, { id: 1794149693370, name: '한국어::일상 표현' }] },
+  b_decks: { decks: [{ id: 1, name: 'Default' }, { id: 1794149693370, name: '한국어::일상 표현', known: 'en', learning: 'ko' }] },
+  b_deck_languages: { id: 1794149693370, known: 'en', learning: 'zh_cn' },
   b_notetypes: { notetypes: [{ id: 1794095498266, name: 'amgi Listening', kind: 'normal', sortFieldIndex: 2, fieldNames: ['Cue', 'CueAudio', ''],
     templates: [{ ord: 0, name: 'Listen', questionFormat: '{{CueAudio}}\n<script>"x"</script>', answerFormat: '' }] }] },
   b_notes: { notes: [{ id: 1794095498270, notetypeId: 1794095498266, fields: ['역이 어디예요?', '<audio src="a.wav"></audio>'], tags: ['amgi'] }],
@@ -80,14 +81,15 @@ const SAMPLES = {
   b_media_added: { filename: 'plusaudio-1.wav' },
   b_q_media: { filename: 'clip.wav', data: Buffer.alloc(70000, 7) },
   q_deck_name: { name: '한국어::여행' },
+  q_deck_languages: { known: 'en', learning: 'zh_cn' },
   q_note: { deckId: 1794163006799, notetypeId: 1794095498266, fields: ['a', 'b'], tags: [], language: 'ko', learningFieldIndex: 2 },
   q_notes: { notes: [{ deckId: 1, notetypeId: 2, fields: ['x'], tags: ['t'] }, { deckId: 1, notetypeId: 2, fields: [], tags: [], learningFieldIndex: 0 }] },
   q_note_update: { fields: ['x', 'y'], language: '' },
 };
 
-test('the bridge protocol is past the version before GET /notes/:id (b_note_read), so an older add-on is refused, not guessed at', () => {
-  assert.ok(BRIDGE_PROTOCOL >= 2, `protocol ${BRIDGE_PROTOCOL}`);
-  assert.ok('b_note_read' in KIND);
+test('the bridge protocol is past the version before a deck\'s languages (b_deck_languages), so an older add-on is refused, not guessed at', () => {
+  assert.equal(BRIDGE_PROTOCOL, 3, 'protocol 3 added the deck pair: the list rows and PUT /decks/:id/languages');
+  assert.ok('b_note_read' in KIND && 'b_deck_languages' in KIND);
 });
 
 test('every bridge kind the server writes, the add-on reads and writes back byte for byte', () => {
@@ -111,6 +113,9 @@ import bridge_wire
 out = bytearray()
 for kind, value in (
     ("b_deck", {"id": 1794163006799, "name": "한국어"}),
+    ("b_decks", {"decks": [{"id": 1, "name": "Default", "known": "", "learning": ""},
+                           {"id": 2 ** 40 + 1, "name": "한국어", "known": "en", "learning": "ko"}]}),
+    ("b_deck_languages", {"id": 2 ** 40 + 3, "known": "ko", "learning": "en"}),
     ("b_status", {"profileOpen": True, "profileName": None, "collectionOpen": False, "schemaVersion": None,
                   "ankiVersion": "25.09.2", "qtVersion": "6.9"}),
     ("b_note_removed", {"noteId": 2 ** 40 + 5, "cardsRemoved": 3}),
@@ -128,13 +133,16 @@ test('what the add-on writes from its own values, the server reads as those valu
   const bodies = [];
   for (let at = 0; at < out.length; at += 4 + out.readUInt32LE(at)) bodies.push(out.subarray(at + 4, at + 4 + out.readUInt32LE(at)));
   assert.deepEqual(decode('b_deck', bodies[0]), { id: 1794163006799, name: '한국어' });
-  assert.deepEqual(decode('b_status', bodies[1]),
+  assert.deepEqual(decode('b_decks', bodies[1]), { decks: [{ id: 1, name: 'Default', known: '', learning: '' },
+    { id: 2 ** 40 + 1, name: '한국어', known: 'en', learning: 'ko' }] });
+  assert.deepEqual(decode('b_deck_languages', bodies[2]), { id: 2 ** 40 + 3, known: 'ko', learning: 'en' });
+  assert.deepEqual(decode('b_status', bodies[3]),
     { profileOpen: true, profileName: '', collectionOpen: false, ankiVersion: '25.09.2', qtVersion: '6.9' }, 'None is "" or absent');
-  assert.deepEqual(decode('b_note_removed', bodies[2]), { noteId: 2 ** 40 + 5, cardsRemoved: 3 });
-  assert.deepEqual(decode('b_note_read', bodies[3]),
+  assert.deepEqual(decode('b_note_removed', bodies[4]), { noteId: 2 ** 40 + 5, cardsRemoved: 3 });
+  assert.deepEqual(decode('b_note_read', bodies[5]),
     { id: 2 ** 40 + 7, notetypeId: 2 ** 40 + 9, fields: ['앞', 'back'], tags: ['amgi'] });
-  assert.deepEqual(decode('b_media_data', bodies[4]), { found: true, data: Buffer.from([0, 255, 10]) });
-  assert.deepEqual(decode('b_deck_created', bodies[5]), { 'deck.id': 42, 'deck.name': 'Korean::Verbs', created: true });
+  assert.deepEqual(decode('b_media_data', bodies[6]), { found: true, data: Buffer.from([0, 255, 10]) });
+  assert.deepEqual(decode('b_deck_created', bodies[7]), { 'deck.id': 42, 'deck.name': 'Korean::Verbs', created: true });
 });
 
 test('the add-on refuses what the server would: short, long, another kind, a list that lies', () => {
