@@ -53,6 +53,10 @@ SCHEMA(s_notetypes, wire_notetypes,
 SCHEMA(s_note, wire_note,
   F(wire_note, "id", WT_I64, id), F(wire_note, "notetypeId", WT_I64, notetype_id),
   F(wire_note, "fields", WT_STRS, fields), F(wire_note, "tags", WT_STRS, tags));
+SCHEMA(s_note_one, wire_note_one,
+  F(wire_note_one, "mode", WT_MODE, mode), F(wire_note_one, "id", WT_I64, note.id),
+  F(wire_note_one, "notetypeId", WT_I64, note.notetype_id), F(wire_note_one, "fields", WT_STRS, note.fields),
+  F(wire_note_one, "tags", WT_STRS, note.tags));
 SCHEMA(s_notes, wire_notes,
   F(wire_notes, "mode", WT_MODE, mode), LIST(wire_notes, "notes", notes, nnotes, s_note),
   F(wire_notes, "offset", WT_U32, offset), F(wire_notes, "limit", WT_U32, limit), F(wire_notes, "hasMore", WT_BOOL, has_more));
@@ -158,6 +162,9 @@ SCHEMA(s_b_deck_created, wire_b_deck_created,
   F(wire_b_deck_created, "created", WT_BOOL, created));
 SCHEMA(s_b_note, wire_b_note, F(wire_b_note, "noteId", WT_I64, note_id), F(wire_b_note, "warning", WT_STR, warning));
 SCHEMA(s_b_notes_added, wire_b_notes_added, LIST(wire_b_notes_added, "results", results, nresults, s_note_result));
+SCHEMA(s_b_note_read, wire_b_note_read,
+  F(wire_b_note_read, "id", WT_I64, id), F(wire_b_note_read, "notetypeId", WT_I64, notetype_id),
+  F(wire_b_note_read, "fields", WT_STRS, fields), F(wire_b_note_read, "tags", WT_STRS, tags));
 SCHEMA(s_b_note_removed, wire_b_note_removed,
   F(wire_b_note_removed, "noteId", WT_I64, note_id), F(wire_b_note_removed, "cardsRemoved", WT_U32, cards_removed));
 SCHEMA(s_b_deck_summary, wire_b_deck_summary,
@@ -202,6 +209,7 @@ static const struct { const char *name; const wire_schema *schema; } KINDS[WK_KI
   [WK_B_MEDIA_DATA] = {"b_media_data", &s_b_media_data}, [WK_B_MEDIA_ADDED] = {"b_media_added", &s_b_media_added},
   [WK_B_Q_MEDIA] = {"b_q_media", &s_b_q_media},
   [WK_PROGRESS] = {"progress", &s_progress},
+  [WK_NOTE] = {"note", &s_note_one}, [WK_B_NOTE_READ] = {"b_note_read", &s_b_note_read},
 };
 const char *wire_kind_name(uint32_t kind) { return kind < WK_KINDS ? KINDS[kind].name : 0; }
 const wire_schema *wire_schema_of(uint32_t kind) { return kind < WK_KINDS ? KINDS[kind].schema : 0; }

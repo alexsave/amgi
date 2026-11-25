@@ -192,6 +192,11 @@
 < 409 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="unconfigured" error="No Anki profile is selected yet. Open Settings to pick one." notStarted=false dailyCap=false}
 < bytes 414d573200063b0000004e6f20416e6b692070726f66696c652069732073656c6563746564207965742e204f70656e2053657474696e677320746f207069636b206f6e652effffffff0000ffffffff
+== unconfigured: GET /api/anki/notes/1
+> GET /api/anki/notes/1
+< 409 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="unconfigured" error="No Anki profile is selected yet. Open Settings to pick one." notStarted=false dailyCap=false}
+< bytes 414d573200063b0000004e6f20416e6b692070726f66696c652069732073656c6563746564207965742e204f70656e2053657474696e677320746f207069636b206f6e652effffffff0000ffffffff
 == unconfigured: DELETE /api/anki/notes/1
 > DELETE /api/anki/notes/1
 < 409 content-type=application/x-amgi-wire cache-control=no-store
@@ -269,6 +274,11 @@
 < bytes 414d573200035d0000004e6f20636f6c6c656374696f6e2e616e6b69322077617320666f756e64206174207468652073656c65637465642070726f66696c652e204f70656e2053657474696e677320746f207069636b206120646966666572656e74206f6e652effffffff0000ffffffff
 == not-found: PATCH /api/anki/notes/1
 > PATCH /api/anki/notes/1
+< 409 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="not-found" error="No collection.anki2 was found at the selected profile. Open Settings to pick a different one." notStarted=false dailyCap=false}
+< bytes 414d573200035d0000004e6f20636f6c6c656374696f6e2e616e6b69322077617320666f756e64206174207468652073656c65637465642070726f66696c652e204f70656e2053657474696e677320746f207069636b206120646966666572656e74206f6e652effffffff0000ffffffff
+== not-found: GET /api/anki/notes/1
+> GET /api/anki/notes/1
 < 409 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="not-found" error="No collection.anki2 was found at the selected profile. Open Settings to pick a different one." notStarted=false dailyCap=false}
 < bytes 414d573200035d0000004e6f20636f6c6c656374696f6e2e616e6b69322077617320666f756e64206174207468652073656c65637465642070726f66696c652e204f70656e2053657474696e677320746f207069636b206120646966666572656e74206f6e652effffffff0000ffffffff
@@ -352,6 +362,11 @@
 < 409 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="unsupported-schema" error="This collection uses a schema version amgi does not support yet." notStarted=false dailyCap=false}
 < bytes 414d57320004400000005468697320636f6c6c656374696f6e2075736573206120736368656d612076657273696f6e20616d676920646f6573206e6f7420737570706f7274207965742effffffff0000ffffffff
+== unsupported-schema: GET /api/anki/notes/1
+> GET /api/anki/notes/1
+< 409 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="unsupported-schema" error="This collection uses a schema version amgi does not support yet." notStarted=false dailyCap=false}
+< bytes 414d57320004400000005468697320636f6c6c656374696f6e2075736573206120736368656d612076657273696f6e20616d676920646f6573206e6f7420737570706f7274207965742effffffff0000ffffffff
 == unsupported-schema: DELETE /api/anki/notes/1
 > DELETE /api/anki/notes/1
 < 409 content-type=application/x-amgi-wire cache-control=no-store
@@ -429,6 +444,11 @@
 < bytes 414d573200086200000054686520636f6c6c656374696f6e2066696c652069732064616d616765643b20616d676920646964206e6f74206f70656e2069742e20416e6b692063616e20726573746f72652069742066726f6d206f6e65206f6620697473206261636b7570732effffffff0000ffffffff
 == damaged: PATCH /api/anki/notes/1
 > PATCH /api/anki/notes/1
+< 409 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="damaged" error="The collection file is damaged; amgi did not open it. Anki can restore it from one of its backups." notStarted=false dailyCap=false}
+< bytes 414d573200086200000054686520636f6c6c656374696f6e2066696c652069732064616d616765643b20616d676920646964206e6f74206f70656e2069742e20416e6b692063616e20726573746f72652069742066726f6d206f6e65206f6620697473206261636b7570732effffffff0000ffffffff
+== damaged: GET /api/anki/notes/1
+> GET /api/anki/notes/1
 < 409 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="damaged" error="The collection file is damaged; amgi did not open it. Anki can restore it from one of its backups." notStarted=false dailyCap=false}
 < bytes 414d573200086200000054686520636f6c6c656374696f6e2066696c652069732064616d616765643b20616d676920646964206e6f74206f70656e2069742e20416e6b692063616e20726573746f72652069742066726f6d206f6e65206f6620697473206261636b7570732effffffff0000ffffffff
@@ -512,6 +532,11 @@
 < 409 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="locked" error="Anki is open on this collection and the local bridge is not reachable. Either close Anki, or turn on the bridge in Anki (Tools > amgi: Bridge status...) and paste its token into Settings." notStarted=false dailyCap=false}
 < bytes 414d57320002bb000000416e6b69206973206f70656e206f6e207468697320636f6c6c656374696f6e20616e6420746865206c6f63616c20627269646765206973206e6f7420726561636861626c652e2045697468657220636c6f736520416e6b692c206f72207475726e206f6e207468652062726964676520696e20416e6b692028546f6f6c73203e20616d67693a20427269646765207374617475732e2e2e2920616e642070617374652069747320746f6b656e20696e746f2053657474696e67732effffffff0000ffffffff
+== locked (a -wal beside it): GET /api/anki/notes/1
+> GET /api/anki/notes/1
+< 409 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="locked" error="Anki is open on this collection and the local bridge is not reachable. Either close Anki, or turn on the bridge in Anki (Tools > amgi: Bridge status...) and paste its token into Settings." notStarted=false dailyCap=false}
+< bytes 414d57320002bb000000416e6b69206973206f70656e206f6e207468697320636f6c6c656374696f6e20616e6420746865206c6f63616c20627269646765206973206e6f7420726561636861626c652e2045697468657220636c6f736520416e6b692c206f72207475726e206f6e207468652062726964676520696e20416e6b692028546f6f6c73203e20616d67693a20427269646765207374617475732e2e2e2920616e642070617374652069747320746f6b656e20696e746f2053657474696e67732effffffff0000ffffffff
 == locked (a -wal beside it): DELETE /api/anki/notes/1
 > DELETE /api/anki/notes/1
 < 409 content-type=application/x-amgi-wire cache-control=no-store
@@ -589,6 +614,11 @@
 < bytes 414d573200063b0000004e6f20416e6b692070726f66696c652069732073656c6563746564207965742e204f70656e2053657474696e677320746f207069636b206f6e652effffffff0000ffffffff
 == malformed escape: PATCH /api/anki/notes/1
 > PATCH /api/anki/notes/1
+< 409 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="unconfigured" error="No Anki profile is selected yet. Open Settings to pick one." notStarted=false dailyCap=false}
+< bytes 414d573200063b0000004e6f20416e6b692070726f66696c652069732073656c6563746564207965742e204f70656e2053657474696e677320746f207069636b206f6e652effffffff0000ffffffff
+== malformed escape: GET /api/anki/notes/1
+> GET /api/anki/notes/1
 < 409 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="unconfigured" error="No Anki profile is selected yet. Open Settings to pick one." notStarted=false dailyCap=false}
 < bytes 414d573200063b0000004e6f20416e6b692070726f66696c652069732073656c6563746564207965742e204f70656e2053657474696e677320746f207069636b206f6e652effffffff0000ffffffff
@@ -886,11 +916,31 @@
 < 200 content-type=application/x-amgi-wire cache-control=no-store
 < notes {mode="direct" notes=[{id=30000001 notetypeId=1794170430283 fields=["privet", "x"] tags=["a", "b"]}, {id=30000002 notetypeId=1794170430283 fields=["annyeong", "hi"] tags=[]}, {id=30000003 notetypeId=1794170430283 fields=["bulk 1", "x"] tags=[]}, {id=30000004 notetypeId=1794170430283 fields=["bulk 3", "x"] tags=[]}] offset=0 limit=50 hasMore=false}
 < bytes 414d573206000400000081c3c901000000004b23e4bca101000002000000060000007072697665740100000078020000000100000061010000006282c3c901000000004b23e4bca10100000200000008000000616e6e79656f6e670200000068690000000083c3c901000000004b23e4bca1010000020000000600000062756c6b203101000000780000000084c3c901000000004b23e4bca1010000020000000600000062756c6b2033010000007800000000000000003200000000
+== s18 read note
+> GET /api/anki/notes/30000001
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< note {mode="direct" id=30000001 notetypeId=1794170430283 fields=["privet", "x"] tags=["a", "b"]}
+< bytes 414d57322e0081c3c901000000004b23e4bca1010000020000000600000070726976657401000000780200000001000000610100000062
+== s18 read a note not there
+> GET /api/anki/notes/999
+< 404 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="" error="no note with id 999 in this collection" notStarted=false dailyCap=false}
+< bytes 414d57320009260000006e6f206e6f746520776974682069642039393920696e207468697320636f6c6c656374696f6effffffff0000ffffffff
+== s18 read note, id not a number
+> GET /api/anki/notes/abc
+< 404 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="" error="no note with id NaN in this collection" notStarted=false dailyCap=false}
+< bytes 414d57320009260000006e6f206e6f74652077697468206964204e614e20696e207468697320636f6c6c656374696f6effffffff0000ffffffff
 == s18 delete note
 > DELETE /api/anki/notes/30000001
 < 200 content-type=application/x-amgi-wire cache-control=no-store
 < note_changed {mode="direct" noteId=30000001 warning=""}
 < bytes 414d57320c0081c3c9010000000000000000
+== s18 read note after it is deleted
+> GET /api/anki/notes/30000001
+< 404 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="" error="no note with id 30000001 in this collection" notStarted=false dailyCap=false}
+< bytes 414d573200092b0000006e6f206e6f7465207769746820696420333030303030303120696e207468697320636f6c6c656374696f6effffffff0000ffffffff
 == s18 delete note again
 > DELETE /api/anki/notes/30000001
 < 400 content-type=application/x-amgi-wire cache-control=no-store
@@ -1271,11 +1321,31 @@
 < 200 content-type=application/x-amgi-wire cache-control=no-store
 < notes {mode="direct" notes=[{id=30000005 notetypeId=1794170430302 fields=["privet", "x"] tags=["a", "b"]}, {id=30000006 notetypeId=1794170430302 fields=["annyeong", "hi"] tags=[]}, {id=30000007 notetypeId=1794170430302 fields=["bulk 1", "x"] tags=[]}, {id=30000008 notetypeId=1794170430302 fields=["bulk 3", "x"] tags=[]}] offset=0 limit=50 hasMore=false}
 < bytes 414d573206000400000085c3c901000000005e23e4bca101000002000000060000007072697665740100000078020000000100000061010000006286c3c901000000005e23e4bca10100000200000008000000616e6e79656f6e670200000068690000000087c3c901000000005e23e4bca1010000020000000600000062756c6b203101000000780000000088c3c901000000005e23e4bca1010000020000000600000062756c6b2033010000007800000000000000003200000000
+== s11 read note
+> GET /api/anki/notes/30000005
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< note {mode="direct" id=30000005 notetypeId=1794170430302 fields=["privet", "x"] tags=["a", "b"]}
+< bytes 414d57322e0085c3c901000000005e23e4bca1010000020000000600000070726976657401000000780200000001000000610100000062
+== s11 read a note not there
+> GET /api/anki/notes/999
+< 404 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="" error="no note with id 999 in this collection" notStarted=false dailyCap=false}
+< bytes 414d57320009260000006e6f206e6f746520776974682069642039393920696e207468697320636f6c6c656374696f6effffffff0000ffffffff
+== s11 read note, id not a number
+> GET /api/anki/notes/abc
+< 404 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="" error="no note with id NaN in this collection" notStarted=false dailyCap=false}
+< bytes 414d57320009260000006e6f206e6f74652077697468206964204e614e20696e207468697320636f6c6c656374696f6effffffff0000ffffffff
 == s11 delete note
 > DELETE /api/anki/notes/30000005
 < 200 content-type=application/x-amgi-wire cache-control=no-store
 < note_changed {mode="direct" noteId=30000005 warning=""}
 < bytes 414d57320c0085c3c9010000000000000000
+== s11 read note after it is deleted
+> GET /api/anki/notes/30000005
+< 404 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="" error="no note with id 30000005 in this collection" notStarted=false dailyCap=false}
+< bytes 414d573200092b0000006e6f206e6f7465207769746820696420333030303030303520696e207468697320636f6c6c656374696f6effffffff0000ffffffff
 == s11 delete note again
 > DELETE /api/anki/notes/30000005
 < 400 content-type=application/x-amgi-wire cache-control=no-store

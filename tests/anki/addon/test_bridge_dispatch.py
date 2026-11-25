@@ -107,6 +107,19 @@ class DispatcherWriteTests(unittest.TestCase):
         self.assertEqual(self.dispatcher.rename_deck(did, "Korean 2"), {"id": did, "name": "Korean 2"})
         self.assertEqual(len(self.mw.changes_seen), 1)
 
+    def test_get_note(self):
+        note = self._note(self.col.decks.id("Korean"), "a")
+        self.assertEqual(
+            self.dispatcher.get_note(note.id), {"id": note.id, "notetypeId": note.mid, "fields": ["a", "back"], "tags": []}
+        )
+        self.assertEqual(len(self.mw.changes_seen), 0, "a read is not an undo step")
+
+    def test_get_note_that_is_not_there(self):
+        import bridge_ops
+
+        with self.assertRaises(bridge_ops.NoteNotFound):
+            self.dispatcher.get_note(12345)
+
     def test_remove_note(self):
         note = self._note(self.col.decks.id("Korean"), "a")
         self.assertEqual(self.dispatcher.remove_note(note.id), {"noteId": note.id, "cardsRemoved": 1})

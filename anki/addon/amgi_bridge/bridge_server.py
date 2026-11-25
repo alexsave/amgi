@@ -121,6 +121,7 @@ ROUTES: list[Route] = [
     ("GET", re.compile(r"^/notetypes$"), "list_notetypes", None, "b_notetypes"),
     ("GET", re.compile(r"^/decks/(?P<deck_id>\d+)/notes$"), "list_notes", None, "b_notes"),
     ("GET", re.compile(r"^/decks/(?P<deck_id>\d+)/notes/field-values$"), "list_field_values", None, "b_values"),
+    ("GET", re.compile(r"^/notes/(?P<note_id>\d+)$"), "get_note", None, "b_note_read"),
     ("POST", re.compile(r"^/decks$"), "create_deck", "q_deck_name", "b_deck_created"),
     ("POST", re.compile(r"^/notes$"), "add_note", "q_note", "b_note"),
     ("POST", re.compile(r"^/notes/bulk$"), "add_notes_bulk", "q_notes", "b_notes_added"),
@@ -383,6 +384,9 @@ def make_handler_class(
             if not name.strip():
                 raise BridgeBadRequest("name is required")
             return dispatcher.rename_deck(int(params["deck_id"]), name.strip())
+
+        def _op_get_note(self, params: dict, query: dict, body: Optional[dict]) -> dict:
+            return dispatcher.get_note(int(params["note_id"]))
 
         def _op_remove_note(self, params: dict, query: dict, body: Optional[dict]) -> dict:
             return dispatcher.remove_note(int(params["note_id"]))

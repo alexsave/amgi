@@ -756,24 +756,21 @@ static const wire_card_text *generate(arena *a, const up_state *s, const wire_q_
   }
 }
 
-/* The note with this id, searched through every deck's notes (there is no route to read one note), or NULL
- * with *rc 0 when there is none. */
-static const wire_note *find_note(arena *a, const up_state *s, int64_t id, int *rc) {
-  const wire_decks *ds = get(a, s, "/api/anki/decks", WK_DECKS, rc);
-  if (!ds) return NULL;
-  for (uint32_t k = 0; k < ds->ndecks; k++)
-    for (uint32_t offset = 0;;) {
-      char path[128];
-      snprintf(path, sizeof path, "/api/anki/decks/%lld/notes?offset=%u&limit=200", (long long)ds->decks[k].id, offset);
-      const wire_notes *ns = get(a, s, path, WK_NOTES, rc);
-      if (!ns) return NULL;
-      for (uint32_t i = 0; i < ns->nnotes; i++)
-        if (ns->notes[i].id == id) return &ns->notes[i];
-      if (!ns->has_more || !ns->nnotes) break;
-      offset += ns->nnotes;
-    }
-  *rc = RC_OK;
-  return NULL;
+/* GET /notes/:id: 0 with *n the note, or 0 with *n NULL when the server says there is no such note (a 404 it
+ * answered as an error: a 404 that is not one, an older server's "no such route", is a failure), or the exit
+ * code of a failure said on stderr. */
+static int read_note(arena *a, const up_state *s, const char *path, const wire_note_one **n) {
+  answer x;
+  int rc = call(a, s, "GET", path, -1, NULL, CALL_MS, &x);
+  *n = NULL;
+  if (rc) return rc;
+  if (x.status == 404 && as_kind(a, &x, WK_ERROR)) return 0;
+  if (x.status != 200) return failed(a, &x, path);
+  if (!(*n = as_kind(a, &x, WK_NOTE))) {
+    fprintf(stderr, "amgi: GET %s answered something other than %s\n", path, wire_kind_name(WK_NOTE));
+    return RC_FAIL;
+  }
+  return 0;
 }
 
 /* card remove ID [--yes]: the note card list prints. Without --yes it only says what a delete would take;
@@ -791,22 +788,22 @@ static int card_remove(int argc, char **argv) {
   int rc = need_up(&s);
   if (rc) return rc;
   arena a = {0};
-  const wire_note *n = find_note(&a, &s, id, &rc);
-  if (!n) {
-    if (!rc) {
-      fprintf(stderr, "amgi: no note %lld (card list shows the note IDs): nothing deleted\n", id);
-      rc = RC_NOT_FOUND;
-    }
+  char path[96];
+  snprintf(path, sizeof path, "/api/anki/notes/%lld", id);
+  const wire_note_one *one;
+  if ((rc = read_note(&a, &s, path, &one))) goto out;
+  if (!one) {
+    fprintf(stderr, "amgi: no note %lld (card list shows the note IDs): nothing deleted\n", id);
+    rc = RC_NOT_FOUND;
     goto out;
   }
+  const wire_note *n = &one->note;
   const wire_notetypes *nts = get(&a, &s, "/api/anki/notetypes", WK_NOTETYPES, &rc);
   if (!nts) goto out;
   listening l = {0};
   find_listening(&a, nts, &l);
   int amgi = l.nt && n->notetype_id == l.nt->id;
   int front = amgi ? l.idx.cue : 0, back = amgi ? l.idx.target : 1;
-  char path[96];
-  snprintf(path, sizeof path, "/api/anki/notes/%lld", id);
   if (yes) {
     answer x;
     if ((rc = call(&a, &s, "DELETE", path, -1, NULL, CALL_MS, &x))) goto out;
@@ -819,9 +816,10 @@ static int card_remove(int argc, char **argv) {
       rc = RC_FAIL;
       goto out;
     }
-    arena b = {0}; /* the read-back: no deck has it now */
-    const wire_note *gone = find_note(&b, &s, id, &rc);
-    if (gone) fprintf(stderr, "amgi: note %lld was removed but its deck still shows it\n", id), rc = RC_FAIL;
+    arena b = {0}; /* the read-back: the server answers 404 for it now */
+    const wire_note_one *gone;
+    rc = read_note(&b, &s, path, &gone);
+    if (!rc && gone) fprintf(stderr, "amgi: note %lld was removed but the server still has it\n", id), rc = RC_FAIL;
     ar_free(&b);
     if (rc) goto out;
   }

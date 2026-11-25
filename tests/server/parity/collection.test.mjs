@@ -51,11 +51,11 @@ function freshCopy(schema) {
  */
 const ARG_KINDS = {
   countNotesInDeck: ['D'], listNotesInDeck: ['D'], existingFieldValues: ['D', 'M'], renameDeck: ['D'],
-  deckRemovalSummary: ['D'], removeDeck: ['D'], addNote: ['D', 'M'], updateNote: ['N'], removeNote: ['N'],
+  deckRemovalSummary: ['D'], removeDeck: ['D'], addNote: ['D', 'M'], updateNote: ['N'], getNote: ['N'], removeNote: ['N'],
 };
 const ANSWER_KINDS = {
   createDeck: ['D'], renameDeck: ['D'], deckRemovalSummary: ['D'], removeDeck: ['D'], addNote: ['N', 'G', ['C']],
-  removeNote: ['N'], createNotetype: [null, 'M'],
+  getNote: ['N', 'M'], removeNote: ['N'], createNotetype: [null, 'M'],
 };
 const ROW_KINDS = {
   listDecks: ['D'], listNotetypes: ['M'], listNotesInDeck: ['N', 'M'], addNotesBulk: [null, 'N', 'G', ['C']],
@@ -181,7 +181,7 @@ async function operations(t, impl, schema) {
 
   // Notes: cards from templates, cloze numbers, the romanisation warning, checksums of markup.
   const a = firstId(await t.cmd(`addNote ${note(created, basic, ['front a', 'back a'])}`));
-  await t.cmd(`addNote ${note(created, basic, ['tagged', 'b'], { tags: ['t1', 'amgi'] })}`);
+  const tagged = firstId(await t.cmd(`addNote ${note(created, basic, ['tagged', 'b'], { tags: ['t1', 'amgi'] })}`));
   await t.cmd(`addNote ${note(created, basic, ['annyeong', 'hello'], { language: 'ko', learningFieldIndex: 0 })}`);
   await t.cmd(`addNote ${note(created, basic, ['안녕', 'hello'], { language: 'ko', learningFieldIndex: 0 })}`);
   await t.cmd(`addNote ${note(created, basic, ['konnichiwa', 'x'], { language: 'ja', learningFieldIndex: 0 })}`);
@@ -230,9 +230,14 @@ async function operations(t, impl, schema) {
   await t.cmd(`listNotesInDeck ${created} 0 3`);
   await t.cmd(`updateNote 999 ${strs(['x', 'y'])} ! !`);
   const doomed = firstId(await t.cmd(`addNote ${note(created, reversed, ['to delete', 'both'])}`));
+  await t.cmd(`getNote ${doomed}`);
+  await t.cmd(`getNote ${a}`);
+  await t.cmd(`getNote ${tagged}`);
   await t.cmd(`removeNote ${doomed}`);
+  await t.cmd(`getNote ${doomed}`);
   await t.cmd(`removeNote ${doomed}`);
   await t.cmd(`removeNote 999`);
+  await t.cmd(`getNote 999`);
 
   // Renames: subdecks move, a missing parent is made, a taken name is refused.
   await t.cmd(`renameDeck ${created} ${enc('Renamed')}`);

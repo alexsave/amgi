@@ -31,6 +31,7 @@
 //                                                      or err <message>
 //   updateNote <note> [fields] <language|!> <learningFieldIndex|!>
 //                                                    ok <warning|!>
+//   getNote <note>                                   ok <id> <notetypeId> [fields] [tags]
 //   removeNote <note>                                ok <noteId> <cardsRemoved>
 //   hasMedia <name>                                  ok <0|1>
 //   readMedia <name>                                 ok <hex bytes|!>

@@ -511,6 +511,14 @@ static str *split_tags(cx *c, str tags, size_t *n) {
   return out;
 }
 
+/* A row of "SELECT id, mid, flds, tags FROM notes ...": the fields split on 0x1f, the tags on whitespace. */
+static void note_row(cx *c, sqlite3_stmt *st, col_note *nt) {
+  nt->id = sqlite3_column_int64(st, 0);
+  nt->notetype_id = sqlite3_column_int64(st, 1);
+  nt->fields = split_fields(c, q_col_text(c, st, 2), &nt->nfields);
+  nt->tags = split_tags(c, q_col_text(c, st, 3), &nt->ntags);
+}
+
 void notes_page(cx *c, conn *k, double deck, double offset, double limit, col_note **out, size_t *nout) {
   size_t n;
   sqlite3_stmt *st = deck_query(c, k,
@@ -530,14 +538,24 @@ void notes_page(cx *c, conn *k, double deck, double offset, double limit, col_no
       notes = more;
       cap *= 2;
     }
-    col_note *nt = &notes[(*nout)++];
-    nt->id = sqlite3_column_int64(st, 0);
-    nt->notetype_id = sqlite3_column_int64(st, 1);
-    nt->fields = split_fields(c, q_col_text(c, st, 2), &nt->nfields);
-    nt->tags = split_tags(c, q_col_text(c, st, 3), &nt->ntags);
+    note_row(c, st, &notes[(*nout)++]);
   }
   q_done(st);
   *out = notes;
+}
+
+/* One note by id, or a 404 "no note with id ..." (the read behind GET /notes/:id): the same columns as
+ * notes_page, read the same way. */
+void note_get(cx *c, conn *k, double note_id, col_note *out) {
+  sqlite3_stmt *st = q_prep(c, k, "SELECT id, mid, flds, tags FROM notes WHERE id = ?");
+  q_num(st, 1, note_id);
+  if (!q_step(c, k, st)) {
+    q_done(st);
+    str id = js_number(c, note_id);
+    cx_throw(c, NULL, 404, "no note with id %.*s in this collection", (int)id.n, id.p);
+  }
+  note_row(c, st, out);
+  q_done(st);
 }
 
 void field_values(cx *c, conn *k, double deck, double notetype, double field, str **out, size_t *nout) {

@@ -94,6 +94,12 @@ class FakeDispatcher:
         self._record("read_media", filename)
         return b"\x00ID3\xff" if filename == "clip.mp3" else None
 
+    def get_note(self, note_id):
+        self._record("get_note", note_id)
+        if note_id == 404:
+            raise _Gone(f"no note with id {note_id} in this collection")
+        return {"id": note_id, "notetypeId": 77, "fields": ["front", "back"], "tags": ["amgi", "ko"]}
+
     def deck_summary(self, deck_id):
         self._record("deck_summary", deck_id)
         if deck_id == 404:
@@ -344,6 +350,17 @@ class RoutingTests(BridgeServerTestCase):
         )
         self.assertEqual(status, 200)
         self.assertEqual(body, {"deck.id": 42, "deck.name": "Korean::Verbs", "created": True})
+
+    def test_get_note(self):
+        status, _headers, body = self._request("GET", "/notes/55", headers=self._auth_headers(), answer="b_note_read")
+        self.assertEqual(status, 200)
+        self.assertEqual(body, {"id": 55, "notetypeId": 77, "fields": ["front", "back"], "tags": ["amgi", "ko"]})
+        self.assertEqual(self.dispatcher.calls, [("get_note", (55,), {})])
+
+    def test_a_note_that_is_not_there_is_a_404(self):
+        status, _headers, body = self._request("GET", "/notes/404", headers=self._auth_headers())
+        self.assertEqual(status, 404)
+        self.assertIn("no note with id 404", body["error"])
 
     def test_deck_summary(self):
         status, _headers, body = self._request("GET", "/decks/9", headers=self._auth_headers(), answer="b_deck_summary")

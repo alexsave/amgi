@@ -17,6 +17,7 @@ void note_insert(cx *c, conn *k, const col_notetype *nts, size_t nnt, const col_
 void note_update(cx *c, conn *k, double note_id, const str *given, size_t ngiven, int has_language, str language,
                  int has_lfi, double lfi, int *has_warning, str *warning);
 void note_remove(cx *c, conn *k, double note_id, int64_t *out_id, int64_t *removed);
+void note_get(cx *c, conn *k, double note_id, col_note *out);
 void notes_count(cx *c, conn *k, double deck, int64_t *out);
 void notes_page(cx *c, conn *k, double deck, double offset, double limit, col_note **out, size_t *nout);
 void field_values(cx *c, conn *k, double deck, double notetype, double field, str **out, size_t *nout);
@@ -355,6 +356,18 @@ int col_rename_deck(arena *a, str path, double deck, str name, col_renamed *out,
   memset(out, 0, sizeof *out);
   rename_args2 r = {deck, name, out};
   return locked(a, path, rename_path, &r, err);
+}
+
+typedef struct { double note; col_note *out; } get_note_args;
+static void get_note_conn(cx *c, conn *k, void *arg) {
+  get_note_args *g = arg;
+  note_get(c, k, g->note, g->out);
+}
+static void get_note_fn(cx *c, str path, void *arg) { with_collection(c, path, get_note_conn, arg); }
+int col_get_note(arena *a, str path, double note, col_note *out, col_err *err) {
+  memset(out, 0, sizeof *out);
+  get_note_args g = {note, out};
+  return locked(a, path, get_note_fn, &g, err);
 }
 
 typedef struct { double deck; col_removal *out; } removal_args;

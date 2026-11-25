@@ -91,6 +91,9 @@ class SyncDispatcher:
     def rename_deck(self, deck_id: int, human_name: str) -> dict:
         return ops.rename_deck(self._col, deck_id, human_name).payload
 
+    def get_note(self, note_id: int) -> dict:
+        return ops.get_note(self._col, note_id)
+
     def remove_note(self, note_id: int) -> dict:
         return ops.remove_note(self._col, note_id).payload
 
