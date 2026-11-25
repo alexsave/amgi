@@ -96,7 +96,7 @@ expect 3 - card remove "$nid" --yes
 case "$err" in "amgi: no note $nid "*"nothing deleted") ;; *) echo "FAIL the second remove's message: $err"; fails=$((fails + 1)) ;; esac
 expect 0 - card add --deck Spanish --front "Where is the station?" --back "¿Dónde está la estación?" --to es
 # a deck's language pair: deck add --from KNOWN --to LEARNING stores it in the deck (and says it), deck list prints it,
-# a pair without its other half is a usage error, a code that is not one of the languages is refused with the list
+# a pair without its other half, or a bad one, is a usage error (and the server, asked directly, refuses it too: the HTTP suite)
 expect 0 "^deck${tab}[0-9]+${tab}0${tab}Hanzi${tab}en${tab}ko\$" deck add Hanzi --from en --to ko
 expect 0 "^deck${tab}[0-9]+${tab}0${tab}Hanzi${tab}ko${tab}zh_cn\$" deck add Hanzi --from ko --to zh_cn
 [ "$err" = "amgi: the deck was already there" ] || { echo "FAIL a pair on a deck that was there said: $err"; fails=$((fails + 1)); }
@@ -105,10 +105,14 @@ expect 0 "^deck${tab}[0-9]+${tab}1${tab}Spanish${tab}-${tab}-\$" deck list
 expect 4 - deck add Hanzi --from en
 expect 4 - deck add Hanzi --to ko
 expect 4 - deck add Hanzi --from en --to
-expect 1 - deck add Hanzi --from en --to xx
-case "$err" in *"must each be one of the languages amgi has: en, zh_cn"*) ;; *) echo "FAIL the bad-code message: $err"; fails=$((fails + 1)) ;; esac
-expect 1 - deck add Hanzi --from en --to en
-case "$err" in *"two different languages"*) ;; *) echo "FAIL the same-code message: $err"; fails=$((fails + 1)) ;; esac
+# a refused pair is refused before anything is made: usage error, the server's sentence, and no deck in the list
+expect 4 - deck add Refused --from en --to xx
+case "$err" in *"must each be one of the languages amgi has: en, zh_cn"*"no deck was made"*) ;; *) echo "FAIL the bad-code message: $err"; fails=$((fails + 1)) ;; esac
+expect 4 - deck add Refused --from en --to en
+case "$err" in *"two different languages"*"no deck was made"*) ;; *) echo "FAIL the same-code message: $err"; fails=$((fails + 1)) ;; esac
+expect 4 - deck add Refused --from xx --to en
+expect 0 - deck list
+printf '%s\n' "$out" | grep -q "${tab}Refused${tab}" && { echo "FAIL a refused deck add made a deck"; fails=$((fails + 1)); }
 expect 0 "^deck${tab}[0-9]+${tab}0${tab}Hanzi${tab}ko${tab}zh_cn\$" deck list
 expect 0 - deck remove Hanzi --yes
 # deck remove: without --yes nothing goes; with it the deck is gone; a wrong name and Default delete nothing

@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "amgi.h"
+#include "lang.h"
 
 int ops_is_direct(const amgi_ops *o) { return !strcmp(o->t->mode, "direct"); }
 #define BR (&o->t->bridge)
@@ -94,4 +95,15 @@ int ops_read_media(arena *a, const amgi_ops *o, str name, int *found, str *bytes
 int ops_add_media(arena *a, const amgi_ops *o, str name, const void *data, size_t len, str *stored, col_err *e) {
   return ops_is_direct(o) ? col_add_media(a, o->path, name, data, len, stored, e)
                           : col_bridge_add_media(a, BR, name, data, len, stored, e);
+}
+
+str amgi_languages_refusal(arena *a, str known, str learning) {
+  if (!lang_known(known.p, (uint32_t)known.n) || !lang_known(learning.p, (uint32_t)learning.n)) {
+    buf codes = {0};
+    for (uint32_t i = 0; i < NLANGUAGES; i++) buf_fmt(&codes, "%s%s", i ? ", " : "", LANGUAGES[i].code);
+    str msg = str_c(ar_fmt(a, "known and learning must each be one of the languages amgi has: %.*s", (int)codes.n, codes.p));
+    buf_free(&codes);
+    return msg;
+  }
+  return str_eq(known, learning) ? S("known and learning must be two different languages") : S("");
 }
