@@ -245,7 +245,9 @@ See that file's own module docstring for the full reasoning, and "Testing" below
 ### What is actually verified
 
 `tests/anki/addon/test_deck_text.py`, `tests/anki/addon/test_core_config.py`, `tests/anki/addon/test_generator.py`, `tests/anki/addon/test_bridge_auth.py` and `tests/anki/addon/test_bridge_server.py` need no `anki` pip package and no network.
-`npm test` runs them with `ANKI_PYTHON_BIN` (a Python with the `anki` package) when it is set, and `python3` otherwise, so with it set the tests below that need `anki` run too instead of skipping.
+`npm test` runs every test below, the ones that need `anki` included, with the Python that `tests/anki-python.sh` finds, and fails at the start when there is none, so nothing skips for want of the library.
+That script uses `ANKI_PYTHON_BIN` when it is set.
+Otherwise it uses Anki.app's own `anki` library (`Contents/Resources/app_packages`) with a CPython of the version Anki.app was built for (`Contents/Frameworks/Python.framework/Versions/X.Y`), found on `PATH` or under uv's python directory (`uv python install X.Y`), through a wrapper with absolute paths at `server/build/anki-python`.
 
 - `test_deck_text.py` checks `deck_text.py` against values recorded from the JavaScript it was ported from (`plusaudio/lib/deck.js` and `audio-store.js`, since deleted), so the rules cannot drift with the original gone.
 - `test_generator.py` checks the subprocess seam - the command built, the environment passed through, exit-code and stderr handling, temp-file cleanup, and the actionable errors for a missing Node, a missing repo checkout, and a missing API key - by mocking `subprocess.run`.
@@ -269,15 +271,14 @@ A write that returns anything but an `OpResult` with real changes fails there as
 
 `tests/anki/addon/test_cross_transport.py` is the one described above in "Cross-transport parity": it needs both `anki` and a `node` on `PATH`, and runs the Node layer and `bridge_ops.py` against the same collection file, checking they agree.
 
-None of these three are wired into `npm test`: the `anki` pip package is a large, Rust-backed wheel this repo does not otherwise depend on, and `npm test` has to pass on a plain checkout with no Python environment at all.
-Run them with a Python that has `anki` installed:
+`npm test` runs all of them, with the interpreter above.
+To run one alone, use that interpreter (`export ANKI_PYTHON_BIN="$(tests/anki-python.sh)"`) or any Python that has `anki` installed (`python -m venv .venv && .venv/bin/pip install anki`):
 
 ```bash
-python -m venv anki/addon/amgi_bridge/anki-test-env
-anki/addon/amgi_bridge/anki-test-env/bin/pip install anki
-AMGI_SAMPLE_APKG=/path/to/a/real.apkg anki/addon/amgi_bridge/anki-test-env/bin/python -m unittest discover -s tests/anki/addon -p "test_core_collection.py" -v
-AMGI_SAMPLE_APKG=/path/to/a/real.apkg anki/addon/amgi_bridge/anki-test-env/bin/python -m unittest discover -s tests/anki/addon -p "test_bridge_ops.py" -v
-anki/addon/amgi_bridge/anki-test-env/bin/python -m unittest discover -s tests/anki/addon -p "test_cross_transport.py" -v
+export ANKI_PYTHON_BIN="$(tests/anki-python.sh)"
+AMGI_SAMPLE_APKG=/path/to/a/real.apkg "$ANKI_PYTHON_BIN" -m unittest discover -s tests/anki/addon -p "test_core_collection.py" -v
+AMGI_SAMPLE_APKG=/path/to/a/real.apkg "$ANKI_PYTHON_BIN" -m unittest discover -s tests/anki/addon -p "test_bridge_ops.py" -v
+"$ANKI_PYTHON_BIN" -m unittest discover -s tests/anki/addon -p "test_cross_transport.py" -v
 ```
 
 Run these from the repository root. Each test puts this add-on's own directory on `sys.path` (see "A namespace collision worth knowing about" below), so the working directory only matters for the paths the tests use.
