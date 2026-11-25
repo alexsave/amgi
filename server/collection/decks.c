@@ -8,6 +8,7 @@
 #include <string.h>
 
 #include "core.h"
+#include "lang.h"
 
 #define DEFAULT_DECK_ID 1
 #define FILTERED_KIND_TAG 0x12
@@ -213,6 +214,85 @@ static str id_key(cx *c, double id) {
   return out;
 }
 
+/* ---- a deck's language pair ----
+ * It is one key of the deck's own add-on area, where Anki keeps every key it does not know and where an
+ * add-on's `deck["key"] = ...; col.decks.save(deck)` writes: "amgiLanguages": "<known> <learning>", one
+ * string, the two codes of lang.h with one space between them ("en zh_cn"). Schema 11 has it as a key of
+ * the deck's dict in col.decks. Schema 18 has the area as JSON in field 255 (`other`) of the deck's
+ * `common` protobuf. The JSON there is Anki's format, not amgi's: only this file reads and writes it.
+ * Anything that is not that string (an object, a number, extra spaces, an unknown code, the same code
+ * twice) reads as no pair. */
+#define PAIR_KEY "amgiLanguages"
+#define OTHER_FIELD 255
+
+static void pair_of(const aj *v, str *known, str *learning) {
+  *known = *learning = S("");
+  if (!v || v->type != AJ_STR) return;
+  const char *sp = memchr(v->s.p, ' ', v->s.n);
+  if (!sp) return;
+  str k = {v->s.p, (size_t)(sp - v->s.p)}, l = {sp + 1, v->s.n - k.n - 1};
+  if (!lang_pair_ok(k.p, (uint32_t)k.n, l.p, (uint32_t)l.n)) return;
+  *known = k, *learning = l;
+}
+
+/* The value to store: "<known> <learning>". */
+static aj *pair_value(cx *c, str known, str learning) {
+  return aj_str(c->a, str_cat(c->a, str_cat(c->a, known, S(" ")), learning));
+}
+
+/* The last field 255 of a `common` blob. */
+typedef struct { str common, other; int has; } other_scan;
+static void other_scan_body(cx *c, void *arg) {
+  other_scan *o = arg;
+  size_t at = 0;
+  pb_field f;
+  while (pb_next(c, (const unsigned char *)o->common.p, o->common.n, &at, 0, &f))
+    if (f.number == OTHER_FIELD && f.wire == 2) o->other = (str){(const char *)f.bytes, f.len}, o->has = 1;
+}
+
+/* A listing never fails over one deck's blob: a malformed one has no pair. */
+static void pair_18(cx *c, str common, str *known, str *learning) {
+  other_scan o = {common, S(""), 0};
+  *known = *learning = S("");
+  if (cx_try(c, other_scan_body, &o) || !o.has) return;
+  const char *why;
+  aj *v = anki_json_parse(c->a, o.other, &why);
+  if (v) pair_of(aj_get(v, S(PAIR_KEY)), known, learning);
+}
+
+/* `common` with amgi's key set in field 255 and everything else as it was: every other field is copied
+ * byte for byte in its order, then field 255 last (Anki's encoder writes in number order, and 255 is the
+ * highest), its JSON object with other add-ons' keys kept in their order and amgi's one string key set or replaced. An area that is not a JSON
+ * object is refused rather than overwritten: it is another add-on's. */
+static str common_with_pair(cx *c, str common, str known, str learning) {
+  other_scan o = {common, S(""), 0};
+  if (cx_try(c, other_scan_body, &o)) cx_rethrow(c);
+  aj *area = aj_obj(c->a);
+  if (o.has) {
+    const char *why;
+    aj *v = anki_json_parse(c->a, o.other, &why);
+    if (!v || v->type != AJ_OBJ) cx_throw(c, NULL, 0, "the deck's add-on data is not a JSON object: nothing was written");
+    area = v;
+  }
+  aj_set(c->a, area, S(PAIR_KEY), pair_value(c, known, learning));
+  buf out = {0};
+  size_t at = 0, from = 0;
+  pb_field f;
+  while (pb_next(c, (const unsigned char *)common.p, common.n, &at, 0, &f)) {
+    if (f.number != OTHER_FIELD) buf_put(&out, common.p + from, at - from);
+    from = at;
+  }
+  size_t nkeys;
+  aj_keys(c->a, area, &nkeys);
+  if (nkeys) {
+    str json = anki_json_stringify(c->a, area);
+    pb_bytes_field(&out, OTHER_FIELD, json.p, json.n);
+  }
+  str result = buf_str(c->a, &out);
+  buf_free(&out);
+  return result;
+}
+
 deck_row *list_decks_for_schema(cx *c, conn *k, size_t *n, aj **json_out) {
   if (k->schema == 11) {
     aj *decks = read_col_value(c, k, "decks");
@@ -224,10 +304,11 @@ deck_row *list_decks_for_schema(cx *c, conn *k, size_t *n, aj **json_out) {
       out[i].name = str_of(aj_get(vals[i], S("name")));
       const aj *dyn = aj_get(vals[i], S("dyn"));
       out[i].filtered = dyn && dyn->type == AJ_NUM && dyn->num == 1;
+      pair_of(aj_get(vals[i], S(PAIR_KEY)), &out[i].known, &out[i].learning);
     }
     return out;
   }
-  sqlite3_stmt *st = q_prep(c, k, "SELECT id, name, kind FROM decks");
+  sqlite3_stmt *st = q_prep(c, k, "SELECT id, name, kind, common FROM decks");
   size_t cap = 32;
   deck_row *out = ar_alloc(c->a, cap * sizeof *out);
   *n = 0;
@@ -242,6 +323,7 @@ deck_row *list_decks_for_schema(cx *c, conn *k, size_t *n, aj **json_out) {
     out[*n].id = sqlite3_column_int64(st, 0);
     out[*n].name = human_of_native(c, q_col_text(c, st, 1));
     out[*n].filtered = kind.n > 0 && (unsigned char)kind.p[0] == FILTERED_KIND_TAG;
+    pair_18(c, q_col_blob(c, st, 3), &out[*n].known, &out[*n].learning);
     (*n)++;
   }
   q_done(st);
@@ -571,6 +653,52 @@ void deck_rename(cx *c, conn *k, double deck_id, str human, col_renamed *out) {
   double now = floor((double)now_ms() / 1000);
   if (k->schema == 11) rename_legacy(c, k, deck_id, human, now, out);
   else rename_18(c, k, deck_id, human, now, out);
+}
+
+/* ---- a deck's language pair, written ---- */
+static _Noreturn void no_deck(cx *c, double deck_id) {
+  str id = id_key(c, deck_id);
+  cx_throw(c, NULL, 404, "no deck with id %.*s in this collection", (int)id.n, id.p);
+}
+
+/* As a rename writes: the deck's mtime_secs now and usn -1 (schema 11: its dict's mod and usn), and col.mod
+ * moved, because a sync that sees no newer col.mod reports no changes and the other device never gets
+ * the pair. */
+void deck_set_languages(cx *c, conn *k, double deck_id, str known, str learning, col_deck_languages *out) {
+  double now = floor((double)now_ms() / 1000);
+  if (k->schema == 11) {
+    aj *decks = read_col_value(c, k, "decks");
+    aj *deck = aj_get(decks, id_key(c, deck_id));
+    if (!deck) no_deck(c, deck_id);
+    aj_set(c->a, deck, S(PAIR_KEY), pair_value(c, known, learning));
+    aj_set(c->a, deck, S("mod"), aj_num(c->a, now));
+    aj_set(c->a, deck, S("usn"), aj_num(c->a, -1));
+    sqlite3_stmt *st = q_prep(c, k, "UPDATE col SET decks = ?, mod = ? WHERE id = 1");
+    q_text(st, 1, anki_json_stringify(c->a, decks));
+    q_int(st, 2, now_ms());
+    q_run(c, k, st);
+  } else {
+    sqlite3_stmt *st = q_prep(c, k, "SELECT common FROM decks WHERE id = ?");
+    q_num(st, 1, deck_id);
+    if (!q_step(c, k, st)) {
+      q_done(st);
+      no_deck(c, deck_id);
+    }
+    str common = q_col_blob(c, st, 0);
+    q_done(st);
+    str next = common_with_pair(c, common, known, learning);
+    st = q_prep(c, k, "UPDATE decks SET common = ?, mtime_secs = ?, usn = -1 WHERE id = ?");
+    q_blob(st, 1, next.p, next.n);
+    q_num(st, 2, now);
+    q_num(st, 3, deck_id);
+    q_run(c, k, st);
+    st = q_prep(c, k, "UPDATE col SET mod = ? WHERE id = 1");
+    q_int(st, 1, now_ms());
+    q_run(c, k, st);
+  }
+  out->id = (int64_t)deck_id;
+  out->known = known;
+  out->learning = learning;
 }
 
 /* ---- deck-remove.js ---- */

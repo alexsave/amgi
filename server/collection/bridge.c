@@ -12,6 +12,7 @@
 #include "core.h"
 #include "net/https.h"
 #include "util/err.h"
+#include "lang.h"
 #include "wire.h"
 
 #define DEFAULT_TIMEOUT_MS 1500
@@ -284,7 +285,12 @@ static void decks_body(cx *c, void *arg) {
   call k = {d->b, "GET", S("/decks"), WK_B_DECKS, 0, 0, NULL, DEFAULT_TIMEOUT_MS, &r, 0};
   fetch(c, &k);
   *d->out = ar_alloc(c->a, (r.ndecks + 1) * sizeof **d->out);
-  for (uint32_t i = 0; i < r.ndecks; i++) (*d->out)[i] = (col_deck){r.decks[i].id, ws(c, r.decks[i].name)};
+  for (uint32_t i = 0; i < r.ndecks; i++) {
+    const wire_b_deck_listed *w = &r.decks[i];
+    /* the add-on says what the deck holds; two different known codes are a pair, anything else is none (decks.c's rule) */
+    int pair = lang_pair_ok(w->known.p, w->known.len, w->learning.p, w->learning.len);
+    (*d->out)[i] = (col_deck){w->id, ws(c, w->name), pair ? ws(c, w->known) : S(""), pair ? ws(c, w->learning) : S("")};
+  }
   *d->n = r.ndecks;
 }
 int col_bridge_list_decks(arena *a, const col_bridge *b, col_deck **out, size_t *n, col_err *err) {
@@ -542,11 +548,27 @@ static void rename_body(cx *c, void *arg) {
   call k = {d->b, "PATCH", str_c(ar_fmt(c->a, "/decks/%.*s", (int)id.n, id.p)), WK_B_DECK, 1, WK_Q_DECK_NAME, &q,
             OPERATION_TIMEOUT_MS, &r, 0};
   fetch(c, &k);
-  *d->renamed = (col_deck){r.id, ws(c, r.name)};
+  *d->renamed = (col_deck){r.id, ws(c, r.name), S(""), S("")};
 }
 int col_bridge_rename_deck(arena *a, const col_bridge *b, double deck, str name, col_deck *out, col_err *err) {
   deck_args d = {b, deck, name, out, NULL, NULL, NULL};
   return run(a, rename_body, &d, err);
+}
+typedef struct { const col_bridge *b; double deck; str known, learning; col_deck_languages *out; } languages_args;
+static void languages_body(cx *c, void *arg) {
+  languages_args *d = arg;
+  wire_q_deck_languages q = {to_ws(d->known), to_ws(d->learning)};
+  str id = js_number(c, d->deck);
+  wire_b_deck_languages r;
+  call k = {d->b, "PUT", str_c(ar_fmt(c->a, "/decks/%.*s/languages", (int)id.n, id.p)), WK_B_DECK_LANGUAGES, 1,
+            WK_Q_DECK_LANGUAGES, &q, OPERATION_TIMEOUT_MS, &r, 0};
+  fetch(c, &k);
+  *d->out = (col_deck_languages){r.id, ws(c, r.known), ws(c, r.learning)};
+}
+int col_bridge_set_deck_languages(arena *a, const col_bridge *b, double deck, str known, str learning, col_deck_languages *out,
+                                  col_err *err) {
+  languages_args d = {b, deck, known, learning, out};
+  return run(a, languages_body, &d, err);
 }
 static void summary_body(cx *c, void *arg) {
   deck_args *d = arg;

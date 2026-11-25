@@ -107,6 +107,18 @@ class DispatcherWriteTests(unittest.TestCase):
         self.assertEqual(self.dispatcher.rename_deck(did, "Korean 2"), {"id": did, "name": "Korean 2"})
         self.assertEqual(len(self.mw.changes_seen), 1)
 
+    def test_set_deck_languages(self):
+        did = self.col.decks.id("Korean")
+        self.assertEqual(self.dispatcher.set_deck_languages(did, "en", "ko"), {"id": did, "known": "en", "learning": "ko"})
+        self.assertEqual(self.col.decks.get(did)["amgiLanguages"], "en ko")
+        self.assertEqual(len(self.mw.changes_seen), 1)
+
+    def test_set_deck_languages_of_a_deck_that_is_not_there(self):
+        import bridge_ops
+
+        with self.assertRaises(bridge_ops.DeckNotFound):
+            self.dispatcher.set_deck_languages(12345, "en", "ko")
+
     def test_get_note(self):
         note = self._note(self.col.decks.id("Korean"), "a")
         self.assertEqual(

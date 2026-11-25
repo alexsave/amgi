@@ -79,6 +79,7 @@ int ops_list_notes(arena *a, const amgi_ops *o, double deck, double offset, doub
 int ops_field_values(arena *a, const amgi_ops *o, double deck, double nt, double field, str **out, size_t *n, col_err *e);
 int ops_create_deck(arena *a, const amgi_ops *o, str name, col_deck_made *out, col_err *e);
 int ops_rename_deck(arena *a, const amgi_ops *o, double deck, str name, int64_t *id, str *out_name, col_err *e);
+int ops_set_deck_languages(arena *a, const amgi_ops *o, double deck, str known, str learning, col_deck_languages *out, col_err *e);
 int ops_removal_summary(arena *a, const amgi_ops *o, double deck, col_removal *out, col_err *e);
 int ops_remove_deck(arena *a, const amgi_ops *o, double deck, col_removal *out, col_err *e);
 int ops_add_note(arena *a, const amgi_ops *o, const col_new_note *note, col_added *out, col_err *e);

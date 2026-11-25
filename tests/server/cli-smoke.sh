@@ -66,16 +66,16 @@ expect 4 - card add --deck Spanish
 expect 4 - deck
 expect 4 - deck add
 expect 0 "^install${tab}yes${tab}yes${tab}" install
-expect 0 "^deck${tab}[0-9]+${tab}0${tab}Spanish\$" deck add Spanish
+expect 0 "^deck${tab}[0-9]+${tab}0${tab}Spanish${tab}-${tab}-\$" deck add Spanish
 first="$out"
 # deck add is find-or-create: the same name again is the same deck, exit 0, said on stderr
-expect 0 "^deck${tab}[0-9]+${tab}0${tab}Spanish\$" deck add Spanish
+expect 0 "^deck${tab}[0-9]+${tab}0${tab}Spanish${tab}-${tab}-\$" deck add Spanish
 [ "$out" = "$first" ] || { echo "FAIL a second deck add is another deck: $first / $out"; fails=$((fails + 1)); }
 [ "$err" = "amgi: the deck was already there" ] || { echo "FAIL a second deck add said: $err"; fails=$((fails + 1)); }
 expect 0 "^note${tab}[0-9]+${tab}Where is the station\\?${tab}¿Dónde está la estación\\?${tab}-${tab}-\$" \
   card add --deck Spanish --front "Where is the station?" --back "¿Dónde está la estación?" --to es
 expect 0 "^note${tab}[0-9]+${tab}Where is the station\\?${tab}" card list --deck Spanish
-expect 0 "^deck${tab}[0-9]+${tab}1${tab}Spanish\$" deck list
+expect 0 "^deck${tab}[0-9]+${tab}1${tab}Spanish${tab}-${tab}-\$" deck list
 expect 3 - card add --deck Nope --front a --back b
 expect 3 - card list --deck Nope
 expect 5 - card add --deck Spanish --text "Good morning" --from en --to es
@@ -91,13 +91,29 @@ case "$err" in "amgi: no note 12345 "*"nothing deleted") ;; *) echo "FAIL the un
 expect 0 "^would-remove${tab}$nid${tab}Where is the station\\?${tab}¿Dónde está la estación\\?\$" card remove "$nid"
 expect 0 "^note${tab}$nid${tab}" card list --deck Spanish
 expect 0 "^removed${tab}$nid${tab}Where is the station\\?${tab}¿Dónde está la estación\\?\$" card remove "$nid" --yes
-expect 0 "^deck${tab}[0-9]+${tab}0${tab}Spanish\$" deck list
+expect 0 "^deck${tab}[0-9]+${tab}0${tab}Spanish${tab}-${tab}-\$" deck list
 expect 3 - card remove "$nid" --yes
 case "$err" in "amgi: no note $nid "*"nothing deleted") ;; *) echo "FAIL the second remove's message: $err"; fails=$((fails + 1)) ;; esac
 expect 0 - card add --deck Spanish --front "Where is the station?" --back "¿Dónde está la estación?" --to es
+# a deck's language pair: deck add --from KNOWN --to LEARNING stores it in the deck (and says it), deck list prints it,
+# a pair without its other half is a usage error, a code that is not one of the languages is refused with the list
+expect 0 "^deck${tab}[0-9]+${tab}0${tab}Hanzi${tab}en${tab}ko\$" deck add Hanzi --from en --to ko
+expect 0 "^deck${tab}[0-9]+${tab}0${tab}Hanzi${tab}ko${tab}zh_cn\$" deck add Hanzi --from ko --to zh_cn
+[ "$err" = "amgi: the deck was already there" ] || { echo "FAIL a pair on a deck that was there said: $err"; fails=$((fails + 1)); }
+expect 0 "^deck${tab}[0-9]+${tab}0${tab}Hanzi${tab}ko${tab}zh_cn\$" deck list
+expect 0 "^deck${tab}[0-9]+${tab}1${tab}Spanish${tab}-${tab}-\$" deck list
+expect 4 - deck add Hanzi --from en
+expect 4 - deck add Hanzi --to ko
+expect 4 - deck add Hanzi --from en --to
+expect 1 - deck add Hanzi --from en --to xx
+case "$err" in *"must each be one of the languages amgi has: en, zh_cn"*) ;; *) echo "FAIL the bad-code message: $err"; fails=$((fails + 1)) ;; esac
+expect 1 - deck add Hanzi --from en --to en
+case "$err" in *"two different languages"*) ;; *) echo "FAIL the same-code message: $err"; fails=$((fails + 1)) ;; esac
+expect 0 "^deck${tab}[0-9]+${tab}0${tab}Hanzi${tab}ko${tab}zh_cn\$" deck list
+expect 0 - deck remove Hanzi --yes
 # deck remove: without --yes nothing goes; with it the deck is gone; a wrong name and Default delete nothing
 expect 0 "^would-remove${tab}[0-9]+${tab}1${tab}1${tab}0${tab}Spanish\$" deck remove Spanish
-expect 0 "^deck${tab}[0-9]+${tab}1${tab}Spanish\$" deck list
+expect 0 "^deck${tab}[0-9]+${tab}1${tab}Spanish${tab}-${tab}-\$" deck list
 expect 3 - deck remove Nope --yes
 expect 4 - deck remove Default --yes
 expect 0 "^deck${tab}1${tab}" deck list

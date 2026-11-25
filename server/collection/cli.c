@@ -207,6 +207,13 @@ static void put_page(buf *b, const col_page *p, int with_total, int64_t total) {
   }
 }
 
+static void put_deck_languages(buf *b, const col_deck_languages *r) {
+  buf_fmt(b, "ok %lld ", (long long)r->id);
+  enc(b, r->known);
+  buf_ch(b, ' ');
+  enc(b, r->learning);
+}
+
 static void put_note_one(buf *b, const col_note *n) {
   buf_fmt(b, "ok %lld %lld ", (long long)n->id, (long long)n->notetype_id);
   put_strs(b, n->fields, n->nfields);
@@ -240,6 +247,10 @@ static int run_bridge(arena *a, str verb, str *t, size_t n, str *more, size_t nm
     for (size_t i = 0; i < nd; i++) {
       buf_fmt(b, "\n%lld ", (long long)d[i].id);
       enc(b, d[i].name);
+      buf_ch(b, ' ');
+      enc(b, d[i].known);
+      buf_ch(b, ' ');
+      enc(b, d[i].learning);
     }
   } else if (str_eq_c(verb, "countNotesInDeck")) {
     int64_t count;
@@ -273,6 +284,10 @@ static int run_bridge(arena *a, str verb, str *t, size_t n, str *more, size_t nm
     buf_fmt(b, "ok %lld ", (long long)r.id);
     enc(b, r.name);
     buf_c(b, " !");
+  } else if (str_eq_c(verb, "setDeckLanguages")) {
+    col_deck_languages r;
+    if (col_bridge_set_deck_languages(a, br, num(ARG(0)), dec(a, ARG(1)), dec(a, ARG(2)), &r, &e)) return put_err(b, &e), 1;
+    put_deck_languages(b, &r);
   } else if (str_eq_c(verb, "deckRemovalSummary") || str_eq_c(verb, "removeDeck")) {
     col_removal r;
     int summary = str_eq_c(verb, "deckRemovalSummary");
@@ -408,6 +423,10 @@ static void run(arena *a, str line, str *more, size_t nmore, buf *b) {
     for (size_t i = 0; i < nd; i++) {
       buf_fmt(b, "\n%lld ", (long long)d[i].id);
       enc(b, d[i].name);
+      buf_ch(b, ' ');
+      enc(b, d[i].known);
+      buf_ch(b, ' ');
+      enc(b, d[i].learning);
     }
   } else if (str_eq_c(verb, "countNotesInDeck")) {
     int64_t count;
@@ -440,6 +459,10 @@ static void run(arena *a, str line, str *more, size_t nmore, buf *b) {
     buf_fmt(b, "ok %lld ", (long long)r.id);
     enc(b, r.name);
     buf_fmt(b, " %lld", (long long)r.children);
+  } else if (str_eq_c(verb, "setDeckLanguages")) {
+    col_deck_languages r;
+    if (col_set_deck_languages(a, g_path, num(ARG(0)), dec(a, ARG(1)), dec(a, ARG(2)), &r, &e)) return put_err(b, &e);
+    put_deck_languages(b, &r);
   } else if (str_eq_c(verb, "deckRemovalSummary") || str_eq_c(verb, "removeDeck")) {
     col_removal r;
     int summary = str_eq_c(verb, "deckRemovalSummary");

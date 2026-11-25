@@ -47,7 +47,10 @@ function opsOver(impl) {
     async listDecks() {
       const a = await cmd('listDecks');
       ok(a);
-      return rows(a).map((r) => { const [id, name] = r.split(' '); return { id: Number(id), name: dec(name) }; });
+      return rows(a).map((r) => {
+        const [id, name, known, learning] = r.split(' ');
+        return { id: Number(id), name: dec(name), known: dec(known), learning: dec(learning) };
+      });
     },
     async listNotetypes() {
       const a = await cmd('listNotetypes');
@@ -97,6 +100,10 @@ function opsOver(impl) {
     async renameDeck(deckId, name) {
       const [id, n] = ok(await cmd(`renameDeck ${deckId} ${enc(name)}`));
       return { id: Number(id), name: dec(n) };
+    },
+    async setDeckLanguages(deckId, known, learning) {
+      const [id, k, l] = ok(await cmd(`setDeckLanguages ${deckId} ${enc(known)} ${enc(learning)}`));
+      return { id: Number(id), known: dec(k), learning: dec(l) };
     },
     async deckRemovalSummary(deckId) {
       const [id, name, subdecks, cards, notes] = ok(await cmd(`deckRemovalSummary ${deckId}`));

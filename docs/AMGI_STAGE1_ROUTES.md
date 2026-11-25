@@ -42,8 +42,9 @@ Handler files are under `src/server/api/anki/`.
 | 20 | POST /starter | q_starter | starter_built | starter/route.js:17 | Build the 10-phrase starter deck: create deck, dedupe, copy shipped clips, add notes. | transport, in-process buildStarterDeck, fs, in-process audio-store and lyricsParse | router, spawn, file ops |
 | 21 | GET /media/:filename | none | none (raw bytes) | media/[filename]/route.js:14 | Serve one clip from the collection's media folder. Content-Type by extension, `Cache-Control: private, max-age=31536000, immutable`, Content-Length. 404 text `no such clip`. | transport.readMedia (direct: folder read; bridge: base64 over JSON), mediaType.js | router, static or file read, content-type table, spawn (bridge mode) |
 | 22 | GET /notes/:id | none | note | (added after this read) | One note by id: `{mode, id, notetypeId, fields, tags}`, as the deck listing shows it. 404 if gone. | transport, collection read | router, spawn |
+| 23 | PUT /decks/:id/languages | q_deck_languages | deck_languages | (added after this read) | Store the deck's language pair in the deck. Both codes must be the table's (ui/wire/lang.c) and differ, else 400. 404 if the deck is gone. | transport, collection write (Anki's own `col.decks.update_dict` on the bridge) | router, spawn |
 
-Route count: 21 API routes (20 wire-kinded, 1 raw bytes), and GET /notes/:id (22) added since. Plus non-API: `/` (307 to `/decks`), page paths, `/app.wasm`, `/app.css`, public icons.
+Route count: 21 API routes (20 wire-kinded, 1 raw bytes), and GET /notes/:id (22) and PUT /decks/:id/languages (23) added since. Plus non-API: `/` (307 to `/decks`), page paths, `/app.wasm`, `/app.css`, public icons.
 
 ## 2. Per-route detail
 
@@ -59,7 +60,7 @@ Field lists are from `ui/wire/wire.h` structs and the `wire.c` SCHEMA table (JS 
 - Edge cases: bridge configured but unreachable falls back to direct (probe 1500 ms); bridge reachable with `collectionOpen` false gives `bridge-no-collection`; no collection path gives `unconfigured`; polled on an interval by the page, so it must be cheap and must not race another call into a false `locked` (see section 3.4).
 
 ### 2.2 GET /decks (decks)
-- Answer `wire_decks`: mode, list of {id i64, name, noteCount u32}.
+- Answer `wire_decks`: mode, list of {id i64, name, noteCount u32, known, learning}. known and learning are the deck's stored language pair, both empty when it has none (or when what is stored is not two different codes of the language table).
 - Edge: Anki ids exceed 2^32 (WT_I64). Deck names can be non-Latin.
 
 ### 2.3 POST /decks (deck_created)
@@ -72,6 +73,13 @@ Field lists are from `ui/wire/wire.h` structs and the `wire.c` SCHEMA table (JS 
 - Request `q_deck_name`. Empty or non-string: 400 `name is required`.
 - Answer: mode, id, name.
 - Edge: subdeck rename rewrites descendants (names carry the parent prefix); renaming into a missing parent creates it.
+
+### 2.4b PUT /decks/:id/languages (deck_languages)
+- Request `q_deck_languages`: known, learning. Both must be codes of the one language table (`ui/wire/lang.c`) and differ: else 400 with the sentence.
+- Answer `deck_languages`: mode, id, known, learning.
+- 404 `This deck no longer exists.` when the deck is gone, as for 2.5. The Default deck (id 1) is allowed.
+- Stored as one string, `"amgiLanguages": "<known> <learning>"` (`"en zh_cn"`), in the deck's own add-on area: schema 18 is field 255 (`other`, JSON) of the `decks.common` protobuf, schema 11 a key of the deck's dict in `col.decks`. Other add-ons' keys there are kept. Anki sees and syncs it as it does any add-on's deck key.
+- Side effects: the deck's `mtime_secs` and `usn -1` (schema 11: its `mod` and `usn`), and `col.mod` moved, because a sync that sees no newer `col.mod` reports no changes. Backup before write.
 
 ### 2.5 GET /decks/:id (deck_summary)
 - Answer: mode, id, name, subdecks, cards, notes (u32).

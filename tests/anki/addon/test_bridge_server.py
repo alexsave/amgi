@@ -44,7 +44,7 @@ class FakeDispatcher:
 
     def list_decks(self):
         self._record("list_decks")
-        return [{"id": 1, "name": "Default"}]
+        return [{"id": 1, "name": "Default", "known": "en", "learning": "ko"}, {"id": 2, "name": "Other", "known": "", "learning": ""}]
 
     def list_notetypes(self):
         self._record("list_notetypes")
@@ -93,6 +93,12 @@ class FakeDispatcher:
     def read_media(self, filename):
         self._record("read_media", filename)
         return b"\x00ID3\xff" if filename == "clip.mp3" else None
+
+    def set_deck_languages(self, deck_id, known, learning):
+        self._record("set_deck_languages", deck_id, known, learning)
+        if deck_id == 404:
+            raise _Gone(f"no deck with id {deck_id} in this collection")
+        return {"id": deck_id, "known": known, "learning": learning}
 
     def get_note(self, note_id):
         self._record("get_note", note_id)
@@ -324,7 +330,7 @@ class RoutingTests(BridgeServerTestCase):
     def test_get_decks(self):
         status, _headers, body = self._request("GET", "/decks", headers=self._auth_headers(), answer="b_decks")
         self.assertEqual(status, 200)
-        self.assertEqual(body, {"decks": [{"id": 1, "name": "Default"}]})
+        self.assertEqual(body, {"decks": [{"id": 1, "name": "Default", "known": "en", "learning": "ko"}, {"id": 2, "name": "Other", "known": "", "learning": ""}]})
 
     def test_get_notetypes(self):
         status, _headers, body = self._request("GET", "/notetypes", headers=self._auth_headers(), answer="b_notetypes")
@@ -350,6 +356,30 @@ class RoutingTests(BridgeServerTestCase):
         )
         self.assertEqual(status, 200)
         self.assertEqual(body, {"deck.id": 42, "deck.name": "Korean::Verbs", "created": True})
+
+    def test_set_deck_languages(self):
+        status, _headers, body = self._request(
+            "PUT", "/decks/9/languages", headers=self._auth_headers(),
+            send=("q_deck_languages", {"known": "en", "learning": "zh_cn"}), answer="b_deck_languages",
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(body, {"id": 9, "known": "en", "learning": "zh_cn"})
+        self.assertEqual(self.dispatcher.calls, [("set_deck_languages", (9, "en", "zh_cn"), {})])
+
+    def test_set_deck_languages_needs_both_codes(self):
+        status, _headers, body = self._request(
+            "PUT", "/decks/9/languages", headers=self._auth_headers(), send=("q_deck_languages", {"known": "en"})
+        )
+        self.assertEqual(status, 400)
+        self.assertIn("required", body["error"])
+        self.assertEqual(self.dispatcher.calls, [])
+
+    def test_set_deck_languages_of_a_deck_that_is_not_there_is_a_404(self):
+        status, _headers, body = self._request(
+            "PUT", "/decks/404/languages", headers=self._auth_headers(), send=("q_deck_languages", {"known": "en", "learning": "ko"})
+        )
+        self.assertEqual(status, 404)
+        self.assertIn("no deck with id 404", body["error"])
 
     def test_get_note(self):
         status, _headers, body = self._request("GET", "/notes/55", headers=self._auth_headers(), answer="b_note_read")

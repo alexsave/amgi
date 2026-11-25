@@ -26,6 +26,7 @@
 #include <unistd.h>
 
 #include "amgi.h"
+#include "lang.h"
 #include "messages.h"
 #include "cbase/app.h"
 #include "net/files.h"
@@ -127,7 +128,7 @@ static void h_decks_get(rq *q) {
   for (size_t i = 0; i < n; i++) {
     int64_t count;
     if (ops_count_notes(q->a, &q->o, (double)d[i].id, &count, &e)) return fail500(q, &e);
-    w.decks[i] = (wire_deck){d[i].id, amgi_ws(d[i].name), amgi_u32((double)count)};
+    w.decks[i] = (wire_deck){d[i].id, amgi_ws(d[i].name), amgi_u32((double)count), amgi_ws(d[i].known), amgi_ws(d[i].learning)};
   }
   amgi_send_wire(q->a, q->res, 200, WK_DECKS, &w);
 }
@@ -179,6 +180,28 @@ static void h_deck_delete(rq *q) {
   wire_deck_removed w = {mode_of(q), r.id, amgi_ws(r.name), amgi_u32((double)r.decks), amgi_u32((double)r.cards),
                          amgi_u32((double)r.notes)};
   amgi_send_wire(q->a, q->res, 200, WK_DECK_REMOVED, &w);
+}
+
+/* PUT /decks/:id/languages: the deck's pair, stored in the deck. Both codes must be the table's (lang.h) and
+ * differ; the Default deck takes one like any other; a deck that is not there is 404. */
+static void h_deck_languages_put(rq *q) {
+  if (!ready(q)) return;
+  const wire_q_deck_languages *b = q->body;
+  if (!lang_known(b->known.p, b->known.len) || !lang_known(b->learning.p, b->learning.len)) {
+    buf codes = {0};
+    for (uint32_t i = 0; i < NLANGUAGES; i++) buf_fmt(&codes, "%s%s", i ? ", " : "", LANGUAGES[i].code);
+    str msg = str_c(ar_fmt(q->a, "known and learning must each be one of the languages amgi has: %.*s", (int)codes.n, codes.p));
+    buf_free(&codes);
+    return amgi_send_message(q->a, q->res, 400, msg);
+  }
+  if (str_eq(amgi_str(b->known), amgi_str(b->learning)))
+    return amgi_send_message(q->a, q->res, 400, S("known and learning must be two different languages"));
+  col_deck_languages r;
+  col_err e = {0};
+  if (ops_set_deck_languages(q->a, &q->o, amgi_js_number(q->params[0]), amgi_str(b->known), amgi_str(b->learning), &r, &e))
+    return deck_failed(q, &e);
+  wire_deck_languages w = {mode_of(q), r.id, amgi_ws(r.known), amgi_ws(r.learning)};
+  amgi_send_wire(q->a, q->res, 200, WK_DECK_LANGUAGES, &w);
 }
 
 /* Number(searchParams.get(key)): a missing parameter is Number(null), 0. */
@@ -432,6 +455,7 @@ static const amgi_route ROUTES[] = {
   {"GET", "media/:filename", "/api/anki/media/:filename", -1, h_media},
   {"GET", "progress", "/api/anki/progress", -1, h_progress},
   {"GET", "notes/:id", "/api/anki/notes/:id", -1, h_note_get},
+  {"PUT", "decks/:id/languages", "/api/anki/decks/:id/languages", WK_Q_DECK_LANGUAGES, h_deck_languages_put},
 };
 #define NROUTES (sizeof ROUTES / sizeof *ROUTES)
 
@@ -540,8 +564,8 @@ static void dispatch(cb_ctx *ctx, size_t i, const cb_http_req *req, cb_http_res 
 #define THUNK(i) \
   static void h##i(cb_ctx *ctx, const cb_http_req *req, cb_http_res *res) { dispatch(ctx, i, req, res); }
 THUNK(0) THUNK(1) THUNK(2) THUNK(3) THUNK(4) THUNK(5) THUNK(6) THUNK(7) THUNK(8) THUNK(9) THUNK(10)
-THUNK(11) THUNK(12) THUNK(13) THUNK(14) THUNK(15) THUNK(16) THUNK(17) THUNK(18) THUNK(19) THUNK(20) THUNK(21) THUNK(22)
-_Static_assert(NROUTES == 23, "one cbase handler per route");
+THUNK(11) THUNK(12) THUNK(13) THUNK(14) THUNK(15) THUNK(16) THUNK(17) THUNK(18) THUNK(19) THUNK(20) THUNK(21) THUNK(22) THUNK(23)
+_Static_assert(NROUTES == 24, "one cbase handler per route");
 
 /* ---- the page and its files ---- */
 static void h_root(cb_ctx *ctx, const cb_http_req *req, cb_http_res *res) {
@@ -607,6 +631,7 @@ static const cb_route AMGI_ROUTES[] = {
   {.method = "GET", .pattern = "/api/anki/media/:filename", .flags = CB_ROUTE_POOL, .fn = h20},
   {.method = "GET", .pattern = "/api/anki/progress", .flags = CB_ROUTE_POOL, .fn = h21},
   {.method = "GET", .pattern = "/api/anki/notes/:id", .flags = CB_ROUTE_POOL, .fn = h22},
+  {.method = "PUT", .pattern = "/api/anki/decks/:id/languages", .flags = CB_ROUTE_POOL, .fn = h23},
   ANY("/api/anki/*", h_api_fallback),
   ANY("/", h_root),
   ANY("/decks", h_page),

@@ -42,7 +42,7 @@ const FIXTURES = path.join(ROOT, 'tests', 'server', 'parity', 'fixtures');
 const ANSWERS = [
   ['GET', /^status$/, 'status'], ['GET', /^decks$/, 'decks'], ['POST', /^decks$/, 'deck_created'],
   ['PATCH', /^decks\/[^/]+$/, 'deck_renamed'], ['GET', /^decks\/[^/]+$/, 'deck_summary'],
-  ['DELETE', /^decks\/[^/]+$/, 'deck_removed'], ['GET', /^decks\/[^/]+\/notes$/, 'notes'],
+  ['DELETE', /^decks\/[^/]+$/, 'deck_removed'], ['PUT', /^decks\/[^/]+\/languages$/, 'deck_languages'], ['GET', /^decks\/[^/]+\/notes$/, 'notes'],
   ['GET', /^decks\/[^/]+\/notes\/field-values$/, 'field_values'], ['GET', /^install$/, 'install_state'],
   ['POST', /^install$/, 'installed'], ['GET', /^profiles$/, 'profiles'], ['GET', /^notetypes$/, 'notetypes'],
   ['POST', /^notes$/, 'note_added'], ['POST', /^notes\/bulk$/, 'notes_added'], ['PATCH', /^notes\/[^/]+$/, 'note_changed'],
@@ -64,7 +64,7 @@ function idKind(key, list, kind) {
     if (list === 'notes') return 'N';
     if (list === 'notetypes') return 'M';
     if (list === 'decks') return 'D';
-    if (['deck_renamed', 'deck_summary', 'deck_removed'].includes(kind)) return 'D';
+    if (['deck_renamed', 'deck_summary', 'deck_removed', 'deck_languages'].includes(kind)) return 'D';
     if (kind === 'note') return 'N';
   }
   return null;
@@ -324,7 +324,8 @@ describe('the HTTP contract', { concurrency: false }, () => {
     for (const [mode, headers] of Object.entries(cases)) {
       for (const [m, u, body] of [
         ['GET', '/api/anki/status'], ['GET', '/api/anki/decks'], ['POST', '/api/anki/decks', ['q_deck_name', { name: 'x' }]],
-        ['GET', '/api/anki/decks/1'], ['DELETE', '/api/anki/decks/2'], ['GET', '/api/anki/notetypes'],
+        ['GET', '/api/anki/decks/1'], ['DELETE', '/api/anki/decks/2'],
+        ['PUT', '/api/anki/decks/1/languages', ['q_deck_languages', { known: 'en', learning: 'ko' }]], ['GET', '/api/anki/notetypes'],
         ['GET', '/api/anki/decks/1/notes'], ['GET', '/api/anki/decks/1/notes/field-values?notetypeId=1&fieldIndex=0'],
         ['POST', '/api/anki/notes', ['q_note', { deckId: 1, notetypeId: 1, fields: ['a', 'b'] }]],
         ['POST', '/api/anki/notes/bulk', ['q_notes', { notes: [] }]], ['PATCH', '/api/anki/notes/1', ['q_note_update', { fields: [] }]],
@@ -410,6 +411,21 @@ describe('the HTTP contract', { concurrency: false }, () => {
       await call(ctx, s('rename deck to a taken name'), 'PATCH', `/api/anki/decks/${madeId}`, { headers: h, bases, body: ['q_deck_name', { name: 'Existing' }] });
       await call(ctx, s('rename deck, blank name'), 'PATCH', `/api/anki/decks/${madeId}`, { headers: h, bases, body: ['q_deck_name', { name: ' ' }] });
       await call(ctx, s('rename a deck not there'), 'PATCH', '/api/anki/decks/999', { headers: h, bases, body: ['q_deck_name', { name: 'X' }] });
+
+      // A deck's language pair: stored in the deck, and the deck list says it; two different codes of the table, else 400.
+      const langs = (known, learning) => ['q_deck_languages', { known, learning }];
+      await call(ctx, s('languages of a deck, before'), 'GET', '/api/anki/decks', { headers: h, bases });
+      await call(ctx, s('set languages'), 'PUT', `/api/anki/decks/${madeId}/languages`, { headers: h, bases, body: langs('en', 'zh_cn') });
+      await call(ctx, s('set languages again'), 'PUT', `/api/anki/decks/${madeId}/languages`, { headers: h, bases, body: langs('ko', 'en') });
+      await call(ctx, s('set languages of the Default deck'), 'PUT', '/api/anki/decks/1/languages', { headers: h, bases, body: langs('en', 'ko') });
+      await call(ctx, s('set languages, an unknown code'), 'PUT', `/api/anki/decks/${madeId}/languages`, { headers: h, bases, body: langs('en', 'xx') });
+      await call(ctx, s('set languages, a code in capitals'), 'PUT', `/api/anki/decks/${madeId}/languages`, { headers: h, bases, body: langs('EN', 'ko') });
+      await call(ctx, s('set languages, the same code twice'), 'PUT', `/api/anki/decks/${madeId}/languages`, { headers: h, bases, body: langs('ko', 'ko') });
+      await call(ctx, s('set languages, no codes'), 'PUT', `/api/anki/decks/${madeId}/languages`, { headers: h, bases, body: ['q_deck_languages', {}] });
+      await call(ctx, s('set languages of a deck not there'), 'PUT', '/api/anki/decks/999/languages', { headers: h, bases, body: langs('en', 'ko') });
+      await call(ctx, s('set languages, deck id not a number'), 'PUT', '/api/anki/decks/abc/languages', { headers: h, bases, body: langs('en', 'ko') });
+      await call(ctx, s('set languages, body not the right kind'), 'PUT', `/api/anki/decks/${madeId}/languages`, { headers: h, bases, body: ['q_deck_name', { name: 'x' }] });
+      await call(ctx, s('languages of a deck, after'), 'GET', '/api/anki/decks', { headers: h, bases });
 
       const added = await call(ctx, s('add note'), 'POST', '/api/anki/notes', {
         headers: h, bases, body: ['q_note', { deckId: madeId, notetypeId: basic, fields: ['hello', 'world'], tags: ['a', 'b'] }],

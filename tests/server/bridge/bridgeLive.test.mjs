@@ -81,6 +81,7 @@ maybe(`the bridge protocol against the real add-on server and a real collection`
     const decks = await ops.listDecks();
     const existing = decks.find((d) => d.name === 'Existing');
     assert.ok(existing && decks.some((d) => d.name === 'Existing::Child'), decks.map((d) => d.name).join(', '));
+    assert.ok(decks.every((d) => d.known === '' && d.learning === ''), 'no deck has a pair yet');
 
     const basic = (await ops.listNotetypes()).find((n) => n.name === 'Basic');
     assert.deepEqual(basic.fieldNames, ['Front', 'Back']);
@@ -133,6 +134,14 @@ maybe(`the bridge protocol against the real add-on server and a real collection`
     assert.deepEqual(await ops.readMedia(odd), clip, odd);
 
     assert.deepEqual(await ops.renameDeck(made.deck.id, '한국어::여행 2'), { id: made.deck.id, name: '한국어::여행 2' });
+
+    // A deck's language pair: stored through Anki's own deck API, listed with the decks, a 404 for a deck that is gone.
+    assert.deepEqual(await ops.setDeckLanguages(made.deck.id, 'en', 'zh_cn'), { id: made.deck.id, known: 'en', learning: 'zh_cn' });
+    const paired = (await ops.listDecks()).find((d) => d.id === made.deck.id);
+    assert.deepEqual([paired.known, paired.learning], ['en', 'zh_cn']);
+    assert.deepEqual((await ops.listDecks()).find((d) => d.name === 'Existing').known, '', 'the other decks still have none');
+    await assert.rejects(ops.setDeckLanguages(999999, 'en', 'ko'), (error) => error instanceof BridgeError && error.status === 404
+      && error.message.includes('no deck with id 999999'));
 
     // One note by id: the page's own row for it, then a 404 with the add-on's sentence once it is gone.
     const read = await ops.getNote(bulk[0].noteId);
@@ -239,6 +248,28 @@ describe(`an add-on in another protocol`, () => {
       assert.equal('schemaVersion' in result.detail, false, 'no schema with no collection');
     } finally {
       await none.close();
+    }
+  });
+
+  test('a deck list whose pairs are not two different known codes lists them as no pair, as the direct reader does', async () => {
+    const rows = [
+      { id: 1, name: 'ok', known: 'ko', learning: 'en' }, { id: 2, name: 'unknown code', known: 'en', learning: 'xx' },
+      { id: 3, name: 'same code', known: 'en', learning: 'en' }, { id: 4, name: 'capitals', known: 'EN', learning: 'ko' },
+      { id: 5, name: 'half', known: 'en', learning: '' }, { id: 6, name: 'none', known: '', learning: '' },
+    ];
+    const list = encode('b_decks', { decks: rows });
+    const status = encode('b_status', { profileOpen: true, profileName: 'p', collectionOpen: true, schemaVersion: 18, ankiVersion: 'a', qtVersion: 'q' });
+    const server = http.createServer((req, res) => {
+      res.writeHead(200, { 'Content-Type': WIRE_MIME, [PROTOCOL_HEADER]: String(BRIDGE_PROTOCOL) });
+      res.end(req.url === '/status' ? status : list);
+    });
+    await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+    try {
+      const probed = await probeBridge(`http://127.0.0.1:${server.address().port}`, TOKEN);
+      const got = (await probed.ops.listDecks()).map((d) => `${d.known}|${d.learning}`);
+      assert.deepEqual(got, ['ko|en', '|', '|', '|', '|', '|']);
+    } finally {
+      await new Promise((resolve) => server.close(resolve));
     }
   });
 

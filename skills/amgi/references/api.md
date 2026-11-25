@@ -83,9 +83,10 @@ A failure is the `error` kind, `{error}`, with a 4xx or 5xx status, except an un
 | `GET /status` | Transport and schema version |
 | `GET /profiles` | Profiles under the Anki folder |
 | `GET /install`, `POST /install` | Whether the add-ons and note type are current; install or update them |
-| `GET /decks` | `{decks: [{id, name, noteCount}]}`. `A::B` is subdeck B of A |
+| `GET /decks` | `{decks: [{id, name, noteCount, known, learning}]}`. `A::B` is subdeck B of A. `known` and `learning` are the deck's stored language pair (codes below), both `""` when it has none |
 | `POST /decks` `{name}` | Find or create, parents included |
 | `PATCH /decks/:id` `{name}` | Rename |
+| `PUT /decks/:id/languages` `{known, learning}` | Stores the pair in the deck (its own add-on area in Anki, which syncs): `{mode, id, known, learning}`. Both must be language codes and differ (400 otherwise), the Default deck (id 1) takes one, a deck that is not there is 404 |
 | `GET /decks/:id` | `{id, name, subdecks, cards, notes}`: what deleting the deck would take, changing nothing. 404 when it is not there |
 | `DELETE /decks/:id` | Deletes the deck, its subdecks, their cards and the notes left with no card, as Anki's own delete does: `{id, name, decks, cards, notes}`. The Default deck (id 1) is refused (400), since Anki would only empty it; a deck already gone is 404. Ask first, naming what `GET /decks/:id` counted |
 | `GET /notetypes` | `{notetypes: [{id, name, fieldNames, sortFieldIndex}]}` |
