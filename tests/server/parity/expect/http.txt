@@ -1235,8 +1235,8 @@
 == s18 starter, the deck is in another pair
 > POST /api/anki/starter
 < 400 content-type=application/x-amgi-wire cache-control=no-store
-< error {mode="" error="This deck is English -> Korean; this card is in English." notStarted=false dailyCap=false}
-< bytes 414d573200093800000054686973206465636b20697320456e676c697368202d3e204b6f7265616e3b2074686973206361726420697320696e20456e676c6973682effffffff0000ffffffff
+< error {mode="" error="The deck \"amgi starter\" is English -> Korean, so it cannot take a Korean -> English starter: give the starter another name." notStarted=false dailyCap=false}
+< bytes 414d573200097b000000546865206465636b2022616d676920737461727465722220697320456e676c697368202d3e204b6f7265616e2c20736f2069742063616e6e6f742074616b652061204b6f7265616e202d3e20456e676c69736820737461727465723a206769766520746865207374617274657220616e6f74686572206e616d652effffffff0000ffffffff
 == s18 starter, same languages
 > POST /api/anki/starter
 < 400 content-type=application/x-amgi-wire cache-control=no-store
