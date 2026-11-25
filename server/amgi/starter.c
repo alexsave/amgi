@@ -179,6 +179,13 @@ static int attach_clip(arena *a, const amgi_ops *o, str text, str language, str 
   return 0;
 }
 
+/* A starter asked for a deck that is already in another pair: both pairs named, and what to do. */
+static str starter_pair_refusal(arena *a, str deck, str known, str learning, str want_known, str want_learning) {
+  str has = amgi_pair_names(a, known, learning), want = amgi_pair_names(a, want_known, want_learning);
+  return str_c(ar_fmt(a, "The deck \"%.*s\" is %.*s, so it cannot take a %.*s starter: give the starter another name.",
+                      (int)deck.n, deck.p, (int)has.n, has.p, (int)want.n, want.p));
+}
+
 int amgi_starter_build(arena *a, const amgi_ops *o, str known, str learning, str deck_name, amgi_starter_built *out,
                        str *message) {
   table t = {0};
@@ -204,7 +211,7 @@ int amgi_starter_build(arena *a, const amgi_ops *o, str known, str learning, str
   if (ops_list_decks(a, o, &decks, &nd, &e)) return *message = e.message, -1;
   const col_deck *there = amgi_find_deck(decks, nd, deck.id);
   if (there && there->known.n && !(str_eq(there->known, known) && str_eq(there->learning, learning)))
-    return *message = amgi_language_mismatch_refusal(a, there->known, there->learning, learning), -1;
+    return *message = starter_pair_refusal(a, deck.name, there->known, there->learning, known, learning), -1;
   if (!there || !there->known.n) {
     col_deck_languages stored;
     if (ops_set_deck_languages(a, o, (double)deck.id, known, learning, &stored, &e)) return *message = e.message, -1;

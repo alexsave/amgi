@@ -409,7 +409,7 @@ ok <T> amgi%20starter 10 0
 > starter en ko amgi%20starter
 ok <T> amgi%20starter 0 10
 > starter ko ja amgi%20starter
-err error This%20deck%20is%20English%20-%3E%20Korean%3B%20this%20card%20is%20in%20Japanese.
+err error The%20deck%20%22amgi%20starter%22%20is%20English%20-%3E%20Korean%2C%20so%20it%20cannot%20take%20a%20Korean%20-%3E%20Japanese%20starter%3A%20give%20the%20starter%20another%20name.
 > starter ko ja amgi%20starter%20ja
 ok <T> amgi%20starter%20ja 10 0
 # parallel: ok ok ok ok ok ok ok ok
