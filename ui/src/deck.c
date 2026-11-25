@@ -131,7 +131,10 @@ ON_RENDER(sub_view) {
   cd_text_num(d->count);
   cd_text(" card");
   if (d->count != 1) cd_text("s");
-  cd_text(" · ");
+  /* the separator only before text on the same line: the picker's controls wrap under the count on a phone, and a dot
+   * left at the end of the count's line separates nothing */
+  int picking = !finding && (langs_open || !langs.known[0]);
+  if (!picking) cd_text(" · ");
   el("span", "deck-langs");
   if (finding) {
     cd_text("Finding this deck's languages…");
