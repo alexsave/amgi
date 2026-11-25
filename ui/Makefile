@@ -34,7 +34,7 @@ all: $(OUT)/app.wasm $(OUT)/index.html $(OUT)/app.css $(OUT)/wire.wasm $(OUT)/wi
 
 # The module as cdom.mk links it, before the size pass.
 APP_WASM := $(OUT)/raw/app.wasm
-APP_SRC := $(sort $(wildcard src/*.c)) wire/wire.c
+APP_SRC := $(sort $(wildcard src/*.c)) wire/wire.c wire/lang.c
 APP_MODULES := net store audio url
 APP_CFLAGS := $(WARN)
 APP_LDFLAGS := -Wl,--strip-all
@@ -45,7 +45,7 @@ APP_WASM_SEPARATE := 1
 include $(CDOM)/cdom.mk
 
 # cdom.mk's rule knows cdom's headers; these are the app's own.
-APP_HDR := $(wildcard src/*.h) wire/wire.h
+APP_HDR := $(wildcard src/*.h) wire/wire.h wire/lang.h
 $(APP_WASM): $(APP_HDR)
 
 # wasm-opt <in> <out>: binaryen's size pass when it is installed, a copy when it is not.

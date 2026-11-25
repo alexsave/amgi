@@ -14,27 +14,8 @@
 #include <unicode/uscript.h>
 
 #include "../json/model_answer.h"
+#include "lang.h"
 
-static const struct { const char *code, *name; } LANGUAGE_NAMES[] = {
-  {"en", "English"},
-  {"es", "Spanish"},
-  {"fr", "French"},
-  {"pt", "Portuguese"},
-  {"it", "Italian"},
-  {"de", "German"},
-  {"ru", "Russian"},
-  {"zh_cn", "Mandarin Chinese"},
-  {"zh_hk", "Cantonese"},
-  {"ja", "Japanese"},
-  {"ko", "Korean"},
-  {"vi", "Vietnamese"},
-  {"th", "Thai"},
-  {"id", "Indonesian"},
-  {"hi", "Hindi"},
-  {"ur", "Urdu"},
-  {"ar", "Arabic"},
-  {"tr", "Turkish"},
-};
 static const struct { const char *code, *guidance; } REGISTER_POLICIES[] = {
   {"ko", "Korean marks politeness in the verb ending, so a level is chosen on every card. Default to 해요체, the polite informal style (-요 / -아요 / -어요, questions in -요?): it is what an adult uses with a stranger of any age without sounding either rude or ceremonial. Use 반말 (plain style) only when the input is itself in 반말 or explicitly says it is for a close friend, and use 합쇼체 (-습니다 / -십시오) only where it is the fixed normal form of the expression (감사합니다, 죄송합니다, 안녕하세요) or the input is explicitly a formal or service-industry line. Keep one level across the whole utterance."},
   {"ja", "Japanese marks politeness in the verb, so a level is chosen on every card. Default to the です／ます style (丁寧語): it is usable with a stranger, a colleague or a teacher without offence. Use plain / dictionary-form endings only when the input is itself in plain form or explicitly says it is for a close friend, and use 尊敬語 or 謙譲語 only when the input is explicitly about serving or addressing a customer or a superior. Keep one level across the whole utterance."},
@@ -106,7 +87,10 @@ str card_normalize_language_code(arena *a, str language) {
 #define LOOKUP(table, field, code)                                  \
   for (size_t i_ = 0; i_ < N(table); i_++)                          \
     if (str_eq_c((code), table[i_].code)) return table[i_].field;
-static const char *name_of(str code) { LOOKUP(LANGUAGE_NAMES, name, code) return NULL; }
+static const char *name_of(str code) {
+  const lang_entry *l = lang_find(code.p, (uint32_t)code.n);
+  return l ? l->english : NULL;
+}
 static const char *policy_of(str code) { LOOKUP(REGISTER_POLICIES, guidance, code) return NULL; }
 static const char *variety_of(str code) { LOOKUP(LANGUAGE_VARIETIES, variety, code) return NULL; }
 static const char *reading_of(str code) { LOOKUP(READING_SYSTEMS, system, code) return NULL; }

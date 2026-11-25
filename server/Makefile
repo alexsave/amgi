@@ -55,10 +55,11 @@ ICU_LDFLAGS := $(if $(ICU_PREFIX),-L$(ICU_PREFIX)/lib -Wl$(comma)-rpath$(comma)$
 WARN := -Wall -Wextra -Werror -Wshadow -Wvla -std=gnu11 -D_GNU_SOURCE -D_DARWIN_C_SOURCE
 
 COL_SRC := collection/util.c collection/rng.c collection/db.c collection/backup.c collection/text.c collection/pb.c \
-  collection/decks.c collection/notes.c collection/media.c collection/direct.c json/anki_json.c json/model_answer.c
+  collection/decks.c collection/notes.c collection/media.c collection/direct.c json/anki_json.c json/model_answer.c \
+  ../ui/wire/lang.c
 # The bridge client and resolveTransport: the half that speaks HTTP, through cbase's client.
 BRIDGE_SRC := collection/bridge.c collection/transport.c collection/wire_host.c ../ui/wire/wire.c
-COL_HDR := $(wildcard collection/*.h json/*.h) ../ui/wire/wire.h
+COL_HDR := $(wildcard collection/*.h json/*.h) ../ui/wire/wire.h ../ui/wire/lang.h
 # The amgi app's own code (server/amgi/amgi.h): its routes, install, the starter deck, the rate gate and
 # Gemini. A product library like the core, for the same reason: it reads numbers as JavaScript does.
 AMGI_SRC := $(sort $(wildcard amgi/*.c))
@@ -72,7 +73,7 @@ APP_SERVE_LISTEN := 127.0.0.1:$(or $(PORT),3000)
 include $(CBASE)/cbase.mk
 
 # The ones not linked with cbase: the dump tool, and the core's own tests, under the sanitizers.
-NATIVE_CFLAGS = $(WARN) -g -pthread $(ICU_CFLAGS) $(SQLITE_CFLAGS) $(OPENSSL_CFLAGS)
+NATIVE_CFLAGS = $(WARN) -g -pthread -I../ui/wire $(ICU_CFLAGS) $(SQLITE_CFLAGS) $(OPENSSL_CFLAGS)
 NATIVE_SAN := -O1 -fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer
 NATIVE_LIBS = $(ICU_LDFLAGS) $(SQLITE_LDFLAGS) $(OPENSSL_LDFLAGS) \
   $(if $(SQLITE_PREFIX),-Wl$(comma)-rpath$(comma)$(SQLITE_PREFIX)/lib) $(if $(OPENSSL_PREFIX),-Wl$(comma)-rpath$(comma)$(OPENSSL_PREFIX)/lib) \
