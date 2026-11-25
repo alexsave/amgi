@@ -321,10 +321,10 @@ class DeckLanguagesCrossTransportTests(_SeededCollection):
         probe.bind(("127.0.0.1", 0))
         port = probe.getsockname()[1]
         probe.close()
-        env = dict(os.environ, SYNC_USER1="u:p", SYNC_BASE=os.path.join(base, "srv"), SYNC_HOST="127.0.0.1", SYNC_PORT=str(port))
         server = subprocess.Popen(
             [sys.executable, "-c", "from anki.syncserver import run_sync_server; run_sync_server()"],
-            env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            env=sandbox_env(PYTHONPATH=os.environ.get("PYTHONPATH", ""), SYNC_USER1="u:p", SYNC_BASE=os.path.join(base, "srv"), SYNC_HOST="127.0.0.1", SYNC_PORT=str(port)),
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
         )
         self.addCleanup(lambda: (server.kill(), server.wait()))
         for _ in range(100):
