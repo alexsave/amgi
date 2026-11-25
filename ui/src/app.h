@@ -122,7 +122,9 @@ void settings_load(void);                 /* from the store; settings_loaded onc
 void store_put_ignored(void *ctx, uint32_t ok);
 
 /* ---- the state DeckContext held (state.c) ---- */
-typedef struct { int64_t id; text name; uint32_t count; } deck; /* name: the list's own copy (state.c) */
+/* A deck's language pair, as lang.h's codes; both "" when the deck has none yet. */
+typedef struct { char known[8], learning[8]; } lang_pair;
+typedef struct { int64_t id; text name; uint32_t count; lang_pair pair; } deck; /* name: the list's own copy (state.c) */
 extern deck *decks;
 extern uint32_t ndecks;
 extern int decks_known;         /* a decks answer has come */
@@ -131,6 +133,7 @@ extern int installed;           /* -1 unknown, 0 no, 1 yes */
 int ready(void);                /* direct or bridge */
 const deck *deck_by_id(int64_t id);
 void refresh_decks(void);
+void deck_pair_set(int64_t id, const lang_pair *p); /* a deck's pair, as the server just stored it */
 void decks_drop_tree(int64_t id);  /* a deck that was deleted, and its subdecks, out of the list now */
 void poll_status(void);
 void state_start(void);   /* the settings are loaded: poll, fetch, and keep polling */
@@ -162,11 +165,8 @@ extern badge badges[2];
 
 /* ---- languages (wire/lang.h is the table; lang.c here is the page's side) ---- */
 const char *language_name(const char *code, uint32_t len); /* the code itself when unknown */
-/* A deck's pair, remembered per deck in the store ("amgi:deck-languages:<id>": "known learning"). */
-typedef struct { char known[8], learning[8]; } lang_pair;
-void deck_langs_load(int64_t deck_id);   /* answers through deck_langs_loaded */
-void deck_langs_save(int64_t deck_id, const lang_pair *p);
-void deck_langs_loaded(int64_t deck_id, const lang_pair *p);
+/* A pair from the wire's two codes; a side that is not one of the table's reads as "". */
+void lang_pair_set(lang_pair *p, wire_str known, wire_str learning);
 
 /* ---- routing (shell.c) ---- */
 enum { R_DECKS, R_SETTINGS, R_DECK };
@@ -210,9 +210,9 @@ cd_id chip_node(int32_t slot);
 void chips_audio_loaded(uint32_t token, uint32_t clip);
 void chips_audio_ended(uint32_t voice);
 
-void form_build(int64_t deck_id, const lang_pair *langs); /* CardForm */
+void form_build(int64_t deck_id, const lang_pair *langs, int finding); /* CardForm; no pair: off, finding or not */
 void form_notetypes_known(void);
-void form_langs_changed(const lang_pair *langs);
+void form_langs_changed(const lang_pair *langs, int finding);
 
 /* BulkRun (bulk.c): a run of lines into cards, built at the end of the form's box. */
 void bulk_start(cd_id form_box, int64_t deck, const notetype *type, const lang_pair *langs, const wire_str *lines,

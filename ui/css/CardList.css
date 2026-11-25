@@ -258,8 +258,13 @@
 
 .deck-langs {
   display: inline-flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.4rem;
+}
+
+.deck-cards-title {
+  min-width: 0;
 }
 
 .deck-langs button {

@@ -193,12 +193,6 @@ ON_ANSWER(built) {
   wire_starter_built b;
   answer a = take(&h, WK_STARTER_BUILT, status, p, len, &b);
   if (a.ok) {
-    /* the pair the deck was built from: nothing in Anki records it */
-    lang_pair pair;
-    uint32_t k = zlen(LANGUAGES[known].code), l = zlen(LANGUAGES[learning].code);
-    __builtin_memcpy(pair.known, LANGUAGES[known].code, k + 1);
-    __builtin_memcpy(pair.learning, LANGUAGES[learning].code, l + 1);
-    deck_langs_save(b.deck_id, &pair);
     open_after_refresh(b.deck_id);
     return;
   }
