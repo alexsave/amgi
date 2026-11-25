@@ -32,13 +32,19 @@ server/build/amgi card list --deck "Spanish"
 server/build/amgi down
 ```
 
-`--from en` is the language the user knows (the card's front, the cue); `--to es` is the language being learned (the back).
+A deck carries its languages: the language the user knows (`--from en`, the card's front, the cue) and the one being learned (`--to es`, the back).
+The deck's pair alone decides every card made in it, so `card add` needs no `--from` and `--to` once the deck has them: `card add --deck "Spanish" --text "Where is the station?"` is enough.
+Set a deck's languages with `deck add NAME --from K --to L`.
+A deck that has none (every deck from before this) is asked first: amgi reads its own cards, and with a key asks Gemini once, and stores the pair only when certain, and says so on stderr.
+When that finds nothing, `card add` exits 4 `the deck has no languages yet: pass --from and --to` (with a guess, if there is one); pass `--from` and `--to` once, and they are stored on the deck.
+`card add` with `--from` or `--to` that are not the deck's own exits 4, names the deck's pair, and adds nothing: never work around it, ask the user which pair the deck is.
+The input to `--text` can be in any language: it is only the meaning, and the card is made in the deck's pair.
 Language codes: `en`, `ko`, `ja`, `zh_cn`, `zh_hk`, `es`, `fr`, `pt`, `ru`, `id`, `de`, `tr`, `vi`, `it`, `th`, `hi`, `ur`, `ar`.
 `deck add NAME --from KNOWN --to LEARNING` also stores the deck's language pair in the deck (both flags or neither; the same codes), so Anki and the page see it too; `deck list` prints it.
-`card add --deck D --front TEXT --back TEXT` makes a card with no Gemini call and no audio.
+`card add --deck D --front TEXT --back TEXT` makes a card with no Gemini call and no audio (front in the deck's known language, back in its learning language).
 A write prints what reading it back finds.
 Output is tab-separated: `deck ID NOTES NAME KNOWN LEARNING` (`-` and `-` when the deck has no pair), `would-remove ID NOTES CARDS SUBDECKS NAME` and `removed ID NOTES CARDS DECKS NAME` (for `deck remove`), `would-remove ID FRONT BACK` and `removed ID FRONT BACK` (for `card remove`), `note ID FRONT BACK CUE_AUDIO TARGET_AUDIO` (`-` when absent), `status MODE SCHEMA PID PORT PROFILE COLLECTION`, `install READY ADDONS UP_TO_DATE NOTE_TYPE_CHECKED`.
-Exit codes: 0 ok, 1 other (amgi not up, server error), 2 locked, 3 not found, 4 usage, 5 Gemini.
+Exit codes: 0 ok, 1 other (amgi not up, server error), 2 locked, 3 not found, 4 usage (also: a deck with no languages and none given, or others than its own), 5 Gemini.
 `deck add` is find-or-create: the same name again prints the same deck line, exits 0, and says `amgi: the deck was already there` on stderr.
 With `--from` and `--to` the pair is set on the deck it found or made, replacing one it had.
 A code that is not one of the languages, or the same code twice, is refused before anything is made: exit 4, the sentence naming the codes, and no deck.
