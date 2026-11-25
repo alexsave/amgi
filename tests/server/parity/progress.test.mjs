@@ -17,6 +17,7 @@ const [WRITING, TARGET_REUSE, TARGET_RECORDING, TARGET_TRANSCRIBING, TARGET_JUDG
   CUE_REUSE, CUE_RECORDING, CUE_TRANSCRIBING, CUE_JUDGING, CUE_STORING] = Array.from({ length: 11 }, (_, i) => i + 1);
 
 const NO_SLOT = /#define WIRE_NO_SLOT_ERROR "([^"]+)"/.exec(fs.readFileSync(new URL('../../../ui/wire/wire.h', import.meta.url), 'utf8'))[1];
+const DECK = 1794149693370; // the deck the add-on lists, English -> Korean
 const FRONT = 'Where is the station?';
 const BACK = '역이 어디예요?';
 const CARD = { known_text: FRONT, learning_text: BACK, sense_tag: '', register: 'polite', spoken_reading: '' };
@@ -58,6 +59,7 @@ async function rig(t) {
     req.resume();
     let body;
     if (req.url === '/status') body = encode('b_status', STATUS);
+    else if (req.url === '/decks') body = encode('b_decks', { decks: [{ id: DECK, name: 'Korean', known: 'en', learning: 'ko' }] });
     else if (req.method === 'GET') body = encode('b_media_exists', { exists: !!(await held('reuse')) });
     else {
       await held('store');
@@ -88,7 +90,7 @@ async function rig(t) {
     const res = await fetch(new URL('/api/anki/card-text', app.url), {
       method: 'POST',
       headers: { ...headers, 'content-type': WIRE_MIME },
-      body: encode('q_card_text', { userInput: FRONT, knownLanguage: 'en', learningLanguage: 'ko', includeCueAudio: true, progressId, ...extra }),
+      body: encode('q_card_text', { userInput: FRONT, deckId: DECK, includeCueAudio: true, progressId, ...extra }),
     });
     const bytes = new Uint8Array(await res.arrayBuffer());
     return { status: res.status, body: decode(res.ok ? 'card_text' : 'error', bytes) };

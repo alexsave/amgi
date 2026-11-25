@@ -122,13 +122,13 @@ decks.0.learning=
 decks.1.id=<id#8>
 decks.1.name=amgi starter
 decks.1.noteCount=10
-decks.1.known=
-decks.1.learning=
+decks.1.known=en
+decks.1.learning=ko
 decks.2.id=<id#9>
 decks.2.name=amgi starter ja
 decks.2.noteCount=10
-decks.2.known=
-decks.2.learning=
+decks.2.known=ko
+decks.2.learning=ja
 == GET /decks/<deck>/notes?offset=0&limit=50 200
 mode=direct
 notes=[10]
