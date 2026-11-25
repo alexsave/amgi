@@ -83,7 +83,7 @@ try {
   await sleep(400);
   await shot(b, '10-firstrun');
   await click(b, '.first-run-cta');
-  check(await until(b, `${decksShown} === 7 && document.querySelector('nav.navbar span[title]')?.textContent === 'Anki connected'`, 150),
+  check(await until(b, `${decksShown} === 8 && document.querySelector('nav.navbar span[title]')?.textContent === 'Anki connected'`, 150),
     'Install into Anki installs, and the deck list follows');
   check(fs.existsSync(path.join(ankiDir, 'addons21', 'amgi_bridge')), 'the add-ons are in the folder');
   await sleep(400);
@@ -135,7 +135,7 @@ try {
   const shipped = fs.readFileSync(addonFile);
   fs.writeFileSync(addonFile, Buffer.concat([shipped, Buffer.from('\n# stale\n')]));
   await goto(b, `${base}/decks`);
-  check(await until(b, `${decksShown} === 9`, 150), 'the list, the new deck and its parent in it');
+  check(await until(b, `${decksShown} === 10`, 150), 'the list, the new deck and its parent in it');
   await until(b, `!document.querySelector('.template-update')`, 100);
   check(Buffer.compare(fs.readFileSync(addonFile), shipped) === 0, 'stale add-on files are put back with Anki closed');
   const media = path.join(ankiDir, 'User 1', 'collection.media', '_amgi-loop.js');

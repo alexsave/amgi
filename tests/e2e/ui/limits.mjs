@@ -99,7 +99,7 @@ try {
   await b.send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 900, deviceScaleFactor: 2, mobile: false });
   await seed(b, base, { baseDir: ankiDir, collection, profile: 'User 1' });
   await goto(b, `${base}/decks`);
-  check(await until(b, `${decksShown} === 7`, 150), 'the deck list, seven decks');
+  check(await until(b, `${decksShown} === 8`, 150), 'the deck list, eight decks');
 
   // 1. decks.c: a new deck's name one byte past 512 is refused in the modal, and no deck is made.
   await section('the new-deck name', async () => {
@@ -119,7 +119,7 @@ try {
     check(await until(b, `/^\\/deck\\/\\d+$/.test(location.pathname) && document.querySelector('.deck-name-button')?.textContent === ${JSON.stringify(longName.slice(1))}`, 150),
       `a 510-byte name is made and opened (${await b.evaluate(`location.pathname + ' ' + (document.querySelector('.modal-content .error-message')?.textContent ?? '')`)})`);
     await goto(b, `${base}/decks`);
-    await until(b, `${decksShown} === 8`, 150);
+    await until(b, `${decksShown} === 9`, 150);
     check(!(await b.evaluate(deckNames)).includes(longName), 'and no deck has the 513-byte name');
   });
 
