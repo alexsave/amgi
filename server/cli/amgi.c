@@ -30,7 +30,8 @@
  * rate limited, the daily cap, or it failed).
  *
  * `up` writes server/build/amgi.pid beside this binary (tab-separated lines: pid, port, profile,
- * collection), and the server's log to server/build/amgi.log. The Gemini key is only ever a path:
+ * collection), and the server's log to server/build/amgi.log; AMGI_STATE_DIR, when set, names another
+ * (existing) directory for both, so a second amgi, a test's, never sees this checkout's server. The Gemini key is only ever a path:
  * --key-file, or CBASE_ENV_FILE already in the environment, handed to the server as CBASE_ENV_FILE.
  * This program never opens that file. */
 #include <errno.h>
@@ -82,7 +83,8 @@ static const char USAGE[] =
   "  amgi card list --deck NAME\n"
   "  amgi card remove ID [--yes]     (ID is the note ID card list prints; without --yes: what it would remove, and nothing is deleted)\n"
   "  amgi serve        (the server in the foreground; make start runs it)\n"
-  "exit: 0 ok, 1 other failure, 2 locked (Anki open), 3 not found, 4 usage, 5 Gemini\n";
+  "exit: 0 ok, 1 other failure, 2 locked (Anki open), 3 not found, 4 usage, 5 Gemini\n"
+  "state: amgi.pid and amgi.log are kept beside this binary, or in the directory AMGI_STATE_DIR names\n";
 
 static int usage(const char *why) {
   if (why) fprintf(stderr, "amgi: %s\n", why);
@@ -112,8 +114,12 @@ static int find_self(void) {
   char up[PATH_MAX];
   snprintf(up, sizeof up, "%s/../..", g_build);
   if (!realpath(up, g_root)) return -1;
-  snprintf(g_pidfile, sizeof g_pidfile, "%s/amgi.pid", g_build);
-  snprintf(g_log, sizeof g_log, "%s/amgi.log", g_build);
+  /* the pid file and the log live in AMGI_STATE_DIR when it is set (a test's own, so it never meets a
+   * server that is up from this checkout), and beside this binary otherwise */
+  const char *state = getenv("AMGI_STATE_DIR");
+  if (!state || !state[0]) state = g_build;
+  snprintf(g_pidfile, sizeof g_pidfile, "%s/amgi.pid", state);
+  snprintf(g_log, sizeof g_log, "%s/amgi.log", state);
   return 0;
 }
 
