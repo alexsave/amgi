@@ -254,6 +254,8 @@
   align-items: center;
   gap: 0.35rem;
   flex-wrap: wrap;
+  /* as tall as the picker's controls, so opening it (or the languages arriving) moves nothing below */
+  min-height: 1.75rem;
 }
 
 .deck-langs {
@@ -261,9 +263,14 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 0.4rem;
+  /* the rest of the line after the card count: it wraps inside itself only when that is too narrow */
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .deck-cards-title {
+  /* the header's free width: sized to its content, the languages line's picker wrapped well short of the page's width */
+  flex: 1 1 auto;
   min-width: 0;
 }
 
@@ -274,7 +281,9 @@
   background: transparent;
   border: 1px solid var(--border-color);
   border-radius: 6px;
-  padding: 0.15rem 0.45rem;
+  padding: 0 0.45rem;
+  height: 1.75rem;
+  box-sizing: border-box;
   cursor: pointer;
 }
 
@@ -285,7 +294,14 @@
   color: var(--text-primary);
   border: 1px solid var(--border-color);
   border-radius: 6px;
-  padding: 0.2rem 0.4rem;
+  padding: 0 0.4rem;
+  /* the buttons' height: one row of controls, one height */
+  height: 1.75rem;
+  box-sizing: border-box;
+  /* from 6rem up to 9rem: on a phone both selects and the arrow fit one line, with Save and Cancel under them */
+  flex: 1 1 6rem;
+  max-width: 9rem;
+  min-width: 0;
 }
 
 .deck-cards-listhead {
