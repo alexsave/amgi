@@ -636,6 +636,156 @@ static void collection_safety(void) {
   ar_free(&a);
 }
 
+/* ---- a deck's language pair: where it is stored, and what reads as none ---- */
+static int64_t col_mod_of(const char *path) {
+  sqlite3 *db;
+  sqlite3_stmt *st;
+  int64_t mod = -1;
+  /* not read-only: a read-only connection can leave a -shm behind, which the core takes for Anki's lock */
+  if (sqlite3_open(path, &db) == SQLITE_OK &&
+      sqlite3_prepare_v2(db, "SELECT mod FROM col", -1, &st, NULL) == SQLITE_OK) {
+    if (sqlite3_step(st) == SQLITE_ROW) mod = sqlite3_column_int64(st, 0);
+    sqlite3_finalize(st);
+  }
+  sqlite3_close(db);
+  return mod;
+}
+
+/* The pair the list shows for deck id, "" when none. */
+static const char *listed_pair(arena *a, str path, int64_t id) {
+  col_deck *d;
+  size_t nd;
+  col_err e;
+  if (col_list_decks(a, path, &d, &nd, &e)) return "(list failed)";
+  for (size_t i = 0; i < nd; i++)
+    if (d[i].id == id) return ar_fmt(a, "%.*s|%.*s", (int)d[i].known.n, d[i].known.p, (int)d[i].learning.n, d[i].learning.p);
+  return "(no deck)";
+}
+
+/* The core takes a -shm it did not make for Anki's lock, so each of these opens, writes and closes the file. */
+static void put_common(const char *path, int64_t id, const void *blob, size_t n) {
+  sqlite3 *db;
+  sqlite3_stmt *st;
+  sqlite3_open(path, &db);
+  sqlite3_prepare_v2(db, "UPDATE decks SET common = ? WHERE id = ?", -1, &st, NULL);
+  sqlite3_bind_blob(st, 1, blob, (int)n, SQLITE_STATIC);
+  sqlite3_bind_int64(st, 2, id);
+  sqlite3_step(st);
+  sqlite3_finalize(st);
+  sqlite3_close(db);
+}
+static str get_text(arena *a, const char *path, const char *sql, int64_t id) {
+  sqlite3 *db;
+  sqlite3_stmt *st;
+  str out = {NULL, 0};
+  sqlite3_open(path, &db);
+  sqlite3_prepare_v2(db, sql, -1, &st, NULL);
+  if (id) sqlite3_bind_int64(st, 1, id);
+  if (sqlite3_step(st) == SQLITE_ROW) {
+    size_t n = (size_t)sqlite3_column_bytes(st, 0);
+    out = (str){ar_dup(a, sqlite3_column_blob(st, 0) ? sqlite3_column_blob(st, 0) : "", n), n};
+  }
+  sqlite3_finalize(st);
+  sqlite3_close(db);
+  return out;
+}
+/* field 255 (tag 0xfa 0x0f) holding json, after head */
+static size_t common_of(unsigned char *blob, const unsigned char *head, size_t nhead, const char *json) {
+  size_t n = 0;
+  memcpy(blob, head, nhead), n += nhead;
+  blob[n++] = 0xfa, blob[n++] = 0x0f, blob[n++] = (unsigned char)strlen(json);
+  memcpy(blob + n, json, strlen(json));
+  return n + strlen(json);
+}
+
+static void deck_languages(void) {
+  arena a = {0};
+  col_err e;
+  col_deck_made made;
+  col_deck_languages out;
+  static const unsigned char HEAD[] = {0x08, 0x01, 0x38, 0x05, 0x10, 0x01}; /* a field Anki knows, one it does not (7), another */
+  static const unsigned char NO_HEAD[] = {0};
+  for (int schema = 18; schema >= 11; schema -= 7) {
+    char label[32];
+    snprintf(label, sizeof label, "pair-%d", schema);
+    str path = fixture(&a, schema == 18 ? "18" : "11", label);
+    CHECK(col_create_deck(&a, path, S("Pair"), &made, &e) == 0, "schema %d: a deck", schema);
+    CHECK_STR(str_c(listed_pair(&a, path, made.id)), "|");
+    int64_t mod0 = col_mod_of(path.p);
+    usleep(5000);
+    CHECK(col_set_deck_languages(&a, path, (double)made.id, S("en"), S("zh_cn"), &out, &e) == 0 && out.id == made.id,
+          "schema %d: set: %s", schema, e.message.p);
+    CHECK_STR(str_c(listed_pair(&a, path, made.id)), "en|zh_cn");
+    CHECK(col_mod_of(path.p) > mod0, "schema %d: col.mod moved (%lld, was %lld), or sync never sees it", schema, (long long)col_mod_of(path.p),
+          (long long)mod0);
+    CHECK(col_set_deck_languages(&a, path, 1, S("ko"), S("en"), &out, &e) == 0, "schema %d: the Default deck takes one", schema);
+    CHECK_STR(str_c(listed_pair(&a, path, 1)), "ko|en");
+    CHECK(col_set_deck_languages(&a, path, 999, S("en"), S("ko"), &out, &e) < 0 && e.status == 404 && strstr(e.message.p, "no deck with id 999"),
+          "schema %d: a deck that is not there is 404", schema);
+
+    if (schema == 18) {
+      /* what is stored: one string beside another add-on's key, which keeps its place; the other fields byte for byte */
+      unsigned char blob[256], want[256];
+      size_t n = common_of(blob, HEAD, sizeof HEAD, "{\"otherAddon\":[1,{\"a\":\"b\"}],\"amgiLanguages\":\"ja de\"}");
+      put_common(path.p, made.id, blob, n);
+      CHECK_STR(str_c(listed_pair(&a, path, made.id)), "ja|de");
+      CHECK(col_set_deck_languages(&a, path, (double)made.id, S("fr"), S("it"), &out, &e) == 0, "replaced");
+      size_t wn = common_of(want, HEAD, sizeof HEAD, "{\"otherAddon\":[1,{\"a\":\"b\"}],\"amgiLanguages\":\"fr it\"}");
+      str got = get_text(&a, path.p, "SELECT common FROM decks WHERE id = ?", made.id);
+      CHECK(got.n == wn && !memcmp(got.p, want, wn),
+            "the other fields byte for byte, field 255 last, the other add-on's key in its place and ours replaced");
+      /* the key is added, last, when it was not there */
+      n = common_of(blob, HEAD, sizeof HEAD, "{\"otherAddon\":1}");
+      put_common(path.p, made.id, blob, n);
+      CHECK(col_set_deck_languages(&a, path, (double)made.id, S("fr"), S("it"), &out, &e) == 0, "added");
+      wn = common_of(want, HEAD, sizeof HEAD, "{\"otherAddon\":1,\"amgiLanguages\":\"fr it\"}");
+      got = get_text(&a, path.p, "SELECT common FROM decks WHERE id = ?", made.id);
+      CHECK(got.n == wn && !memcmp(got.p, want, wn), "a new key goes after the other add-on's");
+      /* an area that is not a JSON object is another add-on's: refused, not overwritten */
+      n = common_of(blob, NO_HEAD, 0, "[1]");
+      put_common(path.p, made.id, blob, n);
+      CHECK_STR(str_c(listed_pair(&a, path, made.id)), "|");
+      CHECK(col_set_deck_languages(&a, path, (double)made.id, S("en"), S("ko"), &out, &e) < 0 && strstr(e.message.p, "not a JSON object"),
+            "an add-on area that is not an object is refused");
+    }
+    /* what reads as none, in both schemas */
+    static const char *const BAD[] = {"{\"known\":\"en\",\"learning\":\"ko\"}", "5", "\"en\"", "\"en  ko\"", "\" en ko\"", "\"en ko \"",
+                                      "\"en ko ja\"", "\"EN ko\"", "\"xx ko\"", "\"en en\"", "\"\"", "null", "true"};
+    for (size_t i = 0; i < sizeof BAD / sizeof *BAD; i++) {
+      if (schema == 18) {
+        char json[128];
+        unsigned char blob[160];
+        snprintf(json, sizeof json, "{\"amgiLanguages\":%s}", BAD[i]);
+        put_common(path.p, made.id, blob, common_of(blob, NO_HEAD, 0, json));
+      } else {
+        /* the stored string, swapped in the text of col.decks for the value under test */
+        CHECK(col_set_deck_languages(&a, path, (double)made.id, S("en"), S("ko"), &out, &e) == 0, "the string to swap");
+        str at = get_text(&a, path.p, "SELECT decks FROM col", 0);
+        const char *old = "\"amgiLanguages\":\"en ko\"";
+        const char *hit = strstr(at.p, old);
+        CHECK(hit != NULL, "the deck's dict holds the string");
+        if (hit) {
+          size_t cap = at.n + 128;
+          char *text = malloc(cap);
+          snprintf(text, cap, "%.*s\"amgiLanguages\":%s%s", (int)(hit - at.p), at.p, BAD[i], hit + strlen(old));
+          sqlite3 *db;
+          sqlite3_stmt *st;
+          sqlite3_open(path.p, &db);
+          sqlite3_prepare_v2(db, "UPDATE col SET decks = ?", -1, &st, NULL);
+          sqlite3_bind_text(st, 1, text, -1, SQLITE_STATIC);
+          sqlite3_step(st);
+          sqlite3_finalize(st);
+          sqlite3_close(db);
+          free(text);
+        }
+      }
+      CHECK(!strcmp(listed_pair(&a, path, made.id), "|"), "schema %d: %s reads as no pair, not %s", schema, BAD[i],
+            listed_pair(&a, path, made.id));
+    }
+  }
+  ar_free(&a);
+}
+
 int main(int argc, char **argv) {
   root = argc > 1 ? argv[1] : "..";
   const char *tmp = getenv("TMPDIR");
@@ -652,6 +802,7 @@ int main(int argc, char **argv) {
   atomic_writes();
   media_files();
   collection_safety();
+  deck_languages();
   char cmd[4200];
   snprintf(cmd, sizeof cmd, "rm -rf '%s'", scratch);
   if (system(cmd) != 0) fprintf(stderr, "could not remove %s\n", scratch);

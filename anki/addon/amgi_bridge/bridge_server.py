@@ -42,7 +42,7 @@ except ImportError:
 
 BIND_HOST = "127.0.0.1"
 
-ALLOWED_METHODS = "GET, POST, PATCH, DELETE, OPTIONS"
+ALLOWED_METHODS = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
 # Every request and every answer names the bridge protocol it speaks (wire.h, WIRE_BRIDGE_PROTOCOL).
 # A request in another one is refused with PROTOCOL_MISMATCH before it is routed: its bodies would
 # not be the layouts this add-on reads. The app's server reads this header on every answer, and an
@@ -128,6 +128,7 @@ ROUTES: list[Route] = [
     ("PATCH", re.compile(r"^/notes/(?P<note_id>\d+)$"), "update_note", "q_note_update", "b_note"),
     ("DELETE", re.compile(r"^/notes/(?P<note_id>\d+)$"), "remove_note", None, "b_note_removed"),
     ("PATCH", re.compile(r"^/decks/(?P<deck_id>\d+)$"), "rename_deck", "q_deck_name", "b_deck"),
+    ("PUT", re.compile(r"^/decks/(?P<deck_id>\d+)/languages$"), "set_deck_languages", "q_deck_languages", "b_deck_languages"),
     ("GET", re.compile(r"^/decks/(?P<deck_id>\d+)$"), "deck_summary", None, "b_deck_summary"),
     ("DELETE", re.compile(r"^/decks/(?P<deck_id>\d+)$"), "remove_deck", None, "b_deck_removed"),
     ("POST", re.compile(r"^/media$"), "add_media", "b_q_media", "b_media_added"),
@@ -237,6 +238,9 @@ def make_handler_class(
 
         def do_POST(self) -> None:  # noqa: N802
             self._handle("POST")
+
+        def do_PUT(self) -> None:  # noqa: N802
+            self._handle("PUT")
 
         def do_PATCH(self) -> None:  # noqa: N802
             self._handle("PATCH")
@@ -384,6 +388,13 @@ def make_handler_class(
             if not name.strip():
                 raise BridgeBadRequest("name is required")
             return dispatcher.rename_deck(int(params["deck_id"]), name.strip())
+
+        def _op_set_deck_languages(self, params: dict, query: dict, body: Optional[dict]) -> dict:
+            body = body or {}
+            known, learning = body.get("known") or "", body.get("learning") or ""
+            if not known or not learning:
+                raise BridgeBadRequest('"known" and "learning" are required')
+            return dispatcher.set_deck_languages(int(params["deck_id"]), known, learning)
 
         def _op_get_note(self, params: dict, query: dict, body: Optional[dict]) -> dict:
             return dispatcher.get_note(int(params["note_id"]))

@@ -3,14 +3,14 @@ ok ok 11
 # decks 8, note types 7
 > listDecks
 ok 8
-1 Default
-1794170430305 Korean
-1794170430306 Korean%3A%3A%EB%AC%B8%EC%9E%A5
-1794170430308 Empty
-1794170430309 Filtered
-1794170430303 Existing
-1794170430307 Caf%C3%A9
-1794170430304 Existing%3A%3AChild
+1 Default ~ ~
+1794170430305 Korean ~ ~
+1794170430306 Korean%3A%3A%EB%AC%B8%EC%9E%A5 ~ ~
+1794170430308 Empty ~ ~
+1794170430309 Filtered ~ ~
+1794170430303 Existing ~ ~
+1794170430307 Caf%C3%A9 ~ ~
+1794170430304 Existing%3A%3AChild ~ ~
 > countNotesInDeck 1
 ok 0
 > countNotesInDeck 1794170430305
@@ -219,31 +219,68 @@ ok <D6> Sub%3A%3ADeep%3A%3AStra%C3%9Fe 0
 ok 1794170430305 %ED%95%9C%EA%B5%AD%EC%96%B4 1
 > listDecks
 ok 25
-1 Default
-1794170430305 %ED%95%9C%EA%B5%AD%EC%96%B4
-1794170430306 %ED%95%9C%EA%B5%AD%EC%96%B4%3A%3A%EB%AC%B8%EC%9E%A5
-1794170430308 Empty
-1794170430309 Filtered
-1794170430303 Existing
-1794170430307 Caf%C3%A9
-1794170430304 Existing%3A%3AChild
-<D1> renamed
-<D10> Moved%3A%3AParent
-<D3> Moved%3A%3AParent%3A%3AChild
-<D2> Moved%3A%3AParent%3A%3AChild%3A%3AGrand
-<D11> Trim%20me
-<D4> Trim%20me%3A%3Ainner
-<D12> A
-<D13> A%3A%3Ablank
-<D5> A%3A%3Ablank%3A%3AB
-<D6> Sub%3A%3ADeep%3A%3AStra%C3%9Fe
-<D7> CtlChar
-<D8> Caf%C3%A9%20decomposed
-<D14> blank
-<D9> blank%3A%3Ablank
-<D15> Moved
-<D16> Sub
-<D17> Sub%3A%3ADeep
+1 Default ~ ~
+1794170430305 %ED%95%9C%EA%B5%AD%EC%96%B4 ~ ~
+1794170430306 %ED%95%9C%EA%B5%AD%EC%96%B4%3A%3A%EB%AC%B8%EC%9E%A5 ~ ~
+1794170430308 Empty ~ ~
+1794170430309 Filtered ~ ~
+1794170430303 Existing ~ ~
+1794170430307 Caf%C3%A9 ~ ~
+1794170430304 Existing%3A%3AChild ~ ~
+<D1> renamed ~ ~
+<D10> Moved%3A%3AParent ~ ~
+<D3> Moved%3A%3AParent%3A%3AChild ~ ~
+<D2> Moved%3A%3AParent%3A%3AChild%3A%3AGrand ~ ~
+<D11> Trim%20me ~ ~
+<D4> Trim%20me%3A%3Ainner ~ ~
+<D12> A ~ ~
+<D13> A%3A%3Ablank ~ ~
+<D5> A%3A%3Ablank%3A%3AB ~ ~
+<D6> Sub%3A%3ADeep%3A%3AStra%C3%9Fe ~ ~
+<D7> CtlChar ~ ~
+<D8> Caf%C3%A9%20decomposed ~ ~
+<D14> blank ~ ~
+<D9> blank%3A%3Ablank ~ ~
+<D15> Moved ~ ~
+<D16> Sub ~ ~
+<D17> Sub%3A%3ADeep ~ ~
+> setDeckLanguages <D1> en ko
+ok <D1> en ko
+> setDeckLanguages <D1> en zh_cn
+ok <D1> en zh_cn
+> setDeckLanguages 1 ko en
+ok 1 ko en
+> setDeckLanguages 1794170430305 zh_hk ja
+ok 1794170430305 zh_hk ja
+> setDeckLanguages 999 en ko
+err 404 no%20deck%20with%20id%20999%20in%20this%20collection
+> listDecks
+ok 25
+1 Default ko en
+1794170430305 %ED%95%9C%EA%B5%AD%EC%96%B4 zh_hk ja
+1794170430306 %ED%95%9C%EA%B5%AD%EC%96%B4%3A%3A%EB%AC%B8%EC%9E%A5 ~ ~
+1794170430308 Empty ~ ~
+1794170430309 Filtered ~ ~
+1794170430303 Existing ~ ~
+1794170430307 Caf%C3%A9 ~ ~
+1794170430304 Existing%3A%3AChild ~ ~
+<D1> renamed en zh_cn
+<D10> Moved%3A%3AParent ~ ~
+<D3> Moved%3A%3AParent%3A%3AChild ~ ~
+<D2> Moved%3A%3AParent%3A%3AChild%3A%3AGrand ~ ~
+<D11> Trim%20me ~ ~
+<D4> Trim%20me%3A%3Ainner ~ ~
+<D12> A ~ ~
+<D13> A%3A%3Ablank ~ ~
+<D5> A%3A%3Ablank%3A%3AB ~ ~
+<D6> Sub%3A%3ADeep%3A%3AStra%C3%9Fe ~ ~
+<D7> CtlChar ~ ~
+<D8> Caf%C3%A9%20decomposed ~ ~
+<D14> blank ~ ~
+<D9> blank%3A%3Ablank ~ ~
+<D15> Moved ~ ~
+<D16> Sub ~ ~
+<D17> Sub%3A%3ADeep ~ ~
 > addMedia clip.wav 66697273742074616b65
 ok clip.wav
 > addMedia clip.wav 66697273742074616b65
@@ -338,27 +375,27 @@ ok <N34> <guid> [<C37>] !
 ok <D19> Doomed 2 1 1
 > listDecks
 ok 21
-1 Default
-1794170430305 %ED%95%9C%EA%B5%AD%EC%96%B4
-1794170430306 %ED%95%9C%EA%B5%AD%EC%96%B4%3A%3A%EB%AC%B8%EC%9E%A5
-1794170430307 Caf%C3%A9
-<D1> renamed
-<D10> Moved%3A%3AParent
-<D3> Moved%3A%3AParent%3A%3AChild
-<D2> Moved%3A%3AParent%3A%3AChild%3A%3AGrand
-<D11> Trim%20me
-<D4> Trim%20me%3A%3Ainner
-<D12> A
-<D13> A%3A%3Ablank
-<D5> A%3A%3Ablank%3A%3AB
-<D6> Sub%3A%3ADeep%3A%3AStra%C3%9Fe
-<D7> CtlChar
-<D8> Caf%C3%A9%20decomposed
-<D14> blank
-<D9> blank%3A%3Ablank
-<D15> Moved
-<D16> Sub
-<D17> Sub%3A%3ADeep
+1 Default ko en
+1794170430305 %ED%95%9C%EA%B5%AD%EC%96%B4 zh_hk ja
+1794170430306 %ED%95%9C%EA%B5%AD%EC%96%B4%3A%3A%EB%AC%B8%EC%9E%A5 ~ ~
+1794170430307 Caf%C3%A9 ~ ~
+<D1> renamed en zh_cn
+<D10> Moved%3A%3AParent ~ ~
+<D3> Moved%3A%3AParent%3A%3AChild ~ ~
+<D2> Moved%3A%3AParent%3A%3AChild%3A%3AGrand ~ ~
+<D11> Trim%20me ~ ~
+<D4> Trim%20me%3A%3Ainner ~ ~
+<D12> A ~ ~
+<D13> A%3A%3Ablank ~ ~
+<D5> A%3A%3Ablank%3A%3AB ~ ~
+<D6> Sub%3A%3ADeep%3A%3AStra%C3%9Fe ~ ~
+<D7> CtlChar ~ ~
+<D8> Caf%C3%A9%20decomposed ~ ~
+<D14> blank ~ ~
+<D9> blank%3A%3Ablank ~ ~
+<D15> Moved ~ ~
+<D16> Sub ~ ~
+<D17> Sub%3A%3ADeep ~ ~
 > installDrift
 ok 1 [the%20note%20type%20itself]
 > installNotetype

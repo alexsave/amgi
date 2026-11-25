@@ -26,7 +26,7 @@ make server
 
 ```bash
 server/build/amgi up --key-file /path/to/.env.local
-server/build/amgi deck add "Spanish"
+server/build/amgi deck add "Spanish" --from en --to es
 server/build/amgi card add --deck "Spanish" --text "Where is the station?" --from en --to es
 server/build/amgi card list --deck "Spanish"
 server/build/amgi down
@@ -34,11 +34,14 @@ server/build/amgi down
 
 `--from en` is the language the user knows (the card's front, the cue); `--to es` is the language being learned (the back).
 Language codes: `en`, `ko`, `ja`, `zh_cn`, `zh_hk`, `es`, `fr`, `pt`, `ru`, `id`, `de`, `tr`, `vi`, `it`, `th`, `hi`, `ur`, `ar`.
+`deck add NAME --from KNOWN --to LEARNING` also stores the deck's language pair in the deck (both flags or neither; the same codes), so Anki and the page see it too; `deck list` prints it.
 `card add --deck D --front TEXT --back TEXT` makes a card with no Gemini call and no audio.
 A write prints what reading it back finds.
-Output is tab-separated: `deck ID NOTES NAME`, `would-remove ID NOTES CARDS SUBDECKS NAME` and `removed ID NOTES CARDS DECKS NAME` (for `deck remove`), `would-remove ID FRONT BACK` and `removed ID FRONT BACK` (for `card remove`), `note ID FRONT BACK CUE_AUDIO TARGET_AUDIO` (`-` when absent), `status MODE SCHEMA PID PORT PROFILE COLLECTION`, `install READY ADDONS UP_TO_DATE NOTE_TYPE_CHECKED`.
+Output is tab-separated: `deck ID NOTES NAME KNOWN LEARNING` (`-` and `-` when the deck has no pair), `would-remove ID NOTES CARDS SUBDECKS NAME` and `removed ID NOTES CARDS DECKS NAME` (for `deck remove`), `would-remove ID FRONT BACK` and `removed ID FRONT BACK` (for `card remove`), `note ID FRONT BACK CUE_AUDIO TARGET_AUDIO` (`-` when absent), `status MODE SCHEMA PID PORT PROFILE COLLECTION`, `install READY ADDONS UP_TO_DATE NOTE_TYPE_CHECKED`.
 Exit codes: 0 ok, 1 other (amgi not up, server error), 2 locked, 3 not found, 4 usage, 5 Gemini.
 `deck add` is find-or-create: the same name again prints the same deck line, exits 0, and says `amgi: the deck was already there` on stderr.
+With `--from` and `--to` the pair is set on the deck it found or made, replacing one it had; a code that is not one of the languages, or the same code twice, exits 1 with the list, and the deck is made first, so it stays without a pair.
+`--from` without `--to` (or the reverse) is exit 4.
 `up` serves on 127.0.0.1:3000 in the background (`--port N`; `--profile NAME` when there are several); pid file `server/build/amgi.pid`, log `server/build/amgi.log` (both in the directory `AMGI_STATE_DIR` names, when that is set).
 A second `up` from the same checkout prints `amgi up: already running pid=... port=...` and exits 0.
 Another checkout's `up`, or `make start`, on the same port makes `up` exit 1 with "Address already in use": pass `--port`.

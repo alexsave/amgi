@@ -98,7 +98,7 @@ int pb_next(cx *c, const unsigned char *p, size_t n, size_t *at, uint64_t wanted
 /* ---- decks.js ---- */
 str fold_key(cx *c, str name);
 str *human_name_to_components(cx *c, str human, size_t *n);
-typedef struct { int64_t id; str name; int filtered; } deck_row;
+typedef struct { int64_t id; str name; int filtered; str known, learning; } deck_row; /* the pair: empty when none */
 deck_row *list_decks_for_schema(cx *c, conn *k, size_t *n, aj **json_out);
 double *deck_and_child_ids(cx *c, conn *k, double deck_id, size_t *n);
 

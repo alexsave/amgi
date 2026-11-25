@@ -53,6 +53,9 @@ int col_bridge_update_note(arena *a, const col_bridge *b, double note, const str
                            str *warning, col_err *err);
 int col_bridge_has_media(arena *a, const col_bridge *b, str name, int *out, col_err *err);
 int col_bridge_rename_deck(arena *a, const col_bridge *b, double deck, str name, col_deck *out, col_err *err);
+/* PUT /decks/:id/languages; a deck that is not there is the add-on's 404, as status 404 in err. */
+int col_bridge_set_deck_languages(arena *a, const col_bridge *b, double deck, str known, str learning, col_deck_languages *out,
+                                  col_err *err);
 int col_bridge_removal_summary(arena *a, const col_bridge *b, double deck, col_removal *out, col_err *err);
 int col_bridge_remove_deck(arena *a, const col_bridge *b, double deck, col_removal *out, col_err *err);
 int col_bridge_remove_note(arena *a, const col_bridge *b, double note, int64_t *note_id, int64_t *cards_removed, col_err *err);

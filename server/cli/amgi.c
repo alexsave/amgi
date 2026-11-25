@@ -6,7 +6,7 @@
  *   amgi down                                               stop it
  *   amgi status                                             the collection's state and the install's
  *   amgi install                                            install the add-ons and the note type
- *   amgi deck add NAME | amgi deck list | amgi deck remove NAME [--yes]
+ *   amgi deck add NAME [--from KNOWN --to LEARNING] | amgi deck list | amgi deck remove NAME [--yes]
  *   amgi card add --deck NAME (--front TEXT --back TEXT [--to LANG] | --text TEXT --from LANG --to LANG [--no-audio])
  *   amgi card list --deck NAME
  *   amgi card remove ID [--yes]
@@ -16,7 +16,7 @@
  * transport and its lock check, the backup before the first write, Gemini and its rate gate. The wire
  * stays inside: what is printed is plain text, one record a line, fields split by tabs, and a write
  * prints what reading it back finds. The records:
- *   deck ID NOTES NAME
+ *   deck ID NOTES NAME KNOWN LEARNING                  (the deck's language pair, or - and - when it has none)
  *   would-remove ID NOTES CARDS SUBDECKS NAME           (deck remove without --yes: nothing deleted)
  *   removed ID NOTES CARDS DECKS NAME                   (deck remove --yes: what the delete took)
  *   would-remove ID FRONT BACK                          (card remove without --yes: nothing deleted)
@@ -75,7 +75,7 @@ static const char USAGE[] =
   "  amgi down\n"
   "  amgi status\n"
   "  amgi install\n"
-  "  amgi deck add NAME\n"
+  "  amgi deck add NAME [--from KNOWN --to LEARNING]   (the deck's language pair, e.g. --from en --to ko; both or neither)\n"
   "  amgi deck list\n"
   "  amgi deck remove NAME [--yes]   (without --yes: what it would remove, and nothing is deleted)\n"
   "  amgi card add --deck NAME --front TEXT --back TEXT [--to LANG]\n"
@@ -558,6 +558,9 @@ static int cmd_install(int argc, char **argv) {
 static void print_deck(const wire_deck *d) {
   printf("deck\t%lld\t%u\t", (long long)d->id, d->note_count);
   put_w(d->name);
+  putchar('\t');
+  if (d->known.len) put_w(d->known), putchar('\t'), put_w(d->learning);
+  else fputs("-\t-", stdout);
   putchar('\n');
 }
 
@@ -654,11 +657,24 @@ static int cmd_deck(int argc, char **argv) {
     return rc;
   }
   if (strcmp(argv[2], "add") != 0) return usage("deck takes add NAME, list or remove NAME");
-  if (argc != 4 || !argv[3][0]) return usage("deck add takes one NAME (quote it when it has spaces; A::B is subdeck B of A)");
+  const char *name = NULL, *from = NULL, *to = NULL;
+  opt opts[] = {{"--from", &from, NULL}, {"--to", &to, NULL}};
+  if (parse_opts(argc, argv, 3, opts, 2, &name)) return usage(NULL);
+  if (!name || !name[0]) return usage("deck add takes one NAME (quote it when it has spaces; A::B is subdeck B of A)");
+  if (!from != !to) return usage("--from and --to come together: give both (the deck's known and learning language) or neither");
+  if (from && (!from[0] || !to[0])) return usage("--from and --to each take a language code (en, ko, ...)");
   if ((rc = need_up(&s))) return rc;
   arena a = {0};
-  wire_q_deck_name q = {{argv[3], (uint32_t)strlen(argv[3])}};
+  wire_q_deck_name q = {{name, (uint32_t)strlen(name)}};
   const wire_deck_created *made = send_call(&a, &s, "POST", "/api/anki/decks", WK_Q_DECK_NAME, &q, WK_DECK_CREATED, CALL_MS, &rc, NULL);
+  if (made && from) {
+    /* the pair goes to the deck the server made or found; the deck is made first, so a refused pair leaves it
+     * there without one (adding it again is find-or-create) */
+    char path[96];
+    snprintf(path, sizeof path, "/api/anki/decks/%lld/languages", (long long)made->id);
+    wire_q_deck_languages pair = {{from, (uint32_t)strlen(from)}, {to, (uint32_t)strlen(to)}};
+    if (!send_call(&a, &s, "PUT", path, WK_Q_DECK_LANGUAGES, &pair, WK_DECK_LANGUAGES, CALL_MS, &rc, NULL)) made = NULL;
+  }
   if (made) {
     /* the read-back: the deck as the list now shows it */
     const wire_decks *ds = get(&a, &s, "/api/anki/decks", WK_DECKS, &rc);

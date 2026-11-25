@@ -147,7 +147,7 @@ The shapes below are its fields, by name; the layouts themselves are written dow
 | Method & path | Direct equivalent (`server/collection/collection.h`) | Notes |
 | --- | --- | --- |
 | `GET /status` | `Collection.status()` | Works even with no collection open (`collectionOpen: false`) - the whole point of a status endpoint. Also reports the Anki and Qt versions and the open profile's name, which Node's file-based `status()` has no way to know. |
-| `GET /decks` | `Collection.listDecks()` | |
+| `GET /decks` | `Collection.listDecks()` | Each row is `{id, name, known, learning}`: the deck's language pair (protocol 3), read from the deck's own `amgiLanguages` key, a string `"<known> <learning>"`; `""` and `""` when it holds none or anything else. |
 | `GET /notetypes` | `Collection.listNotetypes()` | |
 | `GET /decks/:id/notes?offset=&limit=` | `Collection.listNotesInDeck(id, {offset, limit})` | Response is `{notes, total, offset, limit}`; Node's returns the array alone. The bridge adds a total count because the UI needs one to build pager controls, and Node's caller can just page until a short page instead. |
 | `GET /decks/:id/notes/field-values?notetypeId=&fieldIndex=` | `Collection.listFieldValuesInDeck(id, notetypeId, fieldIndex)` | One field's raw value for every note of that note type already in the deck - what the bulk-add-from-paste screen checks a pasted line against before writing it. Response is `{values: string[]}`. |
@@ -157,6 +157,7 @@ The shapes below are its fields, by name; the layouts themselves are written dow
 | `GET /notes/:id` | `Collection.getNote(id)` | One note, as `listNotesInDeck` lists it: `{id, notetypeId, fields, tags}`. A note that is not there is a 404 (protocol 2 added this route). |
 | `PATCH /notes/:id` `{fields}` | `Collection.updateNote(id, fields)` | Never touches tags or regenerates cards, on either side. |
 | `DELETE /notes/:id` | `Collection.removeNote(id)` | Through `col.remove_notes`: the note, its cards, and their graves. Response is `{noteId, cardsRemoved}`. |
+| `PUT /decks/:id/languages` `{known, learning}` | `Collection.setDeckLanguages(id, known, learning)` | Sets `deck["amgiLanguages"] = "<known> <learning>"` through `col.decks.update_dict` (what `col.decks.save` calls for a deck dict, but it hands back the `OpChanges` a `CollectionOp` needs), as one undo step. Response is `{id, known, learning}`; an unknown deck is a 404. The server checks the codes, the add-on only stores them (protocol 3 added this route). |
 | `PATCH /decks/:id` `{name}` | `Collection.renameDeck(id, name)` | Through `col.decks.rename`, subdecks included. Response is `{id, name}`; an unknown deck is a 404. |
 | `GET /decks/:id` | `Collection.deckRemovalSummary(id)` | What deleting the deck would take, changing nothing: `{id, name, subdecks, cards, notes}`. The cards are those in its normal decks or borrowed from them by a filtered deck; the notes are those left with no card. A deck that is not there is a 404. |
 | `DELETE /decks/:id` | `Collection.removeDeck(id)` | Through `col.decks.remove`: the deck, its subdecks, their cards, the notes left with no card, a filtered subdeck's borrowed cards sent home, and graves for every deletion, as one undo step. Response is `{id, name, decks, cards, notes}`. The Default deck (id 1) is a 400, since Anki would only empty it; a deck that is not there is a 404. |
