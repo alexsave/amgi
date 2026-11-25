@@ -87,16 +87,17 @@ A failure is the `error` kind, `{error}`, with a 4xx or 5xx status, except an un
 | `POST /decks` `{name}` | Find or create, parents included |
 | `PATCH /decks/:id` `{name}` | Rename |
 | `PUT /decks/:id/languages` `{known, learning}` | Stores the pair in the deck (its own add-on area in Anki, which syncs): `{mode, id, known, learning}`. Both must be language codes and differ (400 otherwise), the Default deck (id 1) takes one, a deck that is not there is 404 |
+| `POST /decks/:id/languages/detect` | `{mode, id, stored, known, learning, foundBy}`: the deck's pair, or the one found for it. A stored pair is answered as it is (`foundBy` `stored`). Otherwise the server reads the deck's amgi cards (their Language field) and, with a Gemini key, asks one text question; it stores the pair only when certain (`notes` or `gemini`). With `stored` false, `known` and `learning` are only a guess (`""` each when none): choose the pair yourself and `PUT` it. A Gemini failure is not an error here |
 | `GET /decks/:id` | `{id, name, subdecks, cards, notes}`: what deleting the deck would take, changing nothing. 404 when it is not there |
 | `DELETE /decks/:id` | Deletes the deck, its subdecks, their cards and the notes left with no card, as Anki's own delete does: `{id, name, decks, cards, notes}`. The Default deck (id 1) is refused (400), since Anki would only empty it; a deck already gone is 404. Ask first, naming what `GET /decks/:id` counted |
 | `GET /notetypes` | `{notetypes: [{id, name, fieldNames, sortFieldIndex}]}` |
 | `GET /decks/:id/notes?offset=&limit=` | `{notes: [{id, notetypeId, fields, tags}], offset, limit, hasMore}`, at most 200 a page, subdecks included |
 | `GET /decks/:id/notes/field-values?notetypeId=&fieldIndex=` | `{values}`: one field of every note of that type in the deck, for duplicate checks. Both parameters are required whole numbers (400 otherwise) |
-| `POST /card-text` `{userInput, knownLanguage, learningLanguage, includeCueAudio, progressId}` | Writes one card's text, records and stores its clips; adds no note. `progressId` is optional: a number of your own, to follow it in `GET /progress` |
+| `POST /card-text` `{userInput, deckId, includeCueAudio, progressId}` | Writes one card's text, records and stores its clips; adds no note. The deck's stored pair decides the languages (409 `This deck has no languages yet: ...` when it has none); the input may be in any language and is only the meaning to translate. `progressId` is optional: a number of your own, to follow it in `GET /progress` |
 | `GET /progress` | `{cards: [{id, step, take, takes, waitMs, frontText, backText}]}`: the cards being made now that gave a `progressId`. `step` is a `WP_*` of `ui/wire/wire.h`; `waitMs` is above 0 while the step waits for Gemini's limit; the texts are empty until both sides are written |
 | `POST /audio` `{text, language, fresh}` | One validated clip, stored: `{filename, reference, reused}` |
-| `POST /notes` `{deckId, notetypeId, fields, tags, language, learningFieldIndex}` | Adds one note; `fields` is a list in the note type's field order |
-| `POST /notes/bulk` `{notes: [...]}` | The same shape per note, in one write; one result per note, and one bad note never aborts the rest |
+| `POST /notes` `{deckId, notetypeId, fields, tags, language, learningFieldIndex}` | Adds one note; `fields` is a list in the note type's field order. The deck's pair decides `language`: empty takes the deck's learning language, another is refused (409 `This deck is English -> Korean; this card is in Japanese.`), and a deck with no pair takes no note (409) |
+| `POST /notes/bulk` `{notes: [...]}` | The same shape and the same deck rule per note, in one write; one result per note, and one bad note never aborts the rest |
 | `GET /notes/:id` | `{id, notetypeId, fields, tags}`: one note, as the deck listing shows it; 404 when there is no such note |
 | `PATCH /notes/:id` `{fields, language, learningFieldIndex}` | Replaces a note's fields in place |
 | `DELETE /notes/:id` | Deletes a note and its cards, with their review history. Ask first |
@@ -117,7 +118,7 @@ Through the raw API, do what the deck page's paste-many-lines run does (`ui/src/
    Its fields are `Cue`, `CueAudio`, `Target`, `TargetAudio`, `Language`, `Notes`.
    Find them by name, case-insensitively, never by position: the user may have added fields of their own (`amgi_fields_of` in `ui/src/fields.c`).
    Every note makes two cards: hear the cue and say the target, and the reverse.
-2. `POST /card-text` with the phrase, the known and learning languages, and `includeCueAudio: true`.
+2. `POST /card-text` with the phrase, the deck's id, and `includeCueAudio: true` (the deck's stored pair decides the languages: `GET /decks` shows it, `POST /decks/:id/languages/detect` finds it, `PUT /decks/:id/languages` sets it).
    The reply has `front_text` (known side), `back_text` (learning side), `audio.reference` and `cueAudio.reference`.
    Text and audio come from one call on purpose: for Japanese and Chinese, the reading that steers pronunciation exists only inside it.
 3. Fill `Cue` = `front_text`, `CueAudio` = `cueAudio.reference`, `Target` = `back_text`, `TargetAudio` = `audio.reference`, `Language` = the learning code, and every other field `""`.

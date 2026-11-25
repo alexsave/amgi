@@ -7,7 +7,7 @@
  *   amgi status                                             the collection's state and the install's
  *   amgi install                                            install the add-ons and the note type
  *   amgi deck add NAME [--from KNOWN --to LEARNING] | amgi deck list | amgi deck remove NAME [--yes]
- *   amgi card add --deck NAME (--front TEXT --back TEXT [--to LANG] | --text TEXT --from LANG --to LANG [--no-audio])
+ *   amgi card add --deck NAME (--front TEXT --back TEXT | --text TEXT [--no-audio]) [--from KNOWN --to LEARNING]
  *   amgi card list --deck NAME
  *   amgi card remove ID [--yes]
  *
@@ -25,9 +25,14 @@
  *   status MODE SCHEMA PID PORT PROFILE COLLECTION
  *   install READY ADDONS UP_TO_DATE NOTE_TYPE_CHECKED  (each yes, no or unknown)
  *
+ * A deck carries its languages (its known and learning language): the deck's pair alone decides a card's, so card add takes
+ * --from and --to only to say them once for a deck that has none (and to be told when they are not the deck's). A deck with no
+ * pair is first asked to find one (from its amgi cards, or one Gemini request); only when that finds none are --from and --to
+ * needed.
+ *
  * Exit codes: 0 done; 1 anything else (amgi not up, a server error); 2 Anki has the collection (locked);
- * 3 not found (a deck, the note type, a profile, the collection); 4 a usage error; 5 Gemini (no key,
- * rate limited, the daily cap, or it failed).
+ * 3 not found (a deck, the note type, a profile, the collection); 4 a usage error (including a deck that has no languages and
+ * was given none, or was given others than its own); 5 Gemini (no key, rate limited, the daily cap, or it failed).
  *
  * `up` writes server/build/amgi.pid beside this binary (tab-separated lines: pid, port, profile,
  * collection), and the server's log to server/build/amgi.log; AMGI_STATE_DIR, when set, names another
@@ -78,8 +83,9 @@ static const char USAGE[] =
   "  amgi deck add NAME [--from KNOWN --to LEARNING]   (the deck's language pair, e.g. --from en --to ko; both or neither)\n"
   "  amgi deck list\n"
   "  amgi deck remove NAME [--yes]   (without --yes: what it would remove, and nothing is deleted)\n"
-  "  amgi card add --deck NAME --front TEXT --back TEXT [--to LANG]\n"
-  "  amgi card add --deck NAME --text TEXT --from LANG --to LANG [--no-audio]\n"
+  "  amgi card add --deck NAME --front TEXT --back TEXT [--from KNOWN --to LEARNING]\n"
+  "  amgi card add --deck NAME --text TEXT [--from KNOWN --to LEARNING] [--no-audio]\n"
+  "      (the deck's languages decide the card: --from and --to only set them on a deck with none, or must be the deck's own)\n"
   "  amgi card list --deck NAME\n"
   "  amgi card remove ID [--yes]     (ID is the note ID card list prints; without --yes: what it would remove, and nothing is deleted)\n"
   "  amgi serve        (the server in the foreground; make start runs it)\n"
@@ -865,6 +871,72 @@ out:
   return rc;
 }
 
+/* The pair a card add goes on in: the deck's, or the one found for it, or the one it was told. 0 and *known, *learning, or the
+ * exit code with the reason said (nothing has been added). A deck with no pair is asked to find one (the server reads its amgi
+ * cards, then makes one Gemini request, and stores only what is certain); when that stores none, --from and --to are the
+ * explicit choice and are stored; without them the guess, if any, is said and the exit is a usage error. A deck that has a pair
+ * is never changed here: --from or --to that are not its own are refused. */
+static int deck_pair(arena *a, const up_state *s, const wire_deck *d, const char *from, const char *to, wire_str *known,
+                     wire_str *learning) {
+  int rc;
+  *known = d->known, *learning = d->learning;
+  wire_str guess_known = {"", 0}, guess_learning = {"", 0};
+  if (!known->len) {
+    char path[96];
+    snprintf(path, sizeof path, "/api/anki/decks/%lld/languages/detect", (long long)d->id);
+    const wire_deck_languages_found *f = send_call(a, s, "POST", path, (uint32_t)-1, NULL, WK_DECK_LANGUAGES_FOUND, GEN_MS, &rc, NULL);
+    if (!f) return rc;
+    if (f->stored) {
+      *known = f->known, *learning = f->learning;
+      arena v = {0};
+      str names = amgi_pair_names(&v, amgi_str(f->known), amgi_str(f->learning));
+      fprintf(stderr, "amgi: deck \"%.*s\" had no languages: found %.*s (from %.*s) and stored them\n", (int)d->name.len, d->name.p,
+              (int)names.n, names.p, (int)f->found_by.len, f->found_by.p);
+      ar_free(&v);
+    } else {
+      guess_known = f->known, guess_learning = f->learning;
+    }
+  }
+  if (!known->len) {
+    if (!from || !to) {
+      fputs("amgi: the deck has no languages yet: pass --from and --to", stderr);
+      if (guess_known.len || guess_learning.len) {
+        fputs(" (a guess: --from ", stderr);
+        fwrite(guess_known.len ? guess_known.p : "?", 1, guess_known.len ? guess_known.len : 1, stderr);
+        fputs(" --to ", stderr);
+        fwrite(guess_learning.len ? guess_learning.p : "?", 1, guess_learning.len ? guess_learning.len : 1, stderr);
+        fputc(')', stderr);
+      }
+      fputs(": nothing added\n", stderr);
+      return RC_USAGE;
+    }
+    arena v = {0};
+    str why = amgi_languages_refusal(&v, str_c(from), str_c(to));
+    if (why.n) {
+      fprintf(stderr, "amgi: %.*s: nothing added\n", (int)why.n, why.p);
+      ar_free(&v);
+      return RC_USAGE;
+    }
+    ar_free(&v);
+    char path[96];
+    snprintf(path, sizeof path, "/api/anki/decks/%lld/languages", (long long)d->id);
+    wire_q_deck_languages pair = {{from, (uint32_t)strlen(from)}, {to, (uint32_t)strlen(to)}};
+    const wire_deck_languages *set = send_call(a, s, "PUT", path, WK_Q_DECK_LANGUAGES, &pair, WK_DECK_LANGUAGES, CALL_MS, &rc, NULL);
+    if (!set) return rc;
+    *known = set->known, *learning = set->learning;
+    return RC_OK;
+  }
+  if ((from && !weq(*known, from)) || (to && !weq(*learning, to))) {
+    arena v = {0};
+    str names = amgi_pair_names(&v, amgi_str(*known), amgi_str(*learning));
+    fprintf(stderr, "amgi: deck \"%.*s\" is %.*s, not what --from/--to say: nothing added (the deck's languages decide the card)\n",
+            (int)d->name.len, d->name.p, (int)names.n, names.p);
+    ar_free(&v);
+    return RC_USAGE;
+  }
+  return RC_OK;
+}
+
 static int cmd_card(int argc, char **argv) {
   if (argc >= 3 && !strcmp(argv[2], "remove")) return card_remove(argc, argv);
   if (argc < 3 || (strcmp(argv[2], "add") && strcmp(argv[2], "list"))) return usage("card takes add, list or remove ID");
@@ -877,10 +949,10 @@ static int cmd_card(int argc, char **argv) {
   if (!deck || !deck[0]) return usage("--deck NAME is required");
   int manual = front || back;
   if (add) {
-    if (manual && (text || from || no_audio)) return usage("give --front and --back, or --text, --from and --to, not both");
+    if (manual && (text || no_audio)) return usage("give --front and --back, or --text, not both");
     if (manual && (!front || !back || !front[0] || !back[0])) return usage("--front and --back are both required");
-    if (!manual && (!text || !from || !to || !text[0] || !from[0] || !to[0]))
-      return usage("card add needs --front and --back, or --text, --from and --to");
+    if (!manual && (!text || !text[0])) return usage("card add needs --front and --back, or --text");
+    if ((from && !from[0]) || (to && !to[0])) return usage("--from and --to take a language code");
   }
   up_state s;
   int rc = need_up(&s);
@@ -901,16 +973,16 @@ static int cmd_card(int argc, char **argv) {
     rc = RC_NOT_FOUND;
     goto out;
   }
+  wire_str known, learning;
+  if ((rc = deck_pair(&a, &s, d, from, to, &known, &learning))) goto out;
   size_t nf = l.nt->field_names.n;
   wire_str *fields = ar_alloc(&a, (nf + 1) * sizeof *fields);
   for (size_t f = 0; f < nf; f++) fields[f] = (wire_str){"", 0};
-  const char *language = to ? to : "";
   if (manual) {
     fields[l.idx.cue] = (wire_str){front, (uint32_t)strlen(front)};
     fields[l.idx.target] = (wire_str){back, (uint32_t)strlen(back)};
   } else {
-    wire_q_card_text q = {{text, (uint32_t)strlen(text)}, {from, (uint32_t)strlen(from)}, {to, (uint32_t)strlen(to)},
-                          (uint8_t)(no_audio ? 0 : 1), 0 /* unwatched */};
+    wire_q_card_text q = {{text, (uint32_t)strlen(text)}, d->id, (uint8_t)(no_audio ? 0 : 1), 0 /* unwatched */};
     const wire_card_text *t = generate(&a, &s, &q, &rc);
     if (!t) goto out;
     fields[l.idx.cue] = t->front_text;
@@ -920,8 +992,8 @@ static int cmd_card(int argc, char **argv) {
     if (t->front_text.len == t->back_text.len && !memcmp(t->front_text.p, t->back_text.p, t->front_text.len))
       fputs("amgi: warning: the two sides are the same text (the model echoed instead of translating)\n", stderr);
   }
-  if (l.idx.language >= 0) fields[l.idx.language] = (wire_str){language, (uint32_t)strlen(language)};
-  wire_q_note n = {d->id, l.nt->id, {fields, (uint32_t)nf}, {NULL, 0}, {language, (uint32_t)strlen(language)}, l.idx.target};
+  if (l.idx.language >= 0) fields[l.idx.language] = learning;
+  wire_q_note n = {d->id, l.nt->id, {fields, (uint32_t)nf}, {NULL, 0}, learning, l.idx.target};
   const wire_note_added *added = send_call(&a, &s, "POST", "/api/anki/notes", WK_Q_NOTE, &n, WK_NOTE_ADDED, CALL_MS, &rc, NULL);
   if (added) rc = each_note(&a, &s, d, &l, added->note_id);
 out:
