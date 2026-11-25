@@ -33,8 +33,9 @@ fresh() { # fresh <folder> [installed]: the fixture as one profile, "User 1", am
   echo "$dir"
 }
 failed=0
-run() { # run <drive> <args...>
+run() { # run <drive> <args...>; DRIVES="languages edit" runs only those
   local drive="$1"; shift
+  case " ${DRIVES:-$drive} " in *" $drive "*) ;; *) return 0 ;; esac
   local log="$work/$drive.log"
   node "tests/e2e/ui/$drive.mjs" "$@" > "$log" 2>&1 || failed=1
   echo "$drive: $(grep -c '^ok' "$log") ok"
