@@ -4,7 +4,7 @@
 
 MAGIC = 0x32574D41
 MIME = "application/x-amgi-wire"
-BRIDGE_PROTOCOL = 2
+BRIDGE_PROTOCOL = 3
 NONE = 0xFFFFFFFF
 ABSENT = -2147483648
 UNKNOWN = 2
@@ -45,6 +45,8 @@ KINDS = {
             ("id", I64, None),
             ("name", STR, None),
             ("noteCount", U32, None),
+            ("known", STR, None),
+            ("learning", STR, None),
         )),
     )),
     "install_state": (3, (
@@ -227,6 +229,8 @@ KINDS = {
         ("decks", LIST, (
             ("id", I64, None),
             ("name", STR, None),
+            ("known", STR, None),
+            ("learning", STR, None),
         )),
     )),
     "b_notetypes": (31, (
@@ -333,5 +337,20 @@ KINDS = {
         ("notetypeId", I64, None),
         ("fields", STRS, None),
         ("tags", STRS, None),
+    )),
+    "q_deck_languages": (48, (
+        ("known", STR, None),
+        ("learning", STR, None),
+    )),
+    "deck_languages": (49, (
+        ("mode", MODE, None),
+        ("id", I64, None),
+        ("known", STR, None),
+        ("learning", STR, None),
+    )),
+    "b_deck_languages": (50, (
+        ("id", I64, None),
+        ("known", STR, None),
+        ("learning", STR, None),
     )),
 }

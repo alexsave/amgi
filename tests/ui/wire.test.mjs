@@ -24,9 +24,10 @@ function refusesCutShort(bytes) {
 
 test('every kind in the schema is one the server can name', () => {
   assert.deepEqual(Object.keys(KIND).slice(0, 3), ['error', 'status', 'decks']);
-  assert.equal(Object.keys(KIND).length, 48);
+  assert.equal(Object.keys(KIND).length, 51);
   assert.equal(KIND.b_q_media, 44, 'the kinds that were there keep their numbers');
   assert.equal(KIND.progress, 45, 'a new one goes at the end');
+  assert.deepEqual([KIND.note, KIND.b_note_read, KIND.q_deck_languages, KIND.deck_languages, KIND.b_deck_languages], [46, 47, 48, 49, 50]);
 });
 
 test('bytes (the bridge\'s media): any octets, as the app reads them, and back the same', () => {
@@ -37,14 +38,23 @@ test('bytes (the bridge\'s media): any octets, as the app reads them, and back t
   refusesCutShort(bytes);
 });
 
-test('decks: ids past 2^32, UTF-8 names, counts; the app writes back the same bytes', () => {
+test('decks: ids past 2^32, UTF-8 names, counts, each deck\'s language pair; the app writes back the same bytes', () => {
   const bytes = encode('decks', { mode: 'direct', decks: [
     { id: 1, name: 'Default', noteCount: 0 },
-    { id: 1794149693370, name: '한국어::일상 표현', noteCount: 2 },
+    { id: 1794149693370, name: '한국어::일상 표현', noteCount: 2, known: 'en', learning: 'ko' },
   ] });
-  assert.equal(read(bytes), 'kind=decks\nmode=direct\ndecks=2\ndecks.0.id=1\ndecks.0.name=Default\ndecks.0.noteCount=0\n'
-    + 'decks.1.id=1794149693370\ndecks.1.name=한국어::일상 표현\ndecks.1.noteCount=2\nrewritten=same\n');
+  assert.equal(read(bytes), 'kind=decks\nmode=direct\ndecks=2\ndecks.0.id=1\ndecks.0.name=Default\ndecks.0.noteCount=0\ndecks.0.known=\ndecks.0.learning=\n'
+    + 'decks.1.id=1794149693370\ndecks.1.name=한국어::일상 표현\ndecks.1.noteCount=2\ndecks.1.known=en\ndecks.1.learning=ko\nrewritten=same\n');
   refusesCutShort(bytes);
+});
+
+test('a deck\'s languages: the request, and the answer that says what is stored', () => {
+  const q = encode('q_deck_languages', { known: 'en', learning: 'zh_cn' });
+  assert.equal(read(q), 'kind=q_deck_languages\nknown=en\nlearning=zh_cn\nrewritten=same\n');
+  refusesCutShort(q);
+  const a = encode('deck_languages', { mode: 'bridge', id: 1794149693370, known: 'ko', learning: 'en' });
+  assert.equal(read(a), 'kind=deck_languages\nmode=bridge\nid=1794149693370\nknown=ko\nlearning=en\nrewritten=same\n');
+  refusesCutShort(a);
 });
 
 test('notes: lists of strings inside a list', () => {
