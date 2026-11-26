@@ -108,9 +108,17 @@ static int check_job(arena *a, const amgi_ops *o, const fill_cfg *cfg, const fil
     col_audio_ref *refs;
     size_t nrefs = col_audio_references(a, n->fields[j->audio_field], &refs);
     const col_audio_ref *owned = NULL;
-    size_t nowned = 0;
-    for (size_t i = 0; i < nrefs; i++)
+    size_t nowned = 0, nforeign = 0;
+    for (size_t i = 0; i < nrefs; i++) {
         if (col_is_owned_media_name(refs[i].name)) owned = &refs[i], nowned++;
+        else nforeign++;
+    }
+    /* Missing audio means no audio at all: someone else's clip (another add-on's, the deck author's) is audio, so the note is left as
+     * it is, in the plan and in the fill's own re-check alike (both come here). Only amgi's own clips are refilled, by the rule below. */
+    if (nforeign) {
+        out->state = JOB_UP_TO_DATE;
+        return 0;
+    }
     if (nowned != 1 || owned->html != cfg->html || !str_eq(clip_stem(owned->name), clip_stem(out->wanted))) return 0;
     int has;
     if (ops_has_media(a, o, owned->name, &has, e)) return -1;

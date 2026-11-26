@@ -2145,13 +2145,13 @@
 == fill s18 audio plan
 > POST /api/anki/decks/10000013/audio-plan
 < 200 content-type=application/x-amgi-wire cache-control=no-store
-< fill_plan {mode="direct" toFill=[{id=30000010}, {id=30000011}] upToDate=0 skipped=1}
-< bytes 414d57323500020000008ac3c901000000008bc3c901000000000000000001000000
+< fill_plan {mode="direct" toFill=[{id=30000010}] upToDate=1 skipped=1}
+< bytes 414d57323500010000008ac3c901000000000100000001000000
 == fill s18 audio plan, the known side as html
 > POST /api/anki/decks/10000013/audio-plan
 < 200 content-type=application/x-amgi-wire cache-control=no-store
-< fill_plan {mode="direct" toFill=[{id=30000010}, {id=30000011}] upToDate=0 skipped=1}
-< bytes 414d57323500020000008ac3c901000000008bc3c901000000000000000001000000
+< fill_plan {mode="direct" toFill=[{id=30000010}] upToDate=1 skipped=1}
+< bytes 414d57323500010000008ac3c901000000000100000001000000
 == fill s18 audio plan, another field pair
 > POST /api/anki/decks/10000013/audio-plan
 < 200 content-type=application/x-amgi-wire cache-control=no-store
@@ -2260,8 +2260,8 @@
 == fill s18 audio plan after: the plan changed nothing
 > POST /api/anki/decks/10000013/audio-plan
 < 200 content-type=application/x-amgi-wire cache-control=no-store
-< fill_plan {mode="direct" toFill=[{id=30000010}, {id=30000011}] upToDate=0 skipped=1}
-< bytes 414d57323500020000008ac3c901000000008bc3c901000000000000000001000000
+< fill_plan {mode="direct" toFill=[{id=30000010}] upToDate=1 skipped=1}
+< bytes 414d57323500010000008ac3c901000000000100000001000000
 == fill s11 decks
 > GET /api/anki/decks
 < 200 content-type=application/x-amgi-wire cache-control=no-store
@@ -2305,13 +2305,13 @@
 == fill s11 audio plan
 > POST /api/anki/decks/10000014/audio-plan
 < 200 content-type=application/x-amgi-wire cache-control=no-store
-< fill_plan {mode="direct" toFill=[{id=30000013}, {id=30000014}] upToDate=0 skipped=1}
-< bytes 414d57323500020000008dc3c901000000008ec3c901000000000000000001000000
+< fill_plan {mode="direct" toFill=[{id=30000013}] upToDate=1 skipped=1}
+< bytes 414d57323500010000008dc3c901000000000100000001000000
 == fill s11 audio plan, the known side as html
 > POST /api/anki/decks/10000014/audio-plan
 < 200 content-type=application/x-amgi-wire cache-control=no-store
-< fill_plan {mode="direct" toFill=[{id=30000013}, {id=30000014}] upToDate=0 skipped=1}
-< bytes 414d57323500020000008dc3c901000000008ec3c901000000000000000001000000
+< fill_plan {mode="direct" toFill=[{id=30000013}] upToDate=1 skipped=1}
+< bytes 414d57323500010000008dc3c901000000000100000001000000
 == fill s11 audio plan, another field pair
 > POST /api/anki/decks/10000014/audio-plan
 < 200 content-type=application/x-amgi-wire cache-control=no-store
@@ -2420,8 +2420,8 @@
 == fill s11 audio plan after: the plan changed nothing
 > POST /api/anki/decks/10000014/audio-plan
 < 200 content-type=application/x-amgi-wire cache-control=no-store
-< fill_plan {mode="direct" toFill=[{id=30000013}, {id=30000014}] upToDate=0 skipped=1}
-< bytes 414d57323500020000008dc3c901000000008ec3c901000000000000000001000000
+< fill_plan {mode="direct" toFill=[{id=30000013}] upToDate=1 skipped=1}
+< bytes 414d57323500010000008dc3c901000000000100000001000000
 == fill keyless: set languages
 > PUT /api/anki/decks/1/languages
 < 200 content-type=application/x-amgi-wire cache-control=no-store
@@ -2475,8 +2475,8 @@
 == fill fake: audio plan
 > POST /api/anki/decks/1/audio-plan
 < 200 content-type=application/x-amgi-wire cache-control=no-store
-< fill_plan {mode="direct" toFill=[{id=30000017}, {id=30000018}] upToDate=0 skipped=0}
-< bytes 414d573235000200000091c3c9010000000092c3c901000000000000000000000000
+< fill_plan {mode="direct" toFill=[{id=30000018}] upToDate=1 skipped=0}
+< bytes 414d573235000100000092c3c901000000000100000000000000
 == fill fake: audio fill
 > POST /api/anki/notes/30000017/audio-fill
 < 200 content-type=application/x-amgi-wire cache-control=no-store
@@ -2485,8 +2485,8 @@
 == fill fake: the note after the fill
 > GET /api/anki/notes/30000017
 < 200 content-type=application/x-amgi-wire cache-control=no-store
-< note {mode="direct" id=30000017 notetypeId=1794170430283 fields=["다음에 봐요", "[sound:mine.mp3][sound:amgi-f3d9cdf85c7d44f3a200.wav]"] tags=[]}
-< bytes 414d57322e0091c3c901000000004b23e4bca10100000200000010000000eb8ba4ec9d8cec979020ebb490ec9a94350000005b736f756e643a6d696e652e6d70335d5b736f756e643a616d67692d66336439636466383563376434346633613230302e7761765d00000000
+< note {mode="direct" id=30000017 notetypeId=1794170430283 fields=["다음에 봐요", "[sound:mine.mp3]"] tags=[]}
+< bytes 414d57322e0091c3c901000000004b23e4bca10100000200000010000000eb8ba4ec9d8cec979020ebb490ec9a94100000005b736f756e643a6d696e652e6d70335d00000000
 == fill fake: audio fill again, up to date
 > POST /api/anki/notes/30000017/audio-fill
 < 200 content-type=application/x-amgi-wire cache-control=no-store
