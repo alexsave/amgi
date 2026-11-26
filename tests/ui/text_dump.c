@@ -1,8 +1,8 @@
-/* ui/src/text.c and fields.c natively, for tests/ui/text.test.mjs: it reads records of (u32 function,
+/* ui/wire/lines.c, ui/src/text.c and fields.c natively, for tests/ui/text.test.mjs: it reads records of (u32 function,
  * u32 length, bytes) on stdin and writes each answer as (u32 length, bytes). Functions:
- * 0 trim, 1 strip_html, 2 strip_tags, 3 audio_src, 4 has_audio_ref ("1"/"0"), 5 dedupe_key,
+ * 0 lines_trim, 1 strip_html, 2 strip_tags, 3 audio_src, 4 has_audio_ref ("1"/"0"), 5 lines_key,
  * 6 guess_fields: names split by 0x1f, then 0x1e and the sort field's index (or nothing), answered
- * "text,audio,cue". 7 paste_lines: the lines joined by 0x1f. 8 amgi_fields_of: names split by 0x1f,
+ * "text,audio,cue". 7 lines_split: the lines joined by 0x1f. 8 amgi_fields_of: names split by 0x1f,
  * answered "cue,cue_audio,target,target_audio,language,notes". 9 AMGI_FIELD_NAMES joined by 0x1f. */
 #include <stdio.h>
 #include <stdlib.h>
@@ -24,15 +24,15 @@ int main(void) {
         if (fread(in, 1, len, stdin) != len) return 1;
         wire_str s = {in, len};
         switch (fn) {
-        case 0: { wire_str t = trim(s); put(t.p, t.len); break; }
+        case 0: { wire_str t = lines_trim(s); put(t.p, t.len); break; }
         case 1: put(out, strip_html(out, s)); break;
         case 2: put(out, strip_tags(out, s)); break;
         case 3: { wire_str t = audio_src(s); put(t.p, t.len); break; }
         case 4: put(has_audio_ref(s) ? "1" : "0", 1); break;
-        case 5: put(out, dedupe_key(out, s)); break;
+        case 5: put(out, lines_key(out, s)); break;
         case 7: {
             wire_str lines[600];
-            uint32_t n = paste_lines(in, len, lines, 600, out), w = 0;
+            uint32_t n = lines_split(in, len, lines, 600, out), w = 0;
             char *joined = malloc(len + 600);
             for (uint32_t i = 0; i < n && i < 600; i++) {
                 if (i) joined[w++] = 0x1f;

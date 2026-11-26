@@ -2,8 +2,8 @@
  * row each (bulk.c). Enter makes the card of a single line; Shift+Enter starts a second line. */
 #include "app.h"
 
-#define MAX_PASTE 65536
-#define MAX_LINES 500
+#define MAX_PASTE LINES_MAX_BYTES
+#define MAX_LINES LINES_MAX
 
 static int shown, has_text;
 static int64_t form_deck;
@@ -87,10 +87,10 @@ static char *take_text(uint32_t *n) {
 /* The button and the box's height follow what is typed: "Make N cards" for several lines, and a
  * box a line taller than its text, up to ten. */
 static void follow_text(const char *v, uint32_t n) {
-    wire_str t = trim((wire_str){v, n});
+    wire_str t = lines_trim((wire_str){v, n});
     has_text = t.len > 0;
     char *keys = cd_alloc(n + 1);
-    line_count = has_text ? paste_lines(v, n, 0, 0, keys) : 0;
+    line_count = has_text ? lines_split(v, n, 0, 0, keys) : 0;
     cd_free(keys);
     uint32_t newlines = 0;
     for (uint32_t i = 0; i < n; i++) newlines += v[i] == '\n';
@@ -184,7 +184,7 @@ static void submit(void) {
     if (!v) return;
     wire_str *lines = cd_alloc(MAX_LINES * sizeof *lines);
     char *keys = cd_alloc(n + 1);
-    uint32_t count = paste_lines(v, n, lines, MAX_LINES, keys);
+    uint32_t count = lines_split(v, n, lines, MAX_LINES, keys);
     if (count > MAX_LINES) count = MAX_LINES;
     bulk_start(box, form_deck, amgi_notetype(), &langs, lines, count, finished);
     cd_free(keys);
