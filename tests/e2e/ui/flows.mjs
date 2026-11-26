@@ -18,147 +18,147 @@ const out = outArg || path.join(here, '..', '..', '..', 'ui', 'out', 'shots');
 fs.mkdirSync(out, { recursive: true });
 const failures = [];
 const check = (ok, what) => {
-  console.log(`${ok ? 'ok  ' : 'FAIL'} ${what}`);
-  if (!ok) failures.push(what);
+    console.log(`${ok ? 'ok  ' : 'FAIL'} ${what}`);
+    if (!ok) failures.push(what);
 };
 
 async function until(b, expr, tries = 100) {
-  let v;
-  for (let i = 0; i < tries; i++) {
-    v = await b.evaluate(expr);
-    if (v) return v;
-    await sleep(100);
-  }
-  return v;
+    let v;
+    for (let i = 0; i < tries; i++) {
+        v = await b.evaluate(expr);
+        if (v) return v;
+        await sleep(100);
+    }
+    return v;
 }
 async function goto(b, url) {
-  await b.send('Page.navigate', { url });
-  await until(b, `document.readyState === 'complete'`);
+    await b.send('Page.navigate', { url });
+    await until(b, `document.readyState === 'complete'`);
 }
 const shot = shotter(out, name);
 async function click(b, selector) {
-  const box = await b.evaluate(`(() => { const e = document.querySelector(${JSON.stringify(selector)});
+    const box = await b.evaluate(`(() => { const e = document.querySelector(${JSON.stringify(selector)});
     e?.scrollIntoView({ block: 'center', behavior: 'instant' }); const r = e?.getBoundingClientRect();
     return r ? [r.left + r.width / 2, r.top + r.height / 2] : null; })()`);
-  if (!box) throw new Error(`nothing to click at ${selector}`);
-  for (const type of ['mouseMoved', 'mousePressed', 'mouseReleased']) {
-    await b.send('Input.dispatchMouseEvent', { type, x: box[0], y: box[1], button: 'left', clickCount: 1 });
-  }
+    if (!box) throw new Error(`nothing to click at ${selector}`);
+    for (const type of ['mouseMoved', 'mousePressed', 'mouseReleased']) {
+        await b.send('Input.dispatchMouseEvent', { type, x: box[0], y: box[1], button: 'left', clickCount: 1 });
+    }
 }
 const type = (b, text) => b.send('Input.insertText', { text });
 const key = async (b, k, code, keyCode, modifiers = 0) => {
-  await b.send('Input.dispatchKeyEvent', { type: 'keyDown', key: k, code, windowsVirtualKeyCode: keyCode, modifiers });
-  await b.send('Input.dispatchKeyEvent', { type: 'keyUp', key: k, code, windowsVirtualKeyCode: keyCode, modifiers });
+    await b.send('Input.dispatchKeyEvent', { type: 'keyDown', key: k, code, windowsVirtualKeyCode: keyCode, modifiers });
+    await b.send('Input.dispatchKeyEvent', { type: 'keyUp', key: k, code, windowsVirtualKeyCode: keyCode, modifiers });
 };
 const decksShown = `document.querySelectorAll('.deck-item').length`;
 
 const b = await launchChrome();
 const watchdog = setTimeout(async () => {
-  console.log('FAIL the drive took more than 4 minutes');
-  await b.close();
-  process.exit(1);
+    console.log('FAIL the drive took more than 4 minutes');
+    await b.close();
+    process.exit(1);
 }, 240000);
 const pageErrors = [];
 const held = []; // Fetch.requestPaused ids of the held POSTs (step 6)
 b.onEvent = (d) => {
-  if (d.method === 'Fetch.requestPaused') {
-    if (d.params.request.method === 'POST') held.push(d.params.requestId);
-    else b.send('Fetch.continueRequest', { requestId: d.params.requestId });
-  }
-  if (d.method === 'Runtime.exceptionThrown') pageErrors.push(d.params.exceptionDetails.exception?.description || d.params.exceptionDetails.text);
-  if (d.method === 'Runtime.consoleAPICalled' && d.params.type === 'error') pageErrors.push(d.params.args.map((a) => a.value ?? a.description).join(' '));
+    if (d.method === 'Fetch.requestPaused') {
+        if (d.params.request.method === 'POST') held.push(d.params.requestId);
+        else b.send('Fetch.continueRequest', { requestId: d.params.requestId });
+    }
+    if (d.method === 'Runtime.exceptionThrown') pageErrors.push(d.params.exceptionDetails.exception?.description || d.params.exceptionDetails.text);
+    if (d.method === 'Runtime.consoleAPICalled' && d.params.type === 'error') pageErrors.push(d.params.args.map((a) => a.value ?? a.description).join(' '));
 };
 try {
-  await b.send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 900, deviceScaleFactor: 2, mobile: false });
-  // Only the Anki folder: the profile is the app's to find.
-  await seed(b, base, { baseDir: ankiDir });
+    await b.send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 900, deviceScaleFactor: 2, mobile: false });
+    // Only the Anki folder: the profile is the app's to find.
+    await seed(b, base, { baseDir: ankiDir });
 
-  // 1. The first run: the one profile found and picked for you, amgi not yet installed here.
-  await goto(b, `${base}/decks`);
-  const steps = `[...document.querySelectorAll('.first-run-step-text')].map(s => s.textContent).join(' | ')`;
-  await until(b, `/Found Anki: profile “User 1”, picked for you/.test(${steps})`);
-  const found = await b.evaluate(steps);
-  check(/Found Anki: profile “User 1”, picked for you/.test(found || ''), `the first run finds and picks the profile: ${found}`);
-  check(await until(b, `document.querySelector('nav.navbar span[title]')?.textContent === 'Anki: not set up yet'`), 'the badge says not set up');
-  await sleep(400);
-  await shot(b, '10-firstrun');
-  await click(b, '.first-run-cta');
-  check(await until(b, `${decksShown} === 8 && document.querySelector('nav.navbar span[title]')?.textContent === 'Anki connected'`, 150),
-    'Install into Anki installs, and the deck list follows');
-  check(fs.existsSync(path.join(ankiDir, 'addons21', 'amgi_bridge')), 'the add-ons are in the folder');
-  await sleep(400);
-  await shot(b, '11-after-install');
+    // 1. The first run: the one profile found and picked for you, amgi not yet installed here.
+    await goto(b, `${base}/decks`);
+    const steps = `[...document.querySelectorAll('.first-run-step-text')].map(s => s.textContent).join(' | ')`;
+    await until(b, `/Found Anki: profile “User 1”, picked for you/.test(${steps})`);
+    const found = await b.evaluate(steps);
+    check(/Found Anki: profile “User 1”, picked for you/.test(found || ''), `the first run finds and picks the profile: ${found}`);
+    check(await until(b, `document.querySelector('nav.navbar span[title]')?.textContent === 'Anki: not set up yet'`), 'the badge says not set up');
+    await sleep(400);
+    await shot(b, '10-firstrun');
+    await click(b, '.first-run-cta');
+    check(await until(b, `${decksShown} === 8 && document.querySelector('nav.navbar span[title]')?.textContent === 'Anki connected'`, 150),
+      'Install into Anki installs, and the deck list follows');
+    check(fs.existsSync(path.join(ankiDir, 'addons21', 'amgi_bridge')), 'the add-ons are in the folder');
+    await sleep(400);
+    await shot(b, '11-after-install');
 
-  // 2. A new deck, by the modal: an empty name is refused, a nested one is made and opened.
-  await click(b, '.deck-actions .action-btn');
-  check(await until(b, `!!document.querySelector('.modal-overlay #deckName') && document.activeElement?.id === 'deckName'`), 'New Deck opens the modal, the name focused');
-  await sleep(300);
-  await shot(b, '12-modal');
-  // The modal is modal: from its name input, Tab six times and Shift+Tab six times (more than it has
-  // controls, so the focus goes round and past both ends) never focuses the page behind it. A press
-  // "strays" when the focus is on an element outside the modal and is not the body: after the last
-  // control the focus can leave the document for the browser's own UI, which headless Chrome reports
-  // as the body, and that is not the page behind. Then Escape closes it, and the focus goes back to
-  // the button that opened it.
-  const strayed = [];
-  for (const [label, modifiers] of [['Tab', 0], ['Shift+Tab', 8]]) {
-    for (let i = 1; i <= 6; i++) {
-      await key(b, 'Tab', 'Tab', 9, modifiers);
-      const at = await b.evaluate(`(() => { const a = document.activeElement;
+    // 2. A new deck, by the modal: an empty name is refused, a nested one is made and opened.
+    await click(b, '.deck-actions .action-btn');
+    check(await until(b, `!!document.querySelector('.modal-overlay #deckName') && document.activeElement?.id === 'deckName'`), 'New Deck opens the modal, the name focused');
+    await sleep(300);
+    await shot(b, '12-modal');
+    // The modal is modal: from its name input, Tab six times and Shift+Tab six times (more than it has
+    // controls, so the focus goes round and past both ends) never focuses the page behind it. A press
+    // "strays" when the focus is on an element outside the modal and is not the body: after the last
+    // control the focus can leave the document for the browser's own UI, which headless Chrome reports
+    // as the body, and that is not the page behind. Then Escape closes it, and the focus goes back to
+    // the button that opened it.
+    const strayed = [];
+    for (const [label, modifiers] of [['Tab', 0], ['Shift+Tab', 8]]) {
+        for (let i = 1; i <= 6; i++) {
+            await key(b, 'Tab', 'Tab', 9, modifiers);
+            const at = await b.evaluate(`(() => { const a = document.activeElement;
         return a && a !== document.body && !document.querySelector('.modal-overlay')?.contains(a) ? a.outerHTML.slice(0, 80) : null; })()`);
-      if (at) strayed.push(`${label} press ${i}: ${at}`);
+            if (at) strayed.push(`${label} press ${i}: ${at}`);
+        }
     }
-  }
-  check(!strayed.length, `Tab and Shift+Tab never focus the page behind the modal${strayed.length ? ` (${strayed.join(' / ')})` : ''}`);
-  await click(b, '#deckName');
-  await key(b, 'Escape', 'Escape', 27);
-  check(await until(b, `!document.querySelector('.modal-overlay')`), 'Escape closes the modal');
-  check(await b.evaluate(`document.activeElement === document.querySelector('.deck-actions .action-btn')`),
-    `and the focus is back on the New Deck button (${await b.evaluate(`document.activeElement?.outerHTML.slice(0, 80)`)})`);
-  await click(b, '.deck-actions .action-btn');
-  check(await until(b, `!!document.querySelector('.modal-overlay #deckName') && document.activeElement?.id === 'deckName'`), 'New Deck opens it again, the name focused');
-  await click(b, '.modal-content .primary-btn');
-  check(await until(b, `document.querySelector('.modal-content .error-message')?.textContent === 'Enter a deck name'`), 'an empty name is refused');
-  await click(b, '#deckName');
-  await type(b, 'Fresh::새 덱');
-  await click(b, '.modal-content .primary-btn');
-  check(await until(b, `/^\\/deck\\/\\d+$/.test(location.pathname) && document.querySelector('.deck-name-button')?.textContent === 'Fresh::새 덱'`, 150),
-    'the deck is made and opened');
-  check(await until(b, `document.querySelector('.empty-deck p')?.textContent === 'No notes in this deck yet.'`), 'it is empty');
-  await sleep(300);
-  await shot(b, '13-new-deck');
+    check(!strayed.length, `Tab and Shift+Tab never focus the page behind the modal${strayed.length ? ` (${strayed.join(' / ')})` : ''}`);
+    await click(b, '#deckName');
+    await key(b, 'Escape', 'Escape', 27);
+    check(await until(b, `!document.querySelector('.modal-overlay')`), 'Escape closes the modal');
+    check(await b.evaluate(`document.activeElement === document.querySelector('.deck-actions .action-btn')`),
+      `and the focus is back on the New Deck button (${await b.evaluate(`document.activeElement?.outerHTML.slice(0, 80)`)})`);
+    await click(b, '.deck-actions .action-btn');
+    check(await until(b, `!!document.querySelector('.modal-overlay #deckName') && document.activeElement?.id === 'deckName'`), 'New Deck opens it again, the name focused');
+    await click(b, '.modal-content .primary-btn');
+    check(await until(b, `document.querySelector('.modal-content .error-message')?.textContent === 'Enter a deck name'`), 'an empty name is refused');
+    await click(b, '#deckName');
+    await type(b, 'Fresh::새 덱');
+    await click(b, '.modal-content .primary-btn');
+    check(await until(b, `/^\\/deck\\/\\d+$/.test(location.pathname) && document.querySelector('.deck-name-button')?.textContent === 'Fresh::새 덱'`, 150),
+      'the deck is made and opened');
+    check(await until(b, `document.querySelector('.empty-deck p')?.textContent === 'No notes in this deck yet.'`), 'it is empty');
+    await sleep(300);
+    await shot(b, '13-new-deck');
 
-  // 3. The card design notice. Files behind (one add-on file changed): with Anki closed amgi puts
-  // them back itself, and says nothing once they are. Then the collection behind (a template media
-  // file changed): only Anki can fix it, so the notice says to restart Anki.
-  const addonFile = path.join(ankiDir, 'addons21', 'amgi_mic', '__init__.py');
-  const shipped = fs.readFileSync(addonFile);
-  fs.writeFileSync(addonFile, Buffer.concat([shipped, Buffer.from('\n# stale\n')]));
-  await goto(b, `${base}/decks`);
-  check(await until(b, `${decksShown} === 10`, 150), 'the list, the new deck and its parent in it');
-  await until(b, `!document.querySelector('.template-update')`, 100);
-  check(Buffer.compare(fs.readFileSync(addonFile), shipped) === 0, 'stale add-on files are put back with Anki closed');
-  const media = path.join(ankiDir, 'User 1', 'collection.media', '_amgi-loop.js');
-  fs.appendFileSync(media, '\n// changed\n');
-  await goto(b, `${base}/decks`);
-  check(await until(b, `document.querySelector('.template-update.is-behind strong')?.textContent === 'restart Anki'`, 150), 'a collection behind: restart Anki');
-  await sleep(300);
-  await shot(b, '14-behind');
-  await click(b, '.template-update-dismiss[aria-label]');
-  check(await until(b, `!document.querySelector('.template-update')`), 'Dismiss takes the notice away');
+    // 3. The card design notice. Files behind (one add-on file changed): with Anki closed amgi puts
+    // them back itself, and says nothing once they are. Then the collection behind (a template media
+    // file changed): only Anki can fix it, so the notice says to restart Anki.
+    const addonFile = path.join(ankiDir, 'addons21', 'amgi_mic', '__init__.py');
+    const shipped = fs.readFileSync(addonFile);
+    fs.writeFileSync(addonFile, Buffer.concat([shipped, Buffer.from('\n# stale\n')]));
+    await goto(b, `${base}/decks`);
+    check(await until(b, `${decksShown} === 10`, 150), 'the list, the new deck and its parent in it');
+    await until(b, `!document.querySelector('.template-update')`, 100);
+    check(Buffer.compare(fs.readFileSync(addonFile), shipped) === 0, 'stale add-on files are put back with Anki closed');
+    const media = path.join(ankiDir, 'User 1', 'collection.media', '_amgi-loop.js');
+    fs.appendFileSync(media, '\n// changed\n');
+    await goto(b, `${base}/decks`);
+    check(await until(b, `document.querySelector('.template-update.is-behind strong')?.textContent === 'restart Anki'`, 150), 'a collection behind: restart Anki');
+    await sleep(300);
+    await shot(b, '14-behind');
+    await click(b, '.template-update-dismiss[aria-label]');
+    check(await until(b, `!document.querySelector('.template-update')`), 'Dismiss takes the notice away');
 
-  // 4. Settings: Install into Anki again, its message under the button.
-  await click(b, 'button[title="Settings"]');
-  await until(b, `!!document.querySelector('.install-block .save-button')`);
-  await click(b, '.install-block .save-button');
-  const msg = await until(b, `document.querySelector('.install-block .message.success')?.textContent`, 150);
-  const went = await b.evaluate(`document.querySelector('.install-block .message.success code')?.textContent`);
-  check(went === path.join(ankiDir, 'addons21'), `Settings' install says where it went: ${msg} [${went}]`);
-  await sleep(300);
-  await shot(b, '15-settings-installed');
-  // The card's pixels: the profile radio in the theme's red (not the browser's blue) and on the
-  // labels' left edge, and the "Installs into" path broken only after a slash, never inside a name.
-  const looks = await b.evaluate(`(() => {
+    // 4. Settings: Install into Anki again, its message under the button.
+    await click(b, 'button[title="Settings"]');
+    await until(b, `!!document.querySelector('.install-block .save-button')`);
+    await click(b, '.install-block .save-button');
+    const msg = await until(b, `document.querySelector('.install-block .message.success')?.textContent`, 150);
+    const went = await b.evaluate(`document.querySelector('.install-block .message.success code')?.textContent`);
+    check(went === path.join(ankiDir, 'addons21'), `Settings' install says where it went: ${msg} [${went}]`);
+    await sleep(300);
+    await shot(b, '15-settings-installed');
+    // The card's pixels: the profile radio in the theme's red (not the browser's blue) and on the
+    // labels' left edge, and the "Installs into" path broken only after a slash, never inside a name.
+    const looks = await b.evaluate(`(() => {
     const radio = document.querySelector('.settings-page input[type=radio]');
     const profile = [...document.querySelectorAll('.preference-item > label')].find(l => l.textContent === 'Profile');
     const probe = document.body.appendChild(document.createElement('i'));
@@ -167,18 +167,18 @@ try {
     probe.remove();
     return { accent: getComputedStyle(radio).accentColor, red, radio: radio.getBoundingClientRect().left, label: profile.getBoundingClientRect().left };
   })()`);
-  check(looks.accent === looks.red, `the profile radio is the theme's red (${looks.accent}, the theme ${looks.red})`);
-  check(Math.abs(looks.radio - looks.label) < 0.5, `the profile radio starts on the labels' left edge (${looks.radio} vs ${looks.label})`);
-  // a folder path long enough to wrap, its names hyphenated (where a browser would break a line);
-  // the app's origin only, which nothing after this step uses (step 5 is the keyless server's)
-  const longDir = `${ankiDir}/a-rather-long-folder-name-for-checking-the-wrap/and-another-long-segment-named-anki-data-folder-copy`;
-  await seed(b, base, { baseDir: longDir, collection: path.join(longDir, 'User 1', 'collection.anki2'), profile: 'User 1' });
-  await goto(b, `${base}/settings`);
-  await until(b, `!!document.querySelector('.install-block code')`, 150);
-  // the scan of that folder (it is not there) says so with the same path in its message
-  await until(b, `!!document.querySelector('.settings-page .message.error code')`, 150);
-  // the characters a code element's lines break after
-  const breaksIn = (selector) => b.evaluate(`(() => {
+    check(looks.accent === looks.red, `the profile radio is the theme's red (${looks.accent}, the theme ${looks.red})`);
+    check(Math.abs(looks.radio - looks.label) < 0.5, `the profile radio starts on the labels' left edge (${looks.radio} vs ${looks.label})`);
+    // a folder path long enough to wrap, its names hyphenated (where a browser would break a line);
+    // the app's origin only, which nothing after this step uses (step 5 is the keyless server's)
+    const longDir = `${ankiDir}/a-rather-long-folder-name-for-checking-the-wrap/and-another-long-segment-named-anki-data-folder-copy`;
+    await seed(b, base, { baseDir: longDir, collection: path.join(longDir, 'User 1', 'collection.anki2'), profile: 'User 1' });
+    await goto(b, `${base}/settings`);
+    await until(b, `!!document.querySelector('.install-block code')`, 150);
+    // the scan of that folder (it is not there) says so with the same path in its message
+    await until(b, `!!document.querySelector('.settings-page .message.error code')`, 150);
+    // the characters a code element's lines break after
+    const breaksIn = (selector) => b.evaluate(`(() => {
     const code = document.querySelector(${JSON.stringify(selector)}), breaks = [];
     const walker = document.createTreeWalker(code, NodeFilter.SHOW_TEXT);
     let top = null, prev = '';
@@ -192,51 +192,51 @@ try {
     }
     return { text: code.textContent, breaks };
   })()`);
-  for (const [where, selector] of [['the install line', '.install-block code'], ['the not-found message', '.settings-page .message.error code']]) {
-    const wrap = await breaksIn(selector);
-    check(wrap.text === longDir && wrap.breaks.length > 0 && wrap.breaks.every((c) => c === '/'),
-      `in ${where} a long folder path breaks only after a slash (${wrap.breaks.length} breaks, after ${JSON.stringify(wrap.breaks.join(''))})`);
-  }
-  // the message box's text on the left, as the card is: its first line starts at the box's content edge
-  const msgEdge = await b.evaluate(`(() => {
+    for (const [where, selector] of [['the install line', '.install-block code'], ['the not-found message', '.settings-page .message.error code']]) {
+        const wrap = await breaksIn(selector);
+        check(wrap.text === longDir && wrap.breaks.length > 0 && wrap.breaks.every((c) => c === '/'),
+          `in ${where} a long folder path breaks only after a slash (${wrap.breaks.length} breaks, after ${JSON.stringify(wrap.breaks.join(''))})`);
+    }
+    // the message box's text on the left, as the card is: its first line starts at the box's content edge
+    const msgEdge = await b.evaluate(`(() => {
     const box = document.querySelector('.settings-page .message.error'), st = getComputedStyle(box);
     const r = document.createRange(); r.selectNodeContents(box.firstChild);
     return [r.getClientRects()[0].left, box.getBoundingClientRect().left + parseFloat(st.borderLeftWidth) + parseFloat(st.paddingLeft)];
   })()`);
-  check(Math.abs(msgEdge[0] - msgEdge[1]) < 0.5, `the not-found message's text starts at its box's content edge (${msgEdge.join(' vs ')})`);
-  // "Current mode" and its badge on the left edge the card's other labels start on
-  const edges = await b.evaluate(`(() => {
+    check(Math.abs(msgEdge[0] - msgEdge[1]) < 0.5, `the not-found message's text starts at its box's content edge (${msgEdge.join(' vs ')})`);
+    // "Current mode" and its badge on the left edge the card's other labels start on
+    const edges = await b.evaluate(`(() => {
     const labels = [...document.querySelectorAll('.preference-item > label')];
     const mode = labels.find(l => l.textContent === 'Current mode'), install = labels.find(l => l.textContent === 'Install amgi into Anki');
     return [mode, mode.nextElementSibling, install].map(e => e.getBoundingClientRect().left);
   })()`);
-  check(edges[0] === edges[2] && edges[1] === edges[2], `"Current mode" and its badge start where the card's labels do (${edges.join(', ')})`);
-  // Install into that long folder (made now, under this run's copy): the result names the add-ons
-  // folder on a line of its own, broken only after a slash.
-  fs.mkdirSync(longDir, { recursive: true });
-  await click(b, '.install-block .save-button');
-  const installed = await until(b, `document.querySelector('.install-block .message.success')?.textContent`, 150);
-  check(!!installed, `the install into the long folder answers (${installed})`);
-  const addons = path.join(longDir, 'addons21');
-  if (await b.evaluate(`!!document.querySelector('.install-block .message code')`)) {
-    const wrap = await breaksIn('.install-block .message code');
-    check(wrap.text === addons && wrap.breaks.length > 0 && wrap.breaks.every((c) => c === '/'),
-      `in the install result the add-ons folder breaks only after a slash (${wrap.breaks.length} breaks, after ${JSON.stringify(wrap.breaks.join(''))})`);
-  } else {
-    check(false, `the install result shows the add-ons folder as a path of its own (${installed})`);
-  }
-  await sleep(300);
-  await shot(b, '15c-install-long-path');
-  await sleep(300);
-  await shot(b, '15b-settings-long-path');
+    check(edges[0] === edges[2] && edges[1] === edges[2], `"Current mode" and its badge start where the card's labels do (${edges.join(', ')})`);
+    // Install into that long folder (made now, under this run's copy): the result names the add-ons
+    // folder on a line of its own, broken only after a slash.
+    fs.mkdirSync(longDir, { recursive: true });
+    await click(b, '.install-block .save-button');
+    const installed = await until(b, `document.querySelector('.install-block .message.success')?.textContent`, 150);
+    check(!!installed, `the install into the long folder answers (${installed})`);
+    const addons = path.join(longDir, 'addons21');
+    if (await b.evaluate(`!!document.querySelector('.install-block .message code')`)) {
+        const wrap = await breaksIn('.install-block .message code');
+        check(wrap.text === addons && wrap.breaks.length > 0 && wrap.breaks.every((c) => c === '/'),
+          `in the install result the add-ons folder breaks only after a slash (${wrap.breaks.length} breaks, after ${JSON.stringify(wrap.breaks.join(''))})`);
+    } else {
+        check(false, `the install result shows the add-ons folder as a path of its own (${installed})`);
+    }
+    await sleep(300);
+    await shot(b, '15c-install-long-path');
+    await sleep(300);
+    await shot(b, '15b-settings-long-path');
 
-  // 4b. Save, then a reload the moment "Anki settings saved." shows (in the same task, by an observer
-  // on the page): the saved value is there after it, so the message never shows before the write.
-  await until(b, `[...document.querySelectorAll('.save-button')].some(x => x.textContent === 'Scan for profiles')`, 150);
-  await sleep(300); // the scan's answer is drawn, so the clicks land where they aim
-  await click(b, '#bridgeToken');
-  await type(b, 'token-kept');
-  await b.evaluate(`(() => {
+    // 4b. Save, then a reload the moment "Anki settings saved." shows (in the same task, by an observer
+    // on the page): the saved value is there after it, so the message never shows before the write.
+    await until(b, `[...document.querySelectorAll('.save-button')].some(x => x.textContent === 'Scan for profiles')`, 150);
+    await sleep(300); // the scan's answer is drawn, so the clicks land where they aim
+    await click(b, '#bridgeToken');
+    await type(b, 'token-kept');
+    await b.evaluate(`(() => {
     window.__reloading = true;
     new MutationObserver((_, o) => {
       if ([...document.querySelectorAll('.settings-page .message.success')].some(e => e.textContent === 'Anki settings saved.')) {
@@ -245,110 +245,110 @@ try {
       }
     }).observe(document.body, { childList: true, subtree: true, characterData: true });
   })()`);
-  await b.evaluate(`[...document.querySelectorAll('.save-button')].find(x => x.textContent === 'Save Anki settings').dataset.drive = 'save'`);
-  await click(b, '.save-button[data-drive="save"]');
-  check(await until(b, `!window.__reloading && document.readyState === 'complete' && !!document.querySelector('#bridgeToken')`, 150), 'the page reloads the moment it says saved');
-  const kept = await b.evaluate(`document.querySelector('#bridgeToken').value`);
-  check(kept === 'token-kept', `and the saved token is there after the reload (${JSON.stringify(kept)})`);
-  // 4c. "Anki settings saved." lasts two seconds from the latest save: a second Save at 1.5 s keeps it
-  // through 2.5 s, past the first save's own two seconds.
-  await until(b, `[...document.querySelectorAll('.save-button')].some(x => x.textContent === 'Scan for profiles')`, 150);
-  await sleep(300);
-  const savedShown = `[...document.querySelectorAll('.settings-page .message.success')].some(e => e.textContent === 'Anki settings saved.')`;
-  const pressSave = async () => {
     await b.evaluate(`[...document.querySelectorAll('.save-button')].find(x => x.textContent === 'Save Anki settings').dataset.drive = 'save'`);
     await click(b, '.save-button[data-drive="save"]');
-    await b.evaluate(`delete document.querySelector('.save-button[data-drive="save"]').dataset.drive`);
-  };
-  const firstSave = Date.now();
-  await pressSave();
-  check(await until(b, savedShown, 50), 'the first Save says saved');
-  await sleep(Math.max(0, firstSave + 1500 - Date.now()));
-  await pressSave();
-  check(await until(b, savedShown, 50), 'the second Save says saved');
-  await sleep(Math.max(0, firstSave + 2500 - Date.now()));
-  check(await b.evaluate(savedShown), 'a second Save 1.5 s after the first keeps "saved" up at 2.5 s, past the first one\'s two seconds');
+    check(await until(b, `!window.__reloading && document.readyState === 'complete' && !!document.querySelector('#bridgeToken')`, 150), 'the page reloads the moment it says saved');
+    const kept = await b.evaluate(`document.querySelector('#bridgeToken').value`);
+    check(kept === 'token-kept', `and the saved token is there after the reload (${JSON.stringify(kept)})`);
+    // 4c. "Anki settings saved." lasts two seconds from the latest save: a second Save at 1.5 s keeps it
+    // through 2.5 s, past the first save's own two seconds.
+    await until(b, `[...document.querySelectorAll('.save-button')].some(x => x.textContent === 'Scan for profiles')`, 150);
+    await sleep(300);
+    const savedShown = `[...document.querySelectorAll('.settings-page .message.success')].some(e => e.textContent === 'Anki settings saved.')`;
+    const pressSave = async () => {
+        await b.evaluate(`[...document.querySelectorAll('.save-button')].find(x => x.textContent === 'Save Anki settings').dataset.drive = 'save'`);
+        await click(b, '.save-button[data-drive="save"]');
+        await b.evaluate(`delete document.querySelector('.save-button[data-drive="save"]').dataset.drive`);
+    };
+    const firstSave = Date.now();
+    await pressSave();
+    check(await until(b, savedShown, 50), 'the first Save says saved');
+    await sleep(Math.max(0, firstSave + 1500 - Date.now()));
+    await pressSave();
+    check(await until(b, savedShown, 50), 'the second Save says saved');
+    await sleep(Math.max(0, firstSave + 2500 - Date.now()));
+    check(await b.evaluate(savedShown), 'a second Save 1.5 s after the first keeps "saved" up at 2.5 s, past the first one\'s two seconds');
 
-  // A write the browser refuses (a quota, say: IndexedDB's put throws here) says so, never "saved".
-  await until(b, `[...document.querySelectorAll('.save-button')].some(x => x.textContent === 'Scan for profiles')`, 150);
-  await sleep(300);
-  await b.evaluate(`IDBObjectStore.prototype.put = function () { throw new DOMException('full', 'QuotaExceededError'); }`);
-  await b.evaluate(`[...document.querySelectorAll('.save-button')].find(x => x.textContent === 'Save Anki settings').dataset.drive = 'save'`);
-  await click(b, '.save-button[data-drive="save"]');
-  // Save's own box, not the scan's (the long folder seeded above is not there, so the scan says so too)
-  const notKept = 'This browser did not keep the settings: they apply until the page is reloaded';
-  const errors = `[...document.querySelectorAll('.settings-page .message.error')].map(e => e.textContent)`;
-  const refused = await until(b, `${errors}.includes(${JSON.stringify(notKept)})`, 50);
-  check(refused && !(await b.evaluate(`!!document.querySelector('.settings-page .message.success')`)),
-    `a failed write says so, not saved (${JSON.stringify(await b.evaluate(errors))})`);
+    // A write the browser refuses (a quota, say: IndexedDB's put throws here) says so, never "saved".
+    await until(b, `[...document.querySelectorAll('.save-button')].some(x => x.textContent === 'Scan for profiles')`, 150);
+    await sleep(300);
+    await b.evaluate(`IDBObjectStore.prototype.put = function () { throw new DOMException('full', 'QuotaExceededError'); }`);
+    await b.evaluate(`[...document.querySelectorAll('.save-button')].find(x => x.textContent === 'Save Anki settings').dataset.drive = 'save'`);
+    await click(b, '.save-button[data-drive="save"]');
+    // Save's own box, not the scan's (the long folder seeded above is not there, so the scan says so too)
+    const notKept = 'This browser did not keep the settings: they apply until the page is reloaded';
+    const errors = `[...document.querySelectorAll('.settings-page .message.error')].map(e => e.textContent)`;
+    const refused = await until(b, `${errors}.includes(${JSON.stringify(notKept)})`, 50);
+    check(refused && !(await b.evaluate(`!!document.querySelector('.settings-page .message.success')`)),
+      `a failed write says so, not saved (${JSON.stringify(await b.evaluate(errors))})`);
 
-  // 5. The starter deck, on a server with no key: offered below the list, built, opened.
-  if (keyless) {
-    await seed(b, keyless, { baseDir: ankiDir, collection: path.join(ankiDir, 'User 1', 'collection.anki2') });
-    await goto(b, `${keyless}/decks`);
+    // 5. The starter deck, on a server with no key: offered below the list, built, opened.
+    if (keyless) {
+        await seed(b, keyless, { baseDir: ankiDir, collection: path.join(ankiDir, 'User 1', 'collection.anki2') });
+        await goto(b, `${keyless}/decks`);
+        await until(b, `${decksShown} > 0`, 150);
+        const offered = await until(b, `document.querySelector('.starter-deck-title')?.textContent`, 150);
+        check(offered === 'Try it without a Gemini key', 'with no key the starter deck is offered');
+        const pair = await b.evaluate(`[...document.querySelectorAll('.starter-deck select')].map(s => s.value).join(' ')`);
+        check(pair === 'en zh_cn', `pre-picked: English, and the first other language in LANGUAGES order (${pair})`);
+        await sleep(300);
+        await shot(b, '16-starter');
+        await click(b, '.starter-deck-cta');
+        check(await until(b, `/^\\/deck\\/\\d+$/.test(location.pathname) && document.querySelector('.deck-name-button')?.textContent === 'amgi starter - 中文' && document.querySelectorAll('.note-rows > li').length === 10`, 300),
+          'Make me a starter deck builds it and opens it, ten cards');
+        check((await b.evaluate(`document.querySelector('.deck-langs')?.textContent`) || '').startsWith('English → 中文'), 'the deck remembers its pair');
+        await sleep(300);
+        await shot(b, '17-starter-deck');
+    }
+    // 6. A create-deck answer that comes after the decks page went (the person went to Settings while the
+    // POST was in flight). The modal is gone with the page, so a failure has nowhere to draw its message
+    // and a success must not navigate away from where the person went. Held by the drive, no timing in it.
+    await seed(b, base, { baseDir: ankiDir, collection: path.join(ankiDir, 'User 1', 'collection.anki2') });
+    await goto(b, `${base}/decks`);
     await until(b, `${decksShown} > 0`, 150);
-    const offered = await until(b, `document.querySelector('.starter-deck-title')?.textContent`, 150);
-    check(offered === 'Try it without a Gemini key', 'with no key the starter deck is offered');
-    const pair = await b.evaluate(`[...document.querySelectorAll('.starter-deck select')].map(s => s.value).join(' ')`);
-    check(pair === 'en zh_cn', `pre-picked: English, and the first other language in LANGUAGES order (${pair})`);
-    await sleep(300);
-    await shot(b, '16-starter');
-    await click(b, '.starter-deck-cta');
-    check(await until(b, `/^\\/deck\\/\\d+$/.test(location.pathname) && document.querySelector('.deck-name-button')?.textContent === 'amgi starter - 中文' && document.querySelectorAll('.note-rows > li').length === 10`, 300),
-      'Make me a starter deck builds it and opens it, ten cards');
-    check((await b.evaluate(`document.querySelector('.deck-langs')?.textContent`) || '').startsWith('English → 中文'), 'the deck remembers its pair');
-    await sleep(300);
-    await shot(b, '17-starter-deck');
-  }
-  // 6. A create-deck answer that comes after the decks page went (the person went to Settings while the
-  // POST was in flight). The modal is gone with the page, so a failure has nowhere to draw its message
-  // and a success must not navigate away from where the person went. Held by the drive, no timing in it.
-  await seed(b, base, { baseDir: ankiDir, collection: path.join(ankiDir, 'User 1', 'collection.anki2') });
-  await goto(b, `${base}/decks`);
-  await until(b, `${decksShown} > 0`, 150);
-  await b.send('Fetch.enable', { patterns: [{ urlPattern: '*/api/anki/decks', requestStage: 'Request' }] });
-  // The modal makes the page behind it inert, so Settings cannot be clicked while it is open: the
-  // person leaves by the browser's forward button instead (Settings visited and backed out of first,
-  // so there is a Settings entry ahead of /decks).
-  const holdAndLeave = async (deck) => {
-    held.length = 0;
-    await click(b, '.navbar .settings-icon');
-    await until(b, `location.pathname === '/settings' && !!document.querySelector('.settings-page')`);
-    await b.evaluate(`history.back()`);
-    await until(b, `location.pathname === '/decks' && ${decksShown} > 0`);
-    await click(b, '.deck-actions .action-btn');
-    await until(b, `!!document.querySelector('.modal-overlay #deckName') && document.activeElement?.id === 'deckName'`);
-    await type(b, deck);
-    await click(b, '.modal-content .primary-btn');
-    for (let i = 0; i < 100 && !held.length; i++) await sleep(100);
-    await b.evaluate(`history.forward()`);
-    await until(b, `location.pathname === '/settings' && !!document.querySelector('.settings-page')`);
-    return held.length === 1;
-  };
-  let errorsBefore = pageErrors.length;
-  check(await holdAndLeave('Held fails'), 'a create-deck POST is held in flight, and Settings opened meanwhile');
-  await b.send('Fetch.fulfillRequest', { requestId: held[0], responseCode: 500, responseHeaders: [{ name: 'Content-Type', value: 'text/plain' }], body: Buffer.from('deck refused').toString('base64') });
-  await sleep(700);
-  check(pageErrors.length === errorsBefore && !(await b.evaluate(`!!document.querySelector('.error-message')`)),
-    `a refusal that comes after the page went draws nothing and throws nothing${pageErrors.length > errorsBefore ? ` (${pageErrors.slice(errorsBefore).join(' / ')})` : ''} ${await b.evaluate(`[...document.querySelectorAll('.error-message')].map(e => e.outerHTML).join()`)}`);
-  check(await b.evaluate(`location.pathname === '/settings'`), `and the person is still on Settings (at ${await b.evaluate('location.pathname')})`);
-  await goto(b, `${base}/decks`);
-  await until(b, `${decksShown} > 0`, 150);
-  errorsBefore = pageErrors.length;
-  check(await holdAndLeave('Held made'), 'a second create-deck POST is held in flight, and Settings opened meanwhile');
-  await b.send('Fetch.continueRequest', { requestId: held[0] });
-  await sleep(1000);
-  check(await b.evaluate(`location.pathname === '/settings'`) && pageErrors.length === errorsBefore,
-    `a deck made after the page went does not take the person away from Settings (at ${await b.evaluate('location.pathname')})`);
-  await b.send('Fetch.disable');
-  await goto(b, `${base}/decks`);
-  check(await until(b, `[...document.querySelectorAll('.deck-item h3')].some(h => h.textContent === 'Held made')`, 150), 'and the deck was made');
-  check(!pageErrors.length, `no page errors${pageErrors.length ? `: ${pageErrors.join(' / ')}` : ''}`);
+    await b.send('Fetch.enable', { patterns: [{ urlPattern: '*/api/anki/decks', requestStage: 'Request' }] });
+    // The modal makes the page behind it inert, so Settings cannot be clicked while it is open: the
+    // person leaves by the browser's forward button instead (Settings visited and backed out of first,
+    // so there is a Settings entry ahead of /decks).
+    const holdAndLeave = async (deck) => {
+        held.length = 0;
+        await click(b, '.navbar .settings-icon');
+        await until(b, `location.pathname === '/settings' && !!document.querySelector('.settings-page')`);
+        await b.evaluate(`history.back()`);
+        await until(b, `location.pathname === '/decks' && ${decksShown} > 0`);
+        await click(b, '.deck-actions .action-btn');
+        await until(b, `!!document.querySelector('.modal-overlay #deckName') && document.activeElement?.id === 'deckName'`);
+        await type(b, deck);
+        await click(b, '.modal-content .primary-btn');
+        for (let i = 0; i < 100 && !held.length; i++) await sleep(100);
+        await b.evaluate(`history.forward()`);
+        await until(b, `location.pathname === '/settings' && !!document.querySelector('.settings-page')`);
+        return held.length === 1;
+    };
+    let errorsBefore = pageErrors.length;
+    check(await holdAndLeave('Held fails'), 'a create-deck POST is held in flight, and Settings opened meanwhile');
+    await b.send('Fetch.fulfillRequest', { requestId: held[0], responseCode: 500, responseHeaders: [{ name: 'Content-Type', value: 'text/plain' }], body: Buffer.from('deck refused').toString('base64') });
+    await sleep(700);
+    check(pageErrors.length === errorsBefore && !(await b.evaluate(`!!document.querySelector('.error-message')`)),
+      `a refusal that comes after the page went draws nothing and throws nothing${pageErrors.length > errorsBefore ? ` (${pageErrors.slice(errorsBefore).join(' / ')})` : ''} ${await b.evaluate(`[...document.querySelectorAll('.error-message')].map(e => e.outerHTML).join()`)}`);
+    check(await b.evaluate(`location.pathname === '/settings'`), `and the person is still on Settings (at ${await b.evaluate('location.pathname')})`);
+    await goto(b, `${base}/decks`);
+    await until(b, `${decksShown} > 0`, 150);
+    errorsBefore = pageErrors.length;
+    check(await holdAndLeave('Held made'), 'a second create-deck POST is held in flight, and Settings opened meanwhile');
+    await b.send('Fetch.continueRequest', { requestId: held[0] });
+    await sleep(1000);
+    check(await b.evaluate(`location.pathname === '/settings'`) && pageErrors.length === errorsBefore,
+      `a deck made after the page went does not take the person away from Settings (at ${await b.evaluate('location.pathname')})`);
+    await b.send('Fetch.disable');
+    await goto(b, `${base}/decks`);
+    check(await until(b, `[...document.querySelectorAll('.deck-item h3')].some(h => h.textContent === 'Held made')`, 150), 'and the deck was made');
+    check(!pageErrors.length, `no page errors${pageErrors.length ? `: ${pageErrors.join(' / ')}` : ''}`);
 } finally {
-  clearTimeout(watchdog);
-  await b.close();
+    clearTimeout(watchdog);
+    await b.close();
 }
 if (failures.length) {
-  console.log(`${failures.length} check(s) failed`);
-  process.exitCode = 1;
+    console.log(`${failures.length} check(s) failed`);
+    process.exitCode = 1;
 }

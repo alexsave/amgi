@@ -32,46 +32,46 @@
 const fs = require('fs');
 const path = require('path');
 const {
-  anki,
-  buildFixtureCollection,
-  fixtureApkg,
-  holdCollectionOpen,
-  runPython,
-  withAnkiLibrary,
+    anki,
+    buildFixtureCollection,
+    fixtureApkg,
+    holdCollectionOpen,
+    runPython,
+    withAnkiLibrary,
 } = require('../../../../tests/server/plusaudio/collection/helpers/anki-python');
 
 function build(outDir) {
-  if (!anki) {
-    throw new Error(
-      'No python with the `anki` library on PATH. Set ANKI_PYTHON_BIN to one - ' +
-        'see this file\'s own top-of-file comment for how to get one.',
-    );
-  }
-  if (!fixtureApkg) {
-    throw new Error(
-      'Set ANKI_FIXTURE_APKG to a real .apkg to seed the fixture from - ' +
-        'see this file\'s own top-of-file comment for where to get one.',
-    );
-  }
-  const dir = outDir || path.join(process.cwd(), '.e2e', 'fixture');
-  fs.rmSync(dir, { recursive: true, force: true });
-  fs.mkdirSync(dir, { recursive: true });
-  const collectionPath = path.join(dir, 'collection.anki2');
-  // importApkg pulls ANKI_FIXTURE_APKG in on top of a couple of hand-made
-  // decks/notes buildFixtureCollection always seeds, so the fixture has both
-  // a real, large deck to page through and a small known-shape one to assert
-  // exact values against.
-  buildFixtureCollection(collectionPath, { importApkg: true });
-  return collectionPath;
+    if (!anki) {
+        throw new Error(
+          'No python with the `anki` library on PATH. Set ANKI_PYTHON_BIN to one - ' +
+            'see this file\'s own top-of-file comment for how to get one.',
+        );
+    }
+    if (!fixtureApkg) {
+        throw new Error(
+          'Set ANKI_FIXTURE_APKG to a real .apkg to seed the fixture from - ' +
+            'see this file\'s own top-of-file comment for where to get one.',
+        );
+    }
+    const dir = outDir || path.join(process.cwd(), '.e2e', 'fixture');
+    fs.rmSync(dir, { recursive: true, force: true });
+    fs.mkdirSync(dir, { recursive: true });
+    const collectionPath = path.join(dir, 'collection.anki2');
+    // importApkg pulls ANKI_FIXTURE_APKG in on top of a couple of hand-made
+    // decks/notes buildFixtureCollection always seeds, so the fixture has both
+    // a real, large deck to page through and a small known-shape one to assert
+    // exact values against.
+    buildFixtureCollection(collectionPath, { importApkg: true });
+    return collectionPath;
 }
 
 module.exports = { anki, build, fixtureApkg, holdCollectionOpen, runPython, withAnkiLibrary };
 
 if (require.main === module) {
-  try {
-    console.log(build(process.argv[2]));
-  } catch (error) {
-    console.error(error.message);
-    process.exit(1);
-  }
+    try {
+        console.log(build(process.argv[2]));
+    } catch (error) {
+        console.error(error.message);
+        process.exit(1);
+    }
 }

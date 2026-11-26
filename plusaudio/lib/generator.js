@@ -34,22 +34,22 @@ const { createGeminiContext } = require('./geminiContext');
  * @param {object} options  see geminiContext.js's createGeminiContext
  */
 function createGenerator(options = {}) {
-  const context = createGeminiContext(options);
+    const context = createGeminiContext(options);
 
-  // `reading` is optional and empty by default: a deck this CLI did not
-  // write carries no romanisation of its own text, so for Japanese and
-  // Chinese the clip is validated by transcript alone and cardGeneration
-  // says so in the log. A caller that just generated the text itself - see
-  // the app's server, server/amgi/gen.c - has a spoken_reading
-  // to pass here, and it goes to the audio judge, never to the synthesiser.
-  // That reading is not stored anywhere else.
-  //
-  // Resolves to a WAV file's bytes, which every clip's *.wav name
-  // (the add-on's deck_text.py and the server's web.c) relies on. geminiSpeech.ts is the one
-  // place that is enforced: it wraps raw PCM and refuses anything else.
-  return async function generate({ text, language, reading = '' }) {
-    return Buffer.from(await generateCardAudio(context, { text, language, reading }));
-  };
+    // `reading` is optional and empty by default: a deck this CLI did not
+    // write carries no romanisation of its own text, so for Japanese and
+    // Chinese the clip is validated by transcript alone and cardGeneration
+    // says so in the log. A caller that just generated the text itself - see
+    // the app's server, server/amgi/gen.c - has a spoken_reading
+    // to pass here, and it goes to the audio judge, never to the synthesiser.
+    // That reading is not stored anywhere else.
+    //
+    // Resolves to a WAV file's bytes, which every clip's *.wav name
+    // (the add-on's deck_text.py and the server's web.c) relies on. geminiSpeech.ts is the one
+    // place that is enforced: it wraps raw PCM and refuses anything else.
+    return async function generate({ text, language, reading = '' }) {
+        return Buffer.from(await generateCardAudio(context, { text, language, reading }));
+    };
 }
 
 module.exports = { createGenerator };

@@ -23,8 +23,8 @@ const { launchChrome, shotter } = await import('./chrome.mjs');
 
 const [base, name, collection, outArg] = process.argv.slice(2);
 if (!base || !name || !collection) {
-  console.error('usage: node tests/e2e/ui/shoot.mjs <base url> <name> <collection.anki2> [out dir]');
-  process.exit(2);
+    console.error('usage: node tests/e2e/ui/shoot.mjs <base url> <name> <collection.anki2> [out dir]');
+    process.exit(2);
 }
 const out = outArg || path.join(here, '..', '..', '..', 'ui', 'out', 'shots');
 fs.mkdirSync(out, { recursive: true });
@@ -33,169 +33,169 @@ const LOADS = Number(process.env.LOADS ?? 7);
 
 const failures = [];
 const check = (ok, what) => {
-  console.log(`${ok ? 'ok  ' : 'FAIL'} ${what}`);
-  if (!ok) failures.push(what);
+    console.log(`${ok ? 'ok  ' : 'FAIL'} ${what}`);
+    if (!ok) failures.push(what);
 };
 
 // Until fn (an expression) is truthy, at most tries x 100 ms; returns its last value.
 async function until(b, expr, tries = 100) {
-  let v;
-  for (let i = 0; i < tries; i++) {
-    v = await b.evaluate(expr);
-    if (v) return v;
-    await sleep(100);
-  }
-  return v;
+    let v;
+    for (let i = 0; i < tries; i++) {
+        v = await b.evaluate(expr);
+        if (v) return v;
+        await sleep(100);
+    }
+    return v;
 }
 
 async function goto(b, url) {
-  await b.send('Page.navigate', { url });
-  await until(b, `document.readyState === 'complete'`);
+    await b.send('Page.navigate', { url });
+    await until(b, `document.readyState === 'complete'`);
 }
 
 
 const shot = shotter(out, name);
 // A real click: the pointer pressed and released at the element's centre.
 async function click(b, selector) {
-  // into view first: a press outside the viewport reaches nothing
-  const box = await b.evaluate(`(() => { const e = document.querySelector(${JSON.stringify(selector)});
+    // into view first: a press outside the viewport reaches nothing
+    const box = await b.evaluate(`(() => { const e = document.querySelector(${JSON.stringify(selector)});
     e?.scrollIntoView({ block: 'center', behavior: 'instant' }); const r = e?.getBoundingClientRect();
     return r ? [r.left + r.width / 2, r.top + r.height / 2] : null; })()`);
-  if (!box) throw new Error(`nothing to click at ${selector}`);
-  for (const type of ['mouseMoved', 'mousePressed', 'mouseReleased']) {
-    await b.send('Input.dispatchMouseEvent', { type, x: box[0], y: box[1], button: 'left', clickCount: 1 });
-  }
+    if (!box) throw new Error(`nothing to click at ${selector}`);
+    for (const type of ['mouseMoved', 'mousePressed', 'mouseReleased']) {
+        await b.send('Input.dispatchMouseEvent', { type, x: box[0], y: box[1], button: 'left', clickCount: 1 });
+    }
 }
 // The deck row whose name is name.
 async function clickDeck(b, name) {
-  const i = await b.evaluate(`[...document.querySelectorAll('.deck-item h3')].findIndex(h => h.textContent === ${JSON.stringify(name)})`);
-  if (i < 0) throw new Error(`no deck row ${name}`);
-  await click(b, `.deck-item:nth-child(${i + 1})`);
+    const i = await b.evaluate(`[...document.querySelectorAll('.deck-item h3')].findIndex(h => h.textContent === ${JSON.stringify(name)})`);
+    if (i < 0) throw new Error(`no deck row ${name}`);
+    await click(b, `.deck-item:nth-child(${i + 1})`);
 }
 async function back(b) {
-  const { result } = await b.send('Page.getNavigationHistory');
-  await b.send('Page.navigateToHistoryEntry', { entryId: result.entries[result.currentIndex - 1].id });
+    const { result } = await b.send('Page.getNavigationHistory');
+    await b.send('Page.navigateToHistoryEntry', { entryId: result.entries[result.currentIndex - 1].id });
 }
 const settled = `document.querySelectorAll('.deck-item').length > 0 && document.querySelector('nav.navbar span[title]')?.textContent === 'Anki connected' ? document.querySelectorAll('.deck-item').length : 0`;
 
 const b = await launchChrome();
 // One bound on the whole drive: a step that never answers ends the run, and the Chrome it started.
 const watchdog = setTimeout(async () => {
-  console.log('FAIL the drive took more than 4 minutes');
-  await b.close();
-  process.exit(1);
+    console.log('FAIL the drive took more than 4 minutes');
+    await b.close();
+    process.exit(1);
 }, 240000);
 const pageErrors = [];
 const paused = []; // Fetch.requestPaused ids: the requests the drive is holding
 b.onEvent = (d) => {
-  if (d.method === 'Fetch.requestPaused') paused.push(d.params.requestId);
-  if (d.method === 'Runtime.exceptionThrown') pageErrors.push(d.params.exceptionDetails.exception?.description || d.params.exceptionDetails.text);
-  if (d.method === 'Runtime.consoleAPICalled' && d.params.type === 'error') pageErrors.push(d.params.args.map((a) => a.value ?? a.description).join(' '));
+    if (d.method === 'Fetch.requestPaused') paused.push(d.params.requestId);
+    if (d.method === 'Runtime.exceptionThrown') pageErrors.push(d.params.exceptionDetails.exception?.description || d.params.exceptionDetails.text);
+    if (d.method === 'Runtime.consoleAPICalled' && d.params.type === 'error') pageErrors.push(d.params.args.map((a) => a.value ?? a.description).join(' '));
 };
 try {
-  await b.send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 900, deviceScaleFactor: 2, mobile: false });
-  await b.send('Network.enable');
-  await seed(b, base, { baseDir: fixtureDir, collection: path.resolve(collection) });
+    await b.send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 900, deviceScaleFactor: 2, mobile: false });
+    await b.send('Network.enable');
+    await seed(b, base, { baseDir: fixtureDir, collection: path.resolve(collection) });
 
-  await goto(b, `${base}/decks`);
-  const decks = await until(b, settled);
-  check(decks === 8, `deck list shows 8 decks (saw ${decks})`);
-  const names = await b.evaluate(`[...document.querySelectorAll('.deck-item h3')].map(h => h.textContent).join(' | ')`);
-  check(names.includes('한국어::일상 표현'), `Korean deck names arrive intact: ${names}`);
-  await sleep(400);
-  await shot(b, '01-decks');
+    await goto(b, `${base}/decks`);
+    const decks = await until(b, settled);
+    check(decks === 8, `deck list shows 8 decks (saw ${decks})`);
+    const names = await b.evaluate(`[...document.querySelectorAll('.deck-item h3')].map(h => h.textContent).join(' | ')`);
+    check(names.includes('한국어::일상 표현'), `Korean deck names arrive intact: ${names}`);
+    await sleep(400);
+    await shot(b, '01-decks');
 
-  await click(b, 'button[title="Settings"]');
-  const scanned = await until(b, `location.pathname === '/settings' && !!document.querySelector('.settings-page .message.error') && [...document.querySelectorAll('.save-button')].some(x => x.textContent === 'Scan for profiles')`);
-  check(scanned, `Settings shows at /settings with the profile scan done (at ${await b.evaluate('location.pathname')})`);
-  await sleep(400);
-  await shot(b, '02-settings');
+    await click(b, 'button[title="Settings"]');
+    const scanned = await until(b, `location.pathname === '/settings' && !!document.querySelector('.settings-page .message.error') && [...document.querySelectorAll('.save-button')].some(x => x.textContent === 'Scan for profiles')`);
+    check(scanned, `Settings shows at /settings with the profile scan done (at ${await b.evaluate('location.pathname')})`);
+    await sleep(400);
+    await shot(b, '02-settings');
 
-  await back(b);
-  const backed = await until(b, `location.pathname === '/decks' && (${settled}) === 8 && !document.querySelector('.settings-page')`);
-  check(backed, 'the back button returns to /decks and its list');
-  await sleep(400);
-  await shot(b, '03-back');
+    await back(b);
+    const backed = await until(b, `location.pathname === '/decks' && (${settled}) === 8 && !document.querySelector('.settings-page')`);
+    check(backed, 'the back button returns to /decks and its list');
+    await sleep(400);
+    await shot(b, '03-back');
 
-  await clickDeck(b, '한국어');
-  const atDeck = await until(b, `/^\\/deck\\/\\d+$/.test(location.pathname) && document.querySelector('.deck-name-button')?.textContent === '한국어' && document.querySelectorAll('.note-rows > li').length === 4`);
-  check(atDeck, `the 한국어 row goes to /deck/<its id>, its four notes listed (at ${await b.evaluate('location.pathname')})`);
-  const rowsText = await b.evaluate(`[...document.querySelectorAll('.note-row')].map(r => [r.querySelector('.note-row-target').textContent, r.querySelector('.note-row-cue').textContent, r.querySelectorAll('.audio-chip').length].join('/')).join(' | ')`);
-  check(rowsText === '역이 어디예요?/Basic not an amgi card/0 | 감사합니다/Basic not an amgi card/0 | 안녕하세요/Hello/2 | 고맙습니다/Thank you/2', `the rows: ${rowsText}`);
-  await sleep(600);
-  await shot(b, '04-deck');
+    await clickDeck(b, '한국어');
+    const atDeck = await until(b, `/^\\/deck\\/\\d+$/.test(location.pathname) && document.querySelector('.deck-name-button')?.textContent === '한국어' && document.querySelectorAll('.note-rows > li').length === 4`);
+    check(atDeck, `the 한국어 row goes to /deck/<its id>, its four notes listed (at ${await b.evaluate('location.pathname')})`);
+    const rowsText = await b.evaluate(`[...document.querySelectorAll('.note-row')].map(r => [r.querySelector('.note-row-target').textContent, r.querySelector('.note-row-cue').textContent, r.querySelectorAll('.audio-chip').length].join('/')).join(' | ')`);
+    check(rowsText === '역이 어디예요?/Basic not an amgi card/0 | 감사합니다/Basic not an amgi card/0 | 안녕하세요/Hello/2 | 고맙습니다/Thank you/2', `the rows: ${rowsText}`);
+    await sleep(600);
+    await shot(b, '04-deck');
 
-  // A clip plays (an MP3), its chip marked while it does; the next chip pressed takes over.
-  await click(b, '.note-rows > li:nth-child(3) .audio-chip-target');
-  check(await until(b, `!!document.querySelector('.note-rows > li:nth-child(3) .audio-chip-target.is-playing')`, 50), 'a target chip plays its MP3');
-  await click(b, '.note-rows > li:nth-child(4) .audio-chip-cue');
-  const one = await until(b, `document.querySelector('.note-rows > li:nth-child(4) .audio-chip-cue.is-playing') && !document.querySelector('.note-rows > li:nth-child(3) .audio-chip-target.is-playing')`, 50);
-  check(one, 'pressing another chip stops the first: one voice at a time');
-  check(await until(b, `!document.querySelector('.audio-chip.is-playing')`, 50), 'the chips go idle when their clips end');
+    // A clip plays (an MP3), its chip marked while it does; the next chip pressed takes over.
+    await click(b, '.note-rows > li:nth-child(3) .audio-chip-target');
+    check(await until(b, `!!document.querySelector('.note-rows > li:nth-child(3) .audio-chip-target.is-playing')`, 50), 'a target chip plays its MP3');
+    await click(b, '.note-rows > li:nth-child(4) .audio-chip-cue');
+    const one = await until(b, `document.querySelector('.note-rows > li:nth-child(4) .audio-chip-cue.is-playing') && !document.querySelector('.note-rows > li:nth-child(3) .audio-chip-target.is-playing')`, 50);
+    check(one, 'pressing another chip stops the first: one voice at a time');
+    check(await until(b, `!document.querySelector('.audio-chip.is-playing')`, 50), 'the chips go idle when their clips end');
 
-  // The deck's languages: Change opens the two selects.
-  await click(b, '.deck-langs button');
-  check(await until(b, `document.querySelectorAll('.deck-langs select').length === 2`), 'Change opens the language selects');
-  await sleep(300);
-  await shot(b, '04b-langs');
-  await click(b, '.deck-langs button:last-child');
-  check(await until(b, `!document.querySelector('.deck-langs select')`), 'Cancel closes them');
+    // The deck's languages: Change opens the two selects.
+    await click(b, '.deck-langs button');
+    check(await until(b, `document.querySelectorAll('.deck-langs select').length === 2`), 'Change opens the language selects');
+    await sleep(300);
+    await shot(b, '04b-langs');
+    await click(b, '.deck-langs button:last-child');
+    check(await until(b, `!document.querySelector('.deck-langs select')`), 'Cancel closes them');
 
-  await back(b);
-  check(await until(b, `location.pathname === '/decks' && (${settled}) === 8`), 'back again lands on the list');
-  await sleep(400);
-  await shot(b, '05-back-again');
+    await back(b);
+    check(await until(b, `location.pathname === '/decks' && (${settled}) === 8`), 'back again lands on the list');
+    await sleep(400);
+    await shot(b, '05-back-again');
 
-  // A deck longer than a page, then loaded straight at its address (no list before it), its pager.
-  await clickDeck(b, 'Long');
-  check(await until(b, `document.querySelector('.deck-name-button')?.textContent === 'Long' && document.querySelectorAll('.note-rows > li').length === 20`), 'the long deck shows its first 20');
-  const longPath = await b.evaluate('location.pathname');
-  await goto(b, `${base}${longPath}`);
-  check(await until(b, `document.querySelectorAll('.note-rows > li').length === 20 && !!document.querySelector('.card-list-pager')`), 'loaded at its address: 20 notes and the pager');
-  await sleep(500);
-  await shot(b, '06-long-direct');
-  await click(b, '.card-list-pager button:last-child');
-  check(await until(b, `document.querySelectorAll('.note-rows > li').length === 6 && document.querySelector('.card-list-pager small')?.textContent === '21–26'`),
-    `Next shows 21-26 (rows ${await b.evaluate("document.querySelectorAll('.note-rows > li').length")}, ${await b.evaluate("document.querySelector('.card-list-pager small')?.textContent")})`);
-  check(await b.evaluate(`document.querySelector('.note-rows > li:last-child .note-row-noaudio')?.textContent`) === 'no audio yet',
-    'an amgi note without clips says so');
-  await sleep(300);
-  await shot(b, '07-long-page2');
-  await goto(b, `${base}/decks`);
-  check(await until(b, `(${settled}) === 8`), 'the list again, loaded at /decks');
+    // A deck longer than a page, then loaded straight at its address (no list before it), its pager.
+    await clickDeck(b, 'Long');
+    check(await until(b, `document.querySelector('.deck-name-button')?.textContent === 'Long' && document.querySelectorAll('.note-rows > li').length === 20`), 'the long deck shows its first 20');
+    const longPath = await b.evaluate('location.pathname');
+    await goto(b, `${base}${longPath}`);
+    check(await until(b, `document.querySelectorAll('.note-rows > li').length === 20 && !!document.querySelector('.card-list-pager')`), 'loaded at its address: 20 notes and the pager');
+    await sleep(500);
+    await shot(b, '06-long-direct');
+    await click(b, '.card-list-pager button:last-child');
+    check(await until(b, `document.querySelectorAll('.note-rows > li').length === 6 && document.querySelector('.card-list-pager small')?.textContent === '21–26'`),
+      `Next shows 21-26 (rows ${await b.evaluate("document.querySelectorAll('.note-rows > li').length")}, ${await b.evaluate("document.querySelector('.card-list-pager small')?.textContent")})`);
+    check(await b.evaluate(`document.querySelector('.note-rows > li:last-child .note-row-noaudio')?.textContent`) === 'no audio yet',
+      'an amgi note without clips says so');
+    await sleep(300);
+    await shot(b, '07-long-page2');
+    await goto(b, `${base}/decks`);
+    check(await until(b, `(${settled}) === 8`), 'the list again, loaded at /decks');
 
-  // Settings while its profile scan is in flight, held by the drive (no timing in it): a person aims
-  // at the bridge rows, the scan answers, the click lands. Every row must be where it was aimed at.
-  await b.send('Fetch.enable', { patterns: [{ urlPattern: '*/api/anki/profiles*', requestStage: 'Request' }] });
-  await goto(b, `${base}/settings`);
-  for (let i = 0; i < 100 && !paused.length; i++) await sleep(100);
-  check(paused.length > 0 && await until(b, `!!document.querySelector('#bridgeToken')`), 'the scan is held in flight, the rows drawn');
-  const rows = ['#ankiBaseDir', '#bridgeUrl', '#bridgeToken'];
-  const at = (sel) => b.evaluate(`(() => { const r = document.querySelector(${JSON.stringify(sel)})?.getBoundingClientRect(); return r ? [r.left + r.width / 2, r.top + r.height / 2] : null; })()`);
-  const aimed = [];
-  for (const sel of rows) aimed.push(await at(sel));
-  check(await b.evaluate(`[...document.querySelectorAll('.save-button')].some(x => x.textContent === 'Scanning…')`), 'the button says Scanning…');
-  await shot(b, '08-scan-held');
-  for (const id of paused.splice(0)) await b.send('Fetch.continueRequest', { requestId: id });
-  await b.send('Fetch.disable');
-  check(await until(b, `[...document.querySelectorAll('.save-button')].some(x => x.textContent === 'Scan for profiles') && !!document.querySelector('.settings-page .message.error')`),
-    'the scan answers (no profile in the fixture folder)');
-  await sleep(300);
-  await shot(b, '09-scan-done');
-  for (let i = 0; i < rows.length; i++) {
-    const [x, y] = aimed[i];
-    for (const type of ['mouseMoved', 'mousePressed', 'mouseReleased']) {
-      await b.send('Input.dispatchMouseEvent', { type, x, y, button: 'left', clickCount: 1 });
+    // Settings while its profile scan is in flight, held by the drive (no timing in it): a person aims
+    // at the bridge rows, the scan answers, the click lands. Every row must be where it was aimed at.
+    await b.send('Fetch.enable', { patterns: [{ urlPattern: '*/api/anki/profiles*', requestStage: 'Request' }] });
+    await goto(b, `${base}/settings`);
+    for (let i = 0; i < 100 && !paused.length; i++) await sleep(100);
+    check(paused.length > 0 && await until(b, `!!document.querySelector('#bridgeToken')`), 'the scan is held in flight, the rows drawn');
+    const rows = ['#ankiBaseDir', '#bridgeUrl', '#bridgeToken'];
+    const at = (sel) => b.evaluate(`(() => { const r = document.querySelector(${JSON.stringify(sel)})?.getBoundingClientRect(); return r ? [r.left + r.width / 2, r.top + r.height / 2] : null; })()`);
+    const aimed = [];
+    for (const sel of rows) aimed.push(await at(sel));
+    check(await b.evaluate(`[...document.querySelectorAll('.save-button')].some(x => x.textContent === 'Scanning…')`), 'the button says Scanning…');
+    await shot(b, '08-scan-held');
+    for (const id of paused.splice(0)) await b.send('Fetch.continueRequest', { requestId: id });
+    await b.send('Fetch.disable');
+    check(await until(b, `[...document.querySelectorAll('.save-button')].some(x => x.textContent === 'Scan for profiles') && !!document.querySelector('.settings-page .message.error')`),
+      'the scan answers (no profile in the fixture folder)');
+    await sleep(300);
+    await shot(b, '09-scan-done');
+    for (let i = 0; i < rows.length; i++) {
+        const [x, y] = aimed[i];
+        for (const type of ['mouseMoved', 'mousePressed', 'mouseReleased']) {
+            await b.send('Input.dispatchMouseEvent', { type, x, y, button: 'left', clickCount: 1 });
+        }
+        const focused = await b.evaluate('document.activeElement?.id');
+        check(focused === rows[i].slice(1), `a click aimed at ${rows[i]} during the scan lands there once it answers (focus: ${focused || 'none'})`);
     }
-    const focused = await b.evaluate('document.activeElement?.id');
-    check(focused === rows[i].slice(1), `a click aimed at ${rows[i]} during the scan lands there once it answers (focus: ${focused || 'none'})`);
-  }
 
-  check(!pageErrors.length, `no page errors${pageErrors.length ? `: ${pageErrors.join(' / ')}` : ''}`);
+    check(!pageErrors.length, `no page errors${pageErrors.length ? `: ${pageErrors.join(' / ')}` : ''}`);
 
-  // First paint: fresh loads with the browser's cache cleared each time.
-  if (LOADS) {
-    await b.send('Page.addScriptToEvaluateOnNewDocument', { source: `
+    // First paint: fresh loads with the browser's cache cleared each time.
+    if (LOADS) {
+        await b.send('Page.addScriptToEvaluateOnNewDocument', { source: `
       new MutationObserver((_, o) => {
         if (document.querySelector('.deck-item') && !window.__decksAt) {
           window.__decksAt = performance.now();
@@ -203,29 +203,29 @@ try {
           o.disconnect();
         }
       }).observe(document, { childList: true, subtree: true });` });
-    const rows = [];
-    for (let i = 0; i < LOADS; i++) {
-      await b.send('Network.clearBrowserCache');
-      await goto(b, `${base}/decks`);
-      await until(b, `window.__decksPainted`);
-      await sleep(300);
-      rows.push(await b.evaluate(`(() => {
+        const rows = [];
+        for (let i = 0; i < LOADS; i++) {
+            await b.send('Network.clearBrowserCache');
+            await goto(b, `${base}/decks`);
+            await until(b, `window.__decksPainted`);
+            await sleep(300);
+            rows.push(await b.evaluate(`(() => {
         const fcp = performance.getEntriesByName('first-contentful-paint')[0]?.startTime;
         const res = performance.getEntriesByType('resource').concat(performance.getEntriesByType('navigation'));
         return { fcp, decks: window.__decksPainted, requests: res.length,
           bytes: res.reduce((n, r) => n + (r.transferSize || 0), 0), decoded: res.reduce((n, r) => n + (r.decodedBodySize || 0), 0) };
       })()`));
+        }
+        const med = (k) => rows.map((r) => r[k]).sort((x, y) => x - y)[rows.length >> 1];
+        console.log(`first paint over ${LOADS} cold loads (median ms): FCP ${med('fcp').toFixed(1)}, deck list painted ${med('decks').toFixed(1)}; ` +
+          `${med('requests')} requests, ${med('bytes')} bytes transferred, ${med('decoded')} decoded`);
+        console.log(`  every load: ${rows.map((r) => `${r.fcp.toFixed(0)}/${r.decks.toFixed(0)}`).join(' ')}`);
     }
-    const med = (k) => rows.map((r) => r[k]).sort((x, y) => x - y)[rows.length >> 1];
-    console.log(`first paint over ${LOADS} cold loads (median ms): FCP ${med('fcp').toFixed(1)}, deck list painted ${med('decks').toFixed(1)}; ` +
-      `${med('requests')} requests, ${med('bytes')} bytes transferred, ${med('decoded')} decoded`);
-    console.log(`  every load: ${rows.map((r) => `${r.fcp.toFixed(0)}/${r.decks.toFixed(0)}`).join(' ')}`);
-  }
 } finally {
-  clearTimeout(watchdog);
-  await b.close();
+    clearTimeout(watchdog);
+    await b.close();
 }
 if (failures.length) {
-  console.log(`${failures.length} check(s) failed`);
-  process.exitCode = 1;
+    console.log(`${failures.length} check(s) failed`);
+    process.exitCode = 1;
 }

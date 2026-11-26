@@ -2,20 +2,20 @@
 #include "wire.h"
 
 static const char *const MODE_NAMES[WIRE_MODES] = {
-  "direct", "bridge", "locked", "not-found", "unsupported-schema", "bridge-no-collection", "unconfigured",
-  "bridge-outdated", "damaged", "",
+    "direct", "bridge", "locked", "not-found", "unsupported-schema", "bridge-no-collection", "unconfigured",
+    "bridge-outdated", "damaged", "",
 };
 
 const char *wire_mode_name(uint32_t mode) { return mode < WIRE_MODES ? MODE_NAMES[mode] : ""; }
 
 uint32_t wire_mode_of(const char *s, uint32_t len) {
-  for (uint32_t m = 0; m < WIRE_MODE_OTHER; m++) {
-    const char *n = MODE_NAMES[m];
-    uint32_t k = 0;
-    while (k < len && n[k] && n[k] == s[k]) k++;
-    if (k == len && !n[k]) return m;
-  }
-  return WIRE_MODE_OTHER;
+    for (uint32_t m = 0; m < WIRE_MODE_OTHER; m++) {
+        const char *n = MODE_NAMES[m];
+        uint32_t k = 0;
+        while (k < len && n[k] && n[k] == s[k]) k++;
+        if (k == len && !n[k]) return m;
+    }
+    return WIRE_MODE_OTHER;
 }
 
 /* ---- the schema: every kind's fields, in wire order ---- */
@@ -206,77 +206,77 @@ SCHEMA(s_b_q_media, wire_b_q_media,
   F(wire_b_q_media, "filename", WT_STR, filename), F(wire_b_q_media, "data", WT_BYTES, data));
 
 static const struct { const char *name; const wire_schema *schema; } KINDS[WK_KINDS] = {
-  [WK_ERROR] = {"error", &s_error}, [WK_STATUS] = {"status", &s_status}, [WK_DECKS] = {"decks", &s_decks},
-  [WK_INSTALL_STATE] = {"install_state", &s_install_state}, [WK_PROFILES] = {"profiles", &s_profiles},
-  [WK_NOTETYPES] = {"notetypes", &s_notetypes}, [WK_NOTES] = {"notes", &s_notes},
-  [WK_FIELD_VALUES] = {"field_values", &s_field_values}, [WK_DECK_CREATED] = {"deck_created", &s_deck_created},
-  [WK_DECK_RENAMED] = {"deck_renamed", &s_deck_renamed}, [WK_NOTE_ADDED] = {"note_added", &s_note_added},
-  [WK_NOTES_ADDED] = {"notes_added", &s_notes_added}, [WK_NOTE_CHANGED] = {"note_changed", &s_note_changed},
-  [WK_CARD_TEXT] = {"card_text", &s_card_text}, [WK_CLIP] = {"clip", &s_clip},
-  [WK_STARTER_STATE] = {"starter_state", &s_starter_state}, [WK_STARTER_BUILT] = {"starter_built", &s_starter_built},
-  [WK_INSTALLED] = {"installed", &s_installed}, [WK_DECK_SUMMARY] = {"deck_summary", &s_deck_summary},
-  [WK_DECK_REMOVED] = {"deck_removed", &s_deck_removed},
-  [WK_Q_DECK_NAME] = {"q_deck_name", &s_q_deck_name}, [WK_Q_INSTALL] = {"q_install", &s_q_install},
-  [WK_Q_STARTER] = {"q_starter", &s_q_starter}, [WK_Q_NOTE] = {"q_note", &s_q_note},
-  [WK_Q_NOTES] = {"q_notes", &s_q_notes}, [WK_Q_NOTE_UPDATE] = {"q_note_update", &s_q_note_update},
-  [WK_Q_CARD_TEXT] = {"q_card_text", &s_q_card_text}, [WK_Q_AUDIO] = {"q_audio", &s_q_audio},
-  [WK_B_ERROR] = {"b_error", &s_b_error}, [WK_B_STATUS] = {"b_status", &s_b_status},
-  [WK_B_DECKS] = {"b_decks", &s_b_decks}, [WK_B_NOTETYPES] = {"b_notetypes", &s_b_notetypes},
-  [WK_B_NOTES] = {"b_notes", &s_b_notes}, [WK_B_VALUES] = {"b_values", &s_b_values},
-  [WK_B_DECK_CREATED] = {"b_deck_created", &s_b_deck_created}, [WK_B_DECK] = {"b_deck", &s_b_deck},
-  [WK_B_NOTE] = {"b_note", &s_b_note}, [WK_B_NOTES_ADDED] = {"b_notes_added", &s_b_notes_added},
-  [WK_B_NOTE_REMOVED] = {"b_note_removed", &s_b_note_removed},
-  [WK_B_DECK_SUMMARY] = {"b_deck_summary", &s_b_deck_summary},
-  [WK_B_DECK_REMOVED] = {"b_deck_removed", &s_b_deck_removed},
-  [WK_B_MEDIA_EXISTS] = {"b_media_exists", &s_b_media_exists},
-  [WK_B_MEDIA_DATA] = {"b_media_data", &s_b_media_data}, [WK_B_MEDIA_ADDED] = {"b_media_added", &s_b_media_added},
-  [WK_B_Q_MEDIA] = {"b_q_media", &s_b_q_media},
-  [WK_PROGRESS] = {"progress", &s_progress},
-  [WK_NOTE] = {"note", &s_note_one}, [WK_B_NOTE_READ] = {"b_note_read", &s_b_note_read},
-  [WK_Q_DECK_LANGUAGES] = {"q_deck_languages", &s_q_deck_languages}, [WK_DECK_LANGUAGES] = {"deck_languages", &s_deck_languages},
-  [WK_B_DECK_LANGUAGES] = {"b_deck_languages", &s_b_deck_languages},
-  [WK_DECK_LANGUAGES_FOUND] = {"deck_languages_found", &s_deck_languages_found},
-  [WK_Q_FILL] = {"q_fill", &s_q_fill}, [WK_FILL_PLAN] = {"fill_plan", &s_fill_plan},
+    [WK_ERROR] = {"error", &s_error}, [WK_STATUS] = {"status", &s_status}, [WK_DECKS] = {"decks", &s_decks},
+    [WK_INSTALL_STATE] = {"install_state", &s_install_state}, [WK_PROFILES] = {"profiles", &s_profiles},
+    [WK_NOTETYPES] = {"notetypes", &s_notetypes}, [WK_NOTES] = {"notes", &s_notes},
+    [WK_FIELD_VALUES] = {"field_values", &s_field_values}, [WK_DECK_CREATED] = {"deck_created", &s_deck_created},
+    [WK_DECK_RENAMED] = {"deck_renamed", &s_deck_renamed}, [WK_NOTE_ADDED] = {"note_added", &s_note_added},
+    [WK_NOTES_ADDED] = {"notes_added", &s_notes_added}, [WK_NOTE_CHANGED] = {"note_changed", &s_note_changed},
+    [WK_CARD_TEXT] = {"card_text", &s_card_text}, [WK_CLIP] = {"clip", &s_clip},
+    [WK_STARTER_STATE] = {"starter_state", &s_starter_state}, [WK_STARTER_BUILT] = {"starter_built", &s_starter_built},
+    [WK_INSTALLED] = {"installed", &s_installed}, [WK_DECK_SUMMARY] = {"deck_summary", &s_deck_summary},
+    [WK_DECK_REMOVED] = {"deck_removed", &s_deck_removed},
+    [WK_Q_DECK_NAME] = {"q_deck_name", &s_q_deck_name}, [WK_Q_INSTALL] = {"q_install", &s_q_install},
+    [WK_Q_STARTER] = {"q_starter", &s_q_starter}, [WK_Q_NOTE] = {"q_note", &s_q_note},
+    [WK_Q_NOTES] = {"q_notes", &s_q_notes}, [WK_Q_NOTE_UPDATE] = {"q_note_update", &s_q_note_update},
+    [WK_Q_CARD_TEXT] = {"q_card_text", &s_q_card_text}, [WK_Q_AUDIO] = {"q_audio", &s_q_audio},
+    [WK_B_ERROR] = {"b_error", &s_b_error}, [WK_B_STATUS] = {"b_status", &s_b_status},
+    [WK_B_DECKS] = {"b_decks", &s_b_decks}, [WK_B_NOTETYPES] = {"b_notetypes", &s_b_notetypes},
+    [WK_B_NOTES] = {"b_notes", &s_b_notes}, [WK_B_VALUES] = {"b_values", &s_b_values},
+    [WK_B_DECK_CREATED] = {"b_deck_created", &s_b_deck_created}, [WK_B_DECK] = {"b_deck", &s_b_deck},
+    [WK_B_NOTE] = {"b_note", &s_b_note}, [WK_B_NOTES_ADDED] = {"b_notes_added", &s_b_notes_added},
+    [WK_B_NOTE_REMOVED] = {"b_note_removed", &s_b_note_removed},
+    [WK_B_DECK_SUMMARY] = {"b_deck_summary", &s_b_deck_summary},
+    [WK_B_DECK_REMOVED] = {"b_deck_removed", &s_b_deck_removed},
+    [WK_B_MEDIA_EXISTS] = {"b_media_exists", &s_b_media_exists},
+    [WK_B_MEDIA_DATA] = {"b_media_data", &s_b_media_data}, [WK_B_MEDIA_ADDED] = {"b_media_added", &s_b_media_added},
+    [WK_B_Q_MEDIA] = {"b_q_media", &s_b_q_media},
+    [WK_PROGRESS] = {"progress", &s_progress},
+    [WK_NOTE] = {"note", &s_note_one}, [WK_B_NOTE_READ] = {"b_note_read", &s_b_note_read},
+    [WK_Q_DECK_LANGUAGES] = {"q_deck_languages", &s_q_deck_languages}, [WK_DECK_LANGUAGES] = {"deck_languages", &s_deck_languages},
+    [WK_B_DECK_LANGUAGES] = {"b_deck_languages", &s_b_deck_languages},
+    [WK_DECK_LANGUAGES_FOUND] = {"deck_languages_found", &s_deck_languages_found},
+    [WK_Q_FILL] = {"q_fill", &s_q_fill}, [WK_FILL_PLAN] = {"fill_plan", &s_fill_plan},
 };
 const char *wire_kind_name(uint32_t kind) { return kind < WK_KINDS ? KINDS[kind].name : 0; }
 const wire_schema *wire_schema_of(uint32_t kind) { return kind < WK_KINDS ? KINDS[kind].schema : 0; }
 
 /* ---- primitive reads ---- */
 uint32_t wire_r_u8(wire_in *in) {
-  if (in->bad || in->end - in->p < 1) return in->bad = 1, 0;
-  return *in->p++;
+    if (in->bad || in->end - in->p < 1) return in->bad = 1, 0;
+    return *in->p++;
 }
 uint32_t wire_r_u32(wire_in *in) {
-  if (in->bad || in->end - in->p < 4) return in->bad = 1, 0;
-  const uint8_t *p = in->p;
-  in->p += 4;
-  return (uint32_t)p[0] | (uint32_t)p[1] << 8 | (uint32_t)p[2] << 16 | (uint32_t)p[3] << 24;
+    if (in->bad || in->end - in->p < 4) return in->bad = 1, 0;
+    const uint8_t *p = in->p;
+    in->p += 4;
+    return (uint32_t)p[0] | (uint32_t)p[1] << 8 | (uint32_t)p[2] << 16 | (uint32_t)p[3] << 24;
 }
 int64_t wire_r_i64(wire_in *in) {
-  uint64_t lo = wire_r_u32(in), hi = wire_r_u32(in);
-  return (int64_t)(lo | hi << 32);
+    uint64_t lo = wire_r_u32(in), hi = wire_r_u32(in);
+    return (int64_t)(lo | hi << 32);
 }
 wire_str wire_r_str(wire_in *in) {
-  wire_str s = {"", 0};
-  uint32_t n = wire_r_u32(in);
-  if (in->bad || (uint32_t)(in->end - in->p) < n) return in->bad = 1, s;
-  s.p = (const char *)in->p;
-  s.len = n;
-  in->p += n;
-  return s;
+    wire_str s = {"", 0};
+    uint32_t n = wire_r_u32(in);
+    if (in->bad || (uint32_t)(in->end - in->p) < n) return in->bad = 1, s;
+    s.p = (const char *)in->p;
+    s.len = n;
+    in->p += n;
+    return s;
 }
 int wire_open(wire_in *in, uint32_t kind, const uint8_t *p, uint32_t len) {
-  in->p = p;
-  in->end = p + len;
-  in->bad = 0;
-  if (wire_r_u32(in) != WIRE_MAGIC) return 0;
-  return wire_r_u8(in) == kind && !in->bad;
+    in->p = p;
+    in->end = p + len;
+    in->bad = 0;
+    if (wire_r_u32(in) != WIRE_MAGIC) return 0;
+    return wire_r_u8(in) == kind && !in->bad;
 }
 int32_t wire_kind(const uint8_t *p, uint32_t len) {
-  wire_in in = {p, p + len, 0};
-  if (wire_r_u32(&in) != WIRE_MAGIC) return -1;
-  uint32_t k = wire_r_u8(&in);
-  return in.bad ? -1 : (int32_t)k;
+    wire_in in = {p, p + len, 0};
+    if (wire_r_u32(&in) != WIRE_MAGIC) return -1;
+    uint32_t k = wire_r_u8(&in);
+    return in.bad ? -1 : (int32_t)k;
 }
 
 /* ---- the app's reader: one walk that either counts the room its lists need (out 0) or fills ---- */
@@ -285,151 +285,151 @@ typedef struct { uint8_t *mem; uint32_t used; } room;
 
 static void walk_read(wire_in *in, const wire_schema *s, uint8_t *out, room *r);
 static void *take(room *r, uint32_t n) {
-  void *at = r->mem ? r->mem + r->used : 0;
-  r->used += ALIGN8(n);
-  return at;
+    void *at = r->mem ? r->mem + r->used : 0;
+    r->used += ALIGN8(n);
+    return at;
 }
 static void walk_field(wire_in *in, const wire_field *f, uint8_t *out, room *r) {
-  uint8_t *at = out ? out + f->off : 0;
-  switch (f->type) {
-  case WT_BOOL: case WT_TRI: case WT_MODE: {
-    uint32_t v = wire_r_u8(in);
-    if (!at) break;
-    if (f->type == WT_MODE) *(uint32_t *)at = v;
-    else *at = (uint8_t)v;
-    break;
-  }
-  case WT_U32: case WT_OPT: case WT_I32: {
-    uint32_t v = wire_r_u32(in);
-    if (at) *(uint32_t *)at = v;
-    break;
-  }
-  case WT_I64: {
-    int64_t v = wire_r_i64(in);
-    if (at) __builtin_memcpy(at, &v, sizeof v);
-    break;
-  }
-  case WT_STR: case WT_BYTES: {
-    wire_str v = wire_r_str(in);
-    if (at) *(wire_str *)at = v;
-    break;
-  }
-  case WT_STRS: {
-    /* A count past what the bytes hold costs nothing: the first read past the end sets bad and every
-     * loop here stops on it, and room is only ever taken for a message wire_room found whole. */
-    uint32_t n = wire_r_u32(in);
-    wire_str *v = take(r, n * (uint32_t)sizeof(wire_str));
-    for (uint32_t i = 0; i < n && !in->bad; i++) {
-      wire_str s = wire_r_str(in);
-      if (v) v[i] = s;
+    uint8_t *at = out ? out + f->off : 0;
+    switch (f->type) {
+    case WT_BOOL: case WT_TRI: case WT_MODE: {
+        uint32_t v = wire_r_u8(in);
+        if (!at) break;
+        if (f->type == WT_MODE) *(uint32_t *)at = v;
+        else *at = (uint8_t)v;
+        break;
     }
-    if (at) *(wire_strs *)at = (wire_strs){v, n};
-    break;
-  }
-  case WT_LIST: {
-    uint32_t n = wire_r_u32(in);
-    uint8_t *items = take(r, n * f->sub->size);
-    for (uint32_t i = 0; i < n && !in->bad; i++) walk_read(in, f->sub, items ? items + i * f->sub->size : 0, r);
-    if (at) {
-      *(void **)at = items;
-      *(uint32_t *)(out + f->off_n) = n;
+    case WT_U32: case WT_OPT: case WT_I32: {
+        uint32_t v = wire_r_u32(in);
+        if (at) *(uint32_t *)at = v;
+        break;
     }
-    break;
-  }
-  default: in->bad = 1;
-  }
+    case WT_I64: {
+        int64_t v = wire_r_i64(in);
+        if (at) __builtin_memcpy(at, &v, sizeof v);
+        break;
+    }
+    case WT_STR: case WT_BYTES: {
+        wire_str v = wire_r_str(in);
+        if (at) *(wire_str *)at = v;
+        break;
+    }
+    case WT_STRS: {
+        /* A count past what the bytes hold costs nothing: the first read past the end sets bad and every
+         * loop here stops on it, and room is only ever taken for a message wire_room found whole. */
+        uint32_t n = wire_r_u32(in);
+        wire_str *v = take(r, n * (uint32_t)sizeof(wire_str));
+        for (uint32_t i = 0; i < n && !in->bad; i++) {
+            wire_str s = wire_r_str(in);
+            if (v) v[i] = s;
+        }
+        if (at) *(wire_strs *)at = (wire_strs){v, n};
+        break;
+    }
+    case WT_LIST: {
+        uint32_t n = wire_r_u32(in);
+        uint8_t *items = take(r, n * f->sub->size);
+        for (uint32_t i = 0; i < n && !in->bad; i++) walk_read(in, f->sub, items ? items + i * f->sub->size : 0, r);
+        if (at) {
+            *(void **)at = items;
+            *(uint32_t *)(out + f->off_n) = n;
+        }
+        break;
+    }
+    default: in->bad = 1;
+    }
 }
 static void walk_read(wire_in *in, const wire_schema *s, uint8_t *out, room *r) {
-  if (out) __builtin_memset(out, 0, s->size);
-  for (uint32_t i = 0; i < s->n && !in->bad; i++) walk_field(in, &s->f[i], out, r);
+    if (out) __builtin_memset(out, 0, s->size);
+    for (uint32_t i = 0; i < s->n && !in->bad; i++) walk_field(in, &s->f[i], out, r);
 }
 
 uint32_t wire_room(uint32_t kind, const uint8_t *p, uint32_t len) {
-  wire_in in;
-  room r = {0, 0};
-  if (kind >= WK_KINDS || !wire_open(&in, kind, p, len)) return WIRE_NONE;
-  walk_read(&in, KINDS[kind].schema, 0, &r);
-  return in.bad || in.p != in.end ? WIRE_NONE : r.used;
+    wire_in in;
+    room r = {0, 0};
+    if (kind >= WK_KINDS || !wire_open(&in, kind, p, len)) return WIRE_NONE;
+    walk_read(&in, KINDS[kind].schema, 0, &r);
+    return in.bad || in.p != in.end ? WIRE_NONE : r.used;
 }
 /* Only after wire_room said the bytes are whole: that is the one check of them. */
 void wire_decode(uint32_t kind, const uint8_t *p, uint32_t len, void *out, void *mem) {
-  wire_in in;
-  room r = {mem, 0};
-  wire_open(&in, kind, p, len);
-  walk_read(&in, KINDS[kind].schema, out, &r);
+    wire_in in;
+    room r = {mem, 0};
+    wire_open(&in, kind, p, len);
+    walk_read(&in, KINDS[kind].schema, out, &r);
 }
 
 /* ---- primitive writes ---- */
 static uint8_t *w_room(wire_buf *b, uint32_t n) {
-  if (b->cap - b->len < n) {
-    uint32_t cap = b->cap ? b->cap : 256;
-    while (cap - b->len < n) cap *= 2;
-    b->p = wire_grow(b->p, b->len, cap);
-    b->cap = cap;
-  }
-  uint8_t *at = b->p + b->len;
-  b->len += n;
-  return at;
+    if (b->cap - b->len < n) {
+        uint32_t cap = b->cap ? b->cap : 256;
+        while (cap - b->len < n) cap *= 2;
+        b->p = wire_grow(b->p, b->len, cap);
+        b->cap = cap;
+    }
+    uint8_t *at = b->p + b->len;
+    b->len += n;
+    return at;
 }
 void wire_u8(wire_buf *b, uint32_t v) { *w_room(b, 1) = (uint8_t)v; }
 void wire_u32(wire_buf *b, uint32_t v) {
-  uint8_t *p = w_room(b, 4);
-  p[0] = (uint8_t)v;
-  p[1] = (uint8_t)(v >> 8);
-  p[2] = (uint8_t)(v >> 16);
-  p[3] = (uint8_t)(v >> 24);
+    uint8_t *p = w_room(b, 4);
+    p[0] = (uint8_t)v;
+    p[1] = (uint8_t)(v >> 8);
+    p[2] = (uint8_t)(v >> 16);
+    p[3] = (uint8_t)(v >> 24);
 }
 void wire_i64(wire_buf *b, int64_t v) {
-  wire_u32(b, (uint32_t)(uint64_t)v);
-  wire_u32(b, (uint32_t)((uint64_t)v >> 32));
+    wire_u32(b, (uint32_t)(uint64_t)v);
+    wire_u32(b, (uint32_t)((uint64_t)v >> 32));
 }
 void wire_bytes(wire_buf *b, const void *p, uint32_t n) {
-  wire_u32(b, n);
-  if (n) __builtin_memcpy(w_room(b, n), p, n);
+    wire_u32(b, n);
+    if (n) __builtin_memcpy(w_room(b, n), p, n);
 }
 void wire_begin(wire_buf *b, uint32_t kind) {
-  b->len = 0;
-  wire_u32(b, WIRE_MAGIC);
-  wire_u8(b, kind);
+    b->len = 0;
+    wire_u32(b, WIRE_MAGIC);
+    wire_u8(b, kind);
 }
 
 /* ---- the app's writer: a request from its struct ---- */
 static void walk_write(wire_buf *b, const wire_schema *s, const uint8_t *in) {
-  for (uint32_t i = 0; i < s->n; i++) {
-    const wire_field *f = &s->f[i];
-    const uint8_t *at = in + f->off;
-    switch (f->type) {
-    case WT_BOOL: case WT_TRI: wire_u8(b, *at); break;
-    case WT_MODE: wire_u8(b, *(const uint32_t *)at); break;
-    case WT_U32: case WT_OPT: case WT_I32: wire_u32(b, *(const uint32_t *)at); break;
-    case WT_I64: {
-      int64_t v;
-      __builtin_memcpy(&v, at, sizeof v);
-      wire_i64(b, v);
-      break;
+    for (uint32_t i = 0; i < s->n; i++) {
+        const wire_field *f = &s->f[i];
+        const uint8_t *at = in + f->off;
+        switch (f->type) {
+        case WT_BOOL: case WT_TRI: wire_u8(b, *at); break;
+        case WT_MODE: wire_u8(b, *(const uint32_t *)at); break;
+        case WT_U32: case WT_OPT: case WT_I32: wire_u32(b, *(const uint32_t *)at); break;
+        case WT_I64: {
+            int64_t v;
+            __builtin_memcpy(&v, at, sizeof v);
+            wire_i64(b, v);
+            break;
+        }
+        case WT_STR: case WT_BYTES: {
+            const wire_str *v = (const wire_str *)at;
+            wire_bytes(b, v->p, v->len);
+            break;
+        }
+        case WT_STRS: {
+            const wire_strs *v = (const wire_strs *)at;
+            wire_u32(b, v->n);
+            for (uint32_t k = 0; k < v->n; k++) wire_bytes(b, v->v[k].p, v->v[k].len);
+            break;
+        }
+        case WT_LIST: {
+            const uint8_t *items = *(const uint8_t *const *)at;
+            uint32_t n = *(const uint32_t *)(in + f->off_n);
+            wire_u32(b, n);
+            for (uint32_t k = 0; k < n; k++) walk_write(b, f->sub, items + k * f->sub->size);
+            break;
+        }
+        }
     }
-    case WT_STR: case WT_BYTES: {
-      const wire_str *v = (const wire_str *)at;
-      wire_bytes(b, v->p, v->len);
-      break;
-    }
-    case WT_STRS: {
-      const wire_strs *v = (const wire_strs *)at;
-      wire_u32(b, v->n);
-      for (uint32_t k = 0; k < v->n; k++) wire_bytes(b, v->v[k].p, v->v[k].len);
-      break;
-    }
-    case WT_LIST: {
-      const uint8_t *items = *(const uint8_t *const *)at;
-      uint32_t n = *(const uint32_t *)(in + f->off_n);
-      wire_u32(b, n);
-      for (uint32_t k = 0; k < n; k++) walk_write(b, f->sub, items + k * f->sub->size);
-      break;
-    }
-    }
-  }
 }
 void wire_encode(wire_buf *b, uint32_t kind, const void *in) {
-  wire_begin(b, kind);
-  walk_write(b, KINDS[kind].schema, in);
+    wire_begin(b, kind);
+    walk_write(b, KINDS[kind].schema, in);
 }

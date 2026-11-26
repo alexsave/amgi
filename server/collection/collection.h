@@ -28,9 +28,9 @@
 #include "util.h"
 
 typedef struct {
-  const char *kind; /* "locked", "not-found", "unsupported-schema", or NULL for an error */
-  int status;       /* an HTTP status the error carries (404, 400), or 0 */
-  str message;
+    const char *kind; /* "locked", "not-found", "unsupported-schema", or NULL for an error */
+    int status;       /* an HTTP status the error carries (404, 400), or 0 */
+    str message;
 } col_err;
 
 typedef struct { const char *status; int schema; } col_state; /* status "ok" (schema set), "locked", ... */
@@ -39,39 +39,39 @@ typedef struct { const char *status; int schema; } col_state; /* status "ok" (sc
 typedef struct { int64_t id; str name, known, learning; } col_deck;
 typedef struct { int64_t ord; str name, question, answer; } col_template;
 typedef struct {
-  int64_t id;
-  str name;
-  int cloze;
-  int64_t sort_field;
-  str *fields;
-  size_t nfields;
-  col_template *templates;
-  size_t ntemplates;
+    int64_t id;
+    str name;
+    int cloze;
+    int64_t sort_field;
+    str *fields;
+    size_t nfields;
+    col_template *templates;
+    size_t ntemplates;
 } col_notetype;
 typedef struct { int64_t id, notetype_id; str *fields; size_t nfields; str *tags; size_t ntags; } col_note;
 typedef struct { col_note *notes; size_t n; double offset, limit; int has_more; } col_page;
 
 /* A note to add (q_note): language and the learning field index are optional (has_*). */
 typedef struct {
-  double deck_id, notetype_id;
-  str *fields;
-  size_t nfields;
-  str *tags;
-  size_t ntags;
-  int has_language;
-  str language;
-  int has_learning_field;
-  double learning_field;
+    double deck_id, notetype_id;
+    str *fields;
+    size_t nfields;
+    str *tags;
+    size_t ntags;
+    int has_language;
+    str language;
+    int has_learning_field;
+    double learning_field;
 } col_new_note;
 typedef struct {
-  int ok;     /* addNotesBulk: this note went in; else error says why */
-  str error;
-  int64_t note_id;
-  str guid;
-  int64_t *card_ids;
-  size_t ncards;
-  int has_warning;
-  str warning;
+    int ok;     /* addNotesBulk: this note went in; else error says why */
+    str error;
+    int64_t note_id;
+    str guid;
+    int64_t *card_ids;
+    size_t ncards;
+    int has_warning;
+    str warning;
 } col_added;
 
 typedef struct { int64_t id; str name; int created; } col_deck_made;
@@ -83,14 +83,14 @@ typedef struct { str name, front, back; } col_spec_template;
 typedef struct { int64_t ord; str kind; int64_t *fields; size_t nfields; } col_requirement;
 typedef struct { str name; const void *data; size_t len; } col_media;
 typedef struct {
-  str name;
-  str *fields;
-  size_t nfields;
-  col_spec_template *templates;
-  size_t ntemplates;
-  str css;
-  col_requirement *reqs;
-  size_t nreqs;
+    str name;
+    str *fields;
+    size_t nfields;
+    col_spec_template *templates;
+    size_t ntemplates;
+    str css;
+    col_requirement *reqs;
+    size_t nreqs;
 } col_spec;
 typedef struct { int created; int has_id; int64_t notetype_id; str reason; } col_notetype_made;
 

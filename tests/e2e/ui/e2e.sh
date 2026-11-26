@@ -19,7 +19,7 @@ logs="$root/.e2e/servers"
 mkdir -p "$shots" "$logs"
 # states.mjs builds collections of its own, as tests/e2e/ui/fixture.sh does.
 for v in ANKI_PYTHON_BIN ANKI_FIXTURE_APKG; do
-  if [ -z "${!v:-}" ]; then echo "set $v (see the e2e-ui skill)" >&2; exit 1; fi
+    if [ -z "${!v:-}" ]; then echo "set $v (see the e2e-ui skill)" >&2; exit 1; fi
 done
 server=("$root/server/build/amgi" serve)
 pids=()
@@ -28,14 +28,14 @@ trap '[ ${#pids[@]} -gt 0 ] && kill "${pids[@]}" 2> /dev/null; rm -rf "$sandbox_
 # start <var> <line prefix> <command...>: runs it in the background, waits for the line that names
 # its URL, and sets <var> to the URL (empty if it never came)
 start() {
-  local var="$1" prefix="$2" log="$logs/$1.log" n=0
-  shift 2
-  "$@" > "$log" 2>&1 &
-  pids+=($!)
-  until grep -q "$prefix" "$log" || [ $n -gt 100 ]; do sleep 0.1; n=$((n + 1)); done
-  printf -v "$var" '%s' "$(grep -o "$prefix[^ ]*" "$log" | head -1 | sed "s|^$prefix||")"
-  if [ -z "${!var}" ]; then echo "$var did not start: see $log" >&2; exit 1; fi
-  case "${!var}" in http*) ;; *) printf -v "$var" 'http://%s' "${!var}" ;; esac
+    local var="$1" prefix="$2" log="$logs/$1.log" n=0
+    shift 2
+    "$@" > "$log" 2>&1 &
+    pids+=($!)
+    until grep -q "$prefix" "$log" || [ $n -gt 100 ]; do sleep 0.1; n=$((n + 1)); done
+    printf -v "$var" '%s' "$(grep -o "$prefix[^ ]*" "$log" | head -1 | sed "s|^$prefix||")"
+    if [ -z "${!var}" ]; then echo "$var did not start: see $log" >&2; exit 1; fi
+    case "${!var}" in http*) ;; *) printf -v "$var" 'http://%s' "${!var}" ;; esac
 }
 listening='cbase: listening '
 start gemini GEMINI_API_BASE= env "HOME=$(fresh_home)" node tests/server/plusaudio/helpers/fake-gemini.js 0
@@ -49,10 +49,10 @@ failed=$?
 # With DRIVES set (some of drives.sh's drives, by name), only those run, and this only when it is named too.
 incident=0
 case " ${DRIVES:-incident1842} " in
-  *" incident1842 "*)
-    make -s -C server build/anki_standin && INCIDENT1842_NO_BUILD=1 tests/e2e/ui/incident1842.sh > "$logs/incident1842.log" 2>&1
-    incident=$?
-    echo "incident1842: $(grep -c '^ok' "$logs/incident1842.log") ok"
-    grep -v '^ok' "$logs/incident1842.log" ;;
+    *" incident1842 "*)
+        make -s -C server build/anki_standin && INCIDENT1842_NO_BUILD=1 tests/e2e/ui/incident1842.sh > "$logs/incident1842.log" 2>&1
+        incident=$?
+        echo "incident1842: $(grep -c '^ok' "$logs/incident1842.log") ok"
+        grep -v '^ok' "$logs/incident1842.log" ;;
 esac
 [ $failed -eq 0 ] && [ $incident -eq 0 ]

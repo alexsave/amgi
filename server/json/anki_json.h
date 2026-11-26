@@ -22,14 +22,14 @@ enum { AJ_NULL, AJ_BOOL, AJ_NUM, AJ_STR, AJ_ARR, AJ_OBJ };
 typedef struct aj aj;
 typedef struct { str key; aj *value; } aj_entry;
 struct aj {
-  int type;
-  int b;
-  double num;
-  str s; /* WTF-8: UTF-8, with a lone surrogate from a \u escape kept as its three-byte form */
-  aj **items;
-  size_t n, cap; /* items of an array */
-  aj_entry *entries;
-  size_t ne, ecap; /* entries of an object, in the order first set */
+    int type;
+    int b;
+    double num;
+    str s; /* WTF-8: UTF-8, with a lone surrogate from a \u escape kept as its three-byte form */
+    aj **items;
+    size_t n, cap; /* items of an array */
+    aj_entry *entries;
+    size_t ne, ecap; /* entries of an object, in the order first set */
 };
 
 /* JSON.parse: the value, or NULL with *error set to why. */

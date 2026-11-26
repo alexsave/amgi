@@ -23,273 +23,273 @@ fs.mkdirSync(out, { recursive: true });
 const collection = path.join(ankiDir, 'User 1', 'collection.anki2');
 const failures = [];
 const check = (ok, what) => {
-  console.log(`${ok ? 'ok  ' : 'FAIL'} ${what}`);
-  if (!ok) failures.push(what);
+    console.log(`${ok ? 'ok  ' : 'FAIL'} ${what}`);
+    if (!ok) failures.push(what);
 };
 async function until(b, expr, tries = 100) {
-  let v;
-  for (let i = 0; i < tries; i++) {
-    v = await b.evaluate(expr);
-    if (v) return v;
-    await sleep(100);
-  }
-  return v;
+    let v;
+    for (let i = 0; i < tries; i++) {
+        v = await b.evaluate(expr);
+        if (v) return v;
+        await sleep(100);
+    }
+    return v;
 }
 async function goto(b, url) {
-  await b.send('Page.navigate', { url });
-  await until(b, `document.readyState === 'complete'`);
+    await b.send('Page.navigate', { url });
+    await until(b, `document.readyState === 'complete'`);
 }
 const shot = shotter(out, name);
 async function click(b, selector) {
-  const box = await b.evaluate(`(() => { const e = document.querySelector(${JSON.stringify(selector)});
+    const box = await b.evaluate(`(() => { const e = document.querySelector(${JSON.stringify(selector)});
     e?.scrollIntoView({ block: 'center', behavior: 'instant' }); const r = e?.getBoundingClientRect();
     return r ? [r.left + r.width / 2, r.top + r.height / 2] : null; })()`);
-  if (!box) throw new Error(`nothing to click at ${selector}`);
-  for (const type of ['mouseMoved', 'mousePressed', 'mouseReleased']) {
-    await b.send('Input.dispatchMouseEvent', { type, x: box[0], y: box[1], button: 'left', clickCount: 1 });
-  }
+    if (!box) throw new Error(`nothing to click at ${selector}`);
+    for (const type of ['mouseMoved', 'mousePressed', 'mouseReleased']) {
+        await b.send('Input.dispatchMouseEvent', { type, x: box[0], y: box[1], button: 'left', clickCount: 1 });
+    }
 }
 const key = async (b, k, code, keyCode) => {
-  await b.send('Input.dispatchKeyEvent', { type: 'keyDown', key: k, code, windowsVirtualKeyCode: keyCode });
-  await b.send('Input.dispatchKeyEvent', { type: 'keyUp', key: k, code, windowsVirtualKeyCode: keyCode });
+    await b.send('Input.dispatchKeyEvent', { type: 'keyDown', key: k, code, windowsVirtualKeyCode: keyCode });
+    await b.send('Input.dispatchKeyEvent', { type: 'keyUp', key: k, code, windowsVirtualKeyCode: keyCode });
 };
 const selectAll = (b) => b.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'a', code: 'KeyA', modifiers: 4, windowsVirtualKeyCode: 65, commands: ['selectAll'] });
 const rows = `[...document.querySelectorAll('.note-row-target')].map(e => e.textContent).join(' | ')`;
 
 const b = await launchChrome();
 const watchdog = setTimeout(async () => {
-  console.log('FAIL the drive took more than 4 minutes');
-  await b.close();
-  process.exit(1);
+    console.log('FAIL the drive took more than 4 minutes');
+    await b.close();
+    process.exit(1);
 }, 240000);
 const pageErrors = [];
 const held = []; // Fetch.requestPaused ids of the held requests
 b.onEvent = (d) => {
-  if (d.method === 'Fetch.requestPaused') held.push(d.params.requestId);
-  if (d.method === 'Runtime.exceptionThrown') pageErrors.push(d.params.exceptionDetails.exception?.description || d.params.exceptionDetails.text);
-  if (d.method === 'Runtime.consoleAPICalled' && d.params.type === 'error') pageErrors.push(d.params.args.map((a) => a.value ?? a.description).join(' '));
+    if (d.method === 'Fetch.requestPaused') held.push(d.params.requestId);
+    if (d.method === 'Runtime.exceptionThrown') pageErrors.push(d.params.exceptionDetails.exception?.description || d.params.exceptionDetails.text);
+    if (d.method === 'Runtime.consoleAPICalled' && d.params.type === 'error') pageErrors.push(d.params.args.map((a) => a.value ?? a.description).join(' '));
 };
 try {
-  await b.send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 900, deviceScaleFactor: 2, mobile: false });
-  await seed(b, base, { baseDir: ankiDir, collection, profile: 'User 1' });
-  await goto(b, `${base}/decks`);
-  await until(b, `document.querySelectorAll('.deck-item').length === 8`, 150);
-  const i = await b.evaluate(`[...document.querySelectorAll('.deck-item h3')].findIndex(h => h.textContent === '한국어')`);
-  await click(b, `.deck-item:nth-child(${i + 1})`);
-  check(await until(b, `document.querySelectorAll('.note-rows > li').length === 4`, 150), 'the deck page, four notes');
-
-  // Chips are kept in a table of 256 slots, and a slot is free again when its chip's page goes.
-  // Enough visits to use the table several times over: a visit whose chips were not freed would find
-  // the table full and show fewer chips than the first.
-  const chipsOf = `document.querySelectorAll('.note-rows .audio-chip').length`;
-  const perVisit = await b.evaluate(chipsOf);
-  const visits = Math.ceil(256 / perVisit) + 2;
-  check(perVisit > 0, `the deck page has chips to count (${perVisit})`);
-  let last = perVisit;
-  for (let v = 1; v < visits && last === perVisit; v++) {
-    await click(b, '.back-btn');
+    await b.send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 900, deviceScaleFactor: 2, mobile: false });
+    await seed(b, base, { baseDir: ankiDir, collection, profile: 'User 1' });
+    await goto(b, `${base}/decks`);
     await until(b, `document.querySelectorAll('.deck-item').length === 8`, 150);
+    const i = await b.evaluate(`[...document.querySelectorAll('.deck-item h3')].findIndex(h => h.textContent === '한국어')`);
     await click(b, `.deck-item:nth-child(${i + 1})`);
+    check(await until(b, `document.querySelectorAll('.note-rows > li').length === 4`, 150), 'the deck page, four notes');
+
+    // Chips are kept in a table of 256 slots, and a slot is free again when its chip's page goes.
+    // Enough visits to use the table several times over: a visit whose chips were not freed would find
+    // the table full and show fewer chips than the first.
+    const chipsOf = `document.querySelectorAll('.note-rows .audio-chip').length`;
+    const perVisit = await b.evaluate(chipsOf);
+    const visits = Math.ceil(256 / perVisit) + 2;
+    check(perVisit > 0, `the deck page has chips to count (${perVisit})`);
+    let last = perVisit;
+    for (let v = 1; v < visits && last === perVisit; v++) {
+        await click(b, '.back-btn');
+        await until(b, `document.querySelectorAll('.deck-item').length === 8`, 150);
+        await click(b, `.deck-item:nth-child(${i + 1})`);
+        await until(b, `document.querySelectorAll('.note-rows > li').length === 4`, 150);
+        await until(b, `${chipsOf} === ${perVisit}`, 50);
+        last = await b.evaluate(chipsOf);
+    }
+    check(last === perVisit, `a deck page visited ${visits} times still shows every chip (each visit's chips are freed with it): ${last} of ${perVisit}`);
+
+    // 1. A card opened in its row; Target changed; saved when the field is left (Enter).
+    await click(b, '.note-rows > li:nth-child(3) .note-row-edit');
+    check(await until(b, `!!document.querySelector('.note-rows > li.is-open .card-panel') && document.querySelector('.note-rows > li:nth-child(3) .note-row-edit').textContent === 'Close'`), 'Edit opens the card, the button says Close');
+    const labels = await b.evaluate(`[...document.querySelectorAll('.card-panel-label')].map(l => l.textContent).join('|')`);
+    check(labels === '한국어|English|Notes optional', `the fields are named by language: ${labels}`);
+    const redo = await b.evaluate(`[...document.querySelectorAll('.card-panel-redo')].map(l => l.textContent).join('|')`);
+    check(redo === 'Redo 한국어|Redo English', `the redo buttons: ${redo}`);
+    await sleep(300);
+    await shot(b, '20-panel');
+    await click(b, '.card-panel-value-big');
+    await selectAll(b);
+    await b.send('Input.insertText', { text: '안녕하세요!' });
+    await key(b, 'Enter', 'Enter', 13);
+    await sleep(1500);
+    await click(b, '.note-rows > li:nth-child(3) .note-row-edit'); // Close
+    await goto(b, `${base}${await b.evaluate('location.pathname')}`);
     await until(b, `document.querySelectorAll('.note-rows > li').length === 4`, 150);
-    await until(b, `${chipsOf} === ${perVisit}`, 50);
-    last = await b.evaluate(chipsOf);
-  }
-  check(last === perVisit, `a deck page visited ${visits} times still shows every chip (each visit's chips are freed with it): ${last} of ${perVisit}`);
+    check(/안녕하세요!/.test(await b.evaluate(rows)), `the change is in Anki: ${await b.evaluate(rows)}`);
 
-  // 1. A card opened in its row; Target changed; saved when the field is left (Enter).
-  await click(b, '.note-rows > li:nth-child(3) .note-row-edit');
-  check(await until(b, `!!document.querySelector('.note-rows > li.is-open .card-panel') && document.querySelector('.note-rows > li:nth-child(3) .note-row-edit').textContent === 'Close'`), 'Edit opens the card, the button says Close');
-  const labels = await b.evaluate(`[...document.querySelectorAll('.card-panel-label')].map(l => l.textContent).join('|')`);
-  check(labels === '한국어|English|Notes optional', `the fields are named by language: ${labels}`);
-  const redo = await b.evaluate(`[...document.querySelectorAll('.card-panel-redo')].map(l => l.textContent).join('|')`);
-  check(redo === 'Redo 한국어|Redo English', `the redo buttons: ${redo}`);
-  await sleep(300);
-  await shot(b, '20-panel');
-  await click(b, '.card-panel-value-big');
-  await selectAll(b);
-  await b.send('Input.insertText', { text: '안녕하세요!' });
-  await key(b, 'Enter', 'Enter', 13);
-  await sleep(1500);
-  await click(b, '.note-rows > li:nth-child(3) .note-row-edit'); // Close
-  await goto(b, `${base}${await b.evaluate('location.pathname')}`);
-  await until(b, `document.querySelectorAll('.note-rows > li').length === 4`, 150);
-  check(/안녕하세요!/.test(await b.evaluate(rows)), `the change is in Anki: ${await b.evaluate(rows)}`);
+    // 2. Redo with Gemini unreachable: the error, under the clips.
+    await click(b, '.note-rows > li:nth-child(3) .note-row-edit');
+    await until(b, `!!document.querySelector('.card-panel')`);
+    await click(b, '.card-panel-redo');
+    const err = await until(b, `document.querySelector('.card-panel-error')?.textContent`, 300);
+    check(/Failed to generate valid audio/.test(err || ''), `Redo says why it failed: ${err}`);
+    check(await until(b, `[...document.querySelectorAll('.card-panel-redo')].every(b => !b.disabled)`), 'and the buttons come back');
+    await sleep(300);
+    await shot(b, '21-redo-failed');
+    await click(b, '.note-rows > li:nth-child(3) .note-row-edit');
 
-  // 2. Redo with Gemini unreachable: the error, under the clips.
-  await click(b, '.note-rows > li:nth-child(3) .note-row-edit');
-  await until(b, `!!document.querySelector('.card-panel')`);
-  await click(b, '.card-panel-redo');
-  const err = await until(b, `document.querySelector('.card-panel-error')?.textContent`, 300);
-  check(/Failed to generate valid audio/.test(err || ''), `Redo says why it failed: ${err}`);
-  check(await until(b, `[...document.querySelectorAll('.card-panel-redo')].every(b => !b.disabled)`), 'and the buttons come back');
-  await sleep(300);
-  await shot(b, '21-redo-failed');
-  await click(b, '.note-rows > li:nth-child(3) .note-row-edit');
+    // 2b. The card is closed while its Redo is out: the answer (an error here, Gemini being unreachable) finds no card to
+    // draw it in, so it draws nothing and throws nothing, and the card opened again is as new.
+    await b.send('Fetch.enable', { patterns: [{ urlPattern: '*/api/anki/audio', requestStage: 'Request' }] });
+    held.length = 0;
+    const errorsBefore = pageErrors.length;
+    await click(b, '.note-rows > li:nth-child(3) .note-row-edit');
+    await until(b, `!!document.querySelector('.card-panel')`);
+    await click(b, '.card-panel-redo');
+    for (let i = 0; i < 100 && !held.length; i++) await sleep(100);
+    check(held.length === 1, 'a Redo is held in flight');
+    await click(b, '.note-rows > li:nth-child(3) .note-row-edit'); // Close
+    check(await until(b, `!document.querySelector('.card-panel')`), 'and its card is closed meanwhile');
+    await b.send('Fetch.continueRequest', { requestId: held[0] });
+    await b.send('Fetch.disable');
+    await sleep(1500);
+    check(pageErrors.length === errorsBefore, `an answer that comes after its card closed throws nothing${pageErrors.length > errorsBefore ? ` (${pageErrors.slice(errorsBefore).join(' / ')})` : ''}`);
+    await click(b, '.note-rows > li:nth-child(3) .note-row-edit');
+    await until(b, `!!document.querySelector('.card-panel')`);
+    check(await b.evaluate(`!document.querySelector('.card-panel-error') && [...document.querySelectorAll('.card-panel-redo')].map(e => e.textContent + e.disabled).join('|') === 'Redo 한국어false|Redo Englishfalse'`),
+      'and the card opened again shows no error and both Redo buttons ready');
+    await click(b, '.note-rows > li:nth-child(3) .note-row-edit');
 
-  // 2b. The card is closed while its Redo is out: the answer (an error here, Gemini being unreachable) finds no card to
-  // draw it in, so it draws nothing and throws nothing, and the card opened again is as new.
-  await b.send('Fetch.enable', { patterns: [{ urlPattern: '*/api/anki/audio', requestStage: 'Request' }] });
-  held.length = 0;
-  const errorsBefore = pageErrors.length;
-  await click(b, '.note-rows > li:nth-child(3) .note-row-edit');
-  await until(b, `!!document.querySelector('.card-panel')`);
-  await click(b, '.card-panel-redo');
-  for (let i = 0; i < 100 && !held.length; i++) await sleep(100);
-  check(held.length === 1, 'a Redo is held in flight');
-  await click(b, '.note-rows > li:nth-child(3) .note-row-edit'); // Close
-  check(await until(b, `!document.querySelector('.card-panel')`), 'and its card is closed meanwhile');
-  await b.send('Fetch.continueRequest', { requestId: held[0] });
-  await b.send('Fetch.disable');
-  await sleep(1500);
-  check(pageErrors.length === errorsBefore, `an answer that comes after its card closed throws nothing${pageErrors.length > errorsBefore ? ` (${pageErrors.slice(errorsBefore).join(' / ')})` : ''}`);
-  await click(b, '.note-rows > li:nth-child(3) .note-row-edit');
-  await until(b, `!!document.querySelector('.card-panel')`);
-  check(await b.evaluate(`!document.querySelector('.card-panel-error') && [...document.querySelectorAll('.card-panel-redo')].map(e => e.textContent + e.disabled).join('|') === 'Redo 한국어false|Redo Englishfalse'`),
-    'and the card opened again shows no error and both Redo buttons ready');
-  await click(b, '.note-rows > li:nth-child(3) .note-row-edit');
-
-  // 3. A row deleted: Cancel keeps it, Delete takes it.
-  await click(b, '.note-rows > li:nth-child(1) .note-row-delete');
-  check(await until(b, `!!document.querySelector('dialog.confirm-dialog[open]') && document.activeElement?.classList.contains('submit-btn')`), 'the page asks, in a modal dialog, the action focused');
-  const asked = await b.evaluate(`document.querySelector('dialog.confirm-dialog p')?.textContent`);
-  check(asked === '역이 어디예요?', `it names the card: ${asked}`);
-  await sleep(300);
-  await shot(b, '22-confirm');
-  await click(b, 'dialog.confirm-dialog .cancel-btn');
-  check(await until(b, `!document.querySelector('dialog.confirm-dialog')`), 'Cancel closes it');
-  await sleep(500);
-  check((await b.evaluate(rows)).startsWith('역이 어디예요?'), 'and the card is still there');
-  await click(b, '.note-rows > li:nth-child(1) .note-row-delete');
-  await until(b, `!!document.querySelector('dialog.confirm-dialog[open]')`);
-  await key(b, 'Escape', 'Escape', 27);
-  check(await until(b, `!document.querySelector('dialog.confirm-dialog')`), 'Escape closes it too');
-  await click(b, '.note-rows > li:nth-child(1) .note-row-delete');
-  await until(b, `!!document.querySelector('dialog.confirm-dialog[open]')`);
-  await click(b, 'dialog.confirm-dialog .submit-btn');
-  check(await until(b, `document.querySelectorAll('.note-rows > li').length === 3 && !${rows}.includes('역이 어디예요?')`, 150), 'Delete takes the card');
-  check(await until(b, `document.querySelector('.deck-cards-listhead span')?.textContent === '3'`, 100), 'and the count follows');
-
-  // 4. The deck renamed in place: Escape abandons, Enter saves.
-  await click(b, '.deck-name-button');
-  check(await until(b, `document.activeElement?.classList.contains('deck-name-input')`), 'the name becomes a focused input');
-  await b.send('Input.insertText', { text: ' 2' });
-  await key(b, 'Escape', 'Escape', 27);
-  check(await until(b, `document.querySelector('.deck-name-button')?.textContent === '한국어'`),
-    `Escape leaves the name as it was (${await b.evaluate("document.querySelector('.deck-cards-title h1')?.outerHTML")}; ${pageErrors.join(' / ')})`);
-  await click(b, '.deck-name-button');
-  await until(b, `document.activeElement?.classList.contains('deck-name-input')`);
-  // the caret starts where focus() puts it, at the start: to the end first, as a person would
-  await b.send('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'End', code: 'End', windowsVirtualKeyCode: 35, commands: ['moveToEndOfLine'] });
-  await b.send('Input.insertText', { text: ' 연습' });
-  await key(b, 'Enter', 'Enter', 13);
-  check(await until(b, `document.querySelector('.deck-name-button')?.textContent === '한국어 연습'`, 150),
-    `Enter saves the new name (${await b.evaluate("document.querySelector('.deck-cards-title')?.innerHTML")})`);
-  await sleep(300);
-  await shot(b, '23-renamed');
-  await goto(b, `${base}/decks`);
-  check(await until(b, `[...document.querySelectorAll('.deck-item h3')].map(h => h.textContent).includes('한국어 연습::일상 표현')`, 150), 'the subdeck moved with it');
-
-  // 5. Anki takes the file while a card is open with unsaved typing, then lets it go: the page's
-  // status poll (every 4 s) sees both mode changes and reloads the deck under the editor, which must
-  // stay open with its text, its caret and its focus. A real lock, held by the anki library.
-  await click(b, '.deck-item:nth-child(' + (1 + await b.evaluate(`[...document.querySelectorAll('.deck-item h3')].findIndex(h => h.textContent === '한국어 연습')`)) + ')');
-  await until(b, `document.querySelectorAll('.note-rows > li').length === 3`, 150);
-  await click(b, '.note-rows > li:nth-child(2) .note-row-edit');
-  await until(b, `!!document.querySelector('.card-panel-value-big')`);
-  await click(b, '.card-panel-value-big');
-  await b.send('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'End', code: 'End', windowsVirtualKeyCode: 35, commands: ['moveToEndOfLine'] });
-  await b.send('Input.insertText', { text: ' 아직' });
-  const typed = await b.evaluate(`document.querySelector('.card-panel-value-big').value`);
-  const kept = `!!document.querySelector('.note-rows > li.is-open .card-panel') && document.querySelector('.card-panel-value-big')?.value === ${JSON.stringify(typed)} && document.activeElement === document.querySelector('.card-panel-value-big')`;
-  const badge = `document.querySelector('nav.navbar span[title]')?.textContent`;
-  const holder = holdCollectionOpen(collection);
-  await holder.held;
-  try {
-    check(await until(b, `${badge} === 'Anki locked'`, 150), 'the lock is seen: the badge says so');
-    await sleep(500); // the reload that follows the mode change has answered
-    check(await b.evaluate(kept), `under the lock the editor stays open, its typing and focus with it (${typed})`);
-  } finally {
-    await holder.release();
-  }
-  check(await until(b, `${badge} === 'Anki connected'`, 150), 'the lock let go: connected again');
-  await sleep(500);
-  check(await b.evaluate(kept), 'and the editor is still open with the typing, the caret where it was');
-  await b.send('Input.insertText', { text: '!' });
-  check(await b.evaluate(`document.querySelector('.card-panel-value-big').value === ${JSON.stringify(typed + '!')}`), 'typing goes on where it stopped');
-
-  // 6. The same for a rename half typed: the name stays an input with what was typed in it.
-  await key(b, 'Escape', 'Escape', 27);
-  await click(b, '.deck-name-button');
-  await until(b, `document.activeElement?.classList.contains('deck-name-input')`);
-  await b.send('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'End', code: 'End', windowsVirtualKeyCode: 35, commands: ['moveToEndOfLine'] });
-  await b.send('Input.insertText', { text: ' 반' });
-  const naming = `document.activeElement?.classList.contains('deck-name-input') && document.activeElement.value === '한국어 연습 반'`;
-  const holder2 = holdCollectionOpen(collection);
-  await holder2.held;
-  try {
-    check(await until(b, `${badge} === 'Anki locked'`, 150), 'locked again');
+    // 3. A row deleted: Cancel keeps it, Delete takes it.
+    await click(b, '.note-rows > li:nth-child(1) .note-row-delete');
+    check(await until(b, `!!document.querySelector('dialog.confirm-dialog[open]') && document.activeElement?.classList.contains('submit-btn')`), 'the page asks, in a modal dialog, the action focused');
+    const asked = await b.evaluate(`document.querySelector('dialog.confirm-dialog p')?.textContent`);
+    check(asked === '역이 어디예요?', `it names the card: ${asked}`);
+    await sleep(300);
+    await shot(b, '22-confirm');
+    await click(b, 'dialog.confirm-dialog .cancel-btn');
+    check(await until(b, `!document.querySelector('dialog.confirm-dialog')`), 'Cancel closes it');
     await sleep(500);
-    check(await b.evaluate(naming), 'under the lock the rename keeps its typing and focus');
-  } finally {
-    await holder2.release();
-  }
-  check(await until(b, `${badge} === 'Anki connected'`, 150), 'and let go again');
-  await sleep(500);
-  check(await b.evaluate(naming), 'the rename is still being typed');
-  await key(b, 'Escape', 'Escape', 27);
+    check((await b.evaluate(rows)).startsWith('역이 어디예요?'), 'and the card is still there');
+    await click(b, '.note-rows > li:nth-child(1) .note-row-delete');
+    await until(b, `!!document.querySelector('dialog.confirm-dialog[open]')`);
+    await key(b, 'Escape', 'Escape', 27);
+    check(await until(b, `!document.querySelector('dialog.confirm-dialog')`), 'Escape closes it too');
+    await click(b, '.note-rows > li:nth-child(1) .note-row-delete');
+    await until(b, `!!document.querySelector('dialog.confirm-dialog[open]')`);
+    await click(b, 'dialog.confirm-dialog .submit-btn');
+    check(await until(b, `document.querySelectorAll('.note-rows > li').length === 3 && !${rows}.includes('역이 어디예요?')`, 150), 'Delete takes the card');
+    check(await until(b, `document.querySelector('.deck-cards-listhead span')?.textContent === '3'`, 100), 'and the count follows');
 
-  // 7. A rename typed while the deck list refreshes keeps what was typed: Anki takes the file and lets it go (the
-  // status poll sees both mode changes, and each one asks the decks again), the answers redraw the name, and Enter
-  // then saves exactly what was typed, here and in the deck list.
-  await click(b, '.deck-name-button');
-  await until(b, `document.activeElement?.classList.contains('deck-name-input')`);
-  await b.send('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'End', code: 'End', windowsVirtualKeyCode: 35, commands: ['moveToEndOfLine'] });
-  await b.send('Input.insertText', { text: ' 셋' });
-  const typedName = await b.evaluate(`document.activeElement.value`);
-  const decksAsked = `performance.getEntriesByType('resource').filter(e => e.name.endsWith('/api/anki/decks')).length`;
-  const before = await b.evaluate(decksAsked);
-  const holder3 = holdCollectionOpen(collection);
-  await holder3.held;
-  try {
-    check(await until(b, `${badge} === 'Anki locked'`, 150), 'locked a third time');
-  } finally {
-    await holder3.release();
-  }
-  check(await until(b, `${badge} === 'Anki connected'`, 150), 'and let go a third time');
-  check(await until(b, `${decksAsked} >= ${before} + 2`, 150), 'the deck list was asked again, twice');
-  await sleep(500);
-  check(await b.evaluate(`document.activeElement?.classList.contains('deck-name-input') && document.activeElement.value === ${JSON.stringify(typedName)}`),
-    'a rename typed while the deck list refreshes keeps what was typed');
-  await key(b, 'Enter', 'Enter', 13);
-  check(await until(b, `document.querySelector('.deck-name-button')?.textContent === ${JSON.stringify(typedName)}`, 150),
-    `and Enter saves exactly that on the page (${typedName})`);
-  await goto(b, `${base}/decks`);
-  check(await until(b, `[...document.querySelectorAll('.deck-item h3')].map(h => h.textContent).includes(${JSON.stringify(typedName)})`, 150),
-    'and in the deck list');
+    // 4. The deck renamed in place: Escape abandons, Enter saves.
+    await click(b, '.deck-name-button');
+    check(await until(b, `document.activeElement?.classList.contains('deck-name-input')`), 'the name becomes a focused input');
+    await b.send('Input.insertText', { text: ' 2' });
+    await key(b, 'Escape', 'Escape', 27);
+    check(await until(b, `document.querySelector('.deck-name-button')?.textContent === '한국어'`),
+      `Escape leaves the name as it was (${await b.evaluate("document.querySelector('.deck-cards-title h1')?.outerHTML")}; ${pageErrors.join(' / ')})`);
+    await click(b, '.deck-name-button');
+    await until(b, `document.activeElement?.classList.contains('deck-name-input')`);
+    // the caret starts where focus() puts it, at the start: to the end first, as a person would
+    await b.send('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'End', code: 'End', windowsVirtualKeyCode: 35, commands: ['moveToEndOfLine'] });
+    await b.send('Input.insertText', { text: ' 연습' });
+    await key(b, 'Enter', 'Enter', 13);
+    check(await until(b, `document.querySelector('.deck-name-button')?.textContent === '한국어 연습'`, 150),
+      `Enter saves the new name (${await b.evaluate("document.querySelector('.deck-cards-title')?.innerHTML")})`);
+    await sleep(300);
+    await shot(b, '23-renamed');
+    await goto(b, `${base}/decks`);
+    check(await until(b, `[...document.querySelectorAll('.deck-item h3')].map(h => h.textContent).includes('한국어 연습::일상 표현')`, 150), 'the subdeck moved with it');
 
-  // 8. Settings visited and left, then the mode changes under the deck list: the badge Settings drew went with its page,
-  // and the mode change touches only the navbar's.
-  const errorsBeforeBadge = pageErrors.length;
-  await click(b, '.navbar .settings-icon');
-  await until(b, `location.pathname === '/settings' && !!document.querySelector('.settings-page .save-button')`);
-  await click(b, '.settings-header .back-button');
-  await until(b, `location.pathname === '/decks'`);
-  const holder4 = holdCollectionOpen(collection);
-  await holder4.held;
-  try {
-    check(await until(b, `${badge} === 'Anki locked'`, 150), 'locked once more, after Settings was left');
-  } finally {
-    await holder4.release();
-  }
-  check(await until(b, `${badge} === 'Anki connected'`, 150), 'and let go once more');
-  check(pageErrors.length === errorsBeforeBadge, `a mode change after Settings was left throws nothing${pageErrors.length > errorsBeforeBadge ? ` (${pageErrors.slice(errorsBeforeBadge).join(' / ')})` : ''}`);
+    // 5. Anki takes the file while a card is open with unsaved typing, then lets it go: the page's
+    // status poll (every 4 s) sees both mode changes and reloads the deck under the editor, which must
+    // stay open with its text, its caret and its focus. A real lock, held by the anki library.
+    await click(b, '.deck-item:nth-child(' + (1 + await b.evaluate(`[...document.querySelectorAll('.deck-item h3')].findIndex(h => h.textContent === '한국어 연습')`)) + ')');
+    await until(b, `document.querySelectorAll('.note-rows > li').length === 3`, 150);
+    await click(b, '.note-rows > li:nth-child(2) .note-row-edit');
+    await until(b, `!!document.querySelector('.card-panel-value-big')`);
+    await click(b, '.card-panel-value-big');
+    await b.send('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'End', code: 'End', windowsVirtualKeyCode: 35, commands: ['moveToEndOfLine'] });
+    await b.send('Input.insertText', { text: ' 아직' });
+    const typed = await b.evaluate(`document.querySelector('.card-panel-value-big').value`);
+    const kept = `!!document.querySelector('.note-rows > li.is-open .card-panel') && document.querySelector('.card-panel-value-big')?.value === ${JSON.stringify(typed)} && document.activeElement === document.querySelector('.card-panel-value-big')`;
+    const badge = `document.querySelector('nav.navbar span[title]')?.textContent`;
+    const holder = holdCollectionOpen(collection);
+    await holder.held;
+    try {
+        check(await until(b, `${badge} === 'Anki locked'`, 150), 'the lock is seen: the badge says so');
+        await sleep(500); // the reload that follows the mode change has answered
+        check(await b.evaluate(kept), `under the lock the editor stays open, its typing and focus with it (${typed})`);
+    } finally {
+        await holder.release();
+    }
+    check(await until(b, `${badge} === 'Anki connected'`, 150), 'the lock let go: connected again');
+    await sleep(500);
+    check(await b.evaluate(kept), 'and the editor is still open with the typing, the caret where it was');
+    await b.send('Input.insertText', { text: '!' });
+    check(await b.evaluate(`document.querySelector('.card-panel-value-big').value === ${JSON.stringify(typed + '!')}`), 'typing goes on where it stopped');
 
-  check(!pageErrors.length, `no page errors${pageErrors.length ? `: ${pageErrors.join(' / ')}` : ''}`);
+    // 6. The same for a rename half typed: the name stays an input with what was typed in it.
+    await key(b, 'Escape', 'Escape', 27);
+    await click(b, '.deck-name-button');
+    await until(b, `document.activeElement?.classList.contains('deck-name-input')`);
+    await b.send('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'End', code: 'End', windowsVirtualKeyCode: 35, commands: ['moveToEndOfLine'] });
+    await b.send('Input.insertText', { text: ' 반' });
+    const naming = `document.activeElement?.classList.contains('deck-name-input') && document.activeElement.value === '한국어 연습 반'`;
+    const holder2 = holdCollectionOpen(collection);
+    await holder2.held;
+    try {
+        check(await until(b, `${badge} === 'Anki locked'`, 150), 'locked again');
+        await sleep(500);
+        check(await b.evaluate(naming), 'under the lock the rename keeps its typing and focus');
+    } finally {
+        await holder2.release();
+    }
+    check(await until(b, `${badge} === 'Anki connected'`, 150), 'and let go again');
+    await sleep(500);
+    check(await b.evaluate(naming), 'the rename is still being typed');
+    await key(b, 'Escape', 'Escape', 27);
+
+    // 7. A rename typed while the deck list refreshes keeps what was typed: Anki takes the file and lets it go (the
+    // status poll sees both mode changes, and each one asks the decks again), the answers redraw the name, and Enter
+    // then saves exactly what was typed, here and in the deck list.
+    await click(b, '.deck-name-button');
+    await until(b, `document.activeElement?.classList.contains('deck-name-input')`);
+    await b.send('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'End', code: 'End', windowsVirtualKeyCode: 35, commands: ['moveToEndOfLine'] });
+    await b.send('Input.insertText', { text: ' 셋' });
+    const typedName = await b.evaluate(`document.activeElement.value`);
+    const decksAsked = `performance.getEntriesByType('resource').filter(e => e.name.endsWith('/api/anki/decks')).length`;
+    const before = await b.evaluate(decksAsked);
+    const holder3 = holdCollectionOpen(collection);
+    await holder3.held;
+    try {
+        check(await until(b, `${badge} === 'Anki locked'`, 150), 'locked a third time');
+    } finally {
+        await holder3.release();
+    }
+    check(await until(b, `${badge} === 'Anki connected'`, 150), 'and let go a third time');
+    check(await until(b, `${decksAsked} >= ${before} + 2`, 150), 'the deck list was asked again, twice');
+    await sleep(500);
+    check(await b.evaluate(`document.activeElement?.classList.contains('deck-name-input') && document.activeElement.value === ${JSON.stringify(typedName)}`),
+      'a rename typed while the deck list refreshes keeps what was typed');
+    await key(b, 'Enter', 'Enter', 13);
+    check(await until(b, `document.querySelector('.deck-name-button')?.textContent === ${JSON.stringify(typedName)}`, 150),
+      `and Enter saves exactly that on the page (${typedName})`);
+    await goto(b, `${base}/decks`);
+    check(await until(b, `[...document.querySelectorAll('.deck-item h3')].map(h => h.textContent).includes(${JSON.stringify(typedName)})`, 150),
+      'and in the deck list');
+
+    // 8. Settings visited and left, then the mode changes under the deck list: the badge Settings drew went with its page,
+    // and the mode change touches only the navbar's.
+    const errorsBeforeBadge = pageErrors.length;
+    await click(b, '.navbar .settings-icon');
+    await until(b, `location.pathname === '/settings' && !!document.querySelector('.settings-page .save-button')`);
+    await click(b, '.settings-header .back-button');
+    await until(b, `location.pathname === '/decks'`);
+    const holder4 = holdCollectionOpen(collection);
+    await holder4.held;
+    try {
+        check(await until(b, `${badge} === 'Anki locked'`, 150), 'locked once more, after Settings was left');
+    } finally {
+        await holder4.release();
+    }
+    check(await until(b, `${badge} === 'Anki connected'`, 150), 'and let go once more');
+    check(pageErrors.length === errorsBeforeBadge, `a mode change after Settings was left throws nothing${pageErrors.length > errorsBeforeBadge ? ` (${pageErrors.slice(errorsBeforeBadge).join(' / ')})` : ''}`);
+
+    check(!pageErrors.length, `no page errors${pageErrors.length ? `: ${pageErrors.join(' / ')}` : ''}`);
 } finally {
-  clearTimeout(watchdog);
-  await b.close();
+    clearTimeout(watchdog);
+    await b.close();
 }
 if (failures.length) {
-  console.log(`${failures.length} check(s) failed`);
-  process.exitCode = 1;
+    console.log(`${failures.length} check(s) failed`);
+    process.exitCode = 1;
 }
