@@ -402,6 +402,17 @@ static void h_audio(rq *q) {
   amgi_audio(q->a, &q->o, q->t.mode, q->body, q->res);
 }
 
+/* POST /decks/:id/audio-plan: which notes of the deck lack their clip (fill.c). Reads, never writes or asks Gemini. */
+static void h_audio_plan(rq *q) {
+    if (!ready(q)) return;
+    amgi_fill_plan(q->a, &q->o, q->t.mode, amgi_js_number(q->params[0]), q->body, q->res);
+}
+/* POST /notes/:id/audio-fill: the clip of one note, recorded behind the rate gate and written into its audio field. Slow pool. */
+static void h_audio_fill(rq *q) {
+    if (!ready(q)) return;
+    amgi_fill_note(q->a, &q->o, q->t.mode, amgi_js_number(q->params[0]), q->body, q->res);
+}
+
 /* Asked several times a second while cards are made: it reads no setting and opens no collection. */
 static void h_progress(rq *q) { amgi_progress(q->a, q->res); }
 
@@ -497,6 +508,8 @@ static const amgi_route ROUTES[] = {
   {"GET", "notes/:id", "/api/anki/notes/:id", -1, h_note_get},
   {"PUT", "decks/:id/languages", "/api/anki/decks/:id/languages", WK_Q_DECK_LANGUAGES, h_deck_languages_put},
   {"POST", "decks/:id/languages/detect", "/api/anki/decks/:id/languages/detect", -1, h_deck_languages_detect},
+  {"POST", "decks/:id/audio-plan", "/api/anki/decks/:id/audio-plan", WK_Q_FILL, h_audio_plan},
+  {"POST", "notes/:id/audio-fill", "/api/anki/notes/:id/audio-fill", WK_Q_FILL, h_audio_fill},
 };
 #define NROUTES (sizeof ROUTES / sizeof *ROUTES)
 
@@ -605,8 +618,8 @@ static void dispatch(cb_ctx *ctx, size_t i, const cb_http_req *req, cb_http_res 
 #define THUNK(i) \
   static void h##i(cb_ctx *ctx, const cb_http_req *req, cb_http_res *res) { dispatch(ctx, i, req, res); }
 THUNK(0) THUNK(1) THUNK(2) THUNK(3) THUNK(4) THUNK(5) THUNK(6) THUNK(7) THUNK(8) THUNK(9) THUNK(10)
-THUNK(11) THUNK(12) THUNK(13) THUNK(14) THUNK(15) THUNK(16) THUNK(17) THUNK(18) THUNK(19) THUNK(20) THUNK(21) THUNK(22) THUNK(23) THUNK(24)
-_Static_assert(NROUTES == 25, "one cbase handler per route");
+THUNK(11) THUNK(12) THUNK(13) THUNK(14) THUNK(15) THUNK(16) THUNK(17) THUNK(18) THUNK(19) THUNK(20) THUNK(21) THUNK(22) THUNK(23) THUNK(24) THUNK(25) THUNK(26)
+_Static_assert(NROUTES == 27, "one cbase handler per route");
 
 /* ---- the page and its files ---- */
 static void h_root(cb_ctx *ctx, const cb_http_req *req, cb_http_res *res) {
@@ -643,8 +656,8 @@ static void h_other(cb_ctx *ctx, const cb_http_req *req, cb_http_res *res) {
   ar_free(&a);
 }
 
-/* POST /notes/bulk takes a whole paste in one body; every other route the server's default. The three
- * Gemini routes (card-text, audio, and a deck's languages detect) run on cbase's slow pool (CB_ROUTE_SLOW): a card holds its
+/* POST /notes/bulk takes a whole paste in one body; every other route the server's default. The four
+ * Gemini routes (card-text, audio, a deck's languages detect and a note's audio-fill) run on cbase's slow pool (CB_ROUTE_SLOW): a card holds its
  * thread for as long as Gemini takes, and the status poll, the clips and the deck list never wait behind one. */
 #define BULK_MAX_BODY ((size_t)256 << 20)
 #define ANY(p, f) {.method = "*", .pattern = (p), .flags = CB_ROUTE_POOL, .fn = (f)}
@@ -674,6 +687,8 @@ static const cb_route AMGI_ROUTES[] = {
   {.method = "GET", .pattern = "/api/anki/notes/:id", .flags = CB_ROUTE_POOL, .fn = h22},
   {.method = "PUT", .pattern = "/api/anki/decks/:id/languages", .flags = CB_ROUTE_POOL, .fn = h23},
   {.method = "POST", .pattern = "/api/anki/decks/:id/languages/detect", .flags = CB_ROUTE_SLOW, .fn = h24},
+  {.method = "POST", .pattern = "/api/anki/decks/:id/audio-plan", .flags = CB_ROUTE_POOL, .fn = h25},
+  {.method = "POST", .pattern = "/api/anki/notes/:id/audio-fill", .flags = CB_ROUTE_SLOW, .fn = h26},
   ANY("/api/anki/*", h_api_fallback),
   ANY("/", h_root),
   ANY("/decks", h_page),
