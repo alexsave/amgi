@@ -20,6 +20,8 @@ typedef struct model_state {
     int64_t *starts;
     size_t nstarts, cap_starts;
     int64_t cap;
+    int64_t good;       /* the last cap that held a whole clean interval; -1 when none has */
+    int64_t grow_every; /* the clean interval before the next probe */
     int consecutive429;
     int has_clean;
     int64_t clean_since;
@@ -59,6 +61,8 @@ static model_state *state_of(gate *g, const char *model) {
     model_state *m = calloc(1, sizeof *m);
     if (!m || !(m->model = strdup(model))) abort();
     m->cap = GATE_NO_CAP;
+    m->good = -1;
+    m->grow_every = GATE_WINDOW_MS;
     if (g->last) g->last->next = m;
     else g->models = m;
     g->last = m;
@@ -121,9 +125,17 @@ void gate_record(gate *g, const char *model, int rate_limited, int64_t retry_del
         /* The refused request itself is not evidence that the limit is higher. */
         if (s->nstarts) s->nstarts--;
         int64_t admitted = (int64_t)s->nstarts;
-        if (admitted >= MIN_EVIDENCE) {
+        if (s->cap != GATE_NO_CAP && s->good >= 0 && s->good < s->cap) {
+            /* A probe above the level that held was refused: back to that level, and wait twice as long
+             * before the next probe, so a fixed limit is asked about less and less. */
+            s->cap = s->good;
+            s->grow_every = s->grow_every * 2 > GATE_MAX_GROW_MS ? GATE_MAX_GROW_MS : s->grow_every * 2;
+        } else if (admitted >= MIN_EVIDENCE) {
+            /* The first limit found, or a level that held is refused now (the limit was lowered). */
             int64_t learned = (int64_t)floor((double)admitted * DECREASE);
             if (learned < s->cap) s->cap = learned;
+            s->good = -1;
+            s->grow_every = GATE_WINDOW_MS;
         }
         double doubled = GATE_BASE_BLOCK_MS * pow(2, s->consecutive429 - 1);
         int64_t capped = doubled > GATE_MAX_BLOCK_MS ? GATE_MAX_BLOCK_MS : (int64_t)doubled;
@@ -134,9 +146,18 @@ void gate_record(gate *g, const char *model, int rate_limited, int64_t retry_del
         s->consecutive429 = 0;
         if (!s->has_clean) {
             s->has_clean = 1, s->clean_since = at;
-        } else if (at - s->clean_since >= GATE_WINDOW_MS) {
-            if (s->cap != GATE_NO_CAP) s->cap += 1;
-            s->clean_since = at;
+        } else {
+            /* Probing (the cap is above the level known to hold, or none is known yet): one clean minute
+             * confirms the level, and the next probe follows. Settled at the level that held: the next probe
+             * waits the grown interval. */
+            int probing = s->good < 0 || s->cap > s->good;
+            if (at - s->clean_since >= (probing ? GATE_WINDOW_MS : s->grow_every)) {
+                if (s->cap != GATE_NO_CAP) {
+                    if (probing) s->good = s->cap;
+                    s->cap += 1;
+                }
+                s->clean_since = at;
+            }
         }
     }
     pthread_mutex_unlock(&g->lock);
@@ -158,7 +179,7 @@ gate_state gate_inspect(gate *g, const char *model) {
     pthread_mutex_lock(&g->lock);
     model_state *s = state_of(g, model);
     prune(s, g->now(g->ud));
-    gate_state out = {s->blocked_until, s->cap, (int)s->nstarts, s->consecutive429};
+    gate_state out = {s->blocked_until, s->cap, s->good, s->grow_every, (int)s->nstarts, s->consecutive429};
     pthread_mutex_unlock(&g->lock);
     return out;
 }
