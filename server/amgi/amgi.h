@@ -133,7 +133,7 @@ void amgi_starter_get(arena *a, cb_http_res *res);
 typedef struct { int64_t deck_id; str deck_name; uint32_t added, already_there; } amgi_starter_built;
 int amgi_starter_build(arena *a, const amgi_ops *o, str known, str learning, str deck_name, amgi_starter_built *out,
                        str *message);
-/* fieldIndexes (src/utils/amgiNotetype.js) */
+/* Where each of the amgi note type's fields sits in a note type, by name (-1 when it has none). */
 typedef struct { int cue, cue_audio, target, target_audio, language, notes; } amgi_fields;
 amgi_fields amgi_field_indexes(arena *a, const col_notetype *nt);
 

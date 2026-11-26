@@ -37,7 +37,7 @@
   "now. Anki picks the add-ons up the next time it starts."
 #define NO_SOURCE_MESSAGE "This copy of amgi has no add-on sources in it, so there is nothing to install from."
 
-/* src/utils/amgiNotetype.js */
+/* The amgi note type */
 #define AMGI_NOTETYPE_NAME "amgi Listening"
 
 /* lib/rateLimits.js */

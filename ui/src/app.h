@@ -26,7 +26,7 @@ void text_free(text *t);
 uint32_t id_dec(char *dst, int64_t id);        /* a positive id in decimal (at most 20 bytes) */
 int64_t dec_id(const char *s, uint32_t len);    /* -1 for anything but digits */
 /* Markup taken out for a preview: every <...> becomes a space, &nbsp; a space, runs of white space
- * one space, the ends trimmed (src/utils/ankiFields.js stripHtmlForPreview). dst needs s.len bytes. */
+ * one space, the ends trimmed. dst needs s.len bytes. */
 uint32_t strip_html(char *dst, wire_str s);
 /* The tags taken out, nothing else (CardList's textIn): dst needs s.len bytes; the result trimmed. */
 uint32_t strip_tags(char *dst, wire_str s);
@@ -143,7 +143,7 @@ const notetype *amgi_notetype(void);     /* "amgi Listening", or 0 */
 typedef struct { int32_t cue, cue_audio, target, target_audio, language, notes; } amgi_fields;
 amgi_fields amgi_fields_of(const text *names, uint32_t n);
 extern const char *const AMGI_FIELD_NAMES[6]; /* in that order: Cue, CueAudio, Target, TargetAudio, Language, Notes */
-/* ankiFields.js's guessFields: which field is the text to read and which holds its audio, on any
+/* Which field is the text to read and which holds its audio, on any
  * note type (-1: none). sort_field is the note type's sort field, or WIRE_NONE. */
 typedef struct { int32_t text, audio, cue_audio; } field_guess;
 field_guess guess_fields(const text *names, uint32_t n, uint32_t sort_field);

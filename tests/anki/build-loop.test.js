@@ -32,7 +32,7 @@ test('make -C anki leaves the bundle alone until a source changes', () => {
 });
 
 test('the bundle carries the shared code verbatim, not a paraphrase of it', () => {
-    for (const file of ['src/utils/voiceActivity.js', 'src/utils/reviewLoop.js']) {
+    for (const file of ['anki/src/voiceActivity.mjs', 'anki/src/reviewLoop.mjs']) {
         const source = read(...file.split('/'));
         // A handful of distinctive whole blocks, rather than the entire file: the
         // build strips module syntax, so only the bodies can match exactly.
@@ -53,15 +53,14 @@ test('the bundle is a classic script with no module syntax left', () => {
     assert.doesNotThrow(() => new Function(bundle));
 });
 
-// The script reads src/utils and anki/src relative to where it runs, so a temp directory with fake
+// The script reads anki/src relative to where it runs, so a temp directory with fake
 // sources there is a build of whatever a test wants to refuse.
 function buildFake(voice, loop) {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'amgi-loop-'));
-    fs.mkdirSync(path.join(dir, 'src', 'utils'), { recursive: true });
     fs.mkdirSync(path.join(dir, 'anki', 'src'), { recursive: true });
     fs.mkdirSync(path.join(dir, 'anki', 'media'), { recursive: true });
-    fs.writeFileSync(path.join(dir, 'src', 'utils', 'voiceActivity.js'), voice);
-    fs.writeFileSync(path.join(dir, 'src', 'utils', 'reviewLoop.js'), loop);
+    fs.writeFileSync(path.join(dir, 'anki', 'src', 'voiceActivity.mjs'), voice);
+    fs.writeFileSync(path.join(dir, 'anki', 'src', 'reviewLoop.mjs'), loop);
     fs.writeFileSync(path.join(dir, 'anki', 'src', 'anki-loop.js'), 'host();\n');
     const out = path.join(dir, 'anki', 'media', 'out.js');
     const run = spawnSync(SCRIPT, [out], { cwd: dir, encoding: 'utf8' });
@@ -79,7 +78,7 @@ test('the build refuses a dependency a card template could not load', () => {
     assert.notEqual(exported.run.status, 0);
     assert.match(exported.run.stderr, /unsupported export/);
     // The one import the bundle can satisfy by concatenation is allowed through.
-    const ok = buildFake('export const a = 1;\n', "import { a } from './voiceActivity.js';\nconst b = a;\n");
+    const ok = buildFake('export const a = 1;\n', "import { a } from './voiceActivity.mjs';\nconst b = a;\n");
     assert.equal(ok.run.status, 0, ok.run.stderr);
     assert.match(ok.built, /\nconst a = 1;\n/);
     assert.match(ok.built, /\nconst b = a;\n/);

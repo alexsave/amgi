@@ -147,12 +147,12 @@ If you want the template to stop touching the keyboard entirely - including that
 ```
 
 The same object takes `record: false` to stop the loop from recording you at all, `micTimeoutMs` to change how long it waits for a microphone permission prompt before giving up and falling back to "press space" (default 15000ms - see "What each platform does" below), and `vad: { silenceMs: 1500 }` and friends to retune the detector.
-The detector's settings and their defaults are documented in `src/utils/voiceActivity.js`.
+The detector's settings and their defaults are documented in `src/voiceActivity.mjs`.
 
-## How this stays the same loop as the app
+## How the card script is built
 
 `media/_amgi-loop.js` is generated, not written.
-`tools/build-loop.sh` (run by `make -C anki`, and by `make build`) concatenates amgi's own `src/utils/voiceActivity.js` and `src/utils/reviewLoop.js` with the Anki host in `src/anki-loop.js`, strips the ES module syntax, and wraps the result in an IIFE.
+`tools/build-loop.sh` (run by `make -C anki`, and by `make build`) concatenates the voice detector `src/voiceActivity.mjs` and the review loop `src/reviewLoop.mjs` with the Anki host in `src/anki-loop.js`, strips the ES module syntax, and wraps the result in an IIFE.
 A card template has to be a classic script, because Anki re-runs `<script>` tags by cloning them into the page on every render ([ts/reviewer/index.ts](https://github.com/ankitects/anki/blob/main/ts/reviewer/index.ts), `setInnerHTML`), and a module would not re-execute.
 
 The generated file is not committed: `make build` and `npm test` build it, and the server's Install copies the built file into a collection.
@@ -199,7 +199,7 @@ What that run confirmed, and changed:
 - **Media resolution in the reviewer.** Confirmed: `_amgi-loop.js` and `_amgi-loop.css` both load with status 200 from the collection media folder, no 404s.
 - **The add-on's permission grant (`amgi_mic`).** Confirmed: `getUserMedia({ audio: true })` resolves with a real device inside the reviewer when the add-on is installed.
 - **Whether the webview sees space and 1 at all on desktop, or whether Qt's own shortcuts swallow them.** Confirmed real, and confirmed nondeterministic: across repeated trials some keypresses were seen by the webview's own listener and some were not, with Qt's native `QShortcut` winning the race often enough to matter. This is why the back template no longer binds space/1 to grading at all - see "Keys" above.
-- **The no-microphone fallback without `amgi_mic` installed.** This was the one place reasoning from source turned out to be wrong: Qt 6.11 does not deny an unanswered permission request, it leaves it pending forever, and the card used to hang at "Listen" with no working escape. Fixed with a timeout around `openMic()` in `src/utils/reviewLoop.js` (`micTimeoutMs`, default 15s) - confirmed the card now reaches the "press space" fallback instead of hanging.
+- **The no-microphone fallback without `amgi_mic` installed.** This was the one place reasoning from source turned out to be wrong: Qt 6.11 does not deny an unanswered permission request, it leaves it pending forever, and the card used to hang at "Listen" with no working escape. Fixed with a timeout around `openMic()` in `src/reviewLoop.mjs` (`micTimeoutMs`, default 15s) - confirmed the card now reaches the "press space" fallback instead of hanging.
 
 ### What still cannot be checked without Anki
 
