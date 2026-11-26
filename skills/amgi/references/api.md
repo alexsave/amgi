@@ -119,7 +119,7 @@ Asking the plan again after the fills finds nothing to do.
 
 ## Making cards
 
-`amgi card add` does all of this for one phrase.
+`amgi card add --text` does all of this for one phrase, and `amgi card add --file PATH` for each line of a file (skills/amgi/SKILL.md).
 Through the raw API, do what the deck page's paste-many-lines run does (`ui/src/bulk.c`), one phrase at a time:
 
 1. `GET /notetypes` and find `amgi Listening`.
