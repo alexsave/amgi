@@ -30,7 +30,7 @@ static const char *const VOICES[] = {
   "Rasalgethi", "Laomedeia", "Achernar", "Alnilam", "Schedar", "Gacrux", "Pulcherrima",
   "Achird", "Zubenelgenubi"};
 #define NVOICES (sizeof VOICES / sizeof *VOICES)
-#define TTS_MODEL "gemini-3.8-flash-tts"
+#define TTS_MODEL GEM_TTS_MODEL
 
 void gem_fail(arena *a, gem_err *e, int kind, const char *fmt, ...) {
   va_list ap;
@@ -588,13 +588,29 @@ int gem_generate(arena *a, progress *p, const char *model, const gem_request *re
 }
 
 /* ---- speech ---- */
+/* The draw behind every voice pick: the process's own source (rng.c) unless a tool seeds one of its own. */
+static uint32_t process_draw(void *ud) {
+  (void)ud;
+  return rng_uint32();
+}
+static gem_voice_draw g_voice_draw = process_draw;
+static void *g_voice_ud;
+static const char *g_tts_model = TTS_MODEL;
+
+void gem_set_voice_draw(gem_voice_draw draw, void *ud) {
+    g_voice_draw = draw ? draw : process_draw;
+    g_voice_ud = draw ? ud : NULL;
+}
+void gem_set_tts_model(const char *model) { g_tts_model = model && *model ? model : TTS_MODEL; }
+const char *gem_tts_model(void) { return g_tts_model; }
+
 const char *gem_pick_voice(const char *previous) {
   const char *pool[NVOICES];
   size_t n = 0;
   for (size_t i = 0; i < NVOICES; i++)
     if (!previous || strcmp(VOICES[i], previous) != 0) pool[n++] = VOICES[i];
   /* random.int(n): one draw */
-  return pool[(size_t)floor((double)rng_uint32() / 4294967296.0 * (double)n)];
+  return pool[(size_t)floor((double)g_voice_draw(g_voice_ud) / 4294967296.0 * (double)n)];
 }
 
 static void le16(buf *b, uint32_t v) {
@@ -684,7 +700,7 @@ int gem_synthesize(arena *a, progress *p, str text, const char *voice, str *wav,
   req.nparts = 1;
   req.voice = voice;
   gem_response r;
-  if (gem_generate(a, p, TTS_MODEL, &req, &r, e)) return -1;
+  if (gem_generate(a, p, g_tts_model, &req, &r, e)) return -1;
   gem_part_out *audio[64];
   size_t n = 0;
   for (size_t i = 0; i < r.nparts && n < 64; i++)

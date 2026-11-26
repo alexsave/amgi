@@ -1067,7 +1067,14 @@ static int judge(arena *a, progress *p, str wav, str spoken, str language, str r
 }
 
 int card_generate_audio(arena *a, progress *p, str text, str language, str reading, str *wav, gem_err *e) {
+  return card_generate_audio_take(a, p, text, language, reading, wav, NULL, e);
+}
+
+int card_generate_audio_take(arena *a, progress *p, str text, str language, str reading, str *wav, card_audio_take *taken, gem_err *e) {
   const int max_attempts = 3;
+  card_audio_take none;
+  if (!taken) taken = &none;
+  *taken = (card_audio_take){NULL, 0};
   str spoken = card_spoken_form(a, text);
   str expected = card_reading_is_ambiguous(a, language) ? js_trim(reading) : S("");
   int must_hear = expected.n > 0;
@@ -1076,6 +1083,7 @@ int card_generate_audio(arena *a, progress *p, str text, str language, str readi
   for (int attempt = 1; attempt <= max_attempts; attempt++) {
     gem_err ae = {0};
     voice = gem_pick_voice(voice);
+    taken->voice = voice, taken->attempts = attempt;
     str audio, transcript;
     uint32_t take = (uint32_t)attempt, takes = (uint32_t)max_attempts;
     progress_audio(p, AUDIO_RECORDING, take, takes);

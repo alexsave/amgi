@@ -35,8 +35,8 @@ export const GEMINI_JUDGE_MODEL = "gemini-3.8-flash";
 export const GEMINI_TTS_MODEL = "gemini-3.8-flash-tts";
 // The lighter speech model, on the account (checked with GET /v1beta/models)
 // and answering WAV like the full one. Not used at runtime: the owner chose it
-// for re-recording the shipped starter clips only (scripts/build-starter-audio.js
-// --model), which also keeps that bulk job off the runtime model's daily cap.
+// for re-recording the shipped starter clips only (`amgi starter-audio
+// --model`), which also keeps that bulk job off the runtime model's daily cap.
 export const GEMINI_TTS_LITE_MODEL = "gemini-3.8-flash-lite-tts";
 
 // The voices a clip is read in. Each clip draws one at random from this pool

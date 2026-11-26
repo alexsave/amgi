@@ -54,4 +54,7 @@ int card_generate_text(arena *a, progress *p, str user_input, str known, str lea
                        card_text *out, gem_err *e);
 /* generateCardAudio: a whole WAV that passed validation, or -1 with *e. */
 int card_generate_audio(arena *a, progress *p, str text, str language, str reading, str *wav, gem_err *e);
+/* The same, saying which voice made the clip and how many takes it took (take may be NULL). On a failure, it says the takes tried. */
+typedef struct { const char *voice; int attempts; } card_audio_take;
+int card_generate_audio_take(arena *a, progress *p, str text, str language, str reading, str *wav, card_audio_take *take, gem_err *e);
 #endif
