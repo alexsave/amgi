@@ -36,16 +36,16 @@
 #include "../../../server/collection/collection.h"
 
 static int failures, checks;
-#define CHECK(cond, ...)                                   \
-  do {                                                     \
-    checks++;                                              \
-    if (!(cond)) {                                         \
-      failures++;                                          \
-      fprintf(stderr, "FAIL %s:%d: ", __FILE__, __LINE__); \
-      fprintf(stderr, __VA_ARGS__);                        \
-      fputc('\n', stderr);                                 \
-    }                                                      \
-  } while (0)
+#define CHECK(cond, ...)                                         \
+    do {                                                         \
+        checks++;                                                \
+        if (!(cond)) {                                           \
+            failures++;                                          \
+            fprintf(stderr, "FAIL %s:%d: ", __FILE__, __LINE__); \
+            fprintf(stderr, __VA_ARGS__);                        \
+            fputc('\n', stderr);                                 \
+        }                                                        \
+    } while (0)
 
 static void die(const char *what) {
     perror(what);

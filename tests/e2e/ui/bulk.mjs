@@ -137,7 +137,7 @@ try {
     const labels = new Set(seen.map(([label]) => label));
     for (const want of ['checking for duplicates', 'waiting for slot', 'writing both sides', 'recording target', 'transcribing target',
       'judging target', 'recording cue', 'transcribing cue', 'waiting for batch', 'writing to Anki', 'in the deck']) {
-        check(labels.has(want), `a real run says "${want}"`);
+          check(labels.has(want), `a real run says "${want}"`);
     }
     check(seen.some(([label, take]) => label === 'recording target' && take === 'take 2 of 3'), 'a misheard clip goes back to recording target, take 2 of 3');
     check(seen.some(([label, , text]) => label === 'recording target' && /문장/.test(text)), 'the written side is shown while it is being recorded');

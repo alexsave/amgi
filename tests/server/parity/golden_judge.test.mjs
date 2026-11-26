@@ -14,9 +14,9 @@ const golden = rows(fs, 'judge-expected.tsv');
 
 test('each case: the spoken form, both normalised texts, the reading rule and the decision', () => {
     const calls = golden.flatMap(([language, text, transcript]) => [
-      ['s', language, text],
-      ['n', language, transcript],
-      ['a', language, ''],
+        ['s', language, text],
+        ['n', language, transcript],
+        ['a', language, ''],
     ]);
     const got = cards(calls);
     golden.forEach(([language, text, transcript, reading, spoken, heard, said, ambiguous, decision], i) => {

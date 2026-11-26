@@ -82,28 +82,28 @@ async function check(label, response, expectedStatus) {
     await check('no token at all', await get('/status', {}), 401);
     await check('wrong token', await get('/status', { [TOKEN_HEADER]: 'not-the-token' }), 401);
     await check(
-      'correct token, no Origin header (the Node bridge client\'s own shape - see bridgeClient.js)',
-      await get('/status', { [TOKEN_HEADER]: TOKEN }),
-      200,
+        'correct token, no Origin header (the Node bridge client\'s own shape - see bridgeClient.js)',
+        await get('/status', { [TOKEN_HEADER]: TOKEN }),
+        200,
     );
 
     // -- The protocol version ---------------------------------------------------
     await check(
-      'correct token, another bridge protocol - refused, so a mismatched add-on is never misread',
-      await fetch(`${base}/status`, { headers: { [TOKEN_HEADER]: TOKEN, [PROTOCOL_HEADER]: String(BRIDGE_PROTOCOL + 1) } }),
-      409,
+        'correct token, another bridge protocol - refused, so a mismatched add-on is never misread',
+        await fetch(`${base}/status`, { headers: { [TOKEN_HEADER]: TOKEN, [PROTOCOL_HEADER]: String(BRIDGE_PROTOCOL + 1) } }),
+        409,
     );
 
     // -- Origin rules ---------------------------------------------------------
     await check(
-      'correct token, allowed Origin',
-      await get('/status', { [TOKEN_HEADER]: TOKEN, Origin: ALLOWED_ORIGIN }),
-      200,
+        'correct token, allowed Origin',
+        await get('/status', { [TOKEN_HEADER]: TOKEN, Origin: ALLOWED_ORIGIN }),
+        200,
     );
     await check(
-      'correct token, foreign Origin - rejected even though the token is right',
-      await get('/status', { [TOKEN_HEADER]: TOKEN, Origin: FOREIGN_ORIGIN }),
-      403,
+        'correct token, foreign Origin - rejected even though the token is right',
+        await get('/status', { [TOKEN_HEADER]: TOKEN, Origin: FOREIGN_ORIGIN }),
+        403,
     );
 
     const preflightAllowed = await fetch(`${base}/decks`, {

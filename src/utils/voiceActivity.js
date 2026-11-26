@@ -92,8 +92,8 @@ export function detectSpeechEnd({ audioContext, stream, onEnd, options = {} }) {
             // noise floor.
             noiseFloor = Math.min(noiseFloor, rms);
             threshold = Math.min(
-              Math.max(noiseFloor * opts.thresholdMultiplier, opts.minThreshold),
-              opts.maxThreshold
+                Math.max(noiseFloor * opts.thresholdMultiplier, opts.minThreshold),
+                opts.maxThreshold
             );
         } else if (!speaking) {
             if (rms >= threshold) {

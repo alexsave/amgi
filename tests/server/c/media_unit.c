@@ -31,16 +31,16 @@ typedef struct { int kind; size_t after; } media_fault;
 extern media_fault media_fault_next;
 
 static int failures, checks;
-#define CHECK(cond, ...)                                   \
-  do {                                                     \
-    checks++;                                              \
-    if (!(cond)) {                                         \
-      failures++;                                          \
-      fprintf(stderr, "FAIL %s:%d: ", __FILE__, __LINE__); \
-      fprintf(stderr, __VA_ARGS__);                        \
-      fputc('\n', stderr);                                 \
-    }                                                      \
-  } while (0)
+#define CHECK(cond, ...)                                         \
+    do {                                                         \
+        checks++;                                                \
+        if (!(cond)) {                                           \
+            failures++;                                          \
+            fprintf(stderr, "FAIL %s:%d: ", __FILE__, __LINE__); \
+            fprintf(stderr, __VA_ARGS__);                        \
+            fputc('\n', stderr);                                 \
+        }                                                        \
+    } while (0)
 
 static char scratch[4096];
 
@@ -130,10 +130,10 @@ static void stopped_writes(void) {
     size_t len = 300000;
     char *data = clip(len, 1);
     struct { int kind; size_t after; const char *what; } stops[] = {
-            {MEDIA_FAULT_WRITE, 100000, "a write that fails part way"},
-            {MEDIA_FAULT_WRITE, 0, "a write that fails at once"},
-            {MEDIA_FAULT_FSYNC, 0, "an fsync that fails"},
-            {MEDIA_FAULT_RENAME, 0, "a rename that fails"},
+        {MEDIA_FAULT_WRITE, 100000, "a write that fails part way"},
+        {MEDIA_FAULT_WRITE, 0, "a write that fails at once"},
+        {MEDIA_FAULT_FSYNC, 0, "an fsync that fails"},
+        {MEDIA_FAULT_RENAME, 0, "a rename that fails"},
     };
     for (size_t i = 0; i < sizeof stops / sizeof *stops; i++) {
         char nm[64];
@@ -318,8 +318,8 @@ static void one_rule(void) {
     if (fd >= 0) close(fd);
 
     struct { const char *name; int is; } cases[] = {
-            {"clip.wav", 1}, {"edge.wav", 1}, {"out.wav", 0}, {"in.wav", 0}, {"fifo.wav", 0}, {"sub.wav", 0},
-            {"huge.wav", 0}, {"none.wav", 0}, {"../rule.media/clip.wav", 0}, {"a/b", 0}, {"a\\b", 0}, {"..", 0}, {".", 0}, {"", 0},
+        {"clip.wav", 1}, {"edge.wav", 1}, {"out.wav", 0}, {"in.wav", 0}, {"fifo.wav", 0}, {"sub.wav", 0},
+        {"huge.wav", 0}, {"none.wav", 0}, {"../rule.media/clip.wav", 0}, {"a/b", 0}, {"a\\b", 0}, {"..", 0}, {".", 0}, {"", 0},
     };
     for (size_t i = 0; i < sizeof cases / sizeof *cases; i++) {
         const char *nm = cases[i].name;

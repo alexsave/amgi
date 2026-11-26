@@ -119,7 +119,7 @@ describe('detectSpeechEnd', () => {
         detectSpeechEnd({ audioContext: mic.audioContext, stream: mic.stream, onEnd });
 
         advance(
-          SPEECH_END_DEFAULTS.calibrationMs + SPEECH_END_DEFAULTS.speechOnsetMs + SPEECH_END_DEFAULTS.pollMs
+            SPEECH_END_DEFAULTS.calibrationMs + SPEECH_END_DEFAULTS.speechOnsetMs + SPEECH_END_DEFAULTS.pollMs
         );
         assert.equal((onEnd).mock.callCount(), 0);
 

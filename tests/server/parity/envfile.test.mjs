@@ -38,10 +38,10 @@ test('an inline comment in .env.local is not part of the key Gemini gets', async
     fs.cpSync(path.join(ROOT, 'tests', 'server', 'parity', 'fixtures', 'schema18'), path.join(base, 'User 1'), { recursive: true });
     const headers = { 'x-amgi-collection': encodeURIComponent(path.join(base, 'User 1', 'collection.anki2')), 'content-type': WIRE_MIME };
     for (const [line, want] of [
-      ['GEMINI_API_KEY=abc # my key', 'abc'],
-      ['GEMINI_API_KEY=abc\t# my key', 'abc'],
-      ['GEMINI_API_KEY=a#b', 'a#b'],
-      ['GEMINI_API_KEY="abc # kept"', 'abc # kept'],
+        ['GEMINI_API_KEY=abc # my key', 'abc'],
+        ['GEMINI_API_KEY=abc\t# my key', 'abc'],
+        ['GEMINI_API_KEY=a#b', 'a#b'],
+        ['GEMINI_API_KEY="abc # kept"', 'abc # kept'],
     ]) {
         const file = path.join(dir, '.env.local');
         fs.writeFileSync(file, `# amgi's key\n${line}\nGEMINI_API_BASE=${fake.baseUrl}\n`);

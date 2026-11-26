@@ -980,15 +980,15 @@ function beginVisualizing(element, kind) {
         ? context.resume()
         : Promise.reject(new Error('AudioContext cannot resume'));
     Promise.resolve(ready).then(
-      function () {
+        function () {
             if (stopped || context.state !== 'running') return;
             var analyser = attachVisualizerSource(context, element);
             if (!analyser) return;
             store.visualizer.draw(analyser, kind);
         },
-      function () {
+        function () {
             // No visualizer for this clip; it plays through its normal output.
-        }
+            }
     );
 
     return stop;

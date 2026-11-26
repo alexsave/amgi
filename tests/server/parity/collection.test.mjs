@@ -216,8 +216,8 @@ async function operations(t, impl, schema) {
 
     // A paste: one write, one result per note, a bad one in the middle.
     await t.cmd('addNotesBulk 4', [
-      note(created, basic, ['bulk 1', 'x']), note(created, basic, ['bulk bad']),
-      note(created, basic, ['bulk 3', 'x'], { language: 'ko', learningFieldIndex: 0 }), note(created, cloze, ['{{c2::bulk}}', '']),
+        note(created, basic, ['bulk 1', 'x']), note(created, basic, ['bulk bad']),
+        note(created, basic, ['bulk 3', 'x'], { language: 'ko', learningFieldIndex: 0 }), note(created, cloze, ['{{c2::bulk}}', '']),
     ]);
     await t.cmd('addNotesBulk 2', [note(created, basic, ['bulk\u001fsep', 'e\u0301']), note(created, basic, ['bulk\u0000nul', '\r'])]);
     await t.cmd(`addNotesBulk 1`, [note(created, 4242, ['x', 'y'])]);

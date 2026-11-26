@@ -100,7 +100,7 @@ static int store_clip(arena *a, progress *p, const amgi_ops *o, str text, str la
 }
 
 int amgi_store_clip(arena *a, const amgi_ops *o, str text, str language, int fresh, amgi_clip *out, cb_http_res *res) {
-        return store_clip(a, NULL, o, text, language, S(""), fresh, out, res);
+    return store_clip(a, NULL, o, text, language, S(""), fresh, out, res);
 }
 
 static void make_card(arena *a, progress *p, const amgi_ops *o, const char *mode, const wire_q_card_text *q,

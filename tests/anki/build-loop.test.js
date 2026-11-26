@@ -99,13 +99,13 @@ const matches = (regex, text) =>
 
 test('Anki will see the loop script as a used media file', () => {
     for (const [name, template] of [
-      ['front', front],
-      ['back', back],
+        ['front', front],
+        ['back', back],
     ]) {
         assert.deepEqual(
-          matches(UNDERSCORED_REFERENCES, template),
-          ['_amgi-loop.js'],
-          `${name} template: Anki's exporter would not pick up the loop`
+            matches(UNDERSCORED_REFERENCES, template),
+            ['_amgi-loop.js'],
+            `${name} template: Anki's exporter would not pick up the loop`
         );
     }
 });
@@ -125,8 +125,8 @@ test('nothing in a template can be mistaken for a sound tag', () => {
     // included (rslib/src/text.rs, AV_TAGS), which would leave a replay button
     // pointing at a file that does not exist.
     for (const [name, template] of [
-      ['front', front],
-      ['back', back],
+        ['front', front],
+        ['back', back],
     ]) {
         assert.doesNotMatch(template, /\[sound:/, `${name} template contains a sound tag`);
     }
