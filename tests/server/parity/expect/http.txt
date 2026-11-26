@@ -227,6 +227,16 @@
 < 409 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="unconfigured" error="No Anki profile is selected yet. Open Settings to pick one." notStarted=false dailyCap=false}
 < bytes 414d573200063b0000004e6f20416e6b692070726f66696c652069732073656c6563746564207965742e204f70656e2053657474696e677320746f207069636b206f6e652effffffff0000ffffffff
+== unconfigured: POST /api/anki/decks/1/audio-plan
+> POST /api/anki/decks/1/audio-plan
+< 409 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="unconfigured" error="No Anki profile is selected yet. Open Settings to pick one." notStarted=false dailyCap=false}
+< bytes 414d573200063b0000004e6f20416e6b692070726f66696c652069732073656c6563746564207965742e204f70656e2053657474696e677320746f207069636b206f6e652effffffff0000ffffffff
+== unconfigured: POST /api/anki/notes/1/audio-fill
+> POST /api/anki/notes/1/audio-fill
+< 409 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="unconfigured" error="No Anki profile is selected yet. Open Settings to pick one." notStarted=false dailyCap=false}
+< bytes 414d573200063b0000004e6f20416e6b692070726f66696c652069732073656c6563746564207965742e204f70656e2053657474696e677320746f207069636b206f6e652effffffff0000ffffffff
 == unconfigured: POST /api/anki/starter
 > POST /api/anki/starter
 < 409 content-type=application/x-amgi-wire cache-control=no-store
@@ -319,6 +329,16 @@
 < bytes 414d573200035d0000004e6f20636f6c6c656374696f6e2e616e6b69322077617320666f756e64206174207468652073656c65637465642070726f66696c652e204f70656e2053657474696e677320746f207069636b206120646966666572656e74206f6e652effffffff0000ffffffff
 == not-found: POST /api/anki/audio
 > POST /api/anki/audio
+< 409 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="not-found" error="No collection.anki2 was found at the selected profile. Open Settings to pick a different one." notStarted=false dailyCap=false}
+< bytes 414d573200035d0000004e6f20636f6c6c656374696f6e2e616e6b69322077617320666f756e64206174207468652073656c65637465642070726f66696c652e204f70656e2053657474696e677320746f207069636b206120646966666572656e74206f6e652effffffff0000ffffffff
+== not-found: POST /api/anki/decks/1/audio-plan
+> POST /api/anki/decks/1/audio-plan
+< 409 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="not-found" error="No collection.anki2 was found at the selected profile. Open Settings to pick a different one." notStarted=false dailyCap=false}
+< bytes 414d573200035d0000004e6f20636f6c6c656374696f6e2e616e6b69322077617320666f756e64206174207468652073656c65637465642070726f66696c652e204f70656e2053657474696e677320746f207069636b206120646966666572656e74206f6e652effffffff0000ffffffff
+== not-found: POST /api/anki/notes/1/audio-fill
+> POST /api/anki/notes/1/audio-fill
 < 409 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="not-found" error="No collection.anki2 was found at the selected profile. Open Settings to pick a different one." notStarted=false dailyCap=false}
 < bytes 414d573200035d0000004e6f20636f6c6c656374696f6e2e616e6b69322077617320666f756e64206174207468652073656c65637465642070726f66696c652e204f70656e2053657474696e677320746f207069636b206120646966666572656e74206f6e652effffffff0000ffffffff
@@ -417,6 +437,16 @@
 < 409 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="unsupported-schema" error="This collection uses a schema version amgi does not support yet." notStarted=false dailyCap=false}
 < bytes 414d57320004400000005468697320636f6c6c656374696f6e2075736573206120736368656d612076657273696f6e20616d676920646f6573206e6f7420737570706f7274207965742effffffff0000ffffffff
+== unsupported-schema: POST /api/anki/decks/1/audio-plan
+> POST /api/anki/decks/1/audio-plan
+< 409 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="unsupported-schema" error="This collection uses a schema version amgi does not support yet." notStarted=false dailyCap=false}
+< bytes 414d57320004400000005468697320636f6c6c656374696f6e2075736573206120736368656d612076657273696f6e20616d676920646f6573206e6f7420737570706f7274207965742effffffff0000ffffffff
+== unsupported-schema: POST /api/anki/notes/1/audio-fill
+> POST /api/anki/notes/1/audio-fill
+< 409 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="unsupported-schema" error="This collection uses a schema version amgi does not support yet." notStarted=false dailyCap=false}
+< bytes 414d57320004400000005468697320636f6c6c656374696f6e2075736573206120736368656d612076657273696f6e20616d676920646f6573206e6f7420737570706f7274207965742effffffff0000ffffffff
 == unsupported-schema: POST /api/anki/starter
 > POST /api/anki/starter
 < 409 content-type=application/x-amgi-wire cache-control=no-store
@@ -509,6 +539,16 @@
 < bytes 414d573200086200000054686520636f6c6c656374696f6e2066696c652069732064616d616765643b20616d676920646964206e6f74206f70656e2069742e20416e6b692063616e20726573746f72652069742066726f6d206f6e65206f6620697473206261636b7570732effffffff0000ffffffff
 == damaged: POST /api/anki/audio
 > POST /api/anki/audio
+< 409 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="damaged" error="The collection file is damaged; amgi did not open it. Anki can restore it from one of its backups." notStarted=false dailyCap=false}
+< bytes 414d573200086200000054686520636f6c6c656374696f6e2066696c652069732064616d616765643b20616d676920646964206e6f74206f70656e2069742e20416e6b692063616e20726573746f72652069742066726f6d206f6e65206f6620697473206261636b7570732effffffff0000ffffffff
+== damaged: POST /api/anki/decks/1/audio-plan
+> POST /api/anki/decks/1/audio-plan
+< 409 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="damaged" error="The collection file is damaged; amgi did not open it. Anki can restore it from one of its backups." notStarted=false dailyCap=false}
+< bytes 414d573200086200000054686520636f6c6c656374696f6e2066696c652069732064616d616765643b20616d676920646964206e6f74206f70656e2069742e20416e6b692063616e20726573746f72652069742066726f6d206f6e65206f6620697473206261636b7570732effffffff0000ffffffff
+== damaged: POST /api/anki/notes/1/audio-fill
+> POST /api/anki/notes/1/audio-fill
 < 409 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="damaged" error="The collection file is damaged; amgi did not open it. Anki can restore it from one of its backups." notStarted=false dailyCap=false}
 < bytes 414d573200086200000054686520636f6c6c656374696f6e2066696c652069732064616d616765643b20616d676920646964206e6f74206f70656e2069742e20416e6b692063616e20726573746f72652069742066726f6d206f6e65206f6620697473206261636b7570732effffffff0000ffffffff
@@ -607,6 +647,16 @@
 < 409 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="locked" error="Anki is open on this collection and the local bridge is not reachable. Either close Anki, or turn on the bridge in Anki (Tools > amgi: Bridge status...) and paste its token into Settings." notStarted=false dailyCap=false}
 < bytes 414d57320002bb000000416e6b69206973206f70656e206f6e207468697320636f6c6c656374696f6e20616e6420746865206c6f63616c20627269646765206973206e6f7420726561636861626c652e2045697468657220636c6f736520416e6b692c206f72207475726e206f6e207468652062726964676520696e20416e6b692028546f6f6c73203e20616d67693a20427269646765207374617475732e2e2e2920616e642070617374652069747320746f6b656e20696e746f2053657474696e67732effffffff0000ffffffff
+== locked (a -wal beside it): POST /api/anki/decks/1/audio-plan
+> POST /api/anki/decks/1/audio-plan
+< 409 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="locked" error="Anki is open on this collection and the local bridge is not reachable. Either close Anki, or turn on the bridge in Anki (Tools > amgi: Bridge status...) and paste its token into Settings." notStarted=false dailyCap=false}
+< bytes 414d57320002bb000000416e6b69206973206f70656e206f6e207468697320636f6c6c656374696f6e20616e6420746865206c6f63616c20627269646765206973206e6f7420726561636861626c652e2045697468657220636c6f736520416e6b692c206f72207475726e206f6e207468652062726964676520696e20416e6b692028546f6f6c73203e20616d67693a20427269646765207374617475732e2e2e2920616e642070617374652069747320746f6b656e20696e746f2053657474696e67732effffffff0000ffffffff
+== locked (a -wal beside it): POST /api/anki/notes/1/audio-fill
+> POST /api/anki/notes/1/audio-fill
+< 409 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="locked" error="Anki is open on this collection and the local bridge is not reachable. Either close Anki, or turn on the bridge in Anki (Tools > amgi: Bridge status...) and paste its token into Settings." notStarted=false dailyCap=false}
+< bytes 414d57320002bb000000416e6b69206973206f70656e206f6e207468697320636f6c6c656374696f6e20616e6420746865206c6f63616c20627269646765206973206e6f7420726561636861626c652e2045697468657220636c6f736520416e6b692c206f72207475726e206f6e207468652062726964676520696e20416e6b692028546f6f6c73203e20616d67693a20427269646765207374617475732e2e2e2920616e642070617374652069747320746f6b656e20696e746f2053657474696e67732effffffff0000ffffffff
 == locked (a -wal beside it): POST /api/anki/starter
 > POST /api/anki/starter
 < 409 content-type=application/x-amgi-wire cache-control=no-store
@@ -699,6 +749,16 @@
 < bytes 414d573200063b0000004e6f20416e6b692070726f66696c652069732073656c6563746564207965742e204f70656e2053657474696e677320746f207069636b206f6e652effffffff0000ffffffff
 == malformed escape: POST /api/anki/audio
 > POST /api/anki/audio
+< 409 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="unconfigured" error="No Anki profile is selected yet. Open Settings to pick one." notStarted=false dailyCap=false}
+< bytes 414d573200063b0000004e6f20416e6b692070726f66696c652069732073656c6563746564207965742e204f70656e2053657474696e677320746f207069636b206f6e652effffffff0000ffffffff
+== malformed escape: POST /api/anki/decks/1/audio-plan
+> POST /api/anki/decks/1/audio-plan
+< 409 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="unconfigured" error="No Anki profile is selected yet. Open Settings to pick one." notStarted=false dailyCap=false}
+< bytes 414d573200063b0000004e6f20416e6b692070726f66696c652069732073656c6563746564207965742e204f70656e2053657474696e677320746f207069636b206f6e652effffffff0000ffffffff
+== malformed escape: POST /api/anki/notes/1/audio-fill
+> POST /api/anki/notes/1/audio-fill
 < 409 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="unconfigured" error="No Anki profile is selected yet. Open Settings to pick one." notStarted=false dailyCap=false}
 < bytes 414d573200063b0000004e6f20416e6b692070726f66696c652069732073656c6563746564207965742e204f70656e2053657474696e677320746f207069636b206f6e652effffffff0000ffffffff
@@ -2042,3 +2102,428 @@
 < 429 content-type=application/x-amgi-wire cache-control=no-store
 < error {mode="" error="Gemini's free tier (10 a day) is used up for text. Turn on billing to lift it: https://aistudio.google.com/apikey" notStarted=false dailyCap=true}
 < bytes 414d573200097100000047656d696e692773206672656520746965722028313020612064617929206973207573656420757020666f7220746578742e205475726e206f6e2062696c6c696e6720746f206c6966742069743a2068747470733a2f2f616973747564696f2e676f6f676c652e636f6d2f6170696b6579ffffffff0001ffffffff
+== fill s18 decks
+> GET /api/anki/decks
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< decks {mode="direct" decks=[{id=1 name="Default" noteCount=0 known="" learning=""}, {id=1794170430284 name="Existing" noteCount=4 known="" learning=""}, {id=1794170430285 name="Existing::Child" noteCount=1 known="" learning=""}, {id=1794170430286 name="Korean" noteCount=3 known="" learning=""}, {id=1794170430287 name="Korean::문장" noteCount=3 known="" learning=""}, {id=1794170430288 name="Café" noteCount=2 known="" learning=""}, {id=1794170430289 name="Empty" noteCount=0 known="" learning=""}, {id=1794170430294 name="Filtered" noteCount=1 known="" learning=""}]}
+< bytes 414d573202000800000001000000000000000700000044656661756c740000000000000000000000004c23e4bca1010000080000004578697374696e670400000000000000000000004d23e4bca10100000f0000004578697374696e673a3a4368696c640100000000000000000000004e23e4bca1010000060000004b6f7265616e0300000000000000000000004f23e4bca10100000e0000004b6f7265616e3a3aebacb8ec9ea50300000000000000000000005023e4bca101000005000000436166c3a90200000000000000000000005123e4bca101000005000000456d7074790000000000000000000000005623e4bca10100000800000046696c7465726564010000000000000000000000
+== fill s18 notetypes
+> GET /api/anki/notetypes
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< notetypes {mode="direct" notetypes=[{id=1794170430283 name="Basic" fieldNames=["Front", "Back"] sortFieldIndex=0}, {id=1794170430284 name="Basic (and reversed card)" fieldNames=["Front", "Back"] sortFieldIndex=0}, {id=1794170430285 name="Basic (optional reversed card)" fieldNames=["Front", "Back", "Add Reverse"] sortFieldIndex=0}, {id=1794170430286 name="Basic (type in the answer)" fieldNames=["Front", "Back"] sortFieldIndex=0}, {id=1794170430287 name="Cloze" fieldNames=["Text", "Back Extra"] sortFieldIndex=0}, {id=1794170430288 name="Image Occlusion" fieldNames=["Occlusion", "Image", "Header", "Back Extra", "Comments"] sortFieldIndex=0}, {id=1794170430289 name="Retro's sentences" fieldNames=["Sentence", "Audio", "Sort"] sortFieldIndex=0}]}
+< bytes 414d57320500070000004b23e4bca1010000050000004261736963020000000500000046726f6e74040000004261636b000000004c23e4bca10100001900000042617369632028616e64207265766572736564206361726429020000000500000046726f6e74040000004261636b000000004d23e4bca10100001e000000426173696320286f7074696f6e616c207265766572736564206361726429030000000500000046726f6e74040000004261636b0b0000004164642052657665727365000000004e23e4bca10100001a000000426173696320287479706520696e2074686520616e7377657229020000000500000046726f6e74040000004261636b000000004f23e4bca101000005000000436c6f7a650200000004000000546578740a0000004261636b204578747261000000005023e4bca10100000f000000496d616765204f63636c7573696f6e05000000090000004f63636c7573696f6e05000000496d616765060000004865616465720a0000004261636b20457874726108000000436f6d6d656e7473000000005123e4bca101000011000000526574726f27732073656e74656e636573030000000800000053656e74656e636505000000417564696f04000000536f727400000000
+== fill s18 create deck
+> POST /api/anki/decks
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< deck_created {mode="direct" deck.id=10000013 deck.name="To fill" created=true}
+< bytes 414d573208008d9698000000000007000000546f2066696c6c01
+== fill s18 set languages
+> PUT /api/anki/decks/10000013/languages
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< deck_languages {mode="direct" id=10000013 known="en" learning="ko"}
+< bytes 414d573231008d9698000000000002000000656e020000006b6f
+== fill s18 add note 안녕하세요
+> POST /api/anki/notes
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< note_added {mode="direct" noteId=30000010}
+< bytes 414d57320a008ac3c90100000000
+== fill s18 add note 감사합니다
+> POST /api/anki/notes
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< note_added {mode="direct" noteId=30000011}
+< bytes 414d57320a008bc3c90100000000
+== fill s18 add note <div></div>
+> POST /api/anki/notes
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< note_added {mode="direct" noteId=30000012}
+< bytes 414d57320a008cc3c90100000000
+== fill s18 notes
+> GET /api/anki/decks/10000013/notes
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< notes {mode="direct" notes=[{id=30000010 notetypeId=1794170430283 fields=["안녕하세요", ""] tags=[]}, {id=30000011 notetypeId=1794170430283 fields=["감사합니다", "[sound:mine.mp3]"] tags=[]}, {id=30000012 notetypeId=1794170430283 fields=["<div></div>", "x"] tags=[]}] offset=0 limit=50 hasMore=false}
+< bytes 414d57320600030000008ac3c901000000004b23e4bca1010000020000000f000000ec9588eb8595ed9598ec84b8ec9a9400000000000000008bc3c901000000004b23e4bca1010000020000000f000000eab090ec82aced95a9eb8b88eb8ba4100000005b736f756e643a6d696e652e6d70335d000000008cc3c901000000004b23e4bca1010000020000000b0000003c6469763e3c2f6469763e010000007800000000000000003200000000
+== fill s18 audio plan
+> POST /api/anki/decks/10000013/audio-plan
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< fill_plan {mode="direct" toFill=[{id=30000010}] upToDate=1 skipped=1}
+< bytes 414d57323500010000008ac3c901000000000100000001000000
+== fill s18 audio plan, the known side as html
+> POST /api/anki/decks/10000013/audio-plan
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< fill_plan {mode="direct" toFill=[{id=30000010}] upToDate=1 skipped=1}
+< bytes 414d57323500010000008ac3c901000000000100000001000000
+== fill s18 audio plan, another field pair
+> POST /api/anki/decks/10000013/audio-plan
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< fill_plan {mode="direct" toFill=[{id=30000012}] upToDate=0 skipped=2}
+< bytes 414d57323500010000008cc3c901000000000000000002000000
+== fill s18 audio plan, a deck with no languages
+> POST /api/anki/decks/1794170430289/audio-plan
+< 409 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="" error="This deck has no languages yet: choose them first (amgi deck add NAME --from K --to L, or Change on the deck's page)." notStarted=false dailyCap=false}
+< bytes 414d573200097500000054686973206465636b20686173206e6f206c616e677561676573207965743a2063686f6f7365207468656d2066697273742028616d6769206465636b20616464204e414d45202d2d66726f6d204b202d2d746f204c2c206f72204368616e6765206f6e20746865206465636b27732070616765292effffffff0000ffffffff
+== fill s18 audio plan, a deck not there
+> POST /api/anki/decks/999/audio-plan
+< 404 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="" error="This deck no longer exists." notStarted=false dailyCap=false}
+< bytes 414d573200091b00000054686973206465636b206e6f206c6f6e676572206578697374732effffffff0000ffffffff
+== fill s18 audio plan, deck id not a number
+> POST /api/anki/decks/abc/audio-plan
+< 404 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="" error="This deck no longer exists." notStarted=false dailyCap=false}
+< bytes 414d573200091b00000054686973206465636b206e6f206c6f6e676572206578697374732effffffff0000ffffffff
+== fill s18 audio plan, an unknown side
+> POST /api/anki/decks/10000013/audio-plan
+< 400 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="" error="side must be learning, known or both" notStarted=false dailyCap=false}
+< bytes 414d573200092400000073696465206d757374206265206c6561726e696e672c206b6e6f776e206f7220626f7468ffffffff0000ffffffff
+== fill s18 audio plan, no side
+> POST /api/anki/decks/10000013/audio-plan
+< 400 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="" error="side must be learning, known or both" notStarted=false dailyCap=false}
+< bytes 414d573200092400000073696465206d757374206265206c6561726e696e672c206b6e6f776e206f7220626f7468ffffffff0000ffffffff
+== fill s18 audio plan, an unknown form
+> POST /api/anki/decks/10000013/audio-plan
+< 400 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="" error="form must be sound or html" notStarted=false dailyCap=false}
+< bytes 414d573200091a000000666f726d206d75737420626520736f756e64206f722068746d6cffffffff0000ffffffff
+== fill s18 audio plan, one field twice
+> POST /api/anki/decks/10000013/audio-plan
+< 400 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="" error="textField and audioField must be different fields" notStarted=false dailyCap=false}
+< bytes 414d5732000931000000746578744669656c6420616e6420617564696f4669656c64206d75737420626520646966666572656e74206669656c6473ffffffff0000ffffffff
+== fill s18 audio plan, a field out of range
+> POST /api/anki/decks/10000013/audio-plan
+< 400 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="" error="textField and audioField must be fields of the note type" notStarted=false dailyCap=false}
+< bytes 414d5732000938000000746578744669656c6420616e6420617564696f4669656c64206d757374206265206669656c6473206f6620746865206e6f74652074797065ffffffff0000ffffffff
+== fill s18 audio plan, no fields
+> POST /api/anki/decks/10000013/audio-plan
+< 400 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="" error="textField and audioField must be fields of the note type" notStarted=false dailyCap=false}
+< bytes 414d5732000938000000746578744669656c6420616e6420617564696f4669656c64206d757374206265206669656c6473206f6620746865206e6f74652074797065ffffffff0000ffffffff
+== fill s18 audio plan, an unknown note type
+> POST /api/anki/decks/10000013/audio-plan
+< 404 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="" error="This note type no longer exists." notStarted=false dailyCap=false}
+< bytes 414d573200092000000054686973206e6f74652074797065206e6f206c6f6e676572206578697374732effffffff0000ffffffff
+== fill s18 audio plan, both sides of a note type that is not amgi Listening
+> POST /api/anki/decks/10000013/audio-plan
+< 400 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="" error="side both is for the \"amgi Listening\" note type, with its Cue, Target, CueAudio and TargetAudio fields" notStarted=false dailyCap=false}
+< bytes 414d57320009660000007369646520626f746820697320666f72207468652022616d6769204c697374656e696e6722206e6f746520747970652c207769746820697473204375652c205461726765742c20437565417564696f20616e6420546172676574417564696f206669656c6473ffffffff0000ffffffff
+== fill s18 audio plan, body not the right kind
+> POST /api/anki/decks/10000013/audio-plan
+< 400 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="" error="the body is not a whole message of its kind" notStarted=false dailyCap=false}
+< bytes 414d573200092b00000074686520626f6479206973206e6f7420612077686f6c65206d657373616765206f6620697473206b696e64ffffffff0000ffffffff
+== fill s18 audio fill, a note with nothing to say
+> POST /api/anki/notes/30000012/audio-fill
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< note_changed {mode="direct" noteId=30000012 warning=""}
+< bytes 414d57320c008cc3c9010000000000000000
+== fill s18 audio fill, a deck with no languages
+> POST /api/anki/notes/30000012/audio-fill
+< 409 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="" error="This deck has no languages yet: choose them first (amgi deck add NAME --from K --to L, or Change on the deck's page)." notStarted=false dailyCap=false}
+< bytes 414d573200097500000054686973206465636b20686173206e6f206c616e677561676573207965743a2063686f6f7365207468656d2066697273742028616d6769206465636b20616464204e414d45202d2d66726f6d204b202d2d746f204c2c206f72204368616e6765206f6e20746865206465636b27732070616765292effffffff0000ffffffff
+== fill s18 audio fill, a deck not there
+> POST /api/anki/notes/30000012/audio-fill
+< 404 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="" error="This deck no longer exists." notStarted=false dailyCap=false}
+< bytes 414d573200091b00000054686973206465636b206e6f206c6f6e676572206578697374732effffffff0000ffffffff
+== fill s18 audio fill, no deck
+> POST /api/anki/notes/30000012/audio-fill
+< 404 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="" error="This deck no longer exists." notStarted=false dailyCap=false}
+< bytes 414d573200091b00000054686973206465636b206e6f206c6f6e676572206578697374732effffffff0000ffffffff
+== fill s18 audio fill, a note not there
+> POST /api/anki/notes/999/audio-fill
+< 404 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="" error="no note with id 999 in this collection" notStarted=false dailyCap=false}
+< bytes 414d57320009260000006e6f206e6f746520776974682069642039393920696e207468697320636f6c6c656374696f6effffffff0000ffffffff
+== fill s18 audio fill, note id not a number
+> POST /api/anki/notes/abc/audio-fill
+< 404 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="" error="no note with id NaN in this collection" notStarted=false dailyCap=false}
+< bytes 414d57320009260000006e6f206e6f74652077697468206964204e614e20696e207468697320636f6c6c656374696f6effffffff0000ffffffff
+== fill s18 audio fill, an unknown side
+> POST /api/anki/notes/30000012/audio-fill
+< 400 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="" error="side must be learning, known or both" notStarted=false dailyCap=false}
+< bytes 414d573200092400000073696465206d757374206265206c6561726e696e672c206b6e6f776e206f7220626f7468ffffffff0000ffffffff
+== fill s18 audio fill, an unknown note type
+> POST /api/anki/notes/30000012/audio-fill
+< 404 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="" error="This note type no longer exists." notStarted=false dailyCap=false}
+< bytes 414d573200092000000054686973206e6f74652074797065206e6f206c6f6e676572206578697374732effffffff0000ffffffff
+== fill s18 audio plan after: the plan changed nothing
+> POST /api/anki/decks/10000013/audio-plan
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< fill_plan {mode="direct" toFill=[{id=30000010}] upToDate=1 skipped=1}
+< bytes 414d57323500010000008ac3c901000000000100000001000000
+== fill s11 decks
+> GET /api/anki/decks
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< decks {mode="direct" decks=[{id=1 name="Default" noteCount=0 known="" learning=""}, {id=1794170430305 name="Korean" noteCount=3 known="" learning=""}, {id=1794170430306 name="Korean::문장" noteCount=3 known="" learning=""}, {id=1794170430308 name="Empty" noteCount=0 known="" learning=""}, {id=1794170430309 name="Filtered" noteCount=1 known="" learning=""}, {id=1794170430303 name="Existing" noteCount=4 known="" learning=""}, {id=1794170430307 name="Café" noteCount=2 known="" learning=""}, {id=1794170430304 name="Existing::Child" noteCount=1 known="" learning=""}]}
+< bytes 414d573202000800000001000000000000000700000044656661756c740000000000000000000000006123e4bca1010000060000004b6f7265616e0300000000000000000000006223e4bca10100000e0000004b6f7265616e3a3aebacb8ec9ea50300000000000000000000006423e4bca101000005000000456d7074790000000000000000000000006523e4bca10100000800000046696c74657265640100000000000000000000005f23e4bca1010000080000004578697374696e670400000000000000000000006323e4bca101000005000000436166c3a90200000000000000000000006023e4bca10100000f0000004578697374696e673a3a4368696c64010000000000000000000000
+== fill s11 notetypes
+> GET /api/anki/notetypes
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< notetypes {mode="direct" notetypes=[{id=1794170430302 name="Basic" fieldNames=["Front", "Back"] sortFieldIndex=0}, {id=1794170430306 name="Cloze" fieldNames=["Text", "Back Extra"] sortFieldIndex=0}, {id=1794170430305 name="Basic (type in the answer)" fieldNames=["Front", "Back"] sortFieldIndex=0}, {id=1794170430304 name="Basic (optional reversed card)" fieldNames=["Front", "Back", "Add Reverse"] sortFieldIndex=0}, {id=1794170430307 name="Image Occlusion" fieldNames=["Occlusion", "Image", "Header", "Back Extra", "Comments"] sortFieldIndex=0}, {id=1794170430308 name="Retro's sentences" fieldNames=["Sentence", "Audio", "Sort"] sortFieldIndex=0}, {id=1794170430303 name="Basic (and reversed card)" fieldNames=["Front", "Back"] sortFieldIndex=0}]}
+< bytes 414d57320500070000005e23e4bca1010000050000004261736963020000000500000046726f6e74040000004261636b000000006223e4bca101000005000000436c6f7a650200000004000000546578740a0000004261636b204578747261000000006123e4bca10100001a000000426173696320287479706520696e2074686520616e7377657229020000000500000046726f6e74040000004261636b000000006023e4bca10100001e000000426173696320286f7074696f6e616c207265766572736564206361726429030000000500000046726f6e74040000004261636b0b0000004164642052657665727365000000006323e4bca10100000f000000496d616765204f63636c7573696f6e05000000090000004f63636c7573696f6e05000000496d616765060000004865616465720a0000004261636b20457874726108000000436f6d6d656e7473000000006423e4bca101000011000000526574726f27732073656e74656e636573030000000800000053656e74656e636505000000417564696f04000000536f7274000000005f23e4bca10100001900000042617369632028616e64207265766572736564206361726429020000000500000046726f6e74040000004261636b00000000
+== fill s11 create deck
+> POST /api/anki/decks
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< deck_created {mode="direct" deck.id=10000014 deck.name="To fill" created=true}
+< bytes 414d573208008e9698000000000007000000546f2066696c6c01
+== fill s11 set languages
+> PUT /api/anki/decks/10000014/languages
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< deck_languages {mode="direct" id=10000014 known="en" learning="ko"}
+< bytes 414d573231008e9698000000000002000000656e020000006b6f
+== fill s11 add note 안녕하세요
+> POST /api/anki/notes
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< note_added {mode="direct" noteId=30000013}
+< bytes 414d57320a008dc3c90100000000
+== fill s11 add note 감사합니다
+> POST /api/anki/notes
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< note_added {mode="direct" noteId=30000014}
+< bytes 414d57320a008ec3c90100000000
+== fill s11 add note <div></div>
+> POST /api/anki/notes
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< note_added {mode="direct" noteId=30000015}
+< bytes 414d57320a008fc3c90100000000
+== fill s11 notes
+> GET /api/anki/decks/10000014/notes
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< notes {mode="direct" notes=[{id=30000013 notetypeId=1794170430302 fields=["안녕하세요", ""] tags=[]}, {id=30000014 notetypeId=1794170430302 fields=["감사합니다", "[sound:mine.mp3]"] tags=[]}, {id=30000015 notetypeId=1794170430302 fields=["<div></div>", "x"] tags=[]}] offset=0 limit=50 hasMore=false}
+< bytes 414d57320600030000008dc3c901000000005e23e4bca1010000020000000f000000ec9588eb8595ed9598ec84b8ec9a9400000000000000008ec3c901000000005e23e4bca1010000020000000f000000eab090ec82aced95a9eb8b88eb8ba4100000005b736f756e643a6d696e652e6d70335d000000008fc3c901000000005e23e4bca1010000020000000b0000003c6469763e3c2f6469763e010000007800000000000000003200000000
+== fill s11 audio plan
+> POST /api/anki/decks/10000014/audio-plan
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< fill_plan {mode="direct" toFill=[{id=30000013}] upToDate=1 skipped=1}
+< bytes 414d57323500010000008dc3c901000000000100000001000000
+== fill s11 audio plan, the known side as html
+> POST /api/anki/decks/10000014/audio-plan
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< fill_plan {mode="direct" toFill=[{id=30000013}] upToDate=1 skipped=1}
+< bytes 414d57323500010000008dc3c901000000000100000001000000
+== fill s11 audio plan, another field pair
+> POST /api/anki/decks/10000014/audio-plan
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< fill_plan {mode="direct" toFill=[{id=30000015}] upToDate=0 skipped=2}
+< bytes 414d57323500010000008fc3c901000000000000000002000000
+== fill s11 audio plan, a deck with no languages
+> POST /api/anki/decks/1794170430308/audio-plan
+< 409 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="" error="This deck has no languages yet: choose them first (amgi deck add NAME --from K --to L, or Change on the deck's page)." notStarted=false dailyCap=false}
+< bytes 414d573200097500000054686973206465636b20686173206e6f206c616e677561676573207965743a2063686f6f7365207468656d2066697273742028616d6769206465636b20616464204e414d45202d2d66726f6d204b202d2d746f204c2c206f72204368616e6765206f6e20746865206465636b27732070616765292effffffff0000ffffffff
+== fill s11 audio plan, a deck not there
+> POST /api/anki/decks/999/audio-plan
+< 404 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="" error="This deck no longer exists." notStarted=false dailyCap=false}
+< bytes 414d573200091b00000054686973206465636b206e6f206c6f6e676572206578697374732effffffff0000ffffffff
+== fill s11 audio plan, deck id not a number
+> POST /api/anki/decks/abc/audio-plan
+< 404 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="" error="This deck no longer exists." notStarted=false dailyCap=false}
+< bytes 414d573200091b00000054686973206465636b206e6f206c6f6e676572206578697374732effffffff0000ffffffff
+== fill s11 audio plan, an unknown side
+> POST /api/anki/decks/10000014/audio-plan
+< 400 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="" error="side must be learning, known or both" notStarted=false dailyCap=false}
+< bytes 414d573200092400000073696465206d757374206265206c6561726e696e672c206b6e6f776e206f7220626f7468ffffffff0000ffffffff
+== fill s11 audio plan, no side
+> POST /api/anki/decks/10000014/audio-plan
+< 400 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="" error="side must be learning, known or both" notStarted=false dailyCap=false}
+< bytes 414d573200092400000073696465206d757374206265206c6561726e696e672c206b6e6f776e206f7220626f7468ffffffff0000ffffffff
+== fill s11 audio plan, an unknown form
+> POST /api/anki/decks/10000014/audio-plan
+< 400 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="" error="form must be sound or html" notStarted=false dailyCap=false}
+< bytes 414d573200091a000000666f726d206d75737420626520736f756e64206f722068746d6cffffffff0000ffffffff
+== fill s11 audio plan, one field twice
+> POST /api/anki/decks/10000014/audio-plan
+< 400 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="" error="textField and audioField must be different fields" notStarted=false dailyCap=false}
+< bytes 414d5732000931000000746578744669656c6420616e6420617564696f4669656c64206d75737420626520646966666572656e74206669656c6473ffffffff0000ffffffff
+== fill s11 audio plan, a field out of range
+> POST /api/anki/decks/10000014/audio-plan
+< 400 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="" error="textField and audioField must be fields of the note type" notStarted=false dailyCap=false}
+< bytes 414d5732000938000000746578744669656c6420616e6420617564696f4669656c64206d757374206265206669656c6473206f6620746865206e6f74652074797065ffffffff0000ffffffff
+== fill s11 audio plan, no fields
+> POST /api/anki/decks/10000014/audio-plan
+< 400 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="" error="textField and audioField must be fields of the note type" notStarted=false dailyCap=false}
+< bytes 414d5732000938000000746578744669656c6420616e6420617564696f4669656c64206d757374206265206669656c6473206f6620746865206e6f74652074797065ffffffff0000ffffffff
+== fill s11 audio plan, an unknown note type
+> POST /api/anki/decks/10000014/audio-plan
+< 404 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="" error="This note type no longer exists." notStarted=false dailyCap=false}
+< bytes 414d573200092000000054686973206e6f74652074797065206e6f206c6f6e676572206578697374732effffffff0000ffffffff
+== fill s11 audio plan, both sides of a note type that is not amgi Listening
+> POST /api/anki/decks/10000014/audio-plan
+< 400 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="" error="side both is for the \"amgi Listening\" note type, with its Cue, Target, CueAudio and TargetAudio fields" notStarted=false dailyCap=false}
+< bytes 414d57320009660000007369646520626f746820697320666f72207468652022616d6769204c697374656e696e6722206e6f746520747970652c207769746820697473204375652c205461726765742c20437565417564696f20616e6420546172676574417564696f206669656c6473ffffffff0000ffffffff
+== fill s11 audio plan, body not the right kind
+> POST /api/anki/decks/10000014/audio-plan
+< 400 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="" error="the body is not a whole message of its kind" notStarted=false dailyCap=false}
+< bytes 414d573200092b00000074686520626f6479206973206e6f7420612077686f6c65206d657373616765206f6620697473206b696e64ffffffff0000ffffffff
+== fill s11 audio fill, a note with nothing to say
+> POST /api/anki/notes/30000015/audio-fill
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< note_changed {mode="direct" noteId=30000015 warning=""}
+< bytes 414d57320c008fc3c9010000000000000000
+== fill s11 audio fill, a deck with no languages
+> POST /api/anki/notes/30000015/audio-fill
+< 409 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="" error="This deck has no languages yet: choose them first (amgi deck add NAME --from K --to L, or Change on the deck's page)." notStarted=false dailyCap=false}
+< bytes 414d573200097500000054686973206465636b20686173206e6f206c616e677561676573207965743a2063686f6f7365207468656d2066697273742028616d6769206465636b20616464204e414d45202d2d66726f6d204b202d2d746f204c2c206f72204368616e6765206f6e20746865206465636b27732070616765292effffffff0000ffffffff
+== fill s11 audio fill, a deck not there
+> POST /api/anki/notes/30000015/audio-fill
+< 404 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="" error="This deck no longer exists." notStarted=false dailyCap=false}
+< bytes 414d573200091b00000054686973206465636b206e6f206c6f6e676572206578697374732effffffff0000ffffffff
+== fill s11 audio fill, no deck
+> POST /api/anki/notes/30000015/audio-fill
+< 404 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="" error="This deck no longer exists." notStarted=false dailyCap=false}
+< bytes 414d573200091b00000054686973206465636b206e6f206c6f6e676572206578697374732effffffff0000ffffffff
+== fill s11 audio fill, a note not there
+> POST /api/anki/notes/999/audio-fill
+< 404 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="" error="no note with id 999 in this collection" notStarted=false dailyCap=false}
+< bytes 414d57320009260000006e6f206e6f746520776974682069642039393920696e207468697320636f6c6c656374696f6effffffff0000ffffffff
+== fill s11 audio fill, note id not a number
+> POST /api/anki/notes/abc/audio-fill
+< 404 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="" error="no note with id NaN in this collection" notStarted=false dailyCap=false}
+< bytes 414d57320009260000006e6f206e6f74652077697468206964204e614e20696e207468697320636f6c6c656374696f6effffffff0000ffffffff
+== fill s11 audio fill, an unknown side
+> POST /api/anki/notes/30000015/audio-fill
+< 400 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="" error="side must be learning, known or both" notStarted=false dailyCap=false}
+< bytes 414d573200092400000073696465206d757374206265206c6561726e696e672c206b6e6f776e206f7220626f7468ffffffff0000ffffffff
+== fill s11 audio fill, an unknown note type
+> POST /api/anki/notes/30000015/audio-fill
+< 404 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="" error="This note type no longer exists." notStarted=false dailyCap=false}
+< bytes 414d573200092000000054686973206e6f74652074797065206e6f206c6f6e676572206578697374732effffffff0000ffffffff
+== fill s11 audio plan after: the plan changed nothing
+> POST /api/anki/decks/10000014/audio-plan
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< fill_plan {mode="direct" toFill=[{id=30000013}] upToDate=1 skipped=1}
+< bytes 414d57323500010000008dc3c901000000000100000001000000
+== fill keyless: set languages
+> PUT /api/anki/decks/1/languages
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< deck_languages {mode="direct" id=1 known="en" learning="ko"}
+< bytes 414d57323100010000000000000002000000656e020000006b6f
+== fill keyless: note types
+> GET /api/anki/notetypes
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< notetypes {mode="direct" notetypes=[{id=1794170430283 name="Basic" fieldNames=["Front", "Back"] sortFieldIndex=0}, {id=1794170430284 name="Basic (and reversed card)" fieldNames=["Front", "Back"] sortFieldIndex=0}, {id=1794170430285 name="Basic (optional reversed card)" fieldNames=["Front", "Back", "Add Reverse"] sortFieldIndex=0}, {id=1794170430286 name="Basic (type in the answer)" fieldNames=["Front", "Back"] sortFieldIndex=0}, {id=1794170430287 name="Cloze" fieldNames=["Text", "Back Extra"] sortFieldIndex=0}, {id=1794170430288 name="Image Occlusion" fieldNames=["Occlusion", "Image", "Header", "Back Extra", "Comments"] sortFieldIndex=0}, {id=1794170430289 name="Retro's sentences" fieldNames=["Sentence", "Audio", "Sort"] sortFieldIndex=0}]}
+< bytes 414d57320500070000004b23e4bca1010000050000004261736963020000000500000046726f6e74040000004261636b000000004c23e4bca10100001900000042617369632028616e64207265766572736564206361726429020000000500000046726f6e74040000004261636b000000004d23e4bca10100001e000000426173696320286f7074696f6e616c207265766572736564206361726429030000000500000046726f6e74040000004261636b0b0000004164642052657665727365000000004e23e4bca10100001a000000426173696320287479706520696e2074686520616e7377657229020000000500000046726f6e74040000004261636b000000004f23e4bca101000005000000436c6f7a650200000004000000546578740a0000004261636b204578747261000000005023e4bca10100000f000000496d616765204f63636c7573696f6e05000000090000004f63636c7573696f6e05000000496d616765060000004865616465720a0000004261636b20457874726108000000436f6d6d656e7473000000005123e4bca101000011000000526574726f27732073656e74656e636573030000000800000053656e74656e636505000000417564696f04000000536f727400000000
+== fill keyless: add a note
+> POST /api/anki/notes
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< note_added {mode="direct" noteId=30000016}
+< bytes 414d57320a0090c3c90100000000
+== fill keyless: audio plan
+> POST /api/anki/decks/1/audio-plan
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< fill_plan {mode="direct" toFill=[{id=30000016}] upToDate=0 skipped=0}
+< bytes 414d573235000100000090c3c901000000000000000000000000
+== fill keyless: audio fill
+> POST /api/anki/notes/30000016/audio-fill
+< 500 content-type=application/x-amgi-wire cache-control=no-store
+< error {mode="" error="GEMINI_API_KEY is not set, so nothing was generated: get a key at https://aistudio.google.com/apikey, add it to .env.local and restart amgi." notStarted=false dailyCap=false}
+< bytes 414d573200098c00000047454d494e495f4150495f4b4559206973206e6f74207365742c20736f206e6f7468696e67207761732067656e6572617465643a206765742061206b65792061742068747470733a2f2f616973747564696f2e676f6f676c652e636f6d2f6170696b65792c2061646420697420746f202e656e762e6c6f63616c20616e64207265737461727420616d67692effffffff0000ffffffff
+== fill fake: set languages
+> PUT /api/anki/decks/1/languages
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< deck_languages {mode="direct" id=1 known="en" learning="ko"}
+< bytes 414d57323100010000000000000002000000656e020000006b6f
+== fill fake: note types
+> GET /api/anki/notetypes
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< notetypes {mode="direct" notetypes=[{id=1794170430283 name="Basic" fieldNames=["Front", "Back"] sortFieldIndex=0}, {id=1794170430284 name="Basic (and reversed card)" fieldNames=["Front", "Back"] sortFieldIndex=0}, {id=1794170430285 name="Basic (optional reversed card)" fieldNames=["Front", "Back", "Add Reverse"] sortFieldIndex=0}, {id=1794170430286 name="Basic (type in the answer)" fieldNames=["Front", "Back"] sortFieldIndex=0}, {id=1794170430287 name="Cloze" fieldNames=["Text", "Back Extra"] sortFieldIndex=0}, {id=1794170430288 name="Image Occlusion" fieldNames=["Occlusion", "Image", "Header", "Back Extra", "Comments"] sortFieldIndex=0}, {id=1794170430289 name="Retro's sentences" fieldNames=["Sentence", "Audio", "Sort"] sortFieldIndex=0}]}
+< bytes 414d57320500070000004b23e4bca1010000050000004261736963020000000500000046726f6e74040000004261636b000000004c23e4bca10100001900000042617369632028616e64207265766572736564206361726429020000000500000046726f6e74040000004261636b000000004d23e4bca10100001e000000426173696320286f7074696f6e616c207265766572736564206361726429030000000500000046726f6e74040000004261636b0b0000004164642052657665727365000000004e23e4bca10100001a000000426173696320287479706520696e2074686520616e7377657229020000000500000046726f6e74040000004261636b000000004f23e4bca101000005000000436c6f7a650200000004000000546578740a0000004261636b204578747261000000005023e4bca10100000f000000496d616765204f63636c7573696f6e05000000090000004f63636c7573696f6e05000000496d616765060000004865616465720a0000004261636b20457874726108000000436f6d6d656e7473000000005123e4bca101000011000000526574726f27732073656e74656e636573030000000800000053656e74656e636505000000417564696f04000000536f727400000000
+== fill fake: add a note to fill
+> POST /api/anki/notes
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< note_added {mode="direct" noteId=30000017}
+< bytes 414d57320a0091c3c90100000000
+== fill fake: add another note to fill
+> POST /api/anki/notes
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< note_added {mode="direct" noteId=30000018}
+< bytes 414d57320a0092c3c90100000000
+== fill fake: the clip of the second note, made by /audio
+> POST /api/anki/audio
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< clip {mode="direct" filename="amgi-dce4d16cea2470806c22.wav" reference="<audio src=\"amgi-dce4d16cea2470806c22.wav\"></audio>" reused=false}
+< bytes 414d57320e001d000000616d67692d64636534643136636561323437303830366332322e776176330000003c617564696f207372633d22616d67692d64636534643136636561323437303830366332322e776176223e3c2f617564696f3e00
+== fill fake: audio plan
+> POST /api/anki/decks/1/audio-plan
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< fill_plan {mode="direct" toFill=[{id=30000018}] upToDate=1 skipped=0}
+< bytes 414d573235000100000092c3c901000000000100000000000000
+== fill fake: audio fill
+> POST /api/anki/notes/30000017/audio-fill
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< note_changed {mode="direct" noteId=30000017 warning=""}
+< bytes 414d57320c0091c3c9010000000000000000
+== fill fake: the note after the fill
+> GET /api/anki/notes/30000017
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< note {mode="direct" id=30000017 notetypeId=1794170430283 fields=["다음에 봐요", "[sound:mine.mp3]"] tags=[]}
+< bytes 414d57322e0091c3c901000000004b23e4bca10100000200000010000000eb8ba4ec9d8cec979020ebb490ec9a94100000005b736f756e643a6d696e652e6d70335d00000000
+== fill fake: audio fill again, up to date
+> POST /api/anki/notes/30000017/audio-fill
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< note_changed {mode="direct" noteId=30000017 warning=""}
+< bytes 414d57320c0091c3c9010000000000000000
+== fill fake: audio fill, the clip was there
+> POST /api/anki/notes/30000018/audio-fill
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< note_changed {mode="direct" noteId=30000018 warning=""}
+< bytes 414d57320c0092c3c9010000000000000000
+== fill fake: audio plan after
+> POST /api/anki/decks/1/audio-plan
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< fill_plan {mode="direct" toFill=[] upToDate=2 skipped=0}
+< bytes 414d57323500000000000200000000000000
+== fill fake: add a note for the limit
+> POST /api/anki/notes
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< note_added {mode="direct" noteId=30000019}
+< bytes 414d57320a0093c3c90100000000
+== fill fake: the one clip this minute allows
+> POST /api/anki/notes/30000019/audio-fill
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< note_changed {mode="direct" noteId=30000019 warning=""}
+< bytes 414d57320c0093c3c9010000000000000000
+== fill fake: add a note the limit stops
+> POST /api/anki/notes
+< 200 content-type=application/x-amgi-wire cache-control=no-store
+< note_added {mode="direct" noteId=30000020}
+< bytes 414d57320a0094c3c90100000000
+== fill fake: audio fill limited after starting
+> POST /api/anki/notes/30000020/audio-fill
+< 429 content-type=application/x-amgi-wire cache-control=no-store retry-after=<checked>
+< error {mode="" error="Gemini is limiting how many requests gemini-3.8-flash-tts takes per minute and asked to wait <n>s." retryAfterMs=1 notStarted=false dailyCap=false maxWaitMs=180000}
+< bytes 414d573200096200000047656d696e69206973206c696d6974696e6720686f77206d616e792072657175657374732067656d696e692d332e382d666c6173682d7474732074616b657320706572206d696e75746520616e642061736b656420746f2077616974203c6e3e732e01000000000020bf0200
+== fill fake: audio fill refused before starting
+> POST /api/anki/notes/30000020/audio-fill
+< 429 content-type=application/x-amgi-wire cache-control=no-store retry-after=<checked>
+< error {mode="" error="Gemini's per-minute limit is reached; this card waits <n>s before starting." retryAfterMs=1 notStarted=true dailyCap=false maxWaitMs=180000}
+< bytes 414d573200094b00000047656d696e692773207065722d6d696e757465206c696d697420697320726561636865643b20746869732063617264207761697473203c6e3e73206265666f7265207374617274696e672e01000000010020bf0200

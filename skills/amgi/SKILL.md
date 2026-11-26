@@ -1,6 +1,6 @@
 ---
 name: amgi
-description: Add decks and cards to the user's real Anki collection with the amgi command line (server/build/amgi up, deck add, card add, card list, down), with card text and audio from Gemini. Use whenever the user wants amgi to make cards, fill a deck, or read or change their Anki collection.
+description: Add decks and cards to the user's real Anki collection with the amgi command line (server/build/amgi up, deck add, card add, card list, audio fill, down), with card text and audio from Gemini. Use whenever the user wants amgi to make cards, fill a deck, or read or change their Anki collection.
 ---
 
 # amgi: add Anki cards from the command line
@@ -29,6 +29,7 @@ server/build/amgi up --key-file /path/to/.env.local
 server/build/amgi deck add "Spanish" --from en --to es
 server/build/amgi card add --deck "Spanish" --text "Where is the station?" --from en --to es
 server/build/amgi card list --deck "Spanish"
+server/build/amgi audio fill --deck "Spanish"
 server/build/amgi down
 ```
 
@@ -43,7 +44,7 @@ Language codes: `en`, `ko`, `ja`, `zh_cn`, `zh_hk`, `es`, `fr`, `pt`, `ru`, `id`
 `deck add NAME --from KNOWN --to LEARNING` also stores the deck's language pair in the deck (both flags or neither; the same codes), so Anki and the page see it too; `deck list` prints it.
 `card add --deck D --front TEXT --back TEXT` makes a card with no Gemini call and no audio (front in the deck's known language, back in its learning language).
 A write prints what reading it back finds.
-Output is tab-separated: `deck ID NOTES NAME KNOWN LEARNING` (`-` and `-` when the deck has no pair), `would-remove ID NOTES CARDS SUBDECKS NAME` and `removed ID NOTES CARDS DECKS NAME` (for `deck remove`), `would-remove ID FRONT BACK` and `removed ID FRONT BACK` (for `card remove`), `note ID FRONT BACK CUE_AUDIO TARGET_AUDIO` (`-` when absent), `status MODE SCHEMA PID PORT PROFILE COLLECTION`, `install READY ADDONS UP_TO_DATE NOTE_TYPE_CHECKED`.
+Output is tab-separated: `deck ID NOTES NAME KNOWN LEARNING` (`-` and `-` when the deck has no pair), `would-remove ID NOTES CARDS SUBDECKS NAME` and `removed ID NOTES CARDS DECKS NAME` (for `deck remove`), `would-remove ID FRONT BACK` and `removed ID FRONT BACK` (for `card remove`), `note ID FRONT BACK CUE_AUDIO TARGET_AUDIO` (`-` when absent), `filled ID`, `failed ID REASON` and `audio-fill FILLED UP_TO_DATE SKIPPED FAILED` (for `audio fill`), `status MODE SCHEMA PID PORT PROFILE COLLECTION`, `install READY ADDONS UP_TO_DATE NOTE_TYPE_CHECKED`.
 Exit codes: 0 ok, 1 other (amgi not up, server error), 2 locked, 3 not found, 4 usage (also: a deck with no languages and none given, or others than its own), 5 Gemini.
 `deck add` is find-or-create: the same name again prints the same deck line, exits 0, and says `amgi: the deck was already there` on stderr.
 With `--from` and `--to` the pair is set on the deck it found or made, replacing one it had.
@@ -60,10 +61,21 @@ The audio files of a removed deck stay in `collection.media` until Anki's Tools 
 `card remove ID --yes` deletes that one note, its cards and their review history, and prints `removed ID FRONT BACK`.
 `ID` is the note ID that `card list` prints after `note`; an ID that is no note exits 3, and a missing or non-numeric ID exits 4, both deleting nothing.
 
+## Filling in audio that is missing
+
+`audio fill --deck NAME` makes the clip of every note in the deck (subdecks included) that lacks one, in the deck's languages, one note at a time, and writes its reference into the note's audio field.
+With no other option it fills the amgi Listening notes, both sides (Target into TargetAudio, Cue into CueAudio).
+For another note type name its fields: `audio fill --deck NAME --notetype Basic --text-field Front --audio-field Back [--side learning|known] [--form sound|html]` (`--side` is which of the deck's two languages the text field is in, `learning` unless said; `--form sound` writes `[sound:x]`, `html` an `<audio>` element).
+It leaves alone a note that already has the clip of its current text and a note whose audio field holds someone else's audio (counted as up to date); it never touches an image; running it again fills nothing.
+It prints `filled ID` or `failed ID REASON` for each note it tried, and last `audio-fill FILLED UP_TO_DATE SKIPPED FAILED` (the notes it found up to date, which includes those with someone else's audio, and the ones with no text or of another note type, are counted, not listed).
+It waits as Gemini's rate limit asks and stops at once on the day's quota (exit 5), with the notes done staying done; a note whose clip Gemini could not make is `failed` and the run goes on, ending with exit 5.
+A deck with no languages is exit 4, like `card add`.
+Each clip is a Gemini call: do it when the user asks, and say how many notes the run will take (`audio fill` runs the plan first, but it does not stop to ask).
+
 ## Which commands write
 
 Read-only: `status`, `deck list`, `card list`, and `deck remove` and `card remove` without `--yes`.
-Writes: `deck add`, `card add`, `deck remove --yes`, `card remove --yes`, `install`.
+Writes: `deck add`, `card add`, `audio fill`, `deck remove --yes`, `card remove --yes`, `install`.
 `card add --text` stores two audio clips in `collection.media` as soon as Gemini answers, even if no note is then added.
 Ask the user before `deck remove --yes` on a deck, or `card remove --yes` on a note, that the user did not ask to delete.
 `install` is NOT part of adding a card: when amgi is installed, `amgi status` prints a line starting `install<TAB>yes`; run `amgi install` only when the user asks.
@@ -82,4 +94,4 @@ Exit 5 `rate limited`: the CLI already waited as asked; wait `retryAfterMs` and 
 `dailyCap`: stop and tell the user.
 After the writes, the user opens Anki and syncs; if AnkiWeb asks to upload or download the whole collection, upload.
 
-Raw HTTP API, wire format, the bridge, the Node scripts and the card-design rules: skills/amgi/references/api.md and the other references.
+Raw HTTP API, wire format, the bridge, scripting and the card-design rules: skills/amgi/references/api.md and the other references.

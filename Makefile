@@ -1,4 +1,4 @@
-# amgi from the repository root, with make and no Node: the page is C built to WebAssembly on cdom
+# amgi from the repository root, with make: the page is C built to WebAssembly on cdom
 # (ui/Makefile, through ui/build.sh), the server is C on cbase (server/, make -C server), and starting
 # it is cbase's make serve (make -C server serve), which execs the server binary itself.
 #
@@ -11,7 +11,7 @@
 #   make test     the C checks, then the JavaScript and Python suites (npm test: tests need node)
 #   make lint     eslint (needs npm install)
 #
-# Node is for the tests and the linter alone; nothing here that builds or starts amgi runs it.
+# Node runs the tests and the linter; building and starting amgi is make and C.
 .PHONY: start dev build submodules ui server anki test lint
 
 start dev: build

@@ -4,127 +4,30 @@ This add-on is part of amgi and runs inside Anki; it is licensed with the rest o
 
 Two things live in this one add-on, both about reaching a live Anki collection while Anki has it open:
 
-1. **Fill missing audio** (`Tools > amgi: Fill missing audio...`) - adds audio straight into your live collection.
-   No exporting a `.apkg`, running a script, and importing the result back.
-   Pick a deck, tell it which field to read and which field to write the clip into, and it fills in whatever is missing.
-2. **A local HTTP bridge** (`Tools > amgi: Bridge status...`) - lets the amgi web UI read and write this same collection while Anki is running, the same way it reads and writes a closed collection's file directly (the server's `server/collection/`) when Anki is closed.
+1. **A local HTTP bridge** (`Tools > amgi: Bridge status...`) - lets the amgi web UI read and write the collection while Anki is running, the same way it reads and writes a closed collection's file directly (the server's `server/collection/`) when Anki is closed.
    Off by default; see "Local HTTP bridge" below for what it does and its security model.
+2. **amgi's note type** - `amgi Listening` is installed into the collection when a profile opens (`notetype.py`), together with the review-loop script it plays audio with.
 
-This add-on used to be called `amgi_audio` and only did the first of these.
-It was renamed when the second was added, since "audio" stopped describing what it does; every reference to the old name (paths, the package id, imports) was updated along with it - there is no `amgi_audio` left anywhere in this repo.
+Audio is filled by the amgi app, and works on a live collection through the bridge: the deck page's "Fill" line, or `amgi audio fill --deck NAME` on the command line (`skills/amgi/SKILL.md`).
 
 This is a separate add-on from `../amgi_mic/`, installed on its own.
 The two do unrelated jobs with unrelated risk: `amgi_mic` is passive infrastructure that answers one Qt permission request and touches no collection data.
-This add-on has menu items, makes network calls (for audio generation) and a local HTTP listener (for the bridge), and edits notes.
-Bundling them would mean a user who only wants the microphone permission - the common case on a machine without an amgi account - installing something that phones home and listens on a port, and a user who only wants their audio filled in installing something that asks for their microphone.
+This add-on has a local HTTP listener (for the bridge) and edits notes.
 `amgi_mic`'s own README promises it is short enough to read in full.
 Folding this add-on's jobs into it would break that promise for no reason, since Anki add-ons are already the unit both `Tools > Add-ons` and AnkiWeb manage independently.
 
-## What it does
+## Fill missing audio
 
-1. Tools > amgi: Fill missing audio... opens a dialog.
-2. Pick a deck, which field to read aloud, which field to write the clip into, the language, and which reference form to write (see below).
-3. It finds every note in that deck (subdecks included) missing this tool's own audio for its current text, generates it, and writes it in.
-
-That's it.
-It does not create notes, does not touch any field but the one you pointed it at, and does not touch scheduling, `revlog`, note types or decks.
-
-## What it does not touch
-
-- Any field except the one you name as the audio field.
-- A reference in that field it did not write itself - the deck author's own recording, someone else's `[sound:...]` tag, an `<img>` in the same field - is left exactly where it is.
-  Only this tool's own generated clip is ever added, replaced or removed.
-- A note whose text has not changed since this tool last filled it in.
-  Clip filenames are content hashes of the text (see "Idempotency" below), so a note already carrying the right one is skipped, not touched.
-- Anything outside the deck you picked.
+Open the deck page in amgi and use its "Fill" line, or run `server/build/amgi audio fill --deck NAME`.
+Both write only the audio field, and only where a clip is missing or no longer matches the text.
+A reference in that field that amgi did not write - the deck author's own recording, someone else's `[sound:...]` tag, an `<img>` - stays exactly where it is.
+Clip filenames are content hashes of the text, so a note already carrying the right clip is skipped, and running a fill twice does nothing the second time.
 
 ## Install
 
-This add-on generates audio on your own machine, with your own Gemini key.
-There is no amgi account, no hosted service, and no quota but your own Gemini account's - see
-"Generation: local, not the edge function" below for why, and for what this used to depend on that
-it no longer does.
-
-That does mean it needs a few things a purely-installed add-on would not:
-
-- **Node.js**, to run the same generator `plusaudio/` uses.
-  This is a real install step, not a nicety: if you do not already have Node, get it from
-  [nodejs.org](https://nodejs.org) first.
-- **A checkout of [this repo](https://github.com/alexsave/amgi)**, so `plusaudio/generate-clip.js`
-  and the shared generation policy it runs exist on disk somewhere.
-- **A Gemini API key** (https://aistudio.google.com/apikey), in the environment, in
-  `plusaudio/.env`, or pasted into this add-on's own config (see below).
-
 1. Copy the `amgi_bridge` folder into your Anki add-ons folder (Tools > Add-ons > View Files puts you in the right place), then restart Anki.
-2. Tools > Add-ons, select amgi_bridge, click Config, and set `plusaudio_dir` to the `plusaudio` folder of your checkout.
-   Set `node_path` too if `node` is not on the `PATH` Anki itself runs with, and `gemini_api_key` if you are not already setting `GEMINI_API_KEY` some other way.
-   See `config.md` (shown next to the config editor) for all three, in the order they are checked.
-3. Tools > amgi: Fill missing audio...
-
-If any of the above is missing or misconfigured, this add-on says so before a run starts - a message
-naming what to fix, not a stack trace partway through your deck.
-
-## Field mapping
-
-You choose two fields per run, by name:
-
-- **Read this field aloud** - the field holding the text to speak.
-  HTML markup and any existing `[sound:...]`/`<audio>` tag in it are stripped before it is sent for generation.
-- **Write the clip into** - the field the generated clip is added to.
-
-They must be different fields.
-If your deck mixes note types, the dialog offers every field name used by any of them; a note whose type lacks one of the two chosen names is skipped, not guessed at or overwritten.
-
-## Which reference to write
-
-Same choice, and the same two forms, as `plusaudio`'s `--audio-tag` (see [`../../plusaudio/README.md`](../../plusaudio/README.md), "Which reference to write"):
-
-- `sound` (default) - `[sound:clip.mp3]`.
-  Works everywhere, Anki plays it with its own player, `R` replays it.
-- `html` - `<audio src="clip.mp3"></audio>`.
-  What the review-loop note type in [`../../notetype/`](../notetype/README.md) needs to sequence its own playback; Anki strips a bare `[sound:]` tag out of the page before the template's JavaScript ever sees it.
-
-Re-running with the other form converts a note without regenerating its audio: the clip is a content hash of the text, so only the reference changes.
-
-## Relation to `plusaudio/`
-
-Same generation policy, same clip-naming scheme, two different situations:
-
-- **`plusaudio/`** edits a `.apkg` file.
-  Use it for a deck you are going to share, or one you cannot open directly - someone else's deck, or a shared collection you do not have Anki open against right now.
-  You export, run it, and import the result back.
-- **This add-on** edits your own open collection directly, through Anki itself.
-  Use it for your own live deck, when you have Anki open.
-  No export, no import, and Anki's own GUID matching, scheduling and undo history are never in question because Anki is the one doing the writing.
-
-They stay interchangeable on the same deck: `plusaudio` and this add-on name a clip the same way (`amgi-<hash of profile, language, text>.wav`, or `.mp3` for a clip made before speech moved to Gemini, from `plusaudio/lib/audio-store.js`, ported for Python in `deck_text.py`), so a deck touched by one and then the other treats the other's clips as already done rather than regenerating them.
-
-## Idempotency and cancellation
-
-A clip's filename is a hash of the generation profile, the language, and the exact text.
-If the text has not changed since this tool last filled it in, the note already points at the file this run would produce, so plan_fill (`core.py`) leaves it alone.
-Running the whole thing twice in a row does nothing the second time; this is checked in `tests/anki/addon/test_core_collection.py` against a real collection.
-
-A note's field is only changed after its clip has already been generated and written into the collection's media folder.
-The collection's database itself is not touched until the very end of a run, in a single write covering every note finished so far.
-See `core.apply_fill`'s docstring for why, and `test_core_collection.py`'s cancellation test for what a cancelled run leaves behind: the notes done so far, committed; the rest, simply not started yet, and picked back up the same way on the next run.
-
-## Generation: local, not the edge function
-
-The generation policy - prompts, Gemini speech, the transcribe-then-judge validation loop - lives in exactly one place, `plusaudio/lib/cardGeneration/cardGeneration.ts`, and this add-on does not get a second copy of it in Python.
-It is Python, so it cannot `require()` that TypeScript module the way `plusaudio/lib/generator.js` does.
-Instead `generator.py` shells out to `plusaudio/generate-clip.js`, a small Node entry point built for exactly this - text and a language in, one clip written to a file, over a documented contract (see that file's own top-of-file comment) - which in turn calls the same shared generator `plusaudio/add-audio.js` uses.
-
-That contract is the seam `core.apply_fill` depends on: it takes any `fetch_audio(text) -> bytes` callable (see `generator.AudioGenerator`), so it has no idea, and does not need one, that the other end is a subprocess.
-
-This add-on used to call a deployed `cards` edge function over HTTPS instead, signed in with an amgi account's email and password stored in this add-on's own config.
-That is gone.
-Generating locally, against your own key, removes a real liability - an amgi account's password sitting in plaintext in an Anki add-on's config file - and removes the amgi account, the hosted quota, and the network dependency on Supabase entirely.
-The only network calls this add-on makes now are the ones `plusaudio/generate-clip.js` makes to Google's Gemini API, from your own machine, with your own key.
-
-The tradeoff is Node and a repo checkout become real requirements, not optional ones - see "Install" above.
-That was the whole reason the edge-function version existed in the first place: everyone who could already use the amgi web app had what it needed and nothing else.
-That reasoning no longer applies now that reaching into a live collection with no amgi account at all is the point.
+   The amgi app's Install button does this for you.
+2. Tools > amgi: Bridge status... to turn the bridge on (see "Turning it on" below).
 
 ## Local HTTP bridge
 
@@ -137,7 +40,7 @@ That is what this bridge is: a small local HTTP server, run by this add-on, that
 
 ### What it exposes
 
-One endpoint per capability the Node layer exposes, deliberately matching its vocabulary so the two are interchangeable (see "Cross-transport parity" below).
+One endpoint per capability the server's collection core exposes, deliberately matching its vocabulary so the two are interchangeable (see "Cross-transport parity" below).
 The bodies are not JSON: every request body and every answer is a message in amgi's wire format (`ui/wire/wire.h`), `Content-Type: application/x-amgi-wire`.
 The shapes below are its fields, by name; the layouts themselves are written down once, in `ui/wire/wire.c`'s schema table (the `b_*` kinds and the request kinds `q_deck_name`, `q_note`, `q_notes`, `q_note_update`).
 `ui/build.sh` writes that table into this add-on as `wire_schema.py`, and `bridge_wire.py` reads and writes messages with it, so the add-on holds no layout of its own.
@@ -146,14 +49,14 @@ The shapes below are its fields, by name; the layouts themselves are written dow
 
 | Method & path | Direct equivalent (`server/collection/collection.h`) | Notes |
 | --- | --- | --- |
-| `GET /status` | `Collection.status()` | Works even with no collection open (`collectionOpen: false`) - the whole point of a status endpoint. Also reports the Anki and Qt versions and the open profile's name, which Node's file-based `status()` has no way to know. |
+| `GET /status` | `Collection.status()` | Works even with no collection open (`collectionOpen: false`) - the whole point of a status endpoint. Also reports the Anki and Qt versions and the open profile's name. |
 | `GET /decks` | `Collection.listDecks()` | Each row is `{id, name, known, learning}`: the deck's language pair (protocol 3), read from the deck's own `amgiLanguages` key, a string `"<known> <learning>"`; `""` and `""` when it holds none or anything else. |
 | `GET /notetypes` | `Collection.listNotetypes()` | |
-| `GET /decks/:id/notes?offset=&limit=` | `Collection.listNotesInDeck(id, {offset, limit})` | Response is `{notes, total, offset, limit}`; Node's returns the array alone. The bridge adds a total count because the UI needs one to build pager controls, and Node's caller can just page until a short page instead. |
+| `GET /decks/:id/notes?offset=&limit=` | `Collection.listNotesInDeck(id, {offset, limit})` | Response is `{notes, total, offset, limit}`. The total count is for the UI's pager controls. |
 | `GET /decks/:id/notes/field-values?notetypeId=&fieldIndex=` | `Collection.listFieldValuesInDeck(id, notetypeId, fieldIndex)` | One field's raw value for every note of that note type already in the deck - what the bulk-add-from-paste screen checks a pasted line against before writing it. Response is `{values: string[]}`. |
-| `POST /decks` `{name}` | `Collection.createDeck(name)` | Creates missing `::` ancestors; returns the existing deck (`created: false`) on a name match rather than duplicating - see `bridge_ops.create_deck`'s docstring for why this matches even Anki's own real Unicode case-folding, not just the ASCII approximation `decks.js`'s own module comment documents as a known gap on the Node side. |
+| `POST /decks` `{name}` | `Collection.createDeck(name)` | Creates missing `::` ancestors; returns the existing deck (`created: false`) on a name match rather than duplicating - see `bridge_ops.create_deck`'s docstring for why this matches even Anki's own real Unicode case-folding. |
 | `POST /notes` `{deckId, notetypeId, fields, tags}` | `Collection.addNote({deckId, notetypeId, fields, tags})` | |
-| `POST /notes/bulk` `{notes: [{deckId, notetypeId, fields, tags, language, learningFieldIndex}, ...]}` | `Collection.addNotesBulk(notes)`-shaped loop in `directClient.js` | The bulk-add-from-paste screen's write path. Runs as one `CollectionOp` on the bridge side (see `bridge_ops.add_notes_bulk`) rather than one per note, so a 60-line paste produces one undo step and one UI refresh instead of 60. Response is `{results: [{ok, noteId, guid, cardIds, warning?} \| {ok: false, error}, ...]}`, one entry per note in the same order, so one bad line never aborts the rest of the batch. |
+| `POST /notes/bulk` `{notes: [{deckId, notetypeId, fields, tags, language, learningFieldIndex}, ...]}` | the C core's `addNotesBulk`-shaped loop | The bulk-add-from-paste screen's write path. Runs as one `CollectionOp` on the bridge side (see `bridge_ops.add_notes_bulk`) rather than one per note, so a 60-line paste produces one undo step and one UI refresh instead of 60. Response is `{results: [{ok, noteId, guid, cardIds, warning?} \| {ok: false, error}, ...]}`, one entry per note in the same order, so one bad line never aborts the rest of the batch. |
 | `GET /notes/:id` | `Collection.getNote(id)` | One note, as `listNotesInDeck` lists it: `{id, notetypeId, fields, tags}`. A note that is not there is a 404 (protocol 2 added this route). |
 | `PATCH /notes/:id` `{fields}` | `Collection.updateNote(id, fields)` | Never touches tags or regenerates cards, on either side. |
 | `DELETE /notes/:id` | `Collection.removeNote(id)` | Through `col.remove_notes`: the note, its cards, and their graves. Response is `{noteId, cardsRemoved}`. |
@@ -161,12 +64,12 @@ The shapes below are its fields, by name; the layouts themselves are written dow
 | `PATCH /decks/:id` `{name}` | `Collection.renameDeck(id, name)` | Through `col.decks.rename`, subdecks included. Response is `{id, name}`; an unknown deck is a 404. |
 | `GET /decks/:id` | `Collection.deckRemovalSummary(id)` | What deleting the deck would take, changing nothing: `{id, name, subdecks, cards, notes}`. The cards are those in its normal decks or borrowed from them by a filtered deck; the notes are those left with no card. A deck that is not there is a 404. |
 | `DELETE /decks/:id` | `Collection.removeDeck(id)` | Through `col.decks.remove`: the deck, its subdecks, their cards, the notes left with no card, a filtered subdeck's borrowed cards sent home, and graves for every deletion, as one undo step. Response is `{id, name, decks, cards, notes}`. The Default deck (id 1) is a 400, since Anki would only empty it; a deck that is not there is a 404. |
-| `POST /media` `{filename, data}` | `Collection.addMedia(filename, data)` | The file's own bytes; response is `{filename}`, the name Anki (or Node) actually stored it under. |
+| `POST /media` `{filename, data}` | `Collection.addMedia(filename, data)` | The file's own bytes; response is `{filename}`, the name Anki actually stored it under. |
 | `GET /media/:filename/data` | `Collection.readMedia(filename)` | Response is `{found, data}`, the file's own bytes. |
-| `GET /media/:filename` | `Collection.hasMedia(filename)` | The name is percent-encoded once in the path (`encodeURIComponent`) and decoded once here, for this route and `/data` alike, so a space, Korean, `#` or a literal `%` in a stored name all work; an escape that is not valid is a 400, "the clip name is not a valid name". Response is `{exists: boolean}`. The resumability check a clip generator makes before calling out to a real TTS API, so re-running audio generation over a deck never regenerates a clip it already made. |
+| `GET /media/:filename` | `Collection.hasMedia(filename)` | The name is percent-encoded once in the path (`encodeURIComponent`) and decoded once here, for this route and `/data` alike, so a space, Korean, `#` or a literal `%` in a stored name all work; an escape that is not valid is a 400, "the clip name is not a valid name". Response is `{exists: boolean}`. The resumability check a fill makes before calling out to a real TTS API, so re-running audio generation over a deck never regenerates a clip it already made. |
 
 Every answer is the payload above as its kind's message (or a `b_error` message, `{error}`, with a 4xx/5xx status on failure).
-There is no `{status: 'ok', result}` envelope the way the Node layer's functions return internally, since HTTP's own status code already carries that.
+HTTP's own status code carries success or failure, so there is no envelope around the payload.
 
 ### The protocol version
 
@@ -184,7 +87,7 @@ See `bridge_ops.py`'s module docstring and each function's own docstring for the
 
 Off by default (`bridge_enabled: false`).
 `Tools > amgi: Bridge status...` shows whether it is listening, on what port, and its token, and has a checkbox that turns it on or off immediately, with no restart needed.
-See `config.md`, "Local HTTP bridge settings", for the underlying config keys (`bridge_enabled`, `bridge_port`, `bridge_token`, `bridge_allowed_origins`) if you would rather edit them directly.
+See `config.md`, "amgi bridge settings", for the underlying config keys (`bridge_enabled`, `bridge_port`, `bridge_token`, `bridge_allowed_origins`) if you would rather edit them directly.
 Paste the token and port shown there into the amgi web UI's own local-bridge settings.
 
 ### Security model and threat model
@@ -236,7 +139,7 @@ See `bridge_dispatch.py`'s own module docstring for exactly which operations use
 
 ### Cross-transport parity
 
-`tests/anki/addon/test_cross_transport.py` is the test that actually matters for "the UI can pick either transport and not care": it runs the Node layer and this bridge's `bridge_ops.py` against the *same* collection file, one after the other, and asserts they agree.
+`tests/anki/addon/test_cross_transport.py` is the test that actually matters for "the UI can pick either transport and not care": it runs the C collection core and this bridge's `bridge_ops.py` against the *same* collection file, one after the other, and asserts they agree.
 A deck one side creates is recognised, not duplicated, by the other; a note one side adds is read back correctly, with the same fields, tags and note type id, by the other's own reader.
 An assertion that only one side agrees with its own writer would prove nothing about that interchangeability - this is what actually pins it down.
 See that file's own module docstring for the full reasoning, and "Testing" below for how to run it.
@@ -245,39 +148,28 @@ See that file's own module docstring for the full reasoning, and "Testing" below
 
 ### What is actually verified
 
-`tests/anki/addon/test_deck_text.py`, `tests/anki/addon/test_core_config.py`, `tests/anki/addon/test_generator.py`, `tests/anki/addon/test_bridge_auth.py` and `tests/anki/addon/test_bridge_server.py` need no `anki` pip package and no network.
+`tests/anki/addon/test_bridge_auth.py` and `tests/anki/addon/test_bridge_server.py` need no `anki` pip package and no network.
 `npm test` runs every test below, the ones that need `anki` included, with the Python that `tests/anki-python.sh` finds, and fails at the start when there is none, so nothing skips for want of the library.
 That script uses `ANKI_PYTHON_BIN` when it is set.
 Otherwise it uses Anki.app's own `anki` library (`Contents/Resources/app_packages`) with a CPython of the version Anki.app was built for (`Contents/Frameworks/Python.framework/Versions/X.Y`), found on `PATH` or under uv's python directory (`uv python install X.Y`), through a venv at `server/build/anki-venv` whose site-packages names that library (a `.pth` file), so it needs no environment variable and works under `python -I` and the tests' temp HOMEs.
 
-- `test_deck_text.py` checks `deck_text.py` against values recorded from the JavaScript it was ported from (`plusaudio/lib/deck.js` and `audio-store.js`, since deleted), so the rules cannot drift with the original gone.
-- `test_generator.py` checks the subprocess seam - the command built, the environment passed through, exit-code and stderr handling, temp-file cleanup, and the actionable errors for a missing Node, a missing repo checkout, and a missing API key - by mocking `subprocess.run`.
-  There is no API key available to these tests, and live calls are not authorised; mocking at the transport boundary is what "keep the seam narrow enough to mock" (see the top of `generator.py`) means in practice.
-  `../../../tests/server/plusaudio/generate-clip.test.js` checks the other side of the same contract from Node, with a stubbed generator - also never a real client.
-- `test_core_config.py` checks `AudioFillConfig`'s own validation.
 - `test_bridge_auth.py` checks the token and Origin logic (`bridge_auth.py`) as plain functions: valid token and allowed origin succeeds; a missing or wrong token fails; a foreign origin fails, even with the right token; a "simple" request shaped so a browser would never preflight it still fails, because it cannot carry the token header without losing its "simple" status.
 - `test_bridge_server.py` proves the same claims again, against a real listening socket and a real `http.client` connection, plus routing (every endpoint in the table above), the request and answer messages, the protocol check, and error-status mapping (`ValueError` to 400, `BridgeBusy` to 503, anything else to 500) - all against a fake dispatcher, so none of it needs Anki or Qt.
 
-`tests/anki/addon/test_core_collection.py` runs `core.plan_fill`/`core.apply_fill` against a REAL `anki.collection.Collection`: real notes, real `Note.__setitem__`, real `col.media.add_file`/`write_data`/`check()`.
-It proves: a note gets its clip and reference written and nothing else in the field disturbed; `col.media.check()` reports the clip used and nothing missing; a second run changes nothing; editing the text regenerates and leaves exactly one owned reference; switching `--audio-tag` converts without regenerating; a note missing the mapped field is skipped, not crashed on; a failed generation is retried on the next run rather than losing the note; and a cancelled run commits the notes finished so far and leaves the rest for next time.
-One class of that file runs against a hand-built fixture.
-Another (`SampleDeckTests`, gated on the `AMGI_SAMPLE_APKG` environment variable) runs the same checks against a real 333-note shared deck with the deck author's own `[sound:]` tags and `<img>` tags already in the audio field, confirming those are left alone.
-
-`tests/anki/addon/test_bridge_ops.py` is the same style of test for the bridge side: every function in `bridge_ops.py` (`status`, `list_decks`, `list_notetypes`, `create_deck`, `add_note`, `update_note`, `list_notes_in_deck`, `add_media`) against a REAL `anki.collection.Collection`.
+`tests/anki/addon/test_bridge_ops.py` tests the bridge's operations: every function in `bridge_ops.py` (`status`, `list_decks`, `list_notetypes`, `create_deck`, `add_note`, `update_note`, `list_notes_in_deck`, `add_media`) against a REAL `anki.collection.Collection`.
 Its pagination test adds 2,500 notes to one deck and pages through all of them in fixed-size batches, checking every note is returned exactly once and the total count is right on every page - proving the SQL `LIMIT`/`OFFSET` path is what actually runs, not something that loads the whole deck and slices it in Python, which is what "must not choke on a 20k-note collection" requires in practice.
 Its own `SampleDeckTests` (also gated on `AMGI_SAMPLE_APKG`) pages through the same real 333-note deck and checks every note's note type is one `list_notetypes` also reports, with non-empty field names.
 
 `tests/anki/addon/test_bridge_dispatch.py` runs `bridge_dispatch.py`'s writes through its real code against a real collection, with a stand-in for `aqt.mw` and `aqt.operations` that does what Anki's `CollectionOp` does with a result: hand it to the success callback, then read the `OpChanges` off it.
 A write that returns anything but an `OpResult` with real changes fails there as it would inside Anki.
 
-`tests/anki/addon/test_cross_transport.py` is the one described above in "Cross-transport parity": it needs both `anki` and a `node` on `PATH`, and runs the Node layer and `bridge_ops.py` against the same collection file, checking they agree.
+`tests/anki/addon/test_cross_transport.py` is the one described above in "Cross-transport parity": it needs `anki` and the built C collection CLI, and runs the C collection core and `bridge_ops.py` against the same collection file, checking they agree.
 
 `npm test` runs all of them, with the interpreter above.
 To run one alone, use that interpreter (`export ANKI_PYTHON_BIN="$(tests/anki-python.sh)"`) or any Python that has `anki` installed (`python -m venv .venv && .venv/bin/pip install anki`):
 
 ```bash
 export ANKI_PYTHON_BIN="$(tests/anki-python.sh)"
-AMGI_SAMPLE_APKG=/path/to/a/real.apkg "$ANKI_PYTHON_BIN" -m unittest discover -s tests/anki/addon -p "test_core_collection.py" -v
 AMGI_SAMPLE_APKG=/path/to/a/real.apkg "$ANKI_PYTHON_BIN" -m unittest discover -s tests/anki/addon -p "test_bridge_ops.py" -v
 "$ANKI_PYTHON_BIN" -m unittest discover -s tests/anki/addon -p "test_cross_transport.py" -v
 ```
@@ -292,7 +184,7 @@ If both end up on `sys.path` at once and the *repo root* is also on `sys.path` (
 For any name the pip package actually defines (`anki.media`, `anki.collection`, ...), the real module wins - that part of PEP 420 favours a genuine module over a bare namespace directory - so this has not caused a wrong answer here.
 But it is fragile: it would only take a stray top-level `anki/<name>.py` appearing in this repo, sharing a name the pip package uses, to have the repo's own file silently shadow the real one for anyone who happens to also have `anki` installed and runs Python from the repo root.
 
-Every test file under `tests/anki/addon/` avoids the whole question by adding this add-on's own directory to `sys.path` and importing its modules directly (`import core`, `import deck_text`, `import generator`) rather than through any `anki.*` path - the same way Anki's own add-on loader imports them, which never goes through a path named `anki` at all (an installed add-on is `amgi_bridge`, full stop; see manifest.json's `package` key).
+Every test file under `tests/anki/addon/` avoids the whole question by adding this add-on's own directory to `sys.path` and importing its modules directly (`import bridge_ops`, `import bridge_server`) rather than through any `anki.*` path - the same way Anki's own add-on loader imports them, which never goes through a path named `anki` at all (an installed add-on is `amgi_bridge`, full stop; see manifest.json's `package` key).
 Running `python -m unittest` from this directory, as the commands above do, keeps the repo root off `sys.path` in the first place.
 
 ## What is unverified
@@ -301,24 +193,11 @@ Running `python -m unittest` from this directory, as the commands above do, keep
 Everything in them is written to the operations API modern Anki add-ons use (`aqt.operations.CollectionOp`, `QueryOp`, `.with_progress()`, `mw.progress.want_cancel()`, `mw.taskman.run_on_main()`), but none of it has run inside real Anki.
 To check it:
 
-1. **The menu item and dialog appear and populate correctly.**
-   Install the add-on, open a profile with at least one deck of notes, and confirm Tools > amgi: Fill missing audio... opens, the deck combo lists your decks, and picking a deck fills the two field combos with that deck's note types' field names.
+1. **The `CollectionOp` / `QueryOp` API shape itself.**
+   This was written against the operations API's documented shape as of Anki 2.1.45+, but its exact keyword arguments have not been checked against the installed Anki version's `aqt/operations/__init__.py`.
+   If a bridge write raises a `TypeError` about an unexpected keyword, that file is the first place to look.
 
-2. **The run actually happens as one undoable step.**
-   Run it on a small test deck, confirm the notes are updated, then Edit > Undo once and confirm every note the run touched reverts together, not one at a time.
-
-3. **Progress and cancellation.**
-   Run it on a deck large enough to take a few seconds, confirm the progress dialog shows a note's text and a moving count, and that clicking its cancel button stops the run, leaves the notes done so far updated, and that running it again finishes the rest without redoing them.
-
-4. **The `CollectionOp` / `QueryOp` API shape itself.**
-   This was written against the operations API's documented shape as of Anki 2.1.45+, but its exact keyword arguments (`.with_progress(label=...)` in particular) have not been checked against the installed Anki version's `aqt/operations/__init__.py`.
-   If the dialog or the run raises a `TypeError` about an unexpected keyword, that file is the first place to look.
-
-5. **`generate-clip.js` against a real Gemini key.**
-   `test_generator.py` proves the command this add-on builds and the way it handles the result are correct; `generate-clip.test.js` proves the Node side of the same contract. Neither proves a real account accepts the request.
-   To check: set `GEMINI_API_KEY` (or `plusaudio/.env`), configure `plusaudio_dir` in this add-on, run it on a small test deck, and confirm a clip comes back and plays.
-
-6. **The bridge actually starts, stops, and is reachable from a browser.**
+2. **The bridge actually starts, stops, and is reachable from a browser.**
    `bridge_server.py` and `bridge_ops.py` are proven directly (see "Testing" above); what is not proven without Qt is the wiring around them in `__init__.py` and `bridge_dispatch.py`.
    To check: enable the bridge in `Tools > amgi: Bridge status...`, confirm the dialog reports a port and the checkbox stays checked, then from a browser console on a page served from an allowed origin (for example `http://localhost:3000`), run
    ```js
@@ -326,21 +205,11 @@ To check it:
    ```
    and confirm it logs `200 2` (the body is a `b_status` message, not text). From a page on a *different* origin, confirm the same call fails.
 
-7. **The bridge tears down and reopens cleanly across a profile switch.**
+3. **The bridge tears down and reopens cleanly across a profile switch.**
    Enable the bridge, switch to a different Anki profile (`File > Switch Profile`), and confirm `Tools > amgi: Bridge status...` shows "Not running" until it is enabled again for that profile - `gui_hooks.profile_will_close` is what is supposed to make this happen (`_stop_bridge` in `__init__.py`), and has not run inside real Anki.
 
-8. **A write through the bridge shows up in Anki's own UI immediately.**
+4. **A write through the bridge shows up in Anki's own UI immediately.**
    With the Browse window or the deck list open, add a note or create a deck through the bridge (via the `fetch()` snippet above, or the amgi UI once it is wired up) and confirm it appears without needing a manual refresh - this is what routing writes through `CollectionOp` rather than a bare `col` call is supposed to buy, per `bridge_dispatch.py`'s module docstring, and has not been checked against a real `aqt.operations` implementation.
 
-9. **A port already in use is reported clearly, not silently.**
+5. **A port already in use is reported clearly, not silently.**
    Start two Anki profiles with the bridge enabled at the same `bridge_port`, or occupy the configured port with `nc -l 8798` first, and confirm the second one to start shows the `showWarning` message in `_start_bridge_if_enabled` (`__init__.py`) rather than crashing or failing silently.
-
-## What v2 would need
-
-Adding new notes, not just filling in audio for ones that exist.
-Given this add-on already has a live `Collection`, most of what made that hard before is gone:
-
-- **Anki does the writing.** `col.new_note(notetype)` / `col.add_note(note, deck_id)` are the same shape `apply_fill` already uses for `update_note` - no GUID minting, no card creation math (Anki creates a note's cards itself from its note type's templates), no revlog to leave alone because there is none yet for a new card.
-- **What is actually new work**: a source of terms (the missing piece `plusaudio/README.md`'s own "What this is not" section already names - "it needs a source of terms... not a different generator"), and a new Node entry point alongside `generate-clip.js` for `cardGeneration.ts`'s text-generation path (`generateCardText`, not just `generateCardAudio`), since writing a new note needs both sides' text, not just a clip for text that already exists.
-- **The dialog** would grow an input for what to generate cards *about*, or a way to point at a word list, in place of - or alongside - the deck+field picker this version has.
-- **Duplicate handling** the CLI tools never had to consider: Anki's own `col.find_dupes` / note-duplicate detection is not currently called anywhere in `core.py`, and a v2 that creates notes should use it before adding one, since nothing here currently stops the same term being generated twice into the same deck.

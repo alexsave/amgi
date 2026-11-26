@@ -2,7 +2,7 @@
 # Every browser drive of the UI, one Chrome at a time, each on a fresh copy of the UI fixture
 # (tests/e2e/ui/fixture.sh first): shoot.mjs (the screens and the back button), flows.mjs (first run,
 # new deck, card design notice, install, starter deck), edit.mjs (editing, deleting, renaming),
-# languages.mjs (a deck's languages: stored, found, picked, changed), deckdelete.mjs (deleting a deck: Default, subdecks, counts, locked, already gone) and
+# languages.mjs (a deck's languages: stored, found, picked, changed), fill.mjs (Fill missing audio on the deck page against the fake Gemini), deckdelete.mjs (deleting a deck: Default, subdecks, counts, locked, already gone) and
 # bulk.mjs (making cards against the fake Gemini), limits.mjs (text too long for a box, refused
 # with a message) and states.mjs (the decks screen in each setup
 # state; it needs ANKI_PYTHON_BIN and ANKI_FIXTURE_APKG, as the e2e-ui skill sets them). Prints each drive's checks and failures; exits 1
@@ -14,7 +14,7 @@
 # show that path (the Anki folder), so parity runs set it: both runs show the same paths.
 #
 # The three app servers differ only in their Gemini key: one with any key (the screens), one with
-# none (the starter deck is offered), one pointed at the fake (node tests/server/plusaudio/helpers/fake-gemini.js
+# none (the starter deck is offered), one pointed at the fake (node tests/helpers/fake-gemini.js
 # <port>, whose limits the bulk drive switches). Start the fake and its server fresh before a run:
 # the fake's "broken line" fails once, and a server's rate gate remembers the limits it met.
 set -uo pipefail
@@ -49,6 +49,7 @@ run edit "$app" "$name" "$(fresh edit installed)" "$shots"
 run deckdelete "$app" "$name" "$(fresh deckdelete installed)" "$shots"
 run bulk "$faked" "$gemini" "$name" "$(fresh bulk installed)" "$shots"
 run languages "$faked" "$gemini" "$name" "$(fresh languages installed)" "$shots"
+run fill "$faked" "$gemini" "$name" "$(fresh fill installed)" "$shots"
 run limits "$app" "$name" "$(fresh limits installed)" "$shots"
 run states "$app" "$name" "$work" "$shots"
 exit $failed

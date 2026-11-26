@@ -1,4 +1,4 @@
-/* amgi's Anki collection core in C: the port of plusaudio/lib/collection and of the direct
+/* amgi's Anki collection core in C: the port of lib/collection and of the direct
  * transport over it (src/server/anki/directClient.js), for a server that runs it on several
  * threads in one process.
  *
@@ -126,6 +126,23 @@ int col_add_media(arena *a, str path, str name, const void *data, size_t len, st
  * file; -1 with err on failure. Media is written to a temporary and renamed into place, so the file
  * at a name is always whole and no lock is needed to read it. */
 int col_media_path(arena *a, str path, str name, int *found, str *file, col_err *err);
+
+/* ---- text.c: the clips a field holds and the text it is read aloud as (Fill missing audio) ---- */
+/* A reference to a clip in a field, in either form Anki plays: [sound:name] (html 0) or <audio src="name"></audio> (html 1). index
+ * and length are the bytes it takes in the field. */
+typedef struct { str name; int html; size_t index, length; } col_audio_ref;
+/* The text a field is read aloud as: its markup, comments and [sound:] gone, entities decoded, whitespace collapsed. */
+str col_spoken_text(arena *a, str html);
+/* Every clip the field points at, in the order they stand in it. */
+size_t col_audio_references(arena *a, str field, col_audio_ref **out);
+str col_audio_reference(arena *a, str filename, int html);
+/* Whether amgi named the clip (AMGI_MEDIA_PREFIX, 20 hex of its hash, Anki's "-<40 hex>" clash form, mp3 or wav; or one of the
+ * older scripts' "_gpt4o.mp3"). */
+int col_is_owned_media_name(str name);
+/* The field with the clips amgi owns replaced by one reference to *filename in the form asked (the first stays in place, the other
+ * owned ones go; what is not amgi's, an image, someone's own recording, plain text, is untouched), or with them removed when filename
+ * is NULL. */
+str col_set_owned_audio(arena *a, str field, const str *filename, int html);
 
 /* paths.js: the default Anki folder for this platform, and the profiles in a folder (sorted as
  * localeCompare sorts). */

@@ -14,7 +14,7 @@ import { LISTENING, ROOT, SERVER } from './servers.mjs';
 import { sandboxEnv } from '../../repo/sandbox-home.cjs';
 
 const require = createRequire(import.meta.url);
-const { fakeGemini } = require('../plusaudio/helpers/fake-gemini.js');
+const { fakeGemini } = require('../../helpers/fake-gemini.js');
 
 /** The server with only an env file for its Gemini settings; resolves to its URL and a stop(). */
 function serveWith(envFile) {

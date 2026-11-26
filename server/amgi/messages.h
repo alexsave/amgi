@@ -1,6 +1,5 @@
 /* The sentences the amgi server says, each written once here. The file named beside each is the
- * JavaScript it was ported from; MISSING_KEY_MESSAGE and GEMINI_KEY_PAGE are also said by
- * plusaudio/generate-clip.js (plusaudio/lib/geminiKey.js), which the Anki add-on runs. */
+ * JavaScript it was ported from. */
 #ifndef AMGI_MESSAGES_H
 #define AMGI_MESSAGES_H
 
@@ -23,7 +22,7 @@
   "Anki is open with the bridge running, but no profile is loaded yet (the profile picker is showing). " \
   "Pick a profile in Anki."
 
-/* plusaudio/lib/geminiKey.js */
+/* lib/geminiKey.js */
 #define GEMINI_KEY_PAGE "https://aistudio.google.com/apikey"
 #define MISSING_KEY_MESSAGE                                                                    \
   "GEMINI_API_KEY is not set, so nothing was generated: get a key at " GEMINI_KEY_PAGE ", add it to " \
@@ -41,6 +40,6 @@
 /* src/utils/amgiNotetype.js */
 #define AMGI_NOTETYPE_NAME "amgi Listening"
 
-/* plusaudio/lib/rateLimits.js */
+/* lib/rateLimits.js */
 #define MAX_WAIT_MS 180000
 #endif

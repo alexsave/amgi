@@ -268,13 +268,47 @@
     min-width: 0;
 }
 
+/* Fill missing audio: the same small type as the count line above it, one row of controls tall, and nothing at all when
+   there is nothing to fill. The picker (another note type than amgi's) is the languages picker's own styling. */
+.deck-fill {
+    margin: 0.25rem 0 0;
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.4rem 0.6rem;
+}
+
+.deck-fill-main {
+    white-space: nowrap;
+}
+
+.deck-fill-main button {
+    margin-left: 0.1rem;
+}
+
+.deck-fill-note {
+    color: #d0a030;
+}
+
+.deck-fill-pick {
+    flex: 1 1 100%;
+}
+
+.deck-fill .deck-name-error {
+    flex: 1 1 100%;
+    margin: 0;
+}
+
 .deck-cards-title {
     /* the header's free width: sized to its content, the languages line's picker wrapped well short of the page's width */
     flex: 1 1 auto;
     min-width: 0;
 }
 
-.deck-langs button {
+.deck-langs button,
+.deck-fill button {
     font: inherit;
     font-size: 0.72rem;
     color: var(--text-secondary);

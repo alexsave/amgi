@@ -39,18 +39,18 @@
 
 /* Field types. */
 enum {
-  WT_BOOL,  /* u8: JS true is 1, anything else 0 */
-  WT_TRI,   /* u8: true 1, false 0, anything else WIRE_UNKNOWN */
-  WT_U32,   /* u32: a JS number, rounded, clamped to 0..2^32-1; missing 0 */
-  WT_OPT,   /* u32: the same, but missing (or not a number) is WIRE_NONE and left out of a JS object */
-  WT_I32,   /* i32: an index; missing WIRE_ABSENT and left out of a JS object */
-  WT_I64,   /* i64: an Anki id (ms since 1970, past 2^32) */
-  WT_STR,   /* string; missing "" */
-  WT_MODE,  /* u8: a transport mode, by name (wire_mode_of) */
-  WT_STRS,  /* list of strings */
-  WT_LIST,  /* list of items of a sub-schema */
-  WT_BYTES, /* bytes, laid out as a string is (a media file); missing none. Only the bridge uses it */
-  WT_TYPES
+    WT_BOOL,  /* u8: JS true is 1, anything else 0 */
+    WT_TRI,   /* u8: true 1, false 0, anything else WIRE_UNKNOWN */
+    WT_U32,   /* u32: a JS number, rounded, clamped to 0..2^32-1; missing 0 */
+    WT_OPT,   /* u32: the same, but missing (or not a number) is WIRE_NONE and left out of a JS object */
+    WT_I32,   /* i32: an index; missing WIRE_ABSENT and left out of a JS object */
+    WT_I64,   /* i64: an Anki id (ms since 1970, past 2^32) */
+    WT_STR,   /* string; missing "" */
+    WT_MODE,  /* u8: a transport mode, by name (wire_mode_of) */
+    WT_STRS,  /* list of strings */
+    WT_LIST,  /* list of items of a sub-schema */
+    WT_BYTES, /* bytes, laid out as a string is (a media file); missing none. Only the bridge uses it */
+    WT_TYPES
 };
 #define WIRE_UNKNOWN 2u
 #define WIRE_NONE 0xffffffffu
@@ -58,9 +58,11 @@ enum {
 
 /* The transport modes (server/collection/transport.c). A name the table does not know (a newer
  * server) is WIRE_MODE_OTHER, which reads back as "". */
-enum { WIRE_MODE_DIRECT, WIRE_MODE_BRIDGE, WIRE_MODE_LOCKED, WIRE_MODE_NOT_FOUND, WIRE_MODE_UNSUPPORTED_SCHEMA,
-       WIRE_MODE_BRIDGE_NO_COLLECTION, WIRE_MODE_UNCONFIGURED, WIRE_MODE_BRIDGE_OUTDATED, WIRE_MODE_DAMAGED, WIRE_MODE_OTHER,
-       WIRE_MODES };
+enum {
+    WIRE_MODE_DIRECT, WIRE_MODE_BRIDGE, WIRE_MODE_LOCKED, WIRE_MODE_NOT_FOUND, WIRE_MODE_UNSUPPORTED_SCHEMA,
+    WIRE_MODE_BRIDGE_NO_COLLECTION, WIRE_MODE_UNCONFIGURED, WIRE_MODE_BRIDGE_OUTDATED, WIRE_MODE_DAMAGED, WIRE_MODE_OTHER,
+    WIRE_MODES
+};
 const char *wire_mode_name(uint32_t mode);
 uint32_t wire_mode_of(const char *s, uint32_t len);
 
@@ -69,27 +71,29 @@ typedef struct { wire_str *v; uint32_t n; } wire_strs;
 
 /* ---- the kinds, and the C view of each ---- */
 enum {
-  /* answers */
-  WK_ERROR, WK_STATUS, WK_DECKS, WK_INSTALL_STATE, WK_PROFILES, WK_NOTETYPES, WK_NOTES, WK_FIELD_VALUES,
-  WK_DECK_CREATED, WK_DECK_RENAMED, WK_NOTE_ADDED, WK_NOTES_ADDED, WK_NOTE_CHANGED, WK_CARD_TEXT, WK_CLIP,
-  WK_STARTER_STATE, WK_STARTER_BUILT, WK_INSTALLED, WK_DECK_SUMMARY, WK_DECK_REMOVED,
-  /* requests */
-  WK_Q_DECK_NAME, WK_Q_INSTALL, WK_Q_STARTER, WK_Q_NOTE, WK_Q_NOTES, WK_Q_NOTE_UPDATE, WK_Q_CARD_TEXT, WK_Q_AUDIO,
-  /* the bridge add-on's answers (its requests are q_deck_name, q_note, q_notes, q_note_update and
-   * b_q_media) */
-  WK_B_ERROR, WK_B_STATUS, WK_B_DECKS, WK_B_NOTETYPES, WK_B_NOTES, WK_B_VALUES, WK_B_DECK_CREATED, WK_B_DECK,
-  WK_B_NOTE, WK_B_NOTES_ADDED, WK_B_NOTE_REMOVED, WK_B_DECK_SUMMARY, WK_B_DECK_REMOVED, WK_B_MEDIA_EXISTS,
-  WK_B_MEDIA_DATA, WK_B_MEDIA_ADDED,
-  WK_B_Q_MEDIA,
-  /* answers added since (a kind's number is its byte on the wire: a new one goes at the end) */
-  WK_PROGRESS,
-  WK_NOTE, /* GET /notes/:id: the one note */
-  WK_B_NOTE_READ, /* the bridge's answer to it */
-  WK_Q_DECK_LANGUAGES, /* PUT /decks/:id/languages: the deck's pair (and the bridge's request, the same) */
-  WK_DECK_LANGUAGES, /* its answer */
-  WK_B_DECK_LANGUAGES, /* the bridge's answer to it */
-  WK_DECK_LANGUAGES_FOUND, /* POST /decks/:id/languages/detect: the pair found, stored or only guessed */
-  WK_KINDS
+    /* answers */
+    WK_ERROR, WK_STATUS, WK_DECKS, WK_INSTALL_STATE, WK_PROFILES, WK_NOTETYPES, WK_NOTES, WK_FIELD_VALUES,
+    WK_DECK_CREATED, WK_DECK_RENAMED, WK_NOTE_ADDED, WK_NOTES_ADDED, WK_NOTE_CHANGED, WK_CARD_TEXT, WK_CLIP,
+    WK_STARTER_STATE, WK_STARTER_BUILT, WK_INSTALLED, WK_DECK_SUMMARY, WK_DECK_REMOVED,
+    /* requests */
+    WK_Q_DECK_NAME, WK_Q_INSTALL, WK_Q_STARTER, WK_Q_NOTE, WK_Q_NOTES, WK_Q_NOTE_UPDATE, WK_Q_CARD_TEXT, WK_Q_AUDIO,
+    /* the bridge add-on's answers (its requests are q_deck_name, q_note, q_notes, q_note_update and
+     * b_q_media) */
+    WK_B_ERROR, WK_B_STATUS, WK_B_DECKS, WK_B_NOTETYPES, WK_B_NOTES, WK_B_VALUES, WK_B_DECK_CREATED, WK_B_DECK,
+    WK_B_NOTE, WK_B_NOTES_ADDED, WK_B_NOTE_REMOVED, WK_B_DECK_SUMMARY, WK_B_DECK_REMOVED, WK_B_MEDIA_EXISTS,
+    WK_B_MEDIA_DATA, WK_B_MEDIA_ADDED,
+    WK_B_Q_MEDIA,
+    /* answers added since (a kind's number is its byte on the wire: a new one goes at the end) */
+    WK_PROGRESS,
+    WK_NOTE, /* GET /notes/:id: the one note */
+    WK_B_NOTE_READ, /* the bridge's answer to it */
+    WK_Q_DECK_LANGUAGES, /* PUT /decks/:id/languages: the deck's pair (and the bridge's request, the same) */
+    WK_DECK_LANGUAGES, /* its answer */
+    WK_B_DECK_LANGUAGES, /* the bridge's answer to it */
+    WK_DECK_LANGUAGES_FOUND, /* POST /decks/:id/languages/detect: the pair found, stored or only guessed */
+    WK_Q_FILL, /* POST /decks/:id/audio-plan and POST /notes/:id/audio-fill: which fields to read aloud into which */
+    WK_FILL_PLAN, /* the answer to the plan */
+    WK_KINDS
 };
 /* The kind's name as the server's route table spells it ("decks", "q_note"); 0 past the last. */
 const char *wire_kind_name(uint32_t kind);
@@ -97,10 +101,10 @@ const char *wire_kind_name(uint32_t kind);
 /* The steps of making a card, as GET /progress names the one running (server/amgi/progress.h says them,
  * ui/src/bulk.c STEP_LABEL words them). The audio steps are once for each side, in one order. */
 enum {
-  WP_NONE, WP_WRITING,
-  WP_TARGET_REUSE, WP_TARGET_RECORDING, WP_TARGET_TRANSCRIBING, WP_TARGET_JUDGING, WP_TARGET_STORING,
-  WP_CUE_REUSE, WP_CUE_RECORDING, WP_CUE_TRANSCRIBING, WP_CUE_JUDGING, WP_CUE_STORING,
-  WP_STEPS
+    WP_NONE, WP_WRITING,
+    WP_TARGET_REUSE, WP_TARGET_RECORDING, WP_TARGET_TRANSCRIBING, WP_TARGET_JUDGING, WP_TARGET_STORING,
+    WP_CUE_REUSE, WP_CUE_RECORDING, WP_CUE_TRANSCRIBING, WP_CUE_JUDGING, WP_CUE_STORING,
+    WP_STEPS
 };
 
 /* A 4xx or 5xx answer. retry_after_ms and max_wait_ms are WIRE_NONE unless Gemini's limit answered.
@@ -154,22 +158,48 @@ typedef struct { int64_t deck_id, notetype_id; wire_strs fields, tags; wire_str 
 typedef struct { wire_q_note *notes; uint32_t nnotes; } wire_q_notes;
 typedef struct { wire_strs fields; wire_str language; int32_t learning_field_index; } wire_q_note_update;
 /* The card's languages are the deck's: the server reads the deck's stored pair, so a request names the deck and no languages. */
-typedef struct { wire_str user_input; int64_t deck_id; uint8_t include_cue_audio;
-                 uint32_t progress_id; /* the asker's own number for GET /progress, or 0 */ } wire_q_card_text;
+typedef struct {
+    wire_str user_input;
+    int64_t deck_id;
+    uint8_t include_cue_audio;
+    uint32_t progress_id; /* the asker's own number for GET /progress, or 0 */
+} wire_q_card_text;
 typedef struct { wire_str text, language; uint8_t fresh; } wire_q_audio;
+/* Fill missing audio: what to read aloud (text_field) into what (audio_field), both fields of note type notetype_id by index.
+ * side says whose language it is: "learning" or "known" (the deck's stored pair), or "both", which is only for the amgi Listening
+ * note type: its Target into TargetAudio in the learning language and its Cue into CueAudio in the known one, text_field and
+ * audio_field unused and the reference form always "html". form is "sound" ([sound:x]) or "html" (<audio src="x"></audio>).
+ * deck_id is read by POST /notes/:id/audio-fill only (the plan names its deck in its path): the deck whose pair the note's clips are
+ * spoken in. */
+typedef struct { int64_t deck_id, notetype_id; int32_t text_field, audio_field; wire_str side, form; } wire_q_fill;
+typedef struct { int64_t id; } wire_fill_note;
+/* What a deck's notes need: to_fill are the notes (by id) that lack the clip of their text now, up_to_date those that have it, and
+ * skipped those that cannot have one (another note type, a text that is empty once its markup is gone). */
+typedef struct { uint32_t mode; wire_fill_note *to_fill; uint32_t nto_fill; uint32_t up_to_date, skipped; } wire_fill_plan;
 
 /* The bridge add-on's messages: what bridge_ops.py answers, field for field. schema_version is
  * WIRE_NONE with no collection open. */
-typedef struct { uint8_t profile_open; wire_str profile_name; uint8_t collection_open; uint32_t schema_version;
-                 wire_str anki_version, qt_version; } wire_b_status;
+typedef struct {
+    uint8_t profile_open;
+    wire_str profile_name;
+    uint8_t collection_open;
+    uint32_t schema_version;
+    wire_str anki_version, qt_version;
+} wire_b_status;
 typedef struct { wire_str error; } wire_b_error;
 typedef struct { int64_t id; wire_str name; } wire_b_deck; /* a deck renamed */
 typedef struct { int64_t id; wire_str name, known, learning; } wire_b_deck_listed; /* a deck in the list, with its pair ("" when none) */
 typedef struct { wire_b_deck_listed *decks; uint32_t ndecks; } wire_b_decks;
 typedef struct { int64_t id; wire_str known, learning; } wire_b_deck_languages;
 typedef struct { uint32_t ord; wire_str name, question_format, answer_format; } wire_b_template;
-typedef struct { int64_t id; wire_str name, kind; uint32_t sort_field_index; wire_strs field_names;
-                 wire_b_template *templates; uint32_t ntemplates; } wire_b_notetype;
+typedef struct {
+    int64_t id;
+    wire_str name, kind;
+    uint32_t sort_field_index;
+    wire_strs field_names;
+    wire_b_template *templates;
+    uint32_t ntemplates;
+} wire_b_notetype;
 typedef struct { wire_b_notetype *notetypes; uint32_t nnotetypes; } wire_b_notetypes;
 typedef struct { wire_note *notes; uint32_t nnotes; uint32_t total, offset, limit; } wire_b_notes;
 typedef struct { wire_strs values; } wire_b_values;
@@ -188,11 +218,11 @@ typedef struct { wire_str filename, data; } wire_b_q_media;
 /* ---- the schema (wire.c's table), for the walkers ---- */
 typedef struct wire_schema wire_schema;
 typedef struct {
-  const char *key;          /* the JS name; dotted for a nested object ("audio.reference") */
-  uint8_t type;             /* WT_* */
-  uint16_t off;             /* where the field sits in the C struct (a list: its items pointer) */
-  uint16_t off_n;           /* a WT_LIST: where its count sits */
-  const wire_schema *sub;   /* a WT_LIST: its items */
+    const char *key;          /* the JS name; dotted for a nested object ("audio.reference") */
+    uint8_t type;             /* WT_* */
+    uint16_t off;             /* where the field sits in the C struct (a list: its items pointer) */
+    uint16_t off_n;           /* a WT_LIST: where its count sits */
+    const wire_schema *sub;   /* a WT_LIST: its items */
 } wire_field;
 struct wire_schema { const wire_field *f; uint32_t n; uint32_t size; };
 const wire_schema *wire_schema_of(uint32_t kind);

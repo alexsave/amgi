@@ -20,7 +20,7 @@ import { createRequire } from 'node:module';
 import { enc } from './protocol.mjs';
 
 const require = createRequire(import.meta.url);
-const { createRandom } = require('../../../plusaudio/lib/random.js');
+const { createRandom } = require('../../helpers/random.js');
 
 const IMPL = process.env.AMGI_COLLECTION_IMPL;
 const ROOT = path.resolve(import.meta.dirname, '..', '..', '..');

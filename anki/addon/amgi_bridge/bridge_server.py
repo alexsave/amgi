@@ -35,7 +35,7 @@ try:
 except ImportError:
     # tests/anki/addon/ imports this module directly, with the add-on's own directory on
     # sys.path (see tests/anki/addon/test_bridge_server.py) - the same dual-import
-    # tolerance core.py uses for deck_text.py.
+    # tolerance the add-on's other modules use.
     import bridge_wire  # type: ignore[no-redef]
     import wire_schema  # type: ignore[no-redef]
     from bridge_auth import TOKEN_HEADER, check_preflight, check_request

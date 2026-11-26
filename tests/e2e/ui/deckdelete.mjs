@@ -19,7 +19,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const cdom = process.env.CDOM || path.join(here, '..', '..', '..', 'cdom');
 const { sleep } = await import(path.join(cdom, 'tools', 'cdp.mjs'));
 const { launchChrome, shotter } = await import('./chrome.mjs');
-const anki = createRequire(import.meta.url)('../../server/plusaudio/collection/helpers/anki-python.js');
+const anki = createRequire(import.meta.url)('../../helpers/anki-python.js');
 const { holdCollectionOpen } = anki;
 // The server opens the file for a moment on every request (the status poll among them), and Anki's
 // own open does not wait: a read here that meets one is tried again.
