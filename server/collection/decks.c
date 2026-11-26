@@ -463,12 +463,19 @@ static void create_legacy(cx *c, conn *k, str human, double now, col_deck_made *
     size_t nc;
     str *comp = human_name_to_components(c, human, &nc);
     int created = 0;
+    /* Each level is spelled under its parent as the parent deck is spelled, as Anki's match_or_create_parents does:
+     * "chinese::Food" under an existing "Chinese" is made "Chinese::Food". */
+    str parent = {NULL, 0};
     for (size_t len = 1; len <= nc; len++) {
-        str name = join_with(c, comp, len, S("::"));
+        str name = parent.p ? str_cat3(c->a, parent, S("::"), comp[len - 1]) : comp[0];
         str f = fold_key(c, name);
         size_t j = 0;
         while (j < nf && !str_eq(folds[j], f)) j++;
-        if (j < nf) continue;
+        if (j < nf) {
+            parent = str_of(aj_get(fdeck[j], S("name")));
+            continue;
+        }
+        parent = name;
         double id = alloc_id(&ids, (double)now_ms());
         ids_add(c, &ids, id);
         aj *deck = new_deck_value(c, id, name, now);
@@ -482,7 +489,7 @@ static void create_legacy(cx *c, conn *k, str human, double now, col_deck_made *
     q_text(st, 1, anki_json_stringify(c->a, decks));
     q_int(st, 2, now_ms());
     q_run(c, k, st);
-    str f = fold_key(c, join_with(c, comp, nc, S("::")));
+    str f = fold_key(c, parent);
     for (size_t j = 0; j < nf; j++)
         if (str_eq(folds[j], f)) {
             out->id = (int64_t)num_of(aj_get(fdeck[j], S("id")));
@@ -516,18 +523,25 @@ static void create_18(cx *c, conn *k, str human, double now, col_deck_made *out)
     str *comp = human_name_to_components(c, human, &nc);
     to_create *list = ar_alloc(c->a, (nc + 1) * sizeof *list);
     size_t nl = 0;
+    /* Each level spelled under its parent as the parent deck is spelled (Anki's match_or_create_parents). */
+    str parent = {NULL, 0};
     for (size_t len = 1; len <= nc; len++) {
-        str key = fold_key(c, join_with(c, comp, len, S("::")));
-        int found = 0;
+        str native = parent.p ? str_cat3(c->a, parent, S("\x1f"), comp[len - 1]) : comp[0];
+        str key = fold_key(c, human_of_native(c, native));
+        long found = -1;
         for (size_t j = 0; j < nr; j++)
-            if (str_eq(rfold[j], key)) found = 1;
-        if (found) continue;
+            if (str_eq(rfold[j], key)) found = (long)j;
+        if (found >= 0) {
+            parent = rname[found];
+            continue;
+        }
+        parent = native;
         double id = alloc_id(&ids, (double)(now_ms() + (int64_t)nl));
         ids_add(c, &ids, id);
-        list[nl++] = (to_create){id, join_with(c, comp, len, S("\x1f")), key};
+        list[nl++] = (to_create){id, native, key};
     }
     if (nl == 0) {
-        str key = fold_key(c, join_with(c, comp, nc, S("::")));
+        str key = fold_key(c, human_of_native(c, parent));
         for (size_t j = 0; j < nr; j++)
             if (str_eq(rfold[j], key)) out->id = rid[j], out->name = human_of_native(c, rname[j]);
         out->created = 0;

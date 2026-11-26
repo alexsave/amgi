@@ -539,6 +539,21 @@ static void core_state(void) {
         col_list_decks(&a, uc, &dl, &ndl, &e) == 0)
         for (size_t i = 0; i < ndl; i++) parent |= str_eq_c(dl[i].name, "BIRNE");
     CHECK(parent, "renaming Birne to BIRNE::Öl makes its parent BIRNE");
+    /* A new subdeck is spelled under its parents as they are spelled, as Anki's match_or_create_parents does (measured
+     * against Anki 26.9.2: "chinese::Food" under "Chinese" is made "Chinese::Food"), in both schemas and at every level. */
+    const char *schemas[] = {"18", "11"};
+    for (int s = 0; s < 2; s++) {
+        str sp = fixture(&a, schemas[s], s ? "spelling11" : "spelling18");
+        col_deck_made top, mid, leaf;
+        int ok = col_create_deck(&a, sp, S("Kirsche"), &top, &e) == 0 && col_create_deck(&a, sp, S("kirsche::Saft"), &mid, &e) == 0 &&
+                 col_create_deck(&a, sp, S("KIRSCHE::saft::Eis"), &leaf, &e) == 0;
+        CHECK(ok && str_eq_c(mid.name, "Kirsche::Saft") && str_eq_c(leaf.name, "Kirsche::Saft::Eis") && leaf.created,
+              "schema %s: kirsche::Saft and KIRSCHE::saft::Eis are made Kirsche::Saft and Kirsche::Saft::Eis (%.*s, %.*s)", schemas[s],
+              ok ? (int)mid.name.n : 0, ok ? mid.name.p : "", ok ? (int)leaf.name.n : 0, ok ? leaf.name.p : "");
+        int again = col_create_deck(&a, sp, S("kirsche::SAFT::eis"), &d1, &e) == 0;
+        CHECK(again && !d1.created && d1.id == leaf.id && str_eq_c(d1.name, "Kirsche::Saft::Eis"),
+              "schema %s: kirsche::SAFT::eis finds Kirsche::Saft::Eis", schemas[s]);
+    }
     /* And the one Anki's collation does not call equal: its fold of U+FB03 is "iff", not "ffi". */
     int lig = col_create_deck(&a, uc, S("ﬃ"), &d1, &e) == 0, ffi = col_create_deck(&a, uc, S("FFI"), &d2, &e) == 0;
     CHECK(lig && ffi && d1.created && d2.created && d1.id != d2.id, "\"FFI\" is not \"ﬃ\", as Anki says");
