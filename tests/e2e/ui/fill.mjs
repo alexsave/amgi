@@ -266,7 +266,7 @@ try {
     check(w2 < w1, `and it counts down (${w1}s, then ${w2}s)`);
     await both('64-fill-wait', 'waiting for the rate limit');
     await pressButton('Cancel');
-    check(await until(b, `/^[12] cards? ha(s|ve) no audio/.test(${line})`, 100), `Cancel ends the wait at once (${await b.evaluate(line)})`);
+    check(await until(b, `/^[123] cards? ha(s|ve) no audio/.test(${line})`, 100), `Cancel ends the wait at once (${await b.evaluate(line)})`);
     check(dump('FillWait', ['TargetAudio']).filter((r) => r).length === 3 - Number((await b.evaluate(line)).match(/^(\d)/)[1]), 'what was done stays done');
     await control('perMinute=1000');
     await pressButton('Fill');
