@@ -51,7 +51,7 @@ const ANSWERS = [
   ['POST', /^notes$/, 'note_added'], ['POST', /^notes\/bulk$/, 'notes_added'], ['PATCH', /^notes\/[^/]+$/, 'note_changed'],
   ['GET', /^notes\/[^/]+$/, 'note'], ['DELETE', /^notes\/[^/]+$/, 'note_changed'], ['POST', /^card-text$/, 'card_text'], ['POST', /^audio$/, 'clip'],
   ['GET', /^starter$/, 'starter_state'], ['POST', /^starter$/, 'starter_built'],
-  ['GET', /^progress$/, 'progress'],
+  ['GET', /^progress$/, 'progress'], ['POST', /^decks\/[^/]+\/audio-plan$/, 'fill_plan'], ['POST', /^notes\/[^/]+\/audio-fill$/, 'note_changed'],
 ];
 function answerKind(method, apiPath) {
   const hit = ANSWERS.find(([m, re]) => m === method && re.test(apiPath));
@@ -64,7 +64,7 @@ function idKind(key, list, kind) {
   if (key === 'notetypeId') return 'M';
   if (key === 'deckId' || key === 'deck.id') return 'D';
   if (key === 'id') {
-    if (list === 'notes') return 'N';
+    if (list === 'notes' || list === 'toFill') return 'N';
     if (list === 'notetypes') return 'M';
     if (list === 'decks') return 'D';
     if (['deck_renamed', 'deck_summary', 'deck_removed', 'deck_languages', 'deck_languages_found'].includes(kind)) return 'D';
@@ -362,6 +362,8 @@ describe('the HTTP contract', { concurrency: false }, () => {
         ['GET', '/api/anki/notes/1'], ['DELETE', '/api/anki/notes/1'], ['GET', '/api/anki/media/clip.ogg'],
         ['POST', '/api/anki/card-text', ['q_card_text', { userInput: 'x', deckId: 1 }]],
         ['POST', '/api/anki/audio', ['q_audio', { text: 'x', language: 'ko' }]],
+        ['POST', '/api/anki/decks/1/audio-plan', ['q_fill', { notetypeId: 1, textField: 0, audioField: 1, side: 'learning', form: 'sound' }]],
+        ['POST', '/api/anki/notes/1/audio-fill', ['q_fill', { deckId: 1, notetypeId: 1, textField: 0, audioField: 1, side: 'learning', form: 'sound' }]],
         ['POST', '/api/anki/starter', ['q_starter', { known: 'en', learning: 'ko' }]],
       ]) {
         await call(ctx, `${mode}: ${m} ${u}`, m, u, { headers, body, bases: [dir] });
@@ -714,6 +716,123 @@ describe('the HTTP contract: Gemini, against the fake', { concurrency: false }, 
       await controlFake(fake.url, 'daily=1');
       await call(ctx, 'fake: daily cap', 'POST', '/api/anki/card-text', { headers: p.headers, bases: [p.base], body: ['q_card_text', { userInput: 'line 1', deckId: 1 }] });
       await call(ctx, 'fake: daily cap again', 'POST', '/api/anki/card-text', { headers: p.headers, bases: [p.base], body: ['q_card_text', { userInput: 'line 2', deckId: 1 }] });
+    } finally {
+      await app.stop();
+      await fake.stop();
+    }
+  });
+});
+
+// Fill missing audio (server/amgi/fill.c). Last in the file: the ids the run makes are numbered by first appearance, so what comes
+// before keeps its numbers.
+for (const schema of ['18', '11']) {
+  describe(`the HTTP contract: fill missing audio, schema ${schema}`, { concurrency: false }, () => {
+    test('the plan reads and changes nothing, and the fill\'s own checks come before any Gemini call', async () => {
+      const app = await startServer();
+      try {
+        const ctx = { server: app.url };
+        const p = profile(schema);
+        const h = p.headers;
+        const bases = [p.base];
+        const s = (n) => `fill s${schema} ${n}`;
+        const decks = ids((await call(ctx, s('decks'), 'GET', '/api/anki/decks', { headers: h, bases })).decoded.decks);
+        const nts = (await call(ctx, s('notetypes'), 'GET', '/api/anki/notetypes', { headers: h, bases })).decoded.notetypes;
+        const basic = nts.find((n) => n.name === 'Basic').id;
+        const made = await call(ctx, s('create deck'), 'POST', '/api/anki/decks', { headers: h, bases, body: ['q_deck_name', { name: 'To fill' }] });
+        const madeId = made.decoded['deck.id'];
+        await call(ctx, s('set languages'), 'PUT', `/api/anki/decks/${madeId}/languages`, { headers: h, bases, body: ['q_deck_languages', { known: 'en', learning: 'ko' }] });
+        for (const fields of [['안녕하세요', ''], ['감사합니다', '[sound:mine.mp3]'], ['<div></div>', 'x']]) {
+          await call(ctx, s(`add note ${fields[0]}`), 'POST', '/api/anki/notes', { headers: h, bases, body: ['q_note', { deckId: madeId, notetypeId: basic, fields }] });
+        }
+        const quiet = (await call(ctx, s('notes'), 'GET', `/api/anki/decks/${madeId}/notes`, { headers: h, bases })).decoded.notes.at(-1).id;
+        const fill = (over) => ['q_fill', { deckId: madeId, notetypeId: basic, textField: 0, audioField: 1, side: 'learning', form: 'sound', ...over }];
+        const plan = (name, deck, over) => call(ctx, s(name), 'POST', `/api/anki/decks/${deck}/audio-plan`, { headers: h, bases, body: fill(over) });
+        const fillNote = (name, note, over) => call(ctx, s(name), 'POST', `/api/anki/notes/${note}/audio-fill`, { headers: h, bases, body: fill(over) });
+        await plan('audio plan', madeId, {});
+        await plan('audio plan, the known side as html', madeId, { side: 'known', form: 'html' });
+        await plan('audio plan, another field pair', madeId, { textField: 1, audioField: 0 });
+        await plan('audio plan, a deck with no languages', decks.Empty, {});
+        await plan('audio plan, a deck not there', 999, {});
+        await plan('audio plan, deck id not a number', 'abc', {});
+        await plan('audio plan, an unknown side', madeId, { side: 'middle' });
+        await plan('audio plan, no side', madeId, { side: '' });
+        await plan('audio plan, an unknown form', madeId, { form: 'mp3' });
+        await plan('audio plan, one field twice', madeId, { audioField: 0 });
+        await plan('audio plan, a field out of range', madeId, { audioField: 9 });
+        await plan('audio plan, no fields', madeId, { textField: undefined, audioField: undefined });
+        await plan('audio plan, an unknown note type', madeId, { notetypeId: 42 });
+        await plan('audio plan, both sides of a note type that is not amgi Listening', madeId, { side: 'both' });
+        await call(ctx, s('audio plan, body not the right kind'), 'POST', `/api/anki/decks/${madeId}/audio-plan`, { headers: h, bases, body: ['q_deck_name', { name: 'x' }] });
+        await fillNote('audio fill, a note with nothing to say', quiet, {});
+        await fillNote('audio fill, a deck with no languages', quiet, { deckId: decks.Empty });
+        await fillNote('audio fill, a deck not there', quiet, { deckId: 999 });
+        await fillNote('audio fill, no deck', quiet, { deckId: undefined });
+        await fillNote('audio fill, a note not there', 999, {});
+        await fillNote('audio fill, note id not a number', 'abc', {});
+        await fillNote('audio fill, an unknown side', quiet, { side: 'x' });
+        await fillNote('audio fill, an unknown note type', quiet, { notetypeId: 42 });
+        await call(ctx, s('audio plan after: the plan changed nothing'), 'POST', `/api/anki/decks/${madeId}/audio-plan`, { headers: h, bases, body: fill({}) });
+      } finally {
+        await app.stop();
+      }
+    });
+  });
+}
+
+describe('the HTTP contract: fill missing audio, against the fake', { concurrency: false }, () => {
+  test('without a key the plan answers and the fill says what is missing', async () => {
+    const keyless = await startServer({ key: '', base: null });
+    try {
+      const ctx = { server: keyless.url };
+      const p = profile();
+      const h = p.headers;
+      const bases = [p.base];
+      await call(ctx, 'fill keyless: set languages', 'PUT', '/api/anki/decks/1/languages', { headers: h, bases, body: ['q_deck_languages', { known: 'en', learning: 'ko' }] });
+      const types = (await call(ctx, 'fill keyless: note types', 'GET', '/api/anki/notetypes', { headers: h, bases })).decoded.notetypes;
+      const basic = types.find((n) => n.name === 'Basic').id;
+      const note = await call(ctx, 'fill keyless: add a note', 'POST', '/api/anki/notes', { headers: h, bases, body: ['q_note', { deckId: 1, notetypeId: basic, fields: ['안녕', ''] }] });
+      const q = ['q_fill', { deckId: 1, notetypeId: basic, textField: 0, audioField: 1, side: 'learning', form: 'sound' }];
+      await call(ctx, 'fill keyless: audio plan', 'POST', '/api/anki/decks/1/audio-plan', { headers: h, bases, body: q });
+      await call(ctx, 'fill keyless: audio fill', 'POST', `/api/anki/notes/${note.decoded.noteId}/audio-fill`, { headers: h, bases, body: q });
+    } finally {
+      await keyless.stop();
+    }
+  });
+
+  test('a note\'s fill: the plan, the fill, the plan again, the same fill (up to date), a clip already there, and a limit', async () => {
+    const fake = await startFakeGemini();
+    const app = await startServer({ key: 'fake', base: fake.url });
+    try {
+      const ctx = { server: app.url };
+      const p = profile();
+      const h = p.headers;
+      const bases = [p.base];
+      await call(ctx, 'fill fake: set languages', 'PUT', '/api/anki/decks/1/languages', { headers: h, bases, body: ['q_deck_languages', { known: 'en', learning: 'ko' }] });
+      const types = (await call(ctx, 'fill fake: note types', 'GET', '/api/anki/notetypes', { headers: h, bases })).decoded.notetypes;
+      const basic = types.find((n) => n.name === 'Basic').id;
+      const fillq = ['q_fill', { deckId: 1, notetypeId: basic, textField: 0, audioField: 1, side: 'learning', form: 'sound' }];
+      const add = (name, fields) => call(ctx, name, 'POST', '/api/anki/notes', { headers: h, bases, body: ['q_note', { deckId: 1, notetypeId: basic, fields }] });
+      const first = await add('fill fake: add a note to fill', ['다음에 봐요', '[sound:mine.mp3]']);
+      const second = await add('fill fake: add another note to fill', ['안녕하세요', '']);
+      await call(ctx, 'fill fake: the clip of the second note, made by /audio', 'POST', '/api/anki/audio', { headers: h, bases, body: ['q_audio', { text: '안녕하세요', language: 'ko' }] });
+      await call(ctx, 'fill fake: audio plan', 'POST', '/api/anki/decks/1/audio-plan', { headers: h, bases, body: fillq });
+      await call(ctx, 'fill fake: audio fill', 'POST', `/api/anki/notes/${first.decoded.noteId}/audio-fill`, { headers: h, bases, body: fillq });
+      await call(ctx, 'fill fake: the note after the fill', 'GET', `/api/anki/notes/${first.decoded.noteId}`, { headers: h, bases });
+      await call(ctx, 'fill fake: audio fill again, up to date', 'POST', `/api/anki/notes/${first.decoded.noteId}/audio-fill`, { headers: h, bases, body: fillq });
+      await call(ctx, 'fill fake: audio fill, the clip was there', 'POST', `/api/anki/notes/${second.decoded.noteId}/audio-fill`, { headers: h, bases, body: fillq });
+      await call(ctx, 'fill fake: audio plan after', 'POST', '/api/anki/decks/1/audio-plan', { headers: h, bases, body: fillq });
+      const waiting = await add('fill fake: add a note for the limit', ['또 봐요', '']);
+      await controlFake(fake.url, 'perMinute=1');
+      // One speech call is allowed this minute: the first fill has it; the second is refused with about a minute to wait, longer than a
+      // fill sits through, so it answers 429 at once; and the third is refused before it starts.
+      await call(ctx, 'fill fake: the one clip this minute allows', 'POST', `/api/anki/notes/${waiting.decoded.noteId}/audio-fill`, { headers: h, bases, body: fillq });
+      const limited = await add('fill fake: add a note the limit stops', ['잘 가요', '']);
+      await call(ctx, 'fill fake: audio fill limited after starting', 'POST', `/api/anki/notes/${limited.decoded.noteId}/audio-fill`, {
+        headers: h, bases, jitter: [40000, 76000], body: fillq,
+      });
+      await call(ctx, 'fill fake: audio fill refused before starting', 'POST', `/api/anki/notes/${limited.decoded.noteId}/audio-fill`, {
+        headers: h, bases, jitter: [30000, 76000], body: fillq,
+      });
     } finally {
       await app.stop();
       await fake.stop();

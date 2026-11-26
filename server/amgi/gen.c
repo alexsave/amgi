@@ -59,7 +59,7 @@ static void fail(arena *a, cb_http_res *res, const gem_err *e, const char *fallb
 static void fail_plain(arena *a, cb_http_res *res, str message) { amgi_send_message(a, res, 500, message); }
 
 /* rateLimit.js admissionRefusal: 1 when it answered (a 429 before anything starts). */
-static int admission_refused(arena *a, cb_http_res *res) {
+int amgi_admission_refused(arena *a, cb_http_res *res) {
   int64_t wait = gate_admission_wait(gate_shared());
   if (wait <= 0) return 0;
   amgi_error e = {0};
@@ -72,7 +72,7 @@ static int admission_refused(arena *a, cb_http_res *res) {
   return 1;
 }
 
-typedef struct { str filename, reference; int reused; } clip;
+typedef amgi_clip clip;
 
 /* generateAndStoreClip: 0, or -1 having answered. */
 static int store_clip(arena *a, progress *p, const amgi_ops *o, str text, str language, str reading, int fresh, clip *out,
@@ -97,6 +97,10 @@ static int store_clip(arena *a, progress *p, const amgi_ops *o, str text, str la
   if (ops_add_media(a, o, name, wav.p, wav.n, &stored, &ce)) return fail_plain(a, res, ce.message), -1;
   *out = (clip){stored, amgi_audio_reference(a, stored), 0};
   return 0;
+}
+
+int amgi_store_clip(arena *a, const amgi_ops *o, str text, str language, int fresh, amgi_clip *out, cb_http_res *res) {
+    return store_clip(a, NULL, o, text, language, S(""), fresh, out, res);
 }
 
 static void make_card(arena *a, progress *p, const amgi_ops *o, const char *mode, const wire_q_card_text *q,
@@ -124,7 +128,7 @@ static void make_card(arena *a, progress *p, const amgi_ops *o, const char *mode
     return;
   }
   str known = deck->known, learning = deck->learning;
-  if (admission_refused(a, res)) return;
+  if (amgi_admission_refused(a, res)) return;
   if (!amgi_generation_available()) {
     fail_plain(a, res, S(MISSING_KEY_MESSAGE));
     return;
@@ -168,7 +172,7 @@ void amgi_audio(arena *a, const amgi_ops *o, const char *mode, const wire_q_audi
     amgi_send_message(a, res, 400, S("text and language are required"));
     return;
   }
-  if (admission_refused(a, res)) return;
+  if (amgi_admission_refused(a, res)) return;
   clip c;
   if (store_clip(a, NULL, o, text, language, S(""), q->fresh == 1, &c, res)) return;
   wire_clip w = {wire_mode_of(mode, (uint32_t)strlen(mode)), amgi_ws(c.filename), amgi_ws(c.reference), (uint8_t)c.reused};

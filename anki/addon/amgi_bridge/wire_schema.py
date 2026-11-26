@@ -361,4 +361,20 @@ KINDS = {
         ("learning", STR, None),
         ("foundBy", STR, None),
     )),
+    "q_fill": (52, (
+        ("deckId", I64, None),
+        ("notetypeId", I64, None),
+        ("textField", I32, None),
+        ("audioField", I32, None),
+        ("side", STR, None),
+        ("form", STR, None),
+    )),
+    "fill_plan": (53, (
+        ("mode", MODE, None),
+        ("toFill", LIST, (
+            ("id", I64, None),
+        )),
+        ("upToDate", U32, None),
+        ("skipped", U32, None),
+    )),
 }

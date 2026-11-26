@@ -10,6 +10,7 @@
  *   amgi card add --deck NAME (--front TEXT --back TEXT | --text TEXT [--no-audio]) [--from KNOWN --to LEARNING]
  *   amgi card list --deck NAME
  *   amgi card remove ID [--yes]
+ *   amgi audio fill --deck NAME [--notetype N --text-field F --audio-field G --side learning|known --form sound|html]
  *   amgi starter-audio [--check] [--rerecord] [--only ja,ko] [--model M]   (dev tool, no server: server/amgi/starter_audio.c)
  *
  * Every command is a call to the running server's routes (server/amgi/routes.c) in the wire format,
@@ -23,6 +24,8 @@
  *   would-remove ID FRONT BACK                          (card remove without --yes: nothing deleted)
  *   removed ID FRONT BACK                               (card remove --yes: the note and its cards are gone)
  *   note ID FRONT BACK CUE_AUDIO TARGET_AUDIO          (an audio field is its [sound:...] reference, or -)
+ *   filled ID | failed ID REASON                       (audio fill: a note it made the clip of, or could not)
+ *   audio-fill FILLED UP_TO_DATE SKIPPED FAILED         (audio fill's last line: this run's counts)
  *   status MODE SCHEMA PID PORT PROFILE COLLECTION
  *   install READY ADDONS UP_TO_DATE NOTE_TYPE_CHECKED  (each yes, no or unknown)
  *
@@ -89,6 +92,9 @@ static const char USAGE[] =
   "      (the deck's languages decide the card: --from and --to only set them on a deck with none, or must be the deck's own)\n"
   "  amgi card list --deck NAME\n"
   "  amgi card remove ID [--yes]     (ID is the note ID card list prints; without --yes: what it would remove, and nothing is deleted)\n"
+  "  amgi audio fill --deck NAME [--notetype N --text-field F --audio-field G --side learning|known --form sound|html]\n"
+  "      (the clip of every note of the deck that lacks one, in the deck's languages: with no note type, the amgi Listening notes,\n"
+  "      both sides; --side is whose language the text field is in, --form the reference written, sound is [sound:x], html <audio>)\n"
   "  amgi starter-audio [--check] [--rerecord] [--only ja,ko] [--model M]   (dev: records the starter deck's clips; needs ffmpeg)\n"
   "  amgi serve        (the server in the foreground; make start runs it)\n"
   "exit: 0 ok, 1 other failure, 2 locked (Anki open), 3 not found, 4 usage, 5 Gemini\n"
@@ -1003,6 +1009,146 @@ out:
   return rc;
 }
 
+/* ---- audio fill ---- */
+/* A field of a note type by its name (exact, else ignoring case), or -1. */
+static int field_index(const wire_notetype *nt, const char *name) {
+    for (uint32_t i = 0; i < nt->field_names.n; i++)
+        if (weq(nt->field_names.v[i], name)) return (int)i;
+    for (uint32_t i = 0; i < nt->field_names.n; i++) {
+        wire_str f = nt->field_names.v[i];
+        if (f.len == strlen(name) && !strncasecmp(f.p, name, f.len)) return (int)i;
+    }
+    return -1;
+}
+
+/* POST /notes/:id/audio-fill, waiting out Gemini's per-minute limit as the server's answer says (retryAfterMs, exactly): 0 and the
+ * note filled, 1 and *why for a note it could not fill (said on the record, the run goes on), or the exit code of a run that must
+ * stop (the day's quota, no key, a locked collection) with the reason said. */
+static int fill_one(arena *a, const up_state *s, int64_t note, const wire_q_fill *q, wire_str *why, int *stop) {
+    char path[96];
+    snprintf(path, sizeof path, "/api/anki/notes/%lld/audio-fill", (long long)note);
+    *stop = 0;
+    for (int waits = 0;; waits++) {
+        answer x;
+        int rc = call(a, s, "POST", path, WK_Q_FILL, q, GEN_MS, &x);
+        if (rc) return *stop = 1, rc;
+        if (x.status == 200 && as_kind(a, &x, WK_NOTE_CHANGED)) return 0;
+        if (x.status == 200) return *why = (wire_str){"the answer was not a note_changed", 33}, 1;
+        const wire_error *e = as_kind(a, &x, WK_ERROR);
+        if (e && x.status == 429 && !e->daily_cap && e->retry_after_ms != WIRE_NONE && waits < 20) {
+            fprintf(stderr, "amgi: waiting %ums as Gemini's rate gate asks, then trying again\n", e->retry_after_ms);
+            sleep_ms((int)e->retry_after_ms);
+            continue;
+        }
+        /* A note that is gone, or that Gemini could not make a clip for, is that note's failure; anything else (no key, the day's
+         * quota, a limit that does not lift, a locked collection, a refused request) would be every note's, so the run stops. */
+        if (!e || (x.status != 404 && x.status < 500) || weq(e->error, MISSING_KEY_MESSAGE)) return *stop = 1, failed(a, &x, path);
+        *why = e->error;
+        return 1;
+    }
+}
+
+/* audio fill --deck NAME [--notetype N --text-field F --audio-field G --side learning|known --form sound|html]: the clip of every note of
+ * the deck that lacks one, a note at a time. Without a note type it is the amgi Listening notes, both sides. A line per note:
+ *   filled ID
+ *   failed ID REASON
+ * and a last line, audio-fill FILLED UP_TO_DATE SKIPPED FAILED, the counts of this run (the notes found up to date, and the notes
+ * that cannot have a clip, are counted by the plan and not listed). */
+static int audio_fill(int argc, char **argv) {
+    const char *deck = NULL, *notetype = NULL, *text_field = NULL, *audio_field = NULL, *side = NULL, *form = NULL;
+    opt opts[] = {{"--deck", &deck, NULL},        {"--notetype", &notetype, NULL}, {"--text-field", &text_field, NULL},
+                  {"--audio-field", &audio_field, NULL}, {"--side", &side, NULL},  {"--form", &form, NULL}};
+    if (parse_opts(argc, argv, 3, opts, 6, NULL)) return usage(NULL);
+    if (!deck || !deck[0]) return usage("--deck NAME is required");
+    int fields_given = notetype || text_field || audio_field || side || form;
+    if (fields_given && (!notetype || !text_field || !audio_field))
+        return usage("--notetype, --text-field and --audio-field come together (and --side and --form are for them); give none for the amgi Listening notes");
+    if (side && strcmp(side, "learning") && strcmp(side, "known")) return usage("--side is learning or known");
+    if (form && strcmp(form, "sound") && strcmp(form, "html")) return usage("--form is sound or html");
+    up_state s;
+    int rc = need_up(&s);
+    if (rc) return rc;
+    arena a = {0};
+    const wire_deck *d;
+    const wire_notetypes *nts;
+    if ((rc = card_context(&a, &s, deck, &d, &nts))) goto out;
+    if (!d->known.len) {
+        str why = amgi_no_languages_refusal();
+        fprintf(stderr, "amgi: %.*s\n", (int)why.n, why.p);
+        rc = RC_USAGE;
+        goto out;
+    }
+    wire_q_fill q = {d->id, 0, WIRE_ABSENT, WIRE_ABSENT, {"both", 4}, {"html", 4}};
+    if (fields_given) {
+        const wire_notetype *nt = NULL;
+        for (uint32_t i = 0; i < nts->nnotetypes && !nt; i++)
+            if (weq(nts->notetypes[i].name, notetype)) nt = &nts->notetypes[i];
+        if (!nt) {
+            fprintf(stderr, "amgi: no note type named \"%s\" (the name must match exactly)\n", notetype);
+            rc = RC_NOT_FOUND;
+            goto out;
+        }
+        int text = field_index(nt, text_field), audio = field_index(nt, audio_field);
+        if (text < 0 || audio < 0) {
+            fprintf(stderr, "amgi: note type \"%s\" has no field named \"%s\"; its fields are:", notetype, text < 0 ? text_field : audio_field);
+            for (uint32_t i = 0; i < nt->field_names.n; i++) {
+                fputc(' ', stderr);
+                fwrite(nt->field_names.v[i].p, 1, nt->field_names.v[i].len, stderr);
+            }
+            fputc('\n', stderr);
+            rc = RC_NOT_FOUND;
+            goto out;
+        }
+        const char *sd = side ? side : "learning", *fm = form ? form : "sound";
+        q = (wire_q_fill){d->id, nt->id, text, audio, {sd, (uint32_t)strlen(sd)}, {fm, (uint32_t)strlen(fm)}};
+    } else {
+        listening l = {0};
+        if (!find_listening(&a, nts, &l)) {
+            fputs("amgi: this collection has no \"" AMGI_NOTETYPE_NAME "\" note type: name the fields to fill with --notetype, --text-field and --audio-field\n", stderr);
+            rc = RC_NOT_FOUND;
+            goto out;
+        }
+        q.notetype_id = l.nt->id;
+    }
+    char path[96];
+    snprintf(path, sizeof path, "/api/anki/decks/%lld/audio-plan", (long long)d->id);
+    const wire_fill_plan *plan = send_call(&a, &s, "POST", path, WK_Q_FILL, &q, WK_FILL_PLAN, CALL_MS, &rc, NULL);
+    if (!plan) goto out;
+    uint32_t filled = 0, failed_notes = 0;
+    for (uint32_t i = 0; i < plan->nto_fill; i++) {
+        arena one = {0};
+        wire_str why = {"", 0};
+        int stop;
+        int r = fill_one(&one, &s, plan->to_fill[i].id, &q, &why, &stop);
+        if (stop) {
+            ar_free(&one);
+            rc = r;
+            goto out;
+        }
+        if (r == 0) {
+            printf("filled\t%lld\n", (long long)plan->to_fill[i].id);
+            filled++;
+        } else {
+            printf("failed\t%lld\t", (long long)plan->to_fill[i].id);
+            put_w(why);
+            putchar('\n');
+            failed_notes++;
+        }
+        fflush(stdout);
+        ar_free(&one);
+    }
+    printf("audio-fill\t%u\t%u\t%u\t%u\n", filled, plan->up_to_date, plan->skipped, failed_notes);
+    if (failed_notes) rc = RC_GEMINI;
+out:
+    ar_free(&a);
+    return rc;
+}
+
+static int cmd_audio(int argc, char **argv) {
+    if (argc < 3 || strcmp(argv[2], "fill")) return usage("audio takes fill");
+    return audio_fill(argc, argv);
+}
+
 int main(int argc, char **argv) {
   /* The server itself: cbase's serve, as build/amgi-serve runs it. */
   if (argc >= 2 && !strcmp(argv[1], "serve")) return cb_process_main(&cb_provider_local, cb_main_app, argc, argv);
@@ -1016,6 +1162,7 @@ int main(int argc, char **argv) {
   if (!strcmp(c, "install")) return cmd_install(argc, argv);
   if (!strcmp(c, "deck")) return cmd_deck(argc, argv);
   if (!strcmp(c, "card")) return cmd_card(argc, argv);
+  if (!strcmp(c, "audio")) return cmd_audio(argc, argv);
   if (!strcmp(c, "starter-audio")) return amgi_starter_audio(argc, argv, g_root);
   fprintf(stderr, "amgi: no command %s\n", c);
   return usage(NULL);

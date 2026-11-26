@@ -89,6 +89,8 @@ enum {
   WK_DECK_LANGUAGES, /* its answer */
   WK_B_DECK_LANGUAGES, /* the bridge's answer to it */
   WK_DECK_LANGUAGES_FOUND, /* POST /decks/:id/languages/detect: the pair found, stored or only guessed */
+  WK_Q_FILL, /* POST /decks/:id/audio-plan and POST /notes/:id/audio-fill: which fields to read aloud into which */
+  WK_FILL_PLAN, /* the answer to the plan */
   WK_KINDS
 };
 /* The kind's name as the server's route table spells it ("decks", "q_note"); 0 past the last. */
@@ -157,6 +159,17 @@ typedef struct { wire_strs fields; wire_str language; int32_t learning_field_ind
 typedef struct { wire_str user_input; int64_t deck_id; uint8_t include_cue_audio;
                  uint32_t progress_id; /* the asker's own number for GET /progress, or 0 */ } wire_q_card_text;
 typedef struct { wire_str text, language; uint8_t fresh; } wire_q_audio;
+/* Fill missing audio: what to read aloud (text_field) into what (audio_field), both fields of note type notetype_id by index.
+ * side says whose language it is: "learning" or "known" (the deck's stored pair), or "both", which is only for the amgi Listening
+ * note type: its Target into TargetAudio in the learning language and its Cue into CueAudio in the known one, text_field and
+ * audio_field unused and the reference form always "html". form is "sound" ([sound:x]) or "html" (<audio src="x"></audio>).
+ * deck_id is read by POST /notes/:id/audio-fill only (the plan names its deck in its path): the deck whose pair the note's clips are
+ * spoken in. */
+typedef struct { int64_t deck_id, notetype_id; int32_t text_field, audio_field; wire_str side, form; } wire_q_fill;
+typedef struct { int64_t id; } wire_fill_note;
+/* What a deck's notes need: to_fill are the notes (by id) that lack the clip of their text now, up_to_date those that have it, and
+ * skipped those that cannot have one (another note type, a text that is empty once its markup is gone). */
+typedef struct { uint32_t mode; wire_fill_note *to_fill; uint32_t nto_fill; uint32_t up_to_date, skipped; } wire_fill_plan;
 
 /* The bridge add-on's messages: what bridge_ops.py answers, field for field. schema_version is
  * WIRE_NONE with no collection open. */

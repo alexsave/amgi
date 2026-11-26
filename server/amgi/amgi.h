@@ -12,6 +12,7 @@
  *   gate.c      plusaudio/lib/rateGate.js, the one rate gate of the process
  *   gemini*.c   the Gemini client (gemini.ts, geminiWire.ts, geminiSpeech.ts) on cbase's gRPC
  *   progress.c  the step each card being made is at (GET /progress)
+ *   fill.c      Fill missing audio: which notes of a deck lack the clip of their text, and the clip of one note
  *   detect.c    the languages of a deck with no stored pair, read from its notes and one Gemini request
  *   cards.c     the card generation flow (cardGeneration.ts, cardPrompts.ts, cardText.ts, sideOrder.js,
  *               audio.js, cardText.js)
@@ -150,6 +151,19 @@ void amgi_progress(arena *a, cb_http_res *res); /* GET /progress: the cards bein
 int amgi_gen_open(char *err, size_t cap);
 void amgi_gen_close(void);
 int amgi_generation_available(void); /* Boolean(process.env.GEMINI_API_KEY) */
+
+/* One clip, stored: the file's name, the reference to put in a field, and whether it was there already (no Gemini call). */
+typedef struct { str filename, reference; int reused; } amgi_clip;
+/* The clip of text in language (named by its content), reused from the media folder unless fresh, else recorded and added as media: 0,
+ * or -1 having answered (a missing key, Gemini's limits as 429, another failure as 500). Runs on the request's thread, behind the one
+ * rate gate. */
+int amgi_store_clip(arena *a, const amgi_ops *o, str text, str language, int fresh, amgi_clip *out, cb_http_res *res);
+/* Gemini's per-minute limit is reached: 1 having answered 429 (not started, with the wait), else 0. */
+int amgi_admission_refused(arena *a, cb_http_res *res);
+
+/* ---- fill.c: POST /decks/:id/audio-plan and POST /notes/:id/audio-fill ---- */
+void amgi_fill_plan(arena *a, const amgi_ops *o, const char *mode, double deck_id, const wire_q_fill *q, cb_http_res *res);
+void amgi_fill_note(arena *a, const amgi_ops *o, const char *mode, double note_id, const wire_q_fill *q, cb_http_res *res);
 
 /* ---- detect.c: POST /decks/:id/languages/detect ---- */
 void amgi_deck_languages_detect(arena *a, const amgi_ops *o, const char *mode, double deck_id, cb_http_res *res);

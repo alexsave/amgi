@@ -74,7 +74,7 @@ Settings (`/settings`) holds the profile and the bridge address and token.
 
 ## Command line
 
-`server/build/amgi` is the command line: `up`, `down`, `status`, `install`, `deck add|list|remove` and `card add|list`.
+`server/build/amgi` is the command line: `up`, `down`, `status`, `install`, `deck add|list|remove`, `card add|list|remove` and `audio fill`.
 [skills/amgi/SKILL.md](skills/amgi/SKILL.md) has the commands and their exit codes.
 
 ## Development

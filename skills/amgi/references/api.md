@@ -96,6 +96,8 @@ A failure is the `error` kind, `{error}`, with a 4xx or 5xx status, except an un
 | `POST /card-text` `{userInput, deckId, includeCueAudio, progressId}` | Writes one card's text, records and stores its clips; adds no note. The deck's stored pair decides the languages (409 `This deck has no languages yet: ...` when it has none); the input may be in any language and is only the meaning to translate. `progressId` is optional: a number of your own, to follow it in `GET /progress` |
 | `GET /progress` | `{cards: [{id, step, take, takes, waitMs, frontText, backText}]}`: the cards being made now that gave a `progressId`. `step` is a `WP_*` of `ui/wire/wire.h`; `waitMs` is above 0 while the step waits for Gemini's limit; the texts are empty until both sides are written |
 | `POST /audio` `{text, language, fresh}` | One validated clip, stored: `{filename, reference, reused}` |
+| `POST /decks/:id/audio-plan` `{notetypeId, textField, audioField, side, form}` | Which notes of the deck (subdecks included) lack the clip of their text: `{mode, toFill: [{id}], upToDate, skipped}`. Reads only; asks Gemini nothing. `textField` and `audioField` are indexes into the note type's fields; `side` is `learning` or `known` (whose language the text is in: the deck's stored pair decides it, 409 when it has none) or `both` (only the amgi Listening note type: Target into TargetAudio and Cue into CueAudio, as `<audio>`; the fields and `form` are then ignored); `form` is `sound` (`[sound:x]`) or `html` (`<audio src="x"></audio>`) |
+| `POST /notes/:id/audio-fill` `{deckId, notetypeId, textField, audioField, side, form}` | Makes the clip of that one note and writes its reference into the audio field, nothing else of the note; `{mode, noteId}`. Answers as done without a Gemini request when the note already has the clip. Gemini's limits are 429 as `POST /audio` answers them. Only amgi's own reference in the field is replaced |
 | `POST /notes` `{deckId, notetypeId, fields, tags, language, learningFieldIndex}` | Adds one note; `fields` is a list in the note type's field order. The deck's pair decides `language`: empty takes the deck's learning language, another is refused (409 `This deck is English -> Korean; this card is in Japanese.`), and a deck with no pair takes no note (409) |
 | `POST /notes/bulk` `{notes: [...]}` | The same shape and the same deck rule per note, in one write; one result per note, and one bad note never aborts the rest |
 | `GET /notes/:id` | `{id, notetypeId, fields, tags}`: one note, as the deck listing shows it; 404 when there is no such note |
@@ -108,6 +110,12 @@ The exact fields of each kind are the schema table's; where this table and `ui/w
 `decode` gives a dotted name in the schema (`deck.id` in `deck_created`, `audio.reference` in `card_text`) as one flat key of that name.
 
 Language codes are amgi's own: `en`, `ko`, `ja`, `zh_cn`, `zh_hk`, `es`, `fr`, `pt`, `ru`, `id`, `de`, `tr`, `vi`, `it`, `th`, `hi`, `ur`, `ar` (the table in `ui/wire/lang.c`).
+
+## Filling audio that is missing
+
+`amgi audio fill --deck NAME` does this for a deck.
+Through the raw API: `POST /decks/:id/audio-plan` for the notes that need a clip, then `POST /notes/:id/audio-fill` for each, one at a time, waiting `retryAfterMs` on a 429 that is not `dailyCap` and stopping on `dailyCap`.
+Asking the plan again after the fills finds nothing to do.
 
 ## Making cards
 
