@@ -2,7 +2,7 @@
 
 // geminiContext.js turns a key into the context every generator runs in. The
 // speech model is the runtime one unless a dev script names another
-// (scripts/build-starter-audio.js --model), and when it does, the request and
+// (`amgi starter-audio --model`), and when it does, the request and
 // the context's own model list must agree - the starter manifest records the
 // model from the context.
 

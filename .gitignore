@@ -31,5 +31,5 @@ npm-debug.log*
 # They are the one set of clips amgi ships rather than makes, because the
 # people they exist for are exactly the people with no key to make them
 # with (see server/amgi/starter.c). Rebuilt by
-# scripts/build-starter-audio.js.
+# `amgi starter-audio`.
 !anki/starter/media/*.mp3

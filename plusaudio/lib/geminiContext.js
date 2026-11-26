@@ -34,7 +34,7 @@ const { gateForThisProcess } = require('./ipcGate');
  *                                           parent server's over IPC when this process was forked
  *                                           with one, else this process's own (ipcGate.js)
  * @param {string} [options.ttsModel]        the speech model; models.ts's GEMINI_TTS_MODEL unless a dev
- *                                           script asks for another named one (build-starter-audio.js --model)
+ *                                           script asks for another named one (`amgi starter-audio --model`)
  */
 function createGeminiContext({ apiKey, baseUrl, random = defaultRandom, sleep, log = () => {}, ttsModel = CARD_MODELS.tts, gate = gateForThisProcess() } = {}) {
   const gemini = createGeminiClient({

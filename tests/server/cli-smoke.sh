@@ -2,7 +2,7 @@
 # The amgi command line end to end, as an agent drives it (skills/amgi/SKILL.md), on a throwaway
 # collection under a temp HOME: a locked collection refused, up, a second up, install, deck add (twice: find-or-create),
 # card add (the manual form: no Gemini; a deck's languages decide the card), card list, deck list, deck remove (dry run, then --yes),
-# the error exits, down.
+# the error exits, down; starter-audio --check on the repository.
 #   make build && tests/server/cli-smoke.sh
 # The CLI's pid file and log are in AMGI_STATE_DIR (a directory under the sandbox), so this runs
 # beside an amgi up from the same checkout without touching it.
@@ -66,6 +66,9 @@ expect 0 "^amgi up: already running pid=$pid " up
 expect 4 - card add --deck Spanish
 expect 4 - deck
 expect 4 - deck add
+# the starter deck's clips: all shipped (no server, no key, no Gemini call), and a usage error is 4
+expect 0 "^180 of 180 clips shipped; 0 missing\$" starter-audio --check
+expect 4 - starter-audio --only xx
 expect 0 "^install${tab}yes${tab}yes${tab}" install
 expect 0 "^deck${tab}[0-9]+${tab}0${tab}Spanish${tab}-${tab}-\$" deck add Spanish
 first="$out"

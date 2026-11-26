@@ -10,6 +10,7 @@
  *   amgi card add --deck NAME (--front TEXT --back TEXT | --text TEXT [--no-audio]) [--from KNOWN --to LEARNING]
  *   amgi card list --deck NAME
  *   amgi card remove ID [--yes]
+ *   amgi starter-audio [--check] [--rerecord] [--only ja,ko] [--model M]   (dev tool, no server: server/amgi/starter_audio.c)
  *
  * Every command is a call to the running server's routes (server/amgi/routes.c) in the wire format,
  * through cbase's loopback client, so the server's handlers stay the one owner of every rule: the
@@ -88,6 +89,7 @@ static const char USAGE[] =
   "      (the deck's languages decide the card: --from and --to only set them on a deck with none, or must be the deck's own)\n"
   "  amgi card list --deck NAME\n"
   "  amgi card remove ID [--yes]     (ID is the note ID card list prints; without --yes: what it would remove, and nothing is deleted)\n"
+  "  amgi starter-audio [--check] [--rerecord] [--only ja,ko] [--model M]   (dev: records the starter deck's clips; needs ffmpeg)\n"
   "  amgi serve        (the server in the foreground; make start runs it)\n"
   "exit: 0 ok, 1 other failure, 2 locked (Anki open), 3 not found, 4 usage, 5 Gemini\n"
   "state: amgi.pid and amgi.log are kept beside this binary, or in the directory AMGI_STATE_DIR names\n";
@@ -1014,6 +1016,7 @@ int main(int argc, char **argv) {
   if (!strcmp(c, "install")) return cmd_install(argc, argv);
   if (!strcmp(c, "deck")) return cmd_deck(argc, argv);
   if (!strcmp(c, "card")) return cmd_card(argc, argv);
+  if (!strcmp(c, "starter-audio")) return amgi_starter_audio(argc, argv, g_root);
   fprintf(stderr, "amgi: no command %s\n", c);
   return usage(NULL);
 }
