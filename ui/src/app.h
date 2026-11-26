@@ -214,6 +214,11 @@ void form_build(int64_t deck_id, const lang_pair *langs, int finding); /* CardFo
 void form_notetypes_known(void);
 void form_langs_changed(const lang_pair *langs, int finding);
 
+/* Fill missing audio (fill.c): the line under the deck's card count, built in box (the header's title). */
+void fill_build(cd_id box, int64_t deck, const lang_pair *langs);
+void fill_notes(const wire_notes *page);  /* a page of the deck's notes (or the note types) arrived: plan again */
+void fill_langs(const lang_pair *langs);  /* the deck's pair changed */
+
 /* BulkRun (bulk.c): a run of lines into cards, built at the end of the form's box. */
 void bulk_start(cd_id form_box, int64_t deck, const notetype *type, const lang_pair *langs, const wire_str *lines,
                 uint32_t n, void (*on_finished)(void));

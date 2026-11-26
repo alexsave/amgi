@@ -111,6 +111,8 @@ static void pick_sync(void) {
 /* The pair, or the lack of one, changed: the form and the rows' chips follow. */
 static void langs_apply(void) {
     form_langs_changed(&langs, finding);
+    fill_langs(&langs);
+    if (notes_known && notetypes_known) fill_notes(&page_notes);
     dirty(rows_view);
     dirty(sub_view);
 }
@@ -325,6 +327,7 @@ void deck_build(void) {
     sub_line = el_id("p", "deck-cards-sub");
     sub.parent = sub_line;
     cd_close();
+    fill_build(title_box, deck_id, &langs);
     cd_close();
     cd_on(el_id("button", "back-btn"), CD_EV_CLICK, back, 0);
     cd_text("← Decks");
@@ -815,6 +818,7 @@ ON_ANSWER(notes_answered) {
     if (a.ok) {
         notes_known = 1;
         text_free(&notes_error);
+        if (notetypes_known) fill_notes(&page_notes);
         if (rows_hash && notetypes_known && page_hash() == rows_hash) return; /* the same rows: keep them */
     } else {
         char m[512];
@@ -828,7 +832,10 @@ ON_ANSWER(notes_answered) {
 void deck_notetypes_known(void) {
     if (!shown) return;
     form_notetypes_known();
-    if (notes_known) dirty(rows_view);
+    if (notes_known) {
+        fill_notes(&page_notes);
+        dirty(rows_view);
+    }
 }
 
 ON_EVENT(prev_pressed) {
