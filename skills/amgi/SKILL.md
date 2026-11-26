@@ -68,7 +68,8 @@ The audio files of a removed deck stay in `collection.media` until Anki's Tools 
 Give `--from` and `--to` here exactly as for `--text` (only for a deck that has no pair).
 The file is read as the deck page reads a paste: one phrase a line, each line trimmed, blank lines and `[section]` marker lines passed over.
 A line in any language is only the meaning, and the card is made in the deck's pair.
-A run takes at most 500 phrases and 65536 bytes: a longer file is refused whole with exit 4 (a missing file is exit 4 too), and nothing is added; split it and run the parts.
+A file over 65536 bytes is refused whole with exit 4, and nothing is added (a missing file is exit 4 too).
+A run makes at most 500 phrases: the first 500 are made, the rest print `left limit` and the exit is 4; run those again, or split the file.
 Each card is written as soon as it is made, so a run that stops leaves the cards it made in the deck.
 Each phrase prints one line, in the file's order:
 
