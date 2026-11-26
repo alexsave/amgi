@@ -9,7 +9,8 @@
 //   - stdin, a missing file, a file too long for one run;
 //   - more phrases than one run makes (LINES_MAX): the rest are left "limit", exit 4;
 //   - Anki holding the collection, at the start or mid-run: exit 2, what was made stays, the rest are left "locked";
-//   - amgi not up: exit 1 with its message, and nothing made.
+//   - amgi not up: exit 1 with its message, and nothing made;
+//   - a clip heard wrong is recorded again, and the server's log says which phrase and why (each take is a voice request).
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
@@ -59,7 +60,7 @@ const kinds = (out) => records(out).map((r) => r[0]);
 const textOf = (body) => (body.contents || []).flatMap((c) => c.parts || []).map((p) => p.text || '').join('\n');
 
 /** One amgi up on a fake Gemini; control.text, when set, answers a text call first (a function of the call and its index; undefined passes it to the fake's own). */
-async function rig() {
+async function rig(extraEnv = {}) {
     const script = e2eScript();
     const own = script.text;
     const control = { text: null };
@@ -67,7 +68,7 @@ async function rig() {
     const fake = await fakeGemini(script, { control: script.control });
     stops.push(fake.close);
     const state = fs.mkdtempSync(path.join(os.tmpdir(), 'amgi-card-file-'));
-    const env = sandboxEnv({ AMGI_STATE_DIR: state, GEMINI_API_KEY: 'test-key', GEMINI_API_BASE: fake.baseUrl });
+    const env = sandboxEnv({ AMGI_STATE_DIR: state, GEMINI_API_KEY: 'test-key', GEMINI_API_BASE: fake.baseUrl, ...extraEnv });
     const profile = path.join(env.HOME, 'Library', 'Application Support', 'Anki2', 'User 1');
     fs.cpSync(FIXTURE, profile, { recursive: true });
     const up = await amgi(env, ['up', '--port', '0']);
@@ -95,7 +96,7 @@ async function rig() {
         const at = types.fieldNames.indexOf('Language');
         return (await get(`decks/${id}/notes`, 'notes')).notes.map((n) => n.fields[at]);
     };
-    return { fake, control, run, write, texts, env, languages, profile };
+    return { fake, control, run, write, texts, env, languages, profile, state, script };
 }
 
 /** The notes of a deck as card list prints them: [id, front, back]. */
@@ -347,4 +348,19 @@ test('amgi not up: exit 1 with its message, nothing made, and a missing file is 
     assert.equal(fake.requests.length, 0, 'Gemini was not asked');
     const missing = await amgi(env, ['card', 'add', '--deck', 'Anything', '--file', '/nonexistent/phrases.txt']);
     assert.equal(missing.code, 4, 'the file is read before amgi is looked for');
+});
+
+test('a clip heard wrong is recorded again, and the log names the retake: each take costs a voice request', async () => {
+    const r = await rig({ CBASE_LOG_LEVEL: 'info' });
+    assert.equal((await r.run('deck', 'add', 'Takes', '--from', 'en', '--to', 'ko')).code, 0);
+    r.script.control(new URLSearchParams('mishear=1'));
+    const before = r.fake.of('speech').length;
+    const done = await r.run('card', 'add', '--deck', 'Takes', '--file', r.write('takes.txt', 'Take this one\n'));
+    assert.equal(done.code, 0, done.stderr);
+    assert.deepEqual(kinds(done.stdout), ['note', 'bulk']);
+    assert.equal(r.fake.of('speech').length - before, 3, 'two clips and one retake');
+    const log = fs.readFileSync(path.join(r.state, 'amgi.log'), 'utf8');
+    const retakes = log.split('\n').filter((l) => / INFO {2}audio: retake 2 of 3 for "/.test(l));
+    assert.equal(retakes.length, 1, `one retake in the log:\n${log.split('\n').filter((l) => /audio/.test(l)).join('\n')}`);
+    assert.match(retakes[0], /\((en|ko)\): judge heard: /, 'with its language and the judge\'s reason');
 });

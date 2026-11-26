@@ -15,6 +15,7 @@
 
 #include "../json/model_answer.h"
 #include "lang.h"
+#include "util/log.h"
 
 static const struct { const char *code, *guidance; } REGISTER_POLICIES[] = {
     {"ko", "Korean marks politeness in the verb ending, so a level is chosen on every card. Default to 해요체, the polite informal style (-요 / -아요 / -어요, questions in -요?): it is what an adult uses with a stranger of any age without sounding either rude or ceremonial. Use 반말 (plain style) only when the input is itself in 반말 or explicitly says it is for a close friend, and use 합쇼체 (-습니다 / -십시오) only where it is the fixed normal form of the expression (감사합니다, 죄송합니다, 안녕하세요) or the input is explicitly a formal or service-industry line. Keep one level across the whole utterance."},
@@ -1081,6 +1082,10 @@ int card_generate_audio_take(arena *a, progress *p, str text, str language, str 
     str last_failure = S("");
     const char *voice = NULL;
     for (int attempt = 1; attempt <= max_attempts; attempt++) {
+        /* Each take is a voice request, so a retake costs one of the day's: the log says which clip and why. */
+        if (attempt > 1)
+            CB_INFO("audio", "retake %d of %d for \"%.*s\" (%.*s): %.*s", attempt, max_attempts, (int)spoken.n, spoken.p, (int)language.n,
+                    language.p, (int)last_failure.n, last_failure.p);
         gem_err ae = {0};
         voice = gem_pick_voice(voice);
         taken->voice = voice, taken->attempts = attempt;
