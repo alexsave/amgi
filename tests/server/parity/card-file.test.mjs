@@ -6,7 +6,10 @@
 //   - Gemini's per-minute limit is waited out and the line asked again; the day's cap stops the run with the rest left;
 //   - the deck's pair decides the languages: a deck with none refuses (exit 4), --from and --to store one, and a line in a third language
 //     is made in the pair;
-//   - stdin, a missing file, a file too long for one run.
+//   - stdin, a missing file, a file too long for one run;
+//   - more phrases than one run makes (LINES_MAX): the rest are left "limit", exit 4;
+//   - Anki holding the collection, at the start or mid-run: exit 2, what was made stays, the rest are left "locked";
+//   - amgi not up: exit 1 with its message, and nothing made.
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
@@ -20,10 +23,12 @@ import { sandboxEnv } from '../../repo/sandbox-home.cjs';
 
 const require = createRequire(import.meta.url);
 const { fakeGemini, e2eScript, dailyQuotaExhausted, quotaExhausted } = require('../../helpers/fake-gemini.js');
+const { anki, holdCollectionOpen } = require('../../helpers/anki-python.js');
 
 const AMGI = path.join(ROOT, 'server', 'build', 'amgi');
 const FIXTURE = path.join(ROOT, 'tests', 'server', 'parity', 'fixtures', 'schema18');
 const LINES_MAX_BYTES = 65536;
+const LINES_MAX = 500;
 
 const stops = [];
 after(async () => {
@@ -58,7 +63,7 @@ async function rig() {
     const script = e2eScript();
     const own = script.text;
     const control = { text: null };
-    script.text = (body, index, model) => control.text?.(body, index) ?? own(body, index, model);
+    script.text = async (body, index, model) => (await control.text?.(body, index)) ?? own(body, index, model);
     const fake = await fakeGemini(script, { control: script.control });
     stops.push(fake.close);
     const state = fs.mkdtempSync(path.join(os.tmpdir(), 'amgi-card-file-'));
@@ -90,7 +95,7 @@ async function rig() {
         const at = types.fieldNames.indexOf('Language');
         return (await get(`decks/${id}/notes`, 'notes')).notes.map((n) => n.fields[at]);
     };
-    return { fake, control, run, write, texts, env, languages };
+    return { fake, control, run, write, texts, env, languages, profile };
 }
 
 /** The notes of a deck as card list prints them: [id, front, back]. */
@@ -254,4 +259,92 @@ test('--file - reads standard input; a missing file and a file too long for one 
     assert.equal((await notesOf(r, 'Piped')).length, 2);
     // --text and --file are two ways, not both
     assert.equal((await r.run('card', 'add', '--deck', 'Piped', '--file', long, '--text', 'x')).code, 4);
+});
+
+test('more phrases than one run makes: the first LINES_MAX are made, the rest are left limit, and the run says so and exits 4', async () => {
+    const r = await rig();
+    assert.equal((await r.run('deck', 'add', 'Many', '--from', 'en', '--to', 'ko')).code, 0);
+    const extra = 3;
+    const file = r.write('many.txt', Array.from({ length: LINES_MAX + extra }, (_, i) => `Many phrase ${i + 1}`).join('\n'));
+    const done = await r.run('card', 'add', '--deck', 'Many', '--file', file, '--no-audio');
+    assert.equal(done.code, 4, done.stderr);
+    const rec = records(done.stdout);
+    assert.equal(rec.length, LINES_MAX + extra + 1);
+    assert.ok(rec.slice(0, LINES_MAX).every((x) => x[0] === 'note'), 'the first LINES_MAX are made');
+    assert.deepEqual(rec.slice(LINES_MAX, -1), Array.from({ length: extra }, (_, i) => ['left', 'limit', `Many phrase ${LINES_MAX + i + 1}`]));
+    assert.deepEqual(rec.at(-1), ['bulk', String(LINES_MAX), '0', '0', String(extra)]);
+    assert.match(done.stderr, new RegExp(`one run makes at most ${LINES_MAX} phrases: the ones left with "limit" were not made; run them again`));
+    assert.equal((await notesOf(r, 'Many')).length, LINES_MAX);
+});
+
+test('Anki holding the collection at the start: exit 2, locked said, nothing made and Gemini not asked', { skip: !anki && 'needs ANKI_PYTHON_BIN' }, async () => {
+    const r = await rig();
+    assert.equal((await r.run('deck', 'add', 'Shut', '--from', 'en', '--to', 'ko')).code, 0);
+    const file = r.write('shut.txt', 'Shut 1\nShut 2\n');
+    const asked = r.fake.requests.length;
+    const holder = holdCollectionOpen(path.join(r.profile, 'collection.anki2'));
+    await holder.held;
+    let done;
+    try {
+        done = await r.run('card', 'add', '--deck', 'Shut', '--file', file, '--no-audio');
+    } finally {
+        await holder.release();
+    }
+    assert.equal(done.code, 2, done.stderr);
+    assert.equal(done.stdout, '', 'no phrase was made or reported');
+    assert.match(done.stderr, /locked: ask the user to close Anki/);
+    assert.equal(r.fake.requests.length, asked, 'Gemini was not asked');
+    assert.equal((await notesOf(r, 'Shut')).length, 0);
+});
+
+test('Anki opening the collection mid-run: exit 2, the cards before it stay, the phrase it stopped at and the rest are left locked', { skip: !anki && 'needs ANKI_PYTHON_BIN' }, async () => {
+    const r = await rig();
+    assert.equal((await r.run('deck', 'add', 'Midway', '--from', 'en', '--to', 'ko')).code, 0);
+    const base = r.fake.of('text').length;
+    let holder = null;
+    // Anki is opened while the third phrase is being asked for: its card is made, and the write that follows meets the lock.
+    r.control.text = async (body, index) => {
+        if (index === base + 2) {
+            holder = holdCollectionOpen(path.join(r.profile, 'collection.anki2'));
+            await holder.held;
+        }
+        return undefined;
+    };
+    let done;
+    try {
+        done = await r.run('card', 'add', '--deck', 'Midway', '--file', r.write('midway.txt', 'Mid 1\nMid 2\nMid 3\nMid 4\nMid 5\n'), '--no-audio');
+    } finally {
+        r.control.text = null;
+        if (holder) await holder.release();
+    }
+    assert.equal(done.code, 2, done.stderr);
+    assert.deepEqual(records(done.stdout).map((x) => x.slice(0, 3)), [
+        ['note', records(done.stdout)[0][1], 'Mid 1'],
+        ['note', records(done.stdout)[1][1], 'Mid 2'],
+        ['left', 'locked', 'Mid 3'],
+        ['left', 'locked', 'Mid 4'],
+        ['left', 'locked', 'Mid 5'],
+        ['bulk', '2', '0'],
+    ]);
+    assert.deepEqual(records(done.stdout).at(-1), ['bulk', '2', '0', '0', '3']);
+    assert.match(done.stderr, /locked: ask the user to close Anki/);
+    assert.equal(r.fake.of('text').length - base, 3, 'the run stopped asking at the lock');
+    assert.deepEqual((await notesOf(r, 'Midway')).map((n) => n[1]).sort(), ['Mid 1', 'Mid 2']);
+});
+
+test('amgi not up: exit 1 with its message, nothing made, and a missing file is still the usage error it is', async () => {
+    const fake = await fakeGemini(e2eScript(), {});
+    stops.push(fake.close);
+    const state = fs.mkdtempSync(path.join(os.tmpdir(), 'amgi-card-file-down-'));
+    stops.push(async () => fs.rmSync(state, { recursive: true, force: true }));
+    const env = sandboxEnv({ AMGI_STATE_DIR: state, GEMINI_API_KEY: 'test-key', GEMINI_API_BASE: fake.baseUrl });
+    const file = path.join(state, 'phrases.txt');
+    fs.writeFileSync(file, 'Down 1\nDown 2\n');
+    const done = await amgi(env, ['card', 'add', '--deck', 'Anything', '--file', file, '--no-audio']);
+    assert.equal(done.code, 1, done.stderr);
+    assert.equal(done.stdout, '', 'no phrase was made or reported');
+    assert.match(done.stderr, /amgi is not up/);
+    assert.equal(fake.requests.length, 0, 'Gemini was not asked');
+    const missing = await amgi(env, ['card', 'add', '--deck', 'Anything', '--file', '/nonexistent/phrases.txt']);
+    assert.equal(missing.code, 4, 'the file is read before amgi is looked for');
 });
