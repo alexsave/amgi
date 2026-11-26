@@ -28,6 +28,7 @@ make server
 server/build/amgi up --key-file /path/to/.env.local
 server/build/amgi deck add "Spanish" --from en --to es
 server/build/amgi card add --deck "Spanish" --text "Where is the station?" --from en --to es
+server/build/amgi card add --deck "Spanish" --file phrases.txt
 server/build/amgi card list --deck "Spanish"
 server/build/amgi audio fill --deck "Spanish"
 server/build/amgi down
@@ -44,7 +45,7 @@ Language codes: `en`, `ko`, `ja`, `zh_cn`, `zh_hk`, `es`, `fr`, `pt`, `ru`, `id`
 `deck add NAME --from KNOWN --to LEARNING` also stores the deck's language pair in the deck (both flags or neither; the same codes), so Anki and the page see it too; `deck list` prints it.
 `card add --deck D --front TEXT --back TEXT` makes a card with no Gemini call and no audio (front in the deck's known language, back in its learning language).
 A write prints what reading it back finds.
-Output is tab-separated: `deck ID NOTES NAME KNOWN LEARNING` (`-` and `-` when the deck has no pair), `would-remove ID NOTES CARDS SUBDECKS NAME` and `removed ID NOTES CARDS DECKS NAME` (for `deck remove`), `would-remove ID FRONT BACK` and `removed ID FRONT BACK` (for `card remove`), `note ID FRONT BACK CUE_AUDIO TARGET_AUDIO` (`-` when absent), `filled ID`, `failed ID REASON` and `audio-fill FILLED UP_TO_DATE SKIPPED FAILED` (for `audio fill`), `status MODE SCHEMA PID PORT PROFILE COLLECTION`, `install READY ADDONS UP_TO_DATE NOTE_TYPE_CHECKED`.
+Output is tab-separated: `deck ID NOTES NAME KNOWN LEARNING` (`-` and `-` when the deck has no pair), `would-remove ID NOTES CARDS SUBDECKS NAME` and `removed ID NOTES CARDS DECKS NAME` (for `deck remove`), `would-remove ID FRONT BACK` and `removed ID FRONT BACK` (for `card remove`), `note ID FRONT BACK CUE_AUDIO TARGET_AUDIO` (`-` when absent), `skip REASON PHRASE`, `fail REASON PHRASE`, `left REASON PHRASE` and `bulk ADDED SKIPPED FAILED NOT_DONE` (for `card add --file`), `filled ID`, `failed ID REASON` and `audio-fill FILLED UP_TO_DATE SKIPPED FAILED` (for `audio fill`), `status MODE SCHEMA PID PORT PROFILE COLLECTION`, `install READY ADDONS UP_TO_DATE NOTE_TYPE_CHECKED`.
 Exit codes: 0 ok, 1 other (amgi not up, server error), 2 locked, 3 not found, 4 usage (also: a deck with no languages and none given, or others than its own), 5 Gemini.
 `deck add` is find-or-create: the same name again prints the same deck line, exits 0, and says `amgi: the deck was already there` on stderr.
 With `--from` and `--to` the pair is set on the deck it found or made, replacing one it had.
@@ -61,6 +62,28 @@ The audio files of a removed deck stay in `collection.media` until Anki's Tools 
 `card remove ID --yes` deletes that one note, its cards and their review history, and prints `removed ID FRONT BACK`.
 `ID` is the note ID that `card list` prints after `note`; an ID that is no note exits 3, and a missing or non-numeric ID exits 4, both deleting nothing.
 
+## Many phrases from a file
+
+`card add --deck NAME --file PATH` makes one card of every phrase line of the file, in the deck's pair, through the same generation as `--text`; `--file -` reads standard input.
+Give `--from` and `--to` here exactly as for `--text` (only for a deck that has no pair).
+The file is read as the deck page reads a paste: one phrase a line, each line trimmed, blank lines and `[section]` marker lines passed over.
+A line in any language is only the meaning, and the card is made in the deck's pair.
+A run takes at most 500 phrases and 65536 bytes: a longer file is refused whole with exit 4 (a missing file is exit 4 too), and nothing is added; split it and run the parts.
+Each card is written as soon as it is made, so a run that stops leaves the cards it made in the deck.
+Each phrase prints one line, in the file's order:
+
+- `note ID FRONT BACK CUE_AUDIO TARGET_AUDIO` is a card made and written;
+- `skip repeat PHRASE` is a line that repeats an earlier line of the file (compared by its text without surrounding white space and trailing punctuation);
+- `skip in-deck PHRASE` is a line the deck already holds as a note's Cue or Target, so running the same file again adds nothing and asks Gemini nothing;
+- `fail REASON PHRASE` is a phrase that could not be made or written, and the run goes on;
+- `left REASON PHRASE` is a phrase the run did not reach: REASON is `dailyCap`, `no-key`, `locked` or `not-up` (what stopped the run), or `limit` (past the 500 phrases).
+
+The last line is `bulk ADDED SKIPPED FAILED NOT_DONE`, the run's counts.
+The exit is 0 when every phrase was made or skipped, 5 when the day's cap or a missing key stopped the run or Gemini failed a phrase, 2 when Anki had the collection, and 4 when lines are left with `limit`.
+Gemini's per-minute limit is waited out and the phrase asked again (a line on stderr says so).
+`dailyCap`: stop and tell the user; the cards made stay.
+A file makes a Gemini call (and two clips) for every line it adds: say how many lines it holds before a long run.
+
 ## Filling in audio that is missing
 
 `audio fill --deck NAME` makes the clip of every note in the deck (subdecks included) that lacks one, in the deck's languages, one note at a time, and writes its reference into the note's audio field.
@@ -76,7 +99,7 @@ Each clip is a Gemini call: do it when the user asks, and say how many notes the
 
 Read-only: `status`, `deck list`, `card list`, and `deck remove` and `card remove` without `--yes`.
 Writes: `deck add`, `card add`, `audio fill`, `deck remove --yes`, `card remove --yes`, `install`.
-`card add --text` stores two audio clips in `collection.media` as soon as Gemini answers, even if no note is then added.
+`card add --text` and `card add --file` store two audio clips in `collection.media` as soon as Gemini answers, even if no note is then added.
 Ask the user before `deck remove --yes` on a deck, or `card remove --yes` on a note, that the user did not ask to delete.
 `install` is NOT part of adding a card: when amgi is installed, `amgi status` prints a line starting `install<TAB>yes`; run `amgi install` only when the user asks.
 
@@ -84,7 +107,7 @@ Ask the user before `deck remove --yes` on a deck, or `card remove --yes` on a n
 
 Give the key only as a file path (`--key-file`, or `CBASE_ENV_FILE`), a `KEY=VALUE` file with `GEMINI_API_KEY`.
 Never read, print or copy the value.
-Without a key `--text` exits 5 and `--front/--back` still works.
+Without a key `--text` and `--file` exit 5 and `--front/--back` still works.
 A card costs 5 to 7 Gemini requests and the free tier allows 10 a day per model, so a real deck needs billing on the key's project: say so before a long run.
 
 ## Not working?
