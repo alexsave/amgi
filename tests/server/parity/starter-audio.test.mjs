@@ -32,12 +32,12 @@ const VOICES = ['Zephyr', 'Puck', 'Charon', 'Kore', 'Fenrir', 'Leda', 'Orus', 'A
 
 /**
  * The first voice a clip is drawn, worked out here on its own: sfc32 seeded from STARTER_SEED xor the first four bytes (little-endian)
- * of sha1(name), its state spread by splitmix32 and warmed up twelve draws, one draw scaled onto the 26-voice pool. This is
- * random.js's generator and pickVoice, which drew the shipped voices (all but six of the 178 one-attempt rows in voices.tsv are
- * this draw under the names they were recorded under; the six are the second, after a per-minute wait redrew them).
+ * of sha1(name without its prefix), its state spread by splitmix32 and warmed up twelve draws, one draw scaled onto the 26-voice pool. This is
+ * random.js's generator and pickVoice, which drew the shipped voices (the shipped voices were drawn the same way from the old prefixed names
+ * and cannot be reproduced; the prefix is left out so a rename never changes a voice).
  */
 function firstVoice(name) {
-    const seed = (STARTER_SEED ^ crypto.createHash('sha1').update(name).digest().readUInt32LE(0)) >>> 0;
+    const seed = (STARTER_SEED ^ crypto.createHash('sha1').update(name.replace(/^amgi-/, '')).digest().readUInt32LE(0)) >>> 0;
     let state = seed;
     const splitmix = () => {
         state = (state + 0x9e3779b9) >>> 0;
