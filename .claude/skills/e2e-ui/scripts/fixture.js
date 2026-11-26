@@ -43,14 +43,14 @@ const {
 function build(outDir) {
     if (!anki) {
         throw new Error(
-          'No python with the `anki` library on PATH. Set ANKI_PYTHON_BIN to one - ' +
-            'see this file\'s own top-of-file comment for how to get one.',
+            'No python with the `anki` library on PATH. Set ANKI_PYTHON_BIN to one - ' +
+              'see this file\'s own top-of-file comment for how to get one.',
         );
     }
     if (!fixtureApkg) {
         throw new Error(
-          'Set ANKI_FIXTURE_APKG to a real .apkg to seed the fixture from - ' +
-            'see this file\'s own top-of-file comment for where to get one.',
+            'Set ANKI_FIXTURE_APKG to a real .apkg to seed the fixture from - ' +
+              'see this file\'s own top-of-file comment for where to get one.',
         );
     }
     const dir = outDir || path.join(process.cwd(), '.e2e', 'fixture');

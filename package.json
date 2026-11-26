@@ -1,22 +1,22 @@
 {
-  "name": "amgi",
-  "private": true,
-  "license": "AGPL-3.0-or-later",
-  "engines": {
-    "node": "^24.12.0 || ^25.1.0 || >=26.0.0"
-  },
-  "devDependencies": {
-    "@eslint/js": "^9.39.5",
-    "eslint": "^9.39.5",
-    "globals": "^14.0.0",
-    "puppeteer-core": "^25.11.0"
-  },
-  "scripts": {
-    "build": "make build",
-    "start": "make start",
-    "dev": "make dev",
-    "lint": "eslint && python3 -I tools/reindent4.py --verify",
-    "test": "ANKI_PYTHON_BIN=\"$(tests/anki-python.sh)\" && export ANKI_PYTHON_BIN && server/tools/submodules.sh && ui/build.sh && make -s -C anki && make -s -j2 -C server all check-collection check-app && tests/server/cli-smoke.sh && node --test \"tests/ui/review-loop/**/*.test.js\" \"tests/anki/**/*.test.js\" \"tests/ui/*.test.mjs\" \"tests/repo/*.test.mjs\" \"tests/server/parity/*.test.mjs\" \"tests/server/bridge/*.test.mjs\" && \"$ANKI_PYTHON_BIN\" -m unittest discover -s tests/anki/addon -p \"test_*.py\" -v",
-    "e2e": "make build && tests/e2e/ui/e2e.sh"
-  }
+    "name": "amgi",
+    "private": true,
+    "license": "AGPL-3.0-or-later",
+    "engines": {
+        "node": "^24.12.0 || ^25.1.0 || >=26.0.0"
+    },
+    "devDependencies": {
+        "@eslint/js": "^9.39.5",
+        "eslint": "^9.39.5",
+        "globals": "^14.0.0",
+        "puppeteer-core": "^25.11.0"
+    },
+    "scripts": {
+        "build": "make build",
+        "start": "make start",
+        "dev": "make dev",
+        "lint": "eslint && python3 -I tools/indent4.py",
+        "test": "ANKI_PYTHON_BIN=\"$(tests/anki-python.sh)\" && export ANKI_PYTHON_BIN && server/tools/submodules.sh && ui/build.sh && make -s -C anki && make -s -j2 -C server all check-collection check-app && tests/server/cli-smoke.sh && node --test \"tests/ui/review-loop/**/*.test.js\" \"tests/anki/**/*.test.js\" \"tests/ui/*.test.mjs\" \"tests/repo/*.test.mjs\" \"tests/server/parity/*.test.mjs\" \"tests/server/bridge/*.test.mjs\" && \"$ANKI_PYTHON_BIN\" -m unittest discover -s tests/anki/addon -p \"test_*.py\" -v",
+        "e2e": "make build && tests/e2e/ui/e2e.sh"
+    }
 }

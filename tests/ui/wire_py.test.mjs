@@ -141,11 +141,11 @@ test('the add-on refuses what the server would: short, long, another kind, a lis
     const lying = Buffer.from(encode('b_values', { values: [] }));
     lying.writeUInt32LE(0x7fffffff, 5);
     const cases = [
-      ['b_notes', whole.subarray(0, whole.length - 1)],
-      ['b_notes', Buffer.concat([whole, Buffer.from([0])])],
-      ['b_decks', whole],
-      ['b_values', lying],
-      ['b_values', Buffer.from('{"values":[]}')],
+        ['b_notes', whole.subarray(0, whole.length - 1)],
+        ['b_notes', Buffer.concat([whole, Buffer.from([0])])],
+        ['b_decks', whole],
+        ['b_values', lying],
+        ['b_values', Buffer.from('{"values":[]}')],
     ];
     for (let n = 0; n < whole.length; n += 7) cases.push(['b_notes', whole.subarray(0, n)]);
     assert.deepEqual(throughPython(cases), cases.map(() => null));

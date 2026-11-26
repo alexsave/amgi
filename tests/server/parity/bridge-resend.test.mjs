@@ -77,10 +77,10 @@ after(async () => {
 });
 
 for (const [method, path, kind, body] of [
-  ['POST', '/api/anki/decks', 'q_deck_name', { name: 'Once' }],
-  ['PATCH', '/api/anki/decks/1794170430284', 'q_deck_name', { name: 'Once' }],
-  ['DELETE', '/api/anki/notes/1794170430290', null, null],
-  ['POST', '/api/anki/notes', 'q_note', { deckId: 1, notetypeId: 2, fields: ['a', 'b'] }],
+    ['POST', '/api/anki/decks', 'q_deck_name', { name: 'Once' }],
+    ['PATCH', '/api/anki/decks/1794170430284', 'q_deck_name', { name: 'Once' }],
+    ['DELETE', '/api/anki/notes/1794170430290', null, null],
+    ['POST', '/api/anki/notes', 'q_note', { deckId: 1, notetypeId: 2, fields: ['a', 'b'] }],
 ]) {
     test(`${method} ${path}: the write reaches the add-on once, though its connection dies unanswered`, async () => {
         addon.seen.length = 0;
@@ -101,9 +101,9 @@ for (const [method, path, kind, body] of [
 // URL parser drops them. Either way no header of the setting's making reaches the add-on.
 test('a token or an address with a line break in it writes no header into the request to the add-on', async () => {
     for (const [what, url, token] of [
-      ['token', addon.url, 'tok\r\nX-Injected: 1'],
-      ['token, a bare LF', addon.url, 'tok\nX-Injected: 1'],
-      ['address', `${addon.url}/x\r\nX-Injected: 1`, 'tok'],
+        ['token', addon.url, 'tok\r\nX-Injected: 1'],
+        ['token, a bare LF', addon.url, 'tok\nX-Injected: 1'],
+        ['address', `${addon.url}/x\r\nX-Injected: 1`, 'tok'],
     ]) {
         addon.seen.length = 0;
         addon.heads.length = 0;

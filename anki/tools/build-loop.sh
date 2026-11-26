@@ -24,13 +24,13 @@ host=anki/src/anki-loop.js
 classic() {
     sed -E 's/^export[[:space:]]+((const|let|var|function|async|class)([^A-Za-z0-9_]|$))/\1/' "$1" | awk -v file="$1" '
     /^[ \t]*import([^A-Za-z0-9_]|$)/ {
-      line = $0; gsub(/^[ \t]+|[ \t]+$/, "", line)
-      if (line ~ /^import[ \t]+\{[^}]+\}[ \t]+from[ \t]+\x27\.\/(voiceActivity|reviewLoop)\.js\x27;$/) next
-      printf "%s:%d: a card template cannot follow this import: %s\n", file, NR, line > "/dev/stderr"; exit 1
+        line = $0; gsub(/^[ \t]+|[ \t]+$/, "", line)
+        if (line ~ /^import[ \t]+\{[^}]+\}[ \t]+from[ \t]+\x27\.\/(voiceActivity|reviewLoop)\.js\x27;$/) next
+        printf "%s:%d: a card template cannot follow this import: %s\n", file, NR, line > "/dev/stderr"; exit 1
     }
     /^[ \t]*export[ \t]+default([^A-Za-z0-9_]|$)/ || /^[ \t]*export[ \t]*\{/ {
-      line = $0; gsub(/^[ \t]+|[ \t]+$/, "", line)
-      printf "%s:%d: unsupported export form: %s\n", file, NR, line > "/dev/stderr"; exit 1
+        line = $0; gsub(/^[ \t]+|[ \t]+$/, "", line)
+        printf "%s:%d: unsupported export form: %s\n", file, NR, line > "/dev/stderr"; exit 1
     }
     { print }
   '
@@ -42,7 +42,7 @@ trim() {
     s = 1; while (s <= NR && l[s] ~ /^[ \t\r]*$/) s++
     e = NR; while (e >= s && l[e] ~ /^[ \t\r]*$/) e--
     for (i = s; i <= e; i++) { x = l[i]; if (i == s) sub(/^[ \t\r]+/, "", x); if (i == e) sub(/[ \t\r]+$/, "", x); print x }
-  }'
+    }'
 }
 
 section() { # a source file name, and its code on stdin

@@ -15,8 +15,8 @@ import { sandboxEnv } from '../repo/sandbox-home.cjs';
 // A clip is named by a hash of (text, language), recorded from the JavaScript naming this was ported
 // from (the same names server/amgi/web.c and the add-on's deck_text.py make).
 const CLIP_NAMES = new Map([
-  ['I am a little tired today.\0en', 'amgi-9867373d43306191c93c.wav'],
-  ['오늘 저는 조금 피곤해요.\0ko', 'amgi-afdb21e134c02ce3dedd.wav'],
+    ['I am a little tired today.\0en', 'amgi-9867373d43306191c93c.wav'],
+    ['오늘 저는 조금 피곤해요.\0ko', 'amgi-afdb21e134c02ce3dedd.wav'],
 ]);
 const mediaName = (text, language) => CLIP_NAMES.get(`${text}\0${language}`);
 const renderAudioReference = (name) => `<audio src="${name}"></audio>`;

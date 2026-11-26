@@ -30,16 +30,16 @@ static struct dirent *test_readdir(DIR *d) {
 #include "../../../server/collection/backup.c"
 
 static int failures, checks;
-#define CHECK(cond, ...)                                    \
-  do {                                                      \
-    checks++;                                               \
-    if (!(cond)) {                                          \
-      failures++;                                           \
-      fprintf(stderr, "FAIL %s:%d: ", __FILE__, __LINE__);  \
-      fprintf(stderr, __VA_ARGS__);                         \
-      fputc('\n', stderr);                                  \
-    }                                                       \
-  } while (0)
+#define CHECK(cond, ...)                                         \
+    do {                                                         \
+        checks++;                                                \
+        if (!(cond)) {                                           \
+            failures++;                                          \
+            fprintf(stderr, "FAIL %s:%d: ", __FILE__, __LINE__); \
+            fprintf(stderr, __VA_ARGS__);                        \
+            fputc('\n', stderr);                                 \
+        }                                                        \
+    } while (0)
 
 /* ensure_backup_on under cx_try: 0, or -1 when it threw (c->err says what). */
 typedef struct { str path; conn *k; str dst; } ensure_args;

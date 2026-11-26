@@ -121,23 +121,23 @@ function unsandboxedPy(files) {
 
 test('the checks catch an unsandboxed call and pass a sandboxed or exempt one', () => {
     assert.deepEqual(unsandboxedJs([
-      "spawn(SERVER, ['serve'], { stdio: 'pipe' });",
-      "spawn(SERVER, ['serve'], { env: sandboxEnv(), stdio: 'pipe' });",
-      "execFileSync('git', ['status']);",
-      "execFileSync(dump, { input: b, env: process.env });",
-      "const ENV = { ...sandboxEnv(), A: '1' };\nspawnSync(x, { env: ENV });",
-      "const BAD = { ...process.env };\nspawnSync(x, { env: BAD });",
-      "/a(b)/.exec(s); fork(script, args);",
+        "spawn(SERVER, ['serve'], { stdio: 'pipe' });",
+        "spawn(SERVER, ['serve'], { env: sandboxEnv(), stdio: 'pipe' });",
+        "execFileSync('git', ['status']);",
+        "execFileSync(dump, { input: b, env: process.env });",
+        "const ENV = { ...sandboxEnv(), A: '1' };\nspawnSync(x, { env: ENV });",
+        "const BAD = { ...process.env };\nspawnSync(x, { env: BAD });",
+        "/a(b)/.exec(s); fork(script, args);",
     ].join('\n'), 'a.js'), ['1: spawn', '4: execFileSync', '8: spawnSync', '9: fork']);
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'amgi-sandbox-test-'));
     const py = path.join(dir, 't.py');
     fs.writeFileSync(py, [
-      'import subprocess',
-      'subprocess.run([CLI], input="x")',
-      'subprocess.run([CLI], env=sandbox_env(), input="x")',
-      'subprocess.run(["ffmpeg", "-i", "x"])',
-      'subprocess.run(["node"], env=dict(os.environ))',
-      'mock.patch("generator.subprocess.run")',
+        'import subprocess',
+        'subprocess.run([CLI], input="x")',
+        'subprocess.run([CLI], env=sandbox_env(), input="x")',
+        'subprocess.run(["ffmpeg", "-i", "x"])',
+        'subprocess.run(["node"], env=dict(os.environ))',
+        'mock.patch("generator.subprocess.run")',
     ].join('\n'));
     assert.deepEqual(unsandboxedPy([py]), [`${py}:2: subprocess.run`, `${py}:5: subprocess.run`]);
     fs.rmSync(dir, { recursive: true, force: true });

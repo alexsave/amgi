@@ -22,16 +22,16 @@
 #include "../../../ui/wire/lang.h"
 
 static int failures, checks;
-#define CHECK(cond, ...)                         \
-  do {                                           \
-    checks++;                                    \
-    if (!(cond)) {                               \
-      failures++;                                \
-      fprintf(stderr, "%s:%d: ", __FILE__, __LINE__); \
-      fprintf(stderr, __VA_ARGS__);              \
-      fputc('\n', stderr);                       \
-    }                                            \
-  } while (0)
+#define CHECK(cond, ...)                                    \
+    do {                                                    \
+        checks++;                                           \
+        if (!(cond)) {                                      \
+            failures++;                                     \
+            fprintf(stderr, "%s:%d: ", __FILE__, __LINE__); \
+            fprintf(stderr, __VA_ARGS__);                   \
+            fputc('\n', stderr);                            \
+        }                                                   \
+    } while (0)
 #define STR_IS(s, lit) (str_eq_c((s), (lit)))
 
 /* ---- the gate on a fake clock and random.js's seeded generator ---- */
@@ -433,65 +433,65 @@ static void test_languages(void) {
 
 /* ---- the starter deck's phrase table (server/amgi/starter_phrases.c) and the clips that ship for it ---- */
 static void test_starter_table(void) {
-        CHECK(AMGI_NSTARTER_LANGUAGES == NLANGUAGES, "%zu rows for %u languages", AMGI_NSTARTER_LANGUAGES, NLANGUAGES);
-        arena a = {0};
-        size_t clips = 0;
-        for (size_t c = 0; c < AMGI_NSTARTER_LANGUAGES; c++) {
-                const amgi_starter_row *row = &AMGI_STARTER_PHRASES[c];
-                CHECK(lang_known(row->code, (uint32_t)strlen(row->code)), "%s is in the language table", row->code);
-                CHECK(c < NLANGUAGES && !strcmp(row->code, LANGUAGES[c].code), "row %zu (%s) is in the language table's order", c, row->code);
-                for (size_t k = 0; k < c; k++) CHECK(strcmp(row->code, AMGI_STARTER_PHRASES[k].code) != 0, "%s is a row twice", row->code);
+    CHECK(AMGI_NSTARTER_LANGUAGES == NLANGUAGES, "%zu rows for %u languages", AMGI_NSTARTER_LANGUAGES, NLANGUAGES);
+    arena a = {0};
+    size_t clips = 0;
+    for (size_t c = 0; c < AMGI_NSTARTER_LANGUAGES; c++) {
+        const amgi_starter_row *row = &AMGI_STARTER_PHRASES[c];
+        CHECK(lang_known(row->code, (uint32_t)strlen(row->code)), "%s is in the language table", row->code);
+        CHECK(c < NLANGUAGES && !strcmp(row->code, LANGUAGES[c].code), "row %zu (%s) is in the language table's order", c, row->code);
+        for (size_t k = 0; k < c; k++) CHECK(strcmp(row->code, AMGI_STARTER_PHRASES[k].code) != 0, "%s is a row twice", row->code);
+        for (size_t i = 0; i < STARTER_NPHRASES; i++) {
+            const char *text = row->phrases[i];
+            CHECK(text && *text, "%s phrase %zu is empty", row->code, i);
+            if (!text) continue;
+            CHECK(!strpbrk(text, "\t\n\r"), "%s phrase %zu holds a tab or a line break", row->code, i);
+            for (size_t k = 0; k < i; k++) CHECK(strcmp(text, row->phrases[k]) != 0, "%s repeats \"%s\"", row->code, text);
+            /* every phrase of every language the page can offer has its shipped clip */
+            str name = amgi_media_name(&a, str_c(text), str_c(row->code), "mp3");
+            struct stat sb;
+            CHECK(stat(str_z(&a, path_join(&a, S("../anki/starter/media"), name)), &sb) == 0 && sb.st_size > 0, "no shipped clip for %s \"%s\"",
+                  row->code, text);
+            clips++;
+        }
+    }
+    CHECK(clips == AMGI_NSTARTER_LANGUAGES * STARTER_NPHRASES, "%zu clips", clips);
+    /* voices.tsv lists exactly the table's clips: file, language and text, in the table's order */
+    str manifest;
+    FILE *f = fopen("../anki/starter/voices.tsv", "rb");
+    CHECK(f != NULL, "voices.tsv is there");
+    if (f) {
+        buf b = {0};
+        char chunk[4096];
+        size_t r;
+        while ((r = fread(chunk, 1, sizeof chunk, f)) > 0) buf_put(&b, chunk, r);
+        fclose(f);
+        manifest = buf_str(&a, &b);
+        buf_free(&b);
+        const char *p = manifest.p, *end = manifest.p + manifest.n;
+        p = memchr(p, '\n', (size_t)(end - p));
+        p = p ? p + 1 : end; /* the header */
+        for (size_t c = 0; c < AMGI_NSTARTER_LANGUAGES; c++)
                 for (size_t i = 0; i < STARTER_NPHRASES; i++) {
-                        const char *text = row->phrases[i];
-                        CHECK(text && *text, "%s phrase %zu is empty", row->code, i);
-                        if (!text) continue;
-                        CHECK(!strpbrk(text, "\t\n\r"), "%s phrase %zu holds a tab or a line break", row->code, i);
-                        for (size_t k = 0; k < i; k++) CHECK(strcmp(text, row->phrases[k]) != 0, "%s repeats \"%s\"", row->code, text);
-                        /* every phrase of every language the page can offer has its shipped clip */
-                        str name = amgi_media_name(&a, str_c(text), str_c(row->code), "mp3");
-                        struct stat sb;
-                        CHECK(stat(str_z(&a, path_join(&a, S("../anki/starter/media"), name)), &sb) == 0 && sb.st_size > 0, "no shipped clip for %s \"%s\"",
-                              row->code, text);
-                        clips++;
+                    const amgi_starter_row *row = &AMGI_STARTER_PHRASES[c];
+                    str name = amgi_media_name(&a, str_c(row->phrases[i]), str_c(row->code), "mp3");
+                    const char *eol = memchr(p, '\n', (size_t)(end - p));
+                    const char *line_end = eol ? eol : end;
+                    char *line = ar_dup(&a, p, (size_t)(line_end - p));
+                    char *cell[6] = {line, 0, 0, 0, 0, 0};
+                    for (int k = 1; k < 6; k++) {
+                        char *tab = strchr(cell[k - 1], '\t');
+                        if (!tab) break;
+                        *tab = 0;
+                        cell[k] = tab + 1;
+                    }
+                    CHECK(cell[5] && STR_IS(name, cell[0]) && !strcmp(cell[1], row->code) && !strcmp(cell[5], row->phrases[i]),
+                          "voices.tsv row for %s \"%s\" is not the table's", row->code, row->phrases[i]);
+                    p = eol ? eol + 1 : end;
                 }
-        }
-        CHECK(clips == AMGI_NSTARTER_LANGUAGES * STARTER_NPHRASES, "%zu clips", clips);
-        /* voices.tsv lists exactly the table's clips: file, language and text, in the table's order */
-        str manifest;
-        FILE *f = fopen("../anki/starter/voices.tsv", "rb");
-        CHECK(f != NULL, "voices.tsv is there");
-        if (f) {
-                buf b = {0};
-                char chunk[4096];
-                size_t r;
-                while ((r = fread(chunk, 1, sizeof chunk, f)) > 0) buf_put(&b, chunk, r);
-                fclose(f);
-                manifest = buf_str(&a, &b);
-                buf_free(&b);
-                const char *p = manifest.p, *end = manifest.p + manifest.n;
-                p = memchr(p, '\n', (size_t)(end - p));
-                p = p ? p + 1 : end; /* the header */
-                for (size_t c = 0; c < AMGI_NSTARTER_LANGUAGES; c++)
-                        for (size_t i = 0; i < STARTER_NPHRASES; i++) {
-                                const amgi_starter_row *row = &AMGI_STARTER_PHRASES[c];
-                                str name = amgi_media_name(&a, str_c(row->phrases[i]), str_c(row->code), "mp3");
-                                const char *eol = memchr(p, '\n', (size_t)(end - p));
-                                const char *line_end = eol ? eol : end;
-                                char *line = ar_dup(&a, p, (size_t)(line_end - p));
-                                char *cell[6] = {line, 0, 0, 0, 0, 0};
-                                for (int k = 1; k < 6; k++) {
-                                        char *tab = strchr(cell[k - 1], '\t');
-                                        if (!tab) break;
-                                        *tab = 0;
-                                        cell[k] = tab + 1;
-                                }
-                                CHECK(cell[5] && STR_IS(name, cell[0]) && !strcmp(cell[1], row->code) && !strcmp(cell[5], row->phrases[i]),
-                                      "voices.tsv row for %s \"%s\" is not the table's", row->code, row->phrases[i]);
-                                p = eol ? eol + 1 : end;
-                        }
-                CHECK(p == end, "voices.tsv has more rows than the table");
-        }
-        ar_free(&a);
+        CHECK(p == end, "voices.tsv has more rows than the table");
+    }
+    ar_free(&a);
 }
 
 int main(void) {

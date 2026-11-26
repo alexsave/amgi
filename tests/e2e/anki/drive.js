@@ -26,14 +26,14 @@ const { launch, watch } = require(path.join(SKILL, 'lib.js'));
 const OUTPUT = path.join(ROOT, 'anki', 'media', '_amgi-loop.js');
 
 const CARDS = [
-  {
+    {
         Cue: 'the shop closes at six',
         CueAudio: '<audio src="prompt-1.wav"></audio>',
         Target: '가게는 여섯 시에 문을 닫아요',
         TargetAudio: '<audio src="native-1.wav"></audio>',
         Notes: '',
     },
-  {
+    {
         Cue: 'see you tomorrow',
         CueAudio: '<audio src="prompt-2.wav"></audio>',
         Target: '내일 봐요',
@@ -233,8 +233,8 @@ async function withMicrophone(browser, port, logs) {
     await startReview(page, port);
 
     check(
-      'the visualizer canvas is present on the front template',
-      await page.evaluate(() => !!document.querySelector('[data-amgi-visualizer]'))
+        'the visualizer canvas is present on the front template',
+        await page.evaluate(() => !!document.querySelector('[data-amgi-visualizer]'))
     );
 
     // Told before the mic opens, not after: the owner's fix for a first-time
@@ -246,9 +246,9 @@ async function withMicrophone(browser, port, logs) {
     await waitFor(page, () => window.phaseIs('prompt'), { label: 'the prompt phase' });
     const duringPrompt = await recordingIndicator(page);
     check(
-      'the prompt-phase status tells the learner the mic is coming, before it opens',
-      await page.evaluate(() => document.querySelector('[data-amgi-status-text]').textContent.includes('translation')),
-      await page.evaluate(() => document.querySelector('[data-amgi-status-text]').textContent)
+        'the prompt-phase status tells the learner the mic is coming, before it opens',
+        await page.evaluate(() => document.querySelector('[data-amgi-status-text]').textContent.includes('translation')),
+        await page.evaluate(() => document.querySelector('[data-amgi-status-text]').textContent)
     );
     check('no recording is claimed before the microphone actually opens', !duringPrompt.visible, JSON.stringify(duringPrompt));
 
@@ -268,19 +268,19 @@ async function withMicrophone(browser, port, logs) {
     check('a red-dot recording indicator appears the instant the mic is live', whileListening.visible, JSON.stringify(whileListening));
     check('it has an actual dot element, not just coloured text', whileListening.hasDot);
     check(
-      'it says so in words too, in the owner\'s own wording',
-      whileListening.text === 'Now recording your voice.',
-      whileListening.text
+        'it says so in words too, in the owner\'s own wording',
+        whileListening.text === 'Now recording your voice.',
+        whileListening.text
     );
     check(
-      'the existing "stop talking" guidance is still there alongside it',
-      await page.evaluate(() => /stop talking/i.test(document.querySelector('[data-amgi-status-text]').textContent))
+        'the existing "stop talking" guidance is still there alongside it',
+        await page.evaluate(() => /stop talking/i.test(document.querySelector('[data-amgi-status-text]').textContent))
     );
     const announcedWhileOpening = await page.evaluate(() => window.__amgiRecordingMutations.length);
     check(
-      'the callout appearing is a real mutation inside the aria-live status region, not a silent one',
-      announcedWhileOpening > 0,
-      `${announcedWhileOpening} mutations touched the recording callout`
+        'the callout appearing is a real mutation inside the aria-live status region, not a silent one',
+        announcedWhileOpening > 0,
+        `${announcedWhileOpening} mutations touched the recording callout`
     );
 
     // The canvas keeps its browser-default backing size (300x150) until
@@ -289,12 +289,12 @@ async function withMicrophone(browser, port, logs) {
     // proof the mic's own analyser (see voiceActivity.js) is reaching the
     // drawing code, not a second graph built for the visualizer alone.
     await waitFor(
-      page,
-      () => {
+        page,
+        () => {
             const canvas = document.querySelector('[data-amgi-visualizer]');
             return !!canvas && canvas.width > 0 && canvas.width !== 300;
         },
-      { label: 'the visualizer to size and draw while the microphone is open' }
+        { label: 'the visualizer to size and draw while the microphone is open' }
     );
     check('the visualizer reacts while the microphone is open', true);
 
@@ -311,22 +311,22 @@ async function withMicrophone(browser, port, logs) {
         commands: window.harness.commands.map((entry) => entry.command),
     }));
     check(
-      'the answer text is nowhere in the DOM while the learner speaks',
-      !duringListening.text.includes(CARDS[0].Target),
-      `listening-phase DOM has ${duringListening.text.trim().length} characters of text`
+        'the answer text is nowhere in the DOM while the learner speaks',
+        !duringListening.text.includes(CARDS[0].Target),
+        `listening-phase DOM has ${duringListening.text.trim().length} characters of text`
     );
     check(
-      'nothing has been revealed or graded yet',
-      duringListening.commands.length === 0,
-      `commands: ${JSON.stringify(duringListening.commands)}`
+        'nothing has been revealed or graded yet',
+        duringListening.commands.length === 0,
+        `commands: ${JSON.stringify(duringListening.commands)}`
     );
 
     await waitFor(page, () => window.phaseIs('answer'), { label: 'the turn to end on silence' });
     const turnMs = Date.now() - openedAt;
     check(
-      'voice activity ends the turn on silence, not on a timeout',
-      turnMs > 2500 && turnMs < 5000,
-      `turn lasted ${turnMs}ms (speech ends at ~2000ms, silence window is 1200ms, the no-speech timeout is 8000ms)`
+        'voice activity ends the turn on silence, not on a timeout',
+        turnMs > 2500 && turnMs < 5000,
+        `turn lasted ${turnMs}ms (speech ends at ~2000ms, silence window is 1200ms, the no-speech timeout is 8000ms)`
     );
 
     // Gone the instant the mic is not live any more, not lingering into the
@@ -338,9 +338,9 @@ async function withMicrophone(browser, port, logs) {
     check('the recording indicator is gone once the turn ends', !afterListening.visible, JSON.stringify(afterListening));
     const announcedByAnswer = await page.evaluate(() => window.__amgiRecordingMutations.length);
     check(
-      'the callout disappearing is also a real mutation inside the live region, not left stale',
-      announcedByAnswer > announcedWhileOpening,
-      `${announcedWhileOpening} -> ${announcedByAnswer}`
+        'the callout disappearing is also a real mutation inside the live region, not left stale',
+        announcedByAnswer > announcedWhileOpening,
+        `${announcedWhileOpening} -> ${announcedByAnswer}`
     );
 
     const revealed = await page.evaluate(() => ({
@@ -353,25 +353,25 @@ async function withMicrophone(browser, port, logs) {
     check('the answer text is on the page now', revealed.text.includes(CARDS[0].Target));
 
     await waitFor(
-      page,
-      () => {
+        page,
+        () => {
             const el = document.querySelector('[data-amgi-target-audio] audio');
             return !!el && el.played && el.played.length > 0;
         },
-      { label: 'the native audio to play' }
+        { label: 'the native audio to play' }
     );
     check('the native audio played on reveal', true);
     check(
-      'the visualizer canvas is present on the back template',
-      await page.evaluate(() => !!document.querySelector('[data-amgi-visualizer]'))
+        'the visualizer canvas is present on the back template',
+        await page.evaluate(() => !!document.querySelector('[data-amgi-visualizer]'))
     );
     await waitFor(
-      page,
-      () => {
+        page,
+        () => {
             const canvas = document.querySelector('[data-amgi-visualizer]');
             return !!canvas && canvas.width > 0 && canvas.width !== 300;
         },
-      { label: 'the visualizer to size and draw for the automatic native playback' }
+        { label: 'the visualizer to size and draw for the automatic native playback' }
     );
     check('the visualizer reacts to the native audio on reveal', true);
 
@@ -394,9 +394,9 @@ async function withMicrophone(browser, port, logs) {
         label: 'replaying the prompt on the answer side to draw in the blue "prompt" colour',
     });
     check(
-      'replaying the prompt from the answer side draws in the prompt colour, not the native one',
-      true,
-      JSON.stringify(promptColor)
+        'replaying the prompt from the answer side draws in the prompt colour, not the native one',
+        true,
+        JSON.stringify(promptColor)
     );
 
     // The template draws no grading row of its own any more (see item 11 in
@@ -409,26 +409,26 @@ async function withMicrophone(browser, port, logs) {
     // the template at all. Space and 1 are also confirmed to do nothing to the
     // template itself, since it no longer has a keydown handler on this side.
     check(
-      'the card draws no grading buttons of its own any more',
-      await page.evaluate(
-        () => !document.querySelector('[data-amgi-action="good"]') && !document.querySelector('[data-amgi-action="again"]')
-      )
+        'the card draws no grading buttons of its own any more',
+        await page.evaluate(
+            () => !document.querySelector('[data-amgi-action="good"]') && !document.querySelector('[data-amgi-action="again"]')
+        )
     );
     const commandsBeforeKeys = await page.evaluate(() => window.harness.commands.length);
     await page.keyboard.press('Space');
     await page.keyboard.press('Digit1');
     await sleep(200);
     check(
-      'space and 1 do nothing on the answer side - there is nothing left for the template to react to',
-      await page.evaluate((from) => window.harness.commands.length === from, commandsBeforeKeys)
+        'space and 1 do nothing on the answer side - there is nothing left for the template to react to',
+        await page.evaluate((from) => window.harness.commands.length === from, commandsBeforeKeys)
     );
 
     await page.evaluate(() => window.pycmd('ease3'));
     await waitFor(page, () => window.harness.cardIndex === 1, { label: 'the next card' });
     check(
-      'grading through pycmd("ease3"), as Anki\'s own native shortcut would, advances the card',
-      await page.evaluate(() => window.harness.commands.some((entry) => entry.command === 'ease3')),
-      await page.evaluate(() => JSON.stringify(window.harness.commands.map((c) => c.command)))
+        'grading through pycmd("ease3"), as Anki\'s own native shortcut would, advances the card',
+        await page.evaluate(() => window.harness.commands.some((entry) => entry.command === 'ease3')),
+        await page.evaluate(() => JSON.stringify(window.harness.commands.map((c) => c.command)))
     );
 
     // Second card, graded Again this time. Waiting on the render count rather
@@ -442,8 +442,8 @@ async function withMicrophone(browser, port, logs) {
     await page.evaluate(() => window.pycmd('ease1'));
     await waitFor(page, () => !!document.getElementById('congrats'), { label: 'the session to finish' });
     check(
-      'grading through pycmd("ease1") also advances the card',
-      await page.evaluate(() => window.harness.commands.some((entry) => entry.command === 'ease1'))
+        'grading through pycmd("ease1") also advances the card',
+        await page.evaluate(() => window.harness.commands.some((entry) => entry.command === 'ease1'))
     );
 
     const leaks = await page.evaluate(() => window.harness.leaks);
@@ -478,36 +478,36 @@ async function withoutMicrophone(browser, port, logs) {
     // Honesty in the other direction: no microphone, no claim of one.
     const noMicIndicator = await recordingIndicator(page);
     check(
-      'the recording indicator never claims a microphone that was never opened',
-      !noMicIndicator.visible,
-      JSON.stringify(noMicIndicator)
+        'the recording indicator never claims a microphone that was never opened',
+        !noMicIndicator.visible,
+        JSON.stringify(noMicIndicator)
     );
 
     await sleep(1200);
     check(
-      'and it stays that way until a key is pressed',
-      await page.evaluate(() => window.phaseIs('waiting') && window.harness.commands.length === 0)
+        'and it stays that way until a key is pressed',
+        await page.evaluate(() => window.phaseIs('waiting') && window.harness.commands.length === 0)
     );
 
     await page.keyboard.press('Space');
     await waitFor(page, () => window.phaseIs('answer'), { label: 'space to reveal' });
     check('space reveals the card', true);
     check(
-      'the reveal went through pycmd("ans")',
-      await page.evaluate(() => window.harness.commands[0].command === 'ans')
+        'the reveal went through pycmd("ans")',
+        await page.evaluate(() => window.harness.commands[0].command === 'ans')
     );
     check(
-      'the answer text is on the page now',
-      await page.evaluate((answer) => document.body.textContent.includes(answer), CARDS[0].Target)
+        'the answer text is on the page now',
+        await page.evaluate((answer) => document.body.textContent.includes(answer), CARDS[0].Target)
     );
 
     await waitFor(
-      page,
-      () => {
+        page,
+        () => {
             const el = document.querySelector('[data-amgi-target-audio] audio');
             return !!el && el.played && el.played.length > 0;
         },
-      { label: 'the native audio to play' }
+        { label: 'the native audio to play' }
     );
     check('the native audio still plays', true);
 
@@ -520,8 +520,8 @@ async function withoutMicrophone(browser, port, logs) {
     await page.evaluate(() => window.pycmd('ease3'));
     await waitFor(page, () => window.harness.cardIndex === 1, { label: 'the next card' });
     check(
-      'grading still works',
-      await page.evaluate(() => window.harness.commands.some((entry) => entry.command === 'ease3'))
+        'grading still works',
+        await page.evaluate(() => window.harness.commands.some((entry) => entry.command === 'ease3'))
     );
 
     const leaks = await page.evaluate(() => window.harness.leaks);
@@ -550,13 +550,13 @@ async function withHangingMicrophone(browser, port, logs) {
     });
     const elapsedMs = Date.now() - startedAt;
     check(
-      'a microphone request that never settles still reaches the fallback, on the configured timeout',
-      elapsedMs < 5000,
-      `reached "waiting" after ${elapsedMs}ms`
+        'a microphone request that never settles still reaches the fallback, on the configured timeout',
+        elapsedMs < 5000,
+        `reached "waiting" after ${elapsedMs}ms`
     );
     check(
-      'the wait for the microphone is its own visible phase, not left looking like "Listen" hung',
-      await page.evaluate(() => window.harness.phases.some((entry) => entry.phase === 'requesting-mic'))
+        'the wait for the microphone is its own visible phase, not left looking like "Listen" hung',
+        await page.evaluate(() => window.harness.phases.some((entry) => entry.phase === 'requesting-mic'))
     );
 
     const waiting = await page.evaluate(() => ({
@@ -573,8 +573,8 @@ async function withHangingMicrophone(browser, port, logs) {
     await waitFor(page, () => window.phaseIs('answer'), { label: 'space to reveal after the fallback' });
     check('space still reveals the card after the timeout fallback', true);
     check(
-      'the reveal went through pycmd("ans")',
-      await page.evaluate(() => window.harness.commands[0].command === 'ans')
+        'the reveal went through pycmd("ans")',
+        await page.evaluate(() => window.harness.commands[0].command === 'ans')
     );
 
     // Grading is Anki's own native bar's job (see the scenarios above); a
@@ -582,8 +582,8 @@ async function withHangingMicrophone(browser, port, logs) {
     await page.evaluate(() => window.pycmd('ease3'));
     await waitFor(page, () => window.harness.cardIndex === 1, { label: 'the next card' });
     check(
-      'grading still works after a microphone request that never settled',
-      await page.evaluate(() => window.harness.commands.some((entry) => entry.command === 'ease3'))
+        'grading still works after a microphone request that never settled',
+        await page.evaluate(() => window.harness.commands.some((entry) => entry.command === 'ease3'))
     );
 
     // A refusal is remembered on `store`, which survives across cards on the
@@ -595,13 +595,13 @@ async function withHangingMicrophone(browser, port, logs) {
         label: 'the second card to skip straight to the fallback with no mic request',
     });
     const secondCardPhases = await page.evaluate(
-      (from) => window.harness.phases.slice(from).map((entry) => entry.phase),
-      phasesBeforeSecondCard
+        (from) => window.harness.phases.slice(from).map((entry) => entry.phase),
+        phasesBeforeSecondCard
     );
     check(
-      'a remembered mic refusal skips the "asking for the microphone" phase on the next card',
-      !secondCardPhases.includes('requesting-mic'),
-      JSON.stringify(secondCardPhases)
+        'a remembered mic refusal skips the "asking for the microphone" phase on the next card',
+        !secondCardPhases.includes('requesting-mic'),
+        JSON.stringify(secondCardPhases)
     );
     const secondNote = await page.evaluate(() => document.querySelector('[data-amgi-note]').textContent.trim());
     check('the "no microphone" note is said once, not on every card', secondNote === '', secondNote);
@@ -637,8 +637,8 @@ async function withoutCueAudio(browser, port, logs) {
         label: 'a card with no cue audio to skip straight to the fallback',
     });
     check(
-      'a card with no cue audio never asks for the microphone at all',
-      await page.evaluate(() => window.__micRequests === 0)
+        'a card with no cue audio never asks for the microphone at all',
+        await page.evaluate(() => window.__micRequests === 0)
     );
     const note = await page.evaluate(() => document.querySelector('[data-amgi-note]').textContent);
     check('the learner is told the card has no audio yet, not a generic mic error', /no audio yet/i.test(note), note);
@@ -650,8 +650,8 @@ async function withoutCueAudio(browser, port, logs) {
     await page.evaluate(() => window.pycmd('ease3'));
     await waitFor(page, () => window.harness.cardIndex === 1, { label: 'the next card' });
     check(
-      'grading still works',
-      await page.evaluate(() => window.harness.commands.some((entry) => entry.command === 'ease3'))
+        'grading still works',
+        await page.evaluate(() => window.harness.commands.some((entry) => entry.command === 'ease3'))
     );
 
     const leaks = await page.evaluate(() => window.harness.leaks);
@@ -686,8 +686,8 @@ async function whenAnkiRevealsFirst(browser, port, logs) {
 
     await waitFor(page, () => window.phaseIs('listening'), { label: 'the listening phase' });
     check(
-      'the recorder is running before the answer is revealed',
-      await page.evaluate(() => !!window.__amgi.recorder && window.__amgi.recorder.state === 'recording')
+        'the recorder is running before the answer is revealed',
+        await page.evaluate(() => !!window.__amgi.recorder && window.__amgi.recorder.state === 'recording')
     );
     await new Promise((resolve) => setTimeout(resolve, 1200));
 
@@ -706,15 +706,15 @@ async function whenAnkiRevealsFirst(browser, port, logs) {
         return { present: !!button, offered: button ? !button.hidden : false };
     });
     check(
-      'a recording interrupted by Anki\u2019s own reveal is still offered for replay',
-      you.offered,
-      JSON.stringify(you)
+        'a recording interrupted by Anki\u2019s own reveal is still offered for replay',
+        you.offered,
+        JSON.stringify(you)
     );
 
     await page.click('[data-amgi-action="replay-you"]');
     check(
-      'and it plays back in the learner\u2019s own colour',
-      !!(await waitForColor(page, isAmberDominant, {
+        'and it plays back in the learner\u2019s own colour',
+        !!(await waitForColor(page, isAmberDominant, {
             label: 'the interrupted recording to play back in the "you" colour',
         }))
     );
@@ -722,8 +722,8 @@ async function whenAnkiRevealsFirst(browser, port, logs) {
     // Collecting the take must not mean leaving the microphone live behind the
     // answer.
     check(
-      'the microphone is released even though the loop never closed it',
-      await page.evaluate(() => !window.__amgi.stream)
+        'the microphone is released even though the loop never closed it',
+        await page.evaluate(() => !window.__amgi.stream)
     );
     await page.close();
 }
@@ -745,14 +745,14 @@ async function withoutAudioContext(browser, port, logs) {
     await startReview(page, port);
 
     check(
-      'the visualizer canvas is present even with no Web Audio in the client',
-      await page.evaluate(() => !!document.querySelector('[data-amgi-visualizer]'))
+        'the visualizer canvas is present even with no Web Audio in the client',
+        await page.evaluate(() => !!document.querySelector('[data-amgi-visualizer]'))
     );
 
     await waitFor(page, () => window.phaseIs('waiting'), { label: 'the no-microphone phase (no AudioContext at all)' });
     check(
-      'no microphone is offered without Web Audio, and the card asks the learner to press space',
-      await page.evaluate(() => /space/i.test(document.querySelector('[data-amgi-note]').textContent))
+        'no microphone is offered without Web Audio, and the card asks the learner to press space',
+        await page.evaluate(() => /space/i.test(document.querySelector('[data-amgi-note]').textContent))
     );
 
     await page.keyboard.press('Space');
@@ -760,12 +760,12 @@ async function withoutAudioContext(browser, port, logs) {
     check('space still reveals the card with no Web Audio in the client', true);
 
     await waitFor(
-      page,
-      () => {
+        page,
+        () => {
             const el = document.querySelector('[data-amgi-target-audio] audio');
             return !!el && el.played && el.played.length > 0;
         },
-      { label: 'the native audio to still play with no Web Audio' }
+        { label: 'the native audio to still play with no Web Audio' }
     );
     check('the native audio still plays with no AudioContext to route it through - never silent', true);
 
@@ -789,8 +789,8 @@ async function withoutAudioContext(browser, port, logs) {
     await page.evaluate(() => window.pycmd('ease3'));
     await waitFor(page, () => window.harness.cardIndex === 1, { label: 'the next card' });
     check(
-      'grading still works with no Web Audio in the client',
-      await page.evaluate(() => window.harness.commands.some((entry) => entry.command === 'ease3'))
+        'grading still works with no Web Audio in the client',
+        await page.evaluate(() => window.harness.commands.some((entry) => entry.command === 'ease3'))
     );
 
     const leaks = await page.evaluate(() => window.harness.leaks);
@@ -810,12 +810,12 @@ async function main() {
 
     try {
         for (const run of [
-          withMicrophone,
-          withoutMicrophone,
-          withHangingMicrophone,
-          withoutCueAudio,
-          withoutAudioContext,
-          whenAnkiRevealsFirst,
+            withMicrophone,
+            withoutMicrophone,
+            withHangingMicrophone,
+            withoutCueAudio,
+            withoutAudioContext,
+            whenAnkiRevealsFirst,
         ]) {
             await run(browser, port, logs);
         }

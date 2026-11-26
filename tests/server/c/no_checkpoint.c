@@ -19,16 +19,16 @@
 
 static int checks, failures;
 
-#define CHECK(cond, ...)                                  \
-  do {                                                    \
-    checks++;                                             \
-    if (!(cond)) {                                        \
-      failures++;                                         \
-      fprintf(stderr, "FAIL %s:%d: ", __FILE__, __LINE__); \
-      fprintf(stderr, __VA_ARGS__);                       \
-      fputc('\n', stderr);                                \
-    }                                                     \
-  } while (0)
+#define CHECK(cond, ...)                                         \
+    do {                                                         \
+        checks++;                                                \
+        if (!(cond)) {                                           \
+            failures++;                                          \
+            fprintf(stderr, "FAIL %s:%d: ", __FILE__, __LINE__); \
+            fprintf(stderr, __VA_ARGS__);                        \
+            fputc('\n', stderr);                                 \
+        }                                                        \
+    } while (0)
 
 /* Every checkpoint asked for in code (comments already blanked), as "line: text" lines into out.
  * Returns how many. The pattern is /wal_checkpoint|SQLITE_CHECKPOINT_[A-Z]+/, scanned left to right. */

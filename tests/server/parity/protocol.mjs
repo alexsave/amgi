@@ -99,8 +99,8 @@ export const unhex = (token) => (token === '!' ? null : Buffer.from(token === '~
 /** A note (q_note's fields) as its tokens. */
 export function noteTokens(note) {
     return [
-      String(note.deckId), String(note.notetypeId), strs(note.fields), strs(note.tags ?? []),
-      enc(note.language), note.learningFieldIndex === undefined ? '!' : String(note.learningFieldIndex),
+        String(note.deckId), String(note.notetypeId), strs(note.fields), strs(note.tags ?? []),
+        enc(note.language), note.learningFieldIndex === undefined ? '!' : String(note.learningFieldIndex),
     ].join(' ');
 }
 
