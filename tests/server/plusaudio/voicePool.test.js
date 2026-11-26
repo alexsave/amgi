@@ -25,33 +25,33 @@ const DOCUMENTED_VOICES = [
 const speechWith = (seed) => createGeminiSpeech({ client: { generateContent: async () => ({}) }, model: 'm', voices: GEMINI_TTS_VOICES, random: createRandom(seed) });
 
 test('every voice in the pool is a documented Gemini voice, listed once', () => {
-  for (const voice of GEMINI_TTS_VOICES) assert.ok(DOCUMENTED_VOICES.includes(voice), `${voice} is not a Gemini prebuilt voice`);
-  assert.equal(new Set(GEMINI_TTS_VOICES).size, GEMINI_TTS_VOICES.length, 'no voice twice, or it would be drawn twice as often');
+    for (const voice of GEMINI_TTS_VOICES) assert.ok(DOCUMENTED_VOICES.includes(voice), `${voice} is not a Gemini prebuilt voice`);
+    assert.equal(new Set(GEMINI_TTS_VOICES).size, GEMINI_TTS_VOICES.length, 'no voice twice, or it would be drawn twice as often');
 });
 
 test('the pool is wide: variety is the point, and a retry needs another voice to go to', () => {
-  assert.ok(GEMINI_TTS_VOICES.length >= 20, `only ${GEMINI_TTS_VOICES.length} voices`);
+    assert.ok(GEMINI_TTS_VOICES.length >= 20, `only ${GEMINI_TTS_VOICES.length} voices`);
 });
 
 test('drawing clip after clip reaches every voice in the pool, never the same one twice in a row', () => {
-  const speech = speechWith(99);
-  const seen = new Set();
-  let previous = null;
-  for (let i = 0; i < 2000; i += 1) {
-    const voice = speech.pickVoice(previous);
-    assert.notEqual(voice, previous);
-    seen.add(voice);
-    previous = voice;
-  }
-  assert.deepEqual([...seen].sort(), [...GEMINI_TTS_VOICES].sort());
+    const speech = speechWith(99);
+    const seen = new Set();
+    let previous = null;
+    for (let i = 0; i < 2000; i += 1) {
+        const voice = speech.pickVoice(previous);
+        assert.notEqual(voice, previous);
+        seen.add(voice);
+        previous = voice;
+    }
+    assert.deepEqual([...seen].sort(), [...GEMINI_TTS_VOICES].sort());
 });
 
 test('the same seed draws the same voices from the pool', () => {
-  const draws = (seed) => {
-    const speech = speechWith(seed);
-    let previous = null;
-    return Array.from({ length: 50 }, () => (previous = speech.pickVoice(previous)));
-  };
-  assert.deepEqual(draws(2026), draws(2026));
-  assert.notDeepEqual(draws(2026), draws(2027));
+    const draws = (seed) => {
+        const speech = speechWith(seed);
+        let previous = null;
+        return Array.from({ length: 50 }, () => (previous = speech.pickVoice(previous)));
+    };
+    assert.deepEqual(draws(2026), draws(2026));
+    assert.notDeepEqual(draws(2026), draws(2027));
 });

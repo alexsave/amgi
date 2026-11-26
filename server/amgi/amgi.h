@@ -34,7 +34,7 @@
 /* What a request's five X-Amgi-* headers say (settings.js): each percent-decoded, a malformed escape
  * read as empty. */
 typedef struct {
-  str base_dir_override, collection_path, profile_name, bridge_url, bridge_token;
+    str base_dir_override, collection_path, profile_name, bridge_url, bridge_token;
 } amgi_settings;
 void amgi_read_settings(arena *a, const cb_http_req *req, amgi_settings *out);
 col_settings amgi_col_settings(const amgi_settings *s);
@@ -53,11 +53,11 @@ void amgi_send_text(cb_http_res *res, int status, str text);
 void amgi_send_wire(arena *a, cb_http_res *res, int status, uint32_t kind, const void *msg);
 /* An error-kind answer: mode is a transport mode name or NULL. */
 typedef struct {
-  const char *mode;
-  str error;
-  int has_retry;          /* retryAfterMs and maxWaitMs, and a Retry-After header */
-  uint32_t retry_after_ms;
-  int not_started, daily_cap;
+    const char *mode;
+    str error;
+    int has_retry;          /* retryAfterMs and maxWaitMs, and a Retry-After header */
+    uint32_t retry_after_ms;
+    int not_started, daily_cap;
 } amgi_error;
 void amgi_send_error(arena *a, cb_http_res *res, int status, const amgi_error *e);
 void amgi_send_message(arena *a, cb_http_res *res, int status, str message); /* {error: message} */
@@ -71,8 +71,8 @@ str amgi_str(wire_str w);
 
 /* ---- ops.c: transport.js's ops ---- */
 typedef struct {
-  const col_transport *t;
-  str path; /* the collection file, for the direct transport */
+    const col_transport *t;
+    str path; /* the collection file, for the direct transport */
 } amgi_ops;
 int ops_is_direct(const amgi_ops *o);
 int ops_list_decks(arena *a, const amgi_ops *o, col_deck **out, size_t *n, col_err *e);

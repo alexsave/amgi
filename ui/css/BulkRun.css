@@ -3,22 +3,22 @@
    chips, so what you are watching being built is recognisably the thing you
    will be looking at a moment later. */
 .bulk-run {
-  margin-top: 1rem;
+    margin-top: 1rem;
 }
 
 .bulk-run-head {
-  margin: 0 0 0.6rem;
-  font-size: 0.85rem;
-  color: var(--text-secondary);
+    margin: 0 0 0.6rem;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
 }
 
 .bulk-run-rows {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  border: 1px solid var(--border-color);
-  border-radius: 11px;
-  overflow: hidden;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    border: 1px solid var(--border-color);
+    border-radius: 11px;
+    overflow: hidden;
 }
 
 /* A row is the same height empty as it is finished. The audio chips arrive
@@ -28,156 +28,156 @@
    reserved from the start instead, so the only thing that changes is the
    content of a row that was already that size. */
 .bulk-run-row {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 0.6rem 0.9rem;
-  background: var(--dark-surface);
-  text-align: left;
-  min-height: 2.85rem;
-  box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.6rem 0.9rem;
+    background: var(--dark-surface);
+    text-align: left;
+    min-height: 2.85rem;
+    box-sizing: border-box;
 }
 
 .bulk-run-row + .bulk-run-row {
-  border-top: 1px solid var(--border-color);
+    border-top: 1px solid var(--border-color);
 }
 
 .bulk-run-state {
-  flex: none;
-  width: 8.6rem; /* "checking for duplicates", on one line */
-  font-size: 0.72rem;
-  line-height: 1.1;
-  color: var(--text-secondary);
+    flex: none;
+    width: 8.6rem; /* "checking for duplicates", on one line */
+    font-size: 0.72rem;
+    line-height: 1.1;
+    color: var(--text-secondary);
 }
 
 /* A second line only for a take after the first, inside the height the row reserves. */
 .bulk-run-take {
-  display: block;
-  opacity: 0.8;
+    display: block;
+    opacity: 0.8;
 }
 
 .bulk-run-row.is-making .bulk-run-state {
-  color: #6aa9ff;
+    color: #6aa9ff;
 }
 
 .bulk-run-row.is-done .bulk-run-state {
-  color: #3fae85;
+    color: #3fae85;
 }
 
 .bulk-run-row.is-error .bulk-run-state {
-  color: #e07050;
+    color: #e07050;
 }
 
 /* Waiting out Gemini's per-minute limit: not a failure, so not red. The
    countdown sits in the note column (see BulkRun.js's waitNote). */
 .bulk-run-row.is-waiting .bulk-run-state,
 .bulk-run-row.is-waiting .bulk-run-cue {
-  color: #d0a030;
+    color: #d0a030;
 }
 
 .bulk-run-text,
 .bulk-run-cue {
-  flex: 1 1 0;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+    flex: 1 1 0;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .bulk-run-text {
-  font-size: 0.92rem;
+    font-size: 0.92rem;
 }
 
 .bulk-run-cue {
-  font-size: 0.8rem;
-  color: var(--text-secondary);
+    font-size: 0.8rem;
+    color: var(--text-secondary);
 }
 
 .bulk-run-row.is-queued .bulk-run-text {
-  opacity: 0.55;
+    opacity: 0.55;
 }
 
 /* An error is the one note a person has to be able to read in full: it says
    what went wrong and what to do. It wraps instead of being cut to "…"
    (the row grows for it, which is fine on a row that has stopped moving). */
 .bulk-run-row.is-error .bulk-run-cue {
-  white-space: normal;
-  overflow: visible;
-  overflow-wrap: anywhere;
-  line-height: 1.35;
+    white-space: normal;
+    overflow: visible;
+    overflow-wrap: anywhere;
+    line-height: 1.35;
 }
 
 .bulk-run-retry {
-  font: inherit;
-  font-size: 0.78rem;
-  padding: 0.25rem 0.75rem;
-  border-radius: 999px;
-  border: 1px solid var(--border-color);
-  background: transparent;
-  color: var(--text-primary, inherit);
-  cursor: pointer;
+    font: inherit;
+    font-size: 0.78rem;
+    padding: 0.25rem 0.75rem;
+    border-radius: 999px;
+    border: 1px solid var(--border-color);
+    background: transparent;
+    color: var(--text-primary, inherit);
+    cursor: pointer;
 }
 
 .bulk-run-retry:hover {
-  border-color: #e07050;
-  color: #e07050;
+    border-color: #e07050;
+    color: #e07050;
 }
 
 /* A card whose two sides came back identical: written, but wrong, and said
    so rather than left to be found in a review months later. */
 .bulk-run-row .bulk-run-cue:first-letter {
-  text-transform: none;
+    text-transform: none;
 }
 
 .bulk-run-clips {
-  display: flex;
-  gap: 0.35rem;
-  flex: none;
-  /* Tall enough for a chip whether or not one is there yet - and wide
-     enough for two, so a row with no chips (queued, waiting, or showing
-     Retry) keeps its text and note columns where every other row has them,
-     instead of the two flexible columns re-dividing the room row by row. */
-  min-height: 1.65rem;
-  min-width: 9.5rem;
-  justify-content: flex-end;
-  align-items: center;
+    display: flex;
+    gap: 0.35rem;
+    flex: none;
+    /* Tall enough for a chip whether or not one is there yet - and wide
+       enough for two, so a row with no chips (queued, waiting, or showing
+       Retry) keeps its text and note columns where every other row has them,
+       instead of the two flexible columns re-dividing the room row by row. */
+    min-height: 1.65rem;
+    min-width: 9.5rem;
+    justify-content: flex-end;
+    align-items: center;
 }
 
 /* A phone has no room for four columns: the step and the clips share a line, the card's text and its note
    have one each. All three lines are reserved, so the row still keeps one height from queued to done. */
 @media (max-width: 768px) {
-  .bulk-run-row {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-rows: 1.65rem minmax(1.3rem, auto) minmax(1.2rem, auto);
-    grid-template-areas: "state clips" "text text" "cue cue";
-    gap: 0.15rem 0.5rem;
-  }
+    .bulk-run-row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-rows: 1.65rem minmax(1.3rem, auto) minmax(1.2rem, auto);
+        grid-template-areas: "state clips" "text text" "cue cue";
+        gap: 0.15rem 0.5rem;
+    }
 
-  .bulk-run-state {
-    grid-area: state;
-    width: auto;
-    align-self: center;
-  }
+    .bulk-run-state {
+        grid-area: state;
+        width: auto;
+        align-self: center;
+    }
 
-  .bulk-run-clips {
-    grid-area: clips;
-    min-width: 0;
-  }
+    .bulk-run-clips {
+        grid-area: clips;
+        min-width: 0;
+    }
 
-  .bulk-run-text {
-    grid-area: text;
-    line-height: 1.3rem;
-  }
+    .bulk-run-text {
+        grid-area: text;
+        line-height: 1.3rem;
+    }
 
-  .bulk-run-cue {
-    grid-area: cue;
-    line-height: 1.2rem;
-  }
+    .bulk-run-cue {
+        grid-area: cue;
+        line-height: 1.2rem;
+    }
 }
 
 .bulk-run-foot {
-  margin: 0.6rem 0 0;
-  font-size: 0.75rem;
-  color: var(--text-secondary);
+    margin: 0.6rem 0 0;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
 }

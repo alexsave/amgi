@@ -22,7 +22,7 @@ host=anki/src/anki-loop.js
 # A shared file as a classic script: `export ` taken off declarations, its allowed import dropped.
 # The awk is last so its refusal is the function's status.
 classic() {
-  sed -E 's/^export[[:space:]]+((const|let|var|function|async|class)([^A-Za-z0-9_]|$))/\1/' "$1" | awk -v file="$1" '
+    sed -E 's/^export[[:space:]]+((const|let|var|function|async|class)([^A-Za-z0-9_]|$))/\1/' "$1" | awk -v file="$1" '
     /^[ \t]*import([^A-Za-z0-9_]|$)/ {
       line = $0; gsub(/^[ \t]+|[ \t]+$/, "", line)
       if (line ~ /^import[ \t]+\{[^}]+\}[ \t]+from[ \t]+\x27\.\/(voiceActivity|reviewLoop)\.js\x27;$/) next
@@ -38,7 +38,7 @@ classic() {
 
 # The text with its leading and trailing whitespace taken off, as a string's trim().
 trim() {
-  awk '{ l[NR] = $0 } END {
+    awk '{ l[NR] = $0 } END {
     s = 1; while (s <= NR && l[s] ~ /^[ \t\r]*$/) s++
     e = NR; while (e >= s && l[e] ~ /^[ \t\r]*$/) e--
     for (i = s; i <= e; i++) { x = l[i]; if (i == s) sub(/^[ \t\r]+/, "", x); if (i == e) sub(/[ \t\r]+$/, "", x); print x }
@@ -46,30 +46,30 @@ trim() {
 }
 
 section() { # a source file name, and its code on stdin
-  dashes=$((70 - ${#1})); [ "$dashes" -ge 3 ] || dashes=3
-  printf '// ---- %s ' "$1"; printf '%*s' "$dashes" '' | tr ' ' '-'; printf '\n\n'; cat
+    dashes=$((70 - ${#1})); [ "$dashes" -ge 3 ] || dashes=3
+    printf '// ---- %s ' "$1"; printf '%*s' "$dashes" '' | tr ' ' '-'; printf '\n\n'; cat
 }
 
 tmp=$(mktemp "$out.XXXXXX"); trap 'rm -f "$tmp" "$tmp".*' EXIT
 # A refused file stops the build here: a failure inside a pipeline would not (sh has no pipefail).
 for f in $shared; do classic "$f" > "$tmp.classic.$(basename "$f")"; done
 {
-  echo '// GENERATED FILE - do not edit.'
-  echo '//'
-  echo '// Built by anki/tools/build-loop.sh (make -C anki) from:'
-  for f in $shared $host; do echo "//   $f"; done
-  echo '//'
-  echo '// Not committed: make -C anki builds it.'
-  echo '// The leading underscore is deliberate: Anki never reports a media file'
-  echo '// whose name starts with one as unused (rslib/src/media/check.rs), and the'
-  echo '// quoted "_amgi-loop.js" in the card template is what makes the exporter'
-  echo '// carry it into an .apkg (rslib/src/text.rs, UNDERSCORED_REFERENCES).'
-  printf "\n(function () {\n'use strict';\n\n"
-  first=1
-  for f in $shared $host; do
-    [ "$first" = 1 ] || printf '\n'; first=0
-    if [ "$f" = "$host" ]; then trim < "$f"; else trim < "$tmp.classic.$(basename "$f")"; fi | section "$f"
-  done
-  printf '\n})();\n'
+    echo '// GENERATED FILE - do not edit.'
+    echo '//'
+    echo '// Built by anki/tools/build-loop.sh (make -C anki) from:'
+    for f in $shared $host; do echo "//   $f"; done
+    echo '//'
+    echo '// Not committed: make -C anki builds it.'
+    echo '// The leading underscore is deliberate: Anki never reports a media file'
+    echo '// whose name starts with one as unused (rslib/src/media/check.rs), and the'
+    echo '// quoted "_amgi-loop.js" in the card template is what makes the exporter'
+    echo '// carry it into an .apkg (rslib/src/text.rs, UNDERSCORED_REFERENCES).'
+    printf "\n(function () {\n'use strict';\n\n"
+    first=1
+    for f in $shared $host; do
+        [ "$first" = 1 ] || printf '\n'; first=0
+        if [ "$f" = "$host" ]; then trim < "$f"; else trim < "$tmp.classic.$(basename "$f")"; fi | section "$f"
+    done
+    printf '\n})();\n'
 } > "$tmp"
 chmod 644 "$tmp"; mv "$tmp" "$out"; rm -f "$tmp".*; trap - EXIT

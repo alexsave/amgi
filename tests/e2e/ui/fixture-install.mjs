@@ -17,16 +17,16 @@ const collectionPath = fs.existsSync(direct) ? direct : path.join(dir, 'User 1',
 
 const server = await startServer({ key: '', base: null });
 try {
-  const headers = { 'content-type': WIRE_MIME, 'x-amgi-base-dir': encodeURIComponent(dir) };
-  if (!addonsOnly) headers['x-amgi-collection'] = encodeURIComponent(collectionPath);
-  const response = await fetch(new URL('/api/anki/install', server.url), {
-    method: 'POST', headers, body: encode('q_install', { baseDirOverride: dir }),
-  });
-  const bytes = Buffer.from(await response.arrayBuffer());
-  if (response.status !== 200) throw new Error(`install failed: ${decode('error', bytes)?.error ?? response.status}`);
-  const answer = decode('installed', bytes);
-  if (!addonsOnly && answer.needsRestart) throw new Error('the note type was not made');
-  console.log(addonsOnly ? `add-ons installed into ${dir}` : `installed into ${dir}`);
+    const headers = { 'content-type': WIRE_MIME, 'x-amgi-base-dir': encodeURIComponent(dir) };
+    if (!addonsOnly) headers['x-amgi-collection'] = encodeURIComponent(collectionPath);
+    const response = await fetch(new URL('/api/anki/install', server.url), {
+        method: 'POST', headers, body: encode('q_install', { baseDirOverride: dir }),
+    });
+    const bytes = Buffer.from(await response.arrayBuffer());
+    if (response.status !== 200) throw new Error(`install failed: ${decode('error', bytes)?.error ?? response.status}`);
+    const answer = decode('installed', bytes);
+    if (!addonsOnly && answer.needsRestart) throw new Error('the note type was not made');
+    console.log(addonsOnly ? `add-ons installed into ${dir}` : `installed into ${dir}`);
 } finally {
-  await server.stop();
+    await server.stop();
 }

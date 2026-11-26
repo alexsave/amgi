@@ -8,40 +8,40 @@
      HTML comments too, so do not name them in a comment either. -->
 
 <div class="amgi" data-amgi-card data-amgi-side="front" data-amgi-phase="idle">
-  <div class="amgi-visual">
-    <canvas class="amgi-visualizer" data-amgi-visualizer aria-hidden="true"></canvas>
-  </div>
+    <div class="amgi-visual">
+        <canvas class="amgi-visualizer" data-amgi-visualizer aria-hidden="true"></canvas>
+    </div>
 
-  <p class="amgi-status" data-amgi-status role="status" aria-live="polite">
-    <span class="amgi-status-icon" data-amgi-status-icon aria-hidden="true"></span>
-    <span class="amgi-status-lines">
-      <!-- Only ever shown while the mic is genuinely open (see anki-loop.js's
-           AMGI_STATUS and _amgi-loop.css's .amgi-status-recording) - starts
-           hidden so there is no flash of it before the loop's first render. -->
-      <span class="amgi-status-recording" data-amgi-status-recording hidden>
-        <span class="amgi-status-dot" aria-hidden="true"></span>
-        <span data-amgi-status-recording-text></span>
-      </span>
-      <span data-amgi-status-text>Listen</span>
-    </span>
-  </p>
+    <p class="amgi-status" data-amgi-status role="status" aria-live="polite">
+        <span class="amgi-status-icon" data-amgi-status-icon aria-hidden="true"></span>
+        <span class="amgi-status-lines">
+            <!-- Only ever shown while the mic is genuinely open (see anki-loop.js's
+                 AMGI_STATUS and _amgi-loop.css's .amgi-status-recording) - starts
+                 hidden so there is no flash of it before the loop's first render. -->
+            <span class="amgi-status-recording" data-amgi-status-recording hidden>
+                <span class="amgi-status-dot" aria-hidden="true"></span>
+                <span data-amgi-status-recording-text></span>
+            </span>
+            <span data-amgi-status-text>Listen</span>
+        </span>
+    </p>
 
-  <!-- Anki plays a sound tag through its own player, which gives a template
-       no way to know when playback ended. The field holds an ordinary HTML
-       media reference instead, and the loop drives it as an <audio> element.
-       See the README for the field format. -->
-  <div class="amgi-slot" data-amgi-cue-audio>{{CueAudio}}</div>
+    <!-- Anki plays a sound tag through its own player, which gives a template
+         no way to know when playback ended. The field holds an ordinary HTML
+         media reference instead, and the loop drives it as an <audio> element.
+         See the README for the field format. -->
+    <div class="amgi-slot" data-amgi-cue-audio>{{CueAudio}}</div>
 
-  <div class="amgi-actions">
-    <button type="button" class="amgi-btn tappable" data-amgi-action="play" hidden>
-      Tap to play
-    </button>
-    <button type="button" class="amgi-btn tappable" data-amgi-action="reveal" aria-keyshortcuts="Space Enter">
-      <span data-amgi-reveal-label>Skip</span> <kbd aria-hidden="true">space</kbd>
-    </button>
-  </div>
+    <div class="amgi-actions">
+        <button type="button" class="amgi-btn tappable" data-amgi-action="play" hidden>
+            Tap to play
+        </button>
+        <button type="button" class="amgi-btn tappable" data-amgi-action="reveal" aria-keyshortcuts="Space Enter">
+            <span data-amgi-reveal-label>Skip</span> <kbd aria-hidden="true">space</kbd>
+        </button>
+    </div>
 
-  <p class="amgi-note" data-amgi-note hidden></p>
+    <p class="amgi-note" data-amgi-note hidden></p>
 </div>
 
 <script src="_amgi-loop.js"></script>

@@ -20,14 +20,14 @@ import { freshAnki } from './golden/fresh-anki.mjs';
 const { anki } = createRequire(import.meta.url)('../plusaudio/collection/helpers/anki-python.js');
 
 test('install and the starter deck answer the golden file, line for line', { skip: !anki && 'needs ANKI_PYTHON_BIN' }, async () => {
-  const want = fs.readFileSync(path.join(import.meta.dirname, 'golden', 'install-starter-expected.txt'), 'utf8').trimEnd().split('\n');
-  const ankiDir = freshAnki(anki.bin);
-  const server = await startServer({ key: '' });
-  try {
-    const got = await runSteps({ url: server.url, ankiDir, repo: ROOT, decode, WIRE_MIME, encode });
-    for (let i = 0; i < Math.max(got.length, want.length); i++) assert.equal(got[i], want[i], `line ${i + 1}`);
-  } finally {
-    await server.stop();
-    fs.rmSync(ankiDir, { recursive: true, force: true });
-  }
+    const want = fs.readFileSync(path.join(import.meta.dirname, 'golden', 'install-starter-expected.txt'), 'utf8').trimEnd().split('\n');
+    const ankiDir = freshAnki(anki.bin);
+    const server = await startServer({ key: '' });
+    try {
+        const got = await runSteps({ url: server.url, ankiDir, repo: ROOT, decode, WIRE_MIME, encode });
+        for (let i = 0; i < Math.max(got.length, want.length); i++) assert.equal(got[i], want[i], `line ${i + 1}`);
+    } finally {
+        await server.stop();
+        fs.rmSync(ankiDir, { recursive: true, force: true });
+    }
 });

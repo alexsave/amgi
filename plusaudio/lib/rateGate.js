@@ -70,101 +70,101 @@ const DECREASE = 0.8;
 const MIN_EVIDENCE = 3;
 
 function createRateGate({ now = () => Date.now(), random = defaultRandom } = {}) {
-  const models = new Map();
+    const models = new Map();
 
-  function stateOf(model) {
-    let state = models.get(model);
-    if (!state) {
-      state = { blockedUntil: 0, starts: [], cap: Infinity, consecutive429: 0, cleanSince: null };
-      models.set(model, state);
+    function stateOf(model) {
+        let state = models.get(model);
+        if (!state) {
+            state = { blockedUntil: 0, starts: [], cap: Infinity, consecutive429: 0, cleanSince: null };
+            models.set(model, state);
+        }
+        return state;
     }
-    return state;
-  }
 
-  function prune(state, at) {
-    while (state.starts.length > 0 && at - state.starts[0] >= WINDOW_MS) state.starts.shift();
-  }
+    function prune(state, at) {
+        while (state.starts.length > 0 && at - state.starts[0] >= WINDOW_MS) state.starts.shift();
+    }
 
-  /** The un-jittered wait before `model` may take another request. */
-  function waitFor(state, at) {
-    prune(state, at);
-    let wait = Math.max(0, state.blockedUntil - at);
-    if (state.starts.length >= state.cap) wait = Math.max(wait, state.starts[0] + WINDOW_MS - at);
-    return wait;
-  }
-
-  return {
-    acquire(model) {
-      const state = stateOf(model);
-      const at = now();
-      const wait = waitFor(state, at);
-      // One draw per acquire, used or not (see RANDOMNESS above).
-      const u = random.int(1_000_000) / 1_000_000;
-      if (wait === 0) {
-        state.starts.push(at);
-        return 0;
-      }
-      return Math.ceil(wait * (1 + u * JITTER));
-    },
-
-    record(model, outcome, retryDelayMs) {
-      const state = stateOf(model);
-      const at = now();
-      if (outcome === 'rateLimited') {
-        state.consecutive429 += 1;
-        state.cleanSince = null;
+    /** The un-jittered wait before `model` may take another request. */
+    function waitFor(state, at) {
         prune(state, at);
-        // The requests admitted in the minute up to this refusal (not
-        // counting the refused one) are the best evidence of the limit
-        // there is; aim a margin below it. Too few of them is evidence of
-        // traffic this gate never saw - another process, the same key used
-        // elsewhere - not of the limit, and learning "1 a minute" from it
-        // would throttle everything for nothing; then only the block applies.
-        // A refused request used none of the allowance, so it leaves the
-        // window. With several requests refused at once - five bulk lanes in
-        // flight together - each one's 429 takes its own start out, and the
-        // cap (a minimum over every 429) settles on the true count once all
-        // of them are in, instead of on the inflated count the first one saw.
-        state.starts.pop();
-        const admitted = state.starts.length;
-        if (admitted >= MIN_EVIDENCE) state.cap = Math.min(state.cap, Math.floor(admitted * DECREASE));
-        const doubled = BASE_BLOCK_MS * 2 ** (state.consecutive429 - 1);
-        const block = Math.max(retryDelayMs || 0, Math.min(MAX_BLOCK_MS, doubled));
-        state.blockedUntil = Math.max(state.blockedUntil, at + block);
-        return;
-      }
-      state.consecutive429 = 0;
-      if (state.cleanSince === null) {
-        state.cleanSince = at;
-      } else if (at - state.cleanSince >= WINDOW_MS) {
-        if (Number.isFinite(state.cap)) state.cap += 1;
-        state.cleanSince = at;
-      }
-    },
+        let wait = Math.max(0, state.blockedUntil - at);
+        if (state.starts.length >= state.cap) wait = Math.max(wait, state.starts[0] + WINDOW_MS - at);
+        return wait;
+    }
 
-    /**
-     * How long until new work may start: the longest jittered wait any
-     * model this gate knows would give, or 0 when none is blocked or full.
-     * Asked before a new card starts (the app's server does the same in
-     * server/amgi/gen.c), so a card that would only be refused is never begun
-     * and its text call never spent. Records no start; one draw per call,
-     * like acquire.
-     */
-    admissionWait() {
-      const at = now();
-      let longest = 0;
-      for (const state of models.values()) longest = Math.max(longest, waitFor(state, at));
-      const u = random.int(1_000_000) / 1_000_000;
-      return longest === 0 ? 0 : Math.ceil(longest * (1 + u * JITTER));
-    },
+    return {
+        acquire(model) {
+            const state = stateOf(model);
+            const at = now();
+            const wait = waitFor(state, at);
+            // One draw per acquire, used or not (see RANDOMNESS above).
+            const u = random.int(1_000_000) / 1_000_000;
+            if (wait === 0) {
+                state.starts.push(at);
+                return 0;
+            }
+            return Math.ceil(wait * (1 + u * JITTER));
+        },
 
-    /** What the gate believes about `model`, for tests and logs. */
-    inspect(model) {
-      const state = stateOf(model);
-      prune(state, now());
-      return { blockedUntil: state.blockedUntil, cap: state.cap, inWindow: state.starts.length, consecutive429: state.consecutive429 };
-    },
-  };
+        record(model, outcome, retryDelayMs) {
+            const state = stateOf(model);
+            const at = now();
+            if (outcome === 'rateLimited') {
+                state.consecutive429 += 1;
+                state.cleanSince = null;
+                prune(state, at);
+                // The requests admitted in the minute up to this refusal (not
+                // counting the refused one) are the best evidence of the limit
+                // there is; aim a margin below it. Too few of them is evidence of
+                // traffic this gate never saw - another process, the same key used
+                // elsewhere - not of the limit, and learning "1 a minute" from it
+                // would throttle everything for nothing; then only the block applies.
+                // A refused request used none of the allowance, so it leaves the
+                // window. With several requests refused at once - five bulk lanes in
+                // flight together - each one's 429 takes its own start out, and the
+                // cap (a minimum over every 429) settles on the true count once all
+                // of them are in, instead of on the inflated count the first one saw.
+                state.starts.pop();
+                const admitted = state.starts.length;
+                if (admitted >= MIN_EVIDENCE) state.cap = Math.min(state.cap, Math.floor(admitted * DECREASE));
+                const doubled = BASE_BLOCK_MS * 2 ** (state.consecutive429 - 1);
+                const block = Math.max(retryDelayMs || 0, Math.min(MAX_BLOCK_MS, doubled));
+                state.blockedUntil = Math.max(state.blockedUntil, at + block);
+                return;
+            }
+            state.consecutive429 = 0;
+            if (state.cleanSince === null) {
+                state.cleanSince = at;
+            } else if (at - state.cleanSince >= WINDOW_MS) {
+                if (Number.isFinite(state.cap)) state.cap += 1;
+                state.cleanSince = at;
+            }
+        },
+
+        /**
+         * How long until new work may start: the longest jittered wait any
+         * model this gate knows would give, or 0 when none is blocked or full.
+         * Asked before a new card starts (the app's server does the same in
+         * server/amgi/gen.c), so a card that would only be refused is never begun
+         * and its text call never spent. Records no start; one draw per call,
+         * like acquire.
+         */
+        admissionWait() {
+            const at = now();
+            let longest = 0;
+            for (const state of models.values()) longest = Math.max(longest, waitFor(state, at));
+            const u = random.int(1_000_000) / 1_000_000;
+            return longest === 0 ? 0 : Math.ceil(longest * (1 + u * JITTER));
+        },
+
+        /** What the gate believes about `model`, for tests and logs. */
+        inspect(model) {
+            const state = stateOf(model);
+            prune(state, now());
+            return { blockedUntil: state.blockedUntil, cap: state.cap, inWindow: state.starts.length, consecutive429: state.consecutive429 };
+        },
+    };
 }
 
 // Anchored on globalThis, not a module variable: Next's dev server can load
@@ -175,8 +175,8 @@ const SHARED_KEY = Symbol.for('amgi.rateGate');
 
 /** The one gate this process shares between every Gemini client in it. */
 function sharedGate() {
-  if (!globalThis[SHARED_KEY]) globalThis[SHARED_KEY] = createRateGate();
-  return globalThis[SHARED_KEY];
+    if (!globalThis[SHARED_KEY]) globalThis[SHARED_KEY] = createRateGate();
+    return globalThis[SHARED_KEY];
 }
 
 module.exports = { BASE_BLOCK_MS, JITTER, MAX_BLOCK_MS, WINDOW_MS, createRateGate, sharedGate };
