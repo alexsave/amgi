@@ -7,7 +7,8 @@
  *   ops.c       the transport's ops, direct or bridge, behind one call each (transport.js)
  *   routes.c    every /api/anki route, the page's files and the clip route
  *   install.c   install.js, the file half in C and the collection half on the core
- *   starter.c   starterDeck.js and starterPhrases.js
+ *   starter.c   starterDeck.js, with the phrases of starter_phrases.c
+ *   starter_audio.c  `amgi starter-audio`, the dev command that records the starter clips
  *   gate.c      plusaudio/lib/rateGate.js, the one rate gate of the process
  *   gemini*.c   the Gemini client (gemini.ts, geminiWire.ts, geminiSpeech.ts) on cbase's gRPC
  *   progress.c  the step each card being made is at (GET /progress)
@@ -120,7 +121,12 @@ int amgi_install_notetype(arena *a, const amgi_ops *o, str root, col_notetype_ma
 /* Where the profiles are (transport.js discoverProfiles). */
 str amgi_base_dir(arena *a, str override);
 
-/* ---- starter.c ---- */
+/* ---- starter.c, starter_phrases.c ---- */
+/* The starter deck's phrases: one row per language, in the language table's order, the same ten concepts in every row. */
+#define STARTER_NPHRASES 10
+typedef struct { const char *code; const char *phrases[STARTER_NPHRASES]; } amgi_starter_row;
+extern const amgi_starter_row AMGI_STARTER_PHRASES[];
+extern const size_t AMGI_NSTARTER_LANGUAGES;
 void amgi_starter_get(arena *a, cb_http_res *res);
 /* buildStarterDeck: 0 and the answer, or -1 with *message (a 400). */
 typedef struct { int64_t deck_id; str deck_name; uint32_t added, already_there; } amgi_starter_built;
@@ -129,6 +135,12 @@ int amgi_starter_build(arena *a, const amgi_ops *o, str known, str learning, str
 /* fieldIndexes (src/utils/amgiNotetype.js) */
 typedef struct { int cue, cue_audio, target, target_audio, language, notes; } amgi_fields;
 amgi_fields amgi_field_indexes(arena *a, const col_notetype *nt);
+
+/* ---- starter_audio.c: `amgi starter-audio` ---- */
+/* The command, run from the amgi binary with its argv (argv[1] is "starter-audio"); root is the repository's root. Exits 0 done,
+ * 1 a clip is missing (--check), ffmpeg is missing or fails, or a file cannot be written, 4 usage, 5 Gemini (no key, the
+ * daily cap, a clip that did not validate). */
+int amgi_starter_audio(int argc, char **argv, const char *root);
 
 /* ---- gen.c: POST /card-text and POST /audio ---- */
 void amgi_card_text(arena *a, const amgi_ops *o, const char *mode, const wire_q_card_text *q, cb_http_res *res);
