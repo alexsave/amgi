@@ -25,7 +25,6 @@ npm-debug.log*
 *.mp3
 *.wav
 *.m4a
-plusaudio-audio/
 *.apkg
 
 # ...except the starter deck's, which are source, not generated content.

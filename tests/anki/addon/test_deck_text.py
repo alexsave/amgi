@@ -20,6 +20,7 @@ import unittest
 sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "anki", "addon", "amgi_bridge")))
 
 import deck_text  # noqa: E402
+import wire_schema  # noqa: E402
 
 SPOKEN_TEXT = ["",
   "plain text",
@@ -52,15 +53,15 @@ RENDERED = ["[sound:a.mp3]",
   "<audio src=\"a&quot;b&amp;c.mp3\"></audio>",
   "<audio src=\"안녕.mp3\"></audio>"]
 
-SET_OWNED = ["[sound:1-1-13-1.mp3]<img src=\"paste-125aeb8fa1091ecc1898eba0a2372987a17817a2.jpg\">[sound:plusaudio-cccccccccccccccccccc.mp3]",
-  "[sound:1-1-13-1.mp3]<img src=\"paste-125aeb8fa1091ecc1898eba0a2372987a17817a2.jpg\"><audio src=\"plusaudio-cccccccccccccccccccc.mp3\"></audio>",
-  "[sound:plusaudio-cccccccccccccccccccc.mp3]",
-  "1-1-13-1_gpt4o.mp3 plain<audio src=\"plusaudio-dddddddddddddddddddd.mp3\"></audio>"]
+SET_OWNED = ["[sound:1-1-13-1.mp3]<img src=\"paste-125aeb8fa1091ecc1898eba0a2372987a17817a2.jpg\">[sound:amgi-cccccccccccccccccccc.mp3]",
+  "[sound:1-1-13-1.mp3]<img src=\"paste-125aeb8fa1091ecc1898eba0a2372987a17817a2.jpg\"><audio src=\"amgi-cccccccccccccccccccc.mp3\"></audio>",
+  "[sound:amgi-cccccccccccccccccccc.mp3]",
+  "1-1-13-1_gpt4o.mp3 plain<audio src=\"amgi-dddddddddddddddddddd.mp3\"></audio>"]
 
-MEDIA_NAMES = ["plusaudio-dce4d16cea2470806c22.wav",
-  "plusaudio-f364f47094e4d8912c22.wav",
-  "plusaudio-90f9a7cbebe9c12e69e1.wav",
-  "plusaudio-88fce36fc5541e5201ec.wav"]
+MEDIA_NAMES = ["amgi-dce4d16cea2470806c22.wav",
+  "amgi-f364f47094e4d8912c22.wav",
+  "amgi-90f9a7cbebe9c12e69e1.wav",
+  "amgi-88fce36fc5541e5201ec.wav"]
 
 
 class DeckTextUnitTests(unittest.TestCase):
@@ -81,29 +82,41 @@ class DeckTextUnitTests(unittest.TestCase):
         self.assertEqual(deck_text.render_audio_reference("a.mp3", "sound"), "[sound:a.mp3]")
 
     def test_set_owned_audio_replaces_only_owned_reference_and_keeps_other_content(self):
-        field = '[sound:1-1.mp3]<img src="pic.jpg">[sound:plusaudio-aaaaaaaaaaaaaaaaaaaa.mp3]'
-        updated = deck_text.set_owned_audio(field, "plusaudio-bbbbbbbbbbbbbbbbbbbb.mp3", deck_text.is_owned_media_name, "sound")
-        self.assertEqual(updated, '[sound:1-1.mp3]<img src="pic.jpg">[sound:plusaudio-bbbbbbbbbbbbbbbbbbbb.mp3]')
+        field = '[sound:1-1.mp3]<img src="pic.jpg">[sound:amgi-aaaaaaaaaaaaaaaaaaaa.mp3]'
+        updated = deck_text.set_owned_audio(field, "amgi-bbbbbbbbbbbbbbbbbbbb.mp3", deck_text.is_owned_media_name, "sound")
+        self.assertEqual(updated, '[sound:1-1.mp3]<img src="pic.jpg">[sound:amgi-bbbbbbbbbbbbbbbbbbbb.mp3]')
 
     def test_set_owned_audio_appends_when_nothing_owned_yet(self):
         field = '[sound:1-1.mp3]<img src="pic.jpg">'
-        updated = deck_text.set_owned_audio(field, "plusaudio-bbbbbbbbbbbbbbbbbbbb.mp3", deck_text.is_owned_media_name, "html")
-        self.assertEqual(updated, field + '<audio src="plusaudio-bbbbbbbbbbbbbbbbbbbb.mp3"></audio>')
+        updated = deck_text.set_owned_audio(field, "amgi-bbbbbbbbbbbbbbbbbbbb.mp3", deck_text.is_owned_media_name, "html")
+        self.assertEqual(updated, field + '<audio src="amgi-bbbbbbbbbbbbbbbbbbbb.mp3"></audio>')
 
     def test_media_name_is_a_sha1_of_profile_language_and_text(self):
         name = deck_text.media_name("안녕하세요", "ko")
-        self.assertRegex(name, r"^plusaudio-[0-9a-f]{20}\.wav$")
+        self.assertRegex(name, r"^amgi-[0-9a-f]{20}\.wav$")
         # Same inputs, same name - the whole idempotency scheme depends on this.
         self.assertEqual(name, deck_text.media_name("안녕하세요", "ko"))
         self.assertNotEqual(name, deck_text.media_name("안녕하세요", "ja"))
 
     def test_is_owned_media_name_recognises_current_and_legacy_names(self):
-        self.assertTrue(deck_text.is_owned_media_name("plusaudio-" + "a" * 20 + ".mp3"))
-        self.assertTrue(deck_text.is_owned_media_name("plusaudio-" + "a" * 20 + ".wav"))
-        self.assertFalse(deck_text.is_owned_media_name("plusaudio-" + "a" * 20 + ".ogg"))
+        self.assertTrue(deck_text.is_owned_media_name("amgi-" + "a" * 20 + ".mp3"))
+        self.assertTrue(deck_text.is_owned_media_name("amgi-" + "a" * 20 + ".wav"))
+        self.assertFalse(deck_text.is_owned_media_name("amgi-" + "a" * 20 + ".ogg"))
         self.assertTrue(deck_text.is_owned_media_name("1-1-13-1_gpt4o.mp3"))
         self.assertFalse(deck_text.is_owned_media_name("1-1-13-1.mp3"))
-        self.assertFalse(deck_text.is_owned_media_name("plusaudio-" + "a" * 19 + ".mp3"))
+        self.assertFalse(deck_text.is_owned_media_name("amgi-" + "a" * 19 + ".mp3"))
+
+    def test_is_owned_media_name_recognises_ankis_duplicate_form_and_not_the_old_prefix(self):
+        sha1 = "b" * 40
+        self.assertTrue(deck_text.is_owned_media_name("amgi-" + "a" * 20 + "-" + sha1 + ".mp3"))
+        self.assertTrue(deck_text.is_owned_media_name("amgi-" + "a" * 20 + "-" + sha1 + ".wav"))
+        self.assertFalse(deck_text.is_owned_media_name("amgi-" + "a" * 20 + "-" + "b" * 39 + ".wav"))
+        self.assertFalse(deck_text.is_owned_media_name("amgi-" + "a" * 20 + "-" + sha1 + ".ogg"))
+        self.assertFalse(deck_text.is_owned_media_name("plus" + "audio-" + "a" * 20 + ".wav"))
+
+    def test_the_prefix_is_the_one_the_wire_schema_carries(self):
+        self.assertEqual(deck_text.MEDIA_PREFIX, wire_schema.MEDIA_PREFIX)
+        self.assertTrue(deck_text.media_name("x", "en").startswith(wire_schema.MEDIA_PREFIX))
 
 
 class DeckTextGoldenTests(unittest.TestCase):
@@ -145,10 +158,10 @@ class DeckTextGoldenTests(unittest.TestCase):
 
     def test_set_owned_audio_matches_the_recording(self):
         cases = [
-            (self.SAMPLE_FIELDS[3], "plusaudio-" + "c" * 20 + ".mp3", "sound"),
-            (self.SAMPLE_FIELDS[3], "plusaudio-" + "c" * 20 + ".mp3", "html"),
-            ("", "plusaudio-" + "c" * 20 + ".mp3", "sound"),
-            ("1-1-13-1_gpt4o.mp3 plain", "plusaudio-" + "d" * 20 + ".mp3", "html"),
+            (self.SAMPLE_FIELDS[3], "amgi-" + "c" * 20 + ".mp3", "sound"),
+            (self.SAMPLE_FIELDS[3], "amgi-" + "c" * 20 + ".mp3", "html"),
+            ("", "amgi-" + "c" * 20 + ".mp3", "sound"),
+            ("1-1-13-1_gpt4o.mp3 plain", "amgi-" + "d" * 20 + ".mp3", "html"),
         ]
         for (field, filename, form), want in zip(cases, SET_OWNED):
             with self.subTest(field=field, filename=filename, form=form):

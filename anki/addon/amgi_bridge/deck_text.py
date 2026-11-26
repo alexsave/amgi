@@ -24,6 +24,11 @@ import re
 from dataclasses import dataclass
 from typing import Callable
 
+try:
+    from .wire_schema import MEDIA_PREFIX
+except ImportError:  # the tests import this module directly, as core.py's imports say
+    from wire_schema import MEDIA_PREFIX  # type: ignore[no-redef]
+
 AUDIO_TAG_FORMS = ("sound", "html")
 
 # Mirrors plusaudio/lib/deck.js SOUND_TAG.
@@ -159,7 +164,8 @@ AUDIO_PROFILE = "v1"
 # still count as ours, as in audio-store.js.
 CLIP_EXTENSION = "wav"
 
-_OWNED_NAME = re.compile(r"^plusaudio-[0-9a-f]{20}\.(?:mp3|wav)\Z")
+# Anki gives a clip whose name is taken by other bytes a "-<sha1 of its bytes>" suffix, so that form is ours too.
+_OWNED_NAME = re.compile(rf"^{re.escape(MEDIA_PREFIX)}[0-9a-f]{{20}}(?:-[0-9a-f]{{40}})?\.(?:mp3|wav)\Z")
 # Clips written by the 2025 scripts plusaudio replaced. Recognising them here
 # too means a note already carrying one is treated as already having audio,
 # consistent with plusaudio/lib/audio-store.js isOwnedMediaName.
@@ -172,7 +178,7 @@ def media_name(text: str, language: str) -> str:
     the same clip differently would defeat the whole point of content-hashed
     names, which is that a deck augmented by either one is consistent."""
     digest = hashlib.sha1(f"{AUDIO_PROFILE}\n{language}\n{text}".encode("utf-8")).hexdigest()
-    return f"plusaudio-{digest[:20]}.{CLIP_EXTENSION}"
+    return f"{MEDIA_PREFIX}{digest[:20]}.{CLIP_EXTENSION}"
 
 
 def is_owned_media_name(filename: str) -> bool:

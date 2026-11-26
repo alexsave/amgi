@@ -78,7 +78,7 @@ const CACHE = path.join(ROOT, '.cache', 'starter-audio');
 const STARTER_EXTENSION = 'mp3';
 const AUDIO_PROFILE = 'v1';
 const starterClipName = (text, language) =>
-  `plusaudio-${require('node:crypto').createHash('sha1').update(`${AUDIO_PROFILE}\n${language}\n${text}`, 'utf8').digest('hex').slice(0, 20)}.${STARTER_EXTENSION}`;
+  `amgi-${require('node:crypto').createHash('sha1').update(`${AUDIO_PROFILE}\n${language}\n${text}`, 'utf8').digest('hex').slice(0, 20)}.${STARTER_EXTENSION}`;
 
 /** The one seed the starter voices are drawn from. Change it to re-roll every voice. */
 const STARTER_SEED = 20261108;

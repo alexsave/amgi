@@ -78,7 +78,7 @@ const SAMPLES = {
   b_deck_removed: { id: 9, name: 'Korean', decks: 2, cards: 6, notes: 4 },
   b_media_exists: { exists: true },
   b_media_data: { found: true, data: Buffer.from([0, 1, 2, 255, 10, 34, 123, 0]) },
-  b_media_added: { filename: 'plusaudio-1.wav' },
+  b_media_added: { filename: 'amgi-1.wav' },
   b_q_media: { filename: 'clip.wav', data: Buffer.alloc(70000, 7) },
   q_deck_name: { name: '한국어::여행' },
   q_deck_languages: { known: 'en', learning: 'zh_cn' },
