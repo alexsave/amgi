@@ -33,6 +33,9 @@
  * (b_deck_listed) and PUT /decks/:id/languages sets it (q_deck_languages, b_deck_languages).
  * Change it with any change to a b_* kind or to a request kind the bridge reads. */
 #define WIRE_BRIDGE_PROTOCOL 3u
+/* The prefix of every clip amgi names (amgi_media_name in server/amgi/web.c). The one owner: wire_py.c writes it into
+ * the add-on's wire_schema.py, so no other file spells it. */
+#define AMGI_MEDIA_PREFIX "amgi-"
 
 /* Field types. */
 enum {

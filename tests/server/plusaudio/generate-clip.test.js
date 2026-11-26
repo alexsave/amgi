@@ -23,7 +23,7 @@ const { withEnvHidden } = require('./helpers/hide-env');
 const { DAILY_CAP_EXIT, RATE_LIMITED_EXIT, parseRetryAfter } = require('../../../plusaudio/lib/cliExit');
 
 function tempOutputPath() {
-  return path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'plusaudio-generate-clip-')), 'clip.wav');
+  return path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'amgi-generate-clip-')), 'clip.wav');
 }
 
 test('parseArgs collects the three flags and rejects an unknown one', () => {

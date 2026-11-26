@@ -136,9 +136,9 @@ notes.0.id=<id#10>
 notes.0.notetypeId=<id#7>
 notes.0.fields=[6]
 notes.0.fields.0=Hello.
-notes.0.fields.1=<audio src="plusaudio-d2f1108360fa9b7f8371.mp3"></audio>
+notes.0.fields.1=<audio src="amgi-d2f1108360fa9b7f8371.mp3"></audio>
 notes.0.fields.2=안녕하세요.
-notes.0.fields.3=<audio src="plusaudio-304a67503cc0047f5e15.mp3"></audio>
+notes.0.fields.3=<audio src="amgi-304a67503cc0047f5e15.mp3"></audio>
 notes.0.fields.4=ko
 notes.0.fields.5=
 notes.0.tags=[1]
@@ -147,9 +147,9 @@ notes.1.id=<id#11>
 notes.1.notetypeId=<id#7>
 notes.1.fields=[6]
 notes.1.fields.0=Thank you very much.
-notes.1.fields.1=<audio src="plusaudio-381a7ab7149c01188aeb.mp3"></audio>
+notes.1.fields.1=<audio src="amgi-381a7ab7149c01188aeb.mp3"></audio>
 notes.1.fields.2=정말 감사합니다.
-notes.1.fields.3=<audio src="plusaudio-548f5e2d5a6c685eeae6.mp3"></audio>
+notes.1.fields.3=<audio src="amgi-548f5e2d5a6c685eeae6.mp3"></audio>
 notes.1.fields.4=ko
 notes.1.fields.5=
 notes.1.tags=[1]
@@ -158,9 +158,9 @@ notes.2.id=<id#12>
 notes.2.notetypeId=<id#7>
 notes.2.fields=[6]
 notes.2.fields.0=Excuse me, can you help me?
-notes.2.fields.1=<audio src="plusaudio-70855603d189a9dbfc51.mp3"></audio>
+notes.2.fields.1=<audio src="amgi-70855603d189a9dbfc51.mp3"></audio>
 notes.2.fields.2=실례지만, 좀 도와주시겠어요?
-notes.2.fields.3=<audio src="plusaudio-f6e1b2d925703c65c027.mp3"></audio>
+notes.2.fields.3=<audio src="amgi-f6e1b2d925703c65c027.mp3"></audio>
 notes.2.fields.4=ko
 notes.2.fields.5=
 notes.2.tags=[1]
@@ -169,9 +169,9 @@ notes.3.id=<id#13>
 notes.3.notetypeId=<id#7>
 notes.3.fields=[6]
 notes.3.fields.0=I don't understand.
-notes.3.fields.1=<audio src="plusaudio-c4560e7b0f58053fdee3.mp3"></audio>
+notes.3.fields.1=<audio src="amgi-c4560e7b0f58053fdee3.mp3"></audio>
 notes.3.fields.2=이해가 안 돼요.
-notes.3.fields.3=<audio src="plusaudio-d6cf9475a3f897a55459.mp3"></audio>
+notes.3.fields.3=<audio src="amgi-d6cf9475a3f897a55459.mp3"></audio>
 notes.3.fields.4=ko
 notes.3.fields.5=
 notes.3.tags=[1]
@@ -180,9 +180,9 @@ notes.4.id=<id#14>
 notes.4.notetypeId=<id#7>
 notes.4.fields=[6]
 notes.4.fields.0=Could you say that more slowly?
-notes.4.fields.1=<audio src="plusaudio-e4ae829d7c7cf7424bca.mp3"></audio>
+notes.4.fields.1=<audio src="amgi-e4ae829d7c7cf7424bca.mp3"></audio>
 notes.4.fields.2=조금 천천히 말씀해 주시겠어요?
-notes.4.fields.3=<audio src="plusaudio-51b7457fbae901f30bf1.mp3"></audio>
+notes.4.fields.3=<audio src="amgi-51b7457fbae901f30bf1.mp3"></audio>
 notes.4.fields.4=ko
 notes.4.fields.5=
 notes.4.tags=[1]
@@ -191,9 +191,9 @@ notes.5.id=<id#15>
 notes.5.notetypeId=<id#7>
 notes.5.fields=[6]
 notes.5.fields.0=How much does this cost?
-notes.5.fields.1=<audio src="plusaudio-5dcaba8979a610ac0a52.mp3"></audio>
+notes.5.fields.1=<audio src="amgi-5dcaba8979a610ac0a52.mp3"></audio>
 notes.5.fields.2=이거 얼마예요?
-notes.5.fields.3=<audio src="plusaudio-a59d3c6914f0502885cc.mp3"></audio>
+notes.5.fields.3=<audio src="amgi-a59d3c6914f0502885cc.mp3"></audio>
 notes.5.fields.4=ko
 notes.5.fields.5=
 notes.5.tags=[1]
@@ -202,9 +202,9 @@ notes.6.id=<id#16>
 notes.6.notetypeId=<id#7>
 notes.6.fields=[6]
 notes.6.fields.0=Where is the station?
-notes.6.fields.1=<audio src="plusaudio-7f0505a2e96e3743895e.mp3"></audio>
+notes.6.fields.1=<audio src="amgi-7f0505a2e96e3743895e.mp3"></audio>
 notes.6.fields.2=역이 어디예요?
-notes.6.fields.3=<audio src="plusaudio-bdad7844cb3ad21843e3.mp3"></audio>
+notes.6.fields.3=<audio src="amgi-bdad7844cb3ad21843e3.mp3"></audio>
 notes.6.fields.4=ko
 notes.6.fields.5=
 notes.6.tags=[1]
@@ -213,9 +213,9 @@ notes.7.id=<id#17>
 notes.7.notetypeId=<id#7>
 notes.7.fields=[6]
 notes.7.fields.0=I would like a coffee, please.
-notes.7.fields.1=<audio src="plusaudio-7cf8ac1be15b7dde1754.mp3"></audio>
+notes.7.fields.1=<audio src="amgi-7cf8ac1be15b7dde1754.mp3"></audio>
 notes.7.fields.2=커피 한 잔 주세요.
-notes.7.fields.3=<audio src="plusaudio-25e893602b9cab4f5170.mp3"></audio>
+notes.7.fields.3=<audio src="amgi-25e893602b9cab4f5170.mp3"></audio>
 notes.7.fields.4=ko
 notes.7.fields.5=
 notes.7.tags=[1]
@@ -224,9 +224,9 @@ notes.8.id=<id#18>
 notes.8.notetypeId=<id#7>
 notes.8.fields=[6]
 notes.8.fields.0=Nice to meet you.
-notes.8.fields.1=<audio src="plusaudio-11b747fc4397aaee223b.mp3"></audio>
+notes.8.fields.1=<audio src="amgi-11b747fc4397aaee223b.mp3"></audio>
 notes.8.fields.2=만나서 반갑습니다.
-notes.8.fields.3=<audio src="plusaudio-92b95c9a78ec10a66d6c.mp3"></audio>
+notes.8.fields.3=<audio src="amgi-92b95c9a78ec10a66d6c.mp3"></audio>
 notes.8.fields.4=ko
 notes.8.fields.5=
 notes.8.tags=[1]
@@ -235,9 +235,9 @@ notes.9.id=<id#19>
 notes.9.notetypeId=<id#7>
 notes.9.fields=[6]
 notes.9.fields.0=See you tomorrow.
-notes.9.fields.1=<audio src="plusaudio-ecc941226eb9195304c0.mp3"></audio>
+notes.9.fields.1=<audio src="amgi-ecc941226eb9195304c0.mp3"></audio>
 notes.9.fields.2=내일 봐요.
-notes.9.fields.3=<audio src="plusaudio-0085f4ecdf1c14e1b393.mp3"></audio>
+notes.9.fields.3=<audio src="amgi-0085f4ecdf1c14e1b393.mp3"></audio>
 notes.9.fields.4=ko
 notes.9.fields.5=
 notes.9.tags=[1]
@@ -248,33 +248,33 @@ hasMore=false
 == media
 _amgi-loop.css = anki/media
 _amgi-loop.js = anki/media
-plusaudio-0085f4ecdf1c14e1b393.mp3 = anki/starter/media
-plusaudio-017069894c01ffba26f7.mp3 = anki/starter/media
-plusaudio-0239334aefc25794acf4.mp3 = anki/starter/media
-plusaudio-11b747fc4397aaee223b.mp3 = anki/starter/media
-plusaudio-25e893602b9cab4f5170.mp3 = anki/starter/media
-plusaudio-304a67503cc0047f5e15.mp3 = anki/starter/media
-plusaudio-381a7ab7149c01188aeb.mp3 = anki/starter/media
-plusaudio-3856c5c7a32854c6ac5f.mp3 = anki/starter/media
-plusaudio-51b7457fbae901f30bf1.mp3 = anki/starter/media
-plusaudio-548f5e2d5a6c685eeae6.mp3 = anki/starter/media
-plusaudio-5befbed15b7909931f8e.mp3 = anki/starter/media
-plusaudio-5dcaba8979a610ac0a52.mp3 = anki/starter/media
-plusaudio-70855603d189a9dbfc51.mp3 = anki/starter/media
-plusaudio-7c925e640bffcf3ea03e.mp3 = anki/starter/media
-plusaudio-7cf8ac1be15b7dde1754.mp3 = anki/starter/media
-plusaudio-7f0505a2e96e3743895e.mp3 = anki/starter/media
-plusaudio-92b95c9a78ec10a66d6c.mp3 = anki/starter/media
-plusaudio-a59d3c6914f0502885cc.mp3 = anki/starter/media
-plusaudio-a756f1f83c97397ff5cc.mp3 = anki/starter/media
-plusaudio-ab1062337dd647945730.mp3 = anki/starter/media
-plusaudio-bc9684a51b8a85b58c18.mp3 = anki/starter/media
-plusaudio-bdad7844cb3ad21843e3.mp3 = anki/starter/media
-plusaudio-c4560e7b0f58053fdee3.mp3 = anki/starter/media
-plusaudio-cfa154e57290f5a96aee.mp3 = anki/starter/media
-plusaudio-d2f1108360fa9b7f8371.mp3 = anki/starter/media
-plusaudio-d64a8b90d82c607a3aa7.mp3 = anki/starter/media
-plusaudio-d6cf9475a3f897a55459.mp3 = anki/starter/media
-plusaudio-e4ae829d7c7cf7424bca.mp3 = anki/starter/media
-plusaudio-ecc941226eb9195304c0.mp3 = anki/starter/media
-plusaudio-f6e1b2d925703c65c027.mp3 = anki/starter/media
+amgi-0085f4ecdf1c14e1b393.mp3 = anki/starter/media
+amgi-017069894c01ffba26f7.mp3 = anki/starter/media
+amgi-0239334aefc25794acf4.mp3 = anki/starter/media
+amgi-11b747fc4397aaee223b.mp3 = anki/starter/media
+amgi-25e893602b9cab4f5170.mp3 = anki/starter/media
+amgi-304a67503cc0047f5e15.mp3 = anki/starter/media
+amgi-381a7ab7149c01188aeb.mp3 = anki/starter/media
+amgi-3856c5c7a32854c6ac5f.mp3 = anki/starter/media
+amgi-51b7457fbae901f30bf1.mp3 = anki/starter/media
+amgi-548f5e2d5a6c685eeae6.mp3 = anki/starter/media
+amgi-5befbed15b7909931f8e.mp3 = anki/starter/media
+amgi-5dcaba8979a610ac0a52.mp3 = anki/starter/media
+amgi-70855603d189a9dbfc51.mp3 = anki/starter/media
+amgi-7c925e640bffcf3ea03e.mp3 = anki/starter/media
+amgi-7cf8ac1be15b7dde1754.mp3 = anki/starter/media
+amgi-7f0505a2e96e3743895e.mp3 = anki/starter/media
+amgi-92b95c9a78ec10a66d6c.mp3 = anki/starter/media
+amgi-a59d3c6914f0502885cc.mp3 = anki/starter/media
+amgi-a756f1f83c97397ff5cc.mp3 = anki/starter/media
+amgi-ab1062337dd647945730.mp3 = anki/starter/media
+amgi-bc9684a51b8a85b58c18.mp3 = anki/starter/media
+amgi-bdad7844cb3ad21843e3.mp3 = anki/starter/media
+amgi-c4560e7b0f58053fdee3.mp3 = anki/starter/media
+amgi-cfa154e57290f5a96aee.mp3 = anki/starter/media
+amgi-d2f1108360fa9b7f8371.mp3 = anki/starter/media
+amgi-d64a8b90d82c607a3aa7.mp3 = anki/starter/media
+amgi-d6cf9475a3f897a55459.mp3 = anki/starter/media
+amgi-e4ae829d7c7cf7424bca.mp3 = anki/starter/media
+amgi-ecc941226eb9195304c0.mp3 = anki/starter/media
+amgi-f6e1b2d925703c65c027.mp3 = anki/starter/media

@@ -97,7 +97,7 @@ Same generation policy, same clip-naming scheme, two different situations:
   Use it for your own live deck, when you have Anki open.
   No export, no import, and Anki's own GUID matching, scheduling and undo history are never in question because Anki is the one doing the writing.
 
-They stay interchangeable on the same deck: `plusaudio` and this add-on name a clip the same way (`plusaudio-<hash of profile, language, text>.wav`, or `.mp3` for a clip made before speech moved to Gemini, from `plusaudio/lib/audio-store.js`, ported for Python in `deck_text.py`), so a deck touched by one and then the other treats the other's clips as already done rather than regenerating them.
+They stay interchangeable on the same deck: `plusaudio` and this add-on name a clip the same way (`amgi-<hash of profile, language, text>.wav`, or `.mp3` for a clip made before speech moved to Gemini, from `plusaudio/lib/audio-store.js`, ported for Python in `deck_text.py`), so a deck touched by one and then the other treats the other's clips as already done rather than regenerating them.
 
 ## Idempotency and cancellation
 

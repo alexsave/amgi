@@ -223,7 +223,7 @@ static void test_web(void) {
         "Infinity, a bare fraction, no signed hex");
   CHECK(amgi_u32(2.5) == 3 && amgi_u32(-1) == 0 && amgi_u32(NAN) == 0 && amgi_u32(1e12) == 0xffffffffu, "the wire's u32");
   str name = amgi_media_name(&a, S("안녕하세요"), S("ko"), "wav");
-  CHECK(STR_IS(name, "plusaudio-dce4d16cea2470806c22.wav"), "audio-store.js's mediaName: %.*s", (int)name.n, name.p);
+  CHECK(STR_IS(name, "amgi-dce4d16cea2470806c22.wav"), "audio-store.js's mediaName: %.*s", (int)name.n, name.p);
   ar_free(&a);
 }
 
