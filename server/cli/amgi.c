@@ -7,7 +7,7 @@
  *   amgi status                                             the collection's state and the install's
  *   amgi install                                            install the add-ons and the note type
  *   amgi deck add NAME [--from KNOWN --to LEARNING] | amgi deck list | amgi deck remove NAME [--yes]
- *   amgi card add --deck NAME (--front TEXT --back TEXT | --text TEXT [--no-audio]) [--from KNOWN --to LEARNING]
+ *   amgi card add --deck NAME (--front TEXT --back TEXT | --text TEXT [--no-audio] | --file PATH [--no-audio]) [--from KNOWN --to LEARNING]
  *   amgi card list --deck NAME
  *   amgi card remove ID [--yes]
  *   amgi audio fill --deck NAME [--notetype N --text-field F --audio-field G --side learning|known --form sound|html]
@@ -24,6 +24,10 @@
  *   would-remove ID FRONT BACK                          (card remove without --yes: nothing deleted)
  *   removed ID FRONT BACK                               (card remove --yes: the note and its cards are gone)
  *   note ID FRONT BACK CUE_AUDIO TARGET_AUDIO          (an audio field is its [sound:...] reference, or -)
+ *   skip REASON PHRASE                                 (card add --file: a line not made; REASON is repeat or in-deck)
+ *   fail REASON PHRASE                                 (card add --text or --file: the phrase could not be made; a --file run goes on)
+ *   left REASON PHRASE                                 (card add --file: a line not reached; REASON is dailyCap, no-key, locked, not-up or limit)
+ *   bulk ADDED SKIPPED FAILED NOT_DONE                 (card add --file's last line: the run's counts)
  *   filled ID | failed ID REASON                       (audio fill: a note it made the clip of, or could not)
  *   audio-fill FILLED UP_TO_DATE SKIPPED FAILED         (audio fill's last line: this run's counts)
  *   status MODE SCHEMA PID PORT PROFILE COLLECTION
@@ -33,6 +37,13 @@
  * --from and --to only to say them once for a deck that has none (and to be told when they are not the deck's). A deck with no
  * pair is first asked to find one (from its amgi cards, or one Gemini request); only when that finds none are --from and --to
  * needed.
+ *
+ * card add --file PATH (- is stdin) makes a card of every phrase line of the file, as the deck page makes them of a paste
+ * (ui/wire/lines.h): a line a phrase, trimmed, blank lines and [section] markers passed over; a line that repeats an earlier
+ * one, or that the deck's Cue or Target already has, is skipped without asking Gemini; at most LINES_MAX lines (the rest are
+ * left with "limit", exit 4); a file over LINES_MAX_BYTES is refused whole (exit 4). Each card is written as soon as it is made.
+ * Gemini's rate limit is waited out and the line asked again; the day's cap stops the run (cards made stay, the lines after it
+ * are left dailyCap, exit 5). --text is one phrase (the whole text) through the same make_card.
  *
  * Exit codes: 0 done; 1 anything else (amgi not up, a server error); 2 Anki has the collection (locked);
  * 3 not found (a deck, the note type, a profile, the collection); 4 a usage error (including a deck that has no languages and
@@ -61,6 +72,7 @@
 
 #include "../amgi/amgi.h"
 #include "../amgi/messages.h"
+#include "lines.h"
 #include "cbase/app.h"
 #include "cbase/provider.h"
 #include "ingress_process.h"
@@ -89,6 +101,9 @@ static const char USAGE[] =
   "  amgi deck remove NAME [--yes]   (without --yes: what it would remove, and nothing is deleted)\n"
   "  amgi card add --deck NAME --front TEXT --back TEXT [--from KNOWN --to LEARNING]\n"
   "  amgi card add --deck NAME --text TEXT [--from KNOWN --to LEARNING] [--no-audio]\n"
+  "  amgi card add --deck NAME --file PATH [--from KNOWN --to LEARNING] [--no-audio]\n"
+  "      (a card of every line of the file, - is stdin: blank lines and [section] lines passed over, a repeated line and a line the\n"
+  "      deck has are skipped; one line a phrase: note, skip REASON PHRASE, fail REASON PHRASE or left REASON PHRASE, then bulk ADDED SKIPPED FAILED NOT_DONE)\n"
   "      (the deck's languages decide the card: --from and --to only set them on a deck with none, or must be the deck's own)\n"
   "  amgi card list --deck NAME\n"
   "  amgi card remove ID [--yes]     (ID is the note ID card list prints; without --yes: what it would remove, and nothing is deleted)\n"
@@ -787,18 +802,214 @@ static int each_note(arena *a, const up_state *s, const wire_deck *d, const list
     return RC_OK;
 }
 
-/* POST /card-text, waiting out the rate gate as it asks (it owns every wait: retryAfterMs exactly). */
-static const wire_card_text *generate(arena *a, const up_state *s, const wire_q_card_text *q, int *rc) {
-    for (int attempt = 0;; attempt++) {
-        answer x = {0};
-        const wire_card_text *t = send_call(a, s, "POST", "/api/anki/card-text", WK_Q_CARD_TEXT, q, WK_CARD_TEXT, GEN_MS, rc, &x);
-        if (!t && *rc == RC_FAIL && x.status >= 500) *rc = RC_GEMINI; /* card-text's own failures are Gemini's */
-        if (t || *rc != RC_GEMINI || x.status != 429 || attempt == 3) return t;
-        const wire_error *e = as_kind(a, &x, WK_ERROR);
-        if (!e || e->daily_cap || e->retry_after_ms == WIRE_NONE || e->retry_after_ms > MAX_WAIT_MS) return NULL;
-        fprintf(stderr, "amgi: waiting %ums as Gemini's rate gate asks, then trying again\n", e->retry_after_ms);
-        sleep_ms((int)e->retry_after_ms);
+/* ---- making cards of phrases: what the deck page's box does with what is typed or pasted into it
+ * (ui/src/form.c, then the run in ui/src/bulk.c), one phrase after another (the server's one rate gate
+ * owns every wait) ----
+ * card add --text makes one phrase (the whole text) and card add --file makes a phrase of each line of a
+ * file; both go through make_cards, and every phrase through make_card.
+ * A file is read as the box reads a paste (ui/wire/lines.h): a line a phrase, trimmed, blank lines and
+ * [section] markers passed over, a line the file already had (by its dedupe key) skipped, at most
+ * LINES_MAX_BYTES of text and LINES_MAX phrases. A phrase whose key the deck's Cue or Target field
+ * already has is skipped, with no Gemini call. Each card is written the moment it is made, so a run
+ * that stops leaves what it made in the deck. Every phrase gets one line:
+ *   note ...                  made and written (the note as reading it back finds it)
+ *   skip REASON PHRASE        repeat (an earlier line of the file) or in-deck
+ *   fail REASON PHRASE        this phrase could not be made or written; the run goes on
+ *   left REASON PHRASE        not made, because the run stopped (dailyCap, locked, no-key, not-up)
+ *                             or the phrase is past the LINES_MAX limit (limit)
+ * then, for --file, bulk ADDED SKIPPED FAILED NOT_DONE. */
+typedef struct {
+    arena *a;
+    const up_state *s;
+    const wire_deck *d;
+    const listening *l;
+    wire_q_card_text q;  /* the deck and the clips asked for; user_input is set per phrase */
+    wire_str learning;   /* the deck's learning language: each note's Language field */
+    wire_str *keys;      /* the deck's Cue and Target values' dedupe keys */
+    uint32_t nkeys;
+    uint32_t added, skipped, failed, left;
+    const char *stop;    /* why the run stopped (the reason its left lines give), or NULL */
+    int stop_rc, fail_rc;
+} card_run;
+
+static void record(const char *kind, const char *reason, size_t rn, wire_str phrase) {
+    printf("%s\t", kind);
+    put(reason, rn);
+    putchar('\t');
+    put_w(phrase);
+    putchar('\n');
+    fflush(stdout);
+}
+static void skip(card_run *r, const char *reason, wire_str phrase) { r->skipped++, record("skip", reason, strlen(reason), phrase); }
+static void left(card_run *r, const char *reason, wire_str phrase) { r->left++, record("left", reason, strlen(reason), phrase); }
+static void fail(card_run *r, int rc, wire_str why, wire_str phrase) {
+    r->failed++;
+    if (rc == RC_GEMINI || !r->fail_rc) r->fail_rc = rc; /* a Gemini failure decides the exit */
+    record("fail", why.p, why.len, phrase);
+}
+/* The run stops: this phrase and every one after it is left. */
+static void stop_run(card_run *r, const char *reason, int rc, wire_str phrase) {
+    r->stop = reason;
+    r->stop_rc = rc;
+    left(r, reason, phrase);
+}
+static wire_str ws_z(const char *z) { return (wire_str){z, (uint32_t)strlen(z)}; }
+
+/* The deck's Cue and Target values, as dedupe keys (bulk.c keys_answered). A field the server does not
+ * answer for is, as on the page, nothing known to be there: every phrase is made. */
+static void deck_keys(card_run *r) {
+    int fields[2] = {r->l->idx.cue, r->l->idx.target};
+    for (int k = 0; k < 2; k++) {
+        if (fields[k] < 0) continue;
+        char path[192];
+        snprintf(path, sizeof path, "/api/anki/decks/%lld/notes/field-values?notetypeId=%lld&fieldIndex=%d", (long long)r->d->id,
+                 (long long)r->l->nt->id, fields[k]);
+        int rc;
+        const wire_field_values *v = get(r->a, r->s, path, WK_FIELD_VALUES, &rc);
+        if (!v) {
+            fputs("amgi: warning: the deck's cards could not be read, so no phrase is checked against them\n", stderr);
+            continue;
+        }
+        wire_str *grown = ar_alloc(r->a, (r->nkeys + v->values.n + 1) * sizeof *grown);
+        if (r->nkeys) memcpy(grown, r->keys, r->nkeys * sizeof *grown);
+        r->keys = grown;
+        for (uint32_t i = 0; i < v->values.n; i++) {
+            char *dst = ar_alloc(r->a, v->values.v[i].len + 1);
+            r->keys[r->nkeys++] = (wire_str){dst, lines_key(dst, v->values.v[i])};
+        }
     }
+}
+static int in_deck(const card_run *r, wire_str phrase) {
+    char *dst = ar_alloc(r->a, phrase.len + 1);
+    uint32_t n = lines_key(dst, phrase);
+    for (uint32_t i = 0; i < r->nkeys; i++)
+        if (r->keys[i].len == n && !memcmp(r->keys[i].p, dst, n)) return 1;
+    return 0;
+}
+
+static uint32_t whole_seconds(uint32_t ms) { return ms < 1000 ? 1 : (ms + 999) / 1000; } /* bulk.c seconds */
+
+/* POST /card-text for one phrase, Gemini's limits handled as the deck page's run handles them
+ * (bulk.c line_answered), the one place the command line does: a 429 with dailyCap stops the run;
+ * a 429 with notStarted (nothing was spent) is waited out for its retryAfterMs and asked again, as
+ * often as it comes; any other 429 with a retryAfterMs is waited out too, while the waits this
+ * phrase has made stay within the server's maxWaitMs, past which the phrase fails. The card, or
+ * NULL having failed the phrase or stopped the run. */
+static const wire_card_text *card_text(card_run *r, wire_str phrase) {
+    r->q.user_input = phrase;
+    uint32_t budget = 0;
+    for (;;) {
+        answer x;
+        if (call(r->a, r->s, "POST", "/api/anki/card-text", WK_Q_CARD_TEXT, &r->q, GEN_MS, &x))
+            return stop_run(r, "not-up", RC_FAIL, phrase), NULL;
+        if (x.status == 200) {
+            const wire_card_text *t = as_kind(r->a, &x, WK_CARD_TEXT);
+            if (!t) fail(r, RC_FAIL, ws_z("card-text answered something other than card_text"), phrase);
+            return t;
+        }
+        const wire_error *e = as_kind(r->a, &x, WK_ERROR);
+        if (!e) return fail(r, RC_FAIL, ws_z(ar_fmt(r->a, "card-text answered HTTP %d", x.status)), phrase), NULL;
+        if (e->mode == WIRE_MODE_LOCKED) return fputs(LOCKED_LINE "\n", stderr), stop_run(r, "locked", RC_LOCKED, phrase), NULL;
+        if (weq(e->error, MISSING_KEY_MESSAGE)) return fputs(NO_KEY_LINE "\n", stderr), stop_run(r, "no-key", RC_GEMINI, phrase), NULL;
+        if (e->daily_cap) {
+            fprintf(stderr, "gemini: the day's quota is spent (dailyCap): stop and tell the user. %.*s\n", (int)e->error.len, e->error.p);
+            return stop_run(r, "dailyCap", RC_GEMINI, phrase), NULL;
+        }
+        if (x.status == 429 && e->retry_after_ms != WIRE_NONE) {
+            uint32_t wait = e->retry_after_ms;
+            if (!e->not_started) {
+                if (e->max_wait_ms != WIRE_NONE && budget + wait > e->max_wait_ms) {
+                    const char *why = ar_fmt(r->a,
+                                             "Gave up on Gemini's rate limit: this line already waited %us, and another %us would pass its %us limit",
+                                             (budget + 500) / 1000, whole_seconds(wait), e->max_wait_ms / 1000);
+                    return fail(r, RC_GEMINI, ws_z(why), phrase), NULL;
+                }
+                budget += wait;
+            }
+            fprintf(stderr, "amgi: Gemini's rate limit (%s): waiting %ums, then asking again: %.*s\n",
+                    e->not_started ? "notStarted" : "started", wait, (int)phrase.len, phrase.p);
+            sleep_ms((int)wait);
+            continue;
+        }
+        return fail(r, x.status == 404 ? RC_NOT_FOUND : x.status >= 500 || x.status == 429 ? RC_GEMINI : RC_FAIL, e->error, phrase), NULL;
+    }
+}
+
+/* One phrase into a card in the deck: made, written at once, and read back. */
+static void make_card(card_run *r, wire_str phrase) {
+    const wire_card_text *t = card_text(r, phrase);
+    if (!t) return;
+    const listening *l = r->l;
+    size_t nf = l->nt->field_names.n;
+    wire_str *fields = ar_alloc(r->a, (nf + 1) * sizeof *fields);
+    for (size_t f = 0; f < nf; f++) fields[f] = (wire_str){"", 0};
+    fields[l->idx.cue] = t->front_text;
+    fields[l->idx.target] = t->back_text;
+    if (l->idx.target_audio >= 0) fields[l->idx.target_audio] = t->audio.reference;
+    if (l->idx.cue_audio >= 0) fields[l->idx.cue_audio] = t->cue_audio.reference;
+    if (l->idx.language >= 0) fields[l->idx.language] = r->learning;
+    wire_str fb = lines_trim(t->front_text), bb = lines_trim(t->back_text);
+    if (fb.len == bb.len && !memcmp(fb.p, bb.p, fb.len))
+        fprintf(stderr, "amgi: warning: both sides came back the same (the model echoed instead of translating): %.*s\n",
+                (int)phrase.len, phrase.p);
+    wire_q_note n = {r->d->id, l->nt->id, {fields, (uint32_t)nf}, {NULL, 0}, r->learning, l->idx.target};
+    answer x;
+    if (call(r->a, r->s, "POST", "/api/anki/notes", WK_Q_NOTE, &n, CALL_MS, &x)) return stop_run(r, "not-up", RC_FAIL, phrase);
+    const wire_note_added *added = x.status == 200 ? as_kind(r->a, &x, WK_NOTE_ADDED) : NULL;
+    if (!added) {
+        const wire_error *e = x.status == 200 ? NULL : as_kind(r->a, &x, WK_ERROR);
+        if (e && e->mode == WIRE_MODE_LOCKED) return fputs(LOCKED_LINE "\n", stderr), stop_run(r, "locked", RC_LOCKED, phrase);
+        return fail(r, x.status == 404 ? RC_NOT_FOUND : RC_FAIL, e ? e->error : ws_z(ar_fmt(r->a, "notes answered HTTP %d", x.status)), phrase);
+    }
+    int rc = each_note(r->a, r->s, r->d, l, added->note_id);
+    if (rc) return fail(r, rc, ws_z(ar_fmt(r->a, "written as note %lld, but reading it back failed", (long long)added->note_id)), phrase);
+    r->added++;
+}
+
+/* The exit code of a run: what stopped it, else what failed, else what was left past the limit. */
+static int run_rc(const card_run *r, int limit) { return r->stop ? r->stop_rc : r->failed ? r->fail_rc : limit ? RC_USAGE : RC_OK; }
+
+/* --text: the whole text is one phrase. */
+static int make_one(card_run *r, const char *text) {
+    make_card(r, ws_z(text));
+    return run_rc(r, 0);
+}
+
+/* --file: the phrases of the text, each made, skipped or left, in order, then the bulk line. */
+static int make_cards(card_run *r, const char *text, size_t len) {
+    deck_keys(r);
+    lines_reader lr;
+    lines_open(&lr, text, (uint32_t)len, ar_alloc(r->a, len + 1));
+    wire_str phrase;
+    int kind, limit = 0;
+    while ((kind = lines_next(&lr, &phrase)) != LINE_END) {
+        if (kind == LINE_REPEAT) skip(r, "repeat", phrase);
+        else if (lr.cards > LINES_MAX) limit = 1, left(r, "limit", phrase);
+        else if (in_deck(r, phrase)) skip(r, "in-deck", phrase);
+        else if (r->stop) left(r, r->stop, phrase);
+        else make_card(r, phrase);
+    }
+    if (limit) fprintf(stderr, "amgi: one run makes at most %u phrases: the ones left with \"limit\" were not made; run them again\n", LINES_MAX);
+    printf("bulk\t%u\t%u\t%u\t%u\n", r->added, r->skipped, r->failed, r->left);
+    return run_rc(r, limit);
+}
+
+/* The text of --file PATH (- is stdin), whole: NULL having said why when it can not be read or is
+ * longer than the deck page's box takes. */
+static char *read_phrases(arena *a, const char *path, size_t *len, int *rc) {
+    FILE *f = strcmp(path, "-") ? fopen(path, "rb") : stdin;
+    if (!f) return fprintf(stderr, "amgi: --file %s: %s\n", path, strerror(errno)), *rc = RC_USAGE, NULL;
+    char *text = ar_alloc(a, LINES_MAX_BYTES + 2);
+    size_t n = fread(text, 1, LINES_MAX_BYTES + 1, f);
+    int bad = ferror(f);
+    if (f != stdin) fclose(f);
+    if (bad) return fprintf(stderr, "amgi: --file %s: could not be read\n", path), *rc = RC_USAGE, NULL;
+    if (n > LINES_MAX_BYTES)
+        return fprintf(stderr, "amgi: --file %s is longer than %u bytes, more than one run takes: split it\n", path, LINES_MAX_BYTES),
+               *rc = RC_USAGE, NULL;
+    text[n] = 0;
+    *len = n;
+    return text;
 }
 
 /* GET /notes/:id: 0 with *n the note, or 0 with *n NULL when the server says there is no such note (a 404 it
@@ -949,23 +1160,27 @@ static int cmd_card(int argc, char **argv) {
     if (argc >= 3 && !strcmp(argv[2], "remove")) return card_remove(argc, argv);
     if (argc < 3 || (strcmp(argv[2], "add") && strcmp(argv[2], "list"))) return usage("card takes add, list or remove ID");
     int add = !strcmp(argv[2], "add");
-    const char *deck = NULL, *front = NULL, *back = NULL, *text = NULL, *from = NULL, *to = NULL;
+    const char *deck = NULL, *front = NULL, *back = NULL, *text = NULL, *file = NULL, *from = NULL, *to = NULL;
     int no_audio = 0;
-    opt opts[] = {{"--deck", &deck, NULL}, {"--front", &front, NULL}, {"--back", &back, NULL}, {"--text", &text, NULL},
-                  {"--from", &from, NULL},  {"--to", &to, NULL},       {"--no-audio", NULL, &no_audio}};
-    if (parse_opts(argc, argv, 3, opts, add ? 7 : 1, NULL)) return usage(NULL);
+    opt opts[] = {{"--deck", &deck, NULL}, {"--front", &front, NULL}, {"--back", &back, NULL},   {"--text", &text, NULL},
+                  {"--file", &file, NULL}, {"--from", &from, NULL},   {"--to", &to, NULL},       {"--no-audio", NULL, &no_audio}};
+    if (parse_opts(argc, argv, 3, opts, add ? 8 : 1, NULL)) return usage(NULL);
     if (!deck || !deck[0]) return usage("--deck NAME is required");
     int manual = front || back;
     if (add) {
-        if (manual && (text || no_audio)) return usage("give --front and --back, or --text, not both");
+        if (manual && (text || file || no_audio)) return usage("give --front and --back, or --text, or --file, not several");
         if (manual && (!front || !back || !front[0] || !back[0])) return usage("--front and --back are both required");
-        if (!manual && (!text || !text[0])) return usage("card add needs --front and --back, or --text");
+        if (text && file) return usage("give --text or --file, not both");
+        if (!manual && (!(text || file) || (text && !text[0]) || (file && !file[0]))) return usage("card add needs --front and --back, or --text, or --file PATH");
         if ((from && !from[0]) || (to && !to[0])) return usage("--from and --to take a language code");
     }
-    up_state s;
-    int rc = need_up(&s);
-    if (rc) return rc;
     arena a = {0};
+    int rc = RC_OK;
+    size_t file_len = 0;
+    /* the file is read first: a missing or too long one is a usage error whether or not amgi is up */
+    if (file && !(text = read_phrases(&a, file, &file_len, &rc))) goto out;
+    up_state s;
+    if ((rc = need_up(&s))) goto out;
     const wire_deck *d;
     const wire_notetypes *nts;
     listening l = {0};
@@ -983,23 +1198,17 @@ static int cmd_card(int argc, char **argv) {
     }
     wire_str known, learning;
     if ((rc = deck_pair(&a, &s, d, from, to, &known, &learning))) goto out;
+    if (!manual) {
+        card_run r = {.a = &a, .s = &s, .d = d, .l = &l, .learning = learning,
+                      .q = {{"", 0}, d->id, (uint8_t)(no_audio ? 0 : 1), 0 /* unwatched */}};
+        rc = file ? make_cards(&r, text, file_len) : make_one(&r, text);
+        goto out;
+    }
     size_t nf = l.nt->field_names.n;
     wire_str *fields = ar_alloc(&a, (nf + 1) * sizeof *fields);
     for (size_t f = 0; f < nf; f++) fields[f] = (wire_str){"", 0};
-    if (manual) {
-        fields[l.idx.cue] = (wire_str){front, (uint32_t)strlen(front)};
-        fields[l.idx.target] = (wire_str){back, (uint32_t)strlen(back)};
-    } else {
-        wire_q_card_text q = {{text, (uint32_t)strlen(text)}, d->id, (uint8_t)(no_audio ? 0 : 1), 0 /* unwatched */};
-        const wire_card_text *t = generate(&a, &s, &q, &rc);
-        if (!t) goto out;
-        fields[l.idx.cue] = t->front_text;
-        fields[l.idx.target] = t->back_text;
-        if (l.idx.target_audio >= 0) fields[l.idx.target_audio] = t->audio.reference;
-        if (l.idx.cue_audio >= 0) fields[l.idx.cue_audio] = t->cue_audio.reference;
-        if (t->front_text.len == t->back_text.len && !memcmp(t->front_text.p, t->back_text.p, t->front_text.len))
-            fputs("amgi: warning: the two sides are the same text (the model echoed instead of translating)\n", stderr);
-    }
+    fields[l.idx.cue] = (wire_str){front, (uint32_t)strlen(front)};
+    fields[l.idx.target] = (wire_str){back, (uint32_t)strlen(back)};
     if (l.idx.language >= 0) fields[l.idx.language] = learning;
     wire_q_note n = {d->id, l.nt->id, {fields, (uint32_t)nf}, {NULL, 0}, learning, l.idx.target};
     const wire_note_added *added = send_call(&a, &s, "POST", "/api/anki/notes", WK_Q_NOTE, &n, WK_NOTE_ADDED, CALL_MS, &rc, NULL);
