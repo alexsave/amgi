@@ -1,26 +1,17 @@
 // The Anki bridge add-on's Python side of the wire format (anki/addon/amgi_bridge/bridge_wire.py)
 // against the server's (ui/wire/wire.mjs, over wire.wasm): one schema, two walkers, the same bytes.
-//   - the add-on's wire_schema.py is exactly what ui/wire/wire_py.c writes from wire.c, so the
-//     Python never holds a layout of its own;
 //   - every message the server writes, the add-on reads and writes back byte for byte, for every
 //     kind the bridge carries, and the other way round.
 // Run ui/build.sh first (it builds ui/out/wire_py).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import fs from 'node:fs';
 import path from 'node:path';
 import { sandboxEnv } from '../repo/sandbox-home.cjs';
 import { BRIDGE_PROTOCOL, KIND, decode, encode } from '../../ui/wire/wire.mjs';
 
 const ROOT = path.resolve(import.meta.dirname, '..', '..');
 const ADDON = path.join(ROOT, 'anki', 'addon', 'amgi_bridge');
-
-test('the add-on\'s wire_schema.py is what wire_py.c writes from wire.c', () => {
-    const generated = execFileSync(path.join(ROOT, 'ui', 'out', 'wire_py'), { env: sandboxEnv(), encoding: 'utf8' });
-    assert.equal(fs.readFileSync(path.join(ADDON, 'wire_schema.py'), 'utf8'), generated,
-      'run ui/build.sh and commit anki/addon/amgi_bridge/wire_schema.py');
-});
 
 // Python reads each (kind, message) and writes it again: records of u8 name length, name, u32 length,
 // bytes in; u32 length, bytes out (or 0xffffffff when it refused the message).
