@@ -63,6 +63,40 @@ static int admit(gate *g, fake *f, int n) {
     return admitted;
 }
 
+/* Google with a per-minute limit: it takes at most `limit` requests in any 60 s and refuses the rest. */
+typedef struct {
+    int64_t at[16384];
+    int n, limit;
+} fake_google;
+static int google_takes(fake_google *gg, int64_t t) {
+    int in = 0;
+    for (int i = 0; i < gg->n; i++) in += t - gg->at[i] < GATE_WINDOW_MS;
+    if (in >= gg->limit || gg->n == (int)(sizeof gg->at / sizeof *gg->at)) return 0;
+    gg->at[gg->n++] = t;
+    return 1;
+}
+/* Steady demand of one request a second until `until`, through the gate as gem_generate uses it.
+ * The times of the refusals go into refused (up to cap of them); the count is returned. */
+static int demand(gate *g, fake *f, fake_google *gg, int64_t until, int64_t *refused, int cap) {
+    int n = 0;
+    while (f->t < until) {
+        int64_t w = gate_acquire(g, M);
+        if (w > 0) {
+            f->t += w;
+            continue;
+        }
+        if (google_takes(gg, f->t)) {
+            gate_record(g, M, 0, -1);
+        } else {
+            if (n < cap) refused[n] = f->t;
+            n++;
+            gate_record(g, M, 1, -1);
+        }
+        f->t += 1000;
+    }
+    return n;
+}
+
 static void test_gate(void) {
     fake f;
     gate *g = gate_at(&f, 1000000, 1);
@@ -127,6 +161,40 @@ static void test_gate(void) {
     gate_record(g, M, 0, -1);
     CHECK(gate_inspect(g, M).cap == learned + 2, "and another");
     gate_free(g);
+
+    /* Probing a fixed limit: after the limit is found, each probe above it that is refused doubles the
+     * wait before the next, so the refusals come further and further apart, and the cap sits at the
+     * limit in between instead of falling to 80% of it. */
+    {
+        static fake_google gg;
+        memset(&gg, 0, sizeof gg);
+        gg.limit = 10;
+        g = gate_at(&f, 1000000, 3);
+        int64_t t0 = f.t, when[64];
+        int refusals = demand(g, &f, &gg, t0 + 128 * (int64_t)GATE_WINDOW_MS, when, 64);
+        int growing = refusals >= 4;
+        for (int i = 3; i < refusals && i < 64; i++) growing &= when[i] - when[i - 1] > when[i - 1] - when[i - 2];
+        int late = 0;
+        for (int i = 0; i < refusals && i < 64; i++) late += when[i] - t0 >= 64 * (int64_t)GATE_WINDOW_MS;
+        CHECK(refusals <= 10, "a fixed limit of 10 a minute, 128 minutes of demand: %d refusals (the gate before this change: 29)", refusals);
+        CHECK(growing, "each refusal after the first ones comes later than the last gap (%d refusals)", refusals);
+        CHECK(late <= 1, "the second hour has at most one refusal, got %d", late);
+        gate_state st = gate_inspect(g, M);
+        CHECK(st.good == 10 && (st.cap == 10 || st.cap == 11), "the cap sits at the limit: good %lld, cap %lld", (long long)st.good,
+              (long long)st.cap);
+        CHECK(st.grow_every == GATE_MAX_GROW_MS, "the probe interval has grown to its most, got %lld", (long long)st.grow_every);
+
+        /* The limit is raised: the next probe holds, the interval is a minute again, and the cap climbs to it. */
+        gg.limit = 20;
+        int64_t t1 = f.t;
+        int more = demand(g, &f, &gg, t1 + (GATE_MAX_GROW_MS + 15 * (int64_t)GATE_WINDOW_MS), when, 64);
+        st = gate_inspect(g, M);
+        CHECK(st.good == 20 && (st.cap == 20 || st.cap == 21),
+              "within one long wait and fifteen minutes the gate has climbed to the raised limit: good %lld, cap %lld", (long long)st.good,
+              (long long)st.cap);
+        CHECK(more >= 1 && more <= 8, "the new limit is found and then probed less and less, as the first was: %d refusals", more);
+        gate_free(g);
+    }
 
     /* jitter: distinct, in range, replayed by the seed */
     int64_t first[8], again[8], other[8];
