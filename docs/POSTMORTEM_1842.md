@@ -81,7 +81,7 @@ Evidence: the surviving pages 2 and 7 are Anki's own post-backup transaction (co
 
 ### Contributing factors
 
-- **A faithful port copies its original's bugs.** The Node server (`plusaudio/lib/collection/open.js:91`) and its C port (`server/collection/db.c`) both ran `PRAGMA wal_checkpoint(TRUNCATE)` on every open.
+- **A faithful port copies its original's bugs.** The Node server (`lib/collection/open.js:91`) and its C port (`server/collection/db.c`) both ran `PRAGMA wal_checkpoint(TRUNCATE)` on every open.
 - **Dropping the checkpoint alone did not fix it.** The mutation check showed any second connection's ordinary close-time checkpoint does the same, even the `sqlite3` CLI; only refusing to open a file with a `-wal` or `-shm` beside it fixes it.
 - **The page writes on its own.** The page-load auto-install opens and writes the collection without a user action; the owner kept it automatic ("I dont want users to think about it"), so it had to be safe with no user in the loop.
 - **Tests ran with the real HOME.** `test/parity/servers.mjs` started the C server with the real HOME, and the C server's default profile folder is `$HOME/Library/Application Support/Anki2`; this exposure turned out not to be the path at 18:42 (no request without `X-Amgi-Collection` opens a collection), but it was live, and one test (cli-fuzz) did write outside its sandbox at 18:25:07.
@@ -172,7 +172,7 @@ Friction: the owner's corrections on wording and scope, the incident, a one-hour
 | 18 | Say "final, no more pushes" before asking for a merge; never push to a branch whose PR may merge | foolish | Open (proposed here, from 5.6) |
 | 19 | ETAs: post a time only for work in our own hands, and re-post when scope changes | foolish | Open (proposed here, from 5.2) |
 | 20 | Durable files only (no /tmp), lint plus tests on every PR | all | Done as rules (thread decision and memory); keep in every brief |
-| 21 | Replace the add-on's Node `generate-clip.js` with a C tool | foolish | Open (follow-up recorded at the 19:32 handoff) |
+| 21 | Replace the add-on's Node `the clip script` with a C tool | foolish | Open (follow-up recorded at the 19:32 handoff) |
 | 22 | Deck rename onto a taken name: refuse, or Anki's "+" (branch decks-anki-names) | Alex | Open decision |
 | 23 | Every hands-on check of a build that writes a collection runs on a copied profile and a fake HOME, never the real one, until merged and verified | cdom, all | Done as a rule (in place since the re-test) |
 | 24 | During a live check, change one thing at a time (no server restart or rebuild mid-check) | all | Done as a rule |

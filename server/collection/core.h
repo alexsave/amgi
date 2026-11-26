@@ -1,6 +1,6 @@
 /* The collection core's insides, shared by its files (collection.h is what callers see).
  *
- * The code is a port of plusaudio/lib/collection, line for line where it matters, so the
+ * The code is a port of lib/collection, line for line where it matters, so the
  * structure follows the JavaScript's: a function that fails "throws" (cx_throw, a longjmp to the
  * nearest cx_try), and a caller that wants to survive it catches it, exactly where the JavaScript
  * had a try. Every statement goes through q_*, which binds a number the way node:sqlite does (an

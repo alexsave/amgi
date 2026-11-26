@@ -1,5 +1,5 @@
 // `amgi starter-audio` (server/amgi/starter_audio.c), run as the binary against the tests' fake Gemini
-// (tests/server/plusaudio/helpers/fake-gemini.js, in process) and a fake ffmpeg on PATH that copies its input to
+// (tests/helpers/fake-gemini.js, in process) and a fake ffmpeg on PATH that copies its input to
 // its output, so no real Gemini call and no real ffmpeg is needed. Each recording goes to a temp starter folder
 // and a temp cache (--dir, --cache); the repository's own anki/starter is only ever read.
 //
@@ -19,7 +19,7 @@ import { ROOT } from './servers.mjs';
 import { sandboxEnv } from '../../repo/sandbox-home.cjs';
 
 const require = createRequire(import.meta.url);
-const { fakeGemini, e2eScript, dailyQuotaExhausted, grpcError } = require('../plusaudio/helpers/fake-gemini.js');
+const { fakeGemini, e2eScript, dailyQuotaExhausted, grpcError } = require('../../helpers/fake-gemini.js');
 
 const AMGI = path.join(ROOT, 'server', 'build', 'amgi');
 const LITE = 'gemini-3.8-flash-lite-tts';

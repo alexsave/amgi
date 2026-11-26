@@ -6,7 +6,7 @@
 # list notes in a deck paginated, create a deck with `::` nesting, add a
 # note, update a note's fields, add a media file), same vocabulary in the
 # JSON shapes each function returns, so bridge_server.py's HTTP responses and
-# plusaudio's direct-file responses can be treated as interchangeable by
+# the C collection core's direct-file responses can be treated as interchangeable by
 # whatever picks a transport on the UI side.
 #
 # The one rule every function here follows, and the whole reason this file
@@ -18,7 +18,7 @@
 # mutation here is a call into Anki's API, never a raw SQL write.
 #
 # No function in this file touches aqt.operations, mw, or a socket. It is
-# tested the same way core.py is (tests/anki/addon/test_bridge_ops.py, against a real
+# tested (tests/anki/addon/test_bridge_ops.py, against a real
 # anki.collection.Collection): only bridge_dispatch.py knows this file
 # exists inside an Anki add-on at all.
 
@@ -36,7 +36,7 @@ try:
 except ImportError:
     # tests/anki/addon/ imports this module directly, with the add-on's own directory on
     # sys.path (see tests/anki/addon/test_bridge_ops.py) - the same dual-import tolerance
-    # core.py uses for deck_text.py.
+    # the add-on's own modules use for each other.
     from deck_text import looks_romanized
 
 if TYPE_CHECKING:
@@ -228,12 +228,9 @@ def list_field_values(col: "Collection", deck_id: int, notetype_id: int, field_i
 
 
 def has_media(col: "Collection", filename: str) -> bool:
-    """Whether a content-hashed clip name (see plusaudio/lib/audio-store.js's
-    mediaName, mirrored by deck_text.media_name) is already in this
-    collection's media folder - the same resumability check
-    plan_fill/apply_fill make with `col.media.have()` in core.py, exposed here
-    so the web UI's bulk-add screen can skip a generation call it would only
-    throw away.
+    """Whether a content-hashed clip name (amgi_media_name in the server) is
+    already in this collection's media folder, so the web UI's bulk-add screen
+    can skip a generation call it would only throw away.
     """
     return col.media.have(filename)
 

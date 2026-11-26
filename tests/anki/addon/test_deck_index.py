@@ -1,7 +1,7 @@
 # Does repair_deck_index actually undo what amgi's direct writer does?
 #
 # This test reproduces the corruption rather than mocking it. It writes a deck
-# row the exact way plusaudio/lib/collection/decks.js writes one - with
+# row the exact way lib/collection/decks.js writes one - with
 # ` COLLATE unicase` stripped out of the live schema via PRAGMA
 # writable_schema, because node:sqlite has no collation API - then reopens the
 # collection with Anki and asserts that Anki cannot schedule the deck. If the

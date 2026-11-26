@@ -3,7 +3,7 @@
 // spoken text (by pronunciation for Korean, by NFKC, case, punctuation and spacing for the rest),
 // and readingIsAmbiguous (ja and zh, where a reading must be heard when one is given). "accept" is
 // a clip taken on its transcript alone; "judge" is one the audio judge must hear. The expected
-// answers in tests/server/parity/golden/judge-expected.tsv were produced once from plusaudio's TypeScript
+// answers in tests/server/parity/golden/judge-expected.tsv were produced once from the TypeScript card generator
 // (by a generator removed at L4).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

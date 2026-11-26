@@ -1,4 +1,4 @@
-/* plusaudio/lib/collection/media.js and paths.js: the collection's media folder, and where a
+/* lib/collection/media.js and paths.js: the collection's media folder, and where a
  * user's Anki profiles are. Plain file work, as in Node: path.join's normalising and
  * fs.existsSync's following of links included. */
 #include <dirent.h>

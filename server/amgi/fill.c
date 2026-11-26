@@ -12,7 +12,7 @@
  * both are that text spoken), in the form asked for, and the file is there. Another add-on's [sound:] or an image in the field is
  * never touched; only amgi's own reference is replaced.
  *
- * It was the Anki add-on's "Fill missing audio" (core.py plan_fill and apply_fill), which needed Node to make the clips. */
+ * The Anki add-on's "Fill missing audio" menu item did this before the server did. */
 #include <string.h>
 
 #include "amgi.h"

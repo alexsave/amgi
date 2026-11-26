@@ -94,4 +94,4 @@ Exit 5 `rate limited`: the CLI already waited as asked; wait `retryAfterMs` and 
 `dailyCap`: stop and tell the user.
 After the writes, the user opens Anki and syncs; if AnkiWeb asks to upload or download the whole collection, upload.
 
-Raw HTTP API, wire format, the bridge, the Node scripts and the card-design rules: skills/amgi/references/api.md and the other references.
+Raw HTTP API, wire format, the bridge, scripting and the card-design rules: skills/amgi/references/api.md and the other references.

@@ -35,7 +35,7 @@ int main(void) {
     printf("NONE = 0x%08X\n", WIRE_NONE);
     printf("ABSENT = %d\n", (int)WIRE_ABSENT);
     printf("UNKNOWN = %u\n", WIRE_UNKNOWN);
-    printf("MEDIA_PREFIX = \"%s\"\n\n", AMGI_MEDIA_PREFIX);
+    printf("\n");
     for (int t = 0; t < WT_TYPES; t++) printf("%s = %d\n", TYPE_NAMES[t], t);
     printf("\n# A mode's byte is its index; the last, \"\", is any name the table does not know.\nMODES = (");
     for (uint32_t m = 0; m < WIRE_MODES; m++) printf("%s\"%s\"", m ? ", " : "", wire_mode_name(m));

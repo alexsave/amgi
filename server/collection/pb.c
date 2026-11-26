@@ -1,4 +1,4 @@
-/* plusaudio/lib/protobuf.js: Anki's protobuf blobs (schema 18's notetype, field, template and deck
+/* lib/protobuf.js: Anki's protobuf blobs (schema 18's notetype, field, template and deck
  * configs), read leniently and written as Anki's own encoder writes them. */
 #include "core.h"
 

@@ -1,4 +1,4 @@
-/* The one random source in amgi's C, as plusaudio/lib/random.js is the one in its JavaScript: the
+/* The one random source in amgi's C, as lib/random.js is the one in its JavaScript: the
  * same generator (sfc32, its 128-bit state spread from one 32-bit seed by splitmix32, twelve
  * warm-up draws), so a seed gives the same draws in both.
  *
@@ -11,7 +11,7 @@
  * guid as the same note.
  *
  * Every draw goes through rng_uint32, under one lock (the collection core runs on several threads
- * in the server). tests/server/plusaudio/random.test.js fails on any other random or clock-seeded source in
+ * in the server). tests/repo/random.test.mjs fails on any other random or clock-seeded source in
  * the native code. */
 #ifndef AMGI_COL_RNG_H
 #define AMGI_COL_RNG_H

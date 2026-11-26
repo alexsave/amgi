@@ -21,13 +21,13 @@
 #
 # That second writer used to be refused, because hand-encoding the protobuf
 # config columns meant guessing field numbers nothing validated. The proto is
-# vendored now and tests/server/plusaudio/collection/notetype-write.test.js checks the
-# Node-written note type against the real library, including that running
-# ensure_notetype over it changes nothing. So a note type the Node side made
+# vendored now and tests/server/parity/ checks the
+# C-written note type against the real library, including that running
+# ensure_notetype over it changes nothing. So a note type the C side made
 # is "current" here and is left completely untouched, which is what the
 # idempotence below guarantees.
 #
-# No aqt import, on purpose, the same as core.py: this is exercised by
+# No aqt import, on purpose, the same as bridge_ops.py: this is exercised by
 # tests/anki/addon/test_notetype_collection.py against a real anki.collection.Collection.
 #
 # License: GNU AGPL, version 3 or later, to match Anki's own.

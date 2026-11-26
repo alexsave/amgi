@@ -1,4 +1,4 @@
-/* amgi's Anki collection core in C: the port of plusaudio/lib/collection and of the direct
+/* amgi's Anki collection core in C: the port of lib/collection and of the direct
  * transport over it (src/server/anki/directClient.js), for a server that runs it on several
  * threads in one process.
  *

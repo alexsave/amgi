@@ -1,4 +1,4 @@
-/* The one client amgi uses for every model call, in C: plusaudio/lib/cardGeneration/gemini.ts (the
+/* The one client amgi uses for every model call, in C: lib/cardGeneration/gemini.ts (the
  * request, the rate gate, the quota handling and the messages a person sees), geminiWire.ts (the
  * hand-written protobuf of the few messages amgi sends and reads) and geminiSpeech.ts (speech: the
  * voice draw and the WAV it answers). The transport is cbase's gRPC over HTTP/2 (net/grpc.h), on
@@ -13,7 +13,7 @@
 #include "gate.h"
 #include "progress.h"
 
-/* What a failure is, as gemini.ts's error classes and plusaudioCli.js's exit codes make it:
+/* What a failure is, as the error classes of the client it replaced made it:
  *   GE_ERROR  a plain Error (retryable inside the audio loop; a 500 at the route)
  *   GE_FATAL  GeminiUnavailableError: no retry can fix it (rethrown at once; a 500 at the route)
  *   GE_DAILY  GeminiDailyCapError: fatal, and a 429 {dailyCap} at the route

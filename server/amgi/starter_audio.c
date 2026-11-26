@@ -1,4 +1,4 @@
-/* `amgi starter-audio`: records the starter deck's clips, so they can be committed. The port of scripts/build-starter-audio.js.
+/* `amgi starter-audio`: records the starter deck's clips, so they can be committed.
  *
  *   amgi starter-audio              record whatever is missing
  *   amgi starter-audio --rerecord   record every clip again

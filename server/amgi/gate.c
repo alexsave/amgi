@@ -1,4 +1,4 @@
-/* plusaudio/lib/rateGate.js in C (gate.h). */
+/* lib/rateGate.js in C (gate.h). */
 #include "gate.h"
 
 #include <math.h>

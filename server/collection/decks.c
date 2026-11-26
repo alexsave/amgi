@@ -1,4 +1,4 @@
-/* plusaudio/lib/collection/decks.js and deck-remove.js: listing, creating, renaming and deleting
+/* lib/collection/decks.js and deck-remove.js: listing, creating, renaming and deleting
  * decks in both schemas. Their module comments hold the reasoning (unicase, the relaxed collation,
  * what Anki's remove_decks does); this is the same code, in the same order, so it writes the same
  * rows. */

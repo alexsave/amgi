@@ -1,4 +1,4 @@
-/* src/server/anki/directClient.js and plusaudio/lib/collection/index.js: one function per op, each
+/* src/server/anki/directClient.js and lib/collection/index.js: one function per op, each
  * under its path's lock, each opening the collection for one unit of work, the writes behind the
  * backup policy. See collection.h. */
 #include <math.h>

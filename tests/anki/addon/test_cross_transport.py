@@ -240,7 +240,7 @@ class CrossTransportTests(_SeededCollection):
             col.close()
 
         # Node's listNotesInDeck returns the notes array directly (see
-        # plusaudio/lib/collection/notes.js) - unlike bridge_ops.py's
+        # lib/collection/notes.js) - unlike bridge_ops.py's
         # dict-with-pagination-metadata shape, a deliberate divergence noted
         # in bridge_ops.list_notes_in_deck's own docstring.
         notes = run_c(self.collection_path, "listNotesInDeck", {"deckId": deck["id"], "options": {}})

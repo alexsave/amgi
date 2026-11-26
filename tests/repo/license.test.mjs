@@ -28,8 +28,8 @@ test('skills/LICENSE is MIT, Alex Saveliev 2026, and names both skill folders', 
     assert.equal(fs.realpathSync(path.join(ROOT, '.claude', 'skills', 'amgi')), fs.realpathSync(path.join(ROOT, 'skills', 'amgi')));
 });
 
-test('both packages say AGPL-3.0-or-later', () => {
-    for (const rel of ['package.json', 'plusaudio/package.json']) {
+test('the package says AGPL-3.0-or-later', () => {
+    for (const rel of ['package.json']) {
         assert.match(read(rel), /\n {2}"license": "AGPL-3\.0-or-later",\n/, rel);
     }
 });

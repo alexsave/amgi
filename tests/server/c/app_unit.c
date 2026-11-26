@@ -1,7 +1,7 @@
 /* Tests of the amgi app's own C (server/amgi), built under ASan and UBSan (make -C server check-app,
  * run by npm test). The routes themselves are proven over HTTP by tests/server/parity/http.test.mjs; this
  * holds what HTTP cannot reach, or cannot reach exactly:
- *   - the rate gate (gate.c), tests/server/plusaudio/rateGate.test.js case for case, on a fake clock and a
+ *   - the rate gate (gate.c), on a fake clock and a
  *     seeded draw: the 429 block and its doubling to the cap, Google's retryDelay as its floor, the
  *     learned per-minute cap and its growth, the jitter and its replay, one draw per call, admission;
  *   - the request helpers (web.c): decodeURIComponent, URLSearchParams.get, Number();
@@ -224,7 +224,15 @@ static void test_web(void) {
           "Infinity, a bare fraction, no signed hex");
     CHECK(amgi_u32(2.5) == 3 && amgi_u32(-1) == 0 && amgi_u32(NAN) == 0 && amgi_u32(1e12) == 0xffffffffu, "the wire's u32");
     str name = amgi_media_name(&a, S("안녕하세요"), S("ko"), "wav");
-    CHECK(STR_IS(name, "amgi-dce4d16cea2470806c22.wav"), "audio-store.js's mediaName: %.*s", (int)name.n, name.p);
+    CHECK(STR_IS(name, "amgi-dce4d16cea2470806c22.wav"), "a clip's name: %.*s", (int)name.n, name.p);
+    /* the add-on's old golden names (test_deck_text.py), for the other three inputs: an empty text, an English one, a newline */
+    str n2 = amgi_media_name(&a, S("hello"), S("en"), "wav");
+    CHECK(STR_IS(n2, "amgi-f364f47094e4d8912c22.wav"), "hello/en: %.*s", (int)n2.n, n2.p);
+    str n3 = amgi_media_name(&a, S(""), S("ja"), "wav");
+    CHECK(STR_IS(n3, "amgi-90f9a7cbebe9c12e69e1.wav"), "empty/ja: %.*s", (int)n3.n, n3.p);
+    str n4 = amgi_media_name(&a, S("a\nb"), S("zh_cn"), "wav");
+    CHECK(STR_IS(n4, "amgi-88fce36fc5541e5201ec.wav"), "a-newline-b/zh_cn: %.*s", (int)n4.n, n4.p);
+    CHECK(!STR_IS(amgi_media_name(&a, S("hello"), S("ja"), "wav"), "amgi-f364f47094e4d8912c22.wav"), "the language is part of the name");
     ar_free(&a);
 }
 

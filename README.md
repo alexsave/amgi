@@ -84,7 +84,7 @@ make start      # builds ui/out and server/build/amgi, then serves http://127.0.
 make build      # the same, not started
 npm install     # once, for the tests and the linter (Node 24.12, 25.1 or 26 and later)
 npm run lint
-npm test        # builds, then the C unit tests (ASan, UBSan), the command line's smoke (tests/server/cli-smoke.sh), the node:test suites (the server's contract, plusaudio, anki, ui) and the add-on's Python tests
+npm test        # builds, then the C unit tests (ASan, UBSan), the command line's smoke (tests/server/cli-smoke.sh), the node:test suites (the server's contract, anki, ui) and the add-on's Python tests
 npm run e2e     # builds, then every browser drive against fresh servers (see .claude/skills/e2e-ui)
 make -C server check   # cbase's whole check with amgi as its product (its gates, unit tests and smokes)
 ```
@@ -111,12 +111,12 @@ tests/ui/             Tests of the C against what it must agree with, and the re
 tests/e2e/ui/         Browser drives of the app, and their fixture
 tests/e2e/anki/       The browser drive of the card template (drive.js, reviewer.html)
 tests/server/         Tests of the C server and what is next to it: c/ (the C unit tests), parity/ (the server's contract:
-                      the HTTP and collection suites, their fixtures and recordings), bridge/, plusaudio/, cli-smoke.sh
+                      the HTTP and collection suites, their fixtures and recordings), bridge/, cli-smoke.sh
 tests/anki/           The build-loop test, and the add-on's Python tests (addon/)
+tests/helpers/        The fake Gemini, the real-Anki-library bridge and the seeded random the tests share
 tests/repo/           Checks about the whole repo: no JSON, license, submodules, the temp-HOME guard
 server/               The C server (make -C server): the amgi app on cbase (app/, amgi/), the collection core (collection/, json/)
 src/utils/       The review loop and voice-activity detection the card template shares
-plusaudio/       The card generation policy (lib/cardGeneration/) and generate-clip.js, which the Anki add-on runs
 anki/            Card template plus the mic and bridge add-ons
 skills/amgi/     Agent skill: how an LLM runs and drives amgi (linked from .claude/skills, beside e2e-ui)
 ```
@@ -135,16 +135,14 @@ Everything the page and the server say to each other is in amgi's wire format, s
   `DELETE /decks/:id` deletes a deck as Anki does (its subdecks, their cards, the notes left with no card, with graves so a sync deletes the same on every device), and `GET /decks/:id` says beforehand what it would take; the Default deck is refused, since Anki only empties it.
 - **Settings**: every request carries the five `X-Amgi-*` headers (Anki folder, collection, profile, bridge address and token; `server/amgi/web.c` reads them), each percent-encoded.
 - **Rate limits**: a refused Gemini call is a 429 `error` with `retryAfterMs` (wait, then the same request again), `notStarted` (nothing was done), `dailyCap` (nothing will work until the daily cap resets) and `maxWaitMs` (the longest wait worth making).
-  The generator scripts report the same two cases as exit codes 3 (rate limited, the wait on stdout) and 4 (daily cap), from `plusaudio/lib/cliExit.js`.
 
 ### JSON that remains and why
 
 amgi's own boundaries are binary layouts, the Anki bridge's included; JSON stays only where something outside amgi forces it.
 `tests/repo/no-json.test.mjs` scans every shipped source file and fails on any JSON call not listed here (its `ALLOWED` list holds the exact counts and reasons, and the test checks this section names the same files).
-amgi's own JSON lives in one folder, `plusaudio/lib/json/`, behind one named function per use.
+amgi's own JSON lives in one folder, `server/json/`, behind named functions.
 
-- `plusaudio/lib/json/modelAnswer.js`: Gemini's structured answers are JSON text, and nothing else is offered ([plusaudio/ANSWER_FORMAT.md](plusaudio/ANSWER_FORMAT.md) says what was measured against the alternatives).
-- `server/json/model_answer.c`, `server/json/model_answer.h`, `server/amgi/cards.c`: the same answers read by the C server, through `model_answer_parse` in the C quarantine (the quarantine's one parser under its own name), called once by `cards.c`'s port of `readStructured`.
+- `server/json/model_answer.c`, `server/json/model_answer.h`, `server/amgi/cards.c`: Gemini's structured answers are JSON text, and nothing else is offered ([docs/ANSWER_FORMAT.md](docs/ANSWER_FORMAT.md) says what was measured against the alternatives); the C server reads them through `model_answer_parse` in the C quarantine (the quarantine's one parser under its own name), called once by `cards.c`'s port of `readStructured`.
 - `server/json/anki_json.c`, `server/json/anki_json.h`, `server/collection/decks.c`, `server/collection/notes.c`: the collection core in C, which reads and writes the same Anki formats; its one JSON reader and writer is quarantined in `server/json/` behind named functions, and the scan fails on JSON parsed or formatted anywhere else in C.
 
 See [ROADMAP.md](ROADMAP.md) for what is still open.
