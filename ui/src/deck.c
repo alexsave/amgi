@@ -249,7 +249,7 @@ static void rename_commit(void) {
     char buf[512];
     uint32_t len;
     int fits = cd_input_whole(name_input, buf, sizeof buf, &len);
-    wire_str typed = trim((wire_str){buf, fits ? len : 0});
+    wire_str typed = lines_trim((wire_str){buf, fits ? len : 0});
     renaming = 0;
     if (d && !rename_cancelled && !fits) {
         text_setz(&rename_error, "That name is too long");

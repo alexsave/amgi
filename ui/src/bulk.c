@@ -462,7 +462,7 @@ ON_ANSWER(line_answered) {
         text_set(&r->target_clip, c.audio.filename.p, c.audio.filename.len);
         text_set(&r->cue_ref, c.cue_audio.reference.p, c.cue_audio.reference.len);
         text_set(&r->target_ref, c.audio.reference.p, c.audio.reference.len);
-        wire_str f = trim(c.front_text), b = trim(c.back_text);
+        wire_str f = lines_trim(c.front_text), b = lines_trim(c.back_text);
         r->same_both = same(f.p, f.len, b.p, b.len);
         r->status = BATCHED;
         r->step_wait = 0;
@@ -573,7 +573,7 @@ ON_ANSWER(keys_answered) {
         for (uint32_t k = 0; k < v.values.n; k++) {
             char *buf = cd_alloc(v.values.v[k].len + 1);
             keys[nkeys] = (text){0, 0};
-            text_set(&keys[nkeys], buf, dedupe_key(buf, v.values.v[k]));
+            text_set(&keys[nkeys], buf, lines_key(buf, v.values.v[k]));
             cd_free(buf);
             nkeys++;
         }
@@ -581,7 +581,7 @@ ON_ANSWER(keys_answered) {
     if (--keys_left) return;
     for (uint32_t i = 0; i < nrows; i++) {
         char *buf = cd_alloc(rows[i].line.len + 1);
-        uint32_t kn = dedupe_key(buf, (wire_str){rows[i].line.p, rows[i].line.len});
+        uint32_t kn = lines_key(buf, (wire_str){rows[i].line.p, rows[i].line.len});
         for (uint32_t k = 0; k < nkeys; k++)
             if (same(keys[k].p, keys[k].len, buf, kn)) {
                 rows[i].status = SKIPPED;

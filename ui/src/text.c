@@ -1,5 +1,6 @@
 /* Text work the React app did with JS strings and regexes, on UTF-8 bytes: each function names the
- * JS it stands for, and tests/ui/text.test.mjs runs both on the same inputs. */
+ * JS it stands for, and tests/ui/text.test.mjs runs both on the same inputs. The paste's lines, trim
+ * and the dedupe key are ui/wire/lines.c, shared with the command line. */
 #include "app.h"
 
 uint32_t zlen(const char *s) {
@@ -56,55 +57,8 @@ int64_t dec_id(const char *s, uint32_t len) {
     return id;
 }
 
-/* The code point at s[i] (UTF-8), and its length in *n; a stray byte reads as itself, length 1. */
-static uint32_t cp_at(const char *s, uint32_t len, uint32_t i, uint32_t *n) {
-    uint8_t c = (uint8_t)s[i];
-    uint32_t need = c >= 0xf0 ? 4 : c >= 0xe0 ? 3 : c >= 0xc0 ? 2 : 1;
-    if (need == 1 || i + need > len) return *n = 1, c;
-    uint32_t cp = c & (0x7f >> need);
-    for (uint32_t k = 1; k < need; k++) cp = cp << 6 | ((uint8_t)s[i + k] & 0x3f);
-    *n = need;
-    return cp;
-}
-/* The start of the code point that ends at s[end - 1]. */
-static uint32_t cp_start(const char *s, uint32_t end) {
-    uint32_t i = end - 1;
-    while (i > 0 && ((uint8_t)s[i] & 0xc0) == 0x80 && end - i < 4) i--;
-    return i;
-}
-/* JS's \s: WhiteSpace and LineTerminator. */
-static int is_space(uint32_t c) {
-    return (c >= 9 && c <= 13) || c == 0x20 || c == 0xa0 || c == 0x1680 || (c >= 0x2000 && c <= 0x200a) || c == 0x2028 ||
-           c == 0x2029 || c == 0x202f || c == 0x205f || c == 0x3000 || c == 0xfeff;
-}
-wire_str trim(wire_str s) {
-    uint32_t a = 0, b = s.len, n;
-    while (a < b && is_space(cp_at(s.p, s.len, a, &n))) a += n;
-    while (b > a) {
-        uint32_t i = cp_start(s.p, b);
-        if (!is_space(cp_at(s.p, s.len, i, &n)) || i + n != b) break;
-        b = i;
-    }
-    return (wire_str){s.p + a, b - a};
-}
-/* Runs of \s as one space, in place over dst (n bytes); returns the new length. */
-static uint32_t collapse(char *dst, uint32_t n) {
-    uint32_t w = 0, cl;
-    int in_space = 0;
-    for (uint32_t i = 0; i < n; i += cl) {
-        uint32_t c = cp_at(dst, n, i, &cl);
-        if (is_space(c)) {
-            if (!in_space) dst[w++] = ' ';
-            in_space = 1;
-        } else {
-            for (uint32_t k = 0; k < cl; k++) dst[w++] = dst[i + k];
-            in_space = 0;
-        }
-    }
-    return w;
-}
 static uint32_t trim_in_place(char *dst, uint32_t n) {
-    wire_str t = trim((wire_str){dst, n});
+    wire_str t = lines_trim((wire_str){dst, n});
     if (t.p != dst && t.len) __builtin_memmove(dst, t.p, t.len);
     return t.len;
 }
@@ -136,7 +90,7 @@ uint32_t strip_html(char *dst, wire_str s) {
             dst[w++] = dst[i];
         }
     }
-    return trim_in_place(dst, collapse(dst, w));
+    return trim_in_place(dst, lines_collapse(dst, w));
 }
 uint32_t strip_tags(char *dst, wire_str s) { return trim_in_place(dst, untag(dst, s, 0)); }
 
@@ -186,58 +140,4 @@ int has_audio_ref(wire_str f) {
         }
     }
     return 0;
-}
-
-/* The class of what was lyricsParse.js's TRAILING_PUNCTUATION_RE: \s and these. */
-static int trailing_punct(uint32_t c) {
-    static const uint32_t SET[] = {',', '.', '!', '?', ';', ':', 0x3001, 0x3002, 0xff01, 0xff1f, 0xff0c, 0xff1b, 0xff1a,
-                                   0x2026, '"', '\'', 0x201c, 0x201d, 0x2018, 0x2019};
-    if (is_space(c)) return 1;
-    for (uint32_t i = 0; i < sizeof SET / sizeof *SET; i++)
-        if (SET[i] == c) return 1;
-    return 0;
-}
-uint32_t dedupe_key(char *dst, wire_str s) {
-    wire_str t = trim(s);
-    if (t.len) __builtin_memmove(dst, t.p, t.len);
-    uint32_t n = collapse(dst, t.len), end = n, cl;
-    while (end > 0) {
-        uint32_t i = cp_start(dst, end);
-        if (!trailing_punct(cp_at(dst, n, i, &cl)) || i + cl != end) break;
-        end = i;
-    }
-    return end ? end : n;
-}
-
-/* What lyricsParse.js's parseLyricsPaste(s, { skipSectionMarkers: true }) was: the lines a paste makes cards
- * of, in order, each trimmed, without blank lines, without lines that are one [bracketed] marker,
- * and without a line whose dedupe key an earlier line had. Writes at most cap lines to out (they
- * point into s); returns how many there are in all. keys needs room for len bytes. */
-uint32_t paste_lines(const char *s, uint32_t len, wire_str *out, uint32_t cap, char *keys) {
-    typedef struct { uint32_t at, n; } key_ref;
-    uint32_t count = 0, used = 0, a = 0;
-    key_ref refs[512];
-    while (a <= len) {
-        uint32_t e = a;
-        while (e < len && s[e] != '\n' && s[e] != '\r') e++;
-        wire_str line = trim((wire_str){s + a, e - a});
-        /* \r\n is one break; a lone \r or \n is one too */
-        a = e + (e + 1 < len && s[e] == '\r' && s[e + 1] == '\n' ? 2 : 1);
-        if (!line.len) continue;
-        if (line.len > 2 && line.p[0] == '[' && line.p[line.len - 1] == ']') {
-            int marker = 1;
-            for (uint32_t k = 1; k + 1 < line.len && marker; k++)
-                if (line.p[k] == '[' || line.p[k] == ']') marker = 0;
-            if (marker) continue;
-        }
-        uint32_t kn = dedupe_key(keys + used, line), dup = 0;
-        for (uint32_t i = 0; i < count && i < 512 && !dup; i++)
-            dup = same(keys + refs[i].at, refs[i].n, keys + used, kn);
-        if (dup) continue;
-        if (count < 512) refs[count] = (key_ref){used, kn};
-        used += kn;
-        if (count < cap) out[count] = line;
-        count++;
-    }
-    return count;
 }

@@ -9,7 +9,7 @@
 #                     replaced window.confirm)
 #   out/wire.wasm     the wire writers for the Node tests and tools (wire/wire_node.c, no cdom code)
 #   out/wire_dump, out/text_dump   natively, under ASan and UBSan, for tests/ui: the app's wire
-#                     walkers, and src/text.c with src/fields.c (C23, cdom.mk's HOST_STD: cdom.h needs it)
+#                     walkers, and wire/lines.c and src/text.c with src/fields.c (C23, cdom.mk's HOST_STD: cdom.h needs it)
 #   out/wire_py       writes ../anki/addon/amgi_bridge/wire_schema.py from wire.c's table, so the
 #                     Anki bridge add-on holds no layout of its own
 #
@@ -34,7 +34,7 @@ all: $(OUT)/app.wasm $(OUT)/index.html $(OUT)/app.css $(OUT)/wire.wasm $(OUT)/wi
 
 # The module as cdom.mk links it, before the size pass.
 APP_WASM := $(OUT)/raw/app.wasm
-APP_SRC := $(sort $(wildcard src/*.c)) wire/wire.c wire/lang.c
+APP_SRC := $(sort $(wildcard src/*.c)) wire/wire.c wire/lang.c wire/lines.c
 APP_MODULES := net store audio url
 APP_CFLAGS := $(WARN)
 APP_LDFLAGS := -Wl,--strip-all
@@ -45,7 +45,7 @@ APP_WASM_SEPARATE := 1
 include $(CDOM)/cdom.mk
 
 # cdom.mk's rule knows cdom's headers; these are the app's own.
-APP_HDR := $(wildcard src/*.h) wire/wire.h wire/lang.h
+APP_HDR := $(wildcard src/*.h) wire/wire.h wire/lang.h wire/lines.h
 $(APP_WASM): $(APP_HDR)
 
 # wasm-opt <in> <out>: binaryen's size pass when it is installed, a copy when it is not.
@@ -74,9 +74,9 @@ $(OUT)/wire_dump: ../tests/ui/wire_dump.c wire/wire.c wire/wire.h
 	@mkdir -p $(@D)
 	$(HOST_CC) $(SAN) $(WARN) -o $@ ../tests/ui/wire_dump.c wire/wire.c
 
-$(OUT)/text_dump: ../tests/ui/text_dump.c src/text.c src/fields.c $(APP_HDR) $(CDOM_HEADERS)
+$(OUT)/text_dump: ../tests/ui/text_dump.c wire/lines.c src/text.c src/fields.c $(APP_HDR) $(CDOM_HEADERS)
 	@mkdir -p $(@D)
-	$(HOST_CC) $(HOST_STD) $(SAN) $(WARN) -I$(CDOM)/src -o $@ ../tests/ui/text_dump.c src/text.c src/fields.c
+	$(HOST_CC) $(HOST_STD) $(SAN) $(WARN) -I$(CDOM)/src -o $@ ../tests/ui/text_dump.c wire/lines.c src/text.c src/fields.c
 
 $(OUT)/wire_py: wire/wire_py.c wire/wire.c wire/wire.h
 	@mkdir -p $(@D)
