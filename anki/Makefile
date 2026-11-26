@@ -3,12 +3,22 @@
 #
 #   anki/media/_amgi-loop.js   voiceActivity.js + reviewLoop.js + anki-loop.js as one classic script
 #                              (not committed; server/amgi/install.c copies it into a collection)
+#   addon/amgi_bridge/wire_schema.py   the wire format's table as Python, for the bridge add-on, written by
+#                              ui/wire/wire_py.c from ui/wire/wire.c (not committed; install copies the add-on)
 LOOP := media/_amgi-loop.js
 LOOP_SRC := ../src/utils/voiceActivity.js ../src/utils/reviewLoop.js src/anki-loop.js
 
-all: $(LOOP)
+SCHEMA := addon/amgi_bridge/wire_schema.py
+
+all: $(LOOP) $(SCHEMA)
 
 $(LOOP): tools/build-loop.sh $(LOOP_SRC)
 	cd .. && anki/tools/build-loop.sh anki/$(LOOP)
 
-.PHONY: all
+# ui/Makefile owns the rule (it builds the generator from wire.c); asking it every time costs nothing when the file is fresh.
+$(SCHEMA): FORCE
+	$(MAKE) -s -C ../ui ../anki/$(SCHEMA)
+
+FORCE:
+
+.PHONY: all FORCE

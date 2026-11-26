@@ -10,6 +10,8 @@ node_modules/
 
 # the Anki card script, built by make -C anki from src/utils and anki/src
 /anki/media/_amgi-loop.js
+# the wire format's table for the bridge add-on, built by make -C anki from ui/wire/wire.c
+/anki/addon/amgi_bridge/wire_schema.py
 
 # misc
 .DS_Store

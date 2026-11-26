@@ -43,7 +43,7 @@ That is what this bridge is: a small local HTTP server, run by this add-on, that
 One endpoint per capability the server's collection core exposes, deliberately matching its vocabulary so the two are interchangeable (see "Cross-transport parity" below).
 The bodies are not JSON: every request body and every answer is a message in amgi's wire format (`ui/wire/wire.h`), `Content-Type: application/x-amgi-wire`.
 The shapes below are its fields, by name; the layouts themselves are written down once, in `ui/wire/wire.c`'s schema table (the `b_*` kinds and the request kinds `q_deck_name`, `q_note`, `q_notes`, `q_note_update`).
-`ui/build.sh` writes that table into this add-on as `wire_schema.py`, and `bridge_wire.py` reads and writes messages with it, so the add-on holds no layout of its own.
+`make server` (and `ui/build.sh`) write that table into this add-on as `wire_schema.py`, a build output that is not committed, and `bridge_wire.py` reads and writes messages with it, so the add-on holds no layout of its own.
 
 | Method & path | Direct equivalent (`server/collection/collection.h`) | Notes |
 
