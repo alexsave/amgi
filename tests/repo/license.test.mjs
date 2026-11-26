@@ -30,7 +30,7 @@ test('skills/LICENSE is MIT, Alex Saveliev 2026, and names both skill folders', 
 
 test('the package says AGPL-3.0-or-later', () => {
     for (const rel of ['package.json']) {
-        assert.match(read(rel), /\n {2}"license": "AGPL-3\.0-or-later",\n/, rel);
+        assert.match(read(rel), /\n +"license": "AGPL-3\.0-or-later",\n/, rel);
     }
 });
 
