@@ -27,19 +27,19 @@ mkdir -p "$work"
 cd "$root"
 . "$here/sandbox-home.sh"
 fresh() { # fresh <folder> [installed]: the fixture as one profile, "User 1", amgi installed or not
-  local dir
-  dir=$(tests/e2e/ui/flows.sh .e2e/fixture "$work/$1")
-  if [ "${2:-}" = installed ]; then node tests/e2e/ui/fixture-install.mjs "$dir" > /dev/null; fi
-  echo "$dir"
+    local dir
+    dir=$(tests/e2e/ui/flows.sh .e2e/fixture "$work/$1")
+    if [ "${2:-}" = installed ]; then node tests/e2e/ui/fixture-install.mjs "$dir" > /dev/null; fi
+    echo "$dir"
 }
 failed=0
 run() { # run <drive> <args...>; DRIVES="languages edit" runs only those
-  local drive="$1"; shift
-  case " ${DRIVES:-$drive} " in *" $drive "*) ;; *) return 0 ;; esac
-  local log="$work/$drive.log"
-  node "tests/e2e/ui/$drive.mjs" "$@" > "$log" 2>&1 || failed=1
-  echo "$drive: $(grep -c '^ok' "$log") ok"
-  grep -v '^ok' "$log"
+    local drive="$1"; shift
+    case " ${DRIVES:-$drive} " in *" $drive "*) ;; *) return 0 ;; esac
+    local log="$work/$drive.log"
+    node "tests/e2e/ui/$drive.mjs" "$@" > "$log" 2>&1 || failed=1
+    echo "$drive: $(grep -c '^ok' "$log") ok"
+    grep -v '^ok' "$log"
 }
 # shoot reads the fixture folder in place and a screen shows its path, so it gets a copy under $work too
 rm -rf "$work/shoot"; cp -R .e2e/fixture "$work/shoot"

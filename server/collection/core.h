@@ -17,9 +17,9 @@
 
 typedef struct cx cx;
 struct cx {
-  arena *a;
-  jmp_buf *jb;  /* the innermost cx_try */
-  col_err err;  /* what was thrown */
+    arena *a;
+    jmp_buf *jb;  /* the innermost cx_try */
+    col_err err;  /* what was thrown */
 };
 
 /* Throw: kind is a collection state ("locked", ...) or NULL, status an HTTP status or 0. */
@@ -30,11 +30,11 @@ int cx_try(cx *c, void (*fn)(cx *, void *), void *arg);
 
 /* ---- the database: one connection, opened per unit of work, as the Node core's open.js did ---- */
 typedef struct {
-  sqlite3 *db;
-  int schema;
-  sqlite3_stmt **stmts;
-  size_t nstmts, cap;
-  int backed_up; /* this connection's write transaction began with a backup (with_write sets it) */
+    sqlite3 *db;
+    int schema;
+    sqlite3_stmt **stmts;
+    size_t nstmts, cap;
+    int backed_up; /* this connection's write transaction began with a backup (with_write sets it) */
 } conn;
 
 enum { OPEN_OK, OPEN_NOT_FOUND, OPEN_LOCKED, OPEN_UNSUPPORTED, OPEN_DAMAGED };

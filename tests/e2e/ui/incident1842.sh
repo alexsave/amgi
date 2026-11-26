@@ -10,9 +10,9 @@ here="$(cd "$(dirname "$0")" && pwd)"
 root="$(cd "$here/../../.." && pwd)"
 cd "$root"
 if [ "${INCIDENT1842_NO_BUILD:-}" != 1 ]; then
-  server/tools/submodules.sh || exit 1
-  ui/build.sh > /dev/null || exit 1
-  make -s -C server build/amgi build/anki_standin || exit 1
+    server/tools/submodules.sh || exit 1
+    ui/build.sh > /dev/null || exit 1
+    make -s -C server build/amgi build/anki_standin || exit 1
 fi
 home="$(mktemp -d "${TMPDIR:-/tmp}/amgi-incident1842-XXXXXX")"
 home="$(cd "$home" && pwd -P)"

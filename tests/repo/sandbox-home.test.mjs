@@ -24,24 +24,24 @@ const EXEMPT = new Set(['git', 'make', 'ffmpeg']);
 const JS_CALLS = new Set(['spawn', 'spawnSync', 'execFile', 'execFileSync', 'exec', 'execSync', 'fork']);
 
 test('the guard refuses the real home, a dir inside it or above it, an Anki2 folder and XDG_DATA_HOME', () => {
-  const real = os.userInfo().homedir;
-  const ok = sandboxEnv();
-  assert.throws(() => assertSandboxed({ ...ok, HOME: real }), /real home/);
-  assert.throws(() => assertSandboxed({ ...ok, HOME: path.join(real, 'Library') }), /real home/);
-  assert.throws(() => assertSandboxed({ ...ok, HOME: '/' }), /real home/);
-  assert.throws(() => assertSandboxed({ ...ok, XDG_DATA_HOME: ok.HOME }), /XDG_DATA_HOME/);
-  assert.throws(() => assertSandboxed({ PATH: ok.PATH }), /no HOME/);
-  fs.mkdirSync(path.join(ok.HOME, 'Library', 'Application Support', 'Anki2'), { recursive: true });
-  assert.throws(() => assertSandboxed(ok), /Anki2/);
+    const real = os.userInfo().homedir;
+    const ok = sandboxEnv();
+    assert.throws(() => assertSandboxed({ ...ok, HOME: real }), /real home/);
+    assert.throws(() => assertSandboxed({ ...ok, HOME: path.join(real, 'Library') }), /real home/);
+    assert.throws(() => assertSandboxed({ ...ok, HOME: '/' }), /real home/);
+    assert.throws(() => assertSandboxed({ ...ok, XDG_DATA_HOME: ok.HOME }), /XDG_DATA_HOME/);
+    assert.throws(() => assertSandboxed({ PATH: ok.PATH }), /no HOME/);
+    fs.mkdirSync(path.join(ok.HOME, 'Library', 'Application Support', 'Anki2'), { recursive: true });
+    assert.throws(() => assertSandboxed(ok), /Anki2/);
 });
 
 test('each child gets its own empty HOME, outside the real home, and none of the caller\'s environment', () => {
-  const a = sandboxEnv({ GEMINI_API_KEY: 'k', GEMINI_API_BASE: undefined });
-  const b = sandboxEnv();
-  assert.notEqual(a.HOME, b.HOME);
-  assert.deepEqual(fs.readdirSync(a.HOME), []);
-  assert.ok(!fs.realpathSync(a.HOME).startsWith(fs.realpathSync(os.userInfo().homedir) + path.sep));
-  assert.deepEqual(Object.keys(a).sort(), ['GEMINI_API_KEY', 'HOME', 'PATH', ...(process.env.TMPDIR ? ['TMPDIR'] : [])].sort());
+    const a = sandboxEnv({ GEMINI_API_KEY: 'k', GEMINI_API_BASE: undefined });
+    const b = sandboxEnv();
+    assert.notEqual(a.HOME, b.HOME);
+    assert.deepEqual(fs.readdirSync(a.HOME), []);
+    assert.ok(!fs.realpathSync(a.HOME).startsWith(fs.realpathSync(os.userInfo().homedir) + path.sep));
+    assert.deepEqual(Object.keys(a).sort(), ['GEMINI_API_KEY', 'HOME', 'PATH', ...(process.env.TMPDIR ? ['TMPDIR'] : [])].sort());
 });
 
 const tracked = execFileSync('git', ['ls-files', '-z', '--', ...SCANNED], { cwd: ROOT, encoding: 'utf8' })
@@ -49,49 +49,49 @@ const tracked = execFileSync('git', ['ls-files', '-z', '--', ...SCANNED], { cwd:
 
 /** Walks every node of an espree tree. */
 function walk(node, visit) {
-  if (!node || typeof node.type !== 'string') return;
-  visit(node);
-  for (const [key, value] of Object.entries(node)) {
-    if (key === 'parent') continue;
-    if (Array.isArray(value)) for (const v of value) walk(v, visit);
-    else if (value && typeof value.type === 'string') walk(value, visit);
-  }
+    if (!node || typeof node.type !== 'string') return;
+    visit(node);
+    for (const [key, value] of Object.entries(node)) {
+        if (key === 'parent') continue;
+        if (Array.isArray(value)) for (const v of value) walk(v, visit);
+        else if (value && typeof value.type === 'string') walk(value, visit);
+    }
 }
 
 const isSandboxCall = (n) => n?.type === 'CallExpression' && n.callee.type === 'Identifier' && n.callee.name === 'sandboxEnv';
 
 /** The child-process calls in one JavaScript file that do not pass a sandboxed env, as "line: name". */
 export function unsandboxedJs(source, file) {
-  let ast;
-  for (const sourceType of ['module', 'script', 'commonjs']) {
-    try {
-      ast = espree.parse(source, { ecmaVersion: 'latest', sourceType, loc: true });
-      break;
-    } catch { /* the next source type */ }
-  }
-  if (!ast) throw new Error(`${file}: does not parse`);
-  // Names bound to a sandboxed env: X = sandboxEnv(...) or X = { ...sandboxEnv(...), ... }.
-  const sandboxed = new Set();
-  walk(ast, (n) => {
-    if (n.type !== 'VariableDeclarator' || n.id.type !== 'Identifier') return;
-    if (isSandboxCall(n.init) || (n.init?.type === 'ObjectExpression'
-      && n.init.properties.some((p) => p.type === 'SpreadElement' && isSandboxCall(p.argument)))) sandboxed.add(n.id.name);
-  });
-  const bad = [];
-  walk(ast, (n) => {
-    if (n.type !== 'CallExpression') return;
-    const name = n.callee.type === 'Identifier' ? n.callee.name
-      : n.callee.type === 'MemberExpression' && n.callee.object.name !== 'RegExp' && !n.callee.computed
-        && /^(child_process|cp)$/.test(n.callee.object.name ?? '') ? n.callee.property.name : null;
-    if (!JS_CALLS.has(name)) return;
-    const program = n.arguments[0];
-    if (program?.type === 'Literal' && EXEMPT.has(program.value)) return;
-    const env = n.arguments.filter((a) => a.type === 'ObjectExpression')
-      .flatMap((o) => o.properties).find((p) => p.type === 'Property' && (p.key.name ?? p.key.value) === 'env');
-    if (env && (isSandboxCall(env.value) || (env.value.type === 'Identifier' && sandboxed.has(env.value.name)))) return;
-    bad.push(`${n.loc.start.line}: ${name}`);
-  });
-  return bad;
+    let ast;
+    for (const sourceType of ['module', 'script', 'commonjs']) {
+        try {
+            ast = espree.parse(source, { ecmaVersion: 'latest', sourceType, loc: true });
+            break;
+        } catch { /* the next source type */ }
+    }
+    if (!ast) throw new Error(`${file}: does not parse`);
+    // Names bound to a sandboxed env: X = sandboxEnv(...) or X = { ...sandboxEnv(...), ... }.
+    const sandboxed = new Set();
+    walk(ast, (n) => {
+        if (n.type !== 'VariableDeclarator' || n.id.type !== 'Identifier') return;
+        if (isSandboxCall(n.init) || (n.init?.type === 'ObjectExpression'
+          && n.init.properties.some((p) => p.type === 'SpreadElement' && isSandboxCall(p.argument)))) sandboxed.add(n.id.name);
+    });
+    const bad = [];
+    walk(ast, (n) => {
+        if (n.type !== 'CallExpression') return;
+        const name = n.callee.type === 'Identifier' ? n.callee.name
+          : n.callee.type === 'MemberExpression' && n.callee.object.name !== 'RegExp' && !n.callee.computed
+            && /^(child_process|cp)$/.test(n.callee.object.name ?? '') ? n.callee.property.name : null;
+        if (!JS_CALLS.has(name)) return;
+        const program = n.arguments[0];
+        if (program?.type === 'Literal' && EXEMPT.has(program.value)) return;
+        const env = n.arguments.filter((a) => a.type === 'ObjectExpression')
+          .flatMap((o) => o.properties).find((p) => p.type === 'Property' && (p.key.name ?? p.key.value) === 'env');
+        if (env && (isSandboxCall(env.value) || (env.value.type === 'Identifier' && sandboxed.has(env.value.name)))) return;
+        bad.push(`${n.loc.start.line}: ${name}`);
+    });
+    return bad;
 }
 
 const PY_CHECK = String.raw`
@@ -113,101 +113,101 @@ for f in sys.argv[2:]:
 `;
 
 function unsandboxedPy(files) {
-  if (!files.length) return [];
-  const out = execFileSync('python3', ['-I', '-c', PY_CHECK, [...EXEMPT].join(','), ...files],
-    { cwd: ROOT, env: sandboxEnv(), encoding: 'utf8' });
-  return out.split('\n').filter(Boolean);
+    if (!files.length) return [];
+    const out = execFileSync('python3', ['-I', '-c', PY_CHECK, [...EXEMPT].join(','), ...files],
+      { cwd: ROOT, env: sandboxEnv(), encoding: 'utf8' });
+    return out.split('\n').filter(Boolean);
 }
 
 test('the checks catch an unsandboxed call and pass a sandboxed or exempt one', () => {
-  assert.deepEqual(unsandboxedJs([
-    "spawn(SERVER, ['serve'], { stdio: 'pipe' });",
-    "spawn(SERVER, ['serve'], { env: sandboxEnv(), stdio: 'pipe' });",
-    "execFileSync('git', ['status']);",
-    "execFileSync(dump, { input: b, env: process.env });",
-    "const ENV = { ...sandboxEnv(), A: '1' };\nspawnSync(x, { env: ENV });",
-    "const BAD = { ...process.env };\nspawnSync(x, { env: BAD });",
-    "/a(b)/.exec(s); fork(script, args);",
-  ].join('\n'), 'a.js'), ['1: spawn', '4: execFileSync', '8: spawnSync', '9: fork']);
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'amgi-sandbox-test-'));
-  const py = path.join(dir, 't.py');
-  fs.writeFileSync(py, [
-    'import subprocess',
-    'subprocess.run([CLI], input="x")',
-    'subprocess.run([CLI], env=sandbox_env(), input="x")',
-    'subprocess.run(["ffmpeg", "-i", "x"])',
-    'subprocess.run(["node"], env=dict(os.environ))',
-    'mock.patch("generator.subprocess.run")',
-  ].join('\n'));
-  assert.deepEqual(unsandboxedPy([py]), [`${py}:2: subprocess.run`, `${py}:5: subprocess.run`]);
-  fs.rmSync(dir, { recursive: true, force: true });
+    assert.deepEqual(unsandboxedJs([
+      "spawn(SERVER, ['serve'], { stdio: 'pipe' });",
+      "spawn(SERVER, ['serve'], { env: sandboxEnv(), stdio: 'pipe' });",
+      "execFileSync('git', ['status']);",
+      "execFileSync(dump, { input: b, env: process.env });",
+      "const ENV = { ...sandboxEnv(), A: '1' };\nspawnSync(x, { env: ENV });",
+      "const BAD = { ...process.env };\nspawnSync(x, { env: BAD });",
+      "/a(b)/.exec(s); fork(script, args);",
+    ].join('\n'), 'a.js'), ['1: spawn', '4: execFileSync', '8: spawnSync', '9: fork']);
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'amgi-sandbox-test-'));
+    const py = path.join(dir, 't.py');
+    fs.writeFileSync(py, [
+      'import subprocess',
+      'subprocess.run([CLI], input="x")',
+      'subprocess.run([CLI], env=sandbox_env(), input="x")',
+      'subprocess.run(["ffmpeg", "-i", "x"])',
+      'subprocess.run(["node"], env=dict(os.environ))',
+      'mock.patch("generator.subprocess.run")',
+    ].join('\n'));
+    assert.deepEqual(unsandboxedPy([py]), [`${py}:2: subprocess.run`, `${py}:5: subprocess.run`]);
+    fs.rmSync(dir, { recursive: true, force: true });
 });
 
 test('every child process the test code starts gets a sandboxed HOME', () => {
-  const bad = [];
-  for (const f of tracked.filter((f) => /\.(js|mjs|cjs)$/.test(f))) {
-    for (const b of unsandboxedJs(fs.readFileSync(path.join(ROOT, f), 'utf8'), f)) bad.push(`${f}:${b}`);
-  }
-  bad.push(...unsandboxedPy(tracked.filter((f) => f.endsWith('.py'))));
-  assert.deepEqual(bad, [], 'pass env: sandboxEnv() (tests/repo/sandbox-home.cjs) or env=sandbox_env() (sandbox_home.py)');
+    const bad = [];
+    for (const f of tracked.filter((f) => /\.(js|mjs|cjs)$/.test(f))) {
+        for (const b of unsandboxedJs(fs.readFileSync(path.join(ROOT, f), 'utf8'), f)) bad.push(`${f}:${b}`);
+    }
+    bad.push(...unsandboxedPy(tracked.filter((f) => f.endsWith('.py'))));
+    assert.deepEqual(bad, [], 'pass env: sandboxEnv() (tests/repo/sandbox-home.cjs) or env=sandbox_env() (sandbox_home.py)');
 });
 
 test('the e2e shell tools run in a sandbox, and e2e.sh gives each server and the fake its own HOME', () => {
-  for (const f of ['tests/e2e/ui/e2e.sh', 'tests/e2e/ui/fixture.sh', 'tests/e2e/ui/drives.sh']) {
-    assert.match(fs.readFileSync(path.join(ROOT, f), 'utf8'), /^\. "\$here\/sandbox-home\.sh"$/m, `${f} sources sandbox-home.sh`);
-  }
-  const starts = fs.readFileSync(path.join(ROOT, 'tests/e2e/ui/e2e.sh'), 'utf8').split('\n').filter((l) => /^start /.test(l));
-  assert.equal(starts.length, 4);
-  for (const l of starts) assert.match(l, / env "HOME=\$\(fresh_home\)" /, l);
-  const fixture = fs.readFileSync(path.join(ROOT, 'tests/e2e/ui/fixture.sh'), 'utf8');
-  assert.match(fixture, /^env "HOME=\$\(fresh_home\)" "\$ANKI_PYTHON_BIN" /m, 'fixture.sh runs the anki library under its own HOME');
+    for (const f of ['tests/e2e/ui/e2e.sh', 'tests/e2e/ui/fixture.sh', 'tests/e2e/ui/drives.sh']) {
+        assert.match(fs.readFileSync(path.join(ROOT, f), 'utf8'), /^\. "\$here\/sandbox-home\.sh"$/m, `${f} sources sandbox-home.sh`);
+    }
+    const starts = fs.readFileSync(path.join(ROOT, 'tests/e2e/ui/e2e.sh'), 'utf8').split('\n').filter((l) => /^start /.test(l));
+    assert.equal(starts.length, 4);
+    for (const l of starts) assert.match(l, / env "HOME=\$\(fresh_home\)" /, l);
+    const fixture = fs.readFileSync(path.join(ROOT, 'tests/e2e/ui/fixture.sh'), 'utf8');
+    assert.match(fixture, /^env "HOME=\$\(fresh_home\)" "\$ANKI_PYTHON_BIN" /m, 'fixture.sh runs the anki library under its own HOME');
 });
 
 test('sandbox-home.sh keeps the shell\'s HOME for Chrome, gives fresh HOMEs, unsets XDG_DATA_HOME, refuses a TMPDIR inside the real home', () => {
-  const sh = path.join(ROOT, 'tests/e2e/ui/sandbox-home.sh');
-  const env = { ...sandboxEnv(), XDG_DATA_HOME: '/nowhere' };
-  const out = execFileSync('bash', ['-c', `. "${sh}"; echo "$HOME"; echo "\${XDG_DATA_HOME-unset}"; fresh_home`],
-    { env, encoding: 'utf8' }).split('\n');
-  assert.equal(out[0], env.HOME, 'the shell keeps its HOME (Chrome uses it)');
-  assert.equal(out[1], 'unset');
-  assert.ok(out[2].startsWith(os.tmpdir()) || out[2].startsWith(fs.realpathSync(os.tmpdir())), out[2]);
-  assert.notEqual(out[2], out[0]);
-  assert.ok(!fs.existsSync(out[2]), 'the sandbox root is removed on exit');
-  const inside = fs.mkdtempSync(path.join(os.userInfo().homedir, '.amgi-sandbox-probe-'));
-  try {
-    assert.throws(() => execFileSync('bash', ['-c', `. "${sh}"; echo reached`],
-      { env: { ...env, TMPDIR: inside }, encoding: 'utf8', stdio: 'pipe' }), /inside the real home/);
-  } finally {
-    fs.rmSync(inside, { recursive: true, force: true });
-  }
+    const sh = path.join(ROOT, 'tests/e2e/ui/sandbox-home.sh');
+    const env = { ...sandboxEnv(), XDG_DATA_HOME: '/nowhere' };
+    const out = execFileSync('bash', ['-c', `. "${sh}"; echo "$HOME"; echo "\${XDG_DATA_HOME-unset}"; fresh_home`],
+      { env, encoding: 'utf8' }).split('\n');
+    assert.equal(out[0], env.HOME, 'the shell keeps its HOME (Chrome uses it)');
+    assert.equal(out[1], 'unset');
+    assert.ok(out[2].startsWith(os.tmpdir()) || out[2].startsWith(fs.realpathSync(os.tmpdir())), out[2]);
+    assert.notEqual(out[2], out[0]);
+    assert.ok(!fs.existsSync(out[2]), 'the sandbox root is removed on exit');
+    const inside = fs.mkdtempSync(path.join(os.userInfo().homedir, '.amgi-sandbox-probe-'));
+    try {
+        assert.throws(() => execFileSync('bash', ['-c', `. "${sh}"; echo reached`],
+          { env: { ...env, TMPDIR: inside }, encoding: 'utf8', stdio: 'pipe' }), /inside the real home/);
+    } finally {
+        fs.rmSync(inside, { recursive: true, force: true });
+    }
 });
 
 test('every drive starts Chrome through tests/e2e/ui/chrome.mjs, which stops it when the drive exits', async () => {
-  // Off the keychain: cdom's launcher passes both flags on every Chrome it starts.
-  const cdp = fs.readFileSync(path.join(ROOT, 'cdom/tools/cdp.mjs'), 'utf8');
-  const spawn = cdp.match(/'--headless=new'[^\]]*\]/);
-  assert.ok(spawn, "cdom/tools/cdp.mjs starts Chrome with '--headless=new'");
-  for (const f of ['--use-mock-keychain', '--password-store=basic']) assert.ok(spawn[0].includes(`'${f}'`), `cdom's Chrome launch has ${f}`);
-  const drives = tracked.filter((f) => f.startsWith('tests/e2e/ui/') && f.endsWith('.mjs') && f !== 'tests/e2e/ui/chrome.mjs');
-  for (const f of drives) assert.doesNotMatch(fs.readFileSync(path.join(ROOT, f), 'utf8'), /\blaunch\(/, `${f}: Chrome only through launchChrome()`);
-  assert.equal(drives.filter((f) => /launchChrome\(\)/.test(fs.readFileSync(path.join(ROOT, f), 'utf8'))).length, 9, 'the eight drives and incident1842.mjs');
+    // Off the keychain: cdom's launcher passes both flags on every Chrome it starts.
+    const cdp = fs.readFileSync(path.join(ROOT, 'cdom/tools/cdp.mjs'), 'utf8');
+    const spawn = cdp.match(/'--headless=new'[^\]]*\]/);
+    assert.ok(spawn, "cdom/tools/cdp.mjs starts Chrome with '--headless=new'");
+    for (const f of ['--use-mock-keychain', '--password-store=basic']) assert.ok(spawn[0].includes(`'${f}'`), `cdom's Chrome launch has ${f}`);
+    const drives = tracked.filter((f) => f.startsWith('tests/e2e/ui/') && f.endsWith('.mjs') && f !== 'tests/e2e/ui/chrome.mjs');
+    for (const f of drives) assert.doesNotMatch(fs.readFileSync(path.join(ROOT, f), 'utf8'), /\blaunch\(/, `${f}: Chrome only through launchChrome()`);
+    assert.equal(drives.filter((f) => /launchChrome\(\)/.test(fs.readFileSync(path.join(ROOT, f), 'utf8'))).length, 9, 'the eight drives and incident1842.mjs');
 });
 
 test('a drive that exits without closing its Chrome leaves no Chrome running', () => {
-  // A stand-in drive: launchChrome(), say the Chrome's PID (its child), and exit with it still open.
-  const script = `import { execFileSync } from 'node:child_process';
+    // A stand-in drive: launchChrome(), say the Chrome's PID (its child), and exit with it still open.
+    const script = `import { execFileSync } from 'node:child_process';
     const { launchChrome } = await import(${JSON.stringify(path.join(ROOT, 'tests/e2e/ui/chrome.mjs'))});
     await launchChrome();
     process.stdout.write(execFileSync('pgrep', ['-P', String(process.pid)], { encoding: 'utf8' }));
     process.exit(0);`;
-  const env = { ...process.env };
-  delete env.XDG_DATA_HOME;
-  const pids = execFileSync(process.execPath, ['--input-type=module', '-e', script], { env, encoding: 'utf8' })
-    .split('\n').filter(Boolean).map(Number);
-  assert.ok(pids.length >= 1, 'the stand-in started a Chrome');
-  const alive = (p) => { try { process.kill(p, 0); return true; } catch { return false; } };
-  for (let i = 0; i < 50 && pids.some(alive); i++) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 100);
-  const left = pids.filter(alive);
-  for (const p of left) process.kill(p, 'SIGKILL');
-  assert.deepEqual(left, [], 'the Chrome it started is gone');
+    const env = { ...process.env };
+    delete env.XDG_DATA_HOME;
+    const pids = execFileSync(process.execPath, ['--input-type=module', '-e', script], { env, encoding: 'utf8' })
+      .split('\n').filter(Boolean).map(Number);
+    assert.ok(pids.length >= 1, 'the stand-in started a Chrome');
+    const alive = (p) => { try { process.kill(p, 0); return true; } catch { return false; } };
+    for (let i = 0; i < 50 && pids.some(alive); i++) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 100);
+    const left = pids.filter(alive);
+    for (const p of left) process.kill(p, 'SIGKILL');
+    assert.deepEqual(left, [], 'the Chrome it started is gone');
 });

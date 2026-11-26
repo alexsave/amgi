@@ -13,18 +13,18 @@ static holder h;
 
 /* the modes that mean Anki is open right now: writing under it is writing under a running program */
 static int anki_open(void) {
-  return mode == WIRE_MODE_BRIDGE || mode == WIRE_MODE_BRIDGE_NO_COLLECTION || mode == WIRE_MODE_LOCKED ||
-         mode == WIRE_MODE_BRIDGE_OUTDATED;
+    return mode == WIRE_MODE_BRIDGE || mode == WIRE_MODE_BRIDGE_NO_COLLECTION || mode == WIRE_MODE_LOCKED ||
+           mode == WIRE_MODE_BRIDGE_OUTDATED;
 }
 
 static void button(const char *label, cd_event_fn on_click, int aria) {
-  cd_id b = el_id("button", 0);
-  cd_attr("type", "button");
-  cd_class("template-update-dismiss");
-  if (aria) cd_attr("aria-label", "Dismiss this notice");
-  cd_on(b, CD_EV_CLICK, on_click, 0);
-  cd_text(label);
-  cd_close();
+    cd_id b = el_id("button", 0);
+    cd_attr("type", "button");
+    cd_class("template-update-dismiss");
+    if (aria) cd_attr("aria-label", "Dismiss this notice");
+    cd_on(b, CD_EV_CLICK, on_click, 0);
+    cd_text(label);
+    cd_close();
 }
 
 ON_EVENT(install_now);
@@ -33,42 +33,42 @@ ON_EVENT(dismiss);
 
 /* A top-level view: it has no screen to go, so nothing asks it after it is gone and nothing needs to undo an ask. */
 ON_RENDER(draw) {
-  cd_region_hide(&view);
-  if (dismissed || phase == P_CHECKING || phase == P_IDLE || !cd_region_show(&view, 1)) return;
-  cd_at(app_content, page_root());
-  cd_open("div");
-  cd_class(phase == P_UPDATING ? "template-update is-updating"
-           : phase == P_OFFERED ? "template-update is-offered"
-           : phase == P_BEHIND  ? "template-update is-behind"
-                                : "template-update is-failed");
-  cd_attr("role", "status");
-  cd_name_open(view.root);
-  if (phase == P_UPDATING) {
-    el_text("span", 0, "Updating amgi’s files in Anki…");
-  } else if (phase == P_OFFERED) {
-    el_text("span", 0,
-            "amgi has a newer card design, and Anki is open. Installing it rewrites amgi’s add-on while Anki is "
-            "running, so it is waiting for you.");
-    button("Install now", install_now, 0);
-    button("Dismiss", dismiss, 1);
-  } else if (phase == P_BEHIND) {
-    cd_open("span");
-    cd_text("amgi has a newer card design. Anki picks it up when it next opens your collection, so ");
-    el_text("strong", 0, "restart Anki");
-    cd_text(" to see it.");
+    cd_region_hide(&view);
+    if (dismissed || phase == P_CHECKING || phase == P_IDLE || !cd_region_show(&view, 1)) return;
+    cd_at(app_content, page_root());
+    cd_open("div");
+    cd_class(phase == P_UPDATING ? "template-update is-updating"
+             : phase == P_OFFERED ? "template-update is-offered"
+             : phase == P_BEHIND  ? "template-update is-behind"
+                                  : "template-update is-failed");
+    cd_attr("role", "status");
+    cd_name_open(view.root);
+    if (phase == P_UPDATING) {
+        el_text("span", 0, "Updating amgi’s files in Anki…");
+    } else if (phase == P_OFFERED) {
+        el_text("span", 0,
+                "amgi has a newer card design, and Anki is open. Installing it rewrites amgi’s add-on while Anki is "
+                "running, so it is waiting for you.");
+        button("Install now", install_now, 0);
+        button("Dismiss", dismiss, 1);
+    } else if (phase == P_BEHIND) {
+        cd_open("span");
+        cd_text("amgi has a newer card design. Anki picks it up when it next opens your collection, so ");
+        el_text("strong", 0, "restart Anki");
+        cd_text(" to see it.");
+        cd_close();
+        button("Check again", check_again, 0);
+        button("Dismiss", dismiss, 1);
+    } else {
+        cd_open("span");
+        cd_text("Could not update amgi’s files in Anki: ");
+        tmp_text(message.p, message.len);
+        cd_close();
+        button("Try again", check_again, 0);
+        button("Dismiss", dismiss, 1);
+    }
     cd_close();
-    button("Check again", check_again, 0);
-    button("Dismiss", dismiss, 1);
-  } else {
-    cd_open("span");
-    cd_text("Could not update amgi’s files in Anki: ");
-    tmp_text(message.p, message.len);
-    cd_close();
-    button("Try again", check_again, 0);
-    button("Dismiss", dismiss, 1);
-  }
-  cd_close();
-  cd_region_end(&view);
+    cd_region_end(&view);
 }
 
 /* ctx: 0 the check, 1 the check again after an install (which never installs) */
@@ -77,57 +77,57 @@ ON_ANSWER(install_answered);
 
 /* The check, from the top: only one at a time (two would copy the same files over each other). */
 static void check(int forced) {
-  if (running) return;
-  running = 1;
-  force = forced;
-  ask(state_answered, CTX_OF(0), "GET", "/install", WIRE_NONE, 0);
+    if (running) return;
+    running = 1;
+    force = forced;
+    ask(state_answered, CTX_OF(0), "GET", "/install", WIRE_NONE, 0);
 }
 
 void template_mode_changed(void) { check(0); }
 
 static void fail(const answer *a) {
-  char m[600];
-  text_set(&message, m, answer_message(a, m, sizeof m));
-  phase = P_FAILED;
-  running = 0;
-  cd_dirty(draw, 0);
+    char m[600];
+    text_set(&message, m, answer_message(a, m, sizeof m));
+    phase = P_FAILED;
+    running = 0;
+    cd_dirty(draw, 0);
 }
 
 ON_ANSWER(state_answered) {
-  int recheck = CTX_INDEX(ctx) == 1;
-  wire_install_state s;
-  answer a = take(&h, WK_INSTALL_STATE, status, p, len, &s);
-  if (!a.ok) return fail(&a);
-  if (!s.installed) {
-    phase = P_IDLE;
-  } else if (!recheck && s.up_to_date == 0) {
-    /* never while Anki is open, unless the person says so */
-    if (anki_open() && !force) {
-      phase = P_OFFERED;
+    int recheck = CTX_INDEX(ctx) == 1;
+    wire_install_state s;
+    answer a = take(&h, WK_INSTALL_STATE, status, p, len, &s);
+    if (!a.ok) return fail(&a);
+    if (!s.installed) {
+        phase = P_IDLE;
+    } else if (!recheck && s.up_to_date == 0) {
+        /* never while Anki is open, unless the person says so */
+        if (anki_open() && !force) {
+            phase = P_OFFERED;
+        } else {
+            phase = P_UPDATING;
+            cd_dirty(draw, 0);
+            wire_q_install q = {{settings[S_BASE_DIR].p ? settings[S_BASE_DIR].p : "", settings[S_BASE_DIR].len}};
+            ask(install_answered, 0, "POST", "/install", WK_Q_INSTALL, &q);
+            return;
+        }
     } else {
-      phase = P_UPDATING;
-      cd_dirty(draw, 0);
-      wire_q_install q = {{settings[S_BASE_DIR].p ? settings[S_BASE_DIR].p : "", settings[S_BASE_DIR].len}};
-      ask(install_answered, 0, "POST", "/install", WK_Q_INSTALL, &q);
-      return;
+        phase = s.collection_checked && s.stale.n ? P_BEHIND : P_IDLE;
     }
-  } else {
-    phase = s.collection_checked && s.stale.n ? P_BEHIND : P_IDLE;
-  }
-  running = 0;
-  cd_dirty(draw, 0);
+    running = 0;
+    cd_dirty(draw, 0);
 }
 ON_ANSWER(install_answered) {
-  wire_installed in;
-  answer a = take(&h, WK_INSTALLED, status, p, len, &in);
-  if (!a.ok) return fail(&a);
-  ask(state_answered, CTX_OF(1), "GET", "/install", WIRE_NONE, 0);
+    wire_installed in;
+    answer a = take(&h, WK_INSTALLED, status, p, len, &in);
+    if (!a.ok) return fail(&a);
+    ask(state_answered, CTX_OF(1), "GET", "/install", WIRE_NONE, 0);
 }
 
 ON_EVENT(install_now) { check(1); }
 ON_EVENT(check_again) { check(0); }
 ON_EVENT(dismiss) {
-  /* for this visit only: a reload brings it back, because what it reports is still true */
-  dismissed = 1;
-  cd_dirty(draw, 0);
+    /* for this visit only: a reload brings it back, because what it reports is still true */
+    dismissed = 1;
+    cd_dirty(draw, 0);
 }

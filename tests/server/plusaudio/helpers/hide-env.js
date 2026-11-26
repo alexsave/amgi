@@ -18,36 +18,36 @@ const BACKUP_PATH = `${ENV_PATH}.hide-env-backup`;
 const LOCK_PATH = `${ENV_PATH}.hide-env-lock`;
 
 function acquireLock() {
-  for (;;) {
-    try {
-      fs.writeFileSync(LOCK_PATH, String(process.pid), { flag: 'wx' });
-      return;
-    } catch (error) {
-      if (error.code !== 'EEXIST') throw error;
-      // Another test file holds it; this is short-lived (a rename or two),
-      // so a tight synchronous spin is fine rather than worth an async wait.
+    for (;;) {
+        try {
+            fs.writeFileSync(LOCK_PATH, String(process.pid), { flag: 'wx' });
+            return;
+        } catch (error) {
+            if (error.code !== 'EEXIST') throw error;
+            // Another test file holds it; this is short-lived (a rename or two),
+            // so a tight synchronous spin is fine rather than worth an async wait.
+        }
     }
-  }
 }
 
 function releaseLock() {
-  fs.unlinkSync(LOCK_PATH);
+    fs.unlinkSync(LOCK_PATH);
 }
 
 /** Runs `fn` with plusaudio/.env absent (if it existed), restoring it afterward. */
 async function withEnvHidden(fn) {
-  acquireLock();
-  try {
-    const hadEnvFile = fs.existsSync(ENV_PATH);
-    if (hadEnvFile) fs.renameSync(ENV_PATH, BACKUP_PATH);
+    acquireLock();
     try {
-      return await fn();
+        const hadEnvFile = fs.existsSync(ENV_PATH);
+        if (hadEnvFile) fs.renameSync(ENV_PATH, BACKUP_PATH);
+        try {
+            return await fn();
+        } finally {
+            if (hadEnvFile) fs.renameSync(BACKUP_PATH, ENV_PATH);
+        }
     } finally {
-      if (hadEnvFile) fs.renameSync(BACKUP_PATH, ENV_PATH);
+        releaseLock();
     }
-  } finally {
-    releaseLock();
-  }
 }
 
 module.exports = { withEnvHidden };

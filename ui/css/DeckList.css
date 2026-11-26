@@ -1,284 +1,284 @@
 .deck-management {
-  height: 100%;
-  width: 100%;
-  max-width: 900px;
-  margin: 0 auto;
-  padding: 1.5rem 1rem;
-  box-sizing: border-box;
+    height: 100%;
+    width: 100%;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 1.5rem 1rem;
+    box-sizing: border-box;
 }
 
 .deck-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 1rem;
-  margin-bottom: 1.25rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
 }
 
 .deck-management h2 {
-  color: var(--text-primary);
-  margin: 0;
+    color: var(--text-primary);
+    margin: 0;
 }
 
 .deck-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-bottom: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 1rem;
 }
 
 .deck-actions {
-  display: flex;
-  gap: 10px;
-  flex-shrink: 0;
+    display: flex;
+    gap: 10px;
+    flex-shrink: 0;
 }
 
 .action-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--dark-surface);
-  color: var(--text-primary);
-  border: 1px solid var(--border-color);
-  padding: 6px;
-  width: 36px;
-  height: 36px;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  min-width: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--dark-surface);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    padding: 6px;
+    width: 36px;
+    height: 36px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    min-width: 36px;
 }
 
 .action-btn:hover {
-  background: var(--dark-surface-hover);
-  border-color: var(--flame-orange);
-  color: var(--flame-orange);
+    background: var(--dark-surface-hover);
+    border-color: var(--flame-orange);
+    color: var(--flame-orange);
 }
 
 .action-btn svg {
-  width: 20px;
-  height: 20px;
-  stroke: currentColor;
-  fill: none;
+    width: 20px;
+    height: 20px;
+    stroke: currentColor;
+    fill: none;
 }
 
 .deck-item {
-  background: var(--dark-surface);
-  border-radius: 6px;
-  padding: 15px;
-  transition: all 0.2s ease;
-  cursor: pointer;
-  border: 1px solid var(--border-color);
+    background: var(--dark-surface);
+    border-radius: 6px;
+    padding: 15px;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    border: 1px solid var(--border-color);
 }
 
 .deck-item:hover {
-  background: var(--dark-surface-hover);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    background: var(--dark-surface-hover);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 
 .deck-item.selected {
-  background: var(--dark-surface-hover);
-  border-color: var(--flame-orange);
+    background: var(--dark-surface-hover);
+    border-color: var(--flame-orange);
 }
 
 .deck-info h3 {
-  color: var(--text-primary);
-  margin: 0 0 5px 0;
+    color: var(--text-primary);
+    margin: 0 0 5px 0;
 }
 
 .deck-info p {
-  color: var(--text-secondary);
-  margin: 0;
-  font-size: 0.9em;
+    color: var(--text-secondary);
+    margin: 0;
+    font-size: 0.9em;
 }
 
 .modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.6);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 16px;
-  box-sizing: border-box;
-  z-index: 1000;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.6);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 16px;
+    box-sizing: border-box;
+    z-index: 1000;
 }
 
 .modal-content {
-  border-radius: 8px;
-  padding: 1.25rem;
-  width: 100%;
-  max-width: 420px;
-  box-sizing: border-box;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  background-color: var(--dark-surface);
-  border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 1.25rem;
+    width: 100%;
+    max-width: 420px;
+    box-sizing: border-box;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    background-color: var(--dark-surface);
+    border: 1px solid var(--border-color);
 }
 
 .modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
 }
 
 .modal-header h3 {
-  margin: 0;
-  color: var(--text-primary);
-  font-size: 1.2rem;
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 1.2rem;
 }
 
 .close-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: none;
-  color: var(--text-secondary);
-  cursor: pointer;
-  padding: 0;
-  width: 32px;
-  height: 32px;
-  flex-shrink: 0;
-  border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 0;
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+    border-radius: 4px;
 }
 
 .close-btn:hover {
-  background: var(--dark-surface-hover);
-  color: var(--flame-orange);
+    background: var(--dark-surface-hover);
+    color: var(--flame-orange);
 }
 
 .modal-content .form-group {
-  margin-bottom: 1rem;
+    margin-bottom: 1rem;
 }
 
 .modal-content .form-group label {
-  display: block;
-  margin-bottom: 8px;
-  color: var(--text-primary);
-  font-size: 0.9rem;
+    display: block;
+    margin-bottom: 8px;
+    color: var(--text-primary);
+    font-size: 0.9rem;
 }
 
 .modal-content .form-group input,
 .modal-content .form-group select {
-  width: 100%;
-  box-sizing: border-box;
-  padding: 10px 12px;
-  border: 1px solid var(--border-color);
-  border-radius: 4px;
-  background: var(--dark-bg);
-  color: var(--text-primary);
-  font-size: 1rem;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 10px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background: var(--dark-bg);
+    color: var(--text-primary);
+    font-size: 1rem;
 }
 
 .modal-content .form-group input:focus,
 .modal-content .form-group select:focus {
-  outline: none;
-  border-color: var(--flame-orange);
+    outline: none;
+    border-color: var(--flame-orange);
 }
 
 .button-row {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 1.5rem;
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 1.5rem;
 }
 
 .modal-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
 }
 
 .modal-actions button {
-  padding: 8px 16px;
-  border-radius: 4px;
-  font-size: 0.9rem;
-  cursor: pointer;
-  transition: all 0.2s ease;
+    padding: 8px 16px;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
 }
 
 .cancel-btn {
-  background: transparent;
-  border: 1px solid var(--border-color);
-  color: var(--text-primary);
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
 }
 
 .cancel-btn:hover {
-  background: var(--dark-surface-hover);
-  border-color: var(--flame-orange);
+    background: var(--dark-surface-hover);
+    border-color: var(--flame-orange);
 }
 
 .submit-btn {
-  background: var(--flame-orange);
-  border: none;
-  color: white;
+    background: var(--flame-orange);
+    border: none;
+    color: white;
 }
 
 .submit-btn:hover {
-  background: var(--flame-orange-hover);
+    background: var(--flame-orange-hover);
 }
 
 .submit-btn:disabled {
-  background: var(--dark-surface-hover);
-  color: var(--text-secondary);
-  cursor: not-allowed;
+    background: var(--dark-surface-hover);
+    color: var(--text-secondary);
+    cursor: not-allowed;
 }
 
 .starter-deck-option {
-  background: var(--dark-bg);
-  border: 1px solid var(--border-color);
-  color: var(--text-primary);
-  font-size: 0.95rem;
-  font-family: inherit;
-  line-height: 1.4;
-  transition: all 0.2s ease;
+    background: var(--dark-bg);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    font-family: inherit;
+    line-height: 1.4;
+    transition: all 0.2s ease;
 }
 
 .starter-deck-option:hover:not(:disabled) {
-  background: var(--dark-surface-hover);
-  border-color: var(--flame-orange);
+    background: var(--dark-surface-hover);
+    border-color: var(--flame-orange);
 }
 
 .starter-deck-option:disabled {
-  opacity: 0.6;
+    opacity: 0.6;
 }
 
 .starter-deck-list {
-  max-height: 55vh;
-  overflow-y: auto;
+    max-height: 55vh;
+    overflow-y: auto;
 }
 
 .empty-deck-state {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
 }
 
 .create-first-deck-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  height: 75px;
-  width: 100%;
-  background: var(--dark-surface);
-  color: var(--text-primary);
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    height: 75px;
+    width: 100%;
+    background: var(--dark-surface);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
 }
 
 .create-first-deck-btn:hover {
-  background: var(--dark-surface-hover);
-  border-color: var(--flame-orange);
-  color: var(--flame-orange);
+    background: var(--dark-surface-hover);
+    border-color: var(--flame-orange);
+    color: var(--flame-orange);
 } 
 .deck-list-loading {
-  padding: 32px 0;
-  text-align: center;
-  color: var(--text-secondary);
+    padding: 32px 0;
+    text-align: center;
+    color: var(--text-secondary);
 }

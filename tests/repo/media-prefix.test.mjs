@@ -15,17 +15,17 @@ export const tracked = () => execFileSync('git', ['ls-files', '-z'], { cwd: ROOT
   .split('\0').filter((f) => f && fs.existsSync(path.join(ROOT, f)));
 
 test('no tracked file holds the old clip prefix, in its text or in its path', () => {
-  const hits = [];
-  for (const file of tracked()) {
-    if (file.includes(OLD)) hits.push(`${file} (path)`);
-    // A submodule is a directory here: its files are its own repository's.
-    if (!fs.statSync(path.join(ROOT, file)).isFile()) continue;
-    if (fs.readFileSync(path.join(ROOT, file)).includes(OLD)) hits.push(file);
-  }
-  assert.deepEqual(hits, []);
+    const hits = [];
+    for (const file of tracked()) {
+        if (file.includes(OLD)) hits.push(`${file} (path)`);
+        // A submodule is a directory here: its files are its own repository's.
+        if (!fs.statSync(path.join(ROOT, file)).isFile()) continue;
+        if (fs.readFileSync(path.join(ROOT, file)).includes(OLD)) hits.push(file);
+    }
+    assert.deepEqual(hits, []);
 });
 
 test('the one owner of the prefix is AMGI_MEDIA_PREFIX in wire.h, and the add-on reads it from wire_schema.py', () => {
-  assert.match(fs.readFileSync(path.join(ROOT, 'ui/wire/wire.h'), 'utf8'), /#define AMGI_MEDIA_PREFIX "amgi-"\n/);
-  assert.match(fs.readFileSync(path.join(ROOT, 'anki/addon/amgi_bridge/wire_schema.py'), 'utf8'), /\nMEDIA_PREFIX = "amgi-"\n/);
+    assert.match(fs.readFileSync(path.join(ROOT, 'ui/wire/wire.h'), 'utf8'), /#define AMGI_MEDIA_PREFIX "amgi-"\n/);
+    assert.match(fs.readFileSync(path.join(ROOT, 'anki/addon/amgi_bridge/wire_schema.py'), 'utf8'), /\nMEDIA_PREFIX = "amgi-"\n/);
 });

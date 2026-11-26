@@ -13,40 +13,40 @@
      anki-loop.js's bootBack for why this card does not draw a second one. -->
 
 <div class="amgi" data-amgi-card data-amgi-side="back" data-amgi-phase="answer">
-  <div class="amgi-visual">
-    <canvas class="amgi-visualizer" data-amgi-visualizer aria-hidden="true"></canvas>
-  </div>
+    <div class="amgi-visual">
+        <canvas class="amgi-visualizer" data-amgi-visualizer aria-hidden="true"></canvas>
+    </div>
 
-  <div class="amgi-text amgi-text-target" lang="{{Language}}">{{Target}}</div>
-  <div class="amgi-text amgi-text-cue">{{Cue}}</div>
-  {{#Notes}}<div class="amgi-text amgi-text-notes">{{Notes}}</div>{{/Notes}}
+    <div class="amgi-text amgi-text-target" lang="{{Language}}">{{Target}}</div>
+    <div class="amgi-text amgi-text-cue">{{Cue}}</div>
+    {{#Notes}}<div class="amgi-text amgi-text-notes">{{Notes}}</div>{{/Notes}}
 
-  <div class="amgi-slot" data-amgi-cue-audio>{{CueAudio}}</div>
-  <div class="amgi-slot" data-amgi-target-audio>{{TargetAudio}}</div>
+    <div class="amgi-slot" data-amgi-cue-audio>{{CueAudio}}</div>
+    <div class="amgi-slot" data-amgi-target-audio>{{TargetAudio}}</div>
 
-  <div class="amgi-actions">
-    <button type="button" class="amgi-btn tappable" data-amgi-action="play" hidden>
-      Tap to play
-    </button>
-    <button type="button" class="amgi-btn amgi-btn-quiet tappable" data-amgi-action="replay-cue">
-      Hear it again
-    </button>
-    <button type="button" class="amgi-btn amgi-btn-quiet tappable" data-amgi-action="replay-native">
-      Hear the answer
-    </button>
-    <button type="button" class="amgi-btn amgi-btn-quiet tappable" data-amgi-action="replay-you" hidden>
-      Hear yourself
-    </button>
-  </div>
+    <div class="amgi-actions">
+        <button type="button" class="amgi-btn tappable" data-amgi-action="play" hidden>
+            Tap to play
+        </button>
+        <button type="button" class="amgi-btn amgi-btn-quiet tappable" data-amgi-action="replay-cue">
+            Hear it again
+        </button>
+        <button type="button" class="amgi-btn amgi-btn-quiet tappable" data-amgi-action="replay-native">
+            Hear the answer
+        </button>
+        <button type="button" class="amgi-btn amgi-btn-quiet tappable" data-amgi-action="replay-you" hidden>
+            Hear yourself
+        </button>
+    </div>
 
-  <!-- No status line on this side, and nothing in its place. It used to ask
-       "How did you do?" directly above Anki's own Again / Hard / Good / Easy
-       bar, which is the thing that answers it - so the question was a label
-       for a control that already labels itself four ways. The loop never
-       writes to the status on the answer side either (see bootBack), so this
-       was markup that only ever held one fixed sentence. -->
+    <!-- No status line on this side, and nothing in its place. It used to ask
+         "How did you do?" directly above Anki's own Again / Hard / Good / Easy
+         bar, which is the thing that answers it - so the question was a label
+         for a control that already labels itself four ways. The loop never
+         writes to the status on the answer side either (see bootBack), so this
+         was markup that only ever held one fixed sentence. -->
 
-  <p class="amgi-note" data-amgi-note hidden></p>
+    <p class="amgi-note" data-amgi-note hidden></p>
 </div>
 
 <script src="_amgi-loop.js"></script>

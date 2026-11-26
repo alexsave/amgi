@@ -15,38 +15,38 @@
      HTML comments too, so naming it here would paste it into the page. -->
 
 <div class="amgi" data-amgi-card data-amgi-side="front" data-amgi-phase="idle">
-  <div class="amgi-visual">
-    <canvas class="amgi-visualizer" data-amgi-visualizer aria-hidden="true"></canvas>
-  </div>
+    <div class="amgi-visual">
+        <canvas class="amgi-visualizer" data-amgi-visualizer aria-hidden="true"></canvas>
+    </div>
 
-  <p class="amgi-status" data-amgi-status role="status" aria-live="polite">
-    <span class="amgi-status-icon" data-amgi-status-icon aria-hidden="true"></span>
-    <span class="amgi-status-lines">
-      <span class="amgi-status-recording" data-amgi-status-recording hidden>
-        <span class="amgi-status-dot" aria-hidden="true"></span>
-        <span data-amgi-status-recording-text></span>
-      </span>
-      <span data-amgi-status-text>Listen</span>
-    </span>
-  </p>
+    <p class="amgi-status" data-amgi-status role="status" aria-live="polite">
+        <span class="amgi-status-icon" data-amgi-status-icon aria-hidden="true"></span>
+        <span class="amgi-status-lines">
+            <span class="amgi-status-recording" data-amgi-status-recording hidden>
+                <span class="amgi-status-dot" aria-hidden="true"></span>
+                <span data-amgi-status-recording-text></span>
+            </span>
+            <span data-amgi-status-text>Listen</span>
+        </span>
+    </p>
 
-  <!-- The prompt slot holds the LEARNING language's recording on this card.
-       The loop plays whatever is in this slot first and opens the microphone
-       after it, so the direction of the card is decided entirely by which
-       recording goes in which slot - no JavaScript knows which way round it
-       is, and none needs to. -->
-  <div class="amgi-slot" data-amgi-cue-audio>{{TargetAudio}}</div>
+    <!-- The prompt slot holds the LEARNING language's recording on this card.
+         The loop plays whatever is in this slot first and opens the microphone
+         after it, so the direction of the card is decided entirely by which
+         recording goes in which slot - no JavaScript knows which way round it
+         is, and none needs to. -->
+    <div class="amgi-slot" data-amgi-cue-audio>{{TargetAudio}}</div>
 
-  <div class="amgi-actions">
-    <button type="button" class="amgi-btn tappable" data-amgi-action="play" hidden>
-      Tap to play
-    </button>
-    <button type="button" class="amgi-btn tappable" data-amgi-action="reveal" aria-keyshortcuts="Space Enter">
-      <span data-amgi-reveal-label>Skip</span> <kbd aria-hidden="true">space</kbd>
-    </button>
-  </div>
+    <div class="amgi-actions">
+        <button type="button" class="amgi-btn tappable" data-amgi-action="play" hidden>
+            Tap to play
+        </button>
+        <button type="button" class="amgi-btn tappable" data-amgi-action="reveal" aria-keyshortcuts="Space Enter">
+            <span data-amgi-reveal-label>Skip</span> <kbd aria-hidden="true">space</kbd>
+        </button>
+    </div>
 
-  <p class="amgi-note" data-amgi-note hidden></p>
+    <p class="amgi-note" data-amgi-note hidden></p>
 </div>
 
 <script src="_amgi-loop.js"></script>
