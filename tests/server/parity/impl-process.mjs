@@ -21,11 +21,21 @@ export class Impl {
         this.child = spawn(cmd, args, { cwd: ROOT, env: sandboxEnv(), stdio: ['pipe', 'pipe', 'inherit'] });
         this.buffer = '';
         this.waiting = [];
+        this.failure = null;
+        // A process that cannot start (spawn ENOENT) or dies mid-session answers nothing, so every
+        // read pending on it, and every later one, fails at once instead of waiting forever.
+        this.child.once('error', (error) => this.fail(error));
+        this.child.once('exit', (code, signal) => this.fail(new Error(`the collection process exited (${code ?? signal}) before it answered`)));
         this.child.stdout.setEncoding('utf8');
         this.child.stdout.on('data', (chunk) => {
             this.buffer += chunk;
             this.drain();
         });
+    }
+
+    fail(error) {
+        this.failure ??= error;
+        for (const w of this.waiting.splice(0)) w.reject(this.failure);
     }
 
     drain() {
@@ -34,13 +44,17 @@ export class Impl {
             if (nl < 0) return;
             const line = this.buffer.slice(0, nl);
             this.buffer = this.buffer.slice(nl + 1);
-            this.waiting.shift()(line);
+            this.waiting.shift().resolve(line);
         }
     }
 
     line() {
-        return new Promise((resolve) => {
-            this.waiting.push(resolve);
+        return new Promise((resolve, reject) => {
+            if (this.failure) {
+                reject(this.failure);
+                return;
+            }
+            this.waiting.push({ resolve, reject });
             this.drain();
         });
     }
@@ -61,22 +75,30 @@ export class Impl {
         return [first, ...rest].join('\n');
     }
 
+    send(text) {
+        if (this.failure) throw this.failure;
+        this.child.stdin.on('error', () => {});
+        this.child.stdin.write(text);
+    }
+
     /** Send a command (and the lines it carries) and read its whole answer. */
     async cmd(line, more = []) {
-        this.child.stdin.write(`${[line, ...more].join('\n')}\n`);
+        this.send(`${[line, ...more].join('\n')}\n`);
         return this.answer(line.split(' ')[0]);
     }
 
     /** Several single-line commands at once; their answers in order. */
     async parallel(lines) {
-        this.child.stdin.write(`parallel ${lines.length}\n${lines.join('\n')}\n`);
+        this.send(`parallel ${lines.length}\n${lines.join('\n')}\n`);
         const answers = [];
         for (const line of lines) answers.push(await this.answer(line.split(' ')[0]));
         return answers;
     }
 
     async close() {
+        if (this.failure) return;
         const exited = new Promise((resolve) => this.child.once('exit', resolve));
+        this.child.stdin.on('error', () => {});
         this.child.stdin.end('quit\n');
         await exited;
     }
