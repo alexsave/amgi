@@ -18,7 +18,7 @@
     "build": "make build",
     "start": "make start",
     "dev": "make dev",
-    "lint": "eslint",
+    "lint": "eslint && python3 -I tools/reindent4.py --verify",
     "test": "ANKI_PYTHON_BIN=\"$(tests/anki-python.sh)\" && export ANKI_PYTHON_BIN && server/tools/submodules.sh && ui/build.sh && make -s -C anki && make -s -j2 -C server all check-collection check-app && tests/server/cli-smoke.sh && node --test \"tests/ui/review-loop/**/*.test.js\" \"tests/server/plusaudio/**/*.test.js\" \"tests/anki/**/*.test.js\" \"tests/ui/*.test.mjs\" \"tests/repo/*.test.mjs\" \"tests/server/parity/*.test.mjs\" \"tests/server/bridge/*.test.mjs\" && \"$ANKI_PYTHON_BIN\" -m unittest discover -s tests/anki/addon -p \"test_*.py\" -v",
     "e2e": "make build && tests/e2e/ui/e2e.sh"
   }

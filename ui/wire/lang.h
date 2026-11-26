@@ -7,10 +7,10 @@
 #include <stdint.h>
 
 typedef struct {
-  const char *code;    /* "zh_cn": what the wire and the add-on key carry */
-  const char *name;    /* its own name, for the page's pickers */
-  const char *flag;
-  const char *english; /* its English name, for the prompts ("Mandarin Chinese") */
+    const char *code;    /* "zh_cn": what the wire and the add-on key carry */
+    const char *name;    /* its own name, for the page's pickers */
+    const char *flag;
+    const char *english; /* its English name, for the prompts ("Mandarin Chinese") */
 } lang_entry;
 
 extern const lang_entry LANGUAGES[];

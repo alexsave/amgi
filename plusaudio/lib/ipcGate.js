@@ -39,78 +39,78 @@ const TAG = 'amgiGate';
 
 /** The child's side: a gate whose acquire/record are answered by the parent over `channel` (a process). */
 function createIpcGate(channel = process, { timeoutMs = REPLY_TIMEOUT_MS, setTimer = setTimeout, clearTimer = clearTimeout } = {}) {
-  let nextId = 1;
-  const pending = new Map();
+    let nextId = 1;
+    const pending = new Map();
 
-  // The channel must not keep a finished script alive, but must keep it
-  // alive while a question is waiting for its answer.
-  const holdOpen = () => channel.channel?.ref?.();
-  const letGo = () => { if (pending.size === 0) channel.channel?.unref?.(); };
-  const settle = (id, value) => {
-    const entry = pending.get(id);
-    if (!entry) return;
-    pending.delete(id);
-    clearTimer(entry.timer);
+    // The channel must not keep a finished script alive, but must keep it
+    // alive while a question is waiting for its answer.
+    const holdOpen = () => channel.channel?.ref?.();
+    const letGo = () => { if (pending.size === 0) channel.channel?.unref?.(); };
+    const settle = (id, value) => {
+        const entry = pending.get(id);
+        if (!entry) return;
+        pending.delete(id);
+        clearTimer(entry.timer);
+        letGo();
+        entry.resolve(value);
+    };
+
+    channel.on('message', (message) => {
+        if (message && message[TAG] === 'reply') settle(message.id, Number(message.value) || 0);
+    });
     letGo();
-    entry.resolve(value);
-  };
 
-  channel.on('message', (message) => {
-    if (message && message[TAG] === 'reply') settle(message.id, Number(message.value) || 0);
-  });
-  letGo();
+    const failOpen = () => FAIL_OPEN_WAIT_MS;
 
-  const failOpen = () => FAIL_OPEN_WAIT_MS;
-
-  return {
-    acquire(model) {
-      if (!channel.connected) return Promise.resolve(failOpen());
-      const id = nextId;
-      nextId += 1;
-      return new Promise((resolve) => {
-        pending.set(id, { resolve, timer: null });
-        holdOpen();
-        pending.get(id).timer = setTimer(() => settle(id, failOpen()), timeoutMs);
-        try {
-          channel.send({ [TAG]: 'acquire', id, model }, (error) => {
-            if (error) settle(id, failOpen());
-          });
-        } catch {
-          settle(id, failOpen());
-        }
-      });
-    },
-    record(model, outcome, retryDelayMs) {
-      if (!channel.connected) return;
-      try {
-        channel.send({ [TAG]: 'record', model, outcome, retryDelayMs }, () => {});
-      } catch {
-        // The parent is gone; there is no one left to tell.
-      }
-    },
-  };
+    return {
+        acquire(model) {
+            if (!channel.connected) return Promise.resolve(failOpen());
+            const id = nextId;
+            nextId += 1;
+            return new Promise((resolve) => {
+                pending.set(id, { resolve, timer: null });
+                holdOpen();
+                pending.get(id).timer = setTimer(() => settle(id, failOpen()), timeoutMs);
+                try {
+                    channel.send({ [TAG]: 'acquire', id, model }, (error) => {
+                        if (error) settle(id, failOpen());
+                    });
+                } catch {
+                    settle(id, failOpen());
+                }
+            });
+        },
+        record(model, outcome, retryDelayMs) {
+            if (!channel.connected) return;
+            try {
+                channel.send({ [TAG]: 'record', model, outcome, retryDelayMs }, () => {});
+            } catch {
+                // The parent is gone; there is no one left to tell.
+            }
+        },
+    };
 }
 
 /** The parent's side: answer a forked child's gate messages from `gate`. */
 function serveGate(child, gate = sharedGate()) {
-  child.on('message', (message) => {
-    if (!message || typeof message[TAG] !== 'string') return;
-    if (message[TAG] === 'acquire') {
-      const value = gate.acquire(message.model);
-      try {
-        child.send({ [TAG]: 'reply', id: message.id, value }, () => {});
-      } catch {
-        // The child has exited; its question no longer matters.
-      }
-    } else if (message[TAG] === 'record') {
-      gate.record(message.model, message.outcome, message.retryDelayMs);
-    }
-  });
+    child.on('message', (message) => {
+        if (!message || typeof message[TAG] !== 'string') return;
+        if (message[TAG] === 'acquire') {
+            const value = gate.acquire(message.model);
+            try {
+                child.send({ [TAG]: 'reply', id: message.id, value }, () => {});
+            } catch {
+                // The child has exited; its question no longer matters.
+            }
+        } else if (message[TAG] === 'record') {
+            gate.record(message.model, message.outcome, message.retryDelayMs);
+        }
+    });
 }
 
 /** The gate a Gemini client in this process should use (see above). */
 function gateForThisProcess() {
-  return typeof process.send === 'function' && process.connected ? createIpcGate(process) : sharedGate();
+    return typeof process.send === 'function' && process.connected ? createIpcGate(process) : sharedGate();
 }
 
 module.exports = { FAIL_OPEN_WAIT_MS, FORK_IPC_OPTIONS, createIpcGate, gateForThisProcess, serveGate };

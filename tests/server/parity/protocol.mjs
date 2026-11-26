@@ -53,43 +53,43 @@ const SAFE = /^[A-Za-z0-9\-_.]$/;
 
 /** A string as one text token. */
 export function enc(value) {
-  if (value === undefined || value === null) return '!';
-  const s = String(value);
-  if (s === '') return '~';
-  let out = '';
-  for (const byte of Buffer.from(s, 'utf8')) {
-    const ch = String.fromCharCode(byte);
-    out += byte < 0x80 && SAFE.test(ch) ? ch : `%${byte.toString(16).toUpperCase().padStart(2, '0')}`;
-  }
-  return out;
+    if (value === undefined || value === null) return '!';
+    const s = String(value);
+    if (s === '') return '~';
+    let out = '';
+    for (const byte of Buffer.from(s, 'utf8')) {
+        const ch = String.fromCharCode(byte);
+        out += byte < 0x80 && SAFE.test(ch) ? ch : `%${byte.toString(16).toUpperCase().padStart(2, '0')}`;
+    }
+    return out;
 }
 
 /** A text token back to its string; "!" is undefined. */
 export function dec(token) {
-  if (token === '!') return undefined;
-  if (token === '~') return '';
-  const bytes = [];
-  for (let i = 0; i < token.length; i += 1) {
-    if (token[i] === '%') {
-      bytes.push(Number.parseInt(token.slice(i + 1, i + 3), 16));
-      i += 2;
-    } else bytes.push(token.charCodeAt(i));
-  }
-  return Buffer.from(bytes).toString('utf8');
+    if (token === '!') return undefined;
+    if (token === '~') return '';
+    const bytes = [];
+    for (let i = 0; i < token.length; i += 1) {
+        if (token[i] === '%') {
+            bytes.push(Number.parseInt(token.slice(i + 1, i + 3), 16));
+            i += 2;
+        } else bytes.push(token.charCodeAt(i));
+    }
+    return Buffer.from(bytes).toString('utf8');
 }
 
 /** A list of already-made tokens as one list token. */
 export function list(tokens) {
-  return `[${tokens.join(',')}]`;
+    return `[${tokens.join(',')}]`;
 }
 export const strs = (values) => list(values.map(enc));
 export const nums = (values) => list(values.map((v) => String(v)));
 
 /** A list token back to its item tokens. */
 export function items(token) {
-  if (!token.startsWith('[') || !token.endsWith(']')) throw new Error(`not a list: ${token}`);
-  const inner = token.slice(1, -1);
-  return inner === '' ? [] : inner.split(',');
+    if (!token.startsWith('[') || !token.endsWith(']')) throw new Error(`not a list: ${token}`);
+    const inner = token.slice(1, -1);
+    return inner === '' ? [] : inner.split(',');
 }
 
 export const num = (token) => (token === '!' ? undefined : Number(token));
@@ -98,19 +98,19 @@ export const unhex = (token) => (token === '!' ? null : Buffer.from(token === '~
 
 /** A note (q_note's fields) as its tokens. */
 export function noteTokens(note) {
-  return [
-    String(note.deckId), String(note.notetypeId), strs(note.fields), strs(note.tags ?? []),
-    enc(note.language), note.learningFieldIndex === undefined ? '!' : String(note.learningFieldIndex),
-  ].join(' ');
+    return [
+      String(note.deckId), String(note.notetypeId), strs(note.fields), strs(note.tags ?? []),
+      enc(note.language), note.learningFieldIndex === undefined ? '!' : String(note.learningFieldIndex),
+    ].join(' ');
 }
 
 /** Tokens of a note, back to the object addNote takes. */
 export function noteOf(tokens) {
-  const [deckId, notetypeId, fields, tags, language, lfi] = tokens;
-  const note = {
-    deckId: Number(deckId), notetypeId: Number(notetypeId), fields: items(fields).map(dec), tags: items(tags).map(dec),
-  };
-  if (language !== '!') note.language = dec(language);
-  if (lfi !== '!') note.learningFieldIndex = Number(lfi);
-  return note;
+    const [deckId, notetypeId, fields, tags, language, lfi] = tokens;
+    const note = {
+        deckId: Number(deckId), notetypeId: Number(notetypeId), fields: items(fields).map(dec), tags: items(tags).map(dec),
+    };
+    if (language !== '!') note.language = dec(language);
+    if (lfi !== '!') note.learningFieldIndex = Number(lfi);
+    return note;
 }

@@ -27,80 +27,80 @@ static int is_ident(int c) { return c == '_' || isalnum((unsigned char)c); }
 
 /* \bpthread_cancel\s*\( */
 static int calls_cancel(const char *s, size_t n) {
-  const char *word = "pthread_cancel";
-  size_t wl = strlen(word);
-  for (size_t i = 0; i + wl <= n; i++) {
-    if (memcmp(s + i, word, wl) != 0) continue;
-    if (i > 0 && is_ident((unsigned char)s[i - 1])) continue;
-    size_t j = i + wl;
-    while (j < n && isspace((unsigned char)s[j])) j++;
-    if (j < n && s[j] == '(') return 1;
-  }
-  return 0;
+    const char *word = "pthread_cancel";
+    size_t wl = strlen(word);
+    for (size_t i = 0; i + wl <= n; i++) {
+        if (memcmp(s + i, word, wl) != 0) continue;
+        if (i > 0 && is_ident((unsigned char)s[i - 1])) continue;
+        size_t j = i + wl;
+        while (j < n && isspace((unsigned char)s[j])) j++;
+        if (j < n && s[j] == '(') return 1;
+    }
+    return 0;
 }
 
 static void scan(const char *rel) {
-  char path[PATH_MAX];
-  size_t rl = strlen(rel);
-  checks++;
-  if (rl >= 19 && strcmp(rel + rl - 19, "collection/direct.c") == 0) saw_direct = 1;
-  if (snprintf(path, sizeof path, "%s/%s", root, rel) >= (int)sizeof path) {
-    failures++;
-    fprintf(stderr, "FAIL %s: path too long\n", rel);
-    return;
-  }
-  size_t n = 0;
-  char *buf = read_file(path, &n);
-  if (!buf) {
-    failures++;
-    fprintf(stderr, "FAIL %s: cannot read it\n", rel);
-    return;
-  }
-  if (calls_cancel(buf, n)) {
-    failures++;
-    fprintf(stderr, "FAIL %s: cancels a thread; a cancelled thread never gives back the collection core's path lock\n", rel);
-  }
-  free(buf);
+    char path[PATH_MAX];
+    size_t rl = strlen(rel);
+    checks++;
+    if (rl >= 19 && strcmp(rel + rl - 19, "collection/direct.c") == 0) saw_direct = 1;
+    if (snprintf(path, sizeof path, "%s/%s", root, rel) >= (int)sizeof path) {
+        failures++;
+        fprintf(stderr, "FAIL %s: path too long\n", rel);
+        return;
+    }
+    size_t n = 0;
+    char *buf = read_file(path, &n);
+    if (!buf) {
+        failures++;
+        fprintf(stderr, "FAIL %s: cannot read it\n", rel);
+        return;
+    }
+    if (calls_cancel(buf, n)) {
+        failures++;
+        fprintf(stderr, "FAIL %s: cancels a thread; a cancelled thread never gives back the collection core's path lock\n", rel);
+    }
+    free(buf);
 }
 
 /* Every .c and .h under root/rel, as rel paths. */
 static void walk(const char *rel) {
-  char dir[PATH_MAX];
-  if (snprintf(dir, sizeof dir, "%s/%s", root, rel) >= (int)sizeof dir) return;
-  DIR *d = opendir(dir);
-  if (!d) return; /* a missing cbase directory is nothing to scan */
-  struct dirent *e;
-  while ((e = readdir(d)) != NULL) {
-    if (strcmp(e->d_name, ".") == 0 || strcmp(e->d_name, "..") == 0) continue;
-    char child[PATH_MAX], full[PATH_MAX];
-    if (snprintf(child, sizeof child, "%s/%s", rel, e->d_name) >= (int)sizeof child) continue;
-    if (snprintf(full, sizeof full, "%s/%s", root, child) >= (int)sizeof full) continue;
-    struct stat st;
-    if (stat(full, &st) != 0) continue;
-    if (S_ISDIR(st.st_mode)) {
-      walk(child);
-    } else {
-      size_t l = strlen(child);
-      if ((l > 2 && strcmp(child + l - 2, ".c") == 0) || (l > 2 && strcmp(child + l - 2, ".h") == 0)) scan(child);
+    char dir[PATH_MAX];
+    if (snprintf(dir, sizeof dir, "%s/%s", root, rel) >= (int)sizeof dir) return;
+    DIR *d = opendir(dir);
+    if (!d) return; /* a missing cbase directory is nothing to scan */
+    struct dirent *e;
+    while ((e = readdir(d)) != NULL) {
+        if (strcmp(e->d_name, ".") == 0 || strcmp(e->d_name, "..") == 0) continue;
+        char child[PATH_MAX], full[PATH_MAX];
+        if (snprintf(child, sizeof child, "%s/%s", rel, e->d_name) >= (int)sizeof child) continue;
+        if (snprintf(full, sizeof full, "%s/%s", root, child) >= (int)sizeof full) continue;
+        struct stat st;
+        if (stat(full, &st) != 0) continue;
+        if (S_ISDIR(st.st_mode)) {
+            walk(child);
+        } else {
+            size_t l = strlen(child);
+            if ((l > 2 && strcmp(child + l - 2, ".c") == 0) || (l > 2 && strcmp(child + l - 2, ".h") == 0)) scan(child);
+        }
     }
-  }
-  closedir(d);
+    closedir(d);
 }
 
 int main(int argc, char **argv) {
-  if (argc < 2) {
-    fprintf(stderr, "usage: c_rules <repo root> [tracked .c and .h files...]\n");
-    return 2;
-  }
-  root = argv[1];
-  for (int i = 2; i < argc; i++) scan(argv[i]);
-  walk("cbase/core");
-  walk("cbase/providers");
-  checks++;
-  if (!saw_direct) {
-    failures++;
-    fprintf(stderr, "FAIL the scan does not see the collection core (collection/direct.c)\n");
-  }
-  printf("c rules: %d files checked, %d failed\n", checks, failures);
-  return failures ? 1 : 0;
+    if (argc < 2) {
+        fprintf(stderr, "usage: c_rules <repo root> [tracked .c and .h files...]\n");
+        return 2;
+    }
+    root = argv[1];
+    for (int i = 2; i < argc; i++) scan(argv[i]);
+    walk("cbase/core");
+    walk("cbase/providers");
+    checks++;
+    if (!saw_direct) {
+        failures++;
+        fprintf(stderr, "FAIL the scan does not see the collection core (collection/direct.c)\n");
+    }
+    printf("c rules: %d files checked, %d failed\n", checks, failures);
+    return failures ? 1 : 0;
 }

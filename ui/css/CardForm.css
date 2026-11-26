@@ -1,57 +1,57 @@
 .card-form {
-  display: flex;
-  flex-direction: column;
-  margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    margin: 0 auto;
 }
 
 .card-preview {
-  margin-top: 2rem;
+    margin-top: 2rem;
 }
 
 .flashcard {
-  display: flex;
-  justify-content: center;
-  padding: 1rem;
+    display: flex;
+    justify-content: center;
+    padding: 1rem;
 }
 
 .card-side {
-  flex: 1;
-  background-color: var(--dark-surface);
-  transition: all 0.2s ease;
+    flex: 1;
+    background-color: var(--dark-surface);
+    transition: all 0.2s ease;
 }
 
 .card-form-mode-toggle {
-  display: flex;
-  gap: 0.5rem;
+    display: flex;
+    gap: 0.5rem;
 }
 
 .card-form-mode-toggle button {
-  flex: 1;
-  padding: 0.6rem;
-  border-radius: 4px;
-  border: 1px solid var(--border-color);
-  background: var(--dark-surface-hover);
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: all 0.2s ease;
+    flex: 1;
+    padding: 0.6rem;
+    border-radius: 4px;
+    border: 1px solid var(--border-color);
+    background: var(--dark-surface-hover);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s ease;
 }
 
 .card-form-mode-toggle button.card-form-mode-active {
-  border-color: var(--flame-orange);
-  color: var(--flame-orange);
+    border-color: var(--flame-orange);
+    color: var(--flame-orange);
 }
 
 .language-option {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
 }
 
 .language-option img {
-  width: 1.5rem;
-  height: 1rem;
-  object-fit: cover;
-  border-radius: 2px;
+    width: 1.5rem;
+    height: 1rem;
+    object-fit: cover;
+    border-radius: 2px;
 }
 
 /* The "Generate Audio" button (type="button") shares this class with "Add
@@ -61,343 +61,343 @@
    sibling. A plain secondary look (bordered, no fill) reads as "the other
    action" without competing with the primary button's color. */
 .generate-button {
-  background: var(--dark-surface-hover);
-  color: var(--text-primary);
-  border: 1px solid var(--border-color);
-  padding: 10px 20px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 1em;
-  transition: all 0.2s ease;
+    background: var(--dark-surface-hover);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    padding: 10px 20px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1em;
+    transition: all 0.2s ease;
 }
 
 .generate-button:hover:not(:disabled) {
-  border-color: var(--flame-orange);
-  color: var(--flame-orange);
+    border-color: var(--flame-orange);
+    color: var(--flame-orange);
 }
 
 .generate-button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+    opacity: 0.6;
+    cursor: not-allowed;
 }
 
 .card-form button[type="submit"] {
-  background: var(--flame-orange);
-  color: white;
-  border: none;
-  padding: 10px 20px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 1em;
-  transition: all 0.2s ease;
+    background: var(--flame-orange);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1em;
+    transition: all 0.2s ease;
 }
 
 .card-form button[type="submit"]:hover {
-  background: var(--flame-orange-hover);
-  transform: translateY(-1px);
+    background: var(--flame-orange-hover);
+    transform: translateY(-1px);
 }
 
 .card-form button[type="submit"]:disabled {
-  background: var(--dark-surface-hover);
-  color: var(--text-secondary);
-  cursor: not-allowed;
-  transform: none;
+    background: var(--dark-surface-hover);
+    color: var(--text-secondary);
+    cursor: not-allowed;
+    transform: none;
 }
 
 .progress {
-  margin: 20px 0;
-  padding: 15px;
-  background: var(--dark-surface-hover);
-  border-radius: 4px;
-  text-align: center;
-  color: var(--text-primary);
-  border: 1px solid var(--border-color);
+    margin: 20px 0;
+    padding: 15px;
+    background: var(--dark-surface-hover);
+    border-radius: 4px;
+    text-align: center;
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
 }
 
 .add-to-deck-btn {
-  background: var(--flame-orange);
-  color: white;
-  border: none;
-  padding: 12px 24px;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 1em;
-  margin: 1rem auto;
-  max-width: 200px;
-  display: block;
-  transition: all 0.2s ease;
+    background: var(--flame-orange);
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1em;
+    margin: 1rem auto;
+    max-width: 200px;
+    display: block;
+    transition: all 0.2s ease;
 }
 
 .add-to-deck-btn:hover {
-  background: var(--flame-orange-hover);
-  transform: translateY(-1px);
+    background: var(--flame-orange-hover);
+    transform: translateY(-1px);
 }
 
 .add-to-deck-btn:disabled {
-  background: var(--dark-surface-hover);
-  color: var(--text-secondary);
-  cursor: not-allowed;
-  transform: none;
-  opacity: 0.7;
+    background: var(--dark-surface-hover);
+    color: var(--text-secondary);
+    cursor: not-allowed;
+    transform: none;
+    opacity: 0.7;
 }
 
 .text-view-container {
-  display: flex;
-  gap: 2rem;
-  margin: 2rem 0;
-  justify-content: center;
+    display: flex;
+    gap: 2rem;
+    margin: 2rem 0;
+    justify-content: center;
 }
 
 .text-view {
-  flex: 1;
-  max-width: 300px;
-  padding: 1rem;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  background-color: #fff;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    flex: 1;
+    max-width: 300px;
+    padding: 1rem;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    background-color: #fff;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .text-view h3 {
-  margin: 0 0 1rem 0;
-  color: #333;
+    margin: 0 0 1rem 0;
+    color: #333;
 }
 
 .text-view p {
-  margin: 0 0 1rem 0;
-  line-height: 1.5;
+    margin: 0 0 1rem 0;
+    line-height: 1.5;
 } 
 /* The simplified add-card surface: one row of controls, one level of box.
    See CardForm.js for what this replaced and why none of it is coming back. */
 .card-form-lead {
-  display: flex;
-  gap: 0.6rem;
+    display: flex;
+    gap: 0.6rem;
 }
 
 /* A textarea rather than an input, because one box now serves both a typed
    phrase and a pasted block: it starts one line tall and grows with the
    paste, so the many-cards case needs no second control to get to. */
 .card-form-input {
-  flex: 1 1 auto;
-  font: inherit;
-  font-size: 0.98rem;
-  line-height: 1.45;
-  background: var(--dark-surface);
-  color: var(--text-primary);
-  border: 1px solid var(--border-color);
-  border-radius: 9px;
-  padding: 0.75rem 0.9rem;
-  resize: vertical;
-  min-height: 2.9rem;
-  box-sizing: border-box;
+    flex: 1 1 auto;
+    font: inherit;
+    font-size: 0.98rem;
+    line-height: 1.45;
+    background: var(--dark-surface);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 9px;
+    padding: 0.75rem 0.9rem;
+    resize: vertical;
+    min-height: 2.9rem;
+    box-sizing: border-box;
 }
 
 .card-form-lead {
-  align-items: flex-start;
-  /* The tab strip used to provide this gap. With it gone the box sat hard
-     against the deck's own subtitle. */
-  margin-top: 1.1rem;
+    align-items: flex-start;
+    /* The tab strip used to provide this gap. With it gone the box sat hard
+       against the deck's own subtitle. */
+    margin-top: 1.1rem;
 }
 
 .card-form-go {
-  flex: none;
+    flex: none;
 }
 
 /* On a phone the box takes the whole width and the button goes under it: side by side, the box was
    too narrow for its own one-line placeholder, which it clipped. */
 @media (max-width: 600px) {
-  .card-form-lead {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  /* the placeholder takes two lines at this width: the box starts two lines tall */
-  .card-form-input {
-    min-height: 4.3rem;
-  }
+    .card-form-lead {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    /* the placeholder takes two lines at this width: the box starts two lines tall */
+    .card-form-input {
+        min-height: 4.3rem;
+    }
 }
 
 .card-form-go {
-  font: inherit;
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: #fff;
-  background: var(--flame-orange);
-  border: 1px solid var(--flame-orange);
-  border-radius: 9px;
-  padding: 0.75rem 1.2rem;
-  cursor: pointer;
+    font: inherit;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #fff;
+    background: var(--flame-orange);
+    border: 1px solid var(--flame-orange);
+    border-radius: 9px;
+    padding: 0.75rem 1.2rem;
+    cursor: pointer;
 }
 
 .card-form-input:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+    opacity: 0.6;
+    cursor: not-allowed;
 }
 
 .card-form-go:disabled {
-  opacity: 0.45;
-  cursor: default;
+    opacity: 0.45;
+    cursor: default;
 }
 
 .card-form-hint,
 .card-form-langs {
-  font-size: 0.8rem;
-  color: var(--text-secondary);
-  margin: 0.6rem 0 0;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin: 0.6rem 0 0;
 }
 
 .card-form-error {
-  font-size: 0.85rem;
-  color: #e07050;
-  margin: 0.6rem 0 0;
+    font-size: 0.85rem;
+    color: #e07050;
+    margin: 0.6rem 0 0;
 }
 
 .card-form-warning {
-  font-size: 0.8rem;
-  color: #d0a030;
-  margin: 0.4rem 0 0;
+    font-size: 0.8rem;
+    color: #d0a030;
+    margin: 0.4rem 0 0;
 }
 
 .card-form-langs {
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
-  margin-top: 1.1rem;
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    margin-top: 1.1rem;
 }
 
 .card-form-langs button {
-  font: inherit;
-  font-size: 0.78rem;
-  color: var(--text-secondary);
-  background: transparent;
-  border: 1px solid var(--border-color);
-  border-radius: 7px;
-  padding: 0.25rem 0.6rem;
-  cursor: pointer;
+    font: inherit;
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    background: transparent;
+    border: 1px solid var(--border-color);
+    border-radius: 7px;
+    padding: 0.25rem 0.6rem;
+    cursor: pointer;
 }
 
 .card-form-langs select {
-  font: inherit;
-  font-size: 0.8rem;
-  background: var(--dark-surface);
-  color: var(--text-primary);
-  border: 1px solid var(--border-color);
-  border-radius: 7px;
-  padding: 0.3rem 0.5rem;
+    font: inherit;
+    font-size: 0.8rem;
+    background: var(--dark-surface);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 7px;
+    padding: 0.3rem 0.5rem;
 }
 
 /* The card that was just made. No Add button: it is already in Anki. */
 .card-made {
-  margin-top: 1rem;
-  border: 1px solid var(--dark-surface-hover);
-  border-radius: 11px;
-  background: var(--dark-surface);
-  padding: 0.9rem 1rem;
+    margin-top: 1rem;
+    border: 1px solid var(--dark-surface-hover);
+    border-radius: 11px;
+    background: var(--dark-surface);
+    padding: 0.9rem 1rem;
 }
 
 .card-made-target {
-  font-size: 1.25rem;
-  font-weight: 600;
-  margin: 0;
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin: 0;
 }
 
 .card-made-cue {
-  font-size: 0.95rem;
-  color: var(--text-secondary);
-  margin: 0.35rem 0 0;
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+    margin: 0.35rem 0 0;
 }
 
 .card-made-foot {
-  font-size: 0.8rem;
-  color: var(--text-secondary);
-  margin: 0.7rem 0 0;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin: 0.7rem 0 0;
 }
 
 .card-made-ok {
-  color: #3fae85;
-  font-weight: 600;
+    color: #3fae85;
+    font-weight: 600;
 }
 
 .card-made-clips {
-  display: flex;
-  gap: 0.45rem;
-  margin-top: 0.7rem;
-  flex-wrap: wrap;
+    display: flex;
+    gap: 0.45rem;
+    margin-top: 0.7rem;
+    flex-wrap: wrap;
 }
 
 /* The card that was just made. One box, with its fields on the same left
    edge as their own labels. */
 .made-card {
-  margin-top: 0.9rem;
-  border: 1px solid var(--dark-surface-hover);
-  border-radius: 11px;
-  background: var(--dark-surface);
-  overflow: hidden;
+    margin-top: 0.9rem;
+    border: 1px solid var(--dark-surface-hover);
+    border-radius: 11px;
+    background: var(--dark-surface);
+    overflow: hidden;
 }
 
 .made-card-fields {
-  padding: 0.85rem 1rem 0.2rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.55rem;
+    padding: 0.85rem 1rem 0.2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
 }
 
 .made-field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
 }
 
 .made-field-label {
-  font-size: 0.64rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--text-secondary);
-  font-weight: 700;
+    font-size: 0.64rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    font-weight: 700;
 }
 
 .made-field-value {
-  font-size: 0.95rem;
-  border-bottom: 1px solid var(--border-color);
-  padding: 0.25rem 0 0.4rem;
+    font-size: 0.95rem;
+    border-bottom: 1px solid var(--border-color);
+    padding: 0.25rem 0 0.4rem;
 }
 
 .made-field-value-big {
-  font-size: 1.25rem;
-  font-weight: 600;
+    font-size: 1.25rem;
+    font-weight: 600;
 }
 
 .made-card-clips {
-  display: flex;
-  gap: 0.4rem;
-  align-items: center;
-  flex-wrap: wrap;
-  padding: 0.7rem 1rem 0.85rem;
+    display: flex;
+    gap: 0.4rem;
+    align-items: center;
+    flex-wrap: wrap;
+    padding: 0.7rem 1rem 0.85rem;
 }
 
 .made-card-redo {
-  font: inherit;
-  font-size: 0.74rem;
-  color: var(--text-secondary);
-  background: transparent;
-  border: 1px dashed var(--border-color);
-  border-radius: 8px;
-  padding: 0.3rem 0.6rem;
-  cursor: pointer;
+    font: inherit;
+    font-size: 0.74rem;
+    color: var(--text-secondary);
+    background: transparent;
+    border: 1px dashed var(--border-color);
+    border-radius: 8px;
+    padding: 0.3rem 0.6rem;
+    cursor: pointer;
 }
 
 .made-card-redo:disabled {
-  opacity: 0.5;
-  cursor: default;
+    opacity: 0.5;
+    cursor: default;
 }
 
 .made-card-foot {
-  border-top: 1px solid var(--border-color);
-  padding: 0.65rem 1rem;
-  font-size: 0.78rem;
-  color: var(--text-secondary);
+    border-top: 1px solid var(--border-color);
+    padding: 0.65rem 1rem;
+    font-size: 0.78rem;
+    color: var(--text-secondary);
 }
 
 .made-card-ok {
-  color: #3fae85;
-  font-weight: 600;
+    color: #3fae85;
+    font-weight: 600;
 }

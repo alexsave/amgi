@@ -13,20 +13,20 @@ import { cards, rows } from './golden/cards-tool.mjs';
 const golden = rows(fs, 'korean-expected.tsv');
 
 test('the golden file holds at least 60 cases', () => {
-  assert.ok(golden.length >= 60, String(golden.length));
+    assert.ok(golden.length >= 60, String(golden.length));
 });
 
 test('koreanPronunciation answers the golden file, case for case', () => {
-  const got = cards(golden.map(([text]) => ['k', 'ko', text]));
-  golden.forEach(([text, want], i) => assert.equal(got[i], want, text));
+    const got = cards(golden.map(([text]) => ['k', 'ko', text]));
+    golden.forEach(([text, want], i) => assert.equal(got[i], want, text));
 });
 
 test('normalizeForComparison (ko) answers the golden file, case for case', () => {
-  const got = cards(golden.map(([text]) => ['n', 'ko', text]));
-  golden.forEach(([text, , want], i) => assert.equal(got[i], want, text));
+    const got = cards(golden.map(([text]) => ['n', 'ko', text]));
+    golden.forEach(([text, , want], i) => assert.equal(got[i], want, text));
 });
 
 test('역이 and 여기 compare equal, as Korean speech says them', () => {
-  const [a, b] = cards([['n', 'ko', '역이 어디예요?'], ['n', 'ko', '여기 어디예요']]);
-  assert.equal(a, b);
+    const [a, b] = cards([['n', 'ko', '역이 어디예요?'], ['n', 'ko', '여기 어디예요']]);
+    assert.equal(a, b);
 });
