@@ -19,7 +19,7 @@ import path from 'node:path';
 import { createRequire } from 'node:module';
 import { sandboxEnv } from '../../repo/sandbox-home.cjs';
 import {
-  BridgeError, PROTOCOL_HEADER, closeBridgesUnderTest, probeBridgeUnderTest as probeBridge, resolveTransportUnderTest as resolveTransport,
+    BridgeError, PROTOCOL_HEADER, closeBridgesUnderTest, probeBridgeUnderTest as probeBridge, resolveTransportUnderTest as resolveTransport,
 } from '../parity/bridge-under-test.mjs';
 import { BRIDGE_PROTOCOL, WIRE_MIME, decode, encode } from '../../../ui/wire/wire.mjs';
 
@@ -33,365 +33,365 @@ const maybe = anki ? describe : describe.skip;
 
 /** The add-on's server on a free port over `collectionPath`; resolves to its URL and a stop(). */
 function startBridge(collectionPath) {
-  const child = spawn(anki.bin, [ENTRY, collectionPath, TOKEN, '', '0'], { env: sandboxEnv(), stdio: ['pipe', 'pipe', 'inherit'] });
-  const ready = new Promise((resolve, reject) => {
-    child.stdout.once('data', (chunk) => {
-      const match = /^LISTENING (\d+)/.exec(chunk.toString());
-      if (match) resolve(`http://127.0.0.1:${match[1]}`);
-      else reject(new Error(`unexpected output starting the bridge: ${chunk}`));
+    const child = spawn(anki.bin, [ENTRY, collectionPath, TOKEN, '', '0'], { env: sandboxEnv(), stdio: ['pipe', 'pipe', 'inherit'] });
+    const ready = new Promise((resolve, reject) => {
+        child.stdout.once('data', (chunk) => {
+            const match = /^LISTENING (\d+)/.exec(chunk.toString());
+            if (match) resolve(`http://127.0.0.1:${match[1]}`);
+            else reject(new Error(`unexpected output starting the bridge: ${chunk}`));
+        });
+        child.once('error', reject);
     });
-    child.once('error', reject);
-  });
-  const stop = () => new Promise((resolve) => {
-    child.once('exit', resolve);
-    child.stdin.end('\n');
-  });
-  return { ready, stop };
+    const stop = () => new Promise((resolve) => {
+        child.once('exit', resolve);
+        child.stdin.end('\n');
+    });
+    return { ready, stop };
 }
 
 after(closeBridgesUnderTest);
 
 maybe(`the bridge protocol against the real add-on server and a real collection`, () => {
-  let dir;
-  let collectionPath;
-  let bridge;
-  let base;
-  let ops;
+    let dir;
+    let collectionPath;
+    let bridge;
+    let base;
+    let ops;
 
-  before(async () => {
-    dir = tempDir('amgi-bridge-live-');
-    collectionPath = path.join(dir, 'collection.anki2');
-    buildFixtureCollection(collectionPath);
-    bridge = startBridge(collectionPath);
-    base = await bridge.ready;
-    const probed = await probeBridge(base, TOKEN);
-    assert.ok(probed?.ops, 'the bridge answers in this protocol');
-    ops = probed.ops;
-    assert.equal(probed.status.collectionOpen, true);
-    assert.equal(probed.status.profileName, 'e2e-fixture');
-    assert.equal(typeof probed.status.schemaVersion, 'number');
-  });
+    before(async () => {
+        dir = tempDir('amgi-bridge-live-');
+        collectionPath = path.join(dir, 'collection.anki2');
+        buildFixtureCollection(collectionPath);
+        bridge = startBridge(collectionPath);
+        base = await bridge.ready;
+        const probed = await probeBridge(base, TOKEN);
+        assert.ok(probed?.ops, 'the bridge answers in this protocol');
+        ops = probed.ops;
+        assert.equal(probed.status.collectionOpen, true);
+        assert.equal(probed.status.profileName, 'e2e-fixture');
+        assert.equal(typeof probed.status.schemaVersion, 'number');
+    });
 
-  after(async () => {
-    await bridge?.stop();
-    if (dir) fs.rmSync(dir, { recursive: true, force: true });
-  });
+    after(async () => {
+        await bridge?.stop();
+        if (dir) fs.rmSync(dir, { recursive: true, force: true });
+    });
 
-  test('every route, read and written through the wire both ways', async () => {
-    const decks = await ops.listDecks();
-    const existing = decks.find((d) => d.name === 'Existing');
-    assert.ok(existing && decks.some((d) => d.name === 'Existing::Child'), decks.map((d) => d.name).join(', '));
-    assert.ok(decks.every((d) => d.known === '' && d.learning === ''), 'no deck has a pair yet');
+    test('every route, read and written through the wire both ways', async () => {
+        const decks = await ops.listDecks();
+        const existing = decks.find((d) => d.name === 'Existing');
+        assert.ok(existing && decks.some((d) => d.name === 'Existing::Child'), decks.map((d) => d.name).join(', '));
+        assert.ok(decks.every((d) => d.known === '' && d.learning === ''), 'no deck has a pair yet');
 
-    const basic = (await ops.listNotetypes()).find((n) => n.name === 'Basic');
-    assert.deepEqual(basic.fieldNames, ['Front', 'Back']);
-    assert.equal(basic.kind, 'normal');
-    assert.equal(basic.sortFieldIndex, 0);
-    assert.match(basic.templates[0].questionFormat, /\{\{Front\}\}/);
-    assert.match(basic.templates[0].answerFormat, /\{\{Back\}\}/);
+        const basic = (await ops.listNotetypes()).find((n) => n.name === 'Basic');
+        assert.deepEqual(basic.fieldNames, ['Front', 'Back']);
+        assert.equal(basic.kind, 'normal');
+        assert.equal(basic.sortFieldIndex, 0);
+        assert.match(basic.templates[0].questionFormat, /\{\{Front\}\}/);
+        assert.match(basic.templates[0].answerFormat, /\{\{Back\}\}/);
 
-    const made = await ops.createDeck('한국어::여행');
-    assert.equal(made.created, true);
-    assert.equal(made.deck.name, '한국어::여행');
-    assert.ok(made.deck.id > 2 ** 32, 'an Anki id past 2^32 survives');
-    assert.deepEqual(await ops.createDeck('한국어::여행'), { ...made, created: false }, 'finding it again creates nothing');
+        const made = await ops.createDeck('한국어::여행');
+        assert.equal(made.created, true);
+        assert.equal(made.deck.name, '한국어::여행');
+        assert.ok(made.deck.id > 2 ** 32, 'an Anki id past 2^32 survives');
+        assert.deepEqual(await ops.createDeck('한국어::여행'), { ...made, created: false }, 'finding it again creates nothing');
 
-    const one = await ops.addNote({ deckId: made.deck.id, notetypeId: basic.id, fields: ['역이 어디예요?', 'Where is the station?\nline two'], tags: ['amgi'] });
-    assert.ok(one.noteId > 0);
-    assert.equal('warning' in one, false, 'no warning is no key');
-    const bulk = await ops.addNotesBulk([
-      { deckId: made.deck.id, notetypeId: basic.id, fields: ['감사합니다', 'Thank you'], tags: [] },
-      { deckId: made.deck.id, notetypeId: 999, fields: ['x', 'y'], tags: [] },
-      { deckId: made.deck.id, notetypeId: basic.id, fields: ['안녕하세요', 'Hello'], tags: [], language: 'ko', learningFieldIndex: 0 },
-    ]);
-    assert.deepEqual(bulk.map((r) => r.ok), [true, false, true], 'one bad note never aborts the rest');
-    assert.match(bulk[1].error, /999|note ?type/i);
+        const one = await ops.addNote({ deckId: made.deck.id, notetypeId: basic.id, fields: ['역이 어디예요?', 'Where is the station?\nline two'], tags: ['amgi'] });
+        assert.ok(one.noteId > 0);
+        assert.equal('warning' in one, false, 'no warning is no key');
+        const bulk = await ops.addNotesBulk([
+          { deckId: made.deck.id, notetypeId: basic.id, fields: ['감사합니다', 'Thank you'], tags: [] },
+          { deckId: made.deck.id, notetypeId: 999, fields: ['x', 'y'], tags: [] },
+          { deckId: made.deck.id, notetypeId: basic.id, fields: ['안녕하세요', 'Hello'], tags: [], language: 'ko', learningFieldIndex: 0 },
+        ]);
+        assert.deepEqual(bulk.map((r) => r.ok), [true, false, true], 'one bad note never aborts the rest');
+        assert.match(bulk[1].error, /999|note ?type/i);
 
-    const page = await ops.listNotesInDeck(made.deck.id, { offset: 0, limit: 2 });
-    assert.equal(page.total, 3);
-    assert.deepEqual([page.offset, page.limit, page.notes.length], [0, 2, 2]);
-    assert.deepEqual(page.notes[0].fields, ['역이 어디예요?', 'Where is the station?\nline two']);
-    assert.deepEqual(page.notes[0].tags, ['amgi']);
-    assert.equal(await ops.countNotesInDeck(made.deck.id), 3);
-    assert.deepEqual((await ops.existingFieldValues(made.deck.id, basic.id, 0)).sort(), ['감사합니다', '안녕하세요', '역이 어디예요?']);
+        const page = await ops.listNotesInDeck(made.deck.id, { offset: 0, limit: 2 });
+        assert.equal(page.total, 3);
+        assert.deepEqual([page.offset, page.limit, page.notes.length], [0, 2, 2]);
+        assert.deepEqual(page.notes[0].fields, ['역이 어디예요?', 'Where is the station?\nline two']);
+        assert.deepEqual(page.notes[0].tags, ['amgi']);
+        assert.equal(await ops.countNotesInDeck(made.deck.id), 3);
+        assert.deepEqual((await ops.existingFieldValues(made.deck.id, basic.id, 0)).sort(), ['감사합니다', '안녕하세요', '역이 어디예요?']);
 
-    const changed = await ops.updateNote(one.noteId, ['yeogi eodiyeyo', 'Where?'], 'ko', 0);
-    assert.equal(changed.noteId, one.noteId);
-    assert.match(changed.warning, /romanised/, 'the romanisation guard still answers through the wire');
+        const changed = await ops.updateNote(one.noteId, ['yeogi eodiyeyo', 'Where?'], 'ko', 0);
+        assert.equal(changed.noteId, one.noteId);
+        assert.match(changed.warning, /romanised/, 'the romanisation guard still answers through the wire');
 
-    const clip = Buffer.from([0, 1, 2, 255, 0x0a, 0x22, 0x7b, 0, 128]);
-    assert.equal(await ops.hasMedia('live-clip.wav'), false);
-    const stored = await ops.addMedia('live-clip.wav', clip);
-    assert.equal(await ops.hasMedia(stored), true);
-    assert.deepEqual(await ops.readMedia(stored), clip, 'a clip comes back byte for byte');
-    assert.equal(await ops.readMedia('not-there.wav'), null);
+        const clip = Buffer.from([0, 1, 2, 255, 0x0a, 0x22, 0x7b, 0, 128]);
+        assert.equal(await ops.hasMedia('live-clip.wav'), false);
+        const stored = await ops.addMedia('live-clip.wav', clip);
+        assert.equal(await ops.hasMedia(stored), true);
+        assert.deepEqual(await ops.readMedia(stored), clip, 'a clip comes back byte for byte');
+        assert.equal(await ops.readMedia('not-there.wav'), null);
 
-    // A stored name that needs escaping in the path (a space, Korean, '#', a literal '%'): the
-    // client encodes it once and the add-on decodes it once, so it is found, bytes and all.
-    const odd = await ops.addMedia('a b 한국어 #1 100%.wav', clip);
-    assert.match(odd, / /, `the stored name keeps what needs escaping: ${odd}`);
-    assert.equal(await ops.hasMedia(odd), true, odd);
-    assert.deepEqual(await ops.readMedia(odd), clip, odd);
+        // A stored name that needs escaping in the path (a space, Korean, '#', a literal '%'): the
+        // client encodes it once and the add-on decodes it once, so it is found, bytes and all.
+        const odd = await ops.addMedia('a b 한국어 #1 100%.wav', clip);
+        assert.match(odd, / /, `the stored name keeps what needs escaping: ${odd}`);
+        assert.equal(await ops.hasMedia(odd), true, odd);
+        assert.deepEqual(await ops.readMedia(odd), clip, odd);
 
-    assert.deepEqual(await ops.renameDeck(made.deck.id, '한국어::여행 2'), { id: made.deck.id, name: '한국어::여행 2' });
+        assert.deepEqual(await ops.renameDeck(made.deck.id, '한국어::여행 2'), { id: made.deck.id, name: '한국어::여행 2' });
 
-    // A deck's language pair: stored through Anki's own deck API, listed with the decks, a 404 for a deck that is gone.
-    assert.deepEqual(await ops.setDeckLanguages(made.deck.id, 'en', 'zh_cn'), { id: made.deck.id, known: 'en', learning: 'zh_cn' });
-    const paired = (await ops.listDecks()).find((d) => d.id === made.deck.id);
-    assert.deepEqual([paired.known, paired.learning], ['en', 'zh_cn']);
-    assert.deepEqual((await ops.listDecks()).find((d) => d.name === 'Existing').known, '', 'the other decks still have none');
-    await assert.rejects(ops.setDeckLanguages(999999, 'en', 'ko'), (error) => error instanceof BridgeError && error.status === 404
-      && error.message.includes('no deck with id 999999'));
+        // A deck's language pair: stored through Anki's own deck API, listed with the decks, a 404 for a deck that is gone.
+        assert.deepEqual(await ops.setDeckLanguages(made.deck.id, 'en', 'zh_cn'), { id: made.deck.id, known: 'en', learning: 'zh_cn' });
+        const paired = (await ops.listDecks()).find((d) => d.id === made.deck.id);
+        assert.deepEqual([paired.known, paired.learning], ['en', 'zh_cn']);
+        assert.deepEqual((await ops.listDecks()).find((d) => d.name === 'Existing').known, '', 'the other decks still have none');
+        await assert.rejects(ops.setDeckLanguages(999999, 'en', 'ko'), (error) => error instanceof BridgeError && error.status === 404
+          && error.message.includes('no deck with id 999999'));
 
-    // One note by id: the page's own row for it, then a 404 with the add-on's sentence once it is gone.
-    const read = await ops.getNote(bulk[0].noteId);
-    const listed = (await ops.listNotesInDeck(made.deck.id, { limit: 50 })).notes.find((n) => n.id === bulk[0].noteId);
-    assert.deepEqual(read, listed);
-    assert.deepEqual(read.fields, ['감사합니다', 'Thank you']);
-    assert.deepEqual(await ops.getNote(one.noteId), { id: one.noteId, notetypeId: basic.id, fields: ['yeogi eodiyeyo', 'Where?'], tags: ['amgi'] },
-      'a tagged note, edited: its tags and its fields as they are now');
-    const removed = await ops.removeNote(bulk[0].noteId);
-    assert.deepEqual(removed, { noteId: bulk[0].noteId, cardsRemoved: 1 });
-    await assert.rejects(ops.getNote(bulk[0].noteId), (error) => error instanceof BridgeError && error.status === 404
-      && error.message.includes(`no note with id ${bulk[0].noteId}`));
+        // One note by id: the page's own row for it, then a 404 with the add-on's sentence once it is gone.
+        const read = await ops.getNote(bulk[0].noteId);
+        const listed = (await ops.listNotesInDeck(made.deck.id, { limit: 50 })).notes.find((n) => n.id === bulk[0].noteId);
+        assert.deepEqual(read, listed);
+        assert.deepEqual(read.fields, ['감사합니다', 'Thank you']);
+        assert.deepEqual(await ops.getNote(one.noteId), { id: one.noteId, notetypeId: basic.id, fields: ['yeogi eodiyeyo', 'Where?'], tags: ['amgi'] },
+          'a tagged note, edited: its tags and its fields as they are now');
+        const removed = await ops.removeNote(bulk[0].noteId);
+        assert.deepEqual(removed, { noteId: bulk[0].noteId, cardsRemoved: 1 });
+        await assert.rejects(ops.getNote(bulk[0].noteId), (error) => error instanceof BridgeError && error.status === 404
+          && error.message.includes(`no note with id ${bulk[0].noteId}`));
 
-    const summary = await ops.deckRemovalSummary(existing.id);
-    assert.deepEqual(summary, { id: existing.id, name: 'Existing', subdecks: 1, cards: 1, notes: 1 });
-    const gone = await ops.removeDeck(existing.id);
-    assert.deepEqual(gone, { id: existing.id, name: 'Existing', decks: 2, cards: 1, notes: 1 });
-    // A refusal carries the add-on's own sentence (its b_error), not just its status.
-    const said = (status) => (error) => error instanceof BridgeError && error.status === status
-      && error.message.length > 0 && error.message !== `bridge responded ${status}`;
-    await assert.rejects(ops.deckRemovalSummary(existing.id), said(404));
-    await assert.rejects(ops.addNote({ deckId: made.deck.id, notetypeId: basic.id, fields: ['only one'], tags: [] }), said(400));
-  });
+        const summary = await ops.deckRemovalSummary(existing.id);
+        assert.deepEqual(summary, { id: existing.id, name: 'Existing', subdecks: 1, cards: 1, notes: 1 });
+        const gone = await ops.removeDeck(existing.id);
+        assert.deepEqual(gone, { id: existing.id, name: 'Existing', decks: 2, cards: 1, notes: 1 });
+        // A refusal carries the add-on's own sentence (its b_error), not just its status.
+        const said = (status) => (error) => error instanceof BridgeError && error.status === status
+          && error.message.length > 0 && error.message !== `bridge responded ${status}`;
+        await assert.rejects(ops.deckRemovalSummary(existing.id), said(404));
+        await assert.rejects(ops.addNote({ deckId: made.deck.id, notetypeId: basic.id, fields: ['only one'], tags: [] }), said(400));
+    });
 
-  test('what the bridge wrote is in the collection, as Anki reads it', async () => {
-    await bridge.stop();
-    bridge = null;
-    const out = withAnkiLibrary(collectionPath, `
+    test('what the bridge wrote is in the collection, as Anki reads it', async () => {
+        await bridge.stop();
+        bridge = null;
+        const out = withAnkiLibrary(collectionPath, `
 names = sorted(d.name for d in col.decks.all_names_and_ids())
 print("|".join(names))
 print(col.media.have("live-clip.wav"))
 print(len(col.find_notes("")))
 `);
-    const [names, media, notes] = out.trim().split('\n');
-    assert.equal(names, 'Default|한국어|한국어::여행 2');
-    assert.equal(media, 'True');
-    assert.equal(notes, '2', 'the three added, less the one removed; the Existing note went with its deck');
-    bridge = startBridge(collectionPath);
-    base = await bridge.ready;
-  });
+        const [names, media, notes] = out.trim().split('\n');
+        assert.equal(names, 'Default|한국어|한국어::여행 2');
+        assert.equal(media, 'True');
+        assert.equal(notes, '2', 'the three added, less the one removed; the Existing note went with its deck');
+        bridge = startBridge(collectionPath);
+        base = await bridge.ready;
+    });
 
-  test('a request in another protocol is refused with the message to install again', async () => {
-    const response = await fetch(`${base}/status`, { headers: { 'X-Amgi-Bridge-Token': TOKEN, [PROTOCOL_HEADER]: String(BRIDGE_PROTOCOL + 1) } });
-    assert.equal(response.status, 409);
-    assert.equal(response.headers.get(PROTOCOL_HEADER), String(BRIDGE_PROTOCOL));
-    assert.equal(response.headers.get('content-type'), WIRE_MIME);
-    const error = decode('b_error', new Uint8Array(await response.arrayBuffer()));
-    assert.match(error.error, /press Install into Anki again/);
-    const none = await fetch(`${base}/status`, { headers: { 'X-Amgi-Bridge-Token': TOKEN } });
-    assert.equal(none.status, 409, 'and so is one that names none');
-  });
+    test('a request in another protocol is refused with the message to install again', async () => {
+        const response = await fetch(`${base}/status`, { headers: { 'X-Amgi-Bridge-Token': TOKEN, [PROTOCOL_HEADER]: String(BRIDGE_PROTOCOL + 1) } });
+        assert.equal(response.status, 409);
+        assert.equal(response.headers.get(PROTOCOL_HEADER), String(BRIDGE_PROTOCOL));
+        assert.equal(response.headers.get('content-type'), WIRE_MIME);
+        const error = decode('b_error', new Uint8Array(await response.arrayBuffer()));
+        assert.match(error.error, /press Install into Anki again/);
+        const none = await fetch(`${base}/status`, { headers: { 'X-Amgi-Bridge-Token': TOKEN } });
+        assert.equal(none.status, 409, 'and so is one that names none');
+    });
 
-  test('a body that is not a whole message of its kind is a 400, and JSON is not one', async () => {
-    const headers = { 'X-Amgi-Bridge-Token': TOKEN, [PROTOCOL_HEADER]: String(BRIDGE_PROTOCOL), 'Content-Type': WIRE_MIME };
-    const cut = encode('q_deck_name', { name: 'Cut short' }).subarray(0, 9);
-    assert.equal((await fetch(`${base}/decks`, { method: 'POST', headers, body: cut })).status, 400);
-    const json = await fetch(`${base}/decks`, { method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' }, body: '{"name":"x"}' });
-    assert.equal(json.status, 400);
-    assert.match(decode('b_error', new Uint8Array(await json.arrayBuffer())).error, /application\/x-amgi-wire/);
-  });
+    test('a body that is not a whole message of its kind is a 400, and JSON is not one', async () => {
+        const headers = { 'X-Amgi-Bridge-Token': TOKEN, [PROTOCOL_HEADER]: String(BRIDGE_PROTOCOL), 'Content-Type': WIRE_MIME };
+        const cut = encode('q_deck_name', { name: 'Cut short' }).subarray(0, 9);
+        assert.equal((await fetch(`${base}/decks`, { method: 'POST', headers, body: cut })).status, 400);
+        const json = await fetch(`${base}/decks`, { method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' }, body: '{"name":"x"}' });
+        assert.equal(json.status, 400);
+        assert.match(decode('b_error', new Uint8Array(await json.arrayBuffer())).error, /application\/x-amgi-wire/);
+    });
 });
 
 describe(`an add-on in another protocol`, () => {
-  /** A stand-in add-on that answers every request with `status`, `headers` and `body`. */
-  async function fakeAddon(status, headers, body) {
-    const server = http.createServer((req, res) => {
-      res.writeHead(status, headers);
-      res.end(body);
+    /** A stand-in add-on that answers every request with `status`, `headers` and `body`. */
+    async function fakeAddon(status, headers, body) {
+        const server = http.createServer((req, res) => {
+            res.writeHead(status, headers);
+            res.end(body);
+        });
+        await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+        return { url: `http://127.0.0.1:${server.address().port}`, close: () => new Promise((resolve) => server.close(resolve)) };
+    }
+    const settings = (url) => ({ baseDirOverride: '', collectionPath: '', profileName: '', bridge: { baseUrl: url, token: TOKEN } });
+
+    test('one old enough to speak JSON is the bridge-outdated mode (whose message, to install again, the HTTP contract holds)', async () => {
+        const old = await fakeAddon(200, { 'Content-Type': 'application/json' }, '{"collectionOpen":true}');
+        try {
+            assert.ok((await probeBridge(old.url, TOKEN)).outdated);
+            const result = await resolveTransport(settings(old.url));
+            assert.equal(result.mode, 'bridge-outdated');
+        } finally {
+            await old.close();
+        }
     });
-    await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
-    return { url: `http://127.0.0.1:${server.address().port}`, close: () => new Promise((resolve) => server.close(resolve)) };
-  }
-  const settings = (url) => ({ baseDirOverride: '', collectionPath: '', profileName: '', bridge: { baseUrl: url, token: TOKEN } });
 
-  test('one old enough to speak JSON is the bridge-outdated mode (whose message, to install again, the HTTP contract holds)', async () => {
-    const old = await fakeAddon(200, { 'Content-Type': 'application/json' }, '{"collectionOpen":true}');
-    try {
-      assert.ok((await probeBridge(old.url, TOKEN)).outdated);
-      const result = await resolveTransport(settings(old.url));
-      assert.equal(result.mode, 'bridge-outdated');
-    } finally {
-      await old.close();
-    }
-  });
-
-  test('a newer one that refuses this server\'s protocol is the same mode', async () => {
-    const newer = await fakeAddon(409, { 'Content-Type': WIRE_MIME, [PROTOCOL_HEADER]: String(BRIDGE_PROTOCOL + 1) },
-      encode('b_error', { error: 'this amgi add-on speaks bridge protocol 2' }));
-    try {
-      assert.equal((await resolveTransport(settings(newer.url))).mode, 'bridge-outdated');
-    } finally {
-      await newer.close();
-    }
-  });
-
-  test('one with no profile open is bridge-no-collection, with its status', async () => {
-    const none = await fakeAddon(200, { 'Content-Type': WIRE_MIME, [PROTOCOL_HEADER]: String(BRIDGE_PROTOCOL) },
-      encode('b_status', { profileOpen: false, profileName: '', collectionOpen: false, ankiVersion: '26.09.4', qtVersion: '6.9' }));
-    try {
-      const result = await resolveTransport(settings(none.url));
-      assert.equal(result.mode, 'bridge-no-collection');
-      assert.equal(result.detail.collectionOpen, false);
-      assert.equal(result.detail.ankiVersion, '26.09.4');
-      assert.equal('schemaVersion' in result.detail, false, 'no schema with no collection');
-    } finally {
-      await none.close();
-    }
-  });
-
-  test('a deck list whose pairs are not two different known codes lists them as no pair, as the direct reader does', async () => {
-    const rows = [
-      { id: 1, name: 'ok', known: 'ko', learning: 'en' }, { id: 2, name: 'unknown code', known: 'en', learning: 'xx' },
-      { id: 3, name: 'same code', known: 'en', learning: 'en' }, { id: 4, name: 'capitals', known: 'EN', learning: 'ko' },
-      { id: 5, name: 'half', known: 'en', learning: '' }, { id: 6, name: 'none', known: '', learning: '' },
-    ];
-    const list = encode('b_decks', { decks: rows });
-    const status = encode('b_status', { profileOpen: true, profileName: 'p', collectionOpen: true, schemaVersion: 18, ankiVersion: 'a', qtVersion: 'q' });
-    const server = http.createServer((req, res) => {
-      res.writeHead(200, { 'Content-Type': WIRE_MIME, [PROTOCOL_HEADER]: String(BRIDGE_PROTOCOL) });
-      res.end(req.url === '/status' ? status : list);
+    test('a newer one that refuses this server\'s protocol is the same mode', async () => {
+        const newer = await fakeAddon(409, { 'Content-Type': WIRE_MIME, [PROTOCOL_HEADER]: String(BRIDGE_PROTOCOL + 1) },
+          encode('b_error', { error: 'this amgi add-on speaks bridge protocol 2' }));
+        try {
+            assert.equal((await resolveTransport(settings(newer.url))).mode, 'bridge-outdated');
+        } finally {
+            await newer.close();
+        }
     });
-    await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
-    try {
-      const probed = await probeBridge(`http://127.0.0.1:${server.address().port}`, TOKEN);
-      const got = (await probed.ops.listDecks()).map((d) => `${d.known}|${d.learning}`);
-      assert.deepEqual(got, ['ko|en', '|', '|', '|', '|', '|']);
-    } finally {
-      await new Promise((resolve) => server.close(resolve));
-    }
-  });
 
-  test('an answer that is not a whole message of its kind is a 502', async () => {
-    const status = encode('b_status', { profileOpen: true, profileName: 'p', collectionOpen: true, schemaVersion: 18, ankiVersion: 'a', qtVersion: 'q' });
-    const server = http.createServer((req, res) => {
-      res.writeHead(200, { 'Content-Type': WIRE_MIME, [PROTOCOL_HEADER]: String(BRIDGE_PROTOCOL) });
-      res.end(req.url === '/status' ? status : status.subarray(0, 7));
+    test('one with no profile open is bridge-no-collection, with its status', async () => {
+        const none = await fakeAddon(200, { 'Content-Type': WIRE_MIME, [PROTOCOL_HEADER]: String(BRIDGE_PROTOCOL) },
+          encode('b_status', { profileOpen: false, profileName: '', collectionOpen: false, ankiVersion: '26.09.4', qtVersion: '6.9' }));
+        try {
+            const result = await resolveTransport(settings(none.url));
+            assert.equal(result.mode, 'bridge-no-collection');
+            assert.equal(result.detail.collectionOpen, false);
+            assert.equal(result.detail.ankiVersion, '26.09.4');
+            assert.equal('schemaVersion' in result.detail, false, 'no schema with no collection');
+        } finally {
+            await none.close();
+        }
     });
-    await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
-    try {
-      const probed = await probeBridge(`http://127.0.0.1:${server.address().port}`, TOKEN);
-      await assert.rejects(probed.ops.listDecks(), (error) => error instanceof BridgeError && error.status === 502
-        && error.message === "the bridge's answer is not a whole b_decks message");
-    } finally {
-      await new Promise((resolve) => server.close(resolve));
-    }
-  });
 
-  test('a bridge that went away: the ops say fetch failed, and the transport falls back to the file', async () => {
-    const gone = await fakeAddon(200, { 'Content-Type': WIRE_MIME, [PROTOCOL_HEADER]: String(BRIDGE_PROTOCOL) },
-      encode('b_status', { profileOpen: true, profileName: 'p', collectionOpen: true, schemaVersion: 18, ankiVersion: 'a', qtVersion: 'q' }));
-    const probed = await probeBridge(gone.url, TOKEN);
-    await gone.close();
-    await assert.rejects(probed.ops.listDecks(), (error) => !(error instanceof BridgeError) && error.message === 'fetch failed');
-    assert.equal((await resolveTransport(settings(gone.url))).mode, 'unconfigured');
-  });
+    test('a deck list whose pairs are not two different known codes lists them as no pair, as the direct reader does', async () => {
+        const rows = [
+          { id: 1, name: 'ok', known: 'ko', learning: 'en' }, { id: 2, name: 'unknown code', known: 'en', learning: 'xx' },
+          { id: 3, name: 'same code', known: 'en', learning: 'en' }, { id: 4, name: 'capitals', known: 'EN', learning: 'ko' },
+          { id: 5, name: 'half', known: 'en', learning: '' }, { id: 6, name: 'none', known: '', learning: '' },
+        ];
+        const list = encode('b_decks', { decks: rows });
+        const status = encode('b_status', { profileOpen: true, profileName: 'p', collectionOpen: true, schemaVersion: 18, ankiVersion: 'a', qtVersion: 'q' });
+        const server = http.createServer((req, res) => {
+            res.writeHead(200, { 'Content-Type': WIRE_MIME, [PROTOCOL_HEADER]: String(BRIDGE_PROTOCOL) });
+            res.end(req.url === '/status' ? status : list);
+        });
+        await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+        try {
+            const probed = await probeBridge(`http://127.0.0.1:${server.address().port}`, TOKEN);
+            const got = (await probed.ops.listDecks()).map((d) => `${d.known}|${d.learning}`);
+            assert.deepEqual(got, ['ko|en', '|', '|', '|', '|', '|']);
+        } finally {
+            await new Promise((resolve) => server.close(resolve));
+        }
+    });
 
-  test('an old add-on that refuses the token is not called outdated: nothing is known of its version', async () => {
-    const refusing = await fakeAddon(401, { 'Content-Type': 'application/json' }, '{"error":"bad token"}');
-    try {
-      assert.equal(await probeBridge(refusing.url, TOKEN), null);
-    } finally {
-      await refusing.close();
-    }
-  });
+    test('an answer that is not a whole message of its kind is a 502', async () => {
+        const status = encode('b_status', { profileOpen: true, profileName: 'p', collectionOpen: true, schemaVersion: 18, ankiVersion: 'a', qtVersion: 'q' });
+        const server = http.createServer((req, res) => {
+            res.writeHead(200, { 'Content-Type': WIRE_MIME, [PROTOCOL_HEADER]: String(BRIDGE_PROTOCOL) });
+            res.end(req.url === '/status' ? status : status.subarray(0, 7));
+        });
+        await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+        try {
+            const probed = await probeBridge(`http://127.0.0.1:${server.address().port}`, TOKEN);
+            await assert.rejects(probed.ops.listDecks(), (error) => error instanceof BridgeError && error.status === 502
+              && error.message === "the bridge's answer is not a whole b_decks message");
+        } finally {
+            await new Promise((resolve) => server.close(resolve));
+        }
+    });
+
+    test('a bridge that went away: the ops say fetch failed, and the transport falls back to the file', async () => {
+        const gone = await fakeAddon(200, { 'Content-Type': WIRE_MIME, [PROTOCOL_HEADER]: String(BRIDGE_PROTOCOL) },
+          encode('b_status', { profileOpen: true, profileName: 'p', collectionOpen: true, schemaVersion: 18, ankiVersion: 'a', qtVersion: 'q' }));
+        const probed = await probeBridge(gone.url, TOKEN);
+        await gone.close();
+        await assert.rejects(probed.ops.listDecks(), (error) => !(error instanceof BridgeError) && error.message === 'fetch failed');
+        assert.equal((await resolveTransport(settings(gone.url))).mode, 'unconfigured');
+    });
+
+    test('an old add-on that refuses the token is not called outdated: nothing is known of its version', async () => {
+        const refusing = await fakeAddon(401, { 'Content-Type': 'application/json' }, '{"error":"bad token"}');
+        try {
+            assert.equal(await probeBridge(refusing.url, TOKEN), null);
+        } finally {
+            await refusing.close();
+        }
+    });
 });
 
 describe(`a slow add-on: reads wait 1500 ms, writes the add-on's 30000`, () => {
-  test('a read that takes 2 s is aborted, a write that takes 2 s lands', async () => {
-    const headers = { 'Content-Type': WIRE_MIME, [PROTOCOL_HEADER]: String(BRIDGE_PROTOCOL) };
-    const server = http.createServer((req, res) => {
-      if (req.url === '/status') {
-        res.writeHead(200, headers);
-        res.end(encode('b_status', { profileOpen: true, profileName: 'slow', collectionOpen: true, schemaVersion: 18, ankiVersion: 'x', qtVersion: 'y' }));
-        return;
-      }
-      req.resume();
-      setTimeout(() => {
-        res.writeHead(200, headers);
-        res.end(req.url === '/decks' && req.method === 'POST'
-          ? encode('b_deck_created', { deck: { id: 1794169279580, name: 'Slow' }, created: true })
-          : encode('b_decks', { decks: [] }));
-      }, 2000);
+    test('a read that takes 2 s is aborted, a write that takes 2 s lands', async () => {
+        const headers = { 'Content-Type': WIRE_MIME, [PROTOCOL_HEADER]: String(BRIDGE_PROTOCOL) };
+        const server = http.createServer((req, res) => {
+            if (req.url === '/status') {
+                res.writeHead(200, headers);
+                res.end(encode('b_status', { profileOpen: true, profileName: 'slow', collectionOpen: true, schemaVersion: 18, ankiVersion: 'x', qtVersion: 'y' }));
+                return;
+            }
+            req.resume();
+            setTimeout(() => {
+                res.writeHead(200, headers);
+                res.end(req.url === '/decks' && req.method === 'POST'
+                  ? encode('b_deck_created', { deck: { id: 1794169279580, name: 'Slow' }, created: true })
+                  : encode('b_decks', { decks: [] }));
+            }, 2000);
+        });
+        await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+        try {
+            const probed = await probeBridge(`http://127.0.0.1:${server.address().port}`, TOKEN);
+            assert.ok(probed?.ops, 'the status answers at once');
+            const started = Date.now();
+            await assert.rejects(probed.ops.listDecks(), (error) => error.message === 'This operation was aborted');
+            const waited = Date.now() - started;
+            assert.ok(waited >= 1400 && waited < 1950, `the read gave up at 1500 ms (${waited})`);
+            assert.deepEqual(await probed.ops.createDeck('Slow'), { deck: { id: 1794169279580, name: 'Slow' }, created: true }, 'the write waited');
+        } finally {
+            server.closeAllConnections();
+            await new Promise((resolve) => server.close(resolve));
+        }
     });
-    await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
-    try {
-      const probed = await probeBridge(`http://127.0.0.1:${server.address().port}`, TOKEN);
-      assert.ok(probed?.ops, 'the status answers at once');
-      const started = Date.now();
-      await assert.rejects(probed.ops.listDecks(), (error) => error.message === 'This operation was aborted');
-      const waited = Date.now() - started;
-      assert.ok(waited >= 1400 && waited < 1950, `the read gave up at 1500 ms (${waited})`);
-      assert.deepEqual(await probed.ops.createDeck('Slow'), { deck: { id: 1794169279580, name: 'Slow' }, created: true }, 'the write waited');
-    } finally {
-      server.closeAllConnections();
-      await new Promise((resolve) => server.close(resolve));
-    }
-  });
 });
 
 describe("the token on the wire, as fetch sends it", () => {
-  /** A stand-in add-on that answers only the token `wanted`, and remembers every token it got. */
-  async function tokenAddon(wanted) {
-    const seen = [];
-    const server = http.createServer((req, res) => {
-      seen.push(req.headers['x-amgi-bridge-token']);
-      const ok = req.headers['x-amgi-bridge-token'] === wanted;
-      res.writeHead(ok ? 200 : 401, { 'Content-Type': WIRE_MIME, [PROTOCOL_HEADER]: String(BRIDGE_PROTOCOL) });
-      res.end(ok ? encode('b_status', { profileOpen: true, profileName: 'p', collectionOpen: true, schemaVersion: 18, ankiVersion: 'a', qtVersion: 'q' })
-        : encode('b_error', { error: 'invalid token' }));
+    /** A stand-in add-on that answers only the token `wanted`, and remembers every token it got. */
+    async function tokenAddon(wanted) {
+        const seen = [];
+        const server = http.createServer((req, res) => {
+            seen.push(req.headers['x-amgi-bridge-token']);
+            const ok = req.headers['x-amgi-bridge-token'] === wanted;
+            res.writeHead(ok ? 200 : 401, { 'Content-Type': WIRE_MIME, [PROTOCOL_HEADER]: String(BRIDGE_PROTOCOL) });
+            res.end(ok ? encode('b_status', { profileOpen: true, profileName: 'p', collectionOpen: true, schemaVersion: 18, ankiVersion: 'a', qtVersion: 'q' })
+              : encode('b_error', { error: 'invalid token' }));
+        });
+        await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+        return { url: `http://127.0.0.1:${server.address().port}`, seen, close: () => new Promise((resolve) => server.close(resolve)) };
+    }
+
+    test('a token with CR, LF or NUL, or past U+00FF, is refused before anything is sent: no header is injected', async () => {
+        const addon = await tokenAddon('tok');
+        try {
+            for (const token of ['tok\r\nX-Evil: 1', 'a\nb', 'a\0b', 'ㄱ', 'tokㄱ']) {
+                assert.equal(await probeBridge(addon.url, token), null, JSON.stringify(token));
+            }
+            assert.deepEqual(addon.seen, [], 'the add-on saw no request at all');
+        } finally {
+            await addon.close();
+        }
     });
-    await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
-    return { url: `http://127.0.0.1:${server.address().port}`, seen, close: () => new Promise((resolve) => server.close(resolve)) };
-  }
 
-  test('a token with CR, LF or NUL, or past U+00FF, is refused before anything is sent: no header is injected', async () => {
-    const addon = await tokenAddon('tok');
-    try {
-      for (const token of ['tok\r\nX-Evil: 1', 'a\nb', 'a\0b', 'ㄱ', 'tokㄱ']) {
-        assert.equal(await probeBridge(addon.url, token), null, JSON.stringify(token));
-      }
-      assert.deepEqual(addon.seen, [], 'the add-on saw no request at all');
-    } finally {
-      await addon.close();
-    }
-  });
+    test('a URL loses its tabs and line breaks before it is used, as the URL parser drops them', async () => {
+        const addon = await tokenAddon('tok');
+        try {
+            const url = addon.url.replace('127.0.0.1', '127.0.\r\n0.1');
+            assert.ok((await probeBridge(`${url}/\t`, 'tok'))?.ops, 'the cleaned URL answers');
+            assert.deepEqual(addon.seen, ['tok'], 'one request, nothing injected');
+        } finally {
+            await addon.close();
+        }
+    });
 
-  test('a URL loses its tabs and line breaks before it is used, as the URL parser drops them', async () => {
-    const addon = await tokenAddon('tok');
-    try {
-      const url = addon.url.replace('127.0.0.1', '127.0.\r\n0.1');
-      assert.ok((await probeBridge(`${url}/\t`, 'tok'))?.ops, 'the cleaned URL answers');
-      assert.deepEqual(addon.seen, ['tok'], 'one request, nothing injected');
-    } finally {
-      await addon.close();
-    }
-  });
-
-  test('a token is trimmed of HTTP whitespace and sent as Latin-1 bytes', async () => {
-    const plain = await tokenAddon('tok');
-    const latin = await tokenAddon('é');
-    try {
-      assert.ok((await probeBridge(plain.url, ' \ttok\r\n'))?.ops, 'the trimmed token answers');
-      assert.ok((await probeBridge(plain.url, '\r\ntok'))?.ops, 'a line break at the start is trimmed, not refused');
-      assert.deepEqual(plain.seen, ['tok', 'tok']);
-      assert.ok((await probeBridge(latin.url, 'é'))?.ops, 'é goes as the one byte 0xE9');
-      assert.deepEqual(latin.seen, ['é']);
-    } finally {
-      await plain.close();
-      await latin.close();
-    }
-  });
+    test('a token is trimmed of HTTP whitespace and sent as Latin-1 bytes', async () => {
+        const plain = await tokenAddon('tok');
+        const latin = await tokenAddon('é');
+        try {
+            assert.ok((await probeBridge(plain.url, ' \ttok\r\n'))?.ops, 'the trimmed token answers');
+            assert.ok((await probeBridge(plain.url, '\r\ntok'))?.ops, 'a line break at the start is trimmed, not refused');
+            assert.deepEqual(plain.seen, ['tok', 'tok']);
+            assert.ok((await probeBridge(latin.url, 'é'))?.ops, 'é goes as the one byte 0xE9');
+            assert.deepEqual(latin.seen, ['é']);
+        } finally {
+            await plain.close();
+            await latin.close();
+        }
+    });
 });
 

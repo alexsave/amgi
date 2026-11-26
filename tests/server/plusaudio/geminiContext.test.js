@@ -15,22 +15,22 @@ const { createRandom } = require('../../../plusaudio/lib/random');
 const { fakeGemini } = require('./helpers/fake-gemini');
 
 const synthesizeWith = async (options) => {
-  const gemini = await fakeGemini();
-  const context = createGeminiContext({ apiKey: 'k', baseUrl: gemini.baseUrl, random: createRandom(1), ...options });
-  await context.speech.synthesize({ text: '안녕하세요', language: 'ko', voice: 'Kore' });
-  return { context, request: gemini.of('speech')[0] };
+    const gemini = await fakeGemini();
+    const context = createGeminiContext({ apiKey: 'k', baseUrl: gemini.baseUrl, random: createRandom(1), ...options });
+    await context.speech.synthesize({ text: '안녕하세요', language: 'ko', voice: 'Kore' });
+    return { context, request: gemini.of('speech')[0] };
 };
 
 test('speech uses the runtime TTS model by default', async () => {
-  const { context, request } = await synthesizeWith({});
-  assert.equal(request.model, GEMINI_TTS_MODEL);
-  assert.equal(context.models.tts, GEMINI_TTS_MODEL);
+    const { context, request } = await synthesizeWith({});
+    assert.equal(request.model, GEMINI_TTS_MODEL);
+    assert.equal(context.models.tts, GEMINI_TTS_MODEL);
 });
 
 test('a named TTS model reaches both the request and the context, and nothing else changes', async () => {
-  const { context, request } = await synthesizeWith({ ttsModel: GEMINI_TTS_LITE_MODEL });
-  assert.equal(request.model, GEMINI_TTS_LITE_MODEL);
-  assert.equal(context.models.tts, GEMINI_TTS_LITE_MODEL);
-  const { context: runtime } = await synthesizeWith({});
-  assert.deepEqual({ ...context.models, tts: null }, { ...runtime.models, tts: null }, 'transcription and the judge keep their models');
+    const { context, request } = await synthesizeWith({ ttsModel: GEMINI_TTS_LITE_MODEL });
+    assert.equal(request.model, GEMINI_TTS_LITE_MODEL);
+    assert.equal(context.models.tts, GEMINI_TTS_LITE_MODEL);
+    const { context: runtime } = await synthesizeWith({});
+    assert.deepEqual({ ...context.models, tts: null }, { ...runtime.models, tts: null }, 'transcription and the judge keep their models');
 });

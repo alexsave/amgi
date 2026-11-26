@@ -28,20 +28,20 @@ const WIRE_FIXED32 = 5;
  * value that would lose precision an error instead of a silent wrong answer.
  */
 function readVarint(buffer, offset) {
-  let value = 0;
-  let scale = 1;
-  for (let at = offset; at < buffer.length; at += 1) {
-    const byte = buffer[at];
-    value += (byte & 0x7f) * scale;
-    if ((byte & 0x80) === 0) {
-      if (!Number.isSafeInteger(value)) {
-        throw new Error('protobuf varint is too large to read exactly');
-      }
-      return { value, next: at + 1 };
+    let value = 0;
+    let scale = 1;
+    for (let at = offset; at < buffer.length; at += 1) {
+        const byte = buffer[at];
+        value += (byte & 0x7f) * scale;
+        if ((byte & 0x80) === 0) {
+            if (!Number.isSafeInteger(value)) {
+                throw new Error('protobuf varint is too large to read exactly');
+            }
+            return { value, next: at + 1 };
+        }
+        scale *= 128;
     }
-    scale *= 128;
-  }
-  throw new Error('truncated protobuf varint');
+    throw new Error('truncated protobuf varint');
 }
 
 /**
@@ -55,39 +55,39 @@ function readVarint(buffer, offset) {
  * @yields {{number: number, wireType: number, value: number, bytes: Buffer|null}}
  */
 function* readFields(buffer) {
-  let at = 0;
-  while (at < buffer.length) {
-    const tag = readVarint(buffer, at);
-    const number = Math.floor(tag.value / 8);
-    const wireType = tag.value % 8;
-    at = tag.next;
+    let at = 0;
+    while (at < buffer.length) {
+        const tag = readVarint(buffer, at);
+        const number = Math.floor(tag.value / 8);
+        const wireType = tag.value % 8;
+        at = tag.next;
 
-    if (wireType === WIRE_VARINT) {
-      const field = readVarint(buffer, at);
-      at = field.next;
-      yield { number, wireType, value: field.value, bytes: null };
-    } else if (wireType === WIRE_LENGTH) {
-      const length = readVarint(buffer, at);
-      const end = length.next + length.value;
-      if (end > buffer.length) throw new Error('truncated protobuf field');
-      yield { number, wireType, value: 0, bytes: buffer.subarray(length.next, end) };
-      at = end;
-    } else if (wireType === WIRE_FIXED64 || wireType === WIRE_FIXED32) {
-      const width = wireType === WIRE_FIXED64 ? 8 : 4;
-      if (at + width > buffer.length) throw new Error('truncated protobuf field');
-      yield { number, wireType, value: 0, bytes: buffer.subarray(at, at + width) };
-      at += width;
-    } else {
-      throw new Error(`unsupported protobuf wire type ${wireType}`);
+        if (wireType === WIRE_VARINT) {
+            const field = readVarint(buffer, at);
+            at = field.next;
+            yield { number, wireType, value: field.value, bytes: null };
+        } else if (wireType === WIRE_LENGTH) {
+            const length = readVarint(buffer, at);
+            const end = length.next + length.value;
+            if (end > buffer.length) throw new Error('truncated protobuf field');
+            yield { number, wireType, value: 0, bytes: buffer.subarray(length.next, end) };
+            at = end;
+        } else if (wireType === WIRE_FIXED64 || wireType === WIRE_FIXED32) {
+            const width = wireType === WIRE_FIXED64 ? 8 : 4;
+            if (at + width > buffer.length) throw new Error('truncated protobuf field');
+            yield { number, wireType, value: 0, bytes: buffer.subarray(at, at + width) };
+            at += width;
+        } else {
+            throw new Error(`unsupported protobuf wire type ${wireType}`);
+        }
     }
-  }
 }
 
 /** Advance past a varint without decoding it - see readFieldsLenient. */
 function skipVarint(buffer, offset) {
-  let at = offset;
-  while (buffer[at] & 0x80) at += 1;
-  return at + 1;
+    let at = offset;
+    while (buffer[at] & 0x80) at += 1;
+    return at + 1;
 }
 
 /**
@@ -105,82 +105,82 @@ function skipVarint(buffer, offset) {
  * never going to look at.
  */
 function* readFieldsLenient(buffer, wanted) {
-  let at = 0;
-  while (at < buffer.length) {
-    const tag = readVarint(buffer, at);
-    const number = Math.floor(tag.value / 8);
-    const wireType = tag.value % 8;
-    at = tag.next;
+    let at = 0;
+    while (at < buffer.length) {
+        const tag = readVarint(buffer, at);
+        const number = Math.floor(tag.value / 8);
+        const wireType = tag.value % 8;
+        at = tag.next;
 
-    if (wireType === WIRE_VARINT) {
-      if (wanted.has(number)) {
-        const field = readVarint(buffer, at);
-        at = field.next;
-        yield { number, wireType, value: field.value, bytes: null };
-      } else {
-        at = skipVarint(buffer, at);
-      }
-    } else if (wireType === WIRE_LENGTH) {
-      const length = readVarint(buffer, at);
-      const end = length.next + length.value;
-      if (end > buffer.length) throw new Error('truncated protobuf field');
-      yield { number, wireType, value: 0, bytes: buffer.subarray(length.next, end) };
-      at = end;
-    } else if (wireType === WIRE_FIXED64 || wireType === WIRE_FIXED32) {
-      const width = wireType === WIRE_FIXED64 ? 8 : 4;
-      if (at + width > buffer.length) throw new Error('truncated protobuf field');
-      yield { number, wireType, value: 0, bytes: buffer.subarray(at, at + width) };
-      at += width;
-    } else {
-      throw new Error(`unsupported protobuf wire type ${wireType}`);
+        if (wireType === WIRE_VARINT) {
+            if (wanted.has(number)) {
+                const field = readVarint(buffer, at);
+                at = field.next;
+                yield { number, wireType, value: field.value, bytes: null };
+            } else {
+                at = skipVarint(buffer, at);
+            }
+        } else if (wireType === WIRE_LENGTH) {
+            const length = readVarint(buffer, at);
+            const end = length.next + length.value;
+            if (end > buffer.length) throw new Error('truncated protobuf field');
+            yield { number, wireType, value: 0, bytes: buffer.subarray(length.next, end) };
+            at = end;
+        } else if (wireType === WIRE_FIXED64 || wireType === WIRE_FIXED32) {
+            const width = wireType === WIRE_FIXED64 ? 8 : 4;
+            if (at + width > buffer.length) throw new Error('truncated protobuf field');
+            yield { number, wireType, value: 0, bytes: buffer.subarray(at, at + width) };
+            at += width;
+        } else {
+            throw new Error(`unsupported protobuf wire type ${wireType}`);
+        }
     }
-  }
 }
 
 function writeVarint(value) {
-  if (!Number.isSafeInteger(value) || value < 0) {
-    throw new Error(`cannot encode ${value} as a protobuf varint`);
-  }
-  const bytes = [];
-  let rest = value;
-  do {
-    const byte = rest % 128;
-    rest = Math.floor(rest / 128);
-    bytes.push(rest > 0 ? byte | 0x80 : byte);
-  } while (rest > 0);
-  return Buffer.from(bytes);
+    if (!Number.isSafeInteger(value) || value < 0) {
+        throw new Error(`cannot encode ${value} as a protobuf varint`);
+    }
+    const bytes = [];
+    let rest = value;
+    do {
+        const byte = rest % 128;
+        rest = Math.floor(rest / 128);
+        bytes.push(rest > 0 ? byte | 0x80 : byte);
+    } while (rest > 0);
+    return Buffer.from(bytes);
 }
 
 function writeTag(number, wireType) {
-  return writeVarint(number * 8 + wireType);
+    return writeVarint(number * 8 + wireType);
 }
 
 function writeVarintField(number, value) {
-  return Buffer.concat([writeTag(number, WIRE_VARINT), writeVarint(value)]);
+    return Buffer.concat([writeTag(number, WIRE_VARINT), writeVarint(value)]);
 }
 
 function writeBytesField(number, bytes) {
-  return Buffer.concat([writeTag(number, WIRE_LENGTH), writeVarint(bytes.length), bytes]);
+    return Buffer.concat([writeTag(number, WIRE_LENGTH), writeVarint(bytes.length), bytes]);
 }
 
 /** A `double` field: wire type 1, eight little-endian bytes. */
 function writeDoubleField(number, value) {
-  const bytes = Buffer.alloc(8);
-  bytes.writeDoubleLE(value);
-  return Buffer.concat([writeTag(number, WIRE_FIXED64), bytes]);
+    const bytes = Buffer.alloc(8);
+    bytes.writeDoubleLE(value);
+    return Buffer.concat([writeTag(number, WIRE_FIXED64), bytes]);
 }
 
 module.exports = {
-  WIRE_FIXED32,
-  WIRE_FIXED64,
-  WIRE_LENGTH,
-  WIRE_VARINT,
-  readFields,
-  readFieldsLenient,
-  readVarint,
-  writeBytesField,
-  writeDoubleField,
-  writeTag,
-  writeVarint,
-  writeVarintField,
+    WIRE_FIXED32,
+    WIRE_FIXED64,
+    WIRE_LENGTH,
+    WIRE_VARINT,
+    readFields,
+    readFieldsLenient,
+    readVarint,
+    writeBytesField,
+    writeDoubleField,
+    writeTag,
+    writeVarint,
+    writeVarintField,
 };

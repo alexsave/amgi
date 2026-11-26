@@ -12,7 +12,7 @@
 // against a stand-in Anki reviewer. Load-bearing: do not move or rename this
 // file without updating that require() too.
 module.exports = function fakeVoiceScript({ leadMs = 600, speechMs = 1500, totalMs = 12000 } = {}) {
-  return `(() => {
+    return `(() => {
     const leadMs = ${leadMs}, speechMs = ${speechMs}, totalMs = ${totalMs};
     const makeStream = () => {
       const ctx = new (window.AudioContext || window.webkitAudioContext)();

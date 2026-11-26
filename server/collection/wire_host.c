@@ -6,13 +6,13 @@
 #include "wire.h"
 
 uint8_t *wire_grow(uint8_t *p, uint32_t len, uint32_t cap) {
-  (void)len;
-  uint8_t *q = realloc(p, cap ? cap : 1);
-  if (!q) {
-    fputs("amgi: out of memory writing a wire message\n", stderr);
-    abort();
-  }
-  return q;
+    (void)len;
+    uint8_t *q = realloc(p, cap ? cap : 1);
+    if (!q) {
+        fputs("amgi: out of memory writing a wire message\n", stderr);
+        abort();
+    }
+    return q;
 }
 
 /* A body's length as a wire message's u32 count can hold it, or 0. cbase bounds a response at

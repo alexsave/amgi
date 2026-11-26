@@ -35,20 +35,20 @@ trap cleanup EXIT
 fails=0
 # expect <want exit> <a line of stdout must match this extended regex, or -> <command...>
 expect() {
-  local want="$1" pat="$2"
-  shift 2
-  out="$(run "$@" 2> "$sandbox_root/err")"
-  local rc=$?
-  err="$(cat "$sandbox_root/err")"
-  if [ "$rc" -ne "$want" ] || { [ "$pat" != - ] && ! printf '%s' "$out" | grep -Eq "$pat"; }; then
-    echo "FAIL amgi $*: exit $rc (want $want)"
-    echo "  stdout: $out"
-    echo "  stderr: $err"
-    fails=$((fails + 1))
-  else
-    echo "ok   amgi $* -> $rc"
-    [ -n "$out" ] && printf '%s\n' "$out" | sed 's/^/       /'
-  fi
+    local want="$1" pat="$2"
+    shift 2
+    out="$(run "$@" 2> "$sandbox_root/err")"
+    local rc=$?
+    err="$(cat "$sandbox_root/err")"
+    if [ "$rc" -ne "$want" ] || { [ "$pat" != - ] && ! printf '%s' "$out" | grep -Eq "$pat"; }; then
+        echo "FAIL amgi $*: exit $rc (want $want)"
+        echo "  stdout: $out"
+        echo "  stderr: $err"
+        fails=$((fails + 1))
+    else
+        echo "ok   amgi $* -> $rc"
+        [ -n "$out" ] && printf '%s\n' "$out" | sed 's/^/       /'
+    fi
 }
 tab=$'\t'
 

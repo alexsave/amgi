@@ -21,44 +21,44 @@
 #include <unistd.h>
 
 static void x(sqlite3 *db, const char *sql) {
-  char *err = NULL;
-  if (sqlite3_exec(db, sql, NULL, NULL, &err) != SQLITE_OK) {
-    fprintf(stderr, "anki stand-in: %s: %s\n", sql, err ? err : "?");
-    _exit(3);
-  }
+    char *err = NULL;
+    if (sqlite3_exec(db, sql, NULL, NULL, &err) != SQLITE_OK) {
+        fprintf(stderr, "anki stand-in: %s: %s\n", sql, err ? err : "?");
+        _exit(3);
+    }
 }
 
 /* Anki's collation, near enough for a VACUUM to rebuild the indexes that use it. */
 static int unicase(void *ctx, int na, const void *a, int nb, const void *b) {
-  (void)ctx;
-  int r = sqlite3_strnicmp(a, b, na < nb ? na : nb);
-  return r ? r : na - nb;
+    (void)ctx;
+    int r = sqlite3_strnicmp(a, b, na < nb ? na : nb);
+    return r ? r : na - nb;
 }
 
 int main(int argc, char **argv) {
-  if (argc != 2) return fprintf(stderr, "usage: %s <collection.anki2>\n", argv[0]), 2;
-  const char *path = argv[1];
-  sqlite3 *db;
-  if (sqlite3_open_v2(path, &db, SQLITE_OPEN_READWRITE, NULL) != SQLITE_OK) _exit(6);
-  sqlite3_create_collation(db, "unicase", SQLITE_UTF8, NULL, unicase);
-  x(db, "PRAGMA locking_mode = EXCLUSIVE");
-  x(db, "PRAGMA journal_mode = WAL");
-  x(db, "UPDATE col SET mod = mod + 1"); /* the session's work: the lock is taken here */
-  x(db, "PRAGMA wal_checkpoint(TRUNCATE)");
-  int raw = open(path, O_RDONLY);
-  if (raw < 0) _exit(7);
-  char page[4096];
-  if (read(raw, page, sizeof page) != (ssize_t)sizeof page) _exit(8);
-  close(raw); /* the backup's plain read: this process's locks on the file are gone */
-  x(db, "VACUUM");
-  printf("held\n");
-  fflush(stdout);
-  char line[16];
-  if (!fgets(line, sizeof line, stdin)) _exit(4);
-  x(db, "UPDATE col SET mod = mod + 1");
-  x(db, "UPDATE config SET mtime_secs = mtime_secs + 1 WHERE KEY = 'curDeck'");
-  if (sqlite3_close(db) != SQLITE_OK) _exit(9);
-  printf("closed\n");
-  fflush(stdout);
-  return 0;
+    if (argc != 2) return fprintf(stderr, "usage: %s <collection.anki2>\n", argv[0]), 2;
+    const char *path = argv[1];
+    sqlite3 *db;
+    if (sqlite3_open_v2(path, &db, SQLITE_OPEN_READWRITE, NULL) != SQLITE_OK) _exit(6);
+    sqlite3_create_collation(db, "unicase", SQLITE_UTF8, NULL, unicase);
+    x(db, "PRAGMA locking_mode = EXCLUSIVE");
+    x(db, "PRAGMA journal_mode = WAL");
+    x(db, "UPDATE col SET mod = mod + 1"); /* the session's work: the lock is taken here */
+    x(db, "PRAGMA wal_checkpoint(TRUNCATE)");
+    int raw = open(path, O_RDONLY);
+    if (raw < 0) _exit(7);
+    char page[4096];
+    if (read(raw, page, sizeof page) != (ssize_t)sizeof page) _exit(8);
+    close(raw); /* the backup's plain read: this process's locks on the file are gone */
+    x(db, "VACUUM");
+    printf("held\n");
+    fflush(stdout);
+    char line[16];
+    if (!fgets(line, sizeof line, stdin)) _exit(4);
+    x(db, "UPDATE col SET mod = mod + 1");
+    x(db, "UPDATE config SET mtime_secs = mtime_secs + 1 WHERE KEY = 'curDeck'");
+    if (sqlite3_close(db) != SQLITE_OK) _exit(9);
+    printf("closed\n");
+    fflush(stdout);
+    return 0;
 }

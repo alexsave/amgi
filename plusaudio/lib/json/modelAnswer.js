@@ -7,11 +7,11 @@
 
 /** The answer's value, or why the text is not JSON. */
 function parseModelAnswer(text) {
-  try {
-    return { ok: true, value: JSON.parse(text) };
-  } catch {
-    return { ok: false, detail: `not JSON: "${text.slice(0, 80)}"` };
-  }
+    try {
+        return { ok: true, value: JSON.parse(text) };
+    } catch {
+        return { ok: false, detail: `not JSON: "${text.slice(0, 80)}"` };
+    }
 }
 
 module.exports = { parseModelAnswer };

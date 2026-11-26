@@ -13,26 +13,26 @@ static int shown;
 static holder h;
 
 static const profile *picked(void) {
-  for (uint32_t i = 0; i < nprofiles; i++)
-    if (same(profiles[i].path.p, profiles[i].path.len, chosen.p, chosen.len)) return &profiles[i];
-  return 0;
+    for (uint32_t i = 0; i < nprofiles; i++)
+        if (same(profiles[i].path.p, profiles[i].path.len, chosen.p, chosen.len)) return &profiles[i];
+    return 0;
 }
 
 static void step(const char *state, const char *mark, const char *s, uint32_t n) {
-  cd_open("li");
-  cd_class(state); /* "first-run-step <state>" */
-  el("span", "first-run-mark");
-  tmp_text(mark, zlen(mark));
-  cd_close();
-  el("span", "first-run-step-text");
-  tmp_text(s, n);
-  cd_close();
-  cd_close();
+    cd_open("li");
+    cd_class(state); /* "first-run-step <state>" */
+    el("span", "first-run-mark");
+    tmp_text(mark, zlen(mark));
+    cd_close();
+    el("span", "first-run-step-text");
+    tmp_text(s, n);
+    cd_close();
+    cd_close();
 }
 
 static uint32_t cat(char *dst, uint32_t n, const char *s, uint32_t len) {
-  __builtin_memcpy(dst + n, s, len);
-  return n + len;
+    __builtin_memcpy(dst + n, s, len);
+    return n + len;
 }
 
 ON_EVENT(install_pressed);
@@ -43,170 +43,170 @@ ON_ANSWER(installed_answered);
 
 ON_RENDER(draw);
 static void dirty(void) {
-  if (shown) cd_dirty(draw, 0);
+    if (shown) cd_dirty(draw, 0);
 }
 
 ON_RENDER(draw) {
-  cd_region_hide(&view);
-  if (!cd_region_show(&view, 1)) return;
-  const profile *pr = picked();
-  int needs_choice = nprofiles > 1 && !pr, no_anki = !scan_loading && base_exists == 0;
-  cd_at(view.parent, 0);
-  el("div", "first-run");
-  el_text("h2", "first-run-title", "Set amgi up in your Anki");
-  el_text("p", "first-run-lead", "One press: the add-ons, and the card type amgi builds decks with.");
-  cd_id cta = el_id("button", 0);
-  cd_attr("type", "button");
-  cd_class("first-run-cta");
-  if (install_running || no_anki) cd_attr("disabled", "");
-  cd_on(cta, CD_EV_CLICK, install_pressed, 0);
-  cd_text(install_running ? "Installing…" : install_done ? "Install again" : "Install into Anki");
-  cd_close();
-  if (base_dir.len) {
-    el("p", "first-run-path");
-    cd_open("code");
-    tmp_text(base_dir.p, base_dir.len);
+    cd_region_hide(&view);
+    if (!cd_region_show(&view, 1)) return;
+    const profile *pr = picked();
+    int needs_choice = nprofiles > 1 && !pr, no_anki = !scan_loading && base_exists == 0;
+    cd_at(view.parent, 0);
+    el("div", "first-run");
+    el_text("h2", "first-run-title", "Set amgi up in your Anki");
+    el_text("p", "first-run-lead", "One press: the add-ons, and the card type amgi builds decks with.");
+    cd_id cta = el_id("button", 0);
+    cd_attr("type", "button");
+    cd_class("first-run-cta");
+    if (install_running || no_anki) cd_attr("disabled", "");
+    cd_on(cta, CD_EV_CLICK, install_pressed, 0);
+    cd_text(install_running ? "Installing…" : install_done ? "Install again" : "Install into Anki");
     cd_close();
-    if (pr) {
-      cd_text(" · profile “");
-      tmp_text(pr->name.p, pr->name.len);
-      cd_text("”");
+    if (base_dir.len) {
+        el("p", "first-run-path");
+        cd_open("code");
+        tmp_text(base_dir.p, base_dir.len);
+        cd_close();
+        if (pr) {
+            cd_text(" · profile “");
+            tmp_text(pr->name.p, pr->name.len);
+            cd_text("”");
+        }
+        cd_close();
     }
-    cd_close();
-  }
-  if (no_anki)
-    el_text("p", "first-run-error",
-            "No Anki data folder on this machine. Install Anki from apps.ankiweb.net and open it once, then reload.");
-  if (scan_error.len) {
-    el("p", "first-run-error");
-    tmp_text(scan_error.p, scan_error.len);
-    cd_close();
-  }
-  if (install_failed) {
-    el("p", "first-run-error");
-    tmp_text(install_message.p, install_message.len);
-    cd_close();
-  }
-  if (needs_choice) {
-    el("div", "first-run-choices");
-    el_text("p", "first-run-step-text", "More than one Anki profile here. Which one?");
-    for (uint32_t i = 0; i < nprofiles; i++) {
-      cd_id choice = el_id("button", 0);
-      cd_attr("type", "button");
-      cd_class("first-run-choice");
-      cd_on(choice, CD_EV_CLICK, profile_chosen, CTX_OF(i));
-      tmp_text(profiles[i].name.p, profiles[i].name.len);
-      cd_close();
+    if (no_anki)
+        el_text("p", "first-run-error",
+                "No Anki data folder on this machine. Install Anki from apps.ankiweb.net and open it once, then reload.");
+    if (scan_error.len) {
+        el("p", "first-run-error");
+        tmp_text(scan_error.p, scan_error.len);
+        cd_close();
     }
+    if (install_failed) {
+        el("p", "first-run-error");
+        tmp_text(install_message.p, install_message.len);
+        cd_close();
+    }
+    if (needs_choice) {
+        el("div", "first-run-choices");
+        el_text("p", "first-run-step-text", "More than one Anki profile here. Which one?");
+        for (uint32_t i = 0; i < nprofiles; i++) {
+            cd_id choice = el_id("button", 0);
+            cd_attr("type", "button");
+            cd_class("first-run-choice");
+            cd_on(choice, CD_EV_CLICK, profile_chosen, CTX_OF(i));
+            tmp_text(profiles[i].name.p, profiles[i].name.len);
+            cd_close();
+        }
+        cd_close();
+    }
+    el("ol", "first-run-steps");
+    char s[400];
+    uint32_t n = 0;
+    if (scan_loading) {
+        step("first-run-step now", "1", "Looking for Anki…", zlen("Looking for Anki…"));
+    } else if (pr) {
+        n = cat(s, 0, "Found Anki: profile “", zlen("Found Anki: profile “"));
+        uint32_t l = pr->name.len < 300 ? pr->name.len : 300;
+        n = cat(s, n, pr->name.p, l);
+        n = cat(s, n, "”", zlen("”"));
+        if (nprofiles == 1) n = cat(s, n, ", picked for you", 16);
+        step("first-run-step done", "✓", s, n);
+    } else {
+        step("first-run-step next", "1", "Could not find an Anki profile", zlen("Could not find an Anki profile"));
+    }
+    const char *t2 = install_done ? "Installed the add-ons and the card type"
+                     : install_running ? "Installing the add-ons and the card type"
+                                       : "Install the add-ons and the card type";
+    step(install_done ? "first-run-step done" : install_running ? "first-run-step now" : "first-run-step next",
+         install_done ? "✓" : "2", t2, zlen(t2));
+    const char *t3 = install_done && !needs_restart ? "The card type is already in your collection - add cards now"
+                                                    : "Restart Anki, and amgi notices by itself";
+    step(install_done ? "first-run-step now" : "first-run-step next", "3", t3, zlen(t3));
     cd_close();
-  }
-  el("ol", "first-run-steps");
-  char s[400];
-  uint32_t n = 0;
-  if (scan_loading) {
-    step("first-run-step now", "1", "Looking for Anki…", zlen("Looking for Anki…"));
-  } else if (pr) {
-    n = cat(s, 0, "Found Anki: profile “", zlen("Found Anki: profile “"));
-    uint32_t l = pr->name.len < 300 ? pr->name.len : 300;
-    n = cat(s, n, pr->name.p, l);
-    n = cat(s, n, "”", zlen("”"));
-    if (nprofiles == 1) n = cat(s, n, ", picked for you", 16);
-    step("first-run-step done", "✓", s, n);
-  } else {
-    step("first-run-step next", "1", "Could not find an Anki profile", zlen("Could not find an Anki profile"));
-  }
-  const char *t2 = install_done ? "Installed the add-ons and the card type"
-                   : install_running ? "Installing the add-ons and the card type"
-                                     : "Install the add-ons and the card type";
-  step(install_done ? "first-run-step done" : install_running ? "first-run-step now" : "first-run-step next",
-       install_done ? "✓" : "2", t2, zlen(t2));
-  const char *t3 = install_done && !needs_restart ? "The card type is already in your collection - add cards now"
-                                                  : "Restart Anki, and amgi notices by itself";
-  step(install_done ? "first-run-step now" : "first-run-step next", "3", t3, zlen(t3));
-  cd_close();
-  cd_close();
-  cd_region_end(&view);
+    cd_close();
+    cd_region_end(&view);
 }
 
 static void choose(uint32_t i) {
-  text_set(&settings[S_COLLECTION], profiles[i].path.p, profiles[i].path.len);
-  text_set(&settings[S_PROFILE], profiles[i].name.p, profiles[i].name.len);
-  text_set(&chosen, profiles[i].path.p, profiles[i].path.len);
-  settings_save(0, 0);
-  poll_status();
-  refresh_decks();
+    text_set(&settings[S_COLLECTION], profiles[i].path.p, profiles[i].path.len);
+    text_set(&settings[S_PROFILE], profiles[i].name.p, profiles[i].name.len);
+    text_set(&chosen, profiles[i].path.p, profiles[i].path.len);
+    settings_save(0, 0);
+    poll_status();
+    refresh_decks();
 }
 
 /* Shown as all of parent's children (the decks screen's root); the scan starts at once. */
 static void gone(void *ctx) {
-  (void)ctx;
-  shown = 0;
-  cd_undirty(draw, 0);
+    (void)ctx;
+    shown = 0;
+    cd_undirty(draw, 0);
 }
 
 void firstrun_show(cd_id parent) {
-  if (!shown) cd_on_free(&page_region, gone, 0); /* shown again without a page in between: once */
-  shown = 1;
-  view.parent = parent;
-  text_set(&chosen, settings[S_COLLECTION].p ? settings[S_COLLECTION].p : "", settings[S_COLLECTION].len);
-  scan_loading = 1;
-  text_free(&scan_error);
-  dirty();
-  ask(profiles_answered, 0, "GET", "/profiles", WIRE_NONE, 0);
+    if (!shown) cd_on_free(&page_region, gone, 0); /* shown again without a page in between: once */
+    shown = 1;
+    view.parent = parent;
+    text_set(&chosen, settings[S_COLLECTION].p ? settings[S_COLLECTION].p : "", settings[S_COLLECTION].len);
+    scan_loading = 1;
+    text_free(&scan_error);
+    dirty();
+    ask(profiles_answered, 0, "GET", "/profiles", WIRE_NONE, 0);
 }
 
 ON_EVENT(profile_chosen) {
-  if (CTX_INDEX(ctx) < nprofiles) choose(CTX_INDEX(ctx));
-  dirty();
+    if (CTX_INDEX(ctx) < nprofiles) choose(CTX_INDEX(ctx));
+    dirty();
 }
 ON_EVENT(install_pressed) {
-  if (install_running) return;
-  install_running = 1;
-  install_failed = 0;
-  dirty();
-  wire_q_install q = {{settings[S_BASE_DIR].p ? settings[S_BASE_DIR].p : "", settings[S_BASE_DIR].len}};
-  ask(installed_answered, 0, "POST", "/install", WK_Q_INSTALL, &q);
+    if (install_running) return;
+    install_running = 1;
+    install_failed = 0;
+    dirty();
+    wire_q_install q = {{settings[S_BASE_DIR].p ? settings[S_BASE_DIR].p : "", settings[S_BASE_DIR].len}};
+    ask(installed_answered, 0, "POST", "/install", WK_Q_INSTALL, &q);
 }
 
 ON_ANSWER(profiles_answered) {
-  char m[600];
-  wire_profiles pr;
-  answer a = take(&h, WK_PROFILES, status, p, len, &pr);
-  scan_loading = 0;
-  if (a.ok) {
-    for (uint32_t i = 0; i < nprofiles; i++) {
-      text_free(&profiles[i].name);
-      text_free(&profiles[i].path);
+    char m[600];
+    wire_profiles pr;
+    answer a = take(&h, WK_PROFILES, status, p, len, &pr);
+    scan_loading = 0;
+    if (a.ok) {
+        for (uint32_t i = 0; i < nprofiles; i++) {
+            text_free(&profiles[i].name);
+            text_free(&profiles[i].path);
+        }
+        profiles = cd_realloc(profiles, (pr.nprofiles ? pr.nprofiles : 1) * sizeof *profiles);
+        for (uint32_t i = 0; i < pr.nprofiles; i++) {
+            profiles[i] = (profile){{0, 0}, {0, 0}};
+            text_set(&profiles[i].name, pr.profiles[i].name.p, pr.profiles[i].name.len);
+            text_set(&profiles[i].path, pr.profiles[i].collection_path.p, pr.profiles[i].collection_path.len);
+        }
+        nprofiles = pr.nprofiles;
+        text_set(&base_dir, pr.base_dir.p, pr.base_dir.len);
+        base_exists = pr.base_dir_exists;
+        /* one profile and none picked yet: picked for you */
+        if (nprofiles == 1 && !settings[S_COLLECTION].len) choose(0);
+    } else {
+        text_set(&scan_error, m, answer_message(&a, m, sizeof m));
     }
-    profiles = cd_realloc(profiles, (pr.nprofiles ? pr.nprofiles : 1) * sizeof *profiles);
-    for (uint32_t i = 0; i < pr.nprofiles; i++) {
-      profiles[i] = (profile){{0, 0}, {0, 0}};
-      text_set(&profiles[i].name, pr.profiles[i].name.p, pr.profiles[i].name.len);
-      text_set(&profiles[i].path, pr.profiles[i].collection_path.p, pr.profiles[i].collection_path.len);
-    }
-    nprofiles = pr.nprofiles;
-    text_set(&base_dir, pr.base_dir.p, pr.base_dir.len);
-    base_exists = pr.base_dir_exists;
-    /* one profile and none picked yet: picked for you */
-    if (nprofiles == 1 && !settings[S_COLLECTION].len) choose(0);
-  } else {
-    text_set(&scan_error, m, answer_message(&a, m, sizeof m));
-  }
-  dirty();
+    dirty();
 }
 ON_ANSWER(installed_answered) {
-  char m[600];
-  wire_installed in;
-  answer a = take(&h, WK_INSTALLED, status, p, len, &in);
-  install_running = 0;
-  if (a.ok) {
-    install_done = 1;
-    needs_restart = in.needs_restart;
-    text_set(&install_message, in.message.p, in.message.len);
-    refresh_decks();
-  } else {
-    install_failed = 1;
-    text_set(&install_message, m, answer_message(&a, m, sizeof m));
-  }
-  dirty();
+    char m[600];
+    wire_installed in;
+    answer a = take(&h, WK_INSTALLED, status, p, len, &in);
+    install_running = 0;
+    if (a.ok) {
+        install_done = 1;
+        needs_restart = in.needs_restart;
+        text_set(&install_message, in.message.p, in.message.len);
+        refresh_decks();
+    } else {
+        install_failed = 1;
+        text_set(&install_message, m, answer_message(&a, m, sizeof m));
+    }
+    dirty();
 }

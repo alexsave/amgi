@@ -17,40 +17,40 @@ const path = require('node:path');
 const { sandboxEnv } = require('../../../../repo/sandbox-home.cjs');
 
 function findPython() {
-  const candidates = [process.env.ANKI_PYTHON_BIN, 'python3', 'python'].filter(Boolean);
-  for (const candidate of candidates) {
-    const probe = spawnSync(candidate, ['-c', 'import anki.buildinfo; print(anki.buildinfo.buildhash)'], {
-      env: sandboxEnv(),
-      encoding: 'utf8',
-    });
-    if (probe.status === 0) return { bin: candidate, buildhash: probe.stdout.trim() };
-  }
-  return null;
+    const candidates = [process.env.ANKI_PYTHON_BIN, 'python3', 'python'].filter(Boolean);
+    for (const candidate of candidates) {
+        const probe = spawnSync(candidate, ['-c', 'import anki.buildinfo; print(anki.buildinfo.buildhash)'], {
+            env: sandboxEnv(),
+            encoding: 'utf8',
+        });
+        if (probe.status === 0) return { bin: candidate, buildhash: probe.stdout.trim() };
+    }
+    return null;
 }
 
 const anki = findPython();
 
 function findFixtureApkg() {
-  const candidates = [process.env.ANKI_FIXTURE_APKG].filter(Boolean);
-  for (const candidate of candidates) if (fs.existsSync(candidate)) return candidate;
-  return null;
+    const candidates = [process.env.ANKI_FIXTURE_APKG].filter(Boolean);
+    for (const candidate of candidates) if (fs.existsSync(candidate)) return candidate;
+    return null;
 }
 
 const fixtureApkg = findFixtureApkg();
 
 /** Run a Python script (as a string) with the anki library importable, returning stdout. */
 function runPython(script, args = []) {
-  if (!anki) throw new Error('anki python library not available; guard callers with anki !== null');
-  const result = spawnSync(anki.bin, ['-c', script, ...args], { env: sandboxEnv(), encoding: 'utf8' });
-  if (result.status !== 0) {
-    throw new Error(`python script failed (exit ${result.status}):\n${result.stderr}`);
-  }
-  return result.stdout;
+    if (!anki) throw new Error('anki python library not available; guard callers with anki !== null');
+    const result = spawnSync(anki.bin, ['-c', script, ...args], { env: sandboxEnv(), encoding: 'utf8' });
+    if (result.status !== 0) {
+        throw new Error(`python script failed (exit ${result.status}):\n${result.stderr}`);
+    }
+    return result.stdout;
 }
 
 /** A fresh temp directory to build a fixture collection in. */
 function tempDir(prefix = 'anki-collection-test-') {
-  return fs.mkdtempSync(path.join(os.tmpdir(), prefix));
+    return fs.mkdtempSync(path.join(os.tmpdir(), prefix));
 }
 
 /**
@@ -61,7 +61,7 @@ function tempDir(prefix = 'anki-collection-test-') {
  * on a deck the person running them happens to have.
  */
 function buildSharedDeckPackage(apkgPath) {
-  const script = `
+    const script = `
 import os, sys, tempfile
 from anki.collection import Collection, ExportAnkiPackageOptions, DeckIdLimit
 out = sys.argv[1]
@@ -89,7 +89,7 @@ col.export_anki_package(out_path=out, limit=DeckIdLimit(deck_id=top),
     options=ExportAnkiPackageOptions(with_scheduling=False, with_deck_configs=True, with_media=True, legacy=True))
 col.close()
 `;
-  runPython(script, [apkgPath]);
+    runPython(script, [apkgPath]);
 }
 
 /**
@@ -99,7 +99,7 @@ col.close()
  * `importApkg: true` for ANKI_FIXTURE_APKG, or a path (buildSharedDeckPackage's). Returns nothing; inspect the file afterwards.
  */
 function buildFixtureCollection(collectionPath, { importApkg = false, downgradeToSchema11 = false } = {}) {
-  const script = `
+    const script = `
 import sys
 from anki.collection import Collection
 p = sys.argv[1]
@@ -118,14 +118,14 @@ col.import_anki_package(ImportAnkiPackageRequest(package_path=sys.argv[2]))
 }
 col.close(downgrade=${downgradeToSchema11 ? 'True' : 'False'})
 `;
-  // importApkg: true imports ANKI_FIXTURE_APKG (the e2e fixture's seed); a path imports that package.
-  const args = importApkg ? [collectionPath, typeof importApkg === 'string' ? importApkg : fixtureApkg] : [collectionPath];
-  runPython(script, args);
+    // importApkg: true imports ANKI_FIXTURE_APKG (the e2e fixture's seed); a path imports that package.
+    const args = importApkg ? [collectionPath, typeof importApkg === 'string' ? importApkg : fixtureApkg] : [collectionPath];
+    runPython(script, args);
 }
 
 /** Open `collectionPath` with the real anki library and run `body` (python source, using `col`). */
 function withAnkiLibrary(collectionPath, body) {
-  const script = `
+    const script = `
 import sys, json
 from anki.collection import Collection
 p = sys.argv[1]
@@ -133,7 +133,7 @@ col = Collection(p)
 ${body}
 col.close()
 `;
-  return runPython(script, [collectionPath]);
+    return runPython(script, [collectionPath]);
 }
 
 /**
@@ -143,7 +143,7 @@ col.close()
  * lock, not a simulation of one.
  */
 function holdCollectionOpen(collectionPath) {
-  const script = `
+    const script = `
 import sys
 from anki.collection import Collection
 col = Collection(sys.argv[1])
@@ -152,31 +152,31 @@ sys.stdin.readline()
 col.close()
 print("RELEASED", flush=True)
 `;
-  const child = spawn(anki.bin, ['-c', script, collectionPath], { env: sandboxEnv(), stdio: ['pipe', 'pipe', 'inherit'] });
-  const held = new Promise((resolve, reject) => {
-    child.stdout.once('data', (chunk) => {
-      if (chunk.toString().includes('HELD')) resolve();
-      else reject(new Error(`unexpected output from holder: ${chunk}`));
+    const child = spawn(anki.bin, ['-c', script, collectionPath], { env: sandboxEnv(), stdio: ['pipe', 'pipe', 'inherit'] });
+    const held = new Promise((resolve, reject) => {
+        child.stdout.once('data', (chunk) => {
+            if (chunk.toString().includes('HELD')) resolve();
+            else reject(new Error(`unexpected output from holder: ${chunk}`));
+        });
+        child.once('error', reject);
     });
-    child.once('error', reject);
-  });
-  function release() {
-    return new Promise((resolve) => {
-      child.once('exit', resolve);
-      child.stdin.write('\n');
-      child.stdin.end();
-    });
-  }
-  return { held, release };
+    function release() {
+        return new Promise((resolve) => {
+            child.once('exit', resolve);
+            child.stdin.write('\n');
+            child.stdin.end();
+        });
+    }
+    return { held, release };
 }
 
 module.exports = {
-  anki,
-  buildFixtureCollection,
-  buildSharedDeckPackage,
-  fixtureApkg,
-  holdCollectionOpen,
-  runPython,
-  tempDir,
-  withAnkiLibrary,
+    anki,
+    buildFixtureCollection,
+    buildSharedDeckPackage,
+    fixtureApkg,
+    holdCollectionOpen,
+    runPython,
+    tempDir,
+    withAnkiLibrary,
 };

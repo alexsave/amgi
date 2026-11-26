@@ -26,122 +26,122 @@ const ALLOWED_ORIGIN = 'http://localhost:3000';
 const FOREIGN_ORIGIN = 'https://evil.example';
 
 function startServer(collectionPath) {
-  const script = path.join(__dirname, 'bridge_server_entry.py');
-  const child = spawn(anki.bin, [script, collectionPath, TOKEN, ALLOWED_ORIGIN, '0'], {
-    env: sandboxEnv(),
-    stdio: ['pipe', 'pipe', 'inherit'],
-  });
-  const ready = new Promise((resolve, reject) => {
-    child.stdout.once('data', (chunk) => {
-      const match = chunk.toString().match(/^LISTENING (\d+)/);
-      if (match) resolve(Number(match[1]));
-      else reject(new Error(`unexpected output starting the bridge: ${chunk}`));
+    const script = path.join(__dirname, 'bridge_server_entry.py');
+    const child = spawn(anki.bin, [script, collectionPath, TOKEN, ALLOWED_ORIGIN, '0'], {
+        env: sandboxEnv(),
+        stdio: ['pipe', 'pipe', 'inherit'],
     });
-    child.once('error', reject);
-  });
-  function stop() {
-    return new Promise((resolve) => {
-      child.once('exit', resolve);
-      child.stdin.write('\n');
-      child.stdin.end();
+    const ready = new Promise((resolve, reject) => {
+        child.stdout.once('data', (chunk) => {
+            const match = chunk.toString().match(/^LISTENING (\d+)/);
+            if (match) resolve(Number(match[1]));
+            else reject(new Error(`unexpected output starting the bridge: ${chunk}`));
+        });
+        child.once('error', reject);
     });
-  }
-  return { ready, stop };
+    function stop() {
+        return new Promise((resolve) => {
+            child.once('exit', resolve);
+            child.stdin.write('\n');
+            child.stdin.end();
+        });
+    }
+    return { ready, stop };
 }
 
 let failures = 0;
 async function check(label, response, expectedStatus) {
-  const ok = response.status === expectedStatus;
-  console.log(`${ok ? 'ok  ' : 'FAIL'} ${label} -> ${response.status} (expected ${expectedStatus})`);
-  if (!ok) failures += 1;
-  return response;
+    const ok = response.status === expectedStatus;
+    console.log(`${ok ? 'ok  ' : 'FAIL'} ${label} -> ${response.status} (expected ${expectedStatus})`);
+    if (!ok) failures += 1;
+    return response;
 }
 
 (async () => {
-  const collectionPath = process.argv[2];
-  if (!collectionPath) {
-    console.error('usage: node bridge-http.js <path to a fixture collection.anki2>');
-    process.exit(1);
-  }
-  if (!anki) {
-    console.error('no python with the `anki` library on PATH; see fixture.js\'s own top comment');
-    process.exit(1);
-  }
+    const collectionPath = process.argv[2];
+    if (!collectionPath) {
+        console.error('usage: node bridge-http.js <path to a fixture collection.anki2>');
+        process.exit(1);
+    }
+    if (!anki) {
+        console.error('no python with the `anki` library on PATH; see fixture.js\'s own top comment');
+        process.exit(1);
+    }
 
-  // The bridge's bodies are amgi's wire format; ui/build.sh builds the walkers this reads them with.
-  const { BRIDGE_PROTOCOL, WIRE_MIME, decode, encode } = await import(path.join(__dirname, '..', '..', '..', '..', 'ui', 'wire', 'wire.mjs'));
-  const PROTOCOL = { [PROTOCOL_HEADER]: String(BRIDGE_PROTOCOL) };
-  const server = startServer(collectionPath);
-  const port = await server.ready;
-  const base = `http://127.0.0.1:${port}`;
-  console.log(`bridge listening on ${base}\n`);
+    // The bridge's bodies are amgi's wire format; ui/build.sh builds the walkers this reads them with.
+    const { BRIDGE_PROTOCOL, WIRE_MIME, decode, encode } = await import(path.join(__dirname, '..', '..', '..', '..', 'ui', 'wire', 'wire.mjs'));
+    const PROTOCOL = { [PROTOCOL_HEADER]: String(BRIDGE_PROTOCOL) };
+    const server = startServer(collectionPath);
+    const port = await server.ready;
+    const base = `http://127.0.0.1:${port}`;
+    console.log(`bridge listening on ${base}\n`);
 
-  const get = (routePath, headers) => fetch(`${base}${routePath}`, { headers: { ...PROTOCOL, ...headers } });
+    const get = (routePath, headers) => fetch(`${base}${routePath}`, { headers: { ...PROTOCOL, ...headers } });
 
-  // -- Token rules --------------------------------------------------------
-  await check('no token at all', await get('/status', {}), 401);
-  await check('wrong token', await get('/status', { [TOKEN_HEADER]: 'not-the-token' }), 401);
-  await check(
-    'correct token, no Origin header (the Node bridge client\'s own shape - see bridgeClient.js)',
-    await get('/status', { [TOKEN_HEADER]: TOKEN }),
-    200,
-  );
+    // -- Token rules --------------------------------------------------------
+    await check('no token at all', await get('/status', {}), 401);
+    await check('wrong token', await get('/status', { [TOKEN_HEADER]: 'not-the-token' }), 401);
+    await check(
+      'correct token, no Origin header (the Node bridge client\'s own shape - see bridgeClient.js)',
+      await get('/status', { [TOKEN_HEADER]: TOKEN }),
+      200,
+    );
 
-  // -- The protocol version ---------------------------------------------------
-  await check(
-    'correct token, another bridge protocol - refused, so a mismatched add-on is never misread',
-    await fetch(`${base}/status`, { headers: { [TOKEN_HEADER]: TOKEN, [PROTOCOL_HEADER]: String(BRIDGE_PROTOCOL + 1) } }),
-    409,
-  );
+    // -- The protocol version ---------------------------------------------------
+    await check(
+      'correct token, another bridge protocol - refused, so a mismatched add-on is never misread',
+      await fetch(`${base}/status`, { headers: { [TOKEN_HEADER]: TOKEN, [PROTOCOL_HEADER]: String(BRIDGE_PROTOCOL + 1) } }),
+      409,
+    );
 
-  // -- Origin rules ---------------------------------------------------------
-  await check(
-    'correct token, allowed Origin',
-    await get('/status', { [TOKEN_HEADER]: TOKEN, Origin: ALLOWED_ORIGIN }),
-    200,
-  );
-  await check(
-    'correct token, foreign Origin - rejected even though the token is right',
-    await get('/status', { [TOKEN_HEADER]: TOKEN, Origin: FOREIGN_ORIGIN }),
-    403,
-  );
+    // -- Origin rules ---------------------------------------------------------
+    await check(
+      'correct token, allowed Origin',
+      await get('/status', { [TOKEN_HEADER]: TOKEN, Origin: ALLOWED_ORIGIN }),
+      200,
+    );
+    await check(
+      'correct token, foreign Origin - rejected even though the token is right',
+      await get('/status', { [TOKEN_HEADER]: TOKEN, Origin: FOREIGN_ORIGIN }),
+      403,
+    );
 
-  const preflightAllowed = await fetch(`${base}/decks`, {
-    method: 'OPTIONS',
-    headers: { Origin: ALLOWED_ORIGIN, 'Access-Control-Request-Method': 'POST' },
-  });
-  await check('CORS preflight from the allowed origin', preflightAllowed, 204);
+    const preflightAllowed = await fetch(`${base}/decks`, {
+        method: 'OPTIONS',
+        headers: { Origin: ALLOWED_ORIGIN, 'Access-Control-Request-Method': 'POST' },
+    });
+    await check('CORS preflight from the allowed origin', preflightAllowed, 204);
 
-  const preflightForeign = await fetch(`${base}/decks`, {
-    method: 'OPTIONS',
-    headers: { Origin: FOREIGN_ORIGIN, 'Access-Control-Request-Method': 'POST' },
-  });
-  await check('CORS preflight from a foreign origin', preflightForeign, 403);
+    const preflightForeign = await fetch(`${base}/decks`, {
+        method: 'OPTIONS',
+        headers: { Origin: FOREIGN_ORIGIN, 'Access-Control-Request-Method': 'POST' },
+    });
+    await check('CORS preflight from a foreign origin', preflightForeign, 403);
 
-  // -- And a real mutation actually lands in the collection, not just a 200 --
-  const createResponse = await fetch(`${base}/decks`, {
-    method: 'POST',
-    headers: { ...PROTOCOL, [TOKEN_HEADER]: TOKEN, 'Content-Type': WIRE_MIME },
-    body: encode('q_deck_name', { name: `e2e-ui bridge ${process.pid}` }),
-  });
-  await check('creating a deck through the bridge', createResponse, 200);
-  const created = decode('b_deck_created', new Uint8Array(await createResponse.arrayBuffer()));
-  console.log(`  -> deck ${created['deck.id']}, ${created['deck.name']}`);
+    // -- And a real mutation actually lands in the collection, not just a 200 --
+    const createResponse = await fetch(`${base}/decks`, {
+        method: 'POST',
+        headers: { ...PROTOCOL, [TOKEN_HEADER]: TOKEN, 'Content-Type': WIRE_MIME },
+        body: encode('q_deck_name', { name: `e2e-ui bridge ${process.pid}` }),
+    });
+    await check('creating a deck through the bridge', createResponse, 200);
+    const created = decode('b_deck_created', new Uint8Array(await createResponse.arrayBuffer()));
+    console.log(`  -> deck ${created['deck.id']}, ${created['deck.name']}`);
 
-  const decksResponse = await get('/decks', { [TOKEN_HEADER]: TOKEN });
-  const { decks } = decode('b_decks', new Uint8Array(await decksResponse.arrayBuffer()));
-  const found = decks.some((d) => d.id === created['deck.id']);
-  console.log(`${found ? 'ok  ' : 'FAIL'} the deck just created shows up in a fresh GET /decks`);
-  if (!found) failures += 1;
+    const decksResponse = await get('/decks', { [TOKEN_HEADER]: TOKEN });
+    const { decks } = decode('b_decks', new Uint8Array(await decksResponse.arrayBuffer()));
+    const found = decks.some((d) => d.id === created['deck.id']);
+    console.log(`${found ? 'ok  ' : 'FAIL'} the deck just created shows up in a fresh GET /decks`);
+    if (!found) failures += 1;
 
-  await server.stop();
+    await server.stop();
 
-  if (failures > 0) {
-    console.log(`\n${failures} check(s) failed.`);
-    process.exit(1);
-  }
-  console.log('\nOK: the bridge\'s token and Origin rules are proven over real HTTP against a real collection.');
+    if (failures > 0) {
+        console.log(`\n${failures} check(s) failed.`);
+        process.exit(1);
+    }
+    console.log('\nOK: the bridge\'s token and Origin rules are proven over real HTTP against a real collection.');
 })().catch((error) => {
-  console.error(error);
-  process.exit(1);
+    console.error(error);
+    process.exit(1);
 });
