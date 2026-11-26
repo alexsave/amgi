@@ -194,7 +194,7 @@ async function fakeGemini(script = {}, { port = 0, control } = {}) {
  *   transcribe  the text whose tone it hears, so every clip passes
  *   judge       matches
  *   languages   state.languages: {learning, known, confidence} (default Korean taught in English, high), or null for a failed call
- *   state.daily: every text call refused for the day; the line "broken line" fails its first call.
+ *   state.daily: every text and speech call refused for the day; the line "broken line" fails its first call.
  *   state.delay: ms every answer takes, so a person (or a drive) can see each step.
  *   state.mishear: how many more clips are heard wrong and judged wrong (each is recorded again).
  */
@@ -235,6 +235,7 @@ function e2eScript(state = { perMinute: Infinity, daily: false }, now = () => Da
             return { known_text: input, learning_text: `${number}번 문장이에요.`, sense_tag: '', register: 'polite', spoken_reading: '' };
         }),
         speech: later((body, index, model) => {
+            if (state.daily) return dailyQuotaExhausted();
             const t = now();
             const starts = (windows.get(model) || []).filter((s) => t - s < 60_000);
             windows.set(model, starts);
