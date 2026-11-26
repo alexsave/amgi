@@ -11,8 +11,8 @@ export async function seed(b, at, { baseDir, collection = '', profile = '', brid
         await new Promise((resolve) => setTimeout(resolve, 100));
     }
     const block = [
-      ['X-Amgi-Base-Dir', baseDir], ['X-Amgi-Collection', collection], ['X-Amgi-Profile', profile],
-      ['X-Amgi-Bridge-Url', bridgeUrl], ['X-Amgi-Bridge-Token', bridgeToken],
+        ['X-Amgi-Base-Dir', baseDir], ['X-Amgi-Collection', collection], ['X-Amgi-Profile', profile],
+        ['X-Amgi-Bridge-Url', bridgeUrl], ['X-Amgi-Bridge-Token', bridgeToken],
     ].map(([k, v]) => `${k}: ${encodeURIComponent(v)}\n`).join('');
     const bytes = [...new TextEncoder().encode(block)].join(',');
     await b.evaluate(`new Promise((resolve, reject) => {

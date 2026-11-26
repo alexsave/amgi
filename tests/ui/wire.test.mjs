@@ -54,8 +54,8 @@ test('bytes (the bridge\'s media): any octets, as the app reads them, and back t
 
 test('decks: ids past 2^32, UTF-8 names, counts, each deck\'s language pair; the app writes back the same bytes', () => {
     const bytes = encode('decks', { mode: 'direct', decks: [
-      { id: 1, name: 'Default', noteCount: 0 },
-      { id: 1794149693370, name: '한국어::일상 표현', noteCount: 2, known: 'en', learning: 'ko' },
+        { id: 1, name: 'Default', noteCount: 0 },
+        { id: 1794149693370, name: '한국어::일상 표현', noteCount: 2, known: 'en', learning: 'ko' },
     ] });
     assert.equal(read(bytes), 'kind=decks\nmode=direct\ndecks=2\ndecks.0.id=1\ndecks.0.name=Default\ndecks.0.noteCount=0\ndecks.0.known=\ndecks.0.learning=\n'
       + 'decks.1.id=1794149693370\ndecks.1.name=한국어::일상 표현\ndecks.1.noteCount=2\ndecks.1.known=en\ndecks.1.learning=ko\nrewritten=same\n');

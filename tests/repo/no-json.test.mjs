@@ -56,31 +56,31 @@ const ANKI = 'FORCED by Anki: ';
  * and written where the collection code is).
  */
 const ALLOWED = [
-  {
+    {
         file: `${C_FOLDER}anki_json.c`, count: 2, kind: 'anki',
         why: `${ANKI}the C collection core's one JSON reader and writer (anki_json_parse and anki_json_stringify, defined here), for Anki's JSON columns, written to give the bytes JSON.parse and JSON.stringify gave.`,
     },
-  {
+    {
         file: `${C_FOLDER}anki_json.h`, count: 2, kind: 'anki',
         why: `${ANKI}the declarations of the C quarantine's two named functions; the header says what Anki stores as JSON and why.`,
     },
-  {
+    {
         file: `${C_FOLDER}model_answer.c`, count: 2, kind: 'model',
         why: `FORCED by Gemini: model_answer_parse (defined here) reads the model's structured answer, JSON text and nothing else, through the quarantine's one parser (anki_json_parse); the caller then checks every field against its format. ${ANSWER_FORMAT} records what was measured against the alternatives.`,
     },
-  {
+    {
         file: `${C_FOLDER}model_answer.h`, count: 1, kind: 'model',
         why: 'FORCED by Gemini: the declaration of model_answer_parse, the C reader of the model\'s answer.',
     },
-  {
+    {
         file: 'server/amgi/cards.c', count: 1, kind: 'model',
         why: `FORCED by Gemini: cardGeneration.ts's readStructured in C reads each structured answer (card text, the audio verdict, the transcript match) once, through model_answer_parse, and checks every field against its format. ${ANSWER_FORMAT}.`,
     },
-  {
+    {
         file: 'server/collection/decks.c', count: 6, kind: 'anki',
         why: `${ANKI}the C port of decks.js and deck-remove.js: a schema 11 collection's col.decks and col.conf are JSON columns, read and rewritten through the quarantine; and a deck's language pair (one string key in the deck's own add-on area): in schema 11 it is set in that same col.decks, one more stringify. Schema 18's area (field 255 of the deck's common, JSON text) is not parsed or formatted at all: a scanner finds the one key and splices its value, so no other add-on's bytes change.`,
     },
-  {
+    {
         file: 'server/collection/notes.c', count: 5, kind: 'anki',
         why: `${ANKI}the C port of notes.js and notetypes.js: col.models (schema 11), and nextPos in col.conf (schema 11) or the config table (schema 18), through the quarantine.`,
     },
@@ -141,10 +141,10 @@ test('the scan reads code and not comments, in each language', () => {
 
 test('the judge: a new file, a count off either way, and a stale entry fail; a leaving entry may shrink', () => {
     const allowed = [
-      { file: 'a.js', count: 2, why: '' },
-      { file: 'b.js', count: 2, why: '', leaving: true },
-      { file: 'c.js', count: 1, why: '' },
-      { file: 'd.py', count: 1, why: '', leaving: true },
+        { file: 'a.js', count: 2, why: '' },
+        { file: 'b.js', count: 2, why: '', leaving: true },
+        { file: 'c.js', count: 1, why: '' },
+        { file: 'd.py', count: 1, why: '', leaving: true },
     ];
     const ok = new Map([['a.js', ['1', '2']], ['b.js', ['1']], ['c.js', ['1']]]);
     assert.deepEqual(judge(ok, allowed), []);
@@ -161,10 +161,10 @@ test('the scan covers the shipped code', () => {
     const files = shippedSources(ROOT);
     // Canaries: if a root moves or the filter starts dropping one, the scan looks at nothing and passes forever.
     for (const must of [
-      'server/amgi/routes.c', 'server/collection/bridge.c', 'server/app/amgi_app.c', 'ui/wire/wire.mjs', 'ui/wire/wire.c',
-      'server/amgi/cards.c', 'server/json/model_answer.c',
-      'anki/addon/amgi_bridge/bridge_server.py', 'anki/addon/amgi_bridge/bridge_ops.py', 'anki/src/anki-loop.js',
-      'anki/notetype/front.html',
+        'server/amgi/routes.c', 'server/collection/bridge.c', 'server/app/amgi_app.c', 'ui/wire/wire.mjs', 'ui/wire/wire.c',
+        'server/amgi/cards.c', 'server/json/model_answer.c',
+        'anki/addon/amgi_bridge/bridge_server.py', 'anki/addon/amgi_bridge/bridge_ops.py', 'anki/src/anki-loop.js',
+        'anki/notetype/front.html',
     ]) assert.ok(files.includes(must), `${must} is scanned`);
     assert.ok(!files.some((f) => /(^|\/)(test|tests|__tests__|tools|scripts)\//.test(f)), 'and no test, tool or script is');
 });

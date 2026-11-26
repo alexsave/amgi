@@ -42,16 +42,16 @@ const FIXTURES = path.join(ROOT, 'tests', 'server', 'parity', 'fixtures');
 
 /** The kind each route answers (server/amgi/routes.c's ROUTES), by method and path pattern. */
 const ANSWERS = [
-  ['GET', /^status$/, 'status'], ['GET', /^decks$/, 'decks'], ['POST', /^decks$/, 'deck_created'],
-  ['PATCH', /^decks\/[^/]+$/, 'deck_renamed'], ['GET', /^decks\/[^/]+$/, 'deck_summary'],
-  ['DELETE', /^decks\/[^/]+$/, 'deck_removed'], ['PUT', /^decks\/[^/]+\/languages$/, 'deck_languages'],
-  ['POST', /^decks\/[^/]+\/languages\/detect$/, 'deck_languages_found'], ['GET', /^decks\/[^/]+\/notes$/, 'notes'],
-  ['GET', /^decks\/[^/]+\/notes\/field-values$/, 'field_values'], ['GET', /^install$/, 'install_state'],
-  ['POST', /^install$/, 'installed'], ['GET', /^profiles$/, 'profiles'], ['GET', /^notetypes$/, 'notetypes'],
-  ['POST', /^notes$/, 'note_added'], ['POST', /^notes\/bulk$/, 'notes_added'], ['PATCH', /^notes\/[^/]+$/, 'note_changed'],
-  ['GET', /^notes\/[^/]+$/, 'note'], ['DELETE', /^notes\/[^/]+$/, 'note_changed'], ['POST', /^card-text$/, 'card_text'], ['POST', /^audio$/, 'clip'],
-  ['GET', /^starter$/, 'starter_state'], ['POST', /^starter$/, 'starter_built'],
-  ['GET', /^progress$/, 'progress'], ['POST', /^decks\/[^/]+\/audio-plan$/, 'fill_plan'], ['POST', /^notes\/[^/]+\/audio-fill$/, 'note_changed'],
+    ['GET', /^status$/, 'status'], ['GET', /^decks$/, 'decks'], ['POST', /^decks$/, 'deck_created'],
+    ['PATCH', /^decks\/[^/]+$/, 'deck_renamed'], ['GET', /^decks\/[^/]+$/, 'deck_summary'],
+    ['DELETE', /^decks\/[^/]+$/, 'deck_removed'], ['PUT', /^decks\/[^/]+\/languages$/, 'deck_languages'],
+    ['POST', /^decks\/[^/]+\/languages\/detect$/, 'deck_languages_found'], ['GET', /^decks\/[^/]+\/notes$/, 'notes'],
+    ['GET', /^decks\/[^/]+\/notes\/field-values$/, 'field_values'], ['GET', /^install$/, 'install_state'],
+    ['POST', /^install$/, 'installed'], ['GET', /^profiles$/, 'profiles'], ['GET', /^notetypes$/, 'notetypes'],
+    ['POST', /^notes$/, 'note_added'], ['POST', /^notes\/bulk$/, 'notes_added'], ['PATCH', /^notes\/[^/]+$/, 'note_changed'],
+    ['GET', /^notes\/[^/]+$/, 'note'], ['DELETE', /^notes\/[^/]+$/, 'note_changed'], ['POST', /^card-text$/, 'card_text'], ['POST', /^audio$/, 'clip'],
+    ['GET', /^starter$/, 'starter_state'], ['POST', /^starter$/, 'starter_built'],
+    ['GET', /^progress$/, 'progress'], ['POST', /^decks\/[^/]+\/audio-plan$/, 'fill_plan'], ['POST', /^notes\/[^/]+\/audio-fill$/, 'note_changed'],
 ];
 function answerKind(method, apiPath) {
     const hit = ANSWERS.find(([m, re]) => m === method && re.test(apiPath));
@@ -352,19 +352,19 @@ describe('the HTTP contract', { concurrency: false }, () => {
         };
         for (const [mode, headers] of Object.entries(cases)) {
             for (const [m, u, body] of [
-              ['GET', '/api/anki/status'], ['GET', '/api/anki/decks'], ['POST', '/api/anki/decks', ['q_deck_name', { name: 'x' }]],
-              ['GET', '/api/anki/decks/1'], ['DELETE', '/api/anki/decks/2'],
-              ['PUT', '/api/anki/decks/1/languages', ['q_deck_languages', { known: 'en', learning: 'ko' }]],
-              ['POST', '/api/anki/decks/1/languages/detect'], ['GET', '/api/anki/notetypes'],
-              ['GET', '/api/anki/decks/1/notes'], ['GET', '/api/anki/decks/1/notes/field-values?notetypeId=1&fieldIndex=0'],
-              ['POST', '/api/anki/notes', ['q_note', { deckId: 1, notetypeId: 1, fields: ['a', 'b'] }]],
-              ['POST', '/api/anki/notes/bulk', ['q_notes', { notes: [] }]], ['PATCH', '/api/anki/notes/1', ['q_note_update', { fields: [] }]],
-              ['GET', '/api/anki/notes/1'], ['DELETE', '/api/anki/notes/1'], ['GET', '/api/anki/media/clip.ogg'],
-              ['POST', '/api/anki/card-text', ['q_card_text', { userInput: 'x', deckId: 1 }]],
-              ['POST', '/api/anki/audio', ['q_audio', { text: 'x', language: 'ko' }]],
-              ['POST', '/api/anki/decks/1/audio-plan', ['q_fill', { notetypeId: 1, textField: 0, audioField: 1, side: 'learning', form: 'sound' }]],
-              ['POST', '/api/anki/notes/1/audio-fill', ['q_fill', { deckId: 1, notetypeId: 1, textField: 0, audioField: 1, side: 'learning', form: 'sound' }]],
-              ['POST', '/api/anki/starter', ['q_starter', { known: 'en', learning: 'ko' }]],
+                ['GET', '/api/anki/status'], ['GET', '/api/anki/decks'], ['POST', '/api/anki/decks', ['q_deck_name', { name: 'x' }]],
+                ['GET', '/api/anki/decks/1'], ['DELETE', '/api/anki/decks/2'],
+                ['PUT', '/api/anki/decks/1/languages', ['q_deck_languages', { known: 'en', learning: 'ko' }]],
+                ['POST', '/api/anki/decks/1/languages/detect'], ['GET', '/api/anki/notetypes'],
+                ['GET', '/api/anki/decks/1/notes'], ['GET', '/api/anki/decks/1/notes/field-values?notetypeId=1&fieldIndex=0'],
+                ['POST', '/api/anki/notes', ['q_note', { deckId: 1, notetypeId: 1, fields: ['a', 'b'] }]],
+                ['POST', '/api/anki/notes/bulk', ['q_notes', { notes: [] }]], ['PATCH', '/api/anki/notes/1', ['q_note_update', { fields: [] }]],
+                ['GET', '/api/anki/notes/1'], ['DELETE', '/api/anki/notes/1'], ['GET', '/api/anki/media/clip.ogg'],
+                ['POST', '/api/anki/card-text', ['q_card_text', { userInput: 'x', deckId: 1 }]],
+                ['POST', '/api/anki/audio', ['q_audio', { text: 'x', language: 'ko' }]],
+                ['POST', '/api/anki/decks/1/audio-plan', ['q_fill', { notetypeId: 1, textField: 0, audioField: 1, side: 'learning', form: 'sound' }]],
+                ['POST', '/api/anki/notes/1/audio-fill', ['q_fill', { deckId: 1, notetypeId: 1, textField: 0, audioField: 1, side: 'learning', form: 'sound' }]],
+                ['POST', '/api/anki/starter', ['q_starter', { known: 'en', learning: 'ko' }]],
             ]) {
                 await call(ctx, `${mode}: ${m} ${u}`, m, u, { headers, body, bases: [dir] });
             }
@@ -390,9 +390,9 @@ describe('the HTTP contract', { concurrency: false }, () => {
           encode('b_status', { profileOpen: true, profileName: 'User 1', collectionOpen: true, schemaVersion: 18, ankiVersion: '26.09.4', qtVersion: '6.9' }));
         try {
             for (const [name, url, withCollection] of [
-              ['older add-on', older.url, true], ['newer add-on', newer.url, true], ['no profile open', noProfile.url, false],
-              ['not answering, collection set', closed.url, true], ['not answering, no collection', closed.url, false],
-              ['answering', open.url, false],
+                ['older add-on', older.url, true], ['newer add-on', newer.url, true], ['no profile open', noProfile.url, false],
+                ['not answering, collection set', closed.url, true], ['not answering, no collection', closed.url, false],
+                ['answering', open.url, false],
             ]) {
                 const headers = {
                     ...(withCollection ? p.headers : {}),
@@ -431,7 +431,7 @@ describe('the HTTP contract', { concurrency: false }, () => {
             await call(ctx, s('notes of a deck id not a number'), 'GET', '/api/anki/decks/abc/notes', { headers: h, bases });
             for (const q of [`?notetypeId=${basic}&fieldIndex=0`, `?notetypeId=${basic}&fieldIndex=1`, '', '?notetypeId=abc&fieldIndex=0',
               `?notetypeId=${basic}&fieldIndex=1.5`, `?notetypeId=${basic}`, `?notetypeId=${basic}&fieldIndex=9`]) {
-                await call(ctx, s(`field values ${q.replaceAll(String(basic), 'Basic')}`), 'GET', `/api/anki/decks/${ex}/notes/field-values${q}`, { headers: h, bases });
+                  await call(ctx, s(`field values ${q.replaceAll(String(basic), 'Basic')}`), 'GET', `/api/anki/decks/${ex}/notes/field-values${q}`, { headers: h, bases });
             }
 
             const made = await call(ctx, s('create deck'), 'POST', '/api/anki/decks', { headers: h, bases, body: ['q_deck_name', { name: '  Made::Here  ' }] });
@@ -485,13 +485,13 @@ describe('the HTTP contract', { concurrency: false }, () => {
             await call(ctx, s('add note, unknown note type'), 'POST', '/api/anki/notes', { headers: h, bases, body: ['q_note', { deckId: madeId, notetypeId: 42, fields: ['a', 'b'] }] });
             await call(ctx, s('bulk add'), 'POST', '/api/anki/notes/bulk', {
                 headers: h, bases, body: ['q_notes', { notes: [
-                  { deckId: madeId, notetypeId: basic, fields: ['bulk 1', 'x'] }, { deckId: madeId, notetypeId: basic, fields: ['bad'] },
-                  { deckId: madeId, notetypeId: basic, fields: ['bulk 3', 'x'], language: 'ja', learningFieldIndex: 0 },
+                    { deckId: madeId, notetypeId: basic, fields: ['bulk 1', 'x'] }, { deckId: madeId, notetypeId: basic, fields: ['bad'] },
+                    { deckId: madeId, notetypeId: basic, fields: ['bulk 3', 'x'], language: 'ja', learningFieldIndex: 0 },
                 ] }],
             });
             await call(ctx, s('bulk add, one note in a deck with no languages'), 'POST', '/api/anki/notes/bulk', {
                 headers: h, bases, body: ['q_notes', { notes: [
-                  { deckId: ex, notetypeId: basic, fields: ['bulk 4', 'x'] }, { deckId: madeId, notetypeId: basic, fields: ['bulk 5', 'x'], language: 'ko' },
+                    { deckId: ex, notetypeId: basic, fields: ['bulk 4', 'x'] }, { deckId: madeId, notetypeId: basic, fields: ['bulk 5', 'x'], language: 'ko' },
                 ] }],
             });
             await call(ctx, s('bulk add, empty'), 'POST', '/api/anki/notes/bulk', { headers: h, bases, body: ['q_notes', { notes: [] }] });
