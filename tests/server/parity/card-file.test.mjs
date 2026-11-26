@@ -14,7 +14,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
-import { WIRE_MIME, decode } from '../../../ui/wire/wire.mjs';
+import { decode } from '../../../ui/wire/wire.mjs';
 import { ROOT } from './servers.mjs';
 import { sandboxEnv } from '../../repo/sandbox-home.cjs';
 
