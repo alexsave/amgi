@@ -87,10 +87,10 @@ function scratch({ ffmpeg = true } = {}) {
     return { dir, bin, starter: path.join(dir, 'starter'), cache: path.join(dir, 'cache') };
 }
 
-/** Runs the binary; resolves with its exit code and both streams. Async, so the fake keeps answering. */
+/** Runs the binary in a sandbox HOME of its own with `env` on top; resolves with its exit code and both streams. Async, so the fake keeps answering. */
 function run(args, env) {
     return new Promise((resolve, reject) => {
-        const child = spawn(AMGI, ['starter-audio', ...args], { cwd: ROOT, env, stdio: ['ignore', 'pipe', 'pipe'] });
+        const child = spawn(AMGI, ['starter-audio', ...args], { cwd: ROOT, env: sandboxEnv(env), stdio: ['ignore', 'pipe', 'pipe'] });
         let stdout = '';
         let stderr = '';
         child.stdout.setEncoding('utf8');
@@ -102,9 +102,9 @@ function run(args, env) {
     });
 }
 
-/** The environment: the fake's endpoint and a key, and PATH led by the scratch bin (which has no real ffmpeg beside it). */
+/** The environment to add: the fake's endpoint and a key, and PATH led by the scratch bin (which has no real ffmpeg beside it). */
 function envFor(paths, fake, extra = {}) {
-    return sandboxEnv({ GEMINI_API_BASE: fake.baseUrl, GEMINI_API_KEY: 'test-key', PATH: `${paths.bin}:/usr/bin:/bin`, ...extra });
+    return { GEMINI_API_BASE: fake.baseUrl, GEMINI_API_KEY: 'test-key', PATH: `${paths.bin}:/usr/bin:/bin`, ...extra };
 }
 
 /** The starter folder's rows written by a run, as {file, language, model, voice, attempts, text}. */
