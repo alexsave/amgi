@@ -487,6 +487,7 @@ test('amgi audio fill: the Listening notes, then another note type\'s fields, id
     assert.equal(stopped.code, 5);
     assert.match(stopped.stderr, /the day's quota is spent/);
     assert.deepEqual((await r.note(more)).fields, ['잘 자요', '']);
+    assert.equal((await amgi(env, ['down'])).code, 0);
     fs.rmSync(state, { recursive: true, force: true });
 });
 
@@ -564,5 +565,6 @@ test('amgi audio fill waits as the server asks, goes on past a note that failed,
     assert.equal(stopped.stdout, 'filled\t21\n', 'the note done stays done, and the summary is not printed for a run that did not finish');
     assert.match(stopped.stderr, /the day's quota is spent \(dailyCap\)/);
     assert.deepEqual(capped.seen.filter((s) => s.url.includes('/audio-fill')).map((s) => s.url.match(/notes\/(\d+)/)[1]), ['21', '22'], 'the third note was never asked');
+    assert.equal((await amgi(env, ['down'])).code, 0);
     fs.rmSync(state, { recursive: true, force: true });
 });
