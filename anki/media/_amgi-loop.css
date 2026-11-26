@@ -160,7 +160,7 @@
    next to it, and it does not lean on the visualizer's amber "you" colour to carry
    that fact - a colour code is not something every viewer reads the same
    way, or reads at all. Shown for exactly PHASE.LISTENING (see
-   anki-loop.js's AMGI_STATUS) - reviewLoop.js's listen() only ever reaches
+   anki-loop.js's AMGI_STATUS) - reviewLoop.mjs's listen() only ever reaches
    that phase once openMic() has already resolved with a live stream (see
    anki-loop.js's microphone()), so there is no gap between this appearing
    and the microphone actually being open, and it is hidden again the instant

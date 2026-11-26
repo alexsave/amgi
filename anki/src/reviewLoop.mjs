@@ -1,19 +1,20 @@
-// The review loop's sequencing, with no dependency on the app it runs in.
+// The review loop's sequencing, for the amgi card template.
 //
-// amgi's web reviewer and the Anki card template drive the same three beats:
-// the prompt audio plays, the microphone opens by itself and closes when the
-// learner stops speaking, then the answer is revealed with the native audio.
-// Only the effects differ between the two - one calls React state setters and
-// Supabase-backed audio, the other calls `pycmd` and HTML5 <audio> elements -
-// so the order, the cancellation rules and the fallbacks live here and each
-// host passes in the effects.
+// A card drives three beats: the prompt audio plays, the microphone opens by
+// itself and closes when the learner stops speaking, then the answer is
+// revealed with the native audio. The order, the cancellation rules and the
+// fallbacks live here; the effects (playing an <audio> element, `pycmd`, the
+// microphone) come from the host, anki/src/anki-loop.js, which passes them in.
+// That keeps the sequencing testable in Node with fake effects
+// (tests/anki/reviewLoop.test.js).
 //
-// Constraints that keep this file portable: no imports other than the voice
-// detector, no browser globals, and no host callback is ever allowed to throw
-// into the machine. A card template that throws mid-review leaves the learner
-// staring at a dead card, so every call out is wrapped.
+// anki/tools/build-loop.sh joins this file, the voice detector and the host
+// into one classic script, so: no imports other than the voice detector, no
+// browser globals, and no host callback is ever allowed to throw into the
+// machine. A card template that throws mid-review leaves the learner staring
+// at a dead card, so every call out is wrapped.
 
-import { detectSpeechEnd } from './voiceActivity.js';
+import { detectSpeechEnd } from './voiceActivity.mjs';
 
 export const PHASE = {
     IDLE: 'idle',

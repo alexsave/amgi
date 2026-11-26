@@ -16,7 +16,7 @@
 # usage: build-loop.sh OUTPUT   (run from the repository root)
 set -eu
 out=$1
-shared="src/utils/voiceActivity.js src/utils/reviewLoop.js"
+shared="anki/src/voiceActivity.mjs anki/src/reviewLoop.mjs"
 host=anki/src/anki-loop.js
 
 # A shared file as a classic script: `export ` taken off declarations, its allowed import dropped.
@@ -25,7 +25,7 @@ classic() {
     sed -E 's/^export[[:space:]]+((const|let|var|function|async|class)([^A-Za-z0-9_]|$))/\1/' "$1" | awk -v file="$1" '
     /^[ \t]*import([^A-Za-z0-9_]|$)/ {
         line = $0; gsub(/^[ \t]+|[ \t]+$/, "", line)
-        if (line ~ /^import[ \t]+\{[^}]+\}[ \t]+from[ \t]+\x27\.\/(voiceActivity|reviewLoop)\.js\x27;$/) next
+        if (line ~ /^import[ \t]+\{[^}]+\}[ \t]+from[ \t]+\x27\.\/(voiceActivity|reviewLoop)\.mjs\x27;$/) next
         printf "%s:%d: a card template cannot follow this import: %s\n", file, NR, line > "/dev/stderr"; exit 1
     }
     /^[ \t]*export[ \t]+default([^A-Za-z0-9_]|$)/ || /^[ \t]*export[ \t]*\{/ {

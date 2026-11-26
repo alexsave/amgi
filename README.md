@@ -107,17 +107,16 @@ The command line keeps its pid file and log beside its binary, or in the directo
 ui/src/          The page, in C: decks, deck view, card form and panel, bulk run, settings, first run
 ui/css/          Its stylesheets
 ui/wire/         The wire format between the page and the server
-tests/ui/             Tests of the C against what it must agree with, and the review loop's tests (review-loop/)
+tests/ui/             Tests of the C against what it must agree with
 tests/e2e/ui/         Browser drives of the app, and their fixture
 tests/e2e/anki/       The browser drive of the card template (drive.js, reviewer.html)
 tests/server/         Tests of the C server and what is next to it: c/ (the C unit tests), parity/ (the server's contract:
                       the HTTP and collection suites, their fixtures and recordings), bridge/, cli-smoke.sh
-tests/anki/           The build-loop test, and the add-on's Python tests (addon/)
+tests/anki/           The card script's tests (the review loop, the voice detector, the build), and the add-on's Python tests (addon/)
 tests/helpers/        The fake Gemini, the real-Anki-library bridge and the seeded random the tests share
 tests/repo/           Checks about the whole repo: no JSON, license, submodules, the temp-HOME guard
 server/               The C server (make -C server): the amgi app on cbase (app/, amgi/), the collection core (collection/, json/)
-src/utils/       The review loop and voice-activity detection the card template shares
-anki/            Card template plus the mic and bridge add-ons
+anki/            Card template (its script in anki/src: the review loop, the voice detector, the Anki host) plus the mic and bridge add-ons
 skills/amgi/     Agent skill: how an LLM runs and drives amgi (linked from .claude/skills, beside e2e-ui)
 ```
 

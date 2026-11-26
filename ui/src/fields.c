@@ -1,6 +1,5 @@
-/* src/utils/ankiFields.js's guessFields: which of a note type's fields is the text to read and which
- * holds its audio. The name patterns are ASCII, and JS's /i folds ASCII letters only against them,
- * so ASCII folding here is the same match. */
+/* Which of a note type's fields is the text to read and which holds its audio, guessed from the
+ * field names. The name patterns are ASCII, so ASCII case folding is the whole match. */
 #include "app.h"
 
 static int in_set(const text *t, const char *const *set) {
