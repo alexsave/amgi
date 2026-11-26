@@ -382,25 +382,28 @@ static void read_details(const unsigned char *p, size_t n, details *d) {
 
 str gem_daily_quota_message(arena *a, const char *model, int free_tier, int has_limit, double limit, int has_resets,
                             int64_t resets_in_ms) {
+    /* Short on purpose: it is read in a row of the bulk list. "voice" or "text" instead of the model id. */
+    const char *kind = strstr(model, "tts") ? "voice" : "text";
     buf b = {0};
     if (free_tier) {
-        buf_c(&b, "Gemini's free tier allows ");
+        buf_c(&b, "Gemini's free tier (");
         js_num(&b, has_limit ? limit : 10);
-        buf_fmt(&b, " requests per day per model, and today's are used up for %s. Enable billing for your Gemini API key's "
-                    "project in Google AI Studio (" GEMINI_KEY_PAGE ") to lift the limit, or try again tomorrow.", model);
+        buf_fmt(&b, " a day) is used up for %s. Turn on billing to lift it: " GEMINI_KEY_PAGE, kind);
     } else {
-        buf_c(&b, "Your Gemini project's daily limit");
+        buf_fmt(&b, "Today's Gemini %s limit", kind);
         if (has_limit) {
-            buf_c(&b, " of ");
+            buf_c(&b, " (");
             js_num(&b, limit);
-            buf_c(&b, " requests");
+            buf_c(&b, ")");
         }
-        buf_fmt(&b, " for %s is used up.", model);
+        buf_c(&b, " is used up.");
         if (has_resets) {
             double hours = floor((double)resets_in_ms / 3600000.0 + 0.5);
-            buf_fmt(&b, " It resets in about %.0f hour(s).", hours < 1 ? 1 : hours);
+            if (hours < 1)
+                buf_c(&b, " Resets in under an hour.");
+            else
+                buf_fmt(&b, " Resets in about %.0f h.", hours);
         }
-        buf_c(&b, " A higher usage tier raises it (Google AI Studio, " GEMINI_KEY_PAGE ").");
     }
     str out = buf_str(a, &b);
     buf_free(&b);
