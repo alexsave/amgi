@@ -266,7 +266,7 @@ str amgi_root(arena *a) {
   return str_c(ar_dup(a, cwd, strlen(cwd)));
 }
 
-/* ---- plusaudio/lib/audio-store.js mediaName, and deck.js renderAudioReference ---- */
+/* ---- a clip's name: AMGI_MEDIA_PREFIX (ui/wire/wire.h, the one owner) + 20 hex of sha1("v1\n"+language+"\n"+text) + extension ---- */
 str amgi_media_name(arena *a, str text, str language, const char *extension) {
   buf b = {0};
   buf_c(&b, "v1\n");
@@ -276,7 +276,7 @@ str amgi_media_name(arena *a, str text, str language, const char *extension) {
   char hex[41];
   sha1_hex(b.p, b.n, hex);
   buf_free(&b);
-  return str_c(ar_fmt(a, "plusaudio-%.20s.%s", hex, extension));
+  return str_c(ar_fmt(a, "%s%.20s.%s", AMGI_MEDIA_PREFIX, hex, extension));
 }
 
 str amgi_audio_reference(arena *a, str filename) {
