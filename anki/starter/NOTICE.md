@@ -2,7 +2,7 @@
 
 The clips in `media/` were generated with Gemini text-to-speech (gemini-3.8-flash-lite-tts).
 The voice of each clip is in `voices.tsv`.
-They speak phrases written for amgi, in `src/data/starterPhrases.tsv`.
+They speak phrases written for amgi, in `server/amgi/starter_phrases.c`.
 The clips ship under amgi's licence, AGPL-3.0-or-later.
 Google's Gemini API terms say Google does not claim ownership of generated content, and that the person using or sharing it is responsible for that use.
 Those terms also forbid using the services to develop competing models.

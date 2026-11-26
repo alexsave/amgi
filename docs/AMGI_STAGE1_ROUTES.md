@@ -184,8 +184,8 @@ Field lists are from `ui/wire/wire.h` structs and the `wire.c` SCHEMA table (JS 
 
 ### 2.20 GET /starter (starter_state) and POST /starter (starter_built)
 - GET answer: offered, generationAvailable, languages[], phraseCount. `offered` is `!generationAvailable && languages.length > 1`. `generationAvailable` is `Boolean(process.env.GEMINI_API_KEY)`, never the value.
-- A language is listed only if every one of its phrases has a shipped clip at `anki/starter/media/<starterClipName>` (mp3 form of the same hash). `phraseCount` = lines in the first column of `src/data/starterPhrases.tsv`.
-- TSV: header line of language codes, one phrase per cell, rejected as a whole if any line has the wrong column count or an empty cell.
+- A language is listed only if every one of its phrases has a shipped clip at `anki/starter/media/<starterClipName>` (mp3 form of the same hash). `phraseCount` = the phrases of one language in `server/amgi/starter_phrases.c` (ten).
+- The phrases are a C table, one row per language, the same ten concepts in every row (a test holds each to ten non-empty phrases).
 - POST request `q_starter`: known, learning, name. 400 `known and learning languages are required`. Name defaults to `amgi starter`.
 - Answer: mode, deckId, deckName, added, alreadyThere. The Node object also has `missingAudio[]`, not on the wire.
 - Logic: errors (all 400): no phrases; known equals learning; unsupported pair; notetype missing (`Restart Anki once so it adds the "amgi Listening" card type, then try again.`). Dedupe by `normalizeForDedupe` against `existingFieldValues`; a failed dedupe read is swallowed. For each phrase: attach both clips (`hasMedia` then `addMedia` of the shipped file), then `addNote` with tag `amgi-starter`.
