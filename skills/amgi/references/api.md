@@ -1,4 +1,4 @@
-# amgi: the raw API, the page, the bridge, the Node scripts and the rules
+# amgi: the raw API, the page, the bridge, scripting and the rules
 
 The command line in `../SKILL.md` covers adding decks and cards; this is everything else, for reference.
 
@@ -96,6 +96,8 @@ A failure is the `error` kind, `{error}`, with a 4xx or 5xx status, except an un
 | `POST /card-text` `{userInput, deckId, includeCueAudio, progressId}` | Writes one card's text, records and stores its clips; adds no note. The deck's stored pair decides the languages (409 `This deck has no languages yet: ...` when it has none); the input may be in any language and is only the meaning to translate. `progressId` is optional: a number of your own, to follow it in `GET /progress` |
 | `GET /progress` | `{cards: [{id, step, take, takes, waitMs, frontText, backText}]}`: the cards being made now that gave a `progressId`. `step` is a `WP_*` of `ui/wire/wire.h`; `waitMs` is above 0 while the step waits for Gemini's limit; the texts are empty until both sides are written |
 | `POST /audio` `{text, language, fresh}` | One validated clip, stored: `{filename, reference, reused}` |
+| `POST /decks/:id/audio-plan` `{notetypeId, textField, audioField, side, form}` | Which notes of the deck (subdecks included) have no audio, or only a clip of amgi's for an older text or a lost file (a field with someone else's audio counts as having audio and is counted in `upToDate`): `{mode, toFill: [{id}], upToDate, skipped}`. Reads only; asks Gemini nothing. `textField` and `audioField` are indexes into the note type's fields; `side` is `learning` or `known` (whose language the text is in: the deck's stored pair decides it, 409 when it has none) or `both` (only the amgi Listening note type: Target into TargetAudio and Cue into CueAudio, as `<audio>`; the fields and `form` are then ignored); `form` is `sound` (`[sound:x]`) or `html` (`<audio src="x"></audio>`) |
+| `POST /notes/:id/audio-fill` `{deckId, notetypeId, textField, audioField, side, form}` | Makes the clip of that one note and writes its reference into the audio field, nothing else of the note; `{mode, noteId}`. Answers as done without a Gemini request when the note already has the clip or any audio of someone else's. Gemini's limits are 429 as `POST /audio` answers them. Only amgi's own reference in the field is replaced |
 | `POST /notes` `{deckId, notetypeId, fields, tags, language, learningFieldIndex}` | Adds one note; `fields` is a list in the note type's field order. The deck's pair decides `language`: empty takes the deck's learning language, another is refused (409 `This deck is English -> Korean; this card is in Japanese.`), and a deck with no pair takes no note (409) |
 | `POST /notes/bulk` `{notes: [...]}` | The same shape and the same deck rule per note, in one write; one result per note, and one bad note never aborts the rest |
 | `GET /notes/:id` | `{id, notetypeId, fields, tags}`: one note, as the deck listing shows it; 404 when there is no such note |
@@ -108,6 +110,12 @@ The exact fields of each kind are the schema table's; where this table and `ui/w
 `decode` gives a dotted name in the schema (`deck.id` in `deck_created`, `audio.reference` in `card_text`) as one flat key of that name.
 
 Language codes are amgi's own: `en`, `ko`, `ja`, `zh_cn`, `zh_hk`, `es`, `fr`, `pt`, `ru`, `id`, `de`, `tr`, `vi`, `it`, `th`, `hi`, `ur`, `ar` (the table in `ui/wire/lang.c`).
+
+## Filling audio that is missing
+
+`amgi audio fill --deck NAME` does this for a deck.
+Through the raw API: `POST /decks/:id/audio-plan` for the notes that need a clip, then `POST /notes/:id/audio-fill` for each, one at a time, waiting `retryAfterMs` on a 429 that is not `dailyCap` and stopping on `dailyCap`.
+Asking the plan again after the fills finds nothing to do.
 
 ## Making cards
 
@@ -141,20 +149,9 @@ When a model is limited, the API answers 429, an `error` with `retryAfterMs` and
 - no `notStarted`: the card had started and hit a per-minute limit; wait `retryAfterMs` and retry it.
 - `dailyCap: true`: the day's quota is spent; stop and tell the user.
 
-One rate gate in the server owns all waiting (`server/amgi/gate.c`; `plusaudio/lib/rateGate.js` for generate-clip.js), so wait exactly `retryAfterMs` and add no backoff of your own.
+One rate gate in the server owns all waiting (`server/amgi/gate.c`), so wait exactly `retryAfterMs` and add no backoff of your own.
 Make cards one after another; parallel calls only queue on the same gate.
 
-## generate-clip.js
-
-`plusaudio/generate-clip.js` writes one WAV (the add-on's fill-audio runs it; unlike `server/build/amgi` it needs Node).
-It reads `GEMINI_API_KEY` from the environment only, not from `.env.local`, and reaches Gemini over gRPC (HTTP/2 to `generativelanguage.googleapis.com:443`), so a network that only lets HTTP/1.1 through a proxy blocks it.
-
-```bash
-cd plusaudio
-GEMINI_API_KEY=... node generate-clip.js --text "역이 어디예요?" --language ko --out /tmp/clip.wav
-```
-
-It exits 3 when rate limited (stdout then carries `retry-after-ms=<n>`) and 4 when the daily cap is spent.
 A card's text, and rewriting one side of a card, is the app's own (`POST /api/anki/card-text`); there is no script for it.
 
 ## The bridge directly
@@ -171,8 +168,8 @@ It has no profiles, install, starter or Gemini endpoints, so making cards still 
   A deck delete takes its subdecks and every card in them, on every device the user syncs with.
 - After an edit with Anki closed, the user should open Anki and sync.
   If AnkiWeb asks to upload or download the whole collection, the side with the edits is this computer: upload.
-- Every random draw (the Gemini voice, note GUIDs) comes from one seedable source, `plusaudio/lib/random.js`.
-  Setting its `SEED` to a constant makes runs reproducible, and must never reach a collection someone keeps, because equal GUIDs mean "the same note" to Anki.
+- Every random draw (the Gemini voice, note GUIDs) comes from one seedable source, `server/collection/rng.c`.
+  Setting its `AMGI_SEED` to a constant makes runs reproducible, and must never reach a collection someone keeps, because equal GUIDs mean "the same note" to Anki.
 - To work on amgi itself rather than use it, read `README.md` and the `e2e-ui` skill in `.claude/skills/`.
 
 ## Going deeper

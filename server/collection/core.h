@@ -1,6 +1,6 @@
 /* The collection core's insides, shared by its files (collection.h is what callers see).
  *
- * The code is a port of plusaudio/lib/collection, line for line where it matters, so the
+ * The code is a port of lib/collection, line for line where it matters, so the
  * structure follows the JavaScript's: a function that fails "throws" (cx_throw, a longjmp to the
  * nearest cx_try), and a caller that wants to survive it catches it, exactly where the JavaScript
  * had a try. Every statement goes through q_*, which binds a number the way node:sqlite does (an
@@ -79,7 +79,6 @@ str *anki_fields(cx *c, const str *fields, size_t n);
 str join_fields(cx *c, const str *fields, size_t n);
 str *split_fields(cx *c, str flds, size_t *n);
 int looks_romanized(cx *c, str text, str language);
-str render_audio_reference(cx *c, str filename);
 /* templateRendersNonEmpty: would the question render anything, given the non-empty names. */
 int template_renders_nonempty(cx *c, str question, const str *names, size_t n);
 /* ordinalsForNewNote: the 0-based card ordinals a new note needs. */

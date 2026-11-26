@@ -92,12 +92,12 @@ static void test_scan(void) {
 /* The shipped predicate: which tracked paths the scan reads. */
 static void test_shipped(void) {
     CHECK(shipped("server/collection/db.c"), "a C source ships");
-    CHECK(shipped("plusaudio/generate-clip.js"), "a JavaScript source ships");
+    CHECK(shipped("anki/src/anki-loop.js"), "a JavaScript source ships");
     CHECK(shipped("anki/addon/amgi_bridge/bridge_ops.py"), "a Python source ships");
     CHECK(!shipped("tests/server/c/c_rules.c"), "a file under tests/ does not ship");
     CHECK(!shipped("tests/anki/addon/test_x.py"), "a file under a test folder does not ship");
     CHECK(!shipped("server/tools/x.c"), "a file under tools/ does not ship");
-    CHECK(!shipped("plusaudio/random.test.js"), "a *.test.js file does not ship");
+    CHECK(!shipped("anki/src/x.test.js"), "a *.test.js file does not ship");
     CHECK(!shipped("web/x.config.mjs"), "a *.config.<lowercase> file does not ship");
     CHECK(shipped("web/x.configure.js"), "a name that only starts with config ships");
     CHECK(!shipped("docs/notes.md") && !shipped("ui/wire/wire.wasm"), "a non-source file does not ship");
@@ -121,7 +121,7 @@ int main(int argc, char **argv) {
         }
         if (!shipped(rel)) continue;
         if (strcmp(rel, "server/collection/db.c") == 0) saw_db = 1;
-        if (strcmp(rel, "plusaudio/generate-clip.js") == 0) saw_gen = 1;
+        if (strcmp(rel, "anki/src/anki-loop.js") == 0) saw_gen = 1;
         if (strcmp(rel, "anki/addon/amgi_bridge/bridge_ops.py") == 0) saw_py = 1;
         char path[4096];
         if (snprintf(path, sizeof path, "%s/%s", root, rel) >= (int)sizeof path) {
@@ -150,7 +150,7 @@ int main(int argc, char **argv) {
         free(src);
     }
     CHECK(saw_db, "the scan sees the C (server/collection/db.c)");
-    CHECK(saw_gen, "the scan sees the JavaScript (plusaudio/generate-clip.js)");
+    CHECK(saw_gen, "the scan sees the JavaScript (anki/src/anki-loop.js)");
     CHECK(saw_py, "the scan sees the Python (anki/addon/amgi_bridge/bridge_ops.py)");
     printf("no checkpoint: %d checks, %d failed\n", checks, failures);
     return failures ? 1 : 0;

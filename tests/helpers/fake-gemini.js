@@ -21,14 +21,13 @@
 // Each kind answers from the script passed in; anything unscripted fails the
 // way an outage would (UNAVAILABLE), which is what the fallback paths are for.
 //
-// Run directly, it is the e2e fake server: `node tests/server/plusaudio/helpers/fake-gemini.js [port]`
+// Run directly, it is the e2e fake server: `node tests/helpers/fake-gemini.js [port]`
 // prints the GEMINI_API_BASE to point the app or a CLI at, and answers every
 // kind with a passing default.
 
 const crypto = require('node:crypto');
 const http2 = require('node:http2');
 
-const { pcmToWav } = require('../../../../plusaudio/lib/cardGeneration/geminiSpeech.ts');
 const {
     GENERATE_CONTENT_PATH,
     GenerateContentRequest,
@@ -38,9 +37,29 @@ const {
     encodeStatus,
     frame,
     unframe,
-} = require('../../../../plusaudio/lib/cardGeneration/geminiWire.ts');
+} = require('./gemini-wire.ts');
 
-const WAV = Buffer.from(pcmToWav(new Uint8Array(8), 24000, 1));
+/** Raw little-endian 16-bit PCM in a canonical 44-byte WAV header. */
+function pcmToWav(pcm, sampleRate, channels) {
+    const blockAlign = channels * 2;
+    const out = Buffer.alloc(44 + pcm.length);
+    out.write('RIFF', 0, 'ascii');
+    out.writeUInt32LE(36 + pcm.length, 4);
+    out.write('WAVEfmt ', 8, 'ascii');
+    out.writeUInt32LE(16, 16);
+    out.writeUInt16LE(1, 20); // PCM
+    out.writeUInt16LE(channels, 22);
+    out.writeUInt32LE(sampleRate, 24);
+    out.writeUInt32LE(sampleRate * blockAlign, 28);
+    out.writeUInt16LE(blockAlign, 32);
+    out.writeUInt16LE(16, 34);
+    out.write('data', 36, 'ascii');
+    out.writeUInt32LE(pcm.length, 40);
+    Buffer.from(pcm).copy(out, 44);
+    return out;
+}
+
+const WAV = pcmToWav(new Uint8Array(8), 24000, 1);
 
 const UNAVAILABLE = 14;
 const RESOURCE_EXHAUSTED = 8;
@@ -194,7 +213,7 @@ async function fakeGemini(script = {}, { port = 0, control } = {}) {
  *   transcribe  the text whose tone it hears, so every clip passes
  *   judge       matches
  *   languages   state.languages: {learning, known, confidence} (default Korean taught in English, high), or null for a failed call
- *   state.daily: every text call refused for the day; the line "broken line" fails its first call.
+ *   state.daily: every text and speech call refused for the day; the line "broken line" fails its first call.
  *   state.delay: ms every answer takes, so a person (or a drive) can see each step.
  *   state.mishear: how many more clips are heard wrong and judged wrong (each is recorded again).
  */
@@ -235,6 +254,7 @@ function e2eScript(state = { perMinute: Infinity, daily: false }, now = () => Da
             return { known_text: input, learning_text: `${number}번 문장이에요.`, sense_tag: '', register: 'polite', spoken_reading: '' };
         }),
         speech: later((body, index, model) => {
+            if (state.daily) return dailyQuotaExhausted();
             const t = now();
             const starts = (windows.get(model) || []).filter((s) => t - s < 60_000);
             windows.set(model, starts);

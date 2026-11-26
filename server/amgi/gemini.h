@@ -1,4 +1,4 @@
-/* The one client amgi uses for every model call, in C: plusaudio/lib/cardGeneration/gemini.ts (the
+/* The one client amgi uses for every model call, in C: lib/cardGeneration/gemini.ts (the
  * request, the rate gate, the quota handling and the messages a person sees), geminiWire.ts (the
  * hand-written protobuf of the few messages amgi sends and reads) and geminiSpeech.ts (speech: the
  * voice draw and the WAV it answers). The transport is cbase's gRPC over HTTP/2 (net/grpc.h), on
@@ -13,7 +13,7 @@
 #include "gate.h"
 #include "progress.h"
 
-/* What a failure is, as gemini.ts's error classes and plusaudioCli.js's exit codes make it:
+/* What a failure is, as the error classes of the client it replaced made it:
  *   GE_ERROR  a plain Error (retryable inside the audio loop; a 500 at the route)
  *   GE_FATAL  GeminiUnavailableError: no retry can fix it (rethrown at once; a 500 at the route)
  *   GE_DAILY  GeminiDailyCapError: fatal, and a 429 {dailyCap} at the route
@@ -79,6 +79,16 @@ int gem_generate(arena *a, progress *p, const char *model, const gem_request *re
 void gem_set_gate(gate *g);
 
 /* ---- speech (geminiSpeech.ts) ---- */
+/* The one draw every voice pick makes (one uint32 per pick): the process's own source by default; a tool that wants the same
+ * voice for the same clip on every run seeds a generator of its own and hands its draw here (NULL: the process's again).
+ * The speech model is TTS_MODEL unless a tool names another (gem_tts_model says which one a call uses). */
+/* The two named speech models: the runtime one, and the lighter one the starter clips are recorded with. */
+#define GEM_TTS_MODEL "gemini-3.8-flash-tts"
+#define GEM_TTS_LITE_MODEL "gemini-3.8-flash-lite-tts"
+typedef uint32_t (*gem_voice_draw)(void *ud);
+void gem_set_voice_draw(gem_voice_draw draw, void *ud);
+void gem_set_tts_model(const char *model);
+const char *gem_tts_model(void);
 /* pickVoice: drawn from the pool, never the previous attempt's (NULL for none). */
 const char *gem_pick_voice(const char *previous);
 /* synthesize: one clip as a whole WAV file. */

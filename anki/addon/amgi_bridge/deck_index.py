@@ -3,7 +3,7 @@
 # THE BUG THIS EXISTS FOR, because it is not obvious and it is expensive to
 # rediscover. Anki declares `decks.name` as `text NOT NULL COLLATE unicase`,
 # and registers `unicase` on its own connections. amgi's direct transport
-# (plusaudio/lib/collection/decks.js) writes decks from Node, where
+# (lib/collection/decks.js) writes decks from Node, where
 # node:sqlite has no collation API at all - so SQLite refuses to even PLAN a
 # statement against that table, and the only way through is to strip
 # ` COLLATE unicase` out of the live schema text with PRAGMA writable_schema

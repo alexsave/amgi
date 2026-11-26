@@ -8,7 +8,6 @@ BRIDGE_PROTOCOL = 3
 NONE = 0xFFFFFFFF
 ABSENT = -2147483648
 UNKNOWN = 2
-MEDIA_PREFIX = "amgi-"
 
 BOOL = 0
 TRI = 1
@@ -360,5 +359,21 @@ KINDS = {
         ("known", STR, None),
         ("learning", STR, None),
         ("foundBy", STR, None),
+    )),
+    "q_fill": (52, (
+        ("deckId", I64, None),
+        ("notetypeId", I64, None),
+        ("textField", I32, None),
+        ("audioField", I32, None),
+        ("side", STR, None),
+        ("form", STR, None),
+    )),
+    "fill_plan": (53, (
+        ("mode", MODE, None),
+        ("toFill", LIST, (
+            ("id", I64, None),
+        )),
+        ("upToDate", U32, None),
+        ("skipped", U32, None),
     )),
 }

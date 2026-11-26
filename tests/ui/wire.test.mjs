@@ -24,11 +24,24 @@ function refusesCutShort(bytes) {
 
 test('every kind in the schema is one the server can name', () => {
     assert.deepEqual(Object.keys(KIND).slice(0, 3), ['error', 'status', 'decks']);
-    assert.equal(Object.keys(KIND).length, 52);
+    assert.equal(Object.keys(KIND).length, 54);
     assert.equal(KIND.b_q_media, 44, 'the kinds that were there keep their numbers');
     assert.equal(KIND.progress, 45, 'a new one goes at the end');
     assert.deepEqual([KIND.note, KIND.b_note_read, KIND.q_deck_languages, KIND.deck_languages, KIND.b_deck_languages], [46, 47, 48, 49, 50]);
     assert.equal(KIND.deck_languages_found, 51, 'a new one goes at the end');
+    assert.deepEqual([KIND.q_fill, KIND.fill_plan], [52, 53], 'a new one goes at the end');
+});
+
+test('fill missing audio: the request (side and form by name, fields by index) and the plan, with note ids past 2^32', () => {
+    const q = encode('q_fill', { deckId: 1794149693370, notetypeId: 1794149693371, textField: 0, audioField: 1, side: 'learning', form: 'sound' });
+    assert.equal(read(q), 'kind=q_fill\ndeckId=1794149693370\nnotetypeId=1794149693371\ntextField=0\naudioField=1\nside=learning\nform=sound\nrewritten=same\n');
+    assert.deepEqual(decode('q_fill', q), { deckId: 1794149693370, notetypeId: 1794149693371, textField: 0, audioField: 1, side: 'learning', form: 'sound' });
+    assert.deepEqual(decode('q_fill', encode('q_fill', { notetypeId: 5, side: 'both' })), { deckId: 0, notetypeId: 5, side: 'both', form: '' }, 'no fields: absent, as the Listening note type asks');
+    refusesCutShort(q);
+    const plan = encode('fill_plan', { mode: 'direct', toFill: [{ id: 1794149693380 }, { id: 1794149693381 }], upToDate: 4, skipped: 1 });
+    assert.equal(read(plan), 'kind=fill_plan\nmode=direct\ntoFill=2\ntoFill.0.id=1794149693380\ntoFill.1.id=1794149693381\nupToDate=4\nskipped=1\nrewritten=same\n');
+    assert.deepEqual(decode('fill_plan', plan), { mode: 'direct', toFill: [{ id: 1794149693380 }, { id: 1794149693381 }], upToDate: 4, skipped: 1 });
+    refusesCutShort(plan);
 });
 
 test('bytes (the bridge\'s media): any octets, as the app reads them, and back the same', () => {

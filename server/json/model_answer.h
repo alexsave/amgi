@@ -1,6 +1,6 @@
-/* The Gemini model's structured answer, the one other JSON reader in amgi's C (plusaudio/lib/json/
+/* The Gemini model's structured answer, the one other JSON reader in amgi's C (lib/json/
  * modelAnswer.js in C). The API's structured output is JSON text and nothing else
- * (plusaudio/ANSWER_FORMAT.md records what was measured against the alternatives), so this one parse
+ * (docs/ANSWER_FORMAT.md records what was measured against the alternatives), so this one parse
  * stays; it is the quarantine's own JSON.parse (anki_json.h), under its own name so the no-JSON
  * scan counts it with its own reason. The caller checks the value against its format
  * (server/amgi/cards.c, read_structured). */

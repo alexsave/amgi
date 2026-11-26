@@ -17,7 +17,7 @@ import { enc, noteTokens } from './protocol.mjs';
 import { ROOT, startServer } from './servers.mjs';
 
 const require = createRequire(import.meta.url);
-const { fakeGemini } = require('../plusaudio/helpers/fake-gemini.js');
+const { fakeGemini } = require('../../helpers/fake-gemini.js');
 
 const stops = [];
 after(async () => {

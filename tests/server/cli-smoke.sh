@@ -2,7 +2,7 @@
 # The amgi command line end to end, as an agent drives it (skills/amgi/SKILL.md), on a throwaway
 # collection under a temp HOME: a locked collection refused, up, a second up, install, deck add (twice: find-or-create),
 # card add (the manual form: no Gemini; a deck's languages decide the card), card list, deck list, deck remove (dry run, then --yes),
-# the error exits, down.
+# the error exits, audio fill's usage and no-key exits, down; starter-audio --check on the repository.
 #   make build && tests/server/cli-smoke.sh
 # The CLI's pid file and log are in AMGI_STATE_DIR (a directory under the sandbox), so this runs
 # beside an amgi up from the same checkout without touching it.
@@ -66,6 +66,9 @@ expect 0 "^amgi up: already running pid=$pid " up
 expect 4 - card add --deck Spanish
 expect 4 - deck
 expect 4 - deck add
+# the starter deck's clips: all shipped (no server, no key, no Gemini call), and a usage error is 4
+expect 0 "^180 of 180 clips shipped; 0 missing\$" starter-audio --check
+expect 4 - starter-audio --only xx
 expect 0 "^install${tab}yes${tab}yes${tab}" install
 expect 0 "^deck${tab}[0-9]+${tab}0${tab}Spanish${tab}-${tab}-\$" deck add Spanish
 first="$out"
@@ -134,6 +137,24 @@ expect 0 - deck list
 printf '%s\n' "$out" | grep -q "${tab}Refused${tab}" && { echo "FAIL a refused deck add made a deck"; fails=$((fails + 1)); }
 expect 0 "^deck${tab}[0-9]+${tab}0${tab}Hanzi${tab}ko${tab}zh_cn\$" deck list
 expect 0 - deck remove Hanzi --yes
+# audio fill: the usage errors, a deck with no pair (its sentence, nothing asked), a deck that is not there, and, with a card whose clips
+# are missing and no key, the exit Gemini's failures have (the plan is asked; nothing is generated, and the run stops at once)
+expect 4 - audio fill
+expect 4 - audio
+expect 4 - audio fill --deck Spanish --notetype Basic
+expect 4 - audio fill --deck Spanish --side both
+expect 4 - audio fill --deck Spanish --notetype Basic --text-field Front --audio-field Back --form mp3
+expect 3 - audio fill --deck Nope
+expect 3 - audio fill --deck Spanish --notetype Nope --text-field Front --audio-field Back
+expect 3 - audio fill --deck Spanish --notetype Basic --text-field Front --audio-field Nope
+case "$err" in *'no field named "Nope"; its fields are: Front Back'*) ;; *) echo "FAIL the no-such-field message: $err"; fails=$((fails + 1)) ;; esac
+expect 0 - deck add Bare
+expect 4 - audio fill --deck Bare
+case "$err" in *"This deck has no languages yet"*) ;; *) echo "FAIL the no-languages message: $err"; fails=$((fails + 1)) ;; esac
+expect 0 - deck remove Bare --yes
+expect 5 - audio fill --deck Spanish
+case "$err" in *"--key-file"*) ;; *) echo "FAIL the no-key message does not say --key-file: $err"; fails=$((fails + 1)) ;; esac
+expect 0 "^note${tab}[0-9]+${tab}Where is the station\\?${tab}¿Dónde está la estación\\?${tab}-${tab}-\$" card list --deck Spanish
 # deck remove: without --yes nothing goes; with it the deck is gone; a wrong name and Default delete nothing
 expect 0 "^would-remove${tab}[0-9]+${tab}1${tab}1${tab}0${tab}Spanish\$" deck remove Spanish
 expect 0 "^deck${tab}[0-9]+${tab}1${tab}Spanish${tab}en${tab}es\$" deck list

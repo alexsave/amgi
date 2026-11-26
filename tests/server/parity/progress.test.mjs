@@ -10,7 +10,7 @@ import { createRequire } from 'node:module';
 import { BRIDGE_PROTOCOL, WIRE_MIME, decode, encode } from '../../../ui/wire/wire.mjs';
 import { startServer } from './servers.mjs';
 
-const { fakeGemini, quotaExhausted, wavAnswer } = createRequire(import.meta.url)('../plusaudio/helpers/fake-gemini.js');
+const { fakeGemini, quotaExhausted, wavAnswer } = createRequire(import.meta.url)('../../helpers/fake-gemini.js');
 
 // wire.h's WP_*, in its order.
 const [WRITING, TARGET_REUSE, TARGET_RECORDING, TARGET_TRANSCRIBING, TARGET_JUDGING, TARGET_STORING,

@@ -1,18 +1,20 @@
-'use strict';
-
-// plusaudio/lib/random.js is the codebase's one random source. These tests
+// tests/helpers/random.js is the codebase's one random source. These tests
 // prove it is deterministic for a seed, and - the part that keeps it the
 // ONLY source - that nothing else in the repo draws a random of its own.
 
-const assert = require('node:assert/strict');
-const { execFileSync } = require('node:child_process');
-const fs = require('node:fs');
-const path = require('node:path');
-const { test } = require('node:test');
+import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
+import fs from 'node:fs';
+import { createRequire } from 'node:module';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { test } from 'node:test';
 
-const { Random, SEED, createRandom, random } = require('../../../plusaudio/lib/random');
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const __filename = fileURLToPath(import.meta.url);
+const { Random, SEED, createRandom, random } = createRequire(import.meta.url)('../helpers/random.js');
 
-const REPO = path.join(__dirname, '..', '..', '..');
+const REPO = path.join(__dirname, '..', '..');
 
 test('the same seed gives the same raw draw sequence, and another seed another one', () => {
     const draws = (seed) => {
@@ -55,7 +57,7 @@ test('the C source is the same generator, its seed one named value', () => {
 test('the shipped seed is the one named value, and the shared generator is a Random', () => {
     assert.ok(SEED === null || Number.isInteger(SEED));
     assert.ok(random instanceof Random);
-    const source = fs.readFileSync(path.join(__dirname, '..', '..', '..', 'plusaudio', 'lib', 'random.js'), 'utf8');
+    const source = fs.readFileSync(path.join(REPO, 'tests', 'helpers', 'random.js'), 'utf8');
     assert.equal((source.match(/^const SEED = /gm) || []).length, 1, 'exactly one line sets the seed');
 });
 
@@ -64,7 +66,7 @@ test('the shipped seed is the one named value, and the shared generator is a Ran
 // ========================
 
 // Each is a way to draw a random number, or to seed one from the clock,
-// without going through lib/random.js. Built from pieces so this file does
+// without going through tests/helpers/random.js. Built from pieces so this file does
 // not match itself.
 const BANNED = [
   ['Math', 'random'].join('\\.'),
@@ -93,9 +95,9 @@ const SCANNED = /\.(?:js|mjs|cjs|ts|tsx|jsx|py|html|c|h)$/;
 // The source itself; vendored upstream code (Anki's own, not ours); retired
 // code kept for reference only.
 // server/collection/rng.c is the C side's one source: the same generator, seeded once from the OS.
-const EXEMPT = [/^plusaudio\/lib\/random\.js$/, /^server\/collection\/rng\.c$/, /^plusaudio\/vendor\//, /^archives\//, /(^|\/)node_modules\//];
+const EXEMPT = [/^tests\/helpers\/random\.js$/, /^server\/collection\/rng\.c$/, /^archives\//, /(^|\/)node_modules\//];
 
-// Lines that must NOT go through lib/random.js, each for a stated reason.
+// Lines that must NOT go through tests/helpers/random.js, each for a stated reason.
 // A security secret has to be unpredictable even when someone has fixed the
 // seed to debug something, so it keeps the OS's cryptographic source - a
 // different job from "a random voice", not a stray.
@@ -124,7 +126,7 @@ function strayRandoms(files) {
     return found;
 }
 
-test('nothing in the repo draws a random except through lib/random.js', () => {
+test('nothing in the repo draws a random except through tests/helpers/random.js', () => {
     const files = execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard'], { cwd: REPO, encoding: 'utf8' })
       .split('\n')
       .filter(Boolean);
@@ -133,7 +135,7 @@ test('nothing in the repo draws a random except through lib/random.js', () => {
 });
 
 test('the scan does catch each kind of stray random', () => {
-    const dir = fs.mkdtempSync(path.join(REPO, 'tests', 'server', 'plusaudio', '.stray-'));
+    const dir = fs.mkdtempSync(path.join(REPO, 'tests', 'repo', '.stray-'));
     try {
         const samples = [
           'const x = Math' + '.random();',

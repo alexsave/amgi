@@ -1,20 +1,12 @@
-# amgi: two things, one add-on, one live collection.
+# amgi: the bridge between a live Anki collection and the amgi web UI.
 #
-# 1. Tools > amgi: Fill missing audio... - fills missing audio into a live
-#    collection, with no export/import step. Opens a dialog to pick a deck
-#    and field mapping (dialogs.py), then runs core.plan_fill/apply_fill
-#    inside a single CollectionOp so the whole run lands as one undo step and
-#    Anki's own change hooks fire when it is done. Unchanged by the bridge
-#    below - see README.md for why both jobs live in one add-on regardless.
-#
-# 2. Tools > amgi: Bridge status... - a local HTTP bridge (bridge_server.py,
+# 1. Tools > amgi: Bridge status... - a local HTTP bridge (bridge_server.py,
 #    bridge_dispatch.py, bridge_ops.py) that lets the amgi web UI talk to
-#    this same collection while Anki is running, mirroring what the Node
-#    layer (plusaudio/lib/collection/) does when Anki is closed. Off by
-#    default; see README.md, "Local HTTP bridge", for the full security
-#    model.
+#    this collection while Anki is running, as the server's collection core
+#    (server/collection/) does when Anki is closed. Off by default; see
+#    README.md, "Local HTTP bridge", for the full security model.
 #
-# 3. Installing amgi's own note type into the collection on profile open
+# 2. Installing amgi's own note type into the collection on profile open
 #    (notetype.py). The amgi website copies this add-on onto disk and drops
 #    the card type into cardtype/ next to it; this is the half that needs
 #    Anki's own API and so cannot happen from the website at all. Silent and
@@ -23,10 +15,9 @@
 #
 # Everything GUI-shaped lives in this file and dialogs.py, and neither can be
 # run outside Anki itself - Qt is not installable in the environment this was
-# written in. core.py, deck_text.py, generator.py, bridge_ops.py,
-# bridge_auth.py and bridge_server.py have no aqt import and are what tests/anki/addon/
-# actually exercises; see README.md, "What is unverified", for the exact
-# manual steps to check this file.
+# written in. deck_text.py, bridge_ops.py, bridge_auth.py and bridge_server.py
+# have no aqt import and are what tests/anki/addon/ actually exercises; see
+# README.md, "What is unverified", for the exact manual steps to check this file.
 #
 # License: GNU AGPL, version 3 or later, to match Anki's own.
 
@@ -37,15 +28,12 @@ import secrets
 from typing import Optional
 
 from aqt import gui_hooks, mw
-from aqt.operations import CollectionOp
 from aqt.qt import QAction
 from aqt.utils import showWarning, tooltip
 
 from .bridge_dispatch import AqtBridgeDispatcher
 from .bridge_server import BridgeServer
-from .core import AudioFillConfig, FillResult, apply_fill, plan_fill
-from .dialogs import BridgeStatusDialog, FillAudioDialog
-from .generator import GenerationError, NodeCliAudioGenerator
+from .dialogs import BridgeStatusDialog
 from .deck_index import repair_deck_index
 from .notetype import AssetsMissing, assets_dir_for, ensure_notetype
 
@@ -55,72 +43,6 @@ DEFAULT_ALLOWED_ORIGINS = ["http://localhost:3000", "http://127.0.0.1:3000"]
 
 def _config() -> dict:
     return mw.addonManager.getConfig(__name__) or {}
-
-
-def _build_generator(config: dict) -> NodeCliAudioGenerator:
-    return NodeCliAudioGenerator(
-        node_path=(config.get("node_path") or "node"),
-        plusaudio_dir=(config.get("plusaudio_dir") or ""),
-        gemini_api_key=(config.get("gemini_api_key") or None),
-    )
-
-
-def _run_fill(fill_config: AudioFillConfig) -> None:
-    generator = _build_generator(_config())
-    try:
-        # A missing Node, repo checkout or API key is a local, instant check
-        # (no subprocess, no network) - do it before the progress dialog even
-        # opens, so a bad config is one clear message, not a background op
-        # that starts and then immediately fails.
-        generator.ensure_ready()
-    except GenerationError as error:
-        showWarning(str(error))
-        return
-
-    def op(col) -> FillResult:
-        plan = plan_fill(col, fill_config)
-
-        def progress(done: int, total: int, text: str) -> None:
-            mw.taskman.run_on_main(
-                lambda: mw.progress.update(
-                    label=f"amgi: generating audio ({done}/{total})\n{text[:80]}",
-                    value=done,
-                    max=total,
-                )
-            )
-
-        return apply_fill(
-            col,
-            plan,
-            fetch_audio=lambda text: generator.fetch_audio(text, fill_config.language),
-            progress=progress,
-            want_cancel=mw.progress.want_cancel,
-        )
-
-    def on_success(result: FillResult) -> None:
-        message = f"amgi: filled audio for {len(result.updated)} note(s)."
-        if result.cancelled:
-            message += " Cancelled - run it again to pick up where it left off."
-        if result.failed:
-            message += f" {len(result.failed)} failed and will be retried on the next run."
-        tooltip(message, parent=mw)
-
-    def on_failure(error: Exception) -> None:
-        showWarning(f"amgi audio fill stopped: {error}")
-
-    (
-        CollectionOp(parent=mw, op=op)
-        .with_progress(label="amgi: filling missing audio")
-        .success(on_success)
-        .failure(on_failure)
-        .run_in_background()
-    )
-
-
-def _open_dialog() -> None:
-    dialog = FillAudioDialog(mw)
-    if dialog.exec():
-        _run_fill(dialog.result_config())
 
 
 # ---------------------------------------------------------------------------
@@ -180,9 +102,9 @@ def _ensure_bridge_token(config: dict) -> str:
     token = config.get("bridge_token") or ""
     if token:
         return token
-    # Deliberately the OS's cryptographic source, not plusaudio/lib/random.js:
-    # a secret must stay unguessable even with that file's seed fixed (see
-    # the ALLOWED list in tests/server/plusaudio/random.test.js).
+    # Deliberately the OS's cryptographic source, not tests/helpers/random.js:
+    # a secret must stay unguessable even with a seed fixed (see the ALLOWED
+    # list in tests/repo/random.test.mjs).
     token = secrets.token_urlsafe(32)
     config["bridge_token"] = token
     mw.addonManager.writeConfig(__name__, config)
@@ -246,10 +168,6 @@ def _open_bridge_status() -> None:
 
 
 def _add_menu_items() -> None:
-    fill_action = QAction("amgi: Fill missing audio...", mw)
-    fill_action.triggered.connect(_open_dialog)
-    mw.form.menuTools.addAction(fill_action)
-
     bridge_action = QAction("amgi: Bridge status...", mw)
     bridge_action.triggered.connect(_open_bridge_status)
     mw.form.menuTools.addAction(bridge_action)
