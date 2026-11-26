@@ -528,6 +528,14 @@ def lang_for(path):
     return LANG_OF[os.path.splitext(path)[1]]
 
 
+# Files left out of the conversion, each with its reason. They keep their indent, and --verify does not check them.
+EXCLUDED_FILES = {
+    # Lines 59-60: the enum's last list is wrapped at column 7, which the converter cannot place (an odd structural
+    # indent outside any bracket), so the whole file is left as it is.
+    'ui/wire/wire.h': 'enum list wrapped at odd column 7 (lines 59-60)',
+}
+
+
 def scope(root):
     raw = subprocess.run(['git', '-C', root, 'ls-files', '-z'], capture_output=True, check=True).stdout
     out = []
@@ -535,6 +543,8 @@ def scope(root):
         if not p or not p.endswith(SCOPE_EXTS):
             continue
         if any(part in EXCLUDED_DIRS for part in p.split('/')[:-1]):
+            continue
+        if p in EXCLUDED_FILES:
             continue
         with open(os.path.join(root, p), 'rb') as fh:
             head = fh.read().decode('utf-8', 'replace').split('\n')[:5]
