@@ -24,7 +24,7 @@
 // free of Deno APIs and of npm:/jsr: imports, even though Node is now its
 // only runtime.
 
-/** English names for the app's languages, mirroring src/constants/languages.js. */
+/** English names for the app's languages, mirroring the one table in ui/wire/lang.c. */
 export const LANGUAGE_NAMES: Record<string, string> = {
     en: 'English',
     es: 'Spanish',

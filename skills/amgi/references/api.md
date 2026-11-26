@@ -107,7 +107,7 @@ A failure is the `error` kind, `{error}`, with a 4xx or 5xx status, except an un
 The exact fields of each kind are the schema table's; where this table and `ui/wire/wire.c` disagree, the table in `wire.c` is right.
 `decode` gives a dotted name in the schema (`deck.id` in `deck_created`, `audio.reference` in `card_text`) as one flat key of that name.
 
-Language codes are amgi's own: `en`, `ko`, `ja`, `zh_cn`, `zh_hk`, `es`, `fr`, `pt`, `ru`, `id`, `de`, `tr`, `vi`, `it`, `th`, `hi`, `ur`, `ar` (`src/constants/languages.js`).
+Language codes are amgi's own: `en`, `ko`, `ja`, `zh_cn`, `zh_hk`, `es`, `fr`, `pt`, `ru`, `id`, `de`, `tr`, `vi`, `it`, `th`, `hi`, `ur`, `ar` (the table in `ui/wire/lang.c`).
 
 ## Making cards
 
