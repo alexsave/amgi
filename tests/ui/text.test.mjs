@@ -43,7 +43,7 @@ const SAMPLES = [
   '<audio\tsrc="tab.wav">', '<div><audio src="first.wav"></audio><audio src="second.wav"></audio></div>',
 ];
 
-test('trim, strip_html, strip_tags, audio_src, has_audio_ref and dedupe_key answer what the JS did', () => {
+test('lines_trim, strip_html, strip_tags, audio_src, has_audio_ref and lines_key answer what the JS did', () => {
     const fns = [
       [0, (s) => s.trim()], [1, (s, i) => STRIP_HTML[i]], [2, stripTags], [3, audioSrc],
       [4, (s, i) => String(HAS_AUDIO[i])], [5, (s, i) => DEDUPE[i]],
@@ -74,7 +74,7 @@ test('guess_fields picks the fields guessFields does', () => {
     types.forEach((t, i) => assert.equal(got[i], GUESSES[i], t.fieldNames.join(', ')));
 });
 
-test('paste_lines makes the lines parseLyricsPaste made', () => {
+test('lines_split makes the lines parseLyricsPaste made', () => {
     const pastes = [
       '', 'one line', 'a\nb\r\nc\rd', '  spaced  \n\n\t\n', '[Chorus]\nla la\n[Verse 2]\nla la.\nLa la',
       'I said [laughs] okay\n[a]b]\n[]\n[ ]', '역이 어디예요?\n역이 어디예요\n역이  어디예요?!', '...\n!!!\n...',

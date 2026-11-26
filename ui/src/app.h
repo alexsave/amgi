@@ -10,6 +10,7 @@
 #include "cdom_store.h"
 #include "cdom_url.h"
 #include "../wire/lang.h"
+#include "../wire/lines.h"
 #include "../wire/wire.h"
 
 /* ---- text (text.c) ---- */
@@ -24,8 +25,6 @@ void text_setz(text *t, const char *z);
 void text_free(text *t);
 uint32_t id_dec(char *dst, int64_t id);        /* a positive id in decimal (at most 20 bytes) */
 int64_t dec_id(const char *s, uint32_t len);    /* -1 for anything but digits */
-/* JS's String.prototype.trim: the Unicode White_Space and line terminators at both ends. */
-wire_str trim(wire_str s);
 /* Markup taken out for a preview: every <...> becomes a space, &nbsp; a space, runs of white space
  * one space, the ends trimmed (src/utils/ankiFields.js stripHtmlForPreview). dst needs s.len bytes. */
 uint32_t strip_html(char *dst, wire_str s);
@@ -35,11 +34,6 @@ uint32_t strip_tags(char *dst, wire_str s);
 wire_str audio_src(wire_str field);
 /* A field holds a sound reference: [sound:...] or an <audio ... src=. */
 int has_audio_ref(wire_str field);
-/* What lyricsParse.js's normalizeForDedupe was, into dst (s.len bytes): white space trimmed and collapsed,
- * the trailing run of white space and punctuation dropped (unless that is all there is). */
-uint32_t dedupe_key(char *dst, wire_str s);
-/* What lyricsParse.js's parseLyricsPaste was: the lines a paste makes cards of (see text.c). */
-uint32_t paste_lines(const char *s, uint32_t len, wire_str *out, uint32_t cap, char *keys);
 
 /* ---- the DOM, shorthand (dom.c) ----
  * A string parameter is plain C (cdom.h, strings). What is kept past the call (a bound value, a bound
