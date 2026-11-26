@@ -153,7 +153,7 @@ async function openDeck(deckName) {
     await sleep(500); // the plan
 }
 async function pick(which, value) {
-    await b.evaluate(`(() => { const s = document.querySelectorAll('.deck-fill select')[${which}]; s.value = ${JSON.stringify(String(value))};
+    await b.evaluate(`(() => { const s = document.querySelectorAll('.deck-fill select')[${which}]; s.focus(); s.value = ${JSON.stringify(String(value))};
     s.dispatchEvent(new Event('change', { bubbles: true })); })()`);
     await sleep(400);
 }
@@ -230,6 +230,8 @@ try {
     await pick(2, 1); // in English: the known language
     await pick(3, 1); // as an <audio> element
     check((await b.evaluate(picks)) === 'Meaning|Audio|English|<audio> element', `the language and the form too (${await b.evaluate(picks)})`);
+    check(await b.evaluate(`document.activeElement === document.querySelectorAll('.deck-fill select')[3]`),
+        'the select just changed keeps the focus through the plan\'s redraws');
     await pick(1, 1); // the audio field as the text's own field: refused, the select goes back
     check((await b.evaluate(picks)) === 'Meaning|Audio|English|<audio> element', 'the same field on both sides is refused');
     check((await b.evaluate(line)).startsWith('5 cards have no audio'), 'the plan still counts them');

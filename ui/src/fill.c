@@ -24,6 +24,11 @@ static uint32_t run, idx, done, failed, wait_left, tick_timer;
 static text error;                          /* what the last run met, kept until the next */
 static text daily_cap;
 static cd_id box, sels[5];
+/* The select a person just changed: every redraw builds the selects anew, so it is given focus again after each
+ * draw that drew it, until the plan its change asked for has answered (a keyboard user keeps their place). */
+static int32_t refocus = -1;
+static int refocus_last;
+static uint32_t drawn_sels; /* a bit per select this draw made */
 static cd_region view = {.up = &page_region};
 static holder h_plan, h_fill;
 
@@ -132,6 +137,7 @@ ON_ANSWER(plan_answered) {
     wire_fill_plan w;
     answer a = take(&h_plan, WK_FILL_PLAN, status, p, len, &w);
     plan_valid = a.ok; /* not answered: no line, the page is as it was */
+    refocus_last = 1;
     cd_free(to_fill);
     to_fill = 0;
     nto_fill = 0;
@@ -253,6 +259,8 @@ ON_EVENT(pick_changed) {
     const notetype *t = type_now();
     if (at < 0 || !t) return;
     touched = 1;
+    refocus = (int32_t)which;
+    refocus_last = 0;
     if (which == 0) {
         if ((uint32_t)at >= ncands || !choose(cands[at])) return;
         t = type_now();
@@ -285,6 +293,7 @@ static void option(uint32_t value, const char *label, uint32_t len, int selected
 }
 static void select_open(uint32_t which, const char *label) {
     sels[which] = cd_open_id("select");
+    drawn_sels |= 1u << which;
     cd_attr("aria-label", label);
     cd_on(sels[which], CD_EV_CHANGE, pick_changed, CTX_OF(which));
 }
@@ -321,6 +330,7 @@ static void picker(const notetype *t) {
 }
 
 ON_RENDER(fill_draw) {
+    drawn_sels = 0;
     cd_region_hide(&view);
     const notetype *t = type_now();
     int line = plan_valid && t && (nto_fill || touched);
@@ -375,6 +385,8 @@ ON_RENDER(fill_draw) {
     }
     cd_close();
     cd_region_end(&view);
+    if (refocus >= 0 && (drawn_sels >> refocus & 1)) cd_call(sels[refocus], "focus");
+    if (refocus_last) refocus = -1, refocus_last = 0;
 }
 
 /* The page goes. The run goes with it unless the page is this deck's again (the list drawn again after a mode change). */
@@ -389,6 +401,7 @@ static void screen_gone(void *ctx) {
     cd_timer_stop(tick_timer);
     tick_timer = 0;
     deck_id = -1;
+    refocus = -1;
 }
 
 void fill_build(cd_id parent, int64_t deck, const lang_pair *l) {
