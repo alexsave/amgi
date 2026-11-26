@@ -133,11 +133,13 @@ static int only_valid(const char *only, char *bad, size_t cap) {
     return 1;
 }
 
-/* A clip's own seed: STARTER_SEED and its name, so a resumed run draws the same voice. The name's sha1, its first four bytes
- * read little-endian, as the script this replaces read them (voices.tsv's attempts-1 rows are the oracle). */
+/* A clip's own seed: STARTER_SEED and its name WITHOUT AMGI_MEDIA_PREFIX (the 20-hex hash and the extension), so renaming the
+ * prefix never changes a voice again. The sha1's first four bytes are read little-endian, as the script this replaces read
+ * them. The shipped voices cannot be reproduced: they were drawn from the old prefixed name. */
 static uint32_t clip_seed(const char *name) {
     char hex[41];
-    sha1_hex(name, strlen(name), hex);
+    const char *bare = !strncmp(name, AMGI_MEDIA_PREFIX, strlen(AMGI_MEDIA_PREFIX)) ? name + strlen(AMGI_MEDIA_PREFIX) : name;
+    sha1_hex(bare, strlen(bare), hex);
     uint32_t w = 0;
     for (int i = 0; i < 4; i++) {
         unsigned byte;
