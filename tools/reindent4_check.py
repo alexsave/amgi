@@ -23,6 +23,7 @@ import ast
 import os
 from collections import Counter
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -83,18 +84,25 @@ def align_check(path, old, new, errs, counts, samples):
 
 
 def make_vars(tree):
+    """amgi's compile flags, read from server/Makefile and ui/Makefile, with -g removed (the proof compares code only)."""
     out = {}
-    for var in ('CDOM_CFLAGS', 'CDOM_OPT', 'CDOM_IMAGE_OWN_CFLAGS', 'CDOM_IMAGE_VENDOR_CFLAGS'):
-        r = subprocess.run(['make', '-s', '--no-print-directory', '-f', 'cdom.mk', '-f', '-', 'cdom-print-var',
-                            'CDOM=.'], cwd=tree, input='cdom-print-var:\n\t@echo $(%s)\n' % var,
+    for mk, var in (('server', 'APP_EXTRA_CFLAGS'), ('server', 'NATIVE_CFLAGS'), ('ui', 'APP_CFLAGS'),
+                    ('ui', 'WARN'), ('ui', 'CDOM_OPT'), ('ui', 'CDOM_CFLAGS'), ('ui', 'WASM_CC')):
+        r = subprocess.run(['make', '-s', '--no-print-directory', '-f', 'Makefile', '-f', '-', 'amgi-print-var'],
+                           cwd=os.path.join(tree, mk), input='amgi-print-var:\n\t@echo $(%s)\n' % var,
                            capture_output=True, text=True, check=True)
-        out[var] = r.stdout.split()
+        out[var] = [f for f in r.stdout.split() if f != '-g']
+    out['WASM_CC'] = out['WASM_CC'][0]
     return out
 
 
-def compile_obj(tree, src, args, obj):
-    """Compile src in tree to obj; True when cc succeeds."""
-    r = subprocess.run(args + ['-c', src, '-o', obj], cwd=tree, capture_output=True)
+def compile_obj(tree, src, label, obj):
+    """Compile src in tree to obj with label = (make directory, compiler, flags); True when cc succeeds. The cwd is
+    the Makefile's directory, so the flags' relative include paths resolve as they do for the build."""
+    rel, cc, flags = label
+    cwd = os.path.join(tree, rel)
+    r = subprocess.run([cc] + flags + ['-c', os.path.relpath(os.path.join(tree, src), cwd), '-o', obj], cwd=cwd,
+                       capture_output=True)
     return r.returncode == 0, r.stderr.decode(errors='replace')
 
 
@@ -108,14 +116,14 @@ def c_check(root, old_root, changed_c, changed_h, errs, counts):
                 targets.add(p)
     if not targets:
         return
-    wasm_cc = os.environ.get('WASM_CC') or ('/opt/homebrew/opt/llvm/bin/clang' if sys.platform == 'darwin' else 'clang')
-    cdom = make_vars(root)
-    # Two labels: cdom's own flags (the wasm32 modules, cdom.mk's CDOM_CFLAGS with its CDOM_OPT), and the host
-    # cc for cdom's host tools (tools/*.c, built with HOST_CC and no wasm flags).
-    base = [wasm_cc] + cdom['CDOM_CFLAGS'] + cdom['CDOM_OPT']
-    labels = [('cdom.mk', base), ('host', ['cc', '-O2']),
-              ('image-own', base + cdom['CDOM_IMAGE_OWN_CFLAGS'] + ['-DCDOM_IMAGE_SJLJ_JS']),
-              ('image-vendor', base + cdom['CDOM_IMAGE_VENDOR_CFLAGS'] + ['-DCDOM_IMAGE_SJLJ_JS'])]
+    v = make_vars(root)
+    cc = os.environ.get('CC') or 'clang'
+    # server/Makefile's app flags (-O2), its native flags, ui/Makefile's host flags, and ui/Makefile's wasm32 line
+    # (WASM_CC CDOM_OPT CDOM_CFLAGS -ffreestanding WARN, from the cdom checkout). All without -g.
+    labels = [('server-app', ('server', cc, v['APP_EXTRA_CFLAGS'])),
+              ('server-native', ('server', cc, v['NATIVE_CFLAGS'])),
+              ('ui-host', ('ui', cc, ['-O1'] + v['WARN'])),
+              ('ui-wasm', ('ui', v['WASM_CC'], v['CDOM_OPT'] + v['CDOM_CFLAGS'] + ['-ffreestanding'] + v['WARN']))]
     uncompiled = []
     for p in sorted(targets):
         with tempfile.TemporaryDirectory() as d:
@@ -255,6 +263,11 @@ def main(argv):
         os.makedirs(old_root)
         archive = subprocess.run(['git', 'archive', base], cwd=root, capture_output=True, check=True).stdout
         subprocess.run(['tar', '-x', '-C', old_root], input=archive, check=True)
+        # cbase and cdom are submodules, which git archive does not include; this branch does not change them,
+        # so both trees share the checkout.
+        for sub in ('cbase', 'cdom'):
+            shutil.rmtree(os.path.join(old_root, sub), ignore_errors=True)
+            os.symlink(os.path.join(root, sub), os.path.join(old_root, sub))
         c_check(root, old_root, c_changed, h_changed, errs, counts)
     if samples_out:
         with open(samples_out, 'w') as fh:
