@@ -1,5 +1,5 @@
 // Fill missing audio (server/amgi/fill.c): POST /decks/:id/audio-plan and POST /notes/:id/audio-fill, and `amgi audio fill`, against the
-// tests' fake Gemini (tests/server/plusaudio/helpers/fake-gemini.js, in process, which keeps a log of every request that reached it).
+// tests' fake Gemini (tests/helpers/fake-gemini.js, in process, which keeps a log of every request that reached it).
 // The recording of http.txt shows each answer; this file shows what an answer cannot: what was asked of Gemini, and what a note
 // holds afterwards.
 //   - the plan counts: notes that need a clip, notes that have it, notes that cannot (another note type, no text once its markup is gone);
@@ -23,8 +23,8 @@ import { ROOT, startServer } from './servers.mjs';
 import { sandboxEnv } from '../../repo/sandbox-home.cjs';
 
 const require = createRequire(import.meta.url);
-const { fakeGemini, e2eScript, dailyQuotaExhausted } = require('../plusaudio/helpers/fake-gemini.js');
-const { anki, buildFixtureCollection, tempDir } = require('../plusaudio/collection/helpers/anki-python.js');
+const { fakeGemini, e2eScript, dailyQuotaExhausted } = require('../../helpers/fake-gemini.js');
+const { anki, buildFixtureCollection, tempDir } = require('../../helpers/anki-python.js');
 
 const AMGI = path.join(ROOT, 'server', 'build', 'amgi');
 const ENTRY = path.join(ROOT, '.claude', 'skills', 'e2e-ui', 'scripts', 'bridge_server_entry.py');
@@ -319,7 +319,7 @@ test('Gemini\'s limits leave the note as it was: a limit after the first clip, a
     const first = await r.add(deck, 'amgi Listening', { [t.at.cue]: 'one', [t.at.target]: '하나' });
     const second = await r.add(deck, 'amgi Listening', { [t.at.cue]: 'two', [t.at.target]: '둘' });
     const q = LISTENING(deck, r);
-    const { controlFake } = require('../plusaudio/helpers/fake-gemini.js');
+    const { controlFake } = require('../../helpers/fake-gemini.js');
     await controlFake(r.fake.baseUrl, 'perMinute=1');
     // One speech call is allowed this minute: the Target's clip is made, the Cue's is refused with about a minute to wait, which is
     // longer than the run sits through, so the fill answers 429 at once with the note unchanged

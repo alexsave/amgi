@@ -25,7 +25,7 @@ int amgi_generation_available(void) {
 int amgi_gen_open(char *err, size_t cap) { return gem_open(err, cap); }
 void amgi_gen_close(void) { gem_close(); }
 
-/* plusaudioCli.js failureMessage: the last non-empty trimmed line, or the fallback. */
+/* The failure message: the last non-empty trimmed line, or the fallback. */
 static str last_line(str m, const char *fallback) {
     str best = {0};
     size_t at = 0;

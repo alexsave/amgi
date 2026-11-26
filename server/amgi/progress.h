@@ -1,7 +1,7 @@
 /* What each card being made is doing now, for the page to show (GET /progress). A request that named
  * itself (q_card_text's progressId) holds an entry from its start to its answer; the code that does the
  * work says each step as it begins it. Every call takes NULL, for work nobody watches (a clip recorded
- * again, amgi-clip). One lock, held for a copy; nothing here waits on anything else. */
+ * again, `amgi starter-audio`). One lock, held for a copy; nothing here waits on anything else. */
 #ifndef AMGI_PROGRESS_H
 #define AMGI_PROGRESS_H
 #include <stdint.h>

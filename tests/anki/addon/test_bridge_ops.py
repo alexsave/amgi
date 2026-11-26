@@ -393,7 +393,7 @@ class ListNotesInDeckTests(BridgeOpsTestCase):
         # timing this against a note count 100x bigger than what a plain
         # deck.js-shaped test needs is what "does not choke" means in
         # practice, and the query shape (one indexed join, LIMIT/OFFSET) is
-        # exactly plusaudio/lib/collection/notes.js's listNotesInDeck.
+        # exactly lib/collection/notes.js's listNotesInDeck.
         note_ids = [self._add(deck_id, f"front {i}", f"back {i}") for i in range(2500)]
 
         seen: list[int] = []

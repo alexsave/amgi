@@ -1,6 +1,6 @@
-/* The text rules notes are written with, from plusaudio/lib/deck.js (strip_html_media, Anki's
- * entity decoding, the checksum), plusaudio/lib/cardGeneration/cardText.ts (the romanisation
- * guard) and plusaudio/lib/collection/template.js (which cards a new note needs).
+/* The text rules notes are written with, from lib/deck.js (strip_html_media, Anki's
+ * entity decoding, the checksum), lib/cardGeneration/cardText.ts (the romanisation
+ * guard) and lib/collection/template.js (which cards a new note needs).
  *
  * The JavaScript states each rule as a regular expression; each is written out here as the
  * matcher that regular expression is, with JavaScript's meaning of \s (its whitespace set), \b
@@ -282,7 +282,7 @@ str strip_html_preserving_media(cx *c, str html) {
 
 /* fieldChecksum: the first 8 hex digits of the sha1 of the text it is given, as a number. The
  * caller strips the first field once (strip_html_preserving_media) and hands the result here, as
- * Anki's own add_note does; plusaudio/lib/deck.js stripped a second time inside, which decoded an
+ * Anki's own add_note does; lib/deck.js stripped a second time inside, which decoded an
  * entity twice and gave a checksum Anki disagrees with (the PR #30 review, finding 2). */
 int64_t field_checksum(cx *c, str stripped) {
     (void)c;

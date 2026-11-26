@@ -1,6 +1,6 @@
 // The protobuf messages amgi exchanges with Gemini over gRPC, and the codec
-// that turns them into bytes and back. gemini.ts owns the call; this module
-// owns only the wire format.
+// that turns them into bytes and back, for the tests' fake Gemini
+// (fake-gemini.js). The real client is server/amgi/gemini.c.
 //
 // The service is google.ai.generativelanguage.v1beta.GenerativeService
 // (googleapis/googleapis, google/ai/generativelanguage/v1beta/
@@ -15,9 +15,9 @@
 // the live service: as of 2026-11-08 their ThinkingConfig has no
 // thinking_level (the googleapis file was last changed 2025-12-18), so stubs
 // generated from them could not send the one generation setting amgi uses.
-// And a runtime (@grpc/grpc-js plus protobufjs, about 7 MB) would end this
-// package's zero-dependency rule for a dozen small messages that
-// ../protobuf.js's primitives already encode.
+// And a runtime (@grpc/grpc-js plus protobufjs, about 7 MB) would be
+// a heavy dependency for a dozen small messages that
+// protobuf.js's primitives already encode.
 //
 // Verified live against generativelanguage.googleapis.com:443 on 2026-11-08:
 //   - API key in the `x-goog-api-key` metadata, plain gRPC over HTTP/2.
@@ -39,7 +39,7 @@
 //     google.rpc.QuotaFailure and RetryInfo in those details, the same
 //     messages the REST API rendered as JSON.
 
-import protobuf from "../protobuf.js";
+import protobuf from "./protobuf.js";
 
 const {
     WIRE_FIXED64,

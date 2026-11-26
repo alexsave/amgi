@@ -64,13 +64,13 @@ The amgi app itself already writes both audio
 fields in this form when it adds or bulk-adds notes to this note type - it
 finds `CueAudio`/`TargetAudio` by their names (see `amgi_fields_of` in
 `ui/src/fields.c`) and renders every clip as `<audio src="...">` (`server/amgi/web.c`),
-the same form the `amgi_bridge` add-on writes. A deck built entirely
+the same form `amgi audio fill` writes. A deck built entirely
 through the app needs no conversion step at all.
 
-The add-on's Tools > amgi: Fill missing audio... fills the same fields into notes that already exist.
+The deck page's "Fill" line, and `amgi audio fill`, fill the same fields into notes that already exist.
 
-If the deck you want audio in is one you already have open in Anki, [`addon/amgi_bridge/`](addon/amgi_bridge/README.md) does the same generation directly against your live collection, with no export or import step.
-It runs entirely on your own machine against your own Gemini key - no amgi account, same as `plusaudio/` itself - but it does need Node and a checkout of this repo; see its README's "Install" section.
+If the deck you want audio in is one you already have open in Anki, [`addon/amgi_bridge/`](addon/amgi_bridge/README.md) lets the app reach your live collection, so the deck page's "Fill" works on it with no export or import step.
+Everything runs on your own machine against your own Gemini key - no amgi account.
 
 ### Notes you already added through the amgi app, before this fix
 
@@ -79,12 +79,12 @@ If you have notes like that already in a deck, each one needs two things: `Targe
 
 For a deck you can still put through the app - re-run the affected notes' text through the bulk-add screen's audio pass, or the single-note form's "Generate Audio", now that both write the right fields in the right form; the clip filenames are content hashes, so this never pays for a clip it already generated.
 
-For notes you would rather fix in place, `addon/amgi_bridge/`'s Tools > amgi: Fill missing audio... dialog (its own README, "Field mapping") does this without touching the app at all: run it once with "Read this field aloud" set to `Target` and "Write the clip into" set to `TargetAudio`, reference form `html`; run it again with `Cue` and `CueAudio`.
-Each run only ever touches the one field you name, so running it twice is safe.
+For notes you would rather fix in place, the deck page's "Fill" line (or `amgi audio fill --deck NAME`) does this: an `amgi Listening` deck fills `TargetAudio` and `CueAudio` in the `html` form.
+Each run only ever touches the audio fields, and only where a clip is missing, so running it twice is safe.
 
 ### Converting a deck you cannot regenerate
 
-If the deck is not one you can put back through `plusaudio/` or the app - someone else's, or one you have edited in Anki since - convert it in Anki itself, with no scripting.
+If the deck is not one you can put back through the app - someone else's, or one you have edited in Anki since - convert it in Anki itself, with no scripting.
 Browse, select the notes, Notes > Find and Replace, tick "treat input as regular expression", limit it to the audio field, and replace
 
 ```

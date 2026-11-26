@@ -1,4 +1,4 @@
-# amgi: the raw API, the page, the bridge, the Node scripts and the rules
+# amgi: the raw API, the page, the bridge, scripting and the rules
 
 The command line in `../SKILL.md` covers adding decks and cards; this is everything else, for reference.
 
@@ -149,20 +149,9 @@ When a model is limited, the API answers 429, an `error` with `retryAfterMs` and
 - no `notStarted`: the card had started and hit a per-minute limit; wait `retryAfterMs` and retry it.
 - `dailyCap: true`: the day's quota is spent; stop and tell the user.
 
-One rate gate in the server owns all waiting (`server/amgi/gate.c`; `plusaudio/lib/rateGate.js` for generate-clip.js), so wait exactly `retryAfterMs` and add no backoff of your own.
+One rate gate in the server owns all waiting (`server/amgi/gate.c`), so wait exactly `retryAfterMs` and add no backoff of your own.
 Make cards one after another; parallel calls only queue on the same gate.
 
-## generate-clip.js
-
-`plusaudio/generate-clip.js` writes one WAV (the add-on's fill-audio runs it; unlike `server/build/amgi` it needs Node).
-It reads `GEMINI_API_KEY` from the environment only, not from `.env.local`, and reaches Gemini over gRPC (HTTP/2 to `generativelanguage.googleapis.com:443`), so a network that only lets HTTP/1.1 through a proxy blocks it.
-
-```bash
-cd plusaudio
-GEMINI_API_KEY=... node generate-clip.js --text "역이 어디예요?" --language ko --out /tmp/clip.wav
-```
-
-It exits 3 when rate limited (stdout then carries `retry-after-ms=<n>`) and 4 when the daily cap is spent.
 A card's text, and rewriting one side of a card, is the app's own (`POST /api/anki/card-text`); there is no script for it.
 
 ## The bridge directly
@@ -179,8 +168,8 @@ It has no profiles, install, starter or Gemini endpoints, so making cards still 
   A deck delete takes its subdecks and every card in them, on every device the user syncs with.
 - After an edit with Anki closed, the user should open Anki and sync.
   If AnkiWeb asks to upload or download the whole collection, the side with the edits is this computer: upload.
-- Every random draw (the Gemini voice, note GUIDs) comes from one seedable source, `plusaudio/lib/random.js`.
-  Setting its `SEED` to a constant makes runs reproducible, and must never reach a collection someone keeps, because equal GUIDs mean "the same note" to Anki.
+- Every random draw (the Gemini voice, note GUIDs) comes from one seedable source, `server/collection/rng.c`.
+  Setting its `AMGI_SEED` to a constant makes runs reproducible, and must never reach a collection someone keeps, because equal GUIDs mean "the same note" to Anki.
 - To work on amgi itself rather than use it, read `README.md` and the `e2e-ui` skill in `.claude/skills/`.
 
 ## Going deeper

@@ -18,8 +18,8 @@ import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { seed } from './seed.mjs';
 
-const { withAnkiLibrary } = createRequire(import.meta.url)('../../server/plusaudio/collection/helpers/anki-python.js');
-const { controlFake } = createRequire(import.meta.url)('../../server/plusaudio/helpers/fake-gemini.js');
+const { withAnkiLibrary } = createRequire(import.meta.url)('../../helpers/anki-python.js');
+const { controlFake } = createRequire(import.meta.url)('../../helpers/fake-gemini.js');
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const cdom = process.env.CDOM || path.join(here, '..', '..', '..', 'cdom');

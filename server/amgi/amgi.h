@@ -9,7 +9,7 @@
  *   install.c   install.js, the file half in C and the collection half on the core
  *   starter.c   starterDeck.js, with the phrases of starter_phrases.c
  *   starter_audio.c  `amgi starter-audio`, the dev command that records the starter clips
- *   gate.c      plusaudio/lib/rateGate.js, the one rate gate of the process
+ *   gate.c      lib/rateGate.js, the one rate gate of the process
  *   gemini*.c   the Gemini client (gemini.ts, geminiWire.ts, geminiSpeech.ts) on cbase's gRPC
  *   progress.c  the step each card being made is at (GET /progress)
  *   fill.c      Fill missing audio: which notes of a deck lack the clip of their text, and the clip of one note
@@ -168,7 +168,7 @@ void amgi_fill_note(arena *a, const amgi_ops *o, const char *mode, double note_i
 /* ---- detect.c: POST /decks/:id/languages/detect ---- */
 void amgi_deck_languages_detect(arena *a, const amgi_ops *o, const char *mode, double deck_id, cb_http_res *res);
 
-/* ---- media names (plusaudio/lib/audio-store.js) and the reference a field holds (deck.js) ---- */
+/* ---- media names (lib/audio-store.js) and the reference a field holds (deck.js) ---- */
 str amgi_media_name(arena *a, str text, str language, const char *extension);
 str amgi_audio_reference(arena *a, str filename);
 

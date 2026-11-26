@@ -1,4 +1,4 @@
-/* plusaudio/lib/collection/notes.js, notetypes.js, notetype-write.js and ids.js: notes and the
+/* lib/collection/notes.js, notetypes.js, notetype-write.js and ids.js: notes and the
  * cards their note type's templates imply, the note types themselves, and the ids and guids Anki
  * would give them. The same statements, in the same order, as the JavaScript. */
 #include <math.h>

@@ -25,7 +25,7 @@ const root = path.join(here, '..', '..', '..');
 const cdom = process.env.CDOM || path.join(root, 'cdom');
 const { sleep } = await import(path.join(cdom, 'tools', 'cdp.mjs'));
 const { launchChrome, shotter } = await import('./chrome.mjs');
-const { holdCollectionOpen } = createRequire(import.meta.url)('../../server/plusaudio/collection/helpers/anki-python.js');
+const { holdCollectionOpen } = createRequire(import.meta.url)('../../helpers/anki-python.js');
 const [base, name, work, outArg] = process.argv.slice(2);
 const out = outArg || path.join(here, '..', '..', '..', 'ui', 'out', 'shots');
 fs.mkdirSync(out, { recursive: true });

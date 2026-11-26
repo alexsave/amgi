@@ -98,7 +98,7 @@ static void text_rules(void) {
     CHECK(field_checksum(&c, S("existing one")) == 3521495218, "the checksum of a fixture note, as Anki stored it");
     CHECK(looks_romanized(&c, S("annyeong"), S("ko")) && !looks_romanized(&c, S("안녕 still"), S("KO")) &&
             !looks_romanized(&c, S("hola"), S("es")), "the romanisation guard");
-    /* random.js's pinned draws for seed 1 (tests/server/plusaudio/random.test.js) */
+    /* the pinned draws for seed 1, the same sequence as tests/helpers/random.js (tests/repo/random.test.mjs) */
     rng r;
     rng_seed(&r, 1);
     uint32_t want[] = {1828152527, 3394835397u, 2967886022u, 2251045104u};
@@ -124,11 +124,11 @@ static void text_rules(void) {
     ar_free(&a);
 }
 
-/* ---- the clips a field holds and the text it is read aloud as: the cases of tests/anki/addon/test_deck_text.py (golden values
- * recorded from the JavaScript the rules were ported from), for text.c ---- */
+/* ---- the clips a field holds and the text it is read aloud as: golden values recorded from the JavaScript and Python
+ * the rules were ported from, for text.c ---- */
 static void audio_text_rules(void) {
         arena a = {0};
-        /* the same eight fields the add-on's golden tests use, and what each came to */
+        /* eight fields, and what each came to */
         const char *fields[] = {
                 "",
                 "plain text",

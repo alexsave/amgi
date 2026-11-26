@@ -1,4 +1,4 @@
-/* The card generation policy in C: plusaudio/lib/cardGeneration/cardText.ts (the text policy: names,
+/* The card generation policy in C: lib/cardGeneration/cardText.ts (the text policy: names,
  * register, variety, readings, the speakable rules, Korean pronunciation), cardPrompts.ts (the
  * prompts), cardGeneration.ts (the structured calls, the corrective retry, the synthesise-
  * transcribe-judge loop) and src/server/anki/sideOrder.js (which side is which, by script).

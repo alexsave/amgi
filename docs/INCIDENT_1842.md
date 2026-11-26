@@ -34,7 +34,7 @@ Anki's own close wrote zeros over it, copying from a hole in its -wal that an am
 - Page 2 of the broken file is the col row from the 18:42:33 colpkg, byte for byte, except that col.mod is 22 s later: 18:42:35, after the colpkg.
 - Page 7 is the config page from the colpkg, except that curDeck is changed to the deck created at 18:41:01.
   So the surviving pages are Anki's own last transaction, written after its backup.
-  amgi's code never writes curDeck: grep finds no curDeck in server/collection or in plusaudio/lib.
+  amgi's code never writes curDeck: grep finds no curDeck in server/collection or in the retired Node `lib/`.
 - The colpkg's database is 58 pages, the same size as the broken file.
 - The file's mtime is 18:42:48, which fits Anki's close-time checkpoint (step 6), 15 s after the colpkg.
 - Sandbox reproduction with the anki library (Anki 26.09's rslib) and the 3523487 C server driving a real page load (GET /install, POST /install, GET /install, status, decks).
@@ -63,7 +63,7 @@ Anki's own close wrote zeros over it, copying from a hole in its -wal that an am
 - 18:42:13: Anki's last pre-backup change (the colpkg's col.mod).
 - 18:42:33: Anki's backup on close (colpkg). Anki's lock is gone from here on.
 - 18:42:33 to 18:42:35: a server open resets Anki's -wal.
-  Candidates: the C server on 3000 (Alex reloading after cdom's restart, plus the page's status polling), or the Node server on 3111, which runs the same `wal_checkpoint(TRUNCATE)` on every open (plusaudio/lib/collection/open.js:91).
+  Candidates: the C server on 3000 (Alex reloading after cdom's restart, plus the page's status polling), or the Node server on 3111, which runs the same `wal_checkpoint(TRUNCATE)` on every open (lib/collection/open.js:91).
   I can't tell which from the evidence: there is no server log for the window.
 - 18:42:35: Anki's last transaction (curDeck, col.mod), which lands after the hole.
 - 18:42:48: Anki's close writes the hole as zeros (mtime). The page then shows "file is not a database".
