@@ -29,19 +29,19 @@ var AUDIO_FILENAME = /\.(mp3|m4a|mp4|aac|oga|ogg|opus|wav|flac|webm)$/i;
 var store = globalThis.__amgi || (globalThis.__amgi = {});
 
 function attr(root, name) {
-  return root ? root.querySelector('[' + name + ']') : null;
+    return root ? root.querySelector('[' + name + ']') : null;
 }
 
 function action(root, name) {
-  return root ? root.querySelector('[data-amgi-action="' + name + '"]') : null;
+    return root ? root.querySelector('[data-amgi-action="' + name + '"]') : null;
 }
 
 function show(el, visible) {
-  if (el) el.hidden = !visible;
+    if (el) el.hidden = !visible;
 }
 
 function setText(el, text) {
-  if (el) el.textContent = text;
+    if (el) el.textContent = text;
 }
 
 /**
@@ -51,49 +51,49 @@ function setText(el, text) {
  * that does not implement the bridge simply leaves us to fall back.
  */
 function bridge(command) {
-  var send = globalThis.pycmd || globalThis.bridgeCommand;
-  if (typeof send !== 'function') return false;
-  try {
-    send(command);
-    return true;
-  } catch (error) {
-    return false;
-  }
+    var send = globalThis.pycmd || globalThis.bridgeCommand;
+    if (typeof send !== 'function') return false;
+    try {
+        send(command);
+        return true;
+    } catch (error) {
+        return false;
+    }
 }
 
 /** Pulls a playable filename out of whatever the note's audio field holds. */
 function resolveAudio(slot) {
-  if (!slot) return null;
+    if (!slot) return null;
 
-  // The recommended field content is an HTML media reference, because that is
-  // the form Anki's media tracker understands (rslib/src/text.rs,
-  // HTML_MEDIA_TAGS covers img|audio|video|object|source with src or data).
-  var existing = slot.querySelector('audio[src]');
-  if (existing) {
-    existing.preload = 'auto';
-    return existing;
-  }
+    // The recommended field content is an HTML media reference, because that is
+    // the form Anki's media tracker understands (rslib/src/text.rs,
+    // HTML_MEDIA_TAGS covers img|audio|video|object|source with src or data).
+    var existing = slot.querySelector('audio[src]');
+    if (existing) {
+        existing.preload = 'auto';
+        return existing;
+    }
 
-  var tagged = slot.querySelector('[src]');
-  var name = tagged ? tagged.getAttribute('src') : filenameFromText(slot.textContent);
-  if (!name) return null;
+    var tagged = slot.querySelector('[src]');
+    var name = tagged ? tagged.getAttribute('src') : filenameFromText(slot.textContent);
+    if (!name) return null;
 
-  // A relative name resolves against the page's base URL, which Anki points at
-  // the collection media folder: <base href="http://127.0.0.1:PORT/"> on
-  // desktop (qt/aqt/main.py, baseHTML) and the media server's base URL on
-  // AnkiDroid (CardViewerFragment.kt, loadDataWithBaseURL).
-  var audio = new Audio(name);
-  audio.preload = 'auto';
-  return audio;
+    // A relative name resolves against the page's base URL, which Anki points at
+    // the collection media folder: <base href="http://127.0.0.1:PORT/"> on
+    // desktop (qt/aqt/main.py, baseHTML) and the media server's base URL on
+    // AnkiDroid (CardViewerFragment.kt, loadDataWithBaseURL).
+    var audio = new Audio(name);
+    audio.preload = 'auto';
+    return audio;
 }
 
 function filenameFromText(text) {
-  var trimmed = (text || '').replace(/\s+/g, ' ').trim();
-  // Anki strips [sound:...] out of a rendered card before we ever see it, so
-  // this only fires in a plain browser preview of the same HTML.
-  var sound = trimmed.match(/^\[sound:(.+)\]$/);
-  if (sound) trimmed = sound[1].trim();
-  return AUDIO_FILENAME.test(trimmed) ? trimmed : null;
+    var trimmed = (text || '').replace(/\s+/g, ' ').trim();
+    // Anki strips [sound:...] out of a rendered card before we ever see it, so
+    // this only fires in a plain browser preview of the same HTML.
+    var sound = trimmed.match(/^\[sound:(.+)\]$/);
+    if (sound) trimmed = sound[1].trim();
+    return AUDIO_FILENAME.test(trimmed) ? trimmed : null;
 }
 
 /**
@@ -102,110 +102,110 @@ function filenameFromText(text) {
  * client refused to autoplay.
  */
 function stopCurrentPlayback(except) {
-  if (!store.playing || store.playing === except) return;
-  try {
-    store.playing.pause();
-    store.playing.currentTime = 0;
-  } catch (error) {
-    // A source torn down with its context; nothing left to stop.
-  }
+    if (!store.playing || store.playing === except) return;
+    try {
+        store.playing.pause();
+        store.playing.currentTime = 0;
+    } catch (error) {
+        // A source torn down with its context; nothing left to stop.
+    }
 }
 
 function playClip(element, ui, kind) {
-  return new Promise(function (resolve) {
-    if (!element) return resolve('missing');
+    return new Promise(function (resolve) {
+        if (!element) return resolve('missing');
 
-    // Fire-and-forget: it manages its own start and its own end (the
-    // element's own events), so playClip never needs to hold or await it.
-    //
-    // It registers as the card's current playback for the same reason the
-    // replay buttons do: the answer's own audio starts by itself on reveal,
-    // and pressing a replay while it is still going would otherwise leave
-    // two voices talking over each other with the visualizer following only
-    // one of them. Whichever of the two starts last wins.
-    stopCurrentPlayback(element);
-    store.playing = element;
-    beginVisualizing(element, kind);
+        // Fire-and-forget: it manages its own start and its own end (the
+        // element's own events), so playClip never needs to hold or await it.
+        //
+        // It registers as the card's current playback for the same reason the
+        // replay buttons do: the answer's own audio starts by itself on reveal,
+        // and pressing a replay while it is still going would otherwise leave
+        // two voices talking over each other with the visualizer following only
+        // one of them. Whichever of the two starts last wins.
+        stopCurrentPlayback(element);
+        store.playing = element;
+        beginVisualizing(element, kind);
 
-    var settled = false;
-    var timer = null;
+        var settled = false;
+        var timer = null;
 
-    function done(how) {
-      if (settled) return;
-      settled = true;
-      if (timer) clearTimeout(timer);
-      element.removeEventListener('ended', onEnded);
-      element.removeEventListener('error', onError);
-      element.removeEventListener('playing', onPlaying);
-      ui.offerPlay(null);
-      store.clip = null;
-      resolve(how);
-    }
+        function done(how) {
+            if (settled) return;
+            settled = true;
+            if (timer) clearTimeout(timer);
+            element.removeEventListener('ended', onEnded);
+            element.removeEventListener('error', onError);
+            element.removeEventListener('playing', onPlaying);
+            ui.offerPlay(null);
+            store.clip = null;
+            resolve(how);
+        }
 
-    function onEnded() {
-      done('ended');
-    }
-    function onError() {
-      done('error');
-    }
-    function onPlaying() {
-      // Once it is actually playing, the only cap that matters is the clip's
-      // own length.
-      if (timer) clearTimeout(timer);
-      timer = setTimeout(function () {
-        done('too-long');
-      }, CLIP_MAX_MS);
-    }
+        function onEnded() {
+            done('ended');
+        }
+        function onError() {
+            done('error');
+        }
+        function onPlaying() {
+            // Once it is actually playing, the only cap that matters is the clip's
+            // own length.
+            if (timer) clearTimeout(timer);
+            timer = setTimeout(function () {
+                done('too-long');
+            }, CLIP_MAX_MS);
+        }
 
-    element.addEventListener('ended', onEnded);
-    element.addEventListener('error', onError);
-    element.addEventListener('playing', onPlaying);
+        element.addEventListener('ended', onEnded);
+        element.addEventListener('error', onError);
+        element.addEventListener('playing', onPlaying);
 
-    // Lets a keypress cut the clip short.
-    store.clip = function () {
-      try {
-        element.pause();
-      } catch (error) {
-        // Pausing an element that never started is not worth reporting.
-      }
-      done('skipped');
-    };
+        // Lets a keypress cut the clip short.
+        store.clip = function () {
+            try {
+                element.pause();
+            } catch (error) {
+                // Pausing an element that never started is not worth reporting.
+            }
+            done('skipped');
+        };
 
-    try {
-      element.currentTime = 0;
-    } catch (error) {
-      // Seeking before metadata has loaded throws in some engines; harmless.
-    }
+        try {
+            element.currentTime = 0;
+        } catch (error) {
+            // Seeking before metadata has loaded throws in some engines; harmless.
+        }
 
-    timer = setTimeout(function () {
-      done('no-start');
-    }, CLIP_START_TIMEOUT_MS);
+        timer = setTimeout(function () {
+            done('no-start');
+        }, CLIP_START_TIMEOUT_MS);
 
-    var started;
-    try {
-      started = element.play();
-    } catch (error) {
-      return done('error');
-    }
+        var started;
+        try {
+            started = element.play();
+        } catch (error) {
+            return done('error');
+        }
 
-    if (started && typeof started.catch === 'function') {
-      started.catch(function () {
-        // Autoplay was refused: AnkiWeb in a browser, or a mobile client
-        // before the first tap. Waiting on the learner instead of timing out
-        // is the whole difference between a card that looks broken and one
-        // that asks for a tap.
-        if (settled) return;
-        if (timer) clearTimeout(timer);
-        timer = null;
-        ui.offerPlay(function () {
-          var retry = element.play();
-          if (retry && typeof retry.catch === 'function') retry.catch(function () {
-            done('blocked');
-          });
-        });
-      });
-    }
-  });
+        if (started && typeof started.catch === 'function') {
+            started.catch(function () {
+                // Autoplay was refused: AnkiWeb in a browser, or a mobile client
+                // before the first tap. Waiting on the learner instead of timing out
+                // is the whole difference between a card that looks broken and one
+                // that asks for a tap.
+                if (settled) return;
+                if (timer) clearTimeout(timer);
+                timer = null;
+                ui.offerPlay(function () {
+                    var retry = element.play();
+                    if (retry && typeof retry.catch === 'function') retry.catch(function () {
+                        done('blocked');
+                    });
+                });
+            });
+        }
+    });
 }
 
 /**
@@ -215,110 +215,110 @@ function playClip(element, ui, kind) {
  * to look at it.
  */
 function ensureAudioContext() {
-  var Ctx = globalThis.AudioContext || globalThis.webkitAudioContext;
-  if (!Ctx) return null;
-  var context = store.audioContext;
-  if (context && context.state === 'closed') context = null;
-  if (!context) {
-    try {
-      context = new Ctx();
-    } catch (error) {
-      return null;
+    var Ctx = globalThis.AudioContext || globalThis.webkitAudioContext;
+    if (!Ctx) return null;
+    var context = store.audioContext;
+    if (context && context.state === 'closed') context = null;
+    if (!context) {
+        try {
+            context = new Ctx();
+        } catch (error) {
+            return null;
+        }
+        store.audioContext = context;
     }
-    store.audioContext = context;
-  }
-  return context;
+    return context;
 }
 
 /** The microphone, if this client has one to give. */
 function microphone() {
-  var media = globalThis.navigator && navigator.mediaDevices;
-  if (!media || typeof media.getUserMedia !== 'function') {
-    return Promise.reject(new Error('this Anki client does not expose a microphone to cards'));
-  }
-  return media.getUserMedia({ audio: true }).then(function (stream) {
-    var context = ensureAudioContext();
-    if (!context) {
-      stream.getTracks().forEach(function (track) {
-        track.stop();
-      });
-      throw new Error('no Web Audio in this client');
+    var media = globalThis.navigator && navigator.mediaDevices;
+    if (!media || typeof media.getUserMedia !== 'function') {
+        return Promise.reject(new Error('this Anki client does not expose a microphone to cards'));
     }
-    if (context.state === 'suspended' && context.resume) context.resume();
-    store.stream = stream;
-    store.recorder = startRecorder(stream);
-    return { audioContext: context, stream: stream };
-  });
+    return media.getUserMedia({ audio: true }).then(function (stream) {
+        var context = ensureAudioContext();
+        if (!context) {
+            stream.getTracks().forEach(function (track) {
+                track.stop();
+            });
+            throw new Error('no Web Audio in this client');
+        }
+        if (context.state === 'suspended' && context.resume) context.resume();
+        store.stream = stream;
+        store.recorder = startRecorder(stream);
+        return { audioContext: context, stream: stream };
+    });
 }
 
 /** Recording is a bonus: the "You" replay button. Never let it break the loop. */
 function startRecorder(stream) {
-  if (AMGI_CONFIG.record === false) return null;
-  if (typeof globalThis.MediaRecorder !== 'function') return null;
-  try {
-    var recorder = new MediaRecorder(stream);
-    var chunks = [];
-    recorder.addEventListener('dataavailable', function (event) {
-      if (event.data && event.data.size) chunks.push(event.data);
-    });
-    recorder.chunks = chunks;
-    recorder.start();
-    return recorder;
-  } catch (error) {
-    return null;
-  }
+    if (AMGI_CONFIG.record === false) return null;
+    if (typeof globalThis.MediaRecorder !== 'function') return null;
+    try {
+        var recorder = new MediaRecorder(stream);
+        var chunks = [];
+        recorder.addEventListener('dataavailable', function (event) {
+            if (event.data && event.data.size) chunks.push(event.data);
+        });
+        recorder.chunks = chunks;
+        recorder.start();
+        return recorder;
+    } catch (error) {
+        return null;
+    }
 }
 
 function stopMicrophone() {
-  var stream = store.stream;
-  store.stream = null;
-  var recorder = store.recorder;
-  store.recorder = null;
+    var stream = store.stream;
+    store.stream = null;
+    var recorder = store.recorder;
+    store.recorder = null;
 
-  return new Promise(function (resolve) {
-    function finish(blob) {
-      if (stream) {
-        stream.getTracks().forEach(function (track) {
-          track.stop();
+    return new Promise(function (resolve) {
+        function finish(blob) {
+            if (stream) {
+                stream.getTracks().forEach(function (track) {
+                    track.stop();
+                });
+            }
+            resolve(blob || null);
+        }
+
+        if (!recorder || recorder.state === 'inactive') return finish(null);
+        recorder.addEventListener('stop', function () {
+            try {
+                finish(new Blob(recorder.chunks, { type: recorder.mimeType || 'audio/webm' }));
+            } catch (error) {
+                finish(null);
+            }
         });
-      }
-      resolve(blob || null);
-    }
-
-    if (!recorder || recorder.state === 'inactive') return finish(null);
-    recorder.addEventListener('stop', function () {
-      try {
-        finish(new Blob(recorder.chunks, { type: recorder.mimeType || 'audio/webm' }));
-      } catch (error) {
-        finish(null);
-      }
+        try {
+            recorder.stop();
+        } catch (error) {
+            finish(null);
+        }
     });
-    try {
-      recorder.stop();
-    } catch (error) {
-      finish(null);
-    }
-  });
 }
 
 function rememberRecording(blob) {
-  forgetRecording();
-  if (!blob || !globalThis.URL || !URL.createObjectURL) return;
-  try {
-    store.recordingUrl = URL.createObjectURL(blob);
-  } catch (error) {
-    store.recordingUrl = null;
-  }
+    forgetRecording();
+    if (!blob || !globalThis.URL || !URL.createObjectURL) return;
+    try {
+        store.recordingUrl = URL.createObjectURL(blob);
+    } catch (error) {
+        store.recordingUrl = null;
+    }
 }
 
 function forgetRecording() {
-  if (!store.recordingUrl) return;
-  try {
-    URL.revokeObjectURL(store.recordingUrl);
-  } catch (error) {
-    // Already gone.
-  }
-  store.recordingUrl = null;
+    if (!store.recordingUrl) return;
+    try {
+        URL.revokeObjectURL(store.recordingUrl);
+    } catch (error) {
+        // Already gone.
+    }
+    store.recordingUrl = null;
 }
 
 // ---- the visualizer -------------------------------------------------------
@@ -415,45 +415,45 @@ function forgetRecording() {
 // is.
 
 var VISUALIZER_FALLBACK_COLORS = {
-  cue: 'hsl(212, 88%, 62%)',
-  you: 'hsl(38, 75%, 58%)',
-  native: 'hsl(158, 50%, 50%)',
-  neutral: 'hsl(215, 12%, 60%)',
+    cue: 'hsl(212, 88%, 62%)',
+    you: 'hsl(38, 75%, 58%)',
+    native: 'hsl(158, 50%, 50%)',
+    neutral: 'hsl(215, 12%, 60%)',
 };
 
 function readColor(root, name, fallback) {
-  try {
-    var value = globalThis.getComputedStyle(root).getPropertyValue(name);
-    return value && value.trim() ? value.trim() : fallback;
-  } catch (error) {
-    return fallback;
-  }
+    try {
+        var value = globalThis.getComputedStyle(root).getPropertyValue(name);
+        return value && value.trim() ? value.trim() : fallback;
+    } catch (error) {
+        return fallback;
+    }
 }
 
 function readNumber(root, name, fallback) {
-  try {
-    var value = parseFloat(globalThis.getComputedStyle(root).getPropertyValue(name));
-    return Number.isFinite(value) ? value : fallback;
-  } catch (error) {
-    return fallback;
-  }
+    try {
+        var value = parseFloat(globalThis.getComputedStyle(root).getPropertyValue(name));
+        return Number.isFinite(value) ? value : fallback;
+    } catch (error) {
+        return fallback;
+    }
 }
 
 function sourceColors(root) {
-  return {
-    cue: readColor(root, '--amgi-color-cue', VISUALIZER_FALLBACK_COLORS.cue),
-    you: readColor(root, '--amgi-color-you', VISUALIZER_FALLBACK_COLORS.you),
-    native: readColor(root, '--amgi-color-native', VISUALIZER_FALLBACK_COLORS.native),
-    neutral: readColor(root, '--amgi-color-neutral', VISUALIZER_FALLBACK_COLORS.neutral),
-  };
+    return {
+        cue: readColor(root, '--amgi-color-cue', VISUALIZER_FALLBACK_COLORS.cue),
+        you: readColor(root, '--amgi-color-you', VISUALIZER_FALLBACK_COLORS.you),
+        native: readColor(root, '--amgi-color-native', VISUALIZER_FALLBACK_COLORS.native),
+        neutral: readColor(root, '--amgi-color-neutral', VISUALIZER_FALLBACK_COLORS.neutral),
+    };
 }
 
 function reducedMotionPreferred() {
-  try {
-    return !!(globalThis.matchMedia && globalThis.matchMedia('(prefers-reduced-motion: reduce)').matches);
-  } catch (error) {
-    return false;
-  }
+    try {
+        return !!(globalThis.matchMedia && globalThis.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    } catch (error) {
+        return false;
+    }
 }
 
 // The ring this replaced (see git history) drew 28 wedge bars around a fixed
@@ -507,7 +507,7 @@ var MAX_HZ = 6000; // the top of the consonant energy that gives the ridge its t
 
 /** How many bands fit across a canvas this wide, at the intended band width. */
 function bandsFor(width) {
-  return Math.max(MIN_BANDS, Math.min(MAX_BANDS, Math.round(width / BAND_PX) || MIN_BANDS));
+    return Math.max(MIN_BANDS, Math.min(MAX_BANDS, Math.round(width / BAND_PX) || MIN_BANDS));
 }
 
 // How much of its full height a cap sheds each frame. The owner chose this
@@ -536,331 +536,331 @@ var BASELINE_HEIGHT = 2;
  * caller never needs to check first.
  */
 function createVisualizer(root) {
-  var noop = { draw: function () {}, stop: function () {} };
-  if (typeof globalThis.requestAnimationFrame !== 'function') return noop;
+    var noop = { draw: function () {}, stop: function () {} };
+    if (typeof globalThis.requestAnimationFrame !== 'function') return noop;
 
-  var canvas = attr(root, 'data-amgi-visualizer');
-  if (!canvas || typeof canvas.getContext !== 'function') return noop;
+    var canvas = attr(root, 'data-amgi-visualizer');
+    if (!canvas || typeof canvas.getContext !== 'function') return noop;
 
-  var ctx;
-  try {
-    ctx = canvas.getContext('2d');
-  } catch (error) {
-    ctx = null;
-  }
-  if (!ctx) return noop;
-
-  var colors = sourceColors(root);
-  // A multiplier on the alpha below, not a replacement for it - lets the
-  // whole card be retuned lighter or heavier from CSS alone.
-  var opacityScale = readNumber(root, '--amgi-visualizer-opacity', 1);
-  var rafId = null;
-  var timeBuffer = null;
-  var freqBuffer = null;
-  var barState = null;
-  var peakState = null;
-  // The colour the last real draw() call used, so stop() can leave the ring
-  // in that colour instead of clearing it - see the file header comment for
-  // why this is deliberately not --amgi-color-neutral. Stays null until a
-  // genuine source has engaged the canvas at least once.
-  var lastColor = null;
-
-  function sizeFor() {
-    var dpr = globalThis.devicePixelRatio || 1;
-    var rect = canvas.getBoundingClientRect();
-    var width = rect.width || canvas.clientWidth || 0;
-    var height = rect.height || canvas.clientHeight || 0;
-    var pixelWidth = Math.round(width * dpr);
-    var pixelHeight = Math.round(height * dpr);
-    if (width && (canvas.width !== pixelWidth || canvas.height !== pixelHeight)) {
-      canvas.width = pixelWidth;
-      canvas.height = pixelHeight;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    }
-    return { width: width, height: height };
-  }
-
-  function stop() {
-    if (rafId) cancelAnimationFrame(rafId);
-    rafId = null;
-    var size = sizeFor();
-    // Once a real source has genuinely drawn here, leave the resting
-    // baseline on screen in that source's own colour rather than clearing it
-    // - see the file header comment for why this is a deliberate choice, not
-    // a fallback.
-    // Before that has ever happened, size.width/height come back 0 (the
-    // canvas is still at its untouched default), so this falls through to
-    // the plain clear below exactly as it always has.
-    if (lastColor && size.width && size.height) {
-      paint(size, lastColor, 0, null, null);
-      return;
-    }
-    ctx.clearRect(0, 0, size.width || canvas.width, size.height || canvas.height);
-  }
-
-  /**
-   * One frame's worth of time-domain RMS, 0..1. Works the same whether
-   * `analyser` is the mic's own (voiceActivity.js, fftSize 1024) or a clip's
-   * (attachVisualizerSource below, fftSize 1024 to match) - the caller never
-   * needs to know which. Drives the bars' shared opacity (paint()'s
-   * `alpha`) - the fixed circle never reads this at all, on purpose, see
-   * paint()'s own comment.
-   */
-  function levelNow(analyser) {
-    if (!timeBuffer || timeBuffer.length !== analyser.fftSize) {
-      timeBuffer = new Float32Array(analyser.fftSize);
-    }
+    var ctx;
     try {
-      analyser.getFloatTimeDomainData(timeBuffer);
+        ctx = canvas.getContext('2d');
     } catch (error) {
-      return null;
+        ctx = null;
     }
-    var sumSquares = 0;
-    for (var i = 0; i < timeBuffer.length; i++) sumSquares += timeBuffer[i] * timeBuffer[i];
-    var rms = Math.sqrt(sumSquares / timeBuffer.length);
-    // Ordinary speech sits well under 0.3 RMS; this gain is tuned so a normal
-    // answer swings the visualizer's opacity noticeably without pinning it to
-    // full strength on every syllable.
-    return Math.min(1, rms * 5);
-  }
+    if (!ctx) return noop;
 
-  /**
-   * `count` magnitudes (0..1), one per log-spaced frequency between MIN_HZ
-   * and MAX_HZ, read off the same analyser levelNow uses. Log spacing (not
-   * linear) is what keeps a voice spread across the whole strip: speech
-   * energy falls off fast above a couple of kHz, so a linear sweep from 0Hz
-   * to the Nyquist frequency spends almost every band above where a voice
-   * has anything left to show, and the ridge becomes one lump against the
-   * left edge.
-   *
-   * Unlike the ring this replaced, nothing is mirrored: the ridge is a plain
-   * low-to-high sweep from left to right. The mirror existed only so a
-   * circle would come out symmetric rather than one-sided, and a strip has
-   * no such problem to solve - it just costs half the resolution to do it.
-   */
-  function barLevels(analyser, count) {
-    var bins = analyser.frequencyBinCount;
-    if (!freqBuffer || freqBuffer.length !== bins) freqBuffer = new Uint8Array(bins);
-    try {
-      analyser.getByteFrequencyData(freqBuffer);
-    } catch (error) {
-      return null;
-    }
-    var sampleRate = (analyser.context && analyser.context.sampleRate) || 48000;
-    var hzPerBin = sampleRate / analyser.fftSize;
-    var levels = new Array(count);
-    for (var k = 0; k < count; k++) {
-      var lo = MIN_HZ * Math.pow(MAX_HZ / MIN_HZ, k / count);
-      var hi = MIN_HZ * Math.pow(MAX_HZ / MIN_HZ, (k + 1) / count);
-      levels[k] = spectrumBetween(bins, lo / hzPerBin, hi / hzPerBin) / 255;
-    }
-    return levels;
-  }
+    var colors = sourceColors(root);
+    // A multiplier on the alpha below, not a replacement for it - lets the
+    // whole card be retuned lighter or heavier from CSS alone.
+    var opacityScale = readNumber(root, '--amgi-visualizer-opacity', 1);
+    var rafId = null;
+    var timeBuffer = null;
+    var freqBuffer = null;
+    var barState = null;
+    var peakState = null;
+    // The colour the last real draw() call used, so stop() can leave the ring
+    // in that colour instead of clearing it - see the file header comment for
+    // why this is deliberately not --amgi-color-neutral. Stays null until a
+    // genuine source has engaged the canvas at least once.
+    var lastColor = null;
 
-  /**
-   * The spectrum's average value between two bin positions, which are
-   * fractional on purpose.
-   *
-   * Rounding each band to whole bins is what produced the stair-steps this
-   * replaced. Log spacing makes the low bands much narrower than the high
-   * ones - at the bottom of the range a band can be a few Hz wide against a
-   * bin tens of Hz wide - so several neighbouring bands rounded to the SAME
-   * single bin and drew the identical height. The result was a run of wide
-   * flat plateaus across the loud left-hand half of the strip, exactly where
-   * a voice has the most to show, and it got worse the more bands there
-   * were: a finer strip is a strictly worse picture if the extra bands are
-   * copies.
-   *
-   * Reading the spectrum as a piecewise-linear curve and integrating it
-   * across the band's real edges removes that entirely. Two bands narrower
-   * than one bin still differ, because they sample that bin's slope at
-   * different places, so the strip ramps where the spectrum ramps instead of
-   * stepping where the arithmetic happened to round.
-   */
-  function spectrumBetween(bins, from, to) {
-    var lo = Math.max(0, Math.min(bins - 1, from));
-    var hi = Math.max(lo, Math.min(bins - 1, to));
-    // A band wider than a bin is sampled once per bin it covers, a narrower
-    // one at both its edges - enough either way, since the curve being
-    // integrated is itself only linear between bins.
-    var steps = Math.max(2, Math.ceil(hi - lo) + 1);
-    var sum = 0;
-    for (var i = 0; i < steps; i++) {
-      sum += binAt(bins, lo + ((hi - lo) * i) / (steps - 1));
-    }
-    return sum / steps;
-  }
-
-  /** The spectrum at a fractional bin position, interpolated between its neighbours. */
-  function binAt(bins, position) {
-    var floor = Math.floor(position);
-    var next = Math.min(bins - 1, floor + 1);
-    var fraction = position - floor;
-    return freqBuffer[floor] * (1 - fraction) + freqBuffer[next] * fraction;
-  }
-
-  /**
-   * One frame of the ridge, across the whole canvas.
-   *
-   * `bars` are this frame's band magnitudes and `peaks` the falling caps;
-   * either may be null, which draws the resting state - a baseline rule the
-   * width of the card in the source's own colour. That resting state is
-   * load-bearing: it is what stop() leaves behind and what a silent room
-   * shows, and it replaces the job the old ring's fixed circle did.
-   *
-   * `level` drives the body's opacity only. The caps are drawn at a flat
-   * alpha on purpose: they are the part that has to stay legible when the
-   * body has collapsed, which is exactly when `level` is near zero.
-   */
-  function paint(size, color, level, bars, peaks) {
-    // The count comes from the data when there is data, and from the width
-    // when there is not (the resting baseline), so paint never has to be
-    // told separately what the rest of the frame already knows.
-    var count = bars ? bars.length : bandsFor(size.width);
-    var cell = size.width / count;
-    var room = size.height;
-    var floor = size.height;
-
-    ctx.clearRect(0, 0, size.width, size.height);
-    ctx.fillStyle = color;
-
-    // The body, one fillRect per band, each at its own band's alpha.
-    //
-    // Per-bar alpha is the point of the whole drawing: a band carrying real
-    // energy is brighter than a band that is nearly silent, so the strip
-    // carries volume twice over, in height and in weight. This was briefly a
-    // single path filled once, to kill the lighter line where two bars
-    // overlapped - which threw away the per-band alpha as collateral and lit
-    // the whole strip uniformly no matter which part of the spectrum was
-    // actually loud.
-    var heights = [];
-    var alphas = [];
-    for (var i = 0; i < count; i++) {
-      var mag = bars ? bars[i] : 0;
-      heights.push(BASELINE_HEIGHT + mag * (room - BASELINE_HEIGHT));
-      alphas.push(Math.max(0, Math.min(1, (0.14 + 0.52 * mag) * opacityScale * (0.55 + 0.45 * level))));
-      ctx.globalAlpha = alphas[i];
-      ctx.fillRect(i * cell, floor - heights[i], cell, heights[i]);
-    }
-
-    // The seam between one band and the next, drawn on purpose rather than
-    // left to happen.
-    //
-    // Those lines are what makes the strip read as seventy-two separate
-    // measurements instead of one shape, so they are too important to be an
-    // antialiasing side effect of bars overlapping by half a pixel - that
-    // only shows up at all at certain widths and pixel ratios, and its
-    // strength is whatever the compositor happens to produce.
-    //
-    // A seam stops at the SHORTER of the two bars it divides. Run to the
-    // taller one instead and every seam beside a tall neighbour sticks up
-    // into empty space, and the strip grows a row of comb teeth along its
-    // skyline.
-    for (var j = 1; j < count; j++) {
-      var shared = Math.min(heights[j - 1], heights[j]);
-      ctx.globalAlpha = Math.max(0, Math.min(1, Math.max(alphas[j - 1], alphas[j]) * 1.9));
-      ctx.fillRect(j * cell - 0.5, floor - shared, 1, shared);
-    }
-
-    // The caps: one per band, drawn half a pixel wider on each side than the
-    // bar they sit on, so a cap reads as a lid across its band rather than
-    // as a slightly narrower line floating on it. Flat alpha, unlike the
-    // body - a cap has to stay legible exactly when its band has gone quiet,
-    // which is when a level-driven alpha would fade it out.
-    ctx.globalAlpha = Math.max(0, Math.min(1, 0.9 * opacityScale));
-    for (var k = 0; k < count; k++) {
-      var peak = peaks ? peaks[k] : 0;
-      var capY = floor - CAP_THICKNESS - peak * (room - BASELINE_HEIGHT);
-      ctx.fillRect(k * cell - 0.5, capY, cell + 1, CAP_THICKNESS);
-    }
-    ctx.globalAlpha = 1;
-  }
-
-  /** @param {AnalyserNode|null} analyser @param {'cue'|'you'|'native'} kind */
-  function draw(analyser, kind) {
-    if (rafId) {
-      cancelAnimationFrame(rafId);
-      rafId = null;
-    }
-    if (!analyser || typeof analyser.getFloatTimeDomainData !== 'function') {
-      stop();
-      return;
-    }
-    // An audio source this file doesn't recognise still gets drawn, just in
-    // the neutral colour - a cosmetic feature is never a reason to throw.
-    var color = colors[kind] || colors.neutral;
-    // Recorded so stop() can leave the baseline in this colour instead of
-    // clearing it once this source ends - see the file header comment.
-    lastColor = color;
-
-    if (reducedMotionPreferred()) {
-      // The resting baseline instead of nothing: reduced motion should mean
-      // no animation, not no indicator that a microphone is open or a clip
-      // is playing. Bars and caps stay at rest (paint's `bars ? ... : 0`),
-      // so this is a single still frame rather than motion with the loop
-      // taken out - and since the baseline is the same thing a silent room
-      // shows anyway, this still frame is not a degraded version of the
-      // normal one, it is one real state of it.
-      var still = sizeFor();
-      if (still.width && still.height) paint(still, color, 0.12, null, null);
-      return;
-    }
-
-    var level = 0;
-    barState = null;
-    peakState = null;
-
-    function frame() {
-      var size = sizeFor();
-      if (!size.width || !size.height) {
-        rafId = requestAnimationFrame(frame);
-        return;
-      }
-      var raw = levelNow(analyser);
-      if (raw === null) {
-        stop();
-        return;
-      }
-      // Fast attack, slow release: the visualizer's opacity should jump to a
-      // loud syllable at once but ease back down between words, not flicker
-      // on every dip.
-      level += (raw - level) * (raw > level ? 0.6 : 0.15);
-
-      // Recomputed every frame rather than once, because the card is
-      // resizable: Anki's window can be dragged wider mid-review, and a
-      // strip that kept the old count would either stretch its bands or
-      // leave a gap at the edge. A change in count restarts the smoothing
-      // from silence, which is correct - the old values described bands
-      // that no longer exist.
-      var count = bandsFor(size.width);
-      if (!barState || barState.length !== count) {
-        barState = new Array(count).fill(0);
-        peakState = new Array(count).fill(0);
-      }
-
-      var rawBars = barLevels(analyser, count);
-      if (rawBars) {
-        for (var i = 0; i < count; i++) {
-          var b = rawBars[i];
-          // The body is smoothed both ways; the cap is not smoothed at all
-          // on the way up. A cap exists to record the loudest instant the
-          // band actually reached, so easing it upward would make it record
-          // something quieter than what happened, which is the one thing it
-          // is for. Downward it ignores the body's release entirely and
-          // sheds CAP_FALL a frame - see CAP_FALL for why that speed.
-          barState[i] += (b - barState[i]) * (b > barState[i] ? 0.6 : 0.2);
-          peakState[i] = Math.max(barState[i], peakState[i] - CAP_FALL);
+    function sizeFor() {
+        var dpr = globalThis.devicePixelRatio || 1;
+        var rect = canvas.getBoundingClientRect();
+        var width = rect.width || canvas.clientWidth || 0;
+        var height = rect.height || canvas.clientHeight || 0;
+        var pixelWidth = Math.round(width * dpr);
+        var pixelHeight = Math.round(height * dpr);
+        if (width && (canvas.width !== pixelWidth || canvas.height !== pixelHeight)) {
+            canvas.width = pixelWidth;
+            canvas.height = pixelHeight;
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         }
-      }
-
-      paint(size, color, level, barState, peakState);
-      rafId = requestAnimationFrame(frame);
+        return { width: width, height: height };
     }
 
-    rafId = requestAnimationFrame(frame);
-  }
+    function stop() {
+        if (rafId) cancelAnimationFrame(rafId);
+        rafId = null;
+        var size = sizeFor();
+        // Once a real source has genuinely drawn here, leave the resting
+        // baseline on screen in that source's own colour rather than clearing it
+        // - see the file header comment for why this is a deliberate choice, not
+        // a fallback.
+        // Before that has ever happened, size.width/height come back 0 (the
+        // canvas is still at its untouched default), so this falls through to
+        // the plain clear below exactly as it always has.
+        if (lastColor && size.width && size.height) {
+            paint(size, lastColor, 0, null, null);
+            return;
+        }
+        ctx.clearRect(0, 0, size.width || canvas.width, size.height || canvas.height);
+    }
 
-  return { draw: draw, stop: stop };
+    /**
+     * One frame's worth of time-domain RMS, 0..1. Works the same whether
+     * `analyser` is the mic's own (voiceActivity.js, fftSize 1024) or a clip's
+     * (attachVisualizerSource below, fftSize 1024 to match) - the caller never
+     * needs to know which. Drives the bars' shared opacity (paint()'s
+     * `alpha`) - the fixed circle never reads this at all, on purpose, see
+     * paint()'s own comment.
+     */
+    function levelNow(analyser) {
+        if (!timeBuffer || timeBuffer.length !== analyser.fftSize) {
+            timeBuffer = new Float32Array(analyser.fftSize);
+        }
+        try {
+            analyser.getFloatTimeDomainData(timeBuffer);
+        } catch (error) {
+            return null;
+        }
+        var sumSquares = 0;
+        for (var i = 0; i < timeBuffer.length; i++) sumSquares += timeBuffer[i] * timeBuffer[i];
+        var rms = Math.sqrt(sumSquares / timeBuffer.length);
+        // Ordinary speech sits well under 0.3 RMS; this gain is tuned so a normal
+        // answer swings the visualizer's opacity noticeably without pinning it to
+        // full strength on every syllable.
+        return Math.min(1, rms * 5);
+    }
+
+    /**
+     * `count` magnitudes (0..1), one per log-spaced frequency between MIN_HZ
+     * and MAX_HZ, read off the same analyser levelNow uses. Log spacing (not
+     * linear) is what keeps a voice spread across the whole strip: speech
+     * energy falls off fast above a couple of kHz, so a linear sweep from 0Hz
+     * to the Nyquist frequency spends almost every band above where a voice
+     * has anything left to show, and the ridge becomes one lump against the
+     * left edge.
+     *
+     * Unlike the ring this replaced, nothing is mirrored: the ridge is a plain
+     * low-to-high sweep from left to right. The mirror existed only so a
+     * circle would come out symmetric rather than one-sided, and a strip has
+     * no such problem to solve - it just costs half the resolution to do it.
+     */
+    function barLevels(analyser, count) {
+        var bins = analyser.frequencyBinCount;
+        if (!freqBuffer || freqBuffer.length !== bins) freqBuffer = new Uint8Array(bins);
+        try {
+            analyser.getByteFrequencyData(freqBuffer);
+        } catch (error) {
+            return null;
+        }
+        var sampleRate = (analyser.context && analyser.context.sampleRate) || 48000;
+        var hzPerBin = sampleRate / analyser.fftSize;
+        var levels = new Array(count);
+        for (var k = 0; k < count; k++) {
+            var lo = MIN_HZ * Math.pow(MAX_HZ / MIN_HZ, k / count);
+            var hi = MIN_HZ * Math.pow(MAX_HZ / MIN_HZ, (k + 1) / count);
+            levels[k] = spectrumBetween(bins, lo / hzPerBin, hi / hzPerBin) / 255;
+        }
+        return levels;
+    }
+
+    /**
+     * The spectrum's average value between two bin positions, which are
+     * fractional on purpose.
+     *
+     * Rounding each band to whole bins is what produced the stair-steps this
+     * replaced. Log spacing makes the low bands much narrower than the high
+     * ones - at the bottom of the range a band can be a few Hz wide against a
+     * bin tens of Hz wide - so several neighbouring bands rounded to the SAME
+     * single bin and drew the identical height. The result was a run of wide
+     * flat plateaus across the loud left-hand half of the strip, exactly where
+     * a voice has the most to show, and it got worse the more bands there
+     * were: a finer strip is a strictly worse picture if the extra bands are
+     * copies.
+     *
+     * Reading the spectrum as a piecewise-linear curve and integrating it
+     * across the band's real edges removes that entirely. Two bands narrower
+     * than one bin still differ, because they sample that bin's slope at
+     * different places, so the strip ramps where the spectrum ramps instead of
+     * stepping where the arithmetic happened to round.
+     */
+    function spectrumBetween(bins, from, to) {
+        var lo = Math.max(0, Math.min(bins - 1, from));
+        var hi = Math.max(lo, Math.min(bins - 1, to));
+        // A band wider than a bin is sampled once per bin it covers, a narrower
+        // one at both its edges - enough either way, since the curve being
+        // integrated is itself only linear between bins.
+        var steps = Math.max(2, Math.ceil(hi - lo) + 1);
+        var sum = 0;
+        for (var i = 0; i < steps; i++) {
+            sum += binAt(bins, lo + ((hi - lo) * i) / (steps - 1));
+        }
+        return sum / steps;
+    }
+
+    /** The spectrum at a fractional bin position, interpolated between its neighbours. */
+    function binAt(bins, position) {
+        var floor = Math.floor(position);
+        var next = Math.min(bins - 1, floor + 1);
+        var fraction = position - floor;
+        return freqBuffer[floor] * (1 - fraction) + freqBuffer[next] * fraction;
+    }
+
+    /**
+     * One frame of the ridge, across the whole canvas.
+     *
+     * `bars` are this frame's band magnitudes and `peaks` the falling caps;
+     * either may be null, which draws the resting state - a baseline rule the
+     * width of the card in the source's own colour. That resting state is
+     * load-bearing: it is what stop() leaves behind and what a silent room
+     * shows, and it replaces the job the old ring's fixed circle did.
+     *
+     * `level` drives the body's opacity only. The caps are drawn at a flat
+     * alpha on purpose: they are the part that has to stay legible when the
+     * body has collapsed, which is exactly when `level` is near zero.
+     */
+    function paint(size, color, level, bars, peaks) {
+        // The count comes from the data when there is data, and from the width
+        // when there is not (the resting baseline), so paint never has to be
+        // told separately what the rest of the frame already knows.
+        var count = bars ? bars.length : bandsFor(size.width);
+        var cell = size.width / count;
+        var room = size.height;
+        var floor = size.height;
+
+        ctx.clearRect(0, 0, size.width, size.height);
+        ctx.fillStyle = color;
+
+        // The body, one fillRect per band, each at its own band's alpha.
+        //
+        // Per-bar alpha is the point of the whole drawing: a band carrying real
+        // energy is brighter than a band that is nearly silent, so the strip
+        // carries volume twice over, in height and in weight. This was briefly a
+        // single path filled once, to kill the lighter line where two bars
+        // overlapped - which threw away the per-band alpha as collateral and lit
+        // the whole strip uniformly no matter which part of the spectrum was
+        // actually loud.
+        var heights = [];
+        var alphas = [];
+        for (var i = 0; i < count; i++) {
+            var mag = bars ? bars[i] : 0;
+            heights.push(BASELINE_HEIGHT + mag * (room - BASELINE_HEIGHT));
+            alphas.push(Math.max(0, Math.min(1, (0.14 + 0.52 * mag) * opacityScale * (0.55 + 0.45 * level))));
+            ctx.globalAlpha = alphas[i];
+            ctx.fillRect(i * cell, floor - heights[i], cell, heights[i]);
+        }
+
+        // The seam between one band and the next, drawn on purpose rather than
+        // left to happen.
+        //
+        // Those lines are what makes the strip read as seventy-two separate
+        // measurements instead of one shape, so they are too important to be an
+        // antialiasing side effect of bars overlapping by half a pixel - that
+        // only shows up at all at certain widths and pixel ratios, and its
+        // strength is whatever the compositor happens to produce.
+        //
+        // A seam stops at the SHORTER of the two bars it divides. Run to the
+        // taller one instead and every seam beside a tall neighbour sticks up
+        // into empty space, and the strip grows a row of comb teeth along its
+        // skyline.
+        for (var j = 1; j < count; j++) {
+            var shared = Math.min(heights[j - 1], heights[j]);
+            ctx.globalAlpha = Math.max(0, Math.min(1, Math.max(alphas[j - 1], alphas[j]) * 1.9));
+            ctx.fillRect(j * cell - 0.5, floor - shared, 1, shared);
+        }
+
+        // The caps: one per band, drawn half a pixel wider on each side than the
+        // bar they sit on, so a cap reads as a lid across its band rather than
+        // as a slightly narrower line floating on it. Flat alpha, unlike the
+        // body - a cap has to stay legible exactly when its band has gone quiet,
+        // which is when a level-driven alpha would fade it out.
+        ctx.globalAlpha = Math.max(0, Math.min(1, 0.9 * opacityScale));
+        for (var k = 0; k < count; k++) {
+            var peak = peaks ? peaks[k] : 0;
+            var capY = floor - CAP_THICKNESS - peak * (room - BASELINE_HEIGHT);
+            ctx.fillRect(k * cell - 0.5, capY, cell + 1, CAP_THICKNESS);
+        }
+        ctx.globalAlpha = 1;
+    }
+
+    /** @param {AnalyserNode|null} analyser @param {'cue'|'you'|'native'} kind */
+    function draw(analyser, kind) {
+        if (rafId) {
+            cancelAnimationFrame(rafId);
+            rafId = null;
+        }
+        if (!analyser || typeof analyser.getFloatTimeDomainData !== 'function') {
+            stop();
+            return;
+        }
+        // An audio source this file doesn't recognise still gets drawn, just in
+        // the neutral colour - a cosmetic feature is never a reason to throw.
+        var color = colors[kind] || colors.neutral;
+        // Recorded so stop() can leave the baseline in this colour instead of
+        // clearing it once this source ends - see the file header comment.
+        lastColor = color;
+
+        if (reducedMotionPreferred()) {
+            // The resting baseline instead of nothing: reduced motion should mean
+            // no animation, not no indicator that a microphone is open or a clip
+            // is playing. Bars and caps stay at rest (paint's `bars ? ... : 0`),
+            // so this is a single still frame rather than motion with the loop
+            // taken out - and since the baseline is the same thing a silent room
+            // shows anyway, this still frame is not a degraded version of the
+            // normal one, it is one real state of it.
+            var still = sizeFor();
+            if (still.width && still.height) paint(still, color, 0.12, null, null);
+            return;
+        }
+
+        var level = 0;
+        barState = null;
+        peakState = null;
+
+        function frame() {
+            var size = sizeFor();
+            if (!size.width || !size.height) {
+                rafId = requestAnimationFrame(frame);
+                return;
+            }
+            var raw = levelNow(analyser);
+            if (raw === null) {
+                stop();
+                return;
+            }
+            // Fast attack, slow release: the visualizer's opacity should jump to a
+            // loud syllable at once but ease back down between words, not flicker
+            // on every dip.
+            level += (raw - level) * (raw > level ? 0.6 : 0.15);
+
+            // Recomputed every frame rather than once, because the card is
+            // resizable: Anki's window can be dragged wider mid-review, and a
+            // strip that kept the old count would either stretch its bands or
+            // leave a gap at the edge. A change in count restarts the smoothing
+            // from silence, which is correct - the old values described bands
+            // that no longer exist.
+            var count = bandsFor(size.width);
+            if (!barState || barState.length !== count) {
+                barState = new Array(count).fill(0);
+                peakState = new Array(count).fill(0);
+            }
+
+            var rawBars = barLevels(analyser, count);
+            if (rawBars) {
+                for (var i = 0; i < count; i++) {
+                    var b = rawBars[i];
+                    // The body is smoothed both ways; the cap is not smoothed at all
+                    // on the way up. A cap exists to record the loudest instant the
+                    // band actually reached, so easing it upward would make it record
+                    // something quieter than what happened, which is the one thing it
+                    // is for. Downward it ignores the body's release entirely and
+                    // sheds CAP_FALL a frame - see CAP_FALL for why that speed.
+                    barState[i] += (b - barState[i]) * (b > barState[i] ? 0.6 : 0.2);
+                    peakState[i] = Math.max(barState[i], peakState[i] - CAP_FALL);
+                }
+            }
+
+            paint(size, color, level, barState, peakState);
+            rafId = requestAnimationFrame(frame);
+        }
+
+        rafId = requestAnimationFrame(frame);
+    }
+
+    return { draw: draw, stop: stop };
 }
 
 /**
@@ -879,13 +879,13 @@ function createVisualizer(root) {
  * survives all the way up.
  */
 function tuneRange(analyser) {
-  try {
-    analyser.minDecibels = -90;
-    analyser.maxDecibels = -10;
-  } catch (error) {
-    // A client that refuses the range keeps the defaults; a slightly
-    // clipped visualizer is not worth failing a review over.
-  }
+    try {
+        analyser.minDecibels = -90;
+        analyser.maxDecibels = -10;
+    } catch (error) {
+        // A client that refuses the range keeps the defaults; a slightly
+        // clipped visualizer is not worth failing a review over.
+    }
 }
 
 /**
@@ -897,49 +897,49 @@ function tuneRange(analyser) {
  * routing instead of throwing on the second attempt.
  */
 function attachVisualizerSource(context, element) {
-  if (!context || !element || typeof context.createMediaElementSource !== 'function') return null;
-  if (element.__amgiAnalyser !== undefined) return element.__amgiAnalyser;
-  var source;
-  try {
-    source = context.createMediaElementSource(element);
-  } catch (error) {
-    // Already routed into a different graph, or this client refuses it
-    // outright. Leaving the element alone means it keeps playing normally.
-    element.__amgiAnalyser = null;
-    return null;
-  }
-  try {
-    var analyser = context.createAnalyser();
-    // Matches voiceActivity.js's own analyser so the visualizer reads the
-    // same way whether it is fed by the microphone or by a clip.
-    //
-    // 2048 rather than 1024: at 48kHz a 1024-point transform is 47Hz per
-    // bin, and the whole 90Hz-6kHz range the strip draws fits in about 126
-    // of them. Interpolation keeps that from stepping, but it cannot invent
-    // detail that was never measured, and the bottom of the range - where a
-    // voice does most of its work - had the least. Doubling it halves the
-    // hertz per bin without pushing the analysis window (43ms at this size)
-    // past the length of the consonant bursts that give the ridge its
-    // timing; 4096 would, which is why it is not that.
-    analyser.fftSize = 2048;
-    tuneRange(analyser);
-    source.connect(analyser);
-    analyser.connect(context.destination);
-    element.__amgiAnalyser = analyser;
-    return analyser;
-  } catch (error) {
-    // createMediaElementSource already redirected this element's output away
-    // from its default destination the instant it was called, above - so it
-    // MUST still reach the speakers somehow, or the clip goes silent. A
-    // silent card is a far worse bug than a missing visualizer.
+    if (!context || !element || typeof context.createMediaElementSource !== 'function') return null;
+    if (element.__amgiAnalyser !== undefined) return element.__amgiAnalyser;
+    var source;
     try {
-      source.connect(context.destination);
-    } catch (fallbackError) {
-      // The client is refusing the graph outright; nothing more to do.
+        source = context.createMediaElementSource(element);
+    } catch (error) {
+        // Already routed into a different graph, or this client refuses it
+        // outright. Leaving the element alone means it keeps playing normally.
+        element.__amgiAnalyser = null;
+        return null;
     }
-    element.__amgiAnalyser = null;
-    return null;
-  }
+    try {
+        var analyser = context.createAnalyser();
+        // Matches voiceActivity.js's own analyser so the visualizer reads the
+        // same way whether it is fed by the microphone or by a clip.
+        //
+        // 2048 rather than 1024: at 48kHz a 1024-point transform is 47Hz per
+        // bin, and the whole 90Hz-6kHz range the strip draws fits in about 126
+        // of them. Interpolation keeps that from stepping, but it cannot invent
+        // detail that was never measured, and the bottom of the range - where a
+        // voice does most of its work - had the least. Doubling it halves the
+        // hertz per bin without pushing the analysis window (43ms at this size)
+        // past the length of the consonant bursts that give the ridge its
+        // timing; 4096 would, which is why it is not that.
+        analyser.fftSize = 2048;
+        tuneRange(analyser);
+        source.connect(analyser);
+        analyser.connect(context.destination);
+        element.__amgiAnalyser = analyser;
+        return analyser;
+    } catch (error) {
+        // createMediaElementSource already redirected this element's output away
+        // from its default destination the instant it was called, above - so it
+        // MUST still reach the speakers somehow, or the clip goes silent. A
+        // silent card is a far worse bug than a missing visualizer.
+        try {
+            source.connect(context.destination);
+        } catch (fallbackError) {
+            // The client is refusing the graph outright; nothing more to do.
+        }
+        element.__amgiAnalyser = null;
+        return null;
+    }
 }
 
 /**
@@ -949,49 +949,49 @@ function attachVisualizerSource(context, element) {
  * calls back, and playback is untouched either way.
  */
 function beginVisualizing(element, kind) {
-  if (!element) return function () {};
-  var context = ensureAudioContext();
-  if (!context || !store.visualizer) return function () {};
+    if (!element) return function () {};
+    var context = ensureAudioContext();
+    if (!context || !store.visualizer) return function () {};
 
-  var stopped = false;
-  function stop() {
-    if (stopped) return;
-    stopped = true;
-    element.removeEventListener('ended', stop);
-    element.removeEventListener('error', stop);
-    element.removeEventListener('pause', stop);
-    store.visualizer.stop();
-  }
-  // Listening from the start, not only once the graph is attached below,
-  // is what stops a short clip that ends before a slow-to-resume context
-  // ever gets there from leaving the visualizer spinning on nothing.
-  element.addEventListener('ended', stop);
-  element.addEventListener('error', stop);
-  element.addEventListener('pause', stop);
-
-  // Chromium suspends a freshly created AudioContext until a user gesture
-  // resumes it. Waiting for that to actually resolve to "running" before
-  // wiring the element into the graph means a still-suspended context just
-  // leaves the clip on its ordinary, un-routed output - never a silenced one.
-  var ready =
-    context.state === 'running'
-      ? Promise.resolve()
-      : context.resume
-      ? context.resume()
-      : Promise.reject(new Error('AudioContext cannot resume'));
-  Promise.resolve(ready).then(
-    function () {
-      if (stopped || context.state !== 'running') return;
-      var analyser = attachVisualizerSource(context, element);
-      if (!analyser) return;
-      store.visualizer.draw(analyser, kind);
-    },
-    function () {
-      // No visualizer for this clip; it plays through its normal output.
+    var stopped = false;
+    function stop() {
+        if (stopped) return;
+        stopped = true;
+        element.removeEventListener('ended', stop);
+        element.removeEventListener('error', stop);
+        element.removeEventListener('pause', stop);
+        store.visualizer.stop();
     }
-  );
+    // Listening from the start, not only once the graph is attached below,
+    // is what stops a short clip that ends before a slow-to-resume context
+    // ever gets there from leaving the visualizer spinning on nothing.
+    element.addEventListener('ended', stop);
+    element.addEventListener('error', stop);
+    element.addEventListener('pause', stop);
 
-  return stop;
+    // Chromium suspends a freshly created AudioContext until a user gesture
+    // resumes it. Waiting for that to actually resolve to "running" before
+    // wiring the element into the graph means a still-suspended context just
+    // leaves the clip on its ordinary, un-routed output - never a silenced one.
+    var ready =
+      context.state === 'running'
+        ? Promise.resolve()
+        : context.resume
+        ? context.resume()
+        : Promise.reject(new Error('AudioContext cannot resume'));
+    Promise.resolve(ready).then(
+      function () {
+            if (stopped || context.state !== 'running') return;
+            var analyser = attachVisualizerSource(context, element);
+            if (!analyser) return;
+            store.visualizer.draw(analyser, kind);
+        },
+      function () {
+            // No visualizer for this clip; it plays through its normal output.
+        }
+    );
+
+    return stop;
 }
 
 // Three small glyphs, one per family of phase, so the status line carries an
@@ -1000,12 +1000,12 @@ function beginVisualizing(element, kind) {
 // follows the status text's own colour; aria-hidden because the text next to
 // them already says the same thing to a screen reader.
 var AMGI_STATUS_ICON = {
-  speaker:
-    '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/></svg>',
-  mic:
-    '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/></svg>',
-  tick:
-    '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 13l4 4 10-10"/></svg>',
+    speaker:
+        '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/></svg>',
+    mic:
+        '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/></svg>',
+    tick:
+        '<svg viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 13l4 4 10-10"/></svg>',
 };
 
 // The prompt-phase line is the fix for a first-time learner's real question
@@ -1018,250 +1018,250 @@ var AMGI_STATUS_ICON = {
 // reviewLoop.js only reaches once openMic() has resolved with a live stream,
 // so the callout it drives is never lying about the mic being open.
 var AMGI_STATUS = {
-  prompt: { text: "Listen to the translation, then we'll record your voice.", icon: 'speaker' },
-  'requesting-mic': { text: 'Asking for the microphone...', icon: 'mic' },
-  listening: { text: "Stop talking when you're done.", icon: 'mic', recording: 'Now recording your voice.' },
-  waiting: { text: "Press space when you're done.", icon: 'tick' },
-  answer: { text: 'How did you do?', icon: 'tick' },
-  idle: { text: '', icon: null },
+    prompt: { text: "Listen to the translation, then we'll record your voice.", icon: 'speaker' },
+    'requesting-mic': { text: 'Asking for the microphone...', icon: 'mic' },
+    listening: { text: "Stop talking when you're done.", icon: 'mic', recording: 'Now recording your voice.' },
+    waiting: { text: "Press space when you're done.", icon: 'tick' },
+    answer: { text: 'How did you do?', icon: 'tick' },
+    idle: { text: '', icon: null },
 };
 
 // What the "Done speaking" / "Skip" button says and does changes with the
 // phase (see bootFront's revealButton wiring below); this is its label half.
 var AMGI_REVEAL_LABEL = {
-  prompt: 'Skip',
-  'requesting-mic': 'One moment...',
-  listening: 'Done speaking',
-  waiting: 'Show answer',
-  idle: 'Skip',
+    prompt: 'Skip',
+    'requesting-mic': 'One moment...',
+    listening: 'Done speaking',
+    waiting: 'Show answer',
+    idle: 'Skip',
 };
 
 /** The bits of the card the loop talks to, all optional so a trimmed-down
  * template degrades into a plainer card rather than an exception. */
 function makeUi(root) {
-  var status = attr(root, 'data-amgi-status');
-  var statusIcon = attr(root, 'data-amgi-status-icon');
-  var statusText = attr(root, 'data-amgi-status-text');
-  var statusRecording = attr(root, 'data-amgi-status-recording');
-  var statusRecordingText = attr(root, 'data-amgi-status-recording-text');
-  var note = attr(root, 'data-amgi-note');
-  var playButton = action(root, 'play');
-  var playHandler = null;
-  var revealLabel = attr(root, 'data-amgi-reveal-label');
-  var revealButton = action(root, 'reveal');
+    var status = attr(root, 'data-amgi-status');
+    var statusIcon = attr(root, 'data-amgi-status-icon');
+    var statusText = attr(root, 'data-amgi-status-text');
+    var statusRecording = attr(root, 'data-amgi-status-recording');
+    var statusRecordingText = attr(root, 'data-amgi-status-recording-text');
+    var note = attr(root, 'data-amgi-note');
+    var playButton = action(root, 'play');
+    var playHandler = null;
+    var revealLabel = attr(root, 'data-amgi-reveal-label');
+    var revealButton = action(root, 'reveal');
 
-  if (playButton) {
-    playButton.addEventListener('click', function () {
-      if (playHandler) playHandler();
-    });
-  }
+    if (playButton) {
+        playButton.addEventListener('click', function () {
+            if (playHandler) playHandler();
+        });
+    }
 
-  return {
-    root: root,
-    phase: function (phase) {
-      root.setAttribute('data-amgi-phase', phase);
-      var info = AMGI_STATUS[phase] || AMGI_STATUS.idle;
-      // status/statusText fall back to the same element when a trimmed-down
-      // template has no separate icon/text spans (see front.html/back.html).
-      setText(statusText || status, info.text);
-      if (statusIcon) statusIcon.innerHTML = (info.icon && AMGI_STATUS_ICON[info.icon]) || '';
-      // The dot is aria-hidden (decorative); this text is what actually
-      // reaches a screen reader, and both live inside .amgi-status's own
-      // role="status"/aria-live region, so hiding/showing this element is
-      // enough to be announced - no separate live region needed for it.
-      if (statusRecordingText) setText(statusRecordingText, info.recording || '');
-      if (statusRecording) show(statusRecording, !!info.recording);
-      if (revealLabel) setText(revealLabel, AMGI_REVEAL_LABEL[phase] || AMGI_REVEAL_LABEL.idle);
-      if (revealButton) revealButton.disabled = phase === 'requesting-mic';
-    },
-    note: function (text) {
-      setText(note, text || '');
-      show(note, !!text);
-    },
-    offerPlay: function (handler) {
-      playHandler = handler;
-      show(playButton, !!handler);
-    },
-  };
+    return {
+        root: root,
+        phase: function (phase) {
+            root.setAttribute('data-amgi-phase', phase);
+            var info = AMGI_STATUS[phase] || AMGI_STATUS.idle;
+            // status/statusText fall back to the same element when a trimmed-down
+            // template has no separate icon/text spans (see front.html/back.html).
+            setText(statusText || status, info.text);
+            if (statusIcon) statusIcon.innerHTML = (info.icon && AMGI_STATUS_ICON[info.icon]) || '';
+            // The dot is aria-hidden (decorative); this text is what actually
+            // reaches a screen reader, and both live inside .amgi-status's own
+            // role="status"/aria-live region, so hiding/showing this element is
+            // enough to be announced - no separate live region needed for it.
+            if (statusRecordingText) setText(statusRecordingText, info.recording || '');
+            if (statusRecording) show(statusRecording, !!info.recording);
+            if (revealLabel) setText(revealLabel, AMGI_REVEAL_LABEL[phase] || AMGI_REVEAL_LABEL.idle);
+            if (revealButton) revealButton.disabled = phase === 'requesting-mic';
+        },
+        note: function (text) {
+            setText(note, text || '');
+            show(note, !!text);
+        },
+        offerPlay: function (handler) {
+            playHandler = handler;
+            show(playButton, !!handler);
+        },
+    };
 }
 
 function bootFront(root) {
-  var ui = makeUi(root);
-  store.visualizer = createVisualizer(root);
-  // A new card: whatever the learner said to the last one is no longer
-  // interesting, and holding the blob URL open would leak it.
-  forgetRecording();
+    var ui = makeUi(root);
+    store.visualizer = createVisualizer(root);
+    // A new card: whatever the learner said to the last one is no longer
+    // interesting, and holding the blob URL open would leak it.
+    forgetRecording();
 
-  var cueAudio = resolveAudio(attr(root, 'data-amgi-cue-audio'));
-  var hasCueAudio = !!cueAudio;
-  if (!hasCueAudio) {
-    // Opening the microphone to answer a card with nothing to answer is
-    // worse than not opening it: skip straight to the same "press space"
-    // fallback a client with no microphone at all reaches, rather than
-    // listening for an answer to a question that was never asked.
-    ui.note('This card has no audio yet - press space to see it, or use amgi bridge’s "Fill missing audio..." to add it.');
-  }
-
-  var loop = createReviewLoop({
-    vadOptions: AMGI_CONFIG.vad,
-    micTimeoutMs: AMGI_CONFIG.micTimeoutMs,
-    playPrompt: function () {
-      return playClip(cueAudio, ui, 'cue');
-    },
-    // No point opening a microphone to answer a card that asked nothing.
-    openMic: hasCueAudio ? microphone : null,
-    closeMic: stopMicrophone,
-    // detectSpeechEnd (voiceActivity.js) already builds the one AnalyserNode
-    // this mic gets; wrapping it here - rather than reviewLoop.js opening a
-    // second one - is what "reuse the existing analyser" means in practice.
-    // The colour is 'you': the mic is always the learner's own voice, same as
-    // the "You" replay button below.
-    detect: function (args) {
-      var stop = detectSpeechEnd(args);
-      if (stop.analyser && store.visualizer) {
-        // The mic's analyser belongs to detectSpeechEnd, which reads it in
-        // the time domain and does not care what window the frequency data
-        // is mapped onto. The visualizer does, and it is the only thing here
-        // that does, so it sets the window on the way past rather than
-        // pushing a display concern down into speech detection.
-        tuneRange(stop.analyser);
-        store.visualizer.draw(stop.analyser, 'you');
-      }
-      return function () {
-        if (store.visualizer) store.visualizer.stop();
-        stop();
-      };
-    },
-    onMicUnavailable: function () {
-      // Persisted on `store`, which survives a fresh createReviewLoop() on
-      // every card (see the loop.disableMic() call below): without this, a
-      // stock desktop client without the companion add-on re-races the same
-      // micTimeoutMs wait on every single card, thirty times in a row,
-      // instead of once per session.
-      store.micUnavailable = true;
-      // Said once, plainly, and then the card carries on without it - not
-      // repeated on every subsequent card, which used to make a single
-      // known fact look like a fresh error each time.
-      if (!store.micNoteShown) {
-        store.micNoteShown = true;
-        ui.note('No microphone here - press space when you have answered out loud.');
-      }
-    },
-    reveal: function (result) {
-      rememberRecording(result.recording);
-      if (!bridge('ans')) {
-        ui.note('Press your client’s "Show Answer" button to continue.');
-      }
-    },
-    onPhase: function (phase) {
-      ui.phase(phase);
-    },
-  });
-
-  store.loop = loop;
-  // A refusal from an earlier card this session: skip the request outright
-  // rather than racing micTimeoutMs again for no reason (see onMicUnavailable
-  // above).
-  if (store.micUnavailable) loop.disableMic();
-
-  bindKeys(root, function (event) {
-    if (event.key === ' ' || event.key === 'Enter' || event.key === 'Spacebar') {
-      // One key does the only thing that ever makes sense here: move on.
-      // While the prompt plays that means skip it, while the microphone is
-      // open it means "I have finished speaking", and with no microphone it
-      // means "show me". Once the answer is on its way there is nothing left
-      // to do, and the key is left for the client to handle. While the
-      // microphone request itself is still pending there is nothing to do
-      // either - the button is disabled for the same reason (see makeUi).
-      if (loop.phase === PHASE.PROMPT && store.clip) {
-        store.clip();
-        return true;
-      }
-      return loop.endTurn('manual');
+    var cueAudio = resolveAudio(attr(root, 'data-amgi-cue-audio'));
+    var hasCueAudio = !!cueAudio;
+    if (!hasCueAudio) {
+        // Opening the microphone to answer a card with nothing to answer is
+        // worse than not opening it: skip straight to the same "press space"
+        // fallback a client with no microphone at all reaches, rather than
+        // listening for an answer to a question that was never asked.
+        ui.note('This card has no audio yet - press space to see it, or use amgi bridge’s "Fill missing audio..." to add it.');
     }
-    return false;
-  });
 
-  var revealButton = action(root, 'reveal');
-  if (revealButton) {
-    revealButton.addEventListener('click', function () {
-      if (loop.phase === PHASE.PROMPT && store.clip) store.clip();
-      else loop.endTurn('manual');
+    var loop = createReviewLoop({
+        vadOptions: AMGI_CONFIG.vad,
+        micTimeoutMs: AMGI_CONFIG.micTimeoutMs,
+        playPrompt: function () {
+            return playClip(cueAudio, ui, 'cue');
+        },
+        // No point opening a microphone to answer a card that asked nothing.
+        openMic: hasCueAudio ? microphone : null,
+        closeMic: stopMicrophone,
+        // detectSpeechEnd (voiceActivity.js) already builds the one AnalyserNode
+        // this mic gets; wrapping it here - rather than reviewLoop.js opening a
+        // second one - is what "reuse the existing analyser" means in practice.
+        // The colour is 'you': the mic is always the learner's own voice, same as
+        // the "You" replay button below.
+        detect: function (args) {
+            var stop = detectSpeechEnd(args);
+            if (stop.analyser && store.visualizer) {
+                // The mic's analyser belongs to detectSpeechEnd, which reads it in
+                // the time domain and does not care what window the frequency data
+                // is mapped onto. The visualizer does, and it is the only thing here
+                // that does, so it sets the window on the way past rather than
+                // pushing a display concern down into speech detection.
+                tuneRange(stop.analyser);
+                store.visualizer.draw(stop.analyser, 'you');
+            }
+            return function () {
+                if (store.visualizer) store.visualizer.stop();
+                stop();
+            };
+        },
+        onMicUnavailable: function () {
+            // Persisted on `store`, which survives a fresh createReviewLoop() on
+            // every card (see the loop.disableMic() call below): without this, a
+            // stock desktop client without the companion add-on re-races the same
+            // micTimeoutMs wait on every single card, thirty times in a row,
+            // instead of once per session.
+            store.micUnavailable = true;
+            // Said once, plainly, and then the card carries on without it - not
+            // repeated on every subsequent card, which used to make a single
+            // known fact look like a fresh error each time.
+            if (!store.micNoteShown) {
+                store.micNoteShown = true;
+                ui.note('No microphone here - press space when you have answered out loud.');
+            }
+        },
+        reveal: function (result) {
+            rememberRecording(result.recording);
+            if (!bridge('ans')) {
+                ui.note('Press your client’s "Show Answer" button to continue.');
+            }
+        },
+        onPhase: function (phase) {
+            ui.phase(phase);
+        },
     });
-  }
 
-  loop.start();
+    store.loop = loop;
+    // A refusal from an earlier card this session: skip the request outright
+    // rather than racing micTimeoutMs again for no reason (see onMicUnavailable
+    // above).
+    if (store.micUnavailable) loop.disableMic();
+
+    bindKeys(root, function (event) {
+        if (event.key === ' ' || event.key === 'Enter' || event.key === 'Spacebar') {
+            // One key does the only thing that ever makes sense here: move on.
+            // While the prompt plays that means skip it, while the microphone is
+            // open it means "I have finished speaking", and with no microphone it
+            // means "show me". Once the answer is on its way there is nothing left
+            // to do, and the key is left for the client to handle. While the
+            // microphone request itself is still pending there is nothing to do
+            // either - the button is disabled for the same reason (see makeUi).
+            if (loop.phase === PHASE.PROMPT && store.clip) {
+                store.clip();
+                return true;
+            }
+            return loop.endTurn('manual');
+        }
+        return false;
+    });
+
+    var revealButton = action(root, 'reveal');
+    if (revealButton) {
+        revealButton.addEventListener('click', function () {
+            if (loop.phase === PHASE.PROMPT && store.clip) store.clip();
+            else loop.endTurn('manual');
+        });
+    }
+
+    loop.start();
 }
 
 function bootBack(root, harvested) {
-  var ui = makeUi(root);
-  store.visualizer = createVisualizer(root);
-  var native = resolveAudio(attr(root, 'data-amgi-target-audio'));
-  var cueAudio = resolveAudio(attr(root, 'data-amgi-cue-audio'));
+    var ui = makeUi(root);
+    store.visualizer = createVisualizer(root);
+    var native = resolveAudio(attr(root, 'data-amgi-target-audio'));
+    var cueAudio = resolveAudio(attr(root, 'data-amgi-cue-audio'));
 
-  wireReplay(root, 'replay-cue', cueAudio, 'cue');
-  wireReplay(root, 'replay-native', native, 'native');
-  wireYou(root);
+    wireReplay(root, 'replay-cue', cueAudio, 'cue');
+    wireReplay(root, 'replay-native', native, 'native');
+    wireYou(root);
 
-  // A take still being collected when this side rendered (see boot()) lands
-  // after wireYou has already decided there was nothing to offer, so the
-  // button is wired a second time once it arrives. Re-running wireYou rather
-  // than reaching into the DOM here keeps one place deciding what the button
-  // does and whether it is shown at all.
-  if (harvested && typeof harvested.then === 'function') {
-    harvested.then(function (blob) {
-      if (!blob || !blob.size || !root.isConnected) return;
-      rememberRecording(blob);
-      wireYou(root);
+    // A take still being collected when this side rendered (see boot()) lands
+    // after wireYou has already decided there was nothing to offer, so the
+    // button is wired a second time once it arrives. Re-running wireYou rather
+    // than reaching into the DOM here keeps one place deciding what the button
+    // does and whether it is shown at all.
+    if (harvested && typeof harvested.then === 'function') {
+        harvested.then(function (blob) {
+            if (!blob || !blob.size || !root.isConnected) return;
+            rememberRecording(blob);
+            wireYou(root);
+        });
+    }
+
+    // No grading row of its own, and no keydown handler either. Real Anki
+    // (26.09.2, Qt 6.11), verified live: space/1 are bound twice at once on
+    // desktop - once by this template's own keydown handler, once as Anki's
+    // native QShortcut on the main window - and which one wins the race varies
+    // from keypress to keypress. Grading is the one place on this card where a
+    // double-fire is not idempotent: a second pycmd("easeN") would grade the
+    // *next* card, corrupting its schedule silently. A second, card-drawn
+    // Again/Good row right above Anki's own Again/Hard/Good/Easy bar was also
+    // its own problem independent of the key race: two controls with the same
+    // words in different colours 100px apart, offering two grades where Anki's
+    // own bar offers four, reads as a duplicate or a bug rather than a design.
+    // Anki's bar already grades correctly on every client this README lists,
+    // so the card leaves grading to it entirely and limits itself to "How did
+    // you do?" as a label sitting directly above it (see back.html).
+    // No replay keys, and this is a finding rather than an omission.
+    //
+    // R, A and V were bound here and none of them ever fired in real Anki.
+    // aqt/reviewer.py registers r (replay audio) and v (replay recorded voice)
+    // through mw.setStateShortcuts(), which makes them Qt shortcuts on the MAIN
+    // WINDOW, and a reaches the main window's Add action the same way. Qt
+    // resolves those before the key is offered to the webview at all, so no
+    // amount of preventDefault in here can win: the page is never asked.
+    //
+    // Moving them to other letters was rejected on purpose. Every unclaimed
+    // letter is one an add-on or a future Anki version may claim, and a card
+    // that quietly takes a key someone has relied on for years is a worse bug
+    // than a card with no shortcuts.
+    //
+    // There IS a supported way, and it is not here: gui_hooks
+    // .state_shortcuts_will_change hands an add-on the reviewer's own shortcut
+    // list to edit, so amgi_mic could wrap r and v to keep their existing
+    // meanings on every other card and additionally drive this one - Anki's own
+    // r does nothing on an amgi card anyway, because it acts on the [sound:]
+    // tags this note type deliberately does not use. See anki/README.md.
+
+    var loop = createReviewLoop({
+        playNative: function () {
+            return playClip(native, ui, 'native');
+        },
+        onPhase: function (phase) {
+            ui.phase(phase);
+        },
     });
-  }
-
-  // No grading row of its own, and no keydown handler either. Real Anki
-  // (26.09.2, Qt 6.11), verified live: space/1 are bound twice at once on
-  // desktop - once by this template's own keydown handler, once as Anki's
-  // native QShortcut on the main window - and which one wins the race varies
-  // from keypress to keypress. Grading is the one place on this card where a
-  // double-fire is not idempotent: a second pycmd("easeN") would grade the
-  // *next* card, corrupting its schedule silently. A second, card-drawn
-  // Again/Good row right above Anki's own Again/Hard/Good/Easy bar was also
-  // its own problem independent of the key race: two controls with the same
-  // words in different colours 100px apart, offering two grades where Anki's
-  // own bar offers four, reads as a duplicate or a bug rather than a design.
-  // Anki's bar already grades correctly on every client this README lists,
-  // so the card leaves grading to it entirely and limits itself to "How did
-  // you do?" as a label sitting directly above it (see back.html).
-  // No replay keys, and this is a finding rather than an omission.
-  //
-  // R, A and V were bound here and none of them ever fired in real Anki.
-  // aqt/reviewer.py registers r (replay audio) and v (replay recorded voice)
-  // through mw.setStateShortcuts(), which makes them Qt shortcuts on the MAIN
-  // WINDOW, and a reaches the main window's Add action the same way. Qt
-  // resolves those before the key is offered to the webview at all, so no
-  // amount of preventDefault in here can win: the page is never asked.
-  //
-  // Moving them to other letters was rejected on purpose. Every unclaimed
-  // letter is one an add-on or a future Anki version may claim, and a card
-  // that quietly takes a key someone has relied on for years is a worse bug
-  // than a card with no shortcuts.
-  //
-  // There IS a supported way, and it is not here: gui_hooks
-  // .state_shortcuts_will_change hands an add-on the reviewer's own shortcut
-  // list to edit, so amgi_mic could wrap r and v to keep their existing
-  // meanings on every other card and additionally drive this one - Anki's own
-  // r does nothing on an amgi card anyway, because it acts on the [sound:]
-  // tags this note type deliberately does not use. See anki/README.md.
-
-  var loop = createReviewLoop({
-    playNative: function () {
-      return playClip(native, ui, 'native');
-    },
-    onPhase: function (phase) {
-      ui.phase(phase);
-    },
-  });
-  store.loop = loop;
-  if (!native) ui.note('This note has no native audio.');
-  loop.resumeAtAnswer({ recording: store.recordingUrl || null });
+    store.loop = loop;
+    if (!native) ui.note('This note has no native audio.');
+    loop.resumeAtAnswer({ recording: store.recordingUrl || null });
 }
 
 /**
@@ -1277,146 +1277,146 @@ function bootBack(root, harvested) {
  * listening halfway through.
  */
 function playExclusively(element, kind) {
-  stopCurrentPlayback(element);
-  store.playing = element;
-  try {
-    element.currentTime = 0;
-  } catch (error) {
-    // See playClip: seeking before metadata is allowed to fail.
-  }
-  beginVisualizing(element, kind);
-  var played = element.play();
-  if (played && typeof played.catch === 'function') played.catch(function () {});
+    stopCurrentPlayback(element);
+    store.playing = element;
+    try {
+        element.currentTime = 0;
+    } catch (error) {
+        // See playClip: seeking before metadata is allowed to fail.
+    }
+    beginVisualizing(element, kind);
+    var played = element.play();
+    if (played && typeof played.catch === 'function') played.catch(function () {});
 }
 
 function wireReplay(root, name, element, kind) {
-  var button = action(root, name);
-  if (!button) return;
-  if (!element) return show(button, false);
-  button.addEventListener('click', function () {
-    playExclusively(element, kind);
-  });
+    var button = action(root, name);
+    if (!button) return;
+    if (!element) return show(button, false);
+    button.addEventListener('click', function () {
+        playExclusively(element, kind);
+    });
 }
 
 function wireYou(root) {
-  var button = action(root, 'replay-you');
-  if (!button) return;
+    var button = action(root, 'replay-you');
+    if (!button) return;
 
-  // Callable more than once for the same render, and it has to be: a take
-  // collected after this side rendered (see boot()) arrives once the button
-  // has already been told there is nothing to play. Any handler from an
-  // earlier call goes first, so a second call replaces the recording this
-  // button reaches rather than stacking another one behind it - two
-  // listeners would play the new take over a revoked URL from the old one.
-  if (button.__amgiPlay) {
-    button.removeEventListener('click', button.__amgiPlay);
-    button.__amgiPlay = null;
-  }
+    // Callable more than once for the same render, and it has to be: a take
+    // collected after this side rendered (see boot()) arrives once the button
+    // has already been told there is nothing to play. Any handler from an
+    // earlier call goes first, so a second call replaces the recording this
+    // button reaches rather than stacking another one behind it - two
+    // listeners would play the new take over a revoked URL from the old one.
+    if (button.__amgiPlay) {
+        button.removeEventListener('click', button.__amgiPlay);
+        button.__amgiPlay = null;
+    }
 
-  // The recording only exists on clients that keep one document across the
-  // reveal. Elsewhere the button simply is not offered.
-  if (!store.recordingUrl) return show(button, false);
-  show(button, true);
-  var element = new Audio(store.recordingUrl);
-  button.__amgiPlay = function () {
-    // The learner's own voice, same colour whether it is live on the mic
-    // (bootFront) or replayed here.
-    playExclusively(element, 'you');
-  };
-  button.addEventListener('click', button.__amgiPlay);
+    // The recording only exists on clients that keep one document across the
+    // reveal. Elsewhere the button simply is not offered.
+    if (!store.recordingUrl) return show(button, false);
+    show(button, true);
+    var element = new Audio(store.recordingUrl);
+    button.__amgiPlay = function () {
+        // The learner's own voice, same colour whether it is live on the mic
+        // (bootFront) or replayed here.
+        playExclusively(element, 'you');
+    };
+    button.addEventListener('click', button.__amgiPlay);
 }
 
 function bindKeys(root, handler) {
-  if (AMGI_CONFIG.keys === false) return;
-  if (store.keyHandler) {
-    document.removeEventListener('keydown', store.keyHandler, true);
-    store.keyHandler = null;
-  }
-  var listener = function (event) {
-    if (event.metaKey || event.ctrlKey || event.altKey) return;
-    var target = event.target;
-    if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
-      return;
+    if (AMGI_CONFIG.keys === false) return;
+    if (store.keyHandler) {
+        document.removeEventListener('keydown', store.keyHandler, true);
+        store.keyHandler = null;
     }
-    // A render that has been replaced must not keep answering keys.
-    if (!root.isConnected) {
-      document.removeEventListener('keydown', listener, true);
-      return;
-    }
-    if (handler(event)) event.preventDefault();
-  };
-  store.keyHandler = listener;
-  document.addEventListener('keydown', listener, true);
+    var listener = function (event) {
+        if (event.metaKey || event.ctrlKey || event.altKey) return;
+        var target = event.target;
+        if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+            return;
+        }
+        // A render that has been replaced must not keep answering keys.
+        if (!root.isConnected) {
+            document.removeEventListener('keydown', listener, true);
+            return;
+        }
+        if (handler(event)) event.preventDefault();
+    };
+    store.keyHandler = listener;
+    document.addEventListener('keydown', listener, true);
 }
 
 function boot() {
-  // The last one wins: a back template that starts with {{FrontSide}} renders
-  // the question's markup above its own, and the answer is the live one.
-  var roots = document.querySelectorAll('[data-amgi-card]:not([data-amgi-booted])');
-  var root = roots[roots.length - 1];
-  if (!root) return;
-  root.setAttribute('data-amgi-booted', '1');
+    // The last one wins: a back template that starts with {{FrontSide}} renders
+    // the question's markup above its own, and the answer is the live one.
+    var roots = document.querySelectorAll('[data-amgi-card]:not([data-amgi-booted])');
+    var root = roots[roots.length - 1];
+    if (!root) return;
+    root.setAttribute('data-amgi-booted', '1');
 
-  // The previous side or card may still be listening in this same document.
-  if (store.loop) store.loop.cancel();
-  // A microphone still open when this side renders means the turn never
-  // ended through the loop - which on desktop Anki is the ordinary case, not
-  // an edge one. Space is bound twice at once there (this card's own handler
-  // and Anki's native QShortcut on the main window, see bootBack) and which
-  // wins varies from keypress to keypress. When Anki's wins, it reveals the
-  // answer directly: endTurn never runs, closeMic never runs, and this is
-  // where the microphone actually gets shut off.
-  //
-  // So the recording has to be collected HERE too, not only on the path
-  // through the loop. stopMicrophone() already resolves with everything
-  // captured up to the moment it stopped; this used to throw that promise
-  // away, which is exactly how pressing space mid-sentence lost the take and
-  // left the answer side with no "Hear yourself" button at all. What the
-  // learner said is not less worth replaying because Anki's shortcut got to
-  // the keypress first.
-  var harvested = store.stream ? stopMicrophone() : null;
-  // Likewise its visualizer: otherwise a stray requestAnimationFrame loop
-  // from a render this one replaces keeps drawing into a detached canvas
-  // forever, since nothing else would ever call its stop().
-  if (store.visualizer) {
-    store.visualizer.stop();
-    store.visualizer = null;
-  }
+    // The previous side or card may still be listening in this same document.
+    if (store.loop) store.loop.cancel();
+    // A microphone still open when this side renders means the turn never
+    // ended through the loop - which on desktop Anki is the ordinary case, not
+    // an edge one. Space is bound twice at once there (this card's own handler
+    // and Anki's native QShortcut on the main window, see bootBack) and which
+    // wins varies from keypress to keypress. When Anki's wins, it reveals the
+    // answer directly: endTurn never runs, closeMic never runs, and this is
+    // where the microphone actually gets shut off.
+    //
+    // So the recording has to be collected HERE too, not only on the path
+    // through the loop. stopMicrophone() already resolves with everything
+    // captured up to the moment it stopped; this used to throw that promise
+    // away, which is exactly how pressing space mid-sentence lost the take and
+    // left the answer side with no "Hear yourself" button at all. What the
+    // learner said is not less worth replaying because Anki's shortcut got to
+    // the keypress first.
+    var harvested = store.stream ? stopMicrophone() : null;
+    // Likewise its visualizer: otherwise a stray requestAnimationFrame loop
+    // from a render this one replaces keeps drawing into a detached canvas
+    // forever, since nothing else would ever call its stop().
+    if (store.visualizer) {
+        store.visualizer.stop();
+        store.visualizer = null;
+    }
 
-  // A stale keydown listener from the render this one replaces would
-  // otherwise keep firing (harmlessly, since it self-removes on noticing its
-  // own root is disconnected - see bindKeys) until the next keypress happens
-  // to trigger that cleanup. Clearing it here up front, on every render
-  // rather than only inside bootFront's own bindKeys call, is what makes the
-  // back side provably free of amgi's own keydown handling the instant it
-  // renders: verified live in real Anki (26.09.2) that without this, a stale
-  // front-side listener remains registered on `document` for a bootBack
-  // render (bootBack never calls bindKeys itself, by design - see "Keys" in
-  // anki/README.md).
-  if (store.keyHandler) {
-    document.removeEventListener('keydown', store.keyHandler, true);
-    store.keyHandler = null;
-  }
+    // A stale keydown listener from the render this one replaces would
+    // otherwise keep firing (harmlessly, since it self-removes on noticing its
+    // own root is disconnected - see bindKeys) until the next keypress happens
+    // to trigger that cleanup. Clearing it here up front, on every render
+    // rather than only inside bootFront's own bindKeys call, is what makes the
+    // back side provably free of amgi's own keydown handling the instant it
+    // renders: verified live in real Anki (26.09.2) that without this, a stale
+    // front-side listener remains registered on `document` for a bootBack
+    // render (bootBack never calls bindKeys itself, by design - see "Keys" in
+    // anki/README.md).
+    if (store.keyHandler) {
+        document.removeEventListener('keydown', store.keyHandler, true);
+        store.keyHandler = null;
+    }
 
-  try {
-    if (root.getAttribute('data-amgi-side') === 'back') bootBack(root, harvested);
-    else bootFront(root);
-  } catch (error) {
-    // A card that throws is a review session that stops. Say so on the card
-    // and leave the client's own buttons working.
-    var note = attr(root, 'data-amgi-note');
-    setText(note, 'amgi loop error: ' + (error && error.message));
-    show(note, true);
-  }
+    try {
+        if (root.getAttribute('data-amgi-side') === 'back') bootBack(root, harvested);
+        else bootFront(root);
+    } catch (error) {
+        // A card that throws is a review session that stops. Say so on the card
+        // and leave the client's own buttons working.
+        var note = attr(root, 'data-amgi-note');
+        setText(note, 'amgi loop error: ' + (error && error.message));
+        show(note, true);
+    }
 }
 
 // Exposed for the browser harness, which drives the phases without Anki.
 globalThis.amgiLoop = {
-  boot: boot,
-  createReviewLoop: createReviewLoop,
-  detectSpeechEnd: detectSpeechEnd,
-  PHASE: PHASE,
-  store: store,
+    boot: boot,
+    createReviewLoop: createReviewLoop,
+    detectSpeechEnd: detectSpeechEnd,
+    PHASE: PHASE,
+    store: store,
 };
 
 boot();
