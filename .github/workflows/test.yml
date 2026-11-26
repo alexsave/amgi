@@ -20,9 +20,9 @@ jobs:
               with:
                   submodules: recursive
 
-            # The server links Homebrew's sqlite, ICU 78 and OpenSSL 3; the page builds with Homebrew's llvm (wasm32 and wasm-ld).
+            # The server links Homebrew's sqlite, ICU 78 and OpenSSL 3; the page builds with Homebrew's llvm (wasm32) and lld (wasm-ld).
             - name: Homebrew packages
-              run: brew install sqlite icu4c@78 openssl@3 llvm
+              run: brew install sqlite icu4c@78 openssl@3 llvm lld
 
             - uses: actions/setup-node@v4
               with:

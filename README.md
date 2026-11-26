@@ -29,7 +29,7 @@ https://github.com/user-attachments/assets/731cb0b9-276a-4f10-89d0-6e3fdefa2896
 ## Requirements
 
 - macOS with Xcode's command line tools: `xcode-select --install`
-- `brew install llvm sqlite icu4c@78 openssl@3`
+- `brew install llvm lld sqlite icu4c@78 openssl@3`
 - [Anki](https://apps.ankiweb.net) desktop, opened once and then quit
 - Billing on the Gemini key for real use: the free tier allows 10 requests a day per model, and a card needs five to seven
 
