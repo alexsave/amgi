@@ -25,6 +25,8 @@ export class Impl {
         // A process that cannot start (spawn ENOENT) or dies mid-session answers nothing, so every
         // read pending on it, and every later one, fails at once instead of waiting forever.
         this.child.once('error', (error) => this.fail(error));
+        // A write to a process that has gone fails with EPIPE; the exit above already says why, once.
+        this.child.stdin.on('error', () => {});
         this.child.once('exit', (code, signal) => this.fail(new Error(`the collection process exited (${code ?? signal}) before it answered`)));
         this.child.stdout.setEncoding('utf8');
         this.child.stdout.on('data', (chunk) => {
@@ -77,7 +79,6 @@ export class Impl {
 
     send(text) {
         if (this.failure) throw this.failure;
-        this.child.stdin.on('error', () => {});
         this.child.stdin.write(text);
     }
 
@@ -98,7 +99,6 @@ export class Impl {
     async close() {
         if (this.failure) return;
         const exited = new Promise((resolve) => this.child.once('exit', resolve));
-        this.child.stdin.on('error', () => {});
         this.child.stdin.end('quit\n');
         await exited;
     }
