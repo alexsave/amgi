@@ -1,7 +1,7 @@
 // Injects a synthetic microphone: getUserMedia returns a stream that is
 // silent for `leadMs`, then noise-shaped "speech" for `speechMs`, then
 // silence. Deterministic, and it exercises the real voice-activity-detection
-// path in src/utils/voiceActivity.js (Chrome's --use-file-for-fake-audio-capture
+// path in anki/src/voiceActivity.mjs (Chrome's --use-file-for-fake-audio-capture
 // is a no-op on this machine, which makes the review loop look broken when
 // it is not - do not spend time regenerating wav files, it is not a format
 // problem).

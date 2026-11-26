@@ -195,7 +195,7 @@ const notetype *amgi_notetype(void) {
     return 0;
 }
 
-/* ---- the mode badge: src/utils/ankiModeText.js's table ---- */
+/* ---- the mode badge: each mode's label, colour and explanation ---- */
 static const presentation PRESENT[WIRE_MODES] = {
     [WIRE_MODE_DIRECT] = {"Anki connected", "#4caf50", "Reading your Anki collection file directly - Anki is closed."},
     [WIRE_MODE_BRIDGE] = {"Anki connected", "#4caf50", "Reading your live collection through the Anki bridge add-on."},

@@ -600,7 +600,7 @@ function createVisualizer(root) {
 
     /**
      * One frame's worth of time-domain RMS, 0..1. Works the same whether
-     * `analyser` is the mic's own (voiceActivity.js, fftSize 1024) or a clip's
+     * `analyser` is the mic's own (voiceActivity.mjs, fftSize 1024) or a clip's
      * (attachVisualizerSource below, fftSize 1024 to match) - the caller never
      * needs to know which. Drives the bars' shared opacity (paint()'s
      * `alpha`) - the fixed circle never reads this at all, on purpose, see
@@ -910,7 +910,7 @@ function attachVisualizerSource(context, element) {
     }
     try {
         var analyser = context.createAnalyser();
-        // Matches voiceActivity.js's own analyser so the visualizer reads the
+        // Matches voiceActivity.mjs's own analyser so the visualizer reads the
         // same way whether it is fed by the microphone or by a clip.
         //
         // 2048 rather than 1024: at 48kHz a 1024-point transform is 47Hz per
@@ -1015,7 +1015,7 @@ var AMGI_STATUS_ICON = {
 // phrase, so "the translation" in the owner's own wording is accurate here.
 // `recording`, where set, is both the flag and the text .amgi-status-recording
 // shows (see makeUi below) - it is only ever true for PHASE.LISTENING, which
-// reviewLoop.js only reaches once openMic() has resolved with a live stream,
+// reviewLoop.mjs only reaches once openMic() has resolved with a live stream,
 // so the callout it drives is never lying about the mic being open.
 var AMGI_STATUS = {
     prompt: { text: "Listen to the translation, then we'll record your voice.", icon: 'speaker' },
@@ -1111,8 +1111,8 @@ function bootFront(root) {
         // No point opening a microphone to answer a card that asked nothing.
         openMic: hasCueAudio ? microphone : null,
         closeMic: stopMicrophone,
-        // detectSpeechEnd (voiceActivity.js) already builds the one AnalyserNode
-        // this mic gets; wrapping it here - rather than reviewLoop.js opening a
+        // detectSpeechEnd (voiceActivity.mjs) already builds the one AnalyserNode
+        // this mic gets; wrapping it here - rather than reviewLoop.mjs opening a
         // second one - is what "reuse the existing analyser" means in practice.
         // The colour is 'you': the mic is always the learner's own voice, same as
         // the "You" replay button below.

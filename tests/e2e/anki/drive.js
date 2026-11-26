@@ -258,7 +258,7 @@ async function withMicrophone(browser, port, logs) {
     const openedAt = Date.now();
     check('the microphone opens by itself after the prompt', true);
 
-    // The callout is honest by construction (reviewLoop.js's listen() only
+    // The callout is honest by construction (reviewLoop.mjs's listen() only
     // ever runs after openMic() has resolved with a live stream), not just by
     // convention - see anki-loop.js's AMGI_STATUS. This is what proves it
     // actually renders that way, and that a screen reader would actually hear
@@ -286,7 +286,7 @@ async function withMicrophone(browser, port, logs) {
     // The canvas keeps its browser-default backing size (300x150) until
     // anki-loop.js's visualizer actually sizes and draws on it, which only
     // happens once a real AnalyserNode is feeding it - so a size change here is
-    // proof the mic's own analyser (see voiceActivity.js) is reaching the
+    // proof the mic's own analyser (see voiceActivity.mjs) is reaching the
     // drawing code, not a second graph built for the visualizer alone.
     await waitFor(
         page,
@@ -330,7 +330,7 @@ async function withMicrophone(browser, port, logs) {
     );
 
     // Gone the instant the mic is not live any more, not lingering into the
-    // answer: reviewLoop.js sets PHASE.ANSWER only after closeMic() has
+    // answer: reviewLoop.mjs sets PHASE.ANSWER only after closeMic() has
     // actually stopped the tracks (see anki-loop.js's stopMicrophone), and
     // ui.phase('answer') hides the callout in that same synchronous step,
     // before the back side even renders.
