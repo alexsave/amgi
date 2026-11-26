@@ -3,7 +3,7 @@
 // Anki's own library, so each is what the command line leaves behind: notes with no clip, the deck's pair stored.
 //   - FillAmgi (amgi Listening notes, no choices): the line "5 cards have no audio · Fill", the run, and the line gone with the
 //     rows' chips there; both audio fields hold amgi's clips afterwards (read by Anki's library from the file);
-//   - the deck that has every clip (and one that cannot hold a clip at all) shows no line;
+//   - the deck whose clips are someone else's (and one that cannot hold a clip at all) shows no line;
 //   - FillOther (a note type of another shape): the picker with its guessed fields, a field and a language and a form picked,
 //     the plan following, the clips written as picked; Cancel midway leaves the done notes done;
 //   - FillMixed: the note type picker beside the others;
@@ -210,6 +210,10 @@ try {
     await openDeck('FillBasic');
     check(!(await b.evaluate(`!!document.querySelector('.deck-fill')`)), 'a deck whose notes have nowhere for a clip shows no line');
     check(plans() === before, 'and no plan is asked for it (Basic has no audio field)');
+
+    // someone else's audio is audio: the fixture's Korean deck holds clips of another origin (cue-hello.wav), so it offers nothing
+    await openDeck('한국어');
+    check(!(await b.evaluate(`!!document.querySelector('.deck-fill')`)), 'a deck whose notes have audio of another origin shows no line');
 
     // 3. A note type of another shape: the picker, the plan following it, the clips written as picked.
     await openDeck('FillOther');

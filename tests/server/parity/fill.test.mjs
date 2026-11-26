@@ -3,7 +3,7 @@
 // The recording of http.txt shows each answer; this file shows what an answer cannot: what was asked of Gemini, and what a note
 // holds afterwards.
 //   - the plan counts: notes that need a clip, notes that have it, notes that cannot (another note type, no text once its markup is gone);
-//   - a fill writes only amgi's own reference, in the form asked, and another add-on's [sound:] or an image stays where it was;
+//   - a fill writes only amgi's own reference, in the form asked, and an image stays where it was, and a note with someone else's audio is not filled at all;
 //   - a note that has its clip is not touched (the collection file is not written) and Gemini is not asked;
 //   - a second plan after the fills finds nothing to do (idempotent), and changing the form converts a note without a new recording;
 //   - a deck with no stored pair refuses both routes, and the language of a clip is the deck's learning or known one;
@@ -145,25 +145,25 @@ test('the plan, the fill, and the plan again: only amgi\'s own reference is writ
 
     const plan = await r.plan(deck, q);
     assert.equal(plan.status, 200);
-    assert.deepEqual([ids(plan.body), plan.body.upToDate, plan.body.skipped], [[a, b, d, reuse, lost, twice].sort((x, y) => x - y), 0, 2], 'the empty one and the other note type are skipped');
+    assert.deepEqual([ids(plan.body), plan.body.upToDate, plan.body.skipped], [[a, d, reuse, lost, twice].sort((x, y) => x - y), 1, 2], 'someone else\'s audio is audio (up to date), the empty one and the other note type are skipped');
     assert.equal(r.fake.requests.length, asked, 'a plan asks Gemini nothing');
     assert.equal(plan.body.mode, 'direct');
 
-    // sound form: the reference is added after what is there; another add-on's recording and an image stay
+    // sound form: the reference is added after what is there; an image stays, and a note with another add-on's recording is not filled at all
     assert.equal((await r.fill(a, q)).status, 200);
     assert.deepEqual((await r.note(a)).fields, ['안녕하세요', `[sound:${clipName('안녕하세요', 'ko')}]`]);
     assert.equal((await r.fill(b, q)).status, 200);
-    assert.deepEqual((await r.note(b)).fields, ['감사합니다', `[sound:keep-me.mp3][sound:${clipName('감사합니다', 'ko')}]`]);
-    assert.equal(r.fake.of('speech').length, 4, 'the two clips made above, and these two');
+    assert.deepEqual((await r.note(b)).fields, ['감사합니다', '[sound:keep-me.mp3]'], 'someone else\'s audio: answered as done, untouched');
+    assert.equal(r.fake.of('speech').length, 3, 'the two clips made above, and a\'s; b asked nothing');
     assert.equal((await r.fill(reuse, q)).status, 200);
     assert.deepEqual((await r.note(reuse)).fields, ['다음', `[sound:${clipName('다음', 'ko')}]`]);
-    assert.equal(r.fake.of('speech').length, 4, 'its clip was there: reused');
+    assert.equal(r.fake.of('speech').length, 3, 'its clip was there: reused');
     assert.equal((await r.fill(lost, q)).status, 200);
     assert.deepEqual((await r.note(lost)).fields, ['내일 봐요', `[sound:${clipName('내일 봐요', 'ko')}]`]);
-    assert.equal(r.fake.of('speech').length, 5, 'the file was gone: recorded again');
+    assert.equal(r.fake.of('speech').length, 4, 'the file was gone: recorded again');
     assert.equal((await r.fill(twice, q)).status, 200);
     assert.deepEqual((await r.note(twice)).fields, ['좋은 아침', `[sound:${clipName('좋은 아침', 'ko')}]x`], 'the clip of the older text went, and the one that is wanted took its place; the text between stays');
-    assert.equal(r.fake.of('speech').length, 5, 'its clip was there: reused');
+    assert.equal(r.fake.of('speech').length, 4, 'its clip was there: reused');
     // html form on a note with an image
     const html = { ...q, form: 'html' };
     assert.equal((await r.fill(d, html)).status, 200);
@@ -176,7 +176,7 @@ test('the plan, the fill, and the plan again: only amgi\'s own reference is writ
     const sound = await r.plan(deck, q);
     assert.deepEqual([ids(sound.body), sound.body.upToDate, sound.body.skipped], [[d], 5, 2]);
     const htmlPlan = await r.plan(deck, html);
-    assert.deepEqual([ids(htmlPlan.body), htmlPlan.body.upToDate], [[a, b, reuse, lost, twice].sort((x, y) => x - y), 1]);
+    assert.deepEqual([ids(htmlPlan.body), htmlPlan.body.upToDate], [[a, reuse, lost, twice].sort((x, y) => x - y), 2], 'b has someone else\'s audio in either form');
 
     // converting is no new recording: the clip is a hash of the text, so only the reference changes
     const calls = r.fake.requests.length;
@@ -281,6 +281,34 @@ test('amgi Listening notes: both sides at once, as <audio> elements, and the sta
     assert.equal((await r.fill(first.id, LISTENING(built.body.deckId, r))).status, 200);
     assert.equal(r.fake.of('speech').length, 4, 'the lost clip is recorded, as a wav, beside the mp3 that shipped');
     assert.match((await r.note(first.id)).fields[t.at.cueaudio], /^<audio src="amgi-[0-9a-f]{20}\.wav"><\/audio>$/);
+});
+
+test('a note with someone else\'s audio is not filled at all, per side for the Listening type, and amgi\'s own clips beside it do not change that', async () => {
+    const r = await rig();
+    const deck = await r.deck('Foreign');
+    const basic = BASIC(deck, r);
+    const soundTag = await r.add(deck, 'Basic', ['하나', '[sound:theirs.mp3]']);
+    const element = await r.add(deck, 'Basic', ['둘', '<audio src="theirs.wav"></audio>']);
+    const both = await r.add(deck, 'Basic', ['셋', `[sound:${clipName('옛날 글', 'ko')}][sound:theirs.mp3]`]);
+    const plan = await r.plan(deck, basic);
+    assert.deepEqual([ids(plan.body), plan.body.upToDate], [[], 3], 'none is offered; each counts as up to date');
+    for (const id of [soundTag, element, both]) {
+        const before = await r.note(id);
+        assert.equal((await r.fill(id, basic)).status, 200);
+        assert.deepEqual(await r.note(id), before, 'untouched');
+    }
+    assert.equal(r.fake.requests.length, 0, 'Gemini was not asked');
+
+    // the Listening type decides per side: their clip on the Cue side leaves the Cue alone, and the Target still gets amgi's
+    const t = r.types['amgi Listening'];
+    const note = await r.add(deck, 'amgi Listening', { [t.at.cue]: 'hello', [t.at.target]: '안녕', [t.at.cueaudio]: '[sound:theirs.mp3]' });
+    const q = LISTENING(deck, r);
+    assert.deepEqual(ids((await r.plan(deck, q)).body), [note]);
+    assert.equal((await r.fill(note, q)).status, 200);
+    const fields = (await r.note(note)).fields;
+    assert.deepEqual([fields[t.at.cueaudio], fields[t.at.targetaudio]], ['[sound:theirs.mp3]', `<audio src="${clipName('안녕', 'ko')}"></audio>`]);
+    assert.equal(r.fake.of('speech').length, 1, 'only the Target was recorded');
+    assert.deepEqual(ids((await r.plan(deck, q)).body), [], 'then nothing is left');
 });
 
 test('Gemini\'s limits leave the note as it was: a limit after the first clip, a limit before starting, the day\'s quota', async () => {

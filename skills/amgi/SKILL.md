@@ -66,8 +66,8 @@ The audio files of a removed deck stay in `collection.media` until Anki's Tools 
 `audio fill --deck NAME` makes the clip of every note in the deck (subdecks included) that lacks one, in the deck's languages, one note at a time, and writes its reference into the note's audio field.
 With no other option it fills the amgi Listening notes, both sides (Target into TargetAudio, Cue into CueAudio).
 For another note type name its fields: `audio fill --deck NAME --notetype Basic --text-field Front --audio-field Back [--side learning|known] [--form sound|html]` (`--side` is which of the deck's two languages the text field is in, `learning` unless said; `--form sound` writes `[sound:x]`, `html` an `<audio>` element).
-It leaves alone a note that already has the clip of its current text, and anything else in the audio field (someone else's recording, an image); running it again fills nothing.
-It prints `filled ID` or `failed ID REASON` for each note it tried, and last `audio-fill FILLED UP_TO_DATE SKIPPED FAILED` (the notes it found up to date, and the ones with no text or of another note type, are counted, not listed).
+It leaves alone a note that already has the clip of its current text and a note whose audio field holds someone else's audio (counted as up to date); it never touches an image; running it again fills nothing.
+It prints `filled ID` or `failed ID REASON` for each note it tried, and last `audio-fill FILLED UP_TO_DATE SKIPPED FAILED` (the notes it found up to date, which includes those with someone else's audio, and the ones with no text or of another note type, are counted, not listed).
 It waits as Gemini's rate limit asks and stops at once on the day's quota (exit 5), with the notes done staying done; a note whose clip Gemini could not make is `failed` and the run goes on, ending with exit 5.
 A deck with no languages is exit 4, like `card add`.
 Each clip is a Gemini call: do it when the user asks, and say how many notes the run will take (`audio fill` runs the plan first, but it does not stop to ask).
