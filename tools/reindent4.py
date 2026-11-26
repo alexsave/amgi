@@ -39,8 +39,8 @@ import re
 import subprocess
 import sys
 
-SCOPE_EXTS = ('.c', '.h', '.js', '.mjs', '.ts', '.tsx', '.html', '.css', '.sh', '.py', '.swift')
-EXCLUDED_DIRS = ('third_party', 'node_modules', 'out', 'results')
+SCOPE_EXTS = ('.c', '.h', '.js', '.mjs', '.ts', '.py', '.sh', '.css', '.html')  # amgi scope
+EXCLUDED_DIRS = ('third_party', 'node_modules', 'out', 'build', 'results', 'expect', 'golden', 'fixtures', 'recordings')  # amgi
 LANG_OF = {
     '.c': 'c', '.h': 'c', '.swift': 'c', '.js': 'js', '.mjs': 'js', '.ts': 'js', '.tsx': 'js',
     '.css': 'css', '.py': 'py', '.sh': 'sh', '.html': 'html',
