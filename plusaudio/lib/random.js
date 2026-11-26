@@ -24,19 +24,19 @@ const crypto = require('node:crypto');
 const SEED = null;
 
 function osSeed() {
-  return crypto.randomBytes(4).readUInt32LE(0);
+    return crypto.randomBytes(4).readUInt32LE(0);
 }
 
 /** splitmix32, used only to spread one 32-bit seed over sfc32's 128-bit state. */
 function splitmix32(seed) {
-  let state = seed >>> 0;
-  return () => {
-    state = (state + 0x9e3779b9) >>> 0;
-    let z = state;
-    z = Math.imul(z ^ (z >>> 16), 0x85ebca6b) >>> 0;
-    z = Math.imul(z ^ (z >>> 13), 0xc2b2ae35) >>> 0;
-    return (z ^ (z >>> 16)) >>> 0;
-  };
+    let state = seed >>> 0;
+    return () => {
+        state = (state + 0x9e3779b9) >>> 0;
+        let z = state;
+        z = Math.imul(z ^ (z >>> 16), 0x85ebca6b) >>> 0;
+        z = Math.imul(z ^ (z >>> 13), 0xc2b2ae35) >>> 0;
+        return (z ^ (z >>> 16)) >>> 0;
+    };
 }
 
 /**
@@ -48,49 +48,49 @@ function splitmix32(seed) {
  * which is what lets a test compare raw draw sequences across runs.
  */
 class Random {
-  constructor(seed) {
-    if (!Number.isInteger(seed)) throw new Error(`a Random needs an integer seed, got ${seed}`);
-    this.seed = seed >>> 0;
-    const mix = splitmix32(this.seed);
-    this.a = mix();
-    this.b = mix();
-    this.c = mix();
-    this.d = mix();
-    // sfc32's own warm-up, so nearby seeds do not start out correlated.
-    for (let i = 0; i < 12; i += 1) this.uint32();
-  }
-
-  /** One draw: a uniform 32-bit unsigned integer. */
-  uint32() {
-    const t = (((this.a + this.b) >>> 0) + this.d) >>> 0;
-    this.d = (this.d + 1) >>> 0;
-    this.a = (this.b ^ (this.b >>> 9)) >>> 0;
-    this.b = (this.c + (this.c << 3)) >>> 0;
-    this.c = ((this.c << 21) | (this.c >>> 11)) >>> 0;
-    this.c = (this.c + t) >>> 0;
-    return t;
-  }
-
-  /** One draw: an integer in [0, n). */
-  int(n) {
-    if (!Number.isInteger(n) || n <= 0) throw new Error(`int() needs a positive integer bound, got ${n}`);
-    return Math.floor((this.uint32() / 0x100000000) * n);
-  }
-
-  /** `count` bytes, one draw per 4 bytes. */
-  bytes(count) {
-    const out = Buffer.alloc(count);
-    for (let i = 0; i < count; i += 4) {
-      const word = this.uint32();
-      for (let j = 0; j < 4 && i + j < count; j += 1) out[i + j] = (word >>> (8 * j)) & 0xff;
+    constructor(seed) {
+        if (!Number.isInteger(seed)) throw new Error(`a Random needs an integer seed, got ${seed}`);
+        this.seed = seed >>> 0;
+        const mix = splitmix32(this.seed);
+        this.a = mix();
+        this.b = mix();
+        this.c = mix();
+        this.d = mix();
+        // sfc32's own warm-up, so nearby seeds do not start out correlated.
+        for (let i = 0; i < 12; i += 1) this.uint32();
     }
-    return out;
-  }
+
+    /** One draw: a uniform 32-bit unsigned integer. */
+    uint32() {
+        const t = (((this.a + this.b) >>> 0) + this.d) >>> 0;
+        this.d = (this.d + 1) >>> 0;
+        this.a = (this.b ^ (this.b >>> 9)) >>> 0;
+        this.b = (this.c + (this.c << 3)) >>> 0;
+        this.c = ((this.c << 21) | (this.c >>> 11)) >>> 0;
+        this.c = (this.c + t) >>> 0;
+        return t;
+    }
+
+    /** One draw: an integer in [0, n). */
+    int(n) {
+        if (!Number.isInteger(n) || n <= 0) throw new Error(`int() needs a positive integer bound, got ${n}`);
+        return Math.floor((this.uint32() / 0x100000000) * n);
+    }
+
+    /** `count` bytes, one draw per 4 bytes. */
+    bytes(count) {
+        const out = Buffer.alloc(count);
+        for (let i = 0; i < count; i += 4) {
+            const word = this.uint32();
+            for (let j = 0; j < 4 && i + j < count; j += 1) out[i + j] = (word >>> (8 * j)) & 0xff;
+        }
+        return out;
+    }
 }
 
 /** A generator of its own, for a test that needs a known sequence. */
 function createRandom(seed) {
-  return new Random(seed);
+    return new Random(seed);
 }
 
 /** The process-wide generator every shipped draw goes through. */

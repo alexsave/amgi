@@ -37,27 +37,27 @@ const { gateForThisProcess } = require('./ipcGate');
  *                                           script asks for another named one (build-starter-audio.js --model)
  */
 function createGeminiContext({ apiKey, baseUrl, random = defaultRandom, sleep, log = () => {}, ttsModel = CARD_MODELS.tts, gate = gateForThisProcess() } = {}) {
-  const gemini = createGeminiClient({
-    apiKey,
-    gate,
-    ...(baseUrl ? { baseUrl } : {}),
-    ...(sleep ? { sleep } : {}),
-  });
-  return {
-    gemini,
-    models: { ...CARD_MODELS, tts: ttsModel },
-    speech: createGeminiSpeech({ client: gemini, model: ttsModel, voices: GEMINI_TTS_VOICES, random }),
-    // Indented because these lines explain the note the CLI just announced.
-    log: {
-      warn: (message) => log(`  ${message}`),
-      error: (message) => log(`  ${message}`),
-    },
-  };
+    const gemini = createGeminiClient({
+        apiKey,
+        gate,
+        ...(baseUrl ? { baseUrl } : {}),
+        ...(sleep ? { sleep } : {}),
+    });
+    return {
+        gemini,
+        models: { ...CARD_MODELS, tts: ttsModel },
+        speech: createGeminiSpeech({ client: gemini, model: ttsModel, voices: GEMINI_TTS_VOICES, random }),
+        // Indented because these lines explain the note the CLI just announced.
+        log: {
+            warn: (message) => log(`  ${message}`),
+            error: (message) => log(`  ${message}`),
+        },
+    };
 }
 
 /** The key and endpoint from the environment, the way every CLI entry point reads them. */
 function geminiOptionsFromEnv(env = process.env) {
-  return { apiKey: env.GEMINI_API_KEY || '', baseUrl: env.GEMINI_API_BASE || undefined };
+    return { apiKey: env.GEMINI_API_KEY || '', baseUrl: env.GEMINI_API_BASE || undefined };
 }
 
 module.exports = { MISSING_KEY_MESSAGE, createGeminiContext, geminiOptionsFromEnv };

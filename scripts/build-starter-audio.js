@@ -78,7 +78,7 @@ const CACHE = path.join(ROOT, '.cache', 'starter-audio');
 const STARTER_EXTENSION = 'mp3';
 const AUDIO_PROFILE = 'v1';
 const starterClipName = (text, language) =>
-  `amgi-${require('node:crypto').createHash('sha1').update(`${AUDIO_PROFILE}\n${language}\n${text}`, 'utf8').digest('hex').slice(0, 20)}.${STARTER_EXTENSION}`;
+    `amgi-${require('node:crypto').createHash('sha1').update(`${AUDIO_PROFILE}\n${language}\n${text}`, 'utf8').digest('hex').slice(0, 20)}.${STARTER_EXTENSION}`;
 
 /** The one seed the starter voices are drawn from. Change it to re-roll every voice. */
 const STARTER_SEED = 20261108;
@@ -86,157 +86,157 @@ const STARTER_SEED = 20261108;
 const MP3_BITRATE = '64k';
 
 function parseArgs(argv) {
-  const { GEMINI_TTS_MODEL, GEMINI_TTS_LITE_MODEL } = require('../plusaudio/lib/cardGeneration/models.ts');
-  const named = [GEMINI_TTS_MODEL, GEMINI_TTS_LITE_MODEL];
-  const options = { rerecord: false, check: false, only: null, model: GEMINI_TTS_MODEL };
-  for (let i = 0; i < argv.length; i += 1) {
-    if (argv[i] === '--rerecord') options.rerecord = true;
-    else if (argv[i] === '--check') options.check = true;
-    else if (argv[i] === '--only') options.only = new Set((argv[++i] || '').split(',').filter(Boolean));
-    else if (argv[i] === '--model') {
-      options.model = argv[++i];
-      if (!named.includes(options.model)) throw new Error(`--model must be one of ${named.join(', ')}`);
-    } else throw new Error(`unknown option ${argv[i]}`);
-  }
-  return options;
+    const { GEMINI_TTS_MODEL, GEMINI_TTS_LITE_MODEL } = require('../plusaudio/lib/cardGeneration/models.ts');
+    const named = [GEMINI_TTS_MODEL, GEMINI_TTS_LITE_MODEL];
+    const options = { rerecord: false, check: false, only: null, model: GEMINI_TTS_MODEL };
+    for (let i = 0; i < argv.length; i += 1) {
+        if (argv[i] === '--rerecord') options.rerecord = true;
+        else if (argv[i] === '--check') options.check = true;
+        else if (argv[i] === '--only') options.only = new Set((argv[++i] || '').split(',').filter(Boolean));
+        else if (argv[i] === '--model') {
+            options.model = argv[++i];
+            if (!named.includes(options.model)) throw new Error(`--model must be one of ${named.join(', ')}`);
+        } else throw new Error(`unknown option ${argv[i]}`);
+    }
+    return options;
 }
 
 /** A refusal no wait inside this run fixes: a per-day cap (gemini.ts's dailyQuotaMessage). */
 function isDailyCap(message) {
-  return /daily limit|requests per day per model/.test(message);
+    return /daily limit|requests per day per model/.test(message);
 }
 
 /** A clip's own seed: STARTER_SEED and its name, so a resumed run draws the same voice. */
 function clipSeed(name) {
-  return (STARTER_SEED ^ crypto.createHash('sha1').update(name).digest().readUInt32LE(0)) >>> 0;
+    return (STARTER_SEED ^ crypto.createHash('sha1').update(name).digest().readUInt32LE(0)) >>> 0;
 }
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function readTakes() {
-  const takes = new Map();
-  const file = path.join(CACHE, 'takes.tsv');
-  if (!fs.existsSync(file)) return takes;
-  for (const line of fs.readFileSync(file, 'utf8').split('\n').filter(Boolean)) {
-    const [name, language, model, voice, attempts] = line.split('\t');
-    takes.set(name, { name, language, model, voice, attempts: Number(attempts) });
-  }
-  return takes;
+    const takes = new Map();
+    const file = path.join(CACHE, 'takes.tsv');
+    if (!fs.existsSync(file)) return takes;
+    for (const line of fs.readFileSync(file, 'utf8').split('\n').filter(Boolean)) {
+        const [name, language, model, voice, attempts] = line.split('\t');
+        takes.set(name, { name, language, model, voice, attempts: Number(attempts) });
+    }
+    return takes;
 }
 
 async function recordClip(clip, { apiKey, baseUrl, model }) {
-  const { createGeminiContext } = require('../plusaudio/lib/geminiContext');
-  const { generateCardAudio } = require('../plusaudio/lib/cardGeneration/cardGeneration.ts');
-  const { createRandom } = require('../plusaudio/lib/random');
+    const { createGeminiContext } = require('../plusaudio/lib/geminiContext');
+    const { generateCardAudio } = require('../plusaudio/lib/cardGeneration/cardGeneration.ts');
+    const { createRandom } = require('../plusaudio/lib/random');
 
-  const warnings = [];
-  const context = createGeminiContext({ apiKey, baseUrl, ttsModel: model, random: createRandom(clipSeed(clip.name)), log: (line) => warnings.push(line.trim()) });
-  const voices = [];
-  const pickVoice = context.speech.pickVoice;
-  context.speech = { ...context.speech, pickVoice: (previous) => { const voice = pickVoice(previous); voices.push(voice); return voice; } };
+    const warnings = [];
+    const context = createGeminiContext({ apiKey, baseUrl, ttsModel: model, random: createRandom(clipSeed(clip.name)), log: (line) => warnings.push(line.trim()) });
+    const voices = [];
+    const pickVoice = context.speech.pickVoice;
+    context.speech = { ...context.speech, pickVoice: (previous) => { const voice = pickVoice(previous); voices.push(voice); return voice; } };
 
-  for (;;) {
-    voices.length = 0;
-    try {
-      const audio = await generateCardAudio(context, { text: clip.text, language: clip.language });
-      return { audio: Buffer.from(audio), voice: voices[voices.length - 1], attempts: voices.length, model: context.models.tts, warnings };
-    } catch (error) {
-      // A per-minute limit is a quota, not a verdict on the clip: wait it out.
-      if (/per minute/.test(error.message)) {
-        process.stdout.write('  (per-minute limit; waiting 60 s)\n');
-        await sleep(60_000);
-        continue;
-      }
-      return { error: error.message, dailyCap: isDailyCap(error.message), attempts: voices.length, warnings };
+    for (;;) {
+        voices.length = 0;
+        try {
+            const audio = await generateCardAudio(context, { text: clip.text, language: clip.language });
+            return { audio: Buffer.from(audio), voice: voices[voices.length - 1], attempts: voices.length, model: context.models.tts, warnings };
+        } catch (error) {
+            // A per-minute limit is a quota, not a verdict on the clip: wait it out.
+            if (/per minute/.test(error.message)) {
+                process.stdout.write('  (per-minute limit; waiting 60 s)\n');
+                await sleep(60_000);
+                continue;
+            }
+            return { error: error.message, dailyCap: isDailyCap(error.message), attempts: voices.length, warnings };
+        }
     }
-  }
 }
 
 function toMp3(wavPath, mp3Path) {
-  const result = spawnSync('ffmpeg', ['-y', '-loglevel', 'error', '-i', wavPath, '-ac', '1', '-codec:a', 'libmp3lame', '-b:a', MP3_BITRATE, mp3Path], { encoding: 'utf8' });
-  if (result.status !== 0) throw new Error(`ffmpeg failed on ${wavPath}: ${(result.stderr || result.error?.message || '').trim()}`);
+    const result = spawnSync('ffmpeg', ['-y', '-loglevel', 'error', '-i', wavPath, '-ac', '1', '-codec:a', 'libmp3lame', '-b:a', MP3_BITRATE, mp3Path], { encoding: 'utf8' });
+    if (result.status !== 0) throw new Error(`ffmpeg failed on ${wavPath}: ${(result.stderr || result.error?.message || '').trim()}`);
 }
 
 async function main() {
-  const options = parseArgs(process.argv.slice(2));
-  const { readStarterPhrases } = require('../src/data/starterPhrases.js');
-  const phrases = readStarterPhrases();
-  if (!phrases) throw new Error('src/data/starterPhrases.tsv is missing or not a whole table');
+    const options = parseArgs(process.argv.slice(2));
+    const { readStarterPhrases } = require('../src/data/starterPhrases.js');
+    const phrases = readStarterPhrases();
+    if (!phrases) throw new Error('src/data/starterPhrases.tsv is missing or not a whole table');
 
-  const clips = [];
-  for (const [language, list] of Object.entries(phrases)) {
-    if (options.only && !options.only.has(language)) continue;
-    for (const text of list) clips.push({ language, text, name: starterClipName(text, language) });
-  }
-  const shipped = (clip) => fs.existsSync(path.join(OUT_DIR, clip.name));
-  const wanted = clips.filter((clip) => options.rerecord || !shipped(clip));
-  process.stdout.write(`${clips.length - clips.filter((clip) => !shipped(clip)).length} of ${clips.length} clips shipped; ${wanted.length} to record with ${options.model}\n`);
-  if (options.check || wanted.length === 0) return wanted.length === 0 || options.check ? 0 : 1;
-
-  try {
-    process.loadEnvFile(path.join(ROOT, 'plusaudio', '.env'));
-  } catch {
-    // No plusaudio/.env; the environment is expected to carry the key.
-  }
-  const { geminiOptionsFromEnv } = require('../plusaudio/lib/geminiContext');
-  const { apiKey, baseUrl } = geminiOptionsFromEnv();
-  if (!apiKey) {
-    process.stderr.write('GEMINI_API_KEY is not set.\n');
-    return 1;
-  }
-
-  fs.mkdirSync(CACHE, { recursive: true });
-  const takes = readTakes();
-  const failed = [];
-  for (const [index, clip] of wanted.entries()) {
-    const stem = clip.name.replace(/\.[^.]+$/, '');
-    const cached = path.join(CACHE, `${stem}.wav`);
-    if (fs.existsSync(cached) && takes.get(clip.name)?.model === options.model) {
-      process.stdout.write(`${index + 1}/${wanted.length} ${clip.language} cached (${takes.get(clip.name).voice})\n`);
-      continue;
+    const clips = [];
+    for (const [language, list] of Object.entries(phrases)) {
+        if (options.only && !options.only.has(language)) continue;
+        for (const text of list) clips.push({ language, text, name: starterClipName(text, language) });
     }
-    const result = await recordClip(clip, { apiKey, baseUrl, model: options.model });
-    if (result.dailyCap) {
-      const done = wanted.filter((c) => takes.get(c.name)?.model === options.model && fs.existsSync(path.join(CACHE, `${c.name.replace(/\.[^.]+$/, '')}.wav`))).length;
-      process.stderr.write(`\nStopped at a daily cap: ${result.error}\n`);
-      process.stderr.write(`${done} of ${wanted.length} clips are validated and cached; ${wanted.length - done} remain. Nothing under anki/starter/ was changed; run again after the reset to continue.\n`);
-      return 1;
+    const shipped = (clip) => fs.existsSync(path.join(OUT_DIR, clip.name));
+    const wanted = clips.filter((clip) => options.rerecord || !shipped(clip));
+    process.stdout.write(`${clips.length - clips.filter((clip) => !shipped(clip)).length} of ${clips.length} clips shipped; ${wanted.length} to record with ${options.model}\n`);
+    if (options.check || wanted.length === 0) return wanted.length === 0 || options.check ? 0 : 1;
+
+    try {
+        process.loadEnvFile(path.join(ROOT, 'plusaudio', '.env'));
+    } catch {
+        // No plusaudio/.env; the environment is expected to carry the key.
     }
-    if (result.error) {
-      failed.push({ ...clip, error: result.error, attempts: result.attempts });
-      process.stdout.write(`${index + 1}/${wanted.length} ${clip.language} FAILED after ${result.attempts} attempt(s): ${result.error}\n`);
-      continue;
+    const { geminiOptionsFromEnv } = require('../plusaudio/lib/geminiContext');
+    const { apiKey, baseUrl } = geminiOptionsFromEnv();
+    if (!apiKey) {
+        process.stderr.write('GEMINI_API_KEY is not set.\n');
+        return 1;
     }
-    fs.writeFileSync(cached, result.audio);
-    fs.appendFileSync(path.join(CACHE, 'takes.tsv'), `${clip.name}\t${clip.language}\t${result.model}\t${result.voice}\t${result.attempts}\n`);
-    takes.set(clip.name, { name: clip.name, language: clip.language, model: result.model, voice: result.voice, attempts: result.attempts });
-    process.stdout.write(`${index + 1}/${wanted.length} ${clip.language} ${result.voice}${result.attempts > 1 ? ` (${result.attempts} attempts)` : ''}\n`);
-  }
 
-  if (failed.length > 0) {
-    process.stderr.write(`\n${failed.length} clip(s) did not validate; nothing under anki/starter/ was changed:\n`);
-    for (const clip of failed) process.stderr.write(`  ${clip.language} "${clip.text}": ${clip.error}\n`);
-    return 1;
-  }
+    fs.mkdirSync(CACHE, { recursive: true });
+    const takes = readTakes();
+    const failed = [];
+    for (const [index, clip] of wanted.entries()) {
+        const stem = clip.name.replace(/\.[^.]+$/, '');
+        const cached = path.join(CACHE, `${stem}.wav`);
+        if (fs.existsSync(cached) && takes.get(clip.name)?.model === options.model) {
+            process.stdout.write(`${index + 1}/${wanted.length} ${clip.language} cached (${takes.get(clip.name).voice})\n`);
+            continue;
+        }
+        const result = await recordClip(clip, { apiKey, baseUrl, model: options.model });
+        if (result.dailyCap) {
+            const done = wanted.filter((c) => takes.get(c.name)?.model === options.model && fs.existsSync(path.join(CACHE, `${c.name.replace(/\.[^.]+$/, '')}.wav`))).length;
+            process.stderr.write(`\nStopped at a daily cap: ${result.error}\n`);
+            process.stderr.write(`${done} of ${wanted.length} clips are validated and cached; ${wanted.length - done} remain. Nothing under anki/starter/ was changed; run again after the reset to continue.\n`);
+            return 1;
+        }
+        if (result.error) {
+            failed.push({ ...clip, error: result.error, attempts: result.attempts });
+            process.stdout.write(`${index + 1}/${wanted.length} ${clip.language} FAILED after ${result.attempts} attempt(s): ${result.error}\n`);
+            continue;
+        }
+        fs.writeFileSync(cached, result.audio);
+        fs.appendFileSync(path.join(CACHE, 'takes.tsv'), `${clip.name}\t${clip.language}\t${result.model}\t${result.voice}\t${result.attempts}\n`);
+        takes.set(clip.name, { name: clip.name, language: clip.language, model: result.model, voice: result.voice, attempts: result.attempts });
+        process.stdout.write(`${index + 1}/${wanted.length} ${clip.language} ${result.voice}${result.attempts > 1 ? ` (${result.attempts} attempts)` : ''}\n`);
+    }
 
-  for (const clip of wanted) {
-    const stem = clip.name.replace(/\.[^.]+$/, '');
-    toMp3(path.join(CACHE, `${stem}.wav`), path.join(OUT_DIR, clip.name));
-  }
+    if (failed.length > 0) {
+        process.stderr.write(`\n${failed.length} clip(s) did not validate; nothing under anki/starter/ was changed:\n`);
+        for (const clip of failed) process.stderr.write(`  ${clip.language} "${clip.text}": ${clip.error}\n`);
+        return 1;
+    }
 
-  // Which model and voice made each shipped clip, in phrase order.
-  const rows = clips.map((clip) => {
-    const take = takes.get(clip.name);
-    return [clip.name, clip.language, take ? take.model : 'unknown', take ? take.voice : 'unknown', take ? take.attempts : '', clip.text].join('\t');
-  });
-  fs.writeFileSync(MANIFEST, `${['file', 'language', 'model', 'voice', 'attempts', 'text'].join('\t')}\n${rows.join('\n')}\n`);
-  process.stdout.write(`converted ${wanted.length} clip(s) to ${STARTER_EXTENSION} at ${MP3_BITRATE}; wrote ${path.relative(ROOT, MANIFEST)}\n`);
-  return 0;
+    for (const clip of wanted) {
+        const stem = clip.name.replace(/\.[^.]+$/, '');
+        toMp3(path.join(CACHE, `${stem}.wav`), path.join(OUT_DIR, clip.name));
+    }
+
+    // Which model and voice made each shipped clip, in phrase order.
+    const rows = clips.map((clip) => {
+        const take = takes.get(clip.name);
+        return [clip.name, clip.language, take ? take.model : 'unknown', take ? take.voice : 'unknown', take ? take.attempts : '', clip.text].join('\t');
+    });
+    fs.writeFileSync(MANIFEST, `${['file', 'language', 'model', 'voice', 'attempts', 'text'].join('\t')}\n${rows.join('\n')}\n`);
+    process.stdout.write(`converted ${wanted.length} clip(s) to ${STARTER_EXTENSION} at ${MP3_BITRATE}; wrote ${path.relative(ROOT, MANIFEST)}\n`);
+    return 0;
 }
 
 main().then((code) => {
-  process.exitCode = code;
+    process.exitCode = code;
 }, (error) => {
-  process.stderr.write(`${error.stack}\n`);
-  process.exitCode = 1;
+    process.stderr.write(`${error.stack}\n`);
+    process.exitCode = 1;
 });

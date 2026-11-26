@@ -12,25 +12,25 @@ export const STARTER_PHRASES_FILE = path.join(import.meta.dirname, 'starterPhras
  * whole table (no header, a line with too few or too many columns, an empty phrase).
  */
 export function parseStarterPhrases(text) {
-  const lines = text.split('\n');
-  if (lines.at(-1) === '') lines.pop();
-  if (lines.length < 2) return null;
-  const codes = lines[0].split('\t');
-  if (codes.some((code) => !code) || new Set(codes).size !== codes.length) return null;
-  const phrases = Object.fromEntries(codes.map((code) => [code, []]));
-  for (const line of lines.slice(1)) {
-    const cells = line.split('\t');
-    if (cells.length !== codes.length || cells.some((cell) => !cell)) return null;
-    cells.forEach((cell, i) => phrases[codes[i]].push(cell));
-  }
-  return phrases;
+    const lines = text.split('\n');
+    if (lines.at(-1) === '') lines.pop();
+    if (lines.length < 2) return null;
+    const codes = lines[0].split('\t');
+    if (codes.some((code) => !code) || new Set(codes).size !== codes.length) return null;
+    const phrases = Object.fromEntries(codes.map((code) => [code, []]));
+    for (const line of lines.slice(1)) {
+        const cells = line.split('\t');
+        if (cells.length !== codes.length || cells.some((cell) => !cell)) return null;
+        cells.forEach((cell, i) => phrases[codes[i]].push(cell));
+    }
+    return phrases;
 }
 
 /** The shipped phrases, or null when the file is missing or not a whole table. */
 export function readStarterPhrases(file = STARTER_PHRASES_FILE) {
-  try {
-    return parseStarterPhrases(fs.readFileSync(file, 'utf8'));
-  } catch {
-    return null;
-  }
+    try {
+        return parseStarterPhrases(fs.readFileSync(file, 'utf8'));
+    } catch {
+        return null;
+    }
 }

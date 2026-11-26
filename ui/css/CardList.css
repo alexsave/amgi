@@ -1,243 +1,243 @@
 .deck-cards {
-  width: 100%;
-  max-width: 1000px;
-  margin: 0 auto;
-  padding: 1.5rem 1rem;
-  box-sizing: border-box;
+    width: 100%;
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 1.5rem 1rem;
+    box-sizing: border-box;
 }
 
 .deck-cards-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-  text-align: left;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    text-align: left;
 }
 
 .deck-cards-header h1 {
-  margin: 0;
-  /* App.css's global h1 pads 10px each side, which pushed the deck name
-     right of the card count and language line under it. */
-  padding: 0;
-  font-size: 1.6rem;
-  color: var(--text-primary);
+    margin: 0;
+    /* App.css's global h1 pads 10px each side, which pushed the deck name
+       right of the card count and language line under it. */
+    padding: 0;
+    font-size: 1.6rem;
+    color: var(--text-primary);
 }
 
 .language-info {
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-  margin: 0.5rem 0;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    margin: 0.5rem 0;
 }
 
 /* Not absolutely positioned any more: the header is a row, so the button is
    just the last thing in it. Absolute placement put it on top of the title
    the moment the title stopped being centred. */
 .deck-cards-header .back-btn {
-  flex: none;
-  background: transparent;
-  border: 1px solid var(--border-color);
-  color: var(--text-primary);
-  padding: 0.5rem 1rem;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  font-size: 0.9rem;
+    flex: none;
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 0.9rem;
 }
 
 .deck-cards-header .back-btn:hover {
-  background: var(--dark-surface-hover);
-  transform: translateX(-2px);
+    background: var(--dark-surface-hover);
+    transform: translateX(-2px);
 }
 
 .deck-content {
-  display: flex;
-  flex-direction: column;
-  gap: 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
 }
 
 .deck-actions {
-  display: flex;
-  justify-content: flex-end;
+    display: flex;
+    justify-content: flex-end;
 }
 
 .add-card-btn {
-  background-color: var(--flame-orange);
-  color: white;
-  border: none;
-  padding: 0.75rem 1.25rem;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: 500;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  transition: all 0.2s ease;
+    background-color: var(--flame-orange);
+    color: white;
+    border: none;
+    padding: 0.75rem 1.25rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: all 0.2s ease;
 }
 
 .add-card-btn:hover {
-  background-color: var(--flame-orange-hover);
-  transform: translateY(-2px);
+    background-color: var(--flame-orange-hover);
+    transform: translateY(-2px);
 }
 
 .deck-cards-list {
 }
 
 .deck-cards-list h3 {
-  margin: 0 0 1rem 0;
-  color: var(--text-primary);
-  font-size: 1.1rem;
-  border-bottom: 1px solid var(--border-color);
-  padding-bottom: 0.75rem;
+    margin: 0 0 1rem 0;
+    color: var(--text-primary);
+    font-size: 1.1rem;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 0.75rem;
 }
 
 .empty-deck {
-  text-align: center;
-  padding: 2rem;
-  color: var(--text-secondary);
-  background: var(--dark-bg);
-  border-radius: 8px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1rem;
+    text-align: center;
+    padding: 2rem;
+    color: var(--text-secondary);
+    background: var(--dark-bg);
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
 }
 
 .start-adding-btn {
-  background-color: var(--flame-orange);
-  color: white;
-  border: none;
-  padding: 0.75rem 1.25rem;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: 500;
-  transition: all 0.2s ease;
+    background-color: var(--flame-orange);
+    color: white;
+    border: none;
+    padding: 0.75rem 1.25rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.2s ease;
 }
 
 .start-adding-btn:hover {
-  background-color: var(--flame-orange-hover);
-  transform: translateY(-2px);
+    background-color: var(--flame-orange-hover);
+    transform: translateY(-2px);
 }
 
 .card-item {
-  /* .App sets text-align: center globally (a Create React App leftover); the
-     card body reads as a list entry, so it opts out the way the deck list
-     and the forms do. */
-  text-align: left;
-  padding: 1rem;
-  transition: all 0.2s ease;
-  border-radius: 8px;
-  background: var(--dark-surface-hover);
-  border: 1px solid var(--border-color);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    /* .App sets text-align: center globally (a Create React App leftover); the
+       card body reads as a list entry, so it opts out the way the deck list
+       and the forms do. */
+    text-align: left;
+    padding: 1rem;
+    transition: all 0.2s ease;
+    border-radius: 8px;
+    background: var(--dark-surface-hover);
+    border: 1px solid var(--border-color);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .card-item.is-clickable {
-  cursor: pointer;
+    cursor: pointer;
 }
 
 .card-item.is-clickable:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  border-color: var(--flame-orange);
+    transform: translateY(-3px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    border-color: var(--flame-orange);
 }
 
 .card-item span {
-  display: block;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin-bottom: 0.5rem;
-  font-size: 1rem;
+    display: block;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 0.5rem;
+    font-size: 1rem;
 }
 
 .card-item-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
 }
 
 /* The header row owns the gap below it, so the label must not add its own. */
 .card-item-header span {
-  margin-bottom: 0;
+    margin-bottom: 0;
 }
 
 /* Styled here rather than reusing .icon-btn: that rule lives in DeckItem.css,
    which this route does not necessarily load. */
 .card-delete-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  width: 28px;
-  height: 28px;
-  /* Pulled into the card's padding so the hover target sits in the corner
-     without making the row taller than the label. */
-  margin: -2px -4px -2px 0;
-  padding: 4px;
-  background: transparent;
-  border: none;
-  border-radius: 6px;
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    /* Pulled into the card's padding so the hover target sits in the corner
+       without making the row taller than the label. */
+    margin: -2px -4px -2px 0;
+    padding: 4px;
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s ease;
 }
 
 .card-delete-btn:hover:not(:disabled) {
-  background: var(--dark-bg);
-  color: var(--flame-orange);
+    background: var(--dark-bg);
+    color: var(--flame-orange);
 }
 
 .card-delete-btn:disabled {
-  opacity: 0.4;
-  cursor: progress;
+    opacity: 0.4;
+    cursor: progress;
 }
 
 .card-item small {
-  display: block;
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-  line-height: 1.4;
-  margin-bottom: 0.5rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+    display: block;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    line-height: 1.4;
+    margin-bottom: 0.5rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .card-stats {
-  margin-top: 0.75rem;
-  padding: 0.75rem;
-  font-size: 0.85rem;
-  color: var(--text-secondary);
-  background: var(--dark-bg);
-  border-radius: 6px;
+    margin-top: 0.75rem;
+    padding: 0.75rem;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    background: var(--dark-bg);
+    border-radius: 6px;
 }
 
 @media (max-width: 768px) {
-  .deck-cards-header {
-    align-items: stretch;
-  }
+    .deck-cards-header {
+        align-items: stretch;
+    }
 
-  .deck-cards-header .back-btn {
-    position: static;
-    align-self: flex-start;
-    margin-bottom: 0.5rem;
-  }
+    .deck-cards-header .back-btn {
+        position: static;
+        align-self: flex-start;
+        margin-bottom: 0.5rem;
+    }
 
   
-  .deck-actions {
-    justify-content: center;
-  }
+    .deck-actions {
+        justify-content: center;
+    }
 } 
 .card-item-clips {
-  display: flex;
-  gap: 0.4rem;
-  align-items: center;
-  margin-top: 0.5rem;
-  flex-wrap: wrap;
+    display: flex;
+    gap: 0.4rem;
+    align-items: center;
+    margin-top: 0.5rem;
+    flex-wrap: wrap;
 }
 
 .card-item-noaudio {
-  opacity: 0.6;
+    opacity: 0.6;
 }
 
 /* The deck screen, laid out the way the mockup settled: left-aligned header
@@ -247,171 +247,171 @@
    objects instead of one deck. */
 
 .deck-cards-sub {
-  margin: 0.25rem 0 0;
-  font-size: 0.82rem;
-  color: var(--text-secondary);
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  flex-wrap: wrap;
-  /* as tall as the picker's controls, so opening it (or the languages arriving) moves nothing below */
-  min-height: 1.75rem;
+    margin: 0.25rem 0 0;
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    flex-wrap: wrap;
+    /* as tall as the picker's controls, so opening it (or the languages arriving) moves nothing below */
+    min-height: 1.75rem;
 }
 
 .deck-langs {
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.4rem;
-  /* the rest of the line after the card count: it wraps inside itself only when that is too narrow */
-  flex: 1 1 auto;
-  min-width: 0;
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+    /* the rest of the line after the card count: it wraps inside itself only when that is too narrow */
+    flex: 1 1 auto;
+    min-width: 0;
 }
 
 .deck-cards-title {
-  /* the header's free width: sized to its content, the languages line's picker wrapped well short of the page's width */
-  flex: 1 1 auto;
-  min-width: 0;
+    /* the header's free width: sized to its content, the languages line's picker wrapped well short of the page's width */
+    flex: 1 1 auto;
+    min-width: 0;
 }
 
 .deck-langs button {
-  font: inherit;
-  font-size: 0.72rem;
-  color: var(--text-secondary);
-  background: transparent;
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  padding: 0 0.45rem;
-  height: 1.75rem;
-  box-sizing: border-box;
-  cursor: pointer;
+    font: inherit;
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+    background: transparent;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 0 0.45rem;
+    height: 1.75rem;
+    box-sizing: border-box;
+    cursor: pointer;
 }
 
 .deck-langs select {
-  font: inherit;
-  font-size: 0.78rem;
-  background: var(--dark-surface);
-  color: var(--text-primary);
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  padding: 0 0.4rem;
-  /* the buttons' height: one row of controls, one height */
-  height: 1.75rem;
-  box-sizing: border-box;
-  /* from 6rem up to 9rem: on a phone both selects and the arrow fit one line, with Save and Cancel under them */
-  flex: 1 1 6rem;
-  max-width: 9rem;
-  min-width: 0;
+    font: inherit;
+    font-size: 0.78rem;
+    background: var(--dark-surface);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 0 0.4rem;
+    /* the buttons' height: one row of controls, one height */
+    height: 1.75rem;
+    box-sizing: border-box;
+    /* from 6rem up to 9rem: on a phone both selects and the arrow fit one line, with Save and Cancel under them */
+    flex: 1 1 6rem;
+    max-width: 9rem;
+    min-width: 0;
 }
 
 .deck-cards-listhead {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  margin: 1.8rem 0 0.7rem;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin: 1.8rem 0 0.7rem;
 }
 
 .deck-cards-listhead h3 {
-  margin: 0;
-  font-size: 1rem;
+    margin: 0;
+    font-size: 1rem;
 }
 
 .deck-cards-listhead span {
-  font-size: 0.8rem;
-  color: var(--text-secondary);
+    font-size: 0.8rem;
+    color: var(--text-secondary);
 }
 
 .note-rows {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  border: 1px solid var(--border-color);
-  border-radius: 11px;
-  overflow: hidden;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    border: 1px solid var(--border-color);
+    border-radius: 11px;
+    overflow: hidden;
 }
 
 .note-row {
-  text-align: left;
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 0.75rem 0.95rem;
-  background: var(--dark-surface);
+    text-align: left;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.75rem 0.95rem;
+    background: var(--dark-surface);
 }
 
 .note-row-target,
 .note-row-cue {
-  flex: 1 1 0;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+    flex: 1 1 0;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .note-row-target {
-  font-size: 0.95rem;
+    font-size: 0.95rem;
 }
 
 .note-row-cue {
-  font-size: 0.82rem;
-  color: var(--text-secondary);
+    font-size: 0.82rem;
+    color: var(--text-secondary);
 }
 
 .note-row-type {
-  font-size: 0.7rem;
-  border: 1px solid var(--border-color);
-  border-radius: 5px;
-  display: inline-block; /* inside the line, which hides what overflows it: an inline box's border was cut */
-  line-height: 1.2;
-  padding: 0.1rem 0.35rem;
-  margin-right: 0.35rem;
+    font-size: 0.7rem;
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    display: inline-block; /* inside the line, which hides what overflows it: an inline box's border was cut */
+    line-height: 1.2;
+    padding: 0.1rem 0.35rem;
+    margin-right: 0.35rem;
 }
 
 .note-row-clips {
-  display: flex;
-  gap: 0.35rem;
-  align-items: center;
-  flex: none;
+    display: flex;
+    gap: 0.35rem;
+    align-items: center;
+    flex: none;
 }
 
 .note-row-noaudio {
-  font-size: 0.72rem;
-  opacity: 0.6;
+    font-size: 0.72rem;
+    opacity: 0.6;
 }
 
 .note-row-wrap {
-  background: var(--dark-surface);
+    background: var(--dark-surface);
 }
 
 .note-row-wrap + .note-row-wrap {
-  border-top: 1px solid var(--border-color);
+    border-top: 1px solid var(--border-color);
 }
 
 .note-row-wrap.is-open {
-  background: var(--dark-surface-hover);
+    background: var(--dark-surface-hover);
 }
 
 .note-row-edit {
-  flex: none;
-  font: inherit;
-  font-size: 0.76rem;
-  color: var(--text-secondary);
-  background: transparent;
-  border: 1px solid var(--border-color);
-  border-radius: 7px;
-  padding: 0.3rem 0.65rem;
-  cursor: pointer;
-  min-width: 3.4rem;
-  text-align: center;
+    flex: none;
+    font: inherit;
+    font-size: 0.76rem;
+    color: var(--text-secondary);
+    background: transparent;
+    border: 1px solid var(--border-color);
+    border-radius: 7px;
+    padding: 0.3rem 0.65rem;
+    cursor: pointer;
+    min-width: 3.4rem;
+    text-align: center;
 }
 
 .note-row-edit:hover {
-  color: var(--text-primary);
+    color: var(--text-primary);
 }
 
 .note-row-edit-off {
-  opacity: 0.35;
-  cursor: default;
+    opacity: 0.35;
+    cursor: default;
 }
 
 /* Delete, on the row itself: a trash can, and red.
@@ -421,191 +421,191 @@
    than only on hover, for the same reason: a destructive control should look
    destructive before you are already pointing at it. */
 .note-row-delete {
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: #ff8a8c;
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: 7px;
-  padding: 0.3rem;
-  cursor: pointer;
-  opacity: 0.6;
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #ff8a8c;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 7px;
+    padding: 0.3rem;
+    cursor: pointer;
+    opacity: 0.6;
 }
 
 .note-row-delete svg {
-  width: 1rem;
-  height: 1rem;
+    width: 1rem;
+    height: 1rem;
 }
 
 .note-row:hover .note-row-delete,
 .note-row-delete:focus-visible {
-  opacity: 1;
+    opacity: 1;
 }
 
 .note-row-delete:hover {
-  border-color: rgba(255, 77, 79, 0.45);
-  background: rgba(255, 77, 79, 0.08);
+    border-color: rgba(255, 77, 79, 0.45);
+    background: rgba(255, 77, 79, 0.08);
 }
 
 .note-row-delete:disabled {
-  opacity: 0.3;
-  cursor: default;
+    opacity: 0.3;
+    cursor: default;
 }
 
 /* The panel is the row, opened up: no inset, and none of its own framing.
    Nesting a bordered, rounded, differently-shaded box inside an already
    bordered row drew the same card twice, once inside the other. */
 .note-row-editor .card-panel {
-  margin: 0;
-  border: none;
-  border-top: 1px solid var(--border-color);
-  border-radius: 0;
-  background: transparent;
+    margin: 0;
+    border: none;
+    border-top: 1px solid var(--border-color);
+    border-radius: 0;
+    background: transparent;
 }
 
 /* A phone: the card's two sides have a line each, and what is pressed (the clips, Edit, delete) the line below. */
 @media (max-width: 768px) {
-  .note-row {
-    flex-wrap: wrap;
-    row-gap: 0.3rem;
-    column-gap: 0.5rem;
-  }
+    .note-row {
+        flex-wrap: wrap;
+        row-gap: 0.3rem;
+        column-gap: 0.5rem;
+    }
 
-  .note-row-target,
-  .note-row-cue {
-    flex-basis: 100%;
-  }
+    .note-row-target,
+    .note-row-cue {
+        flex-basis: 100%;
+    }
 
-  .note-row-clips {
-    flex: 1 1 auto;
-    flex-wrap: wrap;
-    min-width: 0;
-  }
+    .note-row-clips {
+        flex: 1 1 auto;
+        flex-wrap: wrap;
+        min-width: 0;
+    }
 }
 
 /* The deck name, edited where it is read. */
 .deck-name-button {
-  font: inherit;
-  color: inherit;
-  background: transparent;
-  border: none;
-  border-bottom: 1px dashed transparent;
-  padding: 0;
-  cursor: text;
-  text-align: left;
+    font: inherit;
+    color: inherit;
+    background: transparent;
+    border: none;
+    border-bottom: 1px dashed transparent;
+    padding: 0;
+    cursor: text;
+    text-align: left;
 }
 
 .deck-name-button:hover {
-  border-bottom-color: var(--text-secondary);
+    border-bottom-color: var(--text-secondary);
 }
 
 .deck-name-input {
-  font: inherit;
-  color: var(--text-primary);
-  background: transparent;
-  border: none;
-  border-bottom: 1px solid var(--flame-orange);
-  padding: 0;
-  width: 100%;
-  max-width: 24ch;
+    font: inherit;
+    color: var(--text-primary);
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--flame-orange);
+    padding: 0;
+    width: 100%;
+    max-width: 24ch;
 }
 
 .deck-name-input:focus {
-  outline: none;
+    outline: none;
 }
 
 .deck-name-error {
-  margin: 0.25rem 0 0;
-  font-size: 0.78rem;
-  color: #e07050;
+    margin: 0.25rem 0 0;
+    font-size: 0.78rem;
+    color: #e07050;
 }
 
 /* Deleting the deck: last on its page, set apart from everything above it, and red the way the
    row's own delete is, at rest rather than only on hover. */
 .deck-danger {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem 1.5rem;
-  padding: 1rem 1.25rem;
-  border: 1px solid rgba(255, 77, 79, 0.3);
-  border-radius: 8px;
-  text-align: left;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem 1.5rem;
+    padding: 1rem 1.25rem;
+    border: 1px solid rgba(255, 77, 79, 0.3);
+    border-radius: 8px;
+    text-align: left;
 }
 
 .deck-danger h3 {
-  margin: 0 0 0.25rem;
-  font-size: 0.95rem;
-  color: var(--text-primary);
+    margin: 0 0 0.25rem;
+    font-size: 0.95rem;
+    color: var(--text-primary);
 }
 
 .deck-danger-text p {
-  margin: 0;
-  font-size: 0.85rem;
-  color: var(--text-secondary);
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
 }
 
 .deck-danger-btn {
-  font: inherit;
-  font-size: 0.85rem;
-  color: #ff8a8c;
-  background: transparent;
-  border: 1px solid rgba(255, 77, 79, 0.45);
-  border-radius: 8px;
-  padding: 0.45rem 0.95rem;
-  cursor: pointer;
-  flex: none;
-  transition: all 0.2s ease;
+    font: inherit;
+    font-size: 0.85rem;
+    color: #ff8a8c;
+    background: transparent;
+    border: 1px solid rgba(255, 77, 79, 0.45);
+    border-radius: 8px;
+    padding: 0.45rem 0.95rem;
+    cursor: pointer;
+    flex: none;
+    transition: all 0.2s ease;
 }
 
 .deck-danger-btn:hover:not(:disabled) {
-  border-color: rgba(255, 77, 79, 0.75);
-  background: rgba(255, 77, 79, 0.08);
+    border-color: rgba(255, 77, 79, 0.75);
+    background: rgba(255, 77, 79, 0.08);
 }
 
 .deck-danger-btn:disabled {
-  opacity: 0.5;
-  cursor: default;
+    opacity: 0.5;
+    cursor: default;
 }
 
 .deck-danger-error {
-  flex-basis: 100%;
-  margin: 0;
-  font-size: 0.8rem;
-  color: #e07050;
+    flex-basis: 100%;
+    margin: 0;
+    font-size: 0.8rem;
+    color: #e07050;
 }
 
 /* The page of a deck that is gone: what happened, and the way back. */
 .deck-gone {
-  text-align: left;
-  padding: 2rem 0;
+    text-align: left;
+    padding: 2rem 0;
 }
 
 .deck-gone h1 {
-  margin: 0 0 0.5rem;
-  padding: 0;
-  font-size: 1.6rem;
-  color: var(--text-primary);
+    margin: 0 0 0.5rem;
+    padding: 0;
+    font-size: 1.6rem;
+    color: var(--text-primary);
 }
 
 .deck-gone p {
-  margin: 0 0 1.25rem;
-  color: var(--text-secondary);
+    margin: 0 0 1.25rem;
+    color: var(--text-secondary);
 }
 
 .deck-gone .back-btn {
-  background: transparent;
-  border: 1px solid var(--border-color);
-  color: var(--text-primary);
-  padding: 0.5rem 1rem;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 0.9rem;
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
 }
 
 .deck-gone .back-btn:hover {
-  background: var(--dark-surface-hover);
+    background: var(--dark-surface-hover);
 }

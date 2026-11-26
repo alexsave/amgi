@@ -25,7 +25,7 @@ const skip = !anki ? 'needs the anki library (ANKI_PYTHON_BIN)' : false;
 
 /** Every code point whose full case fold is two or three code points, from Python's casefold. */
 function expandingFolds() {
-  return runPython(`
+    return runPython(`
 import sys
 out = []
 for cp in range(0x80, 0x110000):
@@ -38,32 +38,32 @@ sys.stdout.write("".join(out))
 }
 
 test("deck names written by the C core keep Anki's name index whole, and find the decks Anki would", { skip }, () => {
-  const expanding = [...expandingFolds().join('')];
-  const special = ['ß', 'ẞ', 'SS', 'İ', 'i̇', 'ı', 'I', 'Σ', 'σ', 'ς', 'K', 'k', 'Å', 'å', 'Ä', 'ä', 'é', 'é', 'ǅ', 'ǆ', 'Ǆ'];
-  const random = createRandom(20261108);
-  const names = [...expanding, ...special];
-  for (let i = 0; i < 120; i += 1) {
-    let n = '';
-    for (let k = 1 + random.int(4); k > 0; k -= 1) n += [...expanding, ...special, 'f', 'F', 'i', 'a'][random.int(expanding.length + special.length + 4)];
-    names.push(n);
-  }
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'amgi-unicase-'));
-  const ours = path.join(dir, 'ours.anki2');
-  const theirs = path.join(dir, 'theirs.anki2');
-  fs.copyFileSync(path.join(ROOT, 'tests', 'server', 'parity', 'fixtures', 'schema18', 'collection.anki2'), ours);
-  fs.copyFileSync(ours, theirs);
-  return (async () => {
-    const impl = new Impl();
-    await impl.cmd(`open ${enc(ours)}`);
-    const refused = [];
-    for (const name of names) {
-      const answer = await impl.cmd(`createDeck ${enc(name)}`);
-      if (!answer.startsWith('ok')) refused.push(`${JSON.stringify(name)}: ${answer}`);
+    const expanding = [...expandingFolds().join('')];
+    const special = ['ß', 'ẞ', 'SS', 'İ', 'i̇', 'ı', 'I', 'Σ', 'σ', 'ς', 'K', 'k', 'Å', 'å', 'Ä', 'ä', 'é', 'é', 'ǅ', 'ǆ', 'Ǆ'];
+    const random = createRandom(20261108);
+    const names = [...expanding, ...special];
+    for (let i = 0; i < 120; i += 1) {
+        let n = '';
+        for (let k = 1 + random.int(4); k > 0; k -= 1) n += [...expanding, ...special, 'f', 'F', 'i', 'a'][random.int(expanding.length + special.length + 4)];
+        names.push(n);
     }
-    await impl.close();
-    assert.deepEqual(refused, [], 'every name finds or makes a deck');
-    fs.writeFileSync(path.join(dir, 'names.txt'), names.join('\n'));
-    const out = runPython(`
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'amgi-unicase-'));
+    const ours = path.join(dir, 'ours.anki2');
+    const theirs = path.join(dir, 'theirs.anki2');
+    fs.copyFileSync(path.join(ROOT, 'tests', 'server', 'parity', 'fixtures', 'schema18', 'collection.anki2'), ours);
+    fs.copyFileSync(ours, theirs);
+    return (async () => {
+        const impl = new Impl();
+        await impl.cmd(`open ${enc(ours)}`);
+        const refused = [];
+        for (const name of names) {
+            const answer = await impl.cmd(`createDeck ${enc(name)}`);
+            if (!answer.startsWith('ok')) refused.push(`${JSON.stringify(name)}: ${answer}`);
+        }
+        await impl.close();
+        assert.deepEqual(refused, [], 'every name finds or makes a deck');
+        fs.writeFileSync(path.join(dir, 'names.txt'), names.join('\n'));
+        const out = runPython(`
 import sys
 from anki.collection import Collection
 ours, theirs, names = sys.argv[1], sys.argv[2], open(sys.argv[3], encoding="utf-8").read().split("\\n")
@@ -82,9 +82,9 @@ if our_names != anki_names:
     print("only anki", [n for n in anki_names if n not in our_names][:8])
 col.close()
 `, [ours, theirs, path.join(dir, 'names.txt')]);
-    fs.rmSync(dir, { recursive: true, force: true });
-    assert.match(out, /^integrity ok$/m, out);
-    assert.match(out, /^check clean$/m, out);
-    assert.match(out, /^same decks True/m, out);
-  })();
+        fs.rmSync(dir, { recursive: true, force: true });
+        assert.match(out, /^integrity ok$/m, out);
+        assert.match(out, /^check clean$/m, out);
+        assert.match(out, /^same decks True/m, out);
+    })();
 });

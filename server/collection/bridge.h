@@ -18,12 +18,12 @@
 #include "collection.h"
 
 typedef struct {
-  int profile_open;
-  str profile_name;
-  int collection_open;
-  int has_schema;
-  uint32_t schema;
-  str anki_version, qt_version;
+    int profile_open;
+    str profile_name;
+    int collection_open;
+    int has_schema;
+    uint32_t schema;
+    str anki_version, qt_version;
 } col_bridge_status;
 
 typedef struct { str url, token; } col_bridge;
@@ -65,13 +65,13 @@ int col_bridge_add_media(arena *a, const col_bridge *b, str name, const void *da
 /* ---- transport.js: which transport answers, right now ---- */
 typedef struct { str collection_path, bridge_url, bridge_token; } col_settings;
 typedef struct {
-  const char *mode; /* direct, bridge, locked, not-found, unsupported-schema, unconfigured, bridge-no-collection, bridge-outdated */
-  int has_schema;
-  int schema;              /* direct: the collection's schema */
-  int has_detail;          /* bridge and bridge-no-collection: the bridge's status */
-  col_bridge_status detail;
-  int ops;                 /* 1 when mode is direct or bridge: there is a transport to call */
-  col_bridge bridge;       /* mode bridge: where */
+    const char *mode; /* direct, bridge, locked, not-found, unsupported-schema, unconfigured, bridge-no-collection, bridge-outdated */
+    int has_schema;
+    int schema;              /* direct: the collection's schema */
+    int has_detail;          /* bridge and bridge-no-collection: the bridge's status */
+    col_bridge_status detail;
+    int ops;                 /* 1 when mode is direct or bridge: there is a transport to call */
+    col_bridge bridge;       /* mode bridge: where */
 } col_transport;
 /* resolveTransport: 0 with *out, or -1 when the collection's own status threw (a file that is not
  * a database, say), which the route answers as a failure of the request. */

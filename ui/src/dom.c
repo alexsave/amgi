@@ -2,61 +2,61 @@
 #include "app.h"
 
 void el(const char *tag, const char *cls) {
-  cd_open(tag);
-  if (cls) cd_class(cls);
+    cd_open(tag);
+    if (cls) cd_class(cls);
 }
 cd_id el_id(const char *tag, const char *cls) {
-  cd_id id = cd_open_id(tag);
-  if (cls) cd_class(cls);
-  return id;
+    cd_id id = cd_open_id(tag);
+    if (cls) cd_class(cls);
+    return id;
 }
 void el_text(const char *tag, const char *cls, const char *s) {
-  el(tag, cls);
-  cd_text(s);
-  cd_close();
+    el(tag, cls);
+    cd_text(s);
+    cd_close();
 }
 void text_bound(cd_bound *b, const char *v) {
-  cd_text(v);
-  cd_id node = cd_id_new();
-  cd_name_text(node);
-  cd_bind_text(b, node);
-  cd_bound_shows(b, v);
+    cd_text(v);
+    cd_id node = cd_id_new();
+    cd_name_text(node);
+    cd_bind_text(b, node);
+    cd_bound_shows(b, v);
 }
 void text_bound_num(cd_bound *b, uint32_t n) {
-  cd_text_num(n);
-  cd_id node = cd_id_new();
-  cd_name_text(node);
-  cd_bind_text(b, node);
-  cd_bound_shows_num(b, n);
+    cd_text_num(n);
+    cd_id node = cd_id_new();
+    cd_name_text(node);
+    cd_bind_text(b, node);
+    cd_bound_shows_num(b, n);
 }
 void bool_bound(cd_bound *b, cd_id el, const char *prop, uint32_t v) {
-  cd_bind_bool(b, el, prop);
-  cd_bound_shows_num(b, v);
+    cd_bind_bool(b, el, prop);
+    cd_bound_shows_num(b, v);
 }
 void tmp_text(const char *p, uint32_t len) { cd_text(cd_tmp(p, len)); }
 void attr_tmp(const char *name, const char *p, uint32_t len) { cd_attr(name, cd_tmp(p, len)); }
 
 void icon_with(const char *d1, const char *d2, const char *style, const char *cls) {
-  cd_open("svg");
-  cd_attr("xmlns", "http://www.w3.org/2000/svg");
-  cd_attr("fill", "none");
-  cd_attr("viewBox", "0 0 24 24");
-  cd_attr("stroke-width", "1.5");
-  cd_attr("stroke", "currentColor");
-  cd_attr("aria-hidden", "true");
-  cd_attr("data-slot", "icon");
-  if (cls) cd_attr("class", cls);
-  if (style) cd_attr("style", style);
-  for (int i = 0; i < 2; i++) {
-    const char *d = i ? d2 : d1;
-    if (!d) continue;
-    cd_open("path");
-    cd_attr("stroke-linecap", "round");
-    cd_attr("stroke-linejoin", "round");
-    cd_attr("d", d);
+    cd_open("svg");
+    cd_attr("xmlns", "http://www.w3.org/2000/svg");
+    cd_attr("fill", "none");
+    cd_attr("viewBox", "0 0 24 24");
+    cd_attr("stroke-width", "1.5");
+    cd_attr("stroke", "currentColor");
+    cd_attr("aria-hidden", "true");
+    cd_attr("data-slot", "icon");
+    if (cls) cd_attr("class", cls);
+    if (style) cd_attr("style", style);
+    for (int i = 0; i < 2; i++) {
+        const char *d = i ? d2 : d1;
+        if (!d) continue;
+        cd_open("path");
+        cd_attr("stroke-linecap", "round");
+        cd_attr("stroke-linejoin", "round");
+        cd_attr("d", d);
+        cd_close();
+    }
     cd_close();
-  }
-  cd_close();
 }
 
 void icon(const char *d1, const char *d2, const char *style) { icon_with(d1, d2, style, 0); }

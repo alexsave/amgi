@@ -13,26 +13,26 @@ import { cards, rows } from './golden/cards-tool.mjs';
 const golden = rows(fs, 'judge-expected.tsv');
 
 test('each case: the spoken form, both normalised texts, the reading rule and the decision', () => {
-  const calls = golden.flatMap(([language, text, transcript]) => [
-    ['s', language, text],
-    ['n', language, transcript],
-    ['a', language, ''],
-  ]);
-  const got = cards(calls);
-  golden.forEach(([language, text, transcript, reading, spoken, heard, said, ambiguous, decision], i) => {
-    const [cSpoken, cHeard, cAmbiguous] = got.slice(3 * i, 3 * i + 3);
-    const [cSaid] = cards([['n', language, cSpoken]]);
-    const what = `${language} ${text} / ${transcript} / ${reading}`;
-    assert.equal(cSpoken, spoken, `spoken form: ${what}`);
-    assert.equal(cHeard, heard, `transcript normalised: ${what}`);
-    assert.equal(cSaid, said, `spoken normalised: ${what}`);
-    assert.equal(cAmbiguous, ambiguous, `reading ambiguous: ${what}`);
-    const mustHear = cAmbiguous === '1' && reading.trim() !== '';
-    assert.equal(cHeard === cSaid && !mustHear ? 'accept' : 'judge', decision, `decision: ${what}`);
-  });
+    const calls = golden.flatMap(([language, text, transcript]) => [
+      ['s', language, text],
+      ['n', language, transcript],
+      ['a', language, ''],
+    ]);
+    const got = cards(calls);
+    golden.forEach(([language, text, transcript, reading, spoken, heard, said, ambiguous, decision], i) => {
+        const [cSpoken, cHeard, cAmbiguous] = got.slice(3 * i, 3 * i + 3);
+        const [cSaid] = cards([['n', language, cSpoken]]);
+        const what = `${language} ${text} / ${transcript} / ${reading}`;
+        assert.equal(cSpoken, spoken, `spoken form: ${what}`);
+        assert.equal(cHeard, heard, `transcript normalised: ${what}`);
+        assert.equal(cSaid, said, `spoken normalised: ${what}`);
+        assert.equal(cAmbiguous, ambiguous, `reading ambiguous: ${what}`);
+        const mustHear = cAmbiguous === '1' && reading.trim() !== '';
+        assert.equal(cHeard === cSaid && !mustHear ? 'accept' : 'judge', decision, `decision: ${what}`);
+    });
 });
 
 test('the spread covers both decisions and both reading rules', () => {
-  assert.ok(golden.some((r) => r[8] === 'accept') && golden.some((r) => r[8] === 'judge'));
-  assert.ok(golden.some((r) => r[7] === '1') && golden.some((r) => r[7] === '0'));
+    assert.ok(golden.some((r) => r[8] === 'accept') && golden.some((r) => r[8] === 'judge'));
+    assert.ok(golden.some((r) => r[7] === '1') && golden.some((r) => r[7] === '0'));
 });

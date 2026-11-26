@@ -17,13 +17,13 @@ const DAILY_CAP_EXIT = 4;
 
 /** The stdout line a rate-limited run ends with. */
 function retryAfterLine(retryAfterMs) {
-  return `retry-after-ms=${Math.max(0, Math.round(retryAfterMs))}\n`;
+    return `retry-after-ms=${Math.max(0, Math.round(retryAfterMs))}\n`;
 }
 
 /** The wait a rate-limited run reported on stdout, or null when it did not say. */
 function parseRetryAfter(stdout) {
-  const match = /^retry-after-ms=(\d+)$/m.exec(stdout || '');
-  return match ? Number(match[1]) : null;
+    const match = /^retry-after-ms=(\d+)$/m.exec(stdout || '');
+    return match ? Number(match[1]) : null;
 }
 
 /**
@@ -32,13 +32,13 @@ function parseRetryAfter(stdout) {
  * scripts cannot drift apart on the protocol.
  */
 function exitForError(error, { stdout = process.stdout, stderr = process.stderr } = {}) {
-  stderr.write(`${error.message}\n`);
-  if (error && error.rateLimited === true) {
-    stdout.write(retryAfterLine(error.retryAfterMs));
-    return RATE_LIMITED_EXIT;
-  }
-  if (error && error.dailyCap === true) return DAILY_CAP_EXIT;
-  return 1;
+    stderr.write(`${error.message}\n`);
+    if (error && error.rateLimited === true) {
+        stdout.write(retryAfterLine(error.retryAfterMs));
+        return RATE_LIMITED_EXIT;
+    }
+    if (error && error.dailyCap === true) return DAILY_CAP_EXIT;
+    return 1;
 }
 
 module.exports = { DAILY_CAP_EXIT, RATE_LIMITED_EXIT, exitForError, parseRetryAfter };

@@ -7,42 +7,42 @@
  * border, size limits, scrolling, canvas colours, and a backdrop of its own) are cancelled so it
  * draws exactly as the div did, and what the top layer changes is only the stacking. */
 dialog.modal-overlay {
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  max-width: none;
-  max-height: none;
-  margin: 0;
-  border: 0;
-  overflow: visible;
-  color: inherit;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    border: 0;
+    overflow: visible;
+    color: inherit;
 }
 
 dialog.modal-overlay:not([open]) {
-  display: none;
+    display: none;
 }
 
 dialog.modal-overlay::backdrop {
-  background: transparent;
+    background: transparent;
 }
 
 dialog.confirm-dialog {
-  color: var(--text-primary);
-  text-align: left;
-  margin: auto;
+    color: var(--text-primary);
+    text-align: left;
+    margin: auto;
 }
 
 dialog.confirm-dialog::backdrop {
-  background-color: rgba(0, 0, 0, 0.6);
+    background-color: rgba(0, 0, 0, 0.6);
 }
 
 .confirm-dialog p {
-  margin: 0 0 1rem 0;
-  line-height: 1.45;
-  overflow-wrap: anywhere;
+    margin: 0 0 1rem 0;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
 }
 
 .confirm-dialog .confirm-note {
-  color: var(--text-secondary);
-  font-size: 0.9rem;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
 }
