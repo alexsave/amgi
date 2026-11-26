@@ -46,21 +46,21 @@ static str shipped_clip(arena *a, str text, str language) {
 static int by_js(const void *x, const void *y) { return js_cmp(*(const str *)x, *(const str *)y); }
 
 void amgi_starter_get(arena *a, cb_http_res *res) {
-        str *langs = ar_alloc(a, (AMGI_NSTARTER_LANGUAGES + 1) * sizeof(str));
-        size_t nl = 0;
-        for (size_t c = 0; c < AMGI_NSTARTER_LANGUAGES; c++) {
-                str code = str_c(AMGI_STARTER_PHRASES[c].code);
-                const str *phrases = phrases_of(a, code);
-                int all = 1;
-                for (size_t i = 0; all && i < STARTER_NPHRASES; i++) all = shipped_clip(a, phrases[i], code).n > 0;
-                if (all) langs[nl++] = code;
-        }
-        if (nl) qsort(langs, nl, sizeof(str), by_js);
-        int gen = amgi_generation_available();
-        wire_strs ws = {ar_alloc(a, (nl + 1) * sizeof(wire_str)), (uint32_t)nl};
-        for (size_t i = 0; i < nl; i++) ws.v[i] = amgi_ws(langs[i]);
-        wire_starter_state w = {(uint8_t)(!gen && nl > 1), (uint8_t)gen, ws, STARTER_NPHRASES};
-        amgi_send_wire(a, res, 200, WK_STARTER_STATE, &w);
+    str *langs = ar_alloc(a, (AMGI_NSTARTER_LANGUAGES + 1) * sizeof(str));
+    size_t nl = 0;
+    for (size_t c = 0; c < AMGI_NSTARTER_LANGUAGES; c++) {
+        str code = str_c(AMGI_STARTER_PHRASES[c].code);
+        const str *phrases = phrases_of(a, code);
+        int all = 1;
+        for (size_t i = 0; all && i < STARTER_NPHRASES; i++) all = shipped_clip(a, phrases[i], code).n > 0;
+        if (all) langs[nl++] = code;
+    }
+    if (nl) qsort(langs, nl, sizeof(str), by_js);
+    int gen = amgi_generation_available();
+    wire_strs ws = {ar_alloc(a, (nl + 1) * sizeof(wire_str)), (uint32_t)nl};
+    for (size_t i = 0; i < nl; i++) ws.v[i] = amgi_ws(langs[i]);
+    wire_starter_state w = {(uint8_t)(!gen && nl > 1), (uint8_t)gen, ws, STARTER_NPHRASES};
+    amgi_send_wire(a, res, 200, WK_STARTER_STATE, &w);
 }
 
 amgi_fields amgi_field_indexes(arena *a, const col_notetype *nt) {

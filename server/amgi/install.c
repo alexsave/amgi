@@ -419,7 +419,7 @@ void amgi_install_post(arena *a, const amgi_settings *s, str body_override, cb_h
     if (!source_available(a, root)) return amgi_send_message(a, res, 409, S(NO_SOURCE_MESSAGE));
     if (!exists(a, base))
         return amgi_send_message(
-          a, res, 409, str_c(ar_fmt(a, "No Anki data folder at %.*s. Install Anki and open it once, then try again.", (int)base.n, base.p)));
+            a, res, 409, str_c(ar_fmt(a, "No Anki data folder at %.*s. Install Anki and open it once, then try again.", (int)base.n, base.p)));
     fsx f = {a, {0}};
     str addons = path_join(a, base, S("addons21"));
     mkdir_p(&f, addons);

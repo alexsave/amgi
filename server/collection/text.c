@@ -343,192 +343,192 @@ str *split_fields(cx *c, str flds, size_t *n) {
 #define SOUND_OPEN "[sound:"
 /* /\[sound:([^\]]*)\]/ at s[i]: the end of the match and the name, or 0. */
 static size_t sound_tag_at(str s, size_t i, str *name) {
-        size_t open = strlen(SOUND_OPEN);
-        if (s.n - i < open || memcmp(s.p + i, SOUND_OPEN, open)) return 0;
-        const char *close = memchr(s.p + i + open, ']', s.n - i - open);
-        if (!close) return 0;
-        *name = str_sub(s, i + open, (size_t)(close - s.p));
-        return (size_t)(close - s.p) + 1;
+    size_t open = strlen(SOUND_OPEN);
+    if (s.n - i < open || memcmp(s.p + i, SOUND_OPEN, open)) return 0;
+    const char *close = memchr(s.p + i + open, ']', s.n - i - open);
+    if (!close) return 0;
+    *name = str_sub(s, i + open, (size_t)(close - s.p));
+    return (size_t)(close - s.p) + 1;
 }
 
 /* (?:\s*<\/\s*audio\s*>)? at s[at]: where the match goes on, which is at when the closing tag is not there. */
 static size_t audio_close_at(str s, size_t at) {
-        size_t k = skip_spaces(s, at);
-        if (k + 1 >= s.n || s.p[k] != '<' || s.p[k + 1] != '/') return at;
-        k = skip_spaces(s, k + 2);
-        if (!ci_at(s, k, "audio")) return at;
-        k = skip_spaces(s, k + 5);
-        return k < s.n && s.p[k] == '>' ? k + 1 : at;
+    size_t k = skip_spaces(s, at);
+    if (k + 1 >= s.n || s.p[k] != '<' || s.p[k + 1] != '/') return at;
+    k = skip_spaces(s, k + 2);
+    if (!ci_at(s, k, "audio")) return at;
+    k = skip_spaces(s, k + 5);
+    return k < s.n && s.p[k] == '>' ? k + 1 : at;
 }
 
 str col_audio_reference(arena *a, str filename, int html) {
-        if (!html) return str_cat3(a, S("[sound:"), filename, S("]"));
-        buf b = {0};
-        buf_c(&b, "<audio src=\"");
-        for (size_t i = 0; i < filename.n; i++) {
-                if (filename.p[i] == '&') buf_c(&b, "&amp;");
-                else if (filename.p[i] == '"') buf_c(&b, "&quot;");
-                else buf_ch(&b, filename.p[i]);
-        }
-        buf_c(&b, "\"></audio>");
-        str out = buf_str(a, &b);
-        buf_free(&b);
-        return out;
+    if (!html) return str_cat3(a, S("[sound:"), filename, S("]"));
+    buf b = {0};
+    buf_c(&b, "<audio src=\"");
+    for (size_t i = 0; i < filename.n; i++) {
+        if (filename.p[i] == '&') buf_c(&b, "&amp;");
+        else if (filename.p[i] == '"') buf_c(&b, "&quot;");
+        else buf_ch(&b, filename.p[i]);
+    }
+    buf_c(&b, "\"></audio>");
+    str out = buf_str(a, &b);
+    buf_free(&b);
+    return out;
 }
 
 static int ref_before(const void *x, const void *y) {
-        const col_audio_ref *p = x, *q = y;
-        return p->index < q->index ? -1 : p->index > q->index;
+    const col_audio_ref *p = x, *q = y;
+    return p->index < q->index ? -1 : p->index > q->index;
 }
 
 size_t col_audio_references(arena *a, str field, col_audio_ref **out) {
-        cx c = {.a = a};
-        col_audio_ref *refs = ar_alloc(a, (field.n / 4 + 2) * sizeof *refs); /* at most one a 8 bytes ([sound:]) and one a 13 (<audio src=x>) */
-        size_t n = 0;
-        for (size_t i = 0; i < field.n;) {
-                str name;
-                size_t end = field.p[i] == '[' ? sound_tag_at(field, i, &name) : 0;
-                if (!end) {
-                        i++;
-                        continue;
-                }
-                refs[n++] = (col_audio_ref){name, 0, i, end - i};
-                i = end;
+    cx c = {.a = a};
+    col_audio_ref *refs = ar_alloc(a, (field.n / 4 + 2) * sizeof *refs); /* at most one a 8 bytes ([sound:]) and one a 13 (<audio src=x>) */
+    size_t n = 0;
+    for (size_t i = 0; i < field.n;) {
+        str name;
+        size_t end = field.p[i] == '[' ? sound_tag_at(field, i, &name) : 0;
+        if (!end) {
+            i++;
+            continue;
         }
-        size_t sounds = n;
-        for (size_t i = 0; i < field.n;) {
-                str value;
-                size_t end = field.p[i] == '<' ? media_tag_at(field, i, &value, 1) : 0;
-                if (!end) {
-                        i++;
-                        continue;
-                }
-                end = audio_close_at(field, end);
-                /* Anki decodes the entities of a media src before it looks the file up, so the name read back is decoded too. */
-                refs[n++] = (col_audio_ref){decode_entities(&c, value, 1), 1, i, end - i};
-                i = end;
+        refs[n++] = (col_audio_ref){name, 0, i, end - i};
+        i = end;
+    }
+    size_t sounds = n;
+    for (size_t i = 0; i < field.n;) {
+        str value;
+        size_t end = field.p[i] == '<' ? media_tag_at(field, i, &value, 1) : 0;
+        if (!end) {
+            i++;
+            continue;
         }
-        /* Both kinds in the order they stand in the field (the two passes found them apart, and no two start together). */
-        if (sounds && n > sounds) qsort(refs, n, sizeof *refs, ref_before);
-        *out = refs;
-        return n;
+        end = audio_close_at(field, end);
+        /* Anki decodes the entities of a media src before it looks the file up, so the name read back is decoded too. */
+        refs[n++] = (col_audio_ref){decode_entities(&c, value, 1), 1, i, end - i};
+        i = end;
+    }
+    /* Both kinds in the order they stand in the field (the two passes found them apart, and no two start together). */
+    if (sounds && n > sounds) qsort(refs, n, sizeof *refs, ref_before);
+    *out = refs;
+    return n;
 }
 
 int col_is_owned_media_name(str name) {
-        size_t pre = strlen(AMGI_MEDIA_PREFIX);
-        static const char *LEGACY = "_gpt4o.mp3"; /* clips the scripts amgi replaced wrote: a note carrying one already has audio */
-        size_t legacy = strlen(LEGACY);
-        if (name.n >= legacy && !memcmp(name.p + name.n - legacy, LEGACY, legacy)) return 1;
-        if (name.n < pre + 20 || memcmp(name.p, AMGI_MEDIA_PREFIX, pre)) return 0;
-        size_t at = pre;
-        for (int i = 0; i < 20; i++, at++)
-                if (!(name.p[at] >= '0' && name.p[at] <= '9') && !(name.p[at] >= 'a' && name.p[at] <= 'f')) return 0;
-        /* Anki names a clip whose name another file's bytes hold with a "-<sha1 of its bytes>" suffix, so that form is ours too. */
-        if (at < name.n && name.p[at] == '-') {
-                at++;
-                for (int i = 0; i < 40; i++, at++)
-                        if (at >= name.n || (!(name.p[at] >= '0' && name.p[at] <= '9') && !(name.p[at] >= 'a' && name.p[at] <= 'f'))) return 0;
-        }
-        str ext = str_sub(name, at, name.n);
-        return str_eq_c(ext, ".mp3") || str_eq_c(ext, ".wav");
+    size_t pre = strlen(AMGI_MEDIA_PREFIX);
+    static const char *LEGACY = "_gpt4o.mp3"; /* clips the scripts amgi replaced wrote: a note carrying one already has audio */
+    size_t legacy = strlen(LEGACY);
+    if (name.n >= legacy && !memcmp(name.p + name.n - legacy, LEGACY, legacy)) return 1;
+    if (name.n < pre + 20 || memcmp(name.p, AMGI_MEDIA_PREFIX, pre)) return 0;
+    size_t at = pre;
+    for (int i = 0; i < 20; i++, at++)
+            if (!(name.p[at] >= '0' && name.p[at] <= '9') && !(name.p[at] >= 'a' && name.p[at] <= 'f')) return 0;
+    /* Anki names a clip whose name another file's bytes hold with a "-<sha1 of its bytes>" suffix, so that form is ours too. */
+    if (at < name.n && name.p[at] == '-') {
+        at++;
+        for (int i = 0; i < 40; i++, at++)
+                if (at >= name.n || (!(name.p[at] >= '0' && name.p[at] <= '9') && !(name.p[at] >= 'a' && name.p[at] <= 'f'))) return 0;
+    }
+    str ext = str_sub(name, at, name.n);
+    return str_eq_c(ext, ".mp3") || str_eq_c(ext, ".wav");
 }
 
 str col_set_owned_audio(arena *a, str field, const str *filename, int html) {
-        col_audio_ref *all;
-        size_t nall = col_audio_references(a, field, &all);
-        col_audio_ref *owned = ar_alloc(a, (nall + 1) * sizeof *owned);
-        size_t n = 0;
-        for (size_t i = 0; i < nall; i++)
-                if (col_is_owned_media_name(all[i].name)) owned[n++] = all[i];
-        str tag = filename ? col_audio_reference(a, *filename, html) : S("");
-        if (!n) return !tag.n ? field : str_cat(a, field, tag);
-        /* The first owned reference becomes the new one and the rest go; everything between them stays where it was. */
-        buf b = {0};
-        size_t cursor = 0;
-        for (size_t i = 0; i < n; i++) {
-                if (owned[i].index > cursor) buf_s(&b, str_sub(field, cursor, owned[i].index));
-                if (i == 0) buf_s(&b, tag);
-                cursor = owned[i].index + owned[i].length;
-        }
-        if (cursor < field.n) buf_s(&b, str_sub(field, cursor, field.n));
-        str out = buf_str(a, &b);
-        buf_free(&b);
-        return out;
+    col_audio_ref *all;
+    size_t nall = col_audio_references(a, field, &all);
+    col_audio_ref *owned = ar_alloc(a, (nall + 1) * sizeof *owned);
+    size_t n = 0;
+    for (size_t i = 0; i < nall; i++)
+            if (col_is_owned_media_name(all[i].name)) owned[n++] = all[i];
+    str tag = filename ? col_audio_reference(a, *filename, html) : S("");
+    if (!n) return !tag.n ? field : str_cat(a, field, tag);
+    /* The first owned reference becomes the new one and the rest go; everything between them stays where it was. */
+    buf b = {0};
+    size_t cursor = 0;
+    for (size_t i = 0; i < n; i++) {
+        if (owned[i].index > cursor) buf_s(&b, str_sub(field, cursor, owned[i].index));
+        if (i == 0) buf_s(&b, tag);
+        cursor = owned[i].index + owned[i].length;
+    }
+    if (cursor < field.n) buf_s(&b, str_sub(field, cursor, field.n));
+    str out = buf_str(a, &b);
+    buf_free(&b);
+    return out;
 }
 
 /* The text a field is meant to be read aloud as: no sound reference, no comment, a block element's break as a space, no tag, the
  * entities decoded, the whitespace collapsed to single spaces and trimmed. */
 str col_spoken_text(arena *a, str html) {
-        cx c = {.a = a};
-        /* [sound:...] as a space */
-        buf b = {0};
-        for (size_t i = 0; i < html.n;) {
-                str name;
-                size_t end = html.p[i] == '[' ? sound_tag_at(html, i, &name) : 0;
-                if (end) {
-                        buf_ch(&b, ' ');
-                        i = end;
-                } else {
-                        buf_ch(&b, html.p[i++]);
-                }
+    cx c = {.a = a};
+    /* [sound:...] as a space */
+    buf b = {0};
+    for (size_t i = 0; i < html.n;) {
+        str name;
+        size_t end = html.p[i] == '[' ? sound_tag_at(html, i, &name) : 0;
+        if (end) {
+            buf_ch(&b, ' ');
+            i = end;
+        } else {
+            buf_ch(&b, html.p[i++]);
         }
-        str s1 = buf_str(a, &b);
-        buf_free(&b);
-        /* <!--...--> gone */
-        buf b2 = {0};
-        for (size_t i = 0; i < s1.n;) {
-                if (s1.n - i >= 4 && !memcmp(s1.p + i, "<!--", 4)) {
-                        const char *close = NULL;
-                        for (size_t k = i + 4; k + 2 < s1.n; k++)
-                                if (!memcmp(s1.p + k, "-->", 3)) {
-                                        close = s1.p + k;
-                                        break;
-                                }
-                        if (close) {
-                                i = (size_t)(close - s1.p) + 3;
-                                continue;
-                        }
-                }
-                buf_ch(&b2, s1.p[i++]);
+    }
+    str s1 = buf_str(a, &b);
+    buf_free(&b);
+    /* <!--...--> gone */
+    buf b2 = {0};
+    for (size_t i = 0; i < s1.n;) {
+        if (s1.n - i >= 4 && !memcmp(s1.p + i, "<!--", 4)) {
+            const char *close = NULL;
+            for (size_t k = i + 4; k + 2 < s1.n; k++)
+                    if (!memcmp(s1.p + k, "-->", 3)) {
+                        close = s1.p + k;
+                        break;
+                    }
+            if (close) {
+                i = (size_t)(close - s1.p) + 3;
+                continue;
+            }
         }
-        str s2 = buf_str(a, &b2);
-        buf_free(&b2);
-        /* <br>, <div>, <p>, <li>, <tr>, <td> (with their attributes) as a space, any other tag gone */
-        static const char *BREAKS[] = {"br", "div", "p", "li", "tr", "td"};
-        buf b3 = {0};
-        for (size_t i = 0; i < s2.n;) {
-                long gt = s2.p[i] == '<' ? next_gt(s2, i + 1) : -1;
-                if (gt < 0) {
-                        buf_ch(&b3, s2.p[i++]);
-                        continue;
-                }
-                int is_break = 0;
-                for (int t = 0; t < 6 && !is_break; t++) {
-                        size_t e = i + 1 + strlen(BREAKS[t]);
-                        is_break = ci_at(s2, i + 1, BREAKS[t]) && (e >= s2.n || !word_ch((unsigned char)s2.p[e]));
-                }
-                if (is_break) buf_ch(&b3, ' ');
-                i = (size_t)gt + 1;
+        buf_ch(&b2, s1.p[i++]);
+    }
+    str s2 = buf_str(a, &b2);
+    buf_free(&b2);
+    /* <br>, <div>, <p>, <li>, <tr>, <td> (with their attributes) as a space, any other tag gone */
+    static const char *BREAKS[] = {"br", "div", "p", "li", "tr", "td"};
+    buf b3 = {0};
+    for (size_t i = 0; i < s2.n;) {
+        long gt = s2.p[i] == '<' ? next_gt(s2, i + 1) : -1;
+        if (gt < 0) {
+            buf_ch(&b3, s2.p[i++]);
+            continue;
         }
-        str s3 = buf_str(a, &b3);
-        buf_free(&b3);
-        str s4 = decode_entities(&c, s3, 1);
-        buf b4 = {0};
-        int pending = 0;
-        for (size_t at = 0; at < s4.n;) {
-                size_t from = at;
-                uint32_t cp = utf8_next(s4, &at);
-                if (js_space(cp)) {
-                        pending = b4.n > 0;
-                        continue;
-                }
-                if (pending) buf_ch(&b4, ' ');
-                pending = 0;
-                buf_s(&b4, str_sub(s4, from, at));
+        int is_break = 0;
+        for (int t = 0; t < 6 && !is_break; t++) {
+            size_t e = i + 1 + strlen(BREAKS[t]);
+            is_break = ci_at(s2, i + 1, BREAKS[t]) && (e >= s2.n || !word_ch((unsigned char)s2.p[e]));
         }
-        str out = buf_str(a, &b4);
-        buf_free(&b4);
-        return out;
+        if (is_break) buf_ch(&b3, ' ');
+        i = (size_t)gt + 1;
+    }
+    str s3 = buf_str(a, &b3);
+    buf_free(&b3);
+    str s4 = decode_entities(&c, s3, 1);
+    buf b4 = {0};
+    int pending = 0;
+    for (size_t at = 0; at < s4.n;) {
+        size_t from = at;
+        uint32_t cp = utf8_next(s4, &at);
+        if (js_space(cp)) {
+            pending = b4.n > 0;
+            continue;
+        }
+        if (pending) buf_ch(&b4, ' ');
+        pending = 0;
+        buf_s(&b4, str_sub(s4, from, at));
+    }
+    str out = buf_str(a, &b4);
+    buf_free(&b4);
+    return out;
 }
 
 /* ---- cardText.ts: the romanisation guard ---- */

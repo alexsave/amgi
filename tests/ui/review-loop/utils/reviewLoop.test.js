@@ -62,14 +62,14 @@ describe('createReviewLoop', () => {
         await run;
 
         assert.deepEqual(host.calls, [
-          'playPrompt',
-          'openMic',
-          'detect',
-          'stopDetect',
-          'closeMic',
-          'reveal',
-          'playNative',
-          'onAnswerReady',
+            'playPrompt',
+            'openMic',
+            'detect',
+            'stopDetect',
+            'closeMic',
+            'reveal',
+            'playNative',
+            'onAnswerReady',
         ]);
         assert.ok((host.phases).includes(PHASE.ANSWER));
     });
@@ -90,8 +90,8 @@ describe('createReviewLoop', () => {
         await second;
 
         assert.deepEqual(seen, [
-          { reason: 'speech', recording: 'recording-blob' },
-          { reason: 'no-speech', recording: null },
+            { reason: 'speech', recording: 'recording-blob' },
+            { reason: 'no-speech', recording: null },
         ]);
     });
 

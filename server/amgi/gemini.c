@@ -601,8 +601,8 @@ static void *g_voice_ud;
 static const char *g_tts_model = TTS_MODEL;
 
 void gem_set_voice_draw(gem_voice_draw draw, void *ud) {
-        g_voice_draw = draw ? draw : process_draw;
-        g_voice_ud = draw ? ud : NULL;
+    g_voice_draw = draw ? draw : process_draw;
+    g_voice_ud = draw ? ud : NULL;
 }
 void gem_set_tts_model(const char *model) { g_tts_model = model && *model ? model : TTS_MODEL; }
 const char *gem_tts_model(void) { return g_tts_model; }

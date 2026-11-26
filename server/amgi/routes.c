@@ -404,13 +404,13 @@ static void h_audio(rq *q) {
 
 /* POST /decks/:id/audio-plan: which notes of the deck lack their clip (fill.c). Reads, never writes or asks Gemini. */
 static void h_audio_plan(rq *q) {
-        if (!ready(q)) return;
-        amgi_fill_plan(q->a, &q->o, q->t.mode, amgi_js_number(q->params[0]), q->body, q->res);
+    if (!ready(q)) return;
+    amgi_fill_plan(q->a, &q->o, q->t.mode, amgi_js_number(q->params[0]), q->body, q->res);
 }
 /* POST /notes/:id/audio-fill: the clip of one note, recorded behind the rate gate and written into its audio field. Slow pool. */
 static void h_audio_fill(rq *q) {
-        if (!ready(q)) return;
-        amgi_fill_note(q->a, &q->o, q->t.mode, amgi_js_number(q->params[0]), q->body, q->res);
+    if (!ready(q)) return;
+    amgi_fill_note(q->a, &q->o, q->t.mode, amgi_js_number(q->params[0]), q->body, q->res);
 }
 
 /* Asked several times a second while cards are made: it reads no setting and opens no collection. */

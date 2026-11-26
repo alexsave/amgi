@@ -69,26 +69,26 @@ test('the shipped seed is the one named value, and the shared generator is a Ran
 // without going through tests/helpers/random.js. Built from pieces so this file does
 // not match itself.
 const BANNED = [
-  ['Math', 'random'].join('\\.'),
-  ['random', 'Bytes'].join(''),
-  ['random', 'UUID'].join(''),
-  ['getRandom', 'Values'].join(''),
-  ['random', 'Int\\('].join(''),
-  ['arc4', 'random'].join(''),
-  ['\\bs?rand', '\\(\\)'].join(''),
-  ['^\\s*(?:import|from) ', 'random\\b'].join(''),
-  ['\\bsecrets', '\\.'].join(''),
-  ['os\\.u', 'random'].join(''),
-  ['uuid', '\\.uuid4'].join(''),
-  ['seed.*Date', '\\.now|Date\\.now.*seed'].join(''),
-  // C: libc's and the OS's generators and entropy, OpenSSL's, Apple's, and a clock-seeded srand.
-  ['\\bs?random', '\\s*\\('].join(''),
-  ['\\bsrand', '\\s*\\('].join(''),
-  ['\\b[delmnj]?rand', '48\\s*\\('].join(''),
-  ['\\bget', '(?:entropy|random)\\s*\\('].join(''),
-  ['/dev/u?', 'random'].join(''),
-  ['\\bRAND_', '(?:priv_)?bytes\\s*\\('].join(''),
-  ['\\b(?:SecRandom', 'CopyBytes|CCRandom', 'GenerateBytes)'].join(''),
+    ['Math', 'random'].join('\\.'),
+    ['random', 'Bytes'].join(''),
+    ['random', 'UUID'].join(''),
+    ['getRandom', 'Values'].join(''),
+    ['random', 'Int\\('].join(''),
+    ['arc4', 'random'].join(''),
+    ['\\bs?rand', '\\(\\)'].join(''),
+    ['^\\s*(?:import|from) ', 'random\\b'].join(''),
+    ['\\bsecrets', '\\.'].join(''),
+    ['os\\.u', 'random'].join(''),
+    ['uuid', '\\.uuid4'].join(''),
+    ['seed.*Date', '\\.now|Date\\.now.*seed'].join(''),
+    // C: libc's and the OS's generators and entropy, OpenSSL's, Apple's, and a clock-seeded srand.
+    ['\\bs?random', '\\s*\\('].join(''),
+    ['\\bsrand', '\\s*\\('].join(''),
+    ['\\b[delmnj]?rand', '48\\s*\\('].join(''),
+    ['\\bget', '(?:entropy|random)\\s*\\('].join(''),
+    ['/dev/u?', 'random'].join(''),
+    ['\\bRAND_', '(?:priv_)?bytes\\s*\\('].join(''),
+    ['\\b(?:SecRandom', 'CopyBytes|CCRandom', 'GenerateBytes)'].join(''),
 ].map((pattern) => new RegExp(pattern, 'im'));
 
 const SCANNED = /\.(?:js|mjs|cjs|ts|tsx|jsx|py|html|c|h)$/;
@@ -102,9 +102,9 @@ const EXEMPT = [/^tests\/helpers\/random\.js$/, /^server\/collection\/rng\.c$/, 
 // seed to debug something, so it keeps the OS's cryptographic source - a
 // different job from "a random voice", not a stray.
 const ALLOWED = [
-  // The local HTTP bridge's auth token (bridge_auth.py): a guessable token
-  // would let any local web page drive the person's Anki.
-  { file: 'anki/addon/amgi_bridge/__init__.py', line: /^\s*token = secrets\.token_urlsafe\(32\)$/ },
+    // The local HTTP bridge's auth token (bridge_auth.py): a guessable token
+    // would let any local web page drive the person's Anki.
+    { file: 'anki/addon/amgi_bridge/__init__.py', line: /^\s*token = secrets\.token_urlsafe\(32\)$/ },
 ];
 
 function strayRandoms(files) {
@@ -138,19 +138,19 @@ test('the scan does catch each kind of stray random', () => {
     const dir = fs.mkdtempSync(path.join(REPO, 'tests', 'repo', '.stray-'));
     try {
         const samples = [
-          'const x = Math' + '.random();',
-          "const b = require('node:crypto').random" + 'Bytes(4);',
-          'const id = crypto.random' + 'UUID();',
-          'window.crypto.getRandom' + 'Values(a);',
-          'import ' + 'random',
-          'const seed = Date' + '.now();',
-          'int x = ran' + 'd();',
-          'sran' + 'd(time(NULL));',
-          'long r = ran' + 'dom();',
-          'double d = dran' + 'd48();',
-          'getentr' + 'opy(&s, 4);',
-          'arc4' + 'random_buf(b, 8);',
-          'RAND_' + 'bytes(b, 8);',
+            'const x = Math' + '.random();',
+            "const b = require('node:crypto').random" + 'Bytes(4);',
+            'const id = crypto.random' + 'UUID();',
+            'window.crypto.getRandom' + 'Values(a);',
+            'import ' + 'random',
+            'const seed = Date' + '.now();',
+            'int x = ran' + 'd();',
+            'sran' + 'd(time(NULL));',
+            'long r = ran' + 'dom();',
+            'double d = dran' + 'd48();',
+            'getentr' + 'opy(&s, 4);',
+            'arc4' + 'random_buf(b, 8);',
+            'RAND_' + 'bytes(b, 8);',
         ];
         const ext = (line) => (line.startsWith('import') ? 'py' : /;$/.test(line) && !/^const /.test(line) ? 'c' : 'js');
         samples.forEach((line, i) => fs.writeFileSync(path.join(dir, `s${i}.${ext(line)}`), `${line}\n`));

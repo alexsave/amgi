@@ -7,7 +7,7 @@ import { execFileSync } from 'node:child_process';
 export const SOURCE = /\.(?:js|mjs|cjs|ts|html|py|c|h)$/;
 /** Not shipped: a directory of this name anywhere in the path. */
 const NOT_SHIPPED_DIR = new Set([
-  'test', 'tests', '__tests__', 'test-helpers', 'tools', 'scripts', 'docs', 'fixtures', 'e2e', 'vendor', 'node_modules',
+    'test', 'tests', '__tests__', 'test-helpers', 'tools', 'scripts', 'docs', 'fixtures', 'e2e', 'vendor', 'node_modules',
 ]);
 export const notShipped = (file) => {
     const parts = file.split('/');

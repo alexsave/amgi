@@ -420,7 +420,7 @@ integrity: ok
 media: 44 files
   Upper.ogg 5 bytes ae03458115429a05
   _amgi-loop.css 18385 bytes c907be7c469d9a94
-  _amgi-loop.js 80633 bytes eb5f5c1661c82e61
+  _amgi-loop.js 80649 bytes 4631bd9c10a69879
   amgi-0085f4ecdf1c14e1b393.mp3 11565 bytes ae2e12794ef0b2ef
   amgi-017069894c01ffba26f7.mp3 10029 bytes 7dc359faf9deb170
   amgi-0239334aefc25794acf4.mp3 13869 bytes 90e79ae7ebc93261

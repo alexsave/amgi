@@ -23,16 +23,16 @@ int wire_length_fits(size_t n);
 #define AJ_MAX_DEPTH_TESTED 256
 
 static int failures, checks;
-#define CHECK(cond, ...)                         \
-  do {                                           \
-    checks++;                                    \
-    if (!(cond)) {                               \
-      failures++;                                \
-      fprintf(stderr, "FAIL %s:%d: ", __FILE__, __LINE__); \
-      fprintf(stderr, __VA_ARGS__);              \
-      fputc('\n', stderr);                       \
-    }                                            \
-  } while (0)
+#define CHECK(cond, ...)                                         \
+    do {                                                         \
+        checks++;                                                \
+        if (!(cond)) {                                           \
+            failures++;                                          \
+            fprintf(stderr, "FAIL %s:%d: ", __FILE__, __LINE__); \
+            fprintf(stderr, __VA_ARGS__);                        \
+            fputc('\n', stderr);                                 \
+        }                                                        \
+    } while (0)
 #define STR_IS_NAME(s, lit) (str_eq_c((s), (lit)))
 #define CHECK_STR(got, want) CHECK(str_eq((got), str_c(want)), "got \"%.*s\", want \"%s\"", (int)(got).n, (got).p, (want))
 
@@ -127,90 +127,90 @@ static void text_rules(void) {
 /* ---- the clips a field holds and the text it is read aloud as: golden values recorded from the JavaScript and Python
  * the rules were ported from, for text.c ---- */
 static void audio_text_rules(void) {
-        arena a = {0};
-        /* eight fields, and what each came to */
-        const char *fields[] = {
-                "",
-                "plain text",
-                "<div><b>안녕하십니까</b>? 9시 뉴스<b>입니다</b></div><div></div>",
-                "[sound:1-1-13-1.mp3]<img src=\"paste-125aeb8fa1091ecc1898eba0a2372987a17817a2.jpg\">",
-                "A&amp;B&#65;&nbsp;C&notarealentity;",
-                "line<br>break<p>para</p><li>item</li>",
-                "<audio src='a.mp3'></audio><AUDIO SRC=\"b.mp3\">",
-                "<audio src=c.mp3>bare unquoted</audio>",
-        };
-        const char *spoken[] = {"", "plain text", "안녕하십니까? 9시 뉴스입니다", "", "A&BA C&notarealentity;", "line break para item", "",
-                                "bare unquoted"};
-        for (size_t i = 0; i < 8; i++) CHECK_STR(col_spoken_text(&a, str_c(fields[i])), spoken[i]);
-        CHECK_STR(col_spoken_text(&a, S("<div><b>안녕하십니까</b>? 9시 뉴스<b>입니다</b></div>[sound:x.mp3]<!-- c -->")), "안녕하십니까? 9시 뉴스입니다");
-        CHECK_STR(col_spoken_text(&a, S("<pre>x</pre> a\xc2\xa0\t b <br/>c <!-- <p> -->d")), "x a b c d");
-        CHECK_STR(col_spoken_text(&a, S("a &#x110000; &#99999999999; b")), "a &#x110000; &#99999999999; b");
+    arena a = {0};
+    /* eight fields, and what each came to */
+    const char *fields[] = {
+        "",
+        "plain text",
+        "<div><b>안녕하십니까</b>? 9시 뉴스<b>입니다</b></div><div></div>",
+        "[sound:1-1-13-1.mp3]<img src=\"paste-125aeb8fa1091ecc1898eba0a2372987a17817a2.jpg\">",
+        "A&amp;B&#65;&nbsp;C&notarealentity;",
+        "line<br>break<p>para</p><li>item</li>",
+        "<audio src='a.mp3'></audio><AUDIO SRC=\"b.mp3\">",
+        "<audio src=c.mp3>bare unquoted</audio>",
+    };
+    const char *spoken[] = {"", "plain text", "안녕하십니까? 9시 뉴스입니다", "", "A&BA C&notarealentity;", "line break para item", "",
+                            "bare unquoted"};
+    for (size_t i = 0; i < 8; i++) CHECK_STR(col_spoken_text(&a, str_c(fields[i])), spoken[i]);
+    CHECK_STR(col_spoken_text(&a, S("<div><b>안녕하십니까</b>? 9시 뉴스<b>입니다</b></div>[sound:x.mp3]<!-- c -->")), "안녕하십니까? 9시 뉴스입니다");
+    CHECK_STR(col_spoken_text(&a, S("<pre>x</pre> a\xc2\xa0\t b <br/>c <!-- <p> -->d")), "x a b c d");
+    CHECK_STR(col_spoken_text(&a, S("a &#x110000; &#99999999999; b")), "a &#x110000; &#99999999999; b");
 
-        /* the references each field holds: name, form, index, length */
-        struct { size_t n; const char *name[2]; int html[2]; size_t index[2], length[2]; } refs[] = {
-                {0}, {0}, {0},
-                {1, {"1-1-13-1.mp3"}, {0}, {0}, {20}},
-                {0}, {0},
-                {2, {"a.mp3", "b.mp3"}, {1, 1}, {0, 27}, {27, 19}},
-                {1, {"c.mp3"}, {1}, {0}, {17}},
-        };
-        for (size_t i = 0; i < 8; i++) {
-                col_audio_ref *got;
-                size_t n = col_audio_references(&a, str_c(fields[i]), &got);
-                CHECK(n == refs[i].n, "field %zu has %zu references, got %zu", i, refs[i].n, n);
-                for (size_t k = 0; k < n && k < refs[i].n; k++)
-                        CHECK(STR_IS_NAME(got[k].name, refs[i].name[k]) && got[k].html == refs[i].html[k] && got[k].index == refs[i].index[k] &&
-                                  got[k].length == refs[i].length[k],
-                              "field %zu reference %zu: %.*s %d %zu %zu", i, k, (int)got[k].name.n, got[k].name.p, got[k].html, got[k].index, got[k].length);
-        }
-        col_audio_ref *mixed;
-        size_t nmixed = col_audio_references(&a, S("[sound:a.mp3]<img src=\"x.jpg\"><audio src=\"b.mp3\"></audio>[sound:c.mp3]"), &mixed);
-        CHECK(nmixed == 3 && STR_IS_NAME(mixed[0].name, "a.mp3") && STR_IS_NAME(mixed[1].name, "b.mp3") && STR_IS_NAME(mixed[2].name, "c.mp3"),
-              "both forms, in the order they stand");
-        CHECK(col_audio_references(&a, S("<audio src=\"a&amp;b&quot;.mp3\">"), &mixed) == 1 && STR_IS_NAME(mixed[0].name, "a&b\".mp3"),
-              "an html reference's name is decoded as Anki decodes it");
-        CHECK(col_audio_references(&a, S("<audio controls src='k.mp3' >  </ audio >x"), &mixed) == 1 && mixed[0].length == 41,
-              "an html reference takes its closing tag when one follows");
-        CHECK(col_audio_references(&a, S("<img src=\"a.mp3\"><audio data=\"b.mp3\"></audio>"), &mixed) == 0, "only an audio element's src");
+    /* the references each field holds: name, form, index, length */
+    struct { size_t n; const char *name[2]; int html[2]; size_t index[2], length[2]; } refs[] = {
+        {0}, {0}, {0},
+        {1, {"1-1-13-1.mp3"}, {0}, {0}, {20}},
+        {0}, {0},
+        {2, {"a.mp3", "b.mp3"}, {1, 1}, {0, 27}, {27, 19}},
+        {1, {"c.mp3"}, {1}, {0}, {17}},
+    };
+    for (size_t i = 0; i < 8; i++) {
+        col_audio_ref *got;
+        size_t n = col_audio_references(&a, str_c(fields[i]), &got);
+        CHECK(n == refs[i].n, "field %zu has %zu references, got %zu", i, refs[i].n, n);
+        for (size_t k = 0; k < n && k < refs[i].n; k++)
+                CHECK(STR_IS_NAME(got[k].name, refs[i].name[k]) && got[k].html == refs[i].html[k] && got[k].index == refs[i].index[k] &&
+                          got[k].length == refs[i].length[k],
+                      "field %zu reference %zu: %.*s %d %zu %zu", i, k, (int)got[k].name.n, got[k].name.p, got[k].html, got[k].index, got[k].length);
+    }
+    col_audio_ref *mixed;
+    size_t nmixed = col_audio_references(&a, S("[sound:a.mp3]<img src=\"x.jpg\"><audio src=\"b.mp3\"></audio>[sound:c.mp3]"), &mixed);
+    CHECK(nmixed == 3 && STR_IS_NAME(mixed[0].name, "a.mp3") && STR_IS_NAME(mixed[1].name, "b.mp3") && STR_IS_NAME(mixed[2].name, "c.mp3"),
+          "both forms, in the order they stand");
+    CHECK(col_audio_references(&a, S("<audio src=\"a&amp;b&quot;.mp3\">"), &mixed) == 1 && STR_IS_NAME(mixed[0].name, "a&b\".mp3"),
+          "an html reference's name is decoded as Anki decodes it");
+    CHECK(col_audio_references(&a, S("<audio controls src='k.mp3' >  </ audio >x"), &mixed) == 1 && mixed[0].length == 41,
+          "an html reference takes its closing tag when one follows");
+    CHECK(col_audio_references(&a, S("<img src=\"a.mp3\"><audio data=\"b.mp3\"></audio>"), &mixed) == 0, "only an audio element's src");
 
-        CHECK_STR(col_audio_reference(&a, S("a.mp3"), 0), "[sound:a.mp3]");
-        CHECK_STR(col_audio_reference(&a, S("a\"b&c.mp3"), 1), "<audio src=\"a&quot;b&amp;c.mp3\"></audio>");
-        CHECK_STR(col_audio_reference(&a, S("안녕.mp3"), 1), "<audio src=\"안녕.mp3\"></audio>");
+    CHECK_STR(col_audio_reference(&a, S("a.mp3"), 0), "[sound:a.mp3]");
+    CHECK_STR(col_audio_reference(&a, S("a\"b&c.mp3"), 1), "<audio src=\"a&quot;b&amp;c.mp3\"></audio>");
+    CHECK_STR(col_audio_reference(&a, S("안녕.mp3"), 1), "<audio src=\"안녕.mp3\"></audio>");
 
-        /* the clips amgi owns, in every shape */
-        str hex20 = S("aaaaaaaaaaaaaaaaaaaa"), hex40 = S("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
-        CHECK(col_is_owned_media_name(str_c(ar_fmt(&a, AMGI_MEDIA_PREFIX "%.20s.mp3", hex20.p))), "mp3");
-        CHECK(col_is_owned_media_name(str_c(ar_fmt(&a, AMGI_MEDIA_PREFIX "%.20s.wav", hex20.p))), "wav");
-        CHECK(!col_is_owned_media_name(str_c(ar_fmt(&a, AMGI_MEDIA_PREFIX "%.20s.ogg", hex20.p))), "not ogg");
-        CHECK(col_is_owned_media_name(S("1-1-13-1_gpt4o.mp3")) && !col_is_owned_media_name(S("1-1-13-1.mp3")), "the older scripts' clips");
-        CHECK(!col_is_owned_media_name(str_c(ar_fmt(&a, AMGI_MEDIA_PREFIX "%.19s.mp3", hex20.p))), "19 hex is not a hash");
-        CHECK(!col_is_owned_media_name(str_c(ar_fmt(&a, AMGI_MEDIA_PREFIX "%.20sX.mp3", hex20.p))), "21 characters is not a hash");
-        CHECK(!col_is_owned_media_name(str_c(ar_fmt(&a, AMGI_MEDIA_PREFIX "%.20s.mp3x", hex20.p))), "nothing after the extension");
-        CHECK(!col_is_owned_media_name(str_c(ar_fmt(&a, AMGI_MEDIA_PREFIX "ABCDEFABCDEFABCDEFAB.mp3"))), "hex is lower case");
-        CHECK(col_is_owned_media_name(str_c(ar_fmt(&a, AMGI_MEDIA_PREFIX "%.20s-%.40s.mp3", hex20.p, hex40.p))), "Anki's clash form, mp3");
-        CHECK(col_is_owned_media_name(str_c(ar_fmt(&a, AMGI_MEDIA_PREFIX "%.20s-%.40s.wav", hex20.p, hex40.p))), "Anki's clash form, wav");
-        CHECK(!col_is_owned_media_name(str_c(ar_fmt(&a, AMGI_MEDIA_PREFIX "%.20s-%.39s.wav", hex20.p, hex40.p))), "a clash suffix of 39");
-        CHECK(!col_is_owned_media_name(str_c(ar_fmt(&a, AMGI_MEDIA_PREFIX "%.20s-%.40s.ogg", hex20.p, hex40.p))), "a clash form is not ogg");
-        CHECK(!col_is_owned_media_name(str_c(ar_fmt(&a, "plus" "audio-%.20s.wav", hex20.p))), "no other prefix is ours");
+    /* the clips amgi owns, in every shape */
+    str hex20 = S("aaaaaaaaaaaaaaaaaaaa"), hex40 = S("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
+    CHECK(col_is_owned_media_name(str_c(ar_fmt(&a, AMGI_MEDIA_PREFIX "%.20s.mp3", hex20.p))), "mp3");
+    CHECK(col_is_owned_media_name(str_c(ar_fmt(&a, AMGI_MEDIA_PREFIX "%.20s.wav", hex20.p))), "wav");
+    CHECK(!col_is_owned_media_name(str_c(ar_fmt(&a, AMGI_MEDIA_PREFIX "%.20s.ogg", hex20.p))), "not ogg");
+    CHECK(col_is_owned_media_name(S("1-1-13-1_gpt4o.mp3")) && !col_is_owned_media_name(S("1-1-13-1.mp3")), "the older scripts' clips");
+    CHECK(!col_is_owned_media_name(str_c(ar_fmt(&a, AMGI_MEDIA_PREFIX "%.19s.mp3", hex20.p))), "19 hex is not a hash");
+    CHECK(!col_is_owned_media_name(str_c(ar_fmt(&a, AMGI_MEDIA_PREFIX "%.20sX.mp3", hex20.p))), "21 characters is not a hash");
+    CHECK(!col_is_owned_media_name(str_c(ar_fmt(&a, AMGI_MEDIA_PREFIX "%.20s.mp3x", hex20.p))), "nothing after the extension");
+    CHECK(!col_is_owned_media_name(str_c(ar_fmt(&a, AMGI_MEDIA_PREFIX "ABCDEFABCDEFABCDEFAB.mp3"))), "hex is lower case");
+    CHECK(col_is_owned_media_name(str_c(ar_fmt(&a, AMGI_MEDIA_PREFIX "%.20s-%.40s.mp3", hex20.p, hex40.p))), "Anki's clash form, mp3");
+    CHECK(col_is_owned_media_name(str_c(ar_fmt(&a, AMGI_MEDIA_PREFIX "%.20s-%.40s.wav", hex20.p, hex40.p))), "Anki's clash form, wav");
+    CHECK(!col_is_owned_media_name(str_c(ar_fmt(&a, AMGI_MEDIA_PREFIX "%.20s-%.39s.wav", hex20.p, hex40.p))), "a clash suffix of 39");
+    CHECK(!col_is_owned_media_name(str_c(ar_fmt(&a, AMGI_MEDIA_PREFIX "%.20s-%.40s.ogg", hex20.p, hex40.p))), "a clash form is not ogg");
+    CHECK(!col_is_owned_media_name(str_c(ar_fmt(&a, "plus" "audio-%.20s.wav", hex20.p))), "no other prefix is ours");
 
-        /* replacing what amgi owns, and only that */
-        const char *own_a = AMGI_MEDIA_PREFIX "aaaaaaaaaaaaaaaaaaaa.mp3", *own_b = AMGI_MEDIA_PREFIX "bbbbbbbbbbbbbbbbbbbb.mp3";
-        const char *own_c = AMGI_MEDIA_PREFIX "cccccccccccccccccccc.mp3", *own_d = AMGI_MEDIA_PREFIX "dddddddddddddddddddd.mp3";
-        str kept = str_c(ar_fmt(&a, "[sound:1-1.mp3]<img src=\"pic.jpg\">[sound:%s]", own_a));
-        str to_b = str_c(own_b), to_c = str_c(own_c), to_d = str_c(own_d);
-        CHECK_STR(col_set_owned_audio(&a, kept, &to_b, 0), ar_fmt(&a, "[sound:1-1.mp3]<img src=\"pic.jpg\">[sound:%s]", own_b));
-        CHECK_STR(col_set_owned_audio(&a, S("[sound:1-1.mp3]<img src=\"pic.jpg\">"), &to_b, 1),
-                  ar_fmt(&a, "[sound:1-1.mp3]<img src=\"pic.jpg\"><audio src=\"%s\"></audio>", own_b));
-        CHECK_STR(col_set_owned_audio(&a, str_c(fields[3]), &to_c, 0), ar_fmt(&a, "%s[sound:%s]", fields[3], own_c));
-        CHECK_STR(col_set_owned_audio(&a, str_c(fields[3]), &to_c, 1), ar_fmt(&a, "%s<audio src=\"%s\"></audio>", fields[3], own_c));
-        CHECK_STR(col_set_owned_audio(&a, S(""), &to_c, 0), ar_fmt(&a, "[sound:%s]", own_c));
-        CHECK_STR(col_set_owned_audio(&a, S("1-1-13-1_gpt4o.mp3 plain"), &to_d, 1), ar_fmt(&a, "1-1-13-1_gpt4o.mp3 plain<audio src=\"%s\"></audio>", own_d));
-        /* two of ours are one: the first one's place keeps the new reference, the second goes, and the text between stays */
-        str twice = str_c(ar_fmt(&a, "x[sound:%s]y<audio src=\"%s\"></audio>z[sound:other.mp3]", own_a, own_b));
-        CHECK_STR(col_set_owned_audio(&a, twice, &to_c, 1), ar_fmt(&a, "x<audio src=\"%s\"></audio>yz[sound:other.mp3]", own_c));
-        CHECK_STR(col_set_owned_audio(&a, twice, NULL, 1), "xyz[sound:other.mp3]");
-        CHECK_STR(col_set_owned_audio(&a, S("nothing of ours"), NULL, 1), "nothing of ours");
-        ar_free(&a);
+    /* replacing what amgi owns, and only that */
+    const char *own_a = AMGI_MEDIA_PREFIX "aaaaaaaaaaaaaaaaaaaa.mp3", *own_b = AMGI_MEDIA_PREFIX "bbbbbbbbbbbbbbbbbbbb.mp3";
+    const char *own_c = AMGI_MEDIA_PREFIX "cccccccccccccccccccc.mp3", *own_d = AMGI_MEDIA_PREFIX "dddddddddddddddddddd.mp3";
+    str kept = str_c(ar_fmt(&a, "[sound:1-1.mp3]<img src=\"pic.jpg\">[sound:%s]", own_a));
+    str to_b = str_c(own_b), to_c = str_c(own_c), to_d = str_c(own_d);
+    CHECK_STR(col_set_owned_audio(&a, kept, &to_b, 0), ar_fmt(&a, "[sound:1-1.mp3]<img src=\"pic.jpg\">[sound:%s]", own_b));
+    CHECK_STR(col_set_owned_audio(&a, S("[sound:1-1.mp3]<img src=\"pic.jpg\">"), &to_b, 1),
+              ar_fmt(&a, "[sound:1-1.mp3]<img src=\"pic.jpg\"><audio src=\"%s\"></audio>", own_b));
+    CHECK_STR(col_set_owned_audio(&a, str_c(fields[3]), &to_c, 0), ar_fmt(&a, "%s[sound:%s]", fields[3], own_c));
+    CHECK_STR(col_set_owned_audio(&a, str_c(fields[3]), &to_c, 1), ar_fmt(&a, "%s<audio src=\"%s\"></audio>", fields[3], own_c));
+    CHECK_STR(col_set_owned_audio(&a, S(""), &to_c, 0), ar_fmt(&a, "[sound:%s]", own_c));
+    CHECK_STR(col_set_owned_audio(&a, S("1-1-13-1_gpt4o.mp3 plain"), &to_d, 1), ar_fmt(&a, "1-1-13-1_gpt4o.mp3 plain<audio src=\"%s\"></audio>", own_d));
+    /* two of ours are one: the first one's place keeps the new reference, the second goes, and the text between stays */
+    str twice = str_c(ar_fmt(&a, "x[sound:%s]y<audio src=\"%s\"></audio>z[sound:other.mp3]", own_a, own_b));
+    CHECK_STR(col_set_owned_audio(&a, twice, &to_c, 1), ar_fmt(&a, "x<audio src=\"%s\"></audio>yz[sound:other.mp3]", own_c));
+    CHECK_STR(col_set_owned_audio(&a, twice, NULL, 1), "xyz[sound:other.mp3]");
+    CHECK_STR(col_set_owned_audio(&a, S("nothing of ours"), NULL, 1), "nothing of ours");
+    ar_free(&a);
 }
 
 /* ---- hostile protobuf: a varint past ten bytes, a skip that would run past the end ---- */

@@ -67,11 +67,11 @@ const withTimeout = (promise, ms) =>
     new Promise((resolve, reject) => {
         const timer = setTimeout(() => reject(new Error(`microphone request timed out after ${ms}ms`)), ms);
         promise.then(
-          (value) => {
+            (value) => {
                 clearTimeout(timer);
                 resolve(value);
             },
-          (error) => {
+            (error) => {
                 clearTimeout(timer);
                 reject(error);
             }

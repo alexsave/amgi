@@ -134,8 +134,8 @@ test('a take that fails goes back to recording, on both sides', async (t) => {
     const made = r.card(7);
     await r.during('text', WRITING, CARD, take(1, 2));
     for (const [reuse, recording, transcribing, judging, storing, said] of [
-      [TARGET_REUSE, TARGET_RECORDING, TARGET_TRANSCRIBING, TARGET_JUDGING, TARGET_STORING, BACK],
-      [CUE_REUSE, CUE_RECORDING, CUE_TRANSCRIBING, CUE_JUDGING, CUE_STORING, FRONT],
+        [TARGET_REUSE, TARGET_RECORDING, TARGET_TRANSCRIBING, TARGET_JUDGING, TARGET_STORING, BACK],
+        [CUE_REUSE, CUE_RECORDING, CUE_TRANSCRIBING, CUE_JUDGING, CUE_STORING, FRONT],
     ]) {
         await r.during('reuse', reuse, false);
         // take 1 is judged wrong

@@ -73,8 +73,8 @@ const deckNames = `[...document.querySelectorAll('.deck-item h3')].map(h => h.te
 const dialogOpen = `!!document.querySelector('dialog.confirm-dialog[open]')`;
 const dialogText = `[...document.querySelectorAll('dialog.confirm-dialog h3, dialog.confirm-dialog p')].map(e => e.textContent).join(' | ')`;
 const ids = Object.fromEntries(
-  withAnkiLibrary(collection, 'for d in col.decks.all_names_and_ids(): print("%d\\t%s" % (d.id, d.name))')
-    .trim().split('\n').map((l) => l.split('\t')).map(([id, n]) => [n, Number(id)]),
+    withAnkiLibrary(collection, 'for d in col.decks.all_names_and_ids(): print("%d\\t%s" % (d.id, d.name))')
+      .trim().split('\n').map((l) => l.split('\t')).map(([id, n]) => [n, Number(id)]),
 );
 // What Anki itself says about the file: the decks it has, the deck graves, and the integrity check.
 const inAnki = () => withAnkiLibrary(collection, `

@@ -1,6 +1,6 @@
 {
-  "bridge_enabled": false,
-  "bridge_port": 8798,
-  "bridge_token": "",
-  "bridge_allowed_origins": ["http://localhost:3000", "http://127.0.0.1:3000"]
+    "bridge_enabled": false,
+    "bridge_port": 8798,
+    "bridge_token": "",
+    "bridge_allowed_origins": ["http://localhost:3000", "http://127.0.0.1:3000"]
 }

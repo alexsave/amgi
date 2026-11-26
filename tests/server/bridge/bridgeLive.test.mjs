@@ -100,9 +100,9 @@ maybe(`the bridge protocol against the real add-on server and a real collection`
         assert.ok(one.noteId > 0);
         assert.equal('warning' in one, false, 'no warning is no key');
         const bulk = await ops.addNotesBulk([
-          { deckId: made.deck.id, notetypeId: basic.id, fields: ['감사합니다', 'Thank you'], tags: [] },
-          { deckId: made.deck.id, notetypeId: 999, fields: ['x', 'y'], tags: [] },
-          { deckId: made.deck.id, notetypeId: basic.id, fields: ['안녕하세요', 'Hello'], tags: [], language: 'ko', learningFieldIndex: 0 },
+            { deckId: made.deck.id, notetypeId: basic.id, fields: ['감사합니다', 'Thank you'], tags: [] },
+            { deckId: made.deck.id, notetypeId: 999, fields: ['x', 'y'], tags: [] },
+            { deckId: made.deck.id, notetypeId: basic.id, fields: ['안녕하세요', 'Hello'], tags: [], language: 'ko', learningFieldIndex: 0 },
         ]);
         assert.deepEqual(bulk.map((r) => r.ok), [true, false, true], 'one bad note never aborts the rest');
         assert.match(bulk[1].error, /999|note ?type/i);
@@ -253,9 +253,9 @@ describe(`an add-on in another protocol`, () => {
 
     test('a deck list whose pairs are not two different known codes lists them as no pair, as the direct reader does', async () => {
         const rows = [
-          { id: 1, name: 'ok', known: 'ko', learning: 'en' }, { id: 2, name: 'unknown code', known: 'en', learning: 'xx' },
-          { id: 3, name: 'same code', known: 'en', learning: 'en' }, { id: 4, name: 'capitals', known: 'EN', learning: 'ko' },
-          { id: 5, name: 'half', known: 'en', learning: '' }, { id: 6, name: 'none', known: '', learning: '' },
+            { id: 1, name: 'ok', known: 'ko', learning: 'en' }, { id: 2, name: 'unknown code', known: 'en', learning: 'xx' },
+            { id: 3, name: 'same code', known: 'en', learning: 'en' }, { id: 4, name: 'capitals', known: 'EN', learning: 'ko' },
+            { id: 5, name: 'half', known: 'en', learning: '' }, { id: 6, name: 'none', known: '', learning: '' },
         ];
         const list = encode('b_decks', { decks: rows });
         const status = encode('b_status', { profileOpen: true, profileName: 'p', collectionOpen: true, schemaVersion: 18, ankiVersion: 'a', qtVersion: 'q' });
