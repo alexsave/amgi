@@ -231,16 +231,13 @@ static void test_web(void) {
 static void test_gemini(void) {
     arena a = {0};
     str m = gem_daily_quota_message(&a, "gemini-3.8-flash", 1, 0, 0, 1, 20000);
-    CHECK(STR_IS(m, "Gemini's free tier allows 10 requests per day per model, and today's are used up for gemini-3.8-flash. "
-                    "Enable billing for your Gemini API key's project in Google AI Studio (https://aistudio.google.com/apikey) "
-                    "to lift the limit, or try again tomorrow."),
+    CHECK(STR_IS(m, "Gemini's free tier (10 a day) is used up for text. Turn on billing to lift it: https://aistudio.google.com/apikey"),
           "the free tier's sentence: %.*s", (int)m.n, m.p);
     m = gem_daily_quota_message(&a, "gemini-3.8-flash-tts", 0, 1, 100, 1, 9000000);
-    CHECK(STR_IS(m, "Your Gemini project's daily limit of 100 requests for gemini-3.8-flash-tts is used up. It resets in about 3 "
-                    "hour(s). A higher usage tier raises it (Google AI Studio, https://aistudio.google.com/apikey)."),
+    CHECK(STR_IS(m, "Today's Gemini voice limit (100) is used up. Resets in about 3 h."),
           "a billed project's sentence: %.*s", (int)m.n, m.p);
     m = gem_daily_quota_message(&a, "x", 0, 0, 0, 1, 1000);
-    CHECK(str_starts(m, S("Your Gemini project's daily limit for x is used up. It resets in about 1 hour(s).")), "at least an hour");
+    CHECK(STR_IS(m, "Today's Gemini text limit is used up. Resets in under an hour."), "under an hour: %.*s", (int)m.n, m.p);
 
     str pcm = S("\x01\x02\x03\x04"), wav, err;
     wav = gem_pcm_to_wav(&a, pcm, 24000, 1);
