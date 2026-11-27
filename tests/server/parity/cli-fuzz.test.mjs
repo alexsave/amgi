@@ -25,7 +25,7 @@ const ROOT = path.resolve(import.meta.dirname, '..', '..', '..');
 const SEED = 20261108;
 
 const VERBS = ['status', 'listDecks', 'countNotesInDeck', 'listNotetypes', 'listNotesInDeck', 'existingFieldValues', 'createDeck', 'renameDeck',
-  'deckRemovalSummary', 'removeDeck', 'addNote', 'updateNote', 'removeNote', 'hasMedia', 'readMedia', 'addMedia', 'createNotetype', 'nosuchverb', ''];
+    'deckRemovalSummary', 'removeDeck', 'addNote', 'updateNote', 'removeNote', 'hasMedia', 'readMedia', 'addMedia', 'createNotetype', 'nosuchverb', ''];
 const NUMBERS = ['0', '1', '-1', 'NaN', 'Infinity', '-Infinity', '1e30', '18446744073709551616', '9007199254740993', '1.5', '0x10', '', '!', '~', 'abc'];
 const COUNTS = ['-1', 'NaN', '1e30', '18446744073709551616', 'abc', '', '2', '0'];
 

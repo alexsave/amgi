@@ -22,188 +22,188 @@ uint32_t wire_mode_of(const char *s, uint32_t len) {
 #define F(T, key, type, m) {key, type, (uint16_t)offsetof(T, m), 0, 0}
 #define LIST(T, key, m, n, sub) {key, WT_LIST, (uint16_t)offsetof(T, m), (uint16_t)offsetof(T, n), &sub}
 #define SCHEMA(name, T, ...)                                                          \
-  static const wire_field name##_f[] = {__VA_ARGS__};                                 \
-  static const wire_schema name = {name##_f, sizeof name##_f / sizeof *name##_f, sizeof(T)}
+    static const wire_field name##_f[] = {__VA_ARGS__};                               \
+    static const wire_schema name = {name##_f, sizeof name##_f / sizeof *name##_f, sizeof(T)}
 
 SCHEMA(s_error, wire_error,
-  F(wire_error, "mode", WT_MODE, mode), F(wire_error, "error", WT_STR, error),
-  F(wire_error, "retryAfterMs", WT_OPT, retry_after_ms), F(wire_error, "notStarted", WT_BOOL, not_started),
-  F(wire_error, "dailyCap", WT_BOOL, daily_cap), F(wire_error, "maxWaitMs", WT_OPT, max_wait_ms));
+    F(wire_error, "mode", WT_MODE, mode), F(wire_error, "error", WT_STR, error),
+    F(wire_error, "retryAfterMs", WT_OPT, retry_after_ms), F(wire_error, "notStarted", WT_BOOL, not_started),
+    F(wire_error, "dailyCap", WT_BOOL, daily_cap), F(wire_error, "maxWaitMs", WT_OPT, max_wait_ms));
 SCHEMA(s_status, wire_status,
-  F(wire_status, "mode", WT_MODE, mode), F(wire_status, "schemaVersion", WT_U32, schema_version),
-  F(wire_status, "detail", WT_STR, detail));
+    F(wire_status, "mode", WT_MODE, mode), F(wire_status, "schemaVersion", WT_U32, schema_version),
+    F(wire_status, "detail", WT_STR, detail));
 SCHEMA(s_deck, wire_deck,
-  F(wire_deck, "id", WT_I64, id), F(wire_deck, "name", WT_STR, name), F(wire_deck, "noteCount", WT_U32, note_count),
-  F(wire_deck, "known", WT_STR, known), F(wire_deck, "learning", WT_STR, learning));
+    F(wire_deck, "id", WT_I64, id), F(wire_deck, "name", WT_STR, name), F(wire_deck, "noteCount", WT_U32, note_count),
+    F(wire_deck, "known", WT_STR, known), F(wire_deck, "learning", WT_STR, learning));
 SCHEMA(s_decks, wire_decks, F(wire_decks, "mode", WT_MODE, mode), LIST(wire_decks, "decks", decks, ndecks, s_deck));
 SCHEMA(s_deck_languages, wire_deck_languages,
-  F(wire_deck_languages, "mode", WT_MODE, mode), F(wire_deck_languages, "id", WT_I64, id),
-  F(wire_deck_languages, "known", WT_STR, known), F(wire_deck_languages, "learning", WT_STR, learning));
+    F(wire_deck_languages, "mode", WT_MODE, mode), F(wire_deck_languages, "id", WT_I64, id),
+    F(wire_deck_languages, "known", WT_STR, known), F(wire_deck_languages, "learning", WT_STR, learning));
 SCHEMA(s_deck_languages_found, wire_deck_languages_found,
-  F(wire_deck_languages_found, "mode", WT_MODE, mode), F(wire_deck_languages_found, "id", WT_I64, id),
-  F(wire_deck_languages_found, "stored", WT_BOOL, stored), F(wire_deck_languages_found, "known", WT_STR, known),
-  F(wire_deck_languages_found, "learning", WT_STR, learning), F(wire_deck_languages_found, "foundBy", WT_STR, found_by));
+    F(wire_deck_languages_found, "mode", WT_MODE, mode), F(wire_deck_languages_found, "id", WT_I64, id),
+    F(wire_deck_languages_found, "stored", WT_BOOL, stored), F(wire_deck_languages_found, "known", WT_STR, known),
+    F(wire_deck_languages_found, "learning", WT_STR, learning), F(wire_deck_languages_found, "foundBy", WT_STR, found_by));
 SCHEMA(s_fill_note, wire_fill_note, F(wire_fill_note, "id", WT_I64, id));
 SCHEMA(s_fill_plan, wire_fill_plan,
-  F(wire_fill_plan, "mode", WT_MODE, mode), LIST(wire_fill_plan, "toFill", to_fill, nto_fill, s_fill_note),
-  F(wire_fill_plan, "upToDate", WT_U32, up_to_date), F(wire_fill_plan, "skipped", WT_U32, skipped));
+    F(wire_fill_plan, "mode", WT_MODE, mode), LIST(wire_fill_plan, "toFill", to_fill, nto_fill, s_fill_note),
+    F(wire_fill_plan, "upToDate", WT_U32, up_to_date), F(wire_fill_plan, "skipped", WT_U32, skipped));
 SCHEMA(s_install_state, wire_install_state,
-  F(wire_install_state, "installed", WT_BOOL, installed), F(wire_install_state, "upToDate", WT_TRI, up_to_date),
-  F(wire_install_state, "collectionChecked", WT_BOOL, collection_checked),
-  F(wire_install_state, "collectionStale", WT_STRS, stale), F(wire_install_state, "ready", WT_BOOL, ready),
-  F(wire_install_state, "baseDir", WT_STR, base_dir));
+    F(wire_install_state, "installed", WT_BOOL, installed), F(wire_install_state, "upToDate", WT_TRI, up_to_date),
+    F(wire_install_state, "collectionChecked", WT_BOOL, collection_checked),
+    F(wire_install_state, "collectionStale", WT_STRS, stale), F(wire_install_state, "ready", WT_BOOL, ready),
+    F(wire_install_state, "baseDir", WT_STR, base_dir));
 SCHEMA(s_profile, wire_profile,
-  F(wire_profile, "name", WT_STR, name), F(wire_profile, "collectionPath", WT_STR, collection_path));
+    F(wire_profile, "name", WT_STR, name), F(wire_profile, "collectionPath", WT_STR, collection_path));
 SCHEMA(s_profiles, wire_profiles,
-  F(wire_profiles, "baseDir", WT_STR, base_dir), F(wire_profiles, "baseDirExists", WT_BOOL, base_dir_exists),
-  LIST(wire_profiles, "profiles", profiles, nprofiles, s_profile));
+    F(wire_profiles, "baseDir", WT_STR, base_dir), F(wire_profiles, "baseDirExists", WT_BOOL, base_dir_exists),
+    LIST(wire_profiles, "profiles", profiles, nprofiles, s_profile));
 SCHEMA(s_notetype, wire_notetype,
-  F(wire_notetype, "id", WT_I64, id), F(wire_notetype, "name", WT_STR, name),
-  F(wire_notetype, "fieldNames", WT_STRS, field_names), F(wire_notetype, "sortFieldIndex", WT_U32, sort_field_index));
+    F(wire_notetype, "id", WT_I64, id), F(wire_notetype, "name", WT_STR, name),
+    F(wire_notetype, "fieldNames", WT_STRS, field_names), F(wire_notetype, "sortFieldIndex", WT_U32, sort_field_index));
 SCHEMA(s_notetypes, wire_notetypes,
-  F(wire_notetypes, "mode", WT_MODE, mode), LIST(wire_notetypes, "notetypes", notetypes, nnotetypes, s_notetype));
+    F(wire_notetypes, "mode", WT_MODE, mode), LIST(wire_notetypes, "notetypes", notetypes, nnotetypes, s_notetype));
 SCHEMA(s_note, wire_note,
-  F(wire_note, "id", WT_I64, id), F(wire_note, "notetypeId", WT_I64, notetype_id),
-  F(wire_note, "fields", WT_STRS, fields), F(wire_note, "tags", WT_STRS, tags));
+    F(wire_note, "id", WT_I64, id), F(wire_note, "notetypeId", WT_I64, notetype_id),
+    F(wire_note, "fields", WT_STRS, fields), F(wire_note, "tags", WT_STRS, tags));
 SCHEMA(s_note_one, wire_note_one,
-  F(wire_note_one, "mode", WT_MODE, mode), F(wire_note_one, "id", WT_I64, note.id),
-  F(wire_note_one, "notetypeId", WT_I64, note.notetype_id), F(wire_note_one, "fields", WT_STRS, note.fields),
-  F(wire_note_one, "tags", WT_STRS, note.tags));
+    F(wire_note_one, "mode", WT_MODE, mode), F(wire_note_one, "id", WT_I64, note.id),
+    F(wire_note_one, "notetypeId", WT_I64, note.notetype_id), F(wire_note_one, "fields", WT_STRS, note.fields),
+    F(wire_note_one, "tags", WT_STRS, note.tags));
 SCHEMA(s_notes, wire_notes,
-  F(wire_notes, "mode", WT_MODE, mode), LIST(wire_notes, "notes", notes, nnotes, s_note),
-  F(wire_notes, "offset", WT_U32, offset), F(wire_notes, "limit", WT_U32, limit), F(wire_notes, "hasMore", WT_BOOL, has_more));
+    F(wire_notes, "mode", WT_MODE, mode), LIST(wire_notes, "notes", notes, nnotes, s_note),
+    F(wire_notes, "offset", WT_U32, offset), F(wire_notes, "limit", WT_U32, limit), F(wire_notes, "hasMore", WT_BOOL, has_more));
 SCHEMA(s_field_values, wire_field_values,
-  F(wire_field_values, "mode", WT_MODE, mode), F(wire_field_values, "values", WT_STRS, values));
+    F(wire_field_values, "mode", WT_MODE, mode), F(wire_field_values, "values", WT_STRS, values));
 SCHEMA(s_deck_created, wire_deck_created,
-  F(wire_deck_created, "mode", WT_MODE, mode), F(wire_deck_created, "deck.id", WT_I64, id),
-  F(wire_deck_created, "deck.name", WT_STR, name), F(wire_deck_created, "created", WT_BOOL, created));
+    F(wire_deck_created, "mode", WT_MODE, mode), F(wire_deck_created, "deck.id", WT_I64, id),
+    F(wire_deck_created, "deck.name", WT_STR, name), F(wire_deck_created, "created", WT_BOOL, created));
 SCHEMA(s_deck_renamed, wire_deck_renamed,
-  F(wire_deck_renamed, "mode", WT_MODE, mode), F(wire_deck_renamed, "id", WT_I64, id),
-  F(wire_deck_renamed, "name", WT_STR, name));
+    F(wire_deck_renamed, "mode", WT_MODE, mode), F(wire_deck_renamed, "id", WT_I64, id),
+    F(wire_deck_renamed, "name", WT_STR, name));
 SCHEMA(s_note_added, wire_note_added,
-  F(wire_note_added, "mode", WT_MODE, mode), F(wire_note_added, "noteId", WT_I64, note_id));
+    F(wire_note_added, "mode", WT_MODE, mode), F(wire_note_added, "noteId", WT_I64, note_id));
 SCHEMA(s_note_result, wire_note_result,
-  F(wire_note_result, "ok", WT_BOOL, ok), F(wire_note_result, "noteId", WT_I64, note_id),
-  F(wire_note_result, "error", WT_STR, error));
+    F(wire_note_result, "ok", WT_BOOL, ok), F(wire_note_result, "noteId", WT_I64, note_id),
+    F(wire_note_result, "error", WT_STR, error));
 SCHEMA(s_notes_added, wire_notes_added,
-  F(wire_notes_added, "mode", WT_MODE, mode), LIST(wire_notes_added, "results", results, nresults, s_note_result));
+    F(wire_notes_added, "mode", WT_MODE, mode), LIST(wire_notes_added, "results", results, nresults, s_note_result));
 SCHEMA(s_note_changed, wire_note_changed,
-  F(wire_note_changed, "mode", WT_MODE, mode), F(wire_note_changed, "noteId", WT_I64, note_id),
-  F(wire_note_changed, "warning", WT_STR, warning));
+    F(wire_note_changed, "mode", WT_MODE, mode), F(wire_note_changed, "noteId", WT_I64, note_id),
+    F(wire_note_changed, "warning", WT_STR, warning));
 SCHEMA(s_card_text, wire_card_text,
-  F(wire_card_text, "mode", WT_MODE, mode), F(wire_card_text, "front_text", WT_STR, front_text),
-  F(wire_card_text, "back_text", WT_STR, back_text), F(wire_card_text, "audio.filename", WT_STR, audio.filename),
-  F(wire_card_text, "audio.reference", WT_STR, audio.reference),
-  F(wire_card_text, "cueAudio.filename", WT_STR, cue_audio.filename),
-  F(wire_card_text, "cueAudio.reference", WT_STR, cue_audio.reference));
+    F(wire_card_text, "mode", WT_MODE, mode), F(wire_card_text, "front_text", WT_STR, front_text),
+    F(wire_card_text, "back_text", WT_STR, back_text), F(wire_card_text, "audio.filename", WT_STR, audio.filename),
+    F(wire_card_text, "audio.reference", WT_STR, audio.reference),
+    F(wire_card_text, "cueAudio.filename", WT_STR, cue_audio.filename),
+    F(wire_card_text, "cueAudio.reference", WT_STR, cue_audio.reference));
 SCHEMA(s_clip, wire_clip,
-  F(wire_clip, "mode", WT_MODE, mode), F(wire_clip, "filename", WT_STR, filename),
-  F(wire_clip, "reference", WT_STR, reference), F(wire_clip, "reused", WT_BOOL, reused));
+    F(wire_clip, "mode", WT_MODE, mode), F(wire_clip, "filename", WT_STR, filename),
+    F(wire_clip, "reference", WT_STR, reference), F(wire_clip, "reused", WT_BOOL, reused));
 SCHEMA(s_card_progress, wire_card_progress,
-  F(wire_card_progress, "id", WT_U32, id), F(wire_card_progress, "step", WT_U32, step),
-  F(wire_card_progress, "take", WT_U32, take), F(wire_card_progress, "takes", WT_U32, takes),
-  F(wire_card_progress, "waitMs", WT_U32, wait_ms), F(wire_card_progress, "frontText", WT_STR, front_text),
-  F(wire_card_progress, "backText", WT_STR, back_text));
+    F(wire_card_progress, "id", WT_U32, id), F(wire_card_progress, "step", WT_U32, step),
+    F(wire_card_progress, "take", WT_U32, take), F(wire_card_progress, "takes", WT_U32, takes),
+    F(wire_card_progress, "waitMs", WT_U32, wait_ms), F(wire_card_progress, "frontText", WT_STR, front_text),
+    F(wire_card_progress, "backText", WT_STR, back_text));
 SCHEMA(s_progress, wire_progress, LIST(wire_progress, "cards", cards, ncards, s_card_progress));
 SCHEMA(s_starter_state, wire_starter_state,
-  F(wire_starter_state, "offered", WT_BOOL, offered),
-  F(wire_starter_state, "generationAvailable", WT_BOOL, generation_available),
-  F(wire_starter_state, "languages", WT_STRS, languages), F(wire_starter_state, "phraseCount", WT_U32, phrase_count));
+    F(wire_starter_state, "offered", WT_BOOL, offered),
+    F(wire_starter_state, "generationAvailable", WT_BOOL, generation_available),
+    F(wire_starter_state, "languages", WT_STRS, languages), F(wire_starter_state, "phraseCount", WT_U32, phrase_count));
 SCHEMA(s_starter_built, wire_starter_built,
-  F(wire_starter_built, "mode", WT_MODE, mode), F(wire_starter_built, "deckId", WT_I64, deck_id),
-  F(wire_starter_built, "deckName", WT_STR, deck_name), F(wire_starter_built, "added", WT_U32, added),
-  F(wire_starter_built, "alreadyThere", WT_U32, already_there));
+    F(wire_starter_built, "mode", WT_MODE, mode), F(wire_starter_built, "deckId", WT_I64, deck_id),
+    F(wire_starter_built, "deckName", WT_STR, deck_name), F(wire_starter_built, "added", WT_U32, added),
+    F(wire_starter_built, "alreadyThere", WT_U32, already_there));
 SCHEMA(s_installed, wire_installed,
-  F(wire_installed, "ok", WT_BOOL, ok), F(wire_installed, "needsRestart", WT_BOOL, needs_restart),
-  F(wire_installed, "message", WT_STR, message), F(wire_installed, "addonsDir", WT_STR, addons_dir));
+    F(wire_installed, "ok", WT_BOOL, ok), F(wire_installed, "needsRestart", WT_BOOL, needs_restart),
+    F(wire_installed, "message", WT_STR, message), F(wire_installed, "addonsDir", WT_STR, addons_dir));
 SCHEMA(s_deck_summary, wire_deck_summary,
-  F(wire_deck_summary, "mode", WT_MODE, mode), F(wire_deck_summary, "id", WT_I64, id),
-  F(wire_deck_summary, "name", WT_STR, name), F(wire_deck_summary, "subdecks", WT_U32, subdecks),
-  F(wire_deck_summary, "cards", WT_U32, cards), F(wire_deck_summary, "notes", WT_U32, notes));
+    F(wire_deck_summary, "mode", WT_MODE, mode), F(wire_deck_summary, "id", WT_I64, id),
+    F(wire_deck_summary, "name", WT_STR, name), F(wire_deck_summary, "subdecks", WT_U32, subdecks),
+    F(wire_deck_summary, "cards", WT_U32, cards), F(wire_deck_summary, "notes", WT_U32, notes));
 SCHEMA(s_deck_removed, wire_deck_removed,
-  F(wire_deck_removed, "mode", WT_MODE, mode), F(wire_deck_removed, "id", WT_I64, id),
-  F(wire_deck_removed, "name", WT_STR, name), F(wire_deck_removed, "decks", WT_U32, decks),
-  F(wire_deck_removed, "cards", WT_U32, cards), F(wire_deck_removed, "notes", WT_U32, notes));
+    F(wire_deck_removed, "mode", WT_MODE, mode), F(wire_deck_removed, "id", WT_I64, id),
+    F(wire_deck_removed, "name", WT_STR, name), F(wire_deck_removed, "decks", WT_U32, decks),
+    F(wire_deck_removed, "cards", WT_U32, cards), F(wire_deck_removed, "notes", WT_U32, notes));
 
 SCHEMA(s_q_deck_name, wire_q_deck_name, F(wire_q_deck_name, "name", WT_STR, name));
 SCHEMA(s_q_deck_languages, wire_q_deck_languages,
-  F(wire_q_deck_languages, "known", WT_STR, known), F(wire_q_deck_languages, "learning", WT_STR, learning));
+    F(wire_q_deck_languages, "known", WT_STR, known), F(wire_q_deck_languages, "learning", WT_STR, learning));
 SCHEMA(s_q_install, wire_q_install, F(wire_q_install, "baseDirOverride", WT_STR, base_dir_override));
 SCHEMA(s_q_starter, wire_q_starter,
-  F(wire_q_starter, "known", WT_STR, known), F(wire_q_starter, "learning", WT_STR, learning),
-  F(wire_q_starter, "name", WT_STR, name));
+    F(wire_q_starter, "known", WT_STR, known), F(wire_q_starter, "learning", WT_STR, learning),
+    F(wire_q_starter, "name", WT_STR, name));
 SCHEMA(s_q_note, wire_q_note,
-  F(wire_q_note, "deckId", WT_I64, deck_id), F(wire_q_note, "notetypeId", WT_I64, notetype_id),
-  F(wire_q_note, "fields", WT_STRS, fields), F(wire_q_note, "tags", WT_STRS, tags),
-  F(wire_q_note, "language", WT_STR, language), F(wire_q_note, "learningFieldIndex", WT_I32, learning_field_index));
+    F(wire_q_note, "deckId", WT_I64, deck_id), F(wire_q_note, "notetypeId", WT_I64, notetype_id),
+    F(wire_q_note, "fields", WT_STRS, fields), F(wire_q_note, "tags", WT_STRS, tags),
+    F(wire_q_note, "language", WT_STR, language), F(wire_q_note, "learningFieldIndex", WT_I32, learning_field_index));
 SCHEMA(s_q_notes, wire_q_notes, LIST(wire_q_notes, "notes", notes, nnotes, s_q_note));
 SCHEMA(s_q_note_update, wire_q_note_update,
-  F(wire_q_note_update, "fields", WT_STRS, fields), F(wire_q_note_update, "language", WT_STR, language),
-  F(wire_q_note_update, "learningFieldIndex", WT_I32, learning_field_index));
+    F(wire_q_note_update, "fields", WT_STRS, fields), F(wire_q_note_update, "language", WT_STR, language),
+    F(wire_q_note_update, "learningFieldIndex", WT_I32, learning_field_index));
 SCHEMA(s_q_card_text, wire_q_card_text,
-  F(wire_q_card_text, "userInput", WT_STR, user_input), F(wire_q_card_text, "deckId", WT_I64, deck_id),
-  F(wire_q_card_text, "includeCueAudio", WT_BOOL, include_cue_audio),
-  F(wire_q_card_text, "progressId", WT_U32, progress_id));
+    F(wire_q_card_text, "userInput", WT_STR, user_input), F(wire_q_card_text, "deckId", WT_I64, deck_id),
+    F(wire_q_card_text, "includeCueAudio", WT_BOOL, include_cue_audio),
+    F(wire_q_card_text, "progressId", WT_U32, progress_id));
 SCHEMA(s_q_fill, wire_q_fill,
-  F(wire_q_fill, "deckId", WT_I64, deck_id), F(wire_q_fill, "notetypeId", WT_I64, notetype_id),
-  F(wire_q_fill, "textField", WT_I32, text_field), F(wire_q_fill, "audioField", WT_I32, audio_field),
-  F(wire_q_fill, "side", WT_STR, side), F(wire_q_fill, "form", WT_STR, form));
+    F(wire_q_fill, "deckId", WT_I64, deck_id), F(wire_q_fill, "notetypeId", WT_I64, notetype_id),
+    F(wire_q_fill, "textField", WT_I32, text_field), F(wire_q_fill, "audioField", WT_I32, audio_field),
+    F(wire_q_fill, "side", WT_STR, side), F(wire_q_fill, "form", WT_STR, form));
 SCHEMA(s_q_audio, wire_q_audio,
-  F(wire_q_audio, "text", WT_STR, text), F(wire_q_audio, "language", WT_STR, language),
-  F(wire_q_audio, "fresh", WT_BOOL, fresh));
+    F(wire_q_audio, "text", WT_STR, text), F(wire_q_audio, "language", WT_STR, language),
+    F(wire_q_audio, "fresh", WT_BOOL, fresh));
 
 SCHEMA(s_b_error, wire_b_error, F(wire_b_error, "error", WT_STR, error));
 SCHEMA(s_b_status, wire_b_status,
-  F(wire_b_status, "profileOpen", WT_BOOL, profile_open), F(wire_b_status, "profileName", WT_STR, profile_name),
-  F(wire_b_status, "collectionOpen", WT_BOOL, collection_open),
-  F(wire_b_status, "schemaVersion", WT_OPT, schema_version), F(wire_b_status, "ankiVersion", WT_STR, anki_version),
-  F(wire_b_status, "qtVersion", WT_STR, qt_version));
+    F(wire_b_status, "profileOpen", WT_BOOL, profile_open), F(wire_b_status, "profileName", WT_STR, profile_name),
+    F(wire_b_status, "collectionOpen", WT_BOOL, collection_open),
+    F(wire_b_status, "schemaVersion", WT_OPT, schema_version), F(wire_b_status, "ankiVersion", WT_STR, anki_version),
+    F(wire_b_status, "qtVersion", WT_STR, qt_version));
 SCHEMA(s_b_deck, wire_b_deck, F(wire_b_deck, "id", WT_I64, id), F(wire_b_deck, "name", WT_STR, name));
 SCHEMA(s_b_deck_listed, wire_b_deck_listed,
-  F(wire_b_deck_listed, "id", WT_I64, id), F(wire_b_deck_listed, "name", WT_STR, name),
-  F(wire_b_deck_listed, "known", WT_STR, known), F(wire_b_deck_listed, "learning", WT_STR, learning));
+    F(wire_b_deck_listed, "id", WT_I64, id), F(wire_b_deck_listed, "name", WT_STR, name),
+    F(wire_b_deck_listed, "known", WT_STR, known), F(wire_b_deck_listed, "learning", WT_STR, learning));
 SCHEMA(s_b_decks, wire_b_decks, LIST(wire_b_decks, "decks", decks, ndecks, s_b_deck_listed));
 SCHEMA(s_b_deck_languages, wire_b_deck_languages,
-  F(wire_b_deck_languages, "id", WT_I64, id), F(wire_b_deck_languages, "known", WT_STR, known),
-  F(wire_b_deck_languages, "learning", WT_STR, learning));
+    F(wire_b_deck_languages, "id", WT_I64, id), F(wire_b_deck_languages, "known", WT_STR, known),
+    F(wire_b_deck_languages, "learning", WT_STR, learning));
 SCHEMA(s_b_template, wire_b_template,
-  F(wire_b_template, "ord", WT_U32, ord), F(wire_b_template, "name", WT_STR, name),
-  F(wire_b_template, "questionFormat", WT_STR, question_format),
-  F(wire_b_template, "answerFormat", WT_STR, answer_format));
+    F(wire_b_template, "ord", WT_U32, ord), F(wire_b_template, "name", WT_STR, name),
+    F(wire_b_template, "questionFormat", WT_STR, question_format),
+    F(wire_b_template, "answerFormat", WT_STR, answer_format));
 SCHEMA(s_b_notetype, wire_b_notetype,
-  F(wire_b_notetype, "id", WT_I64, id), F(wire_b_notetype, "name", WT_STR, name),
-  F(wire_b_notetype, "kind", WT_STR, kind), F(wire_b_notetype, "sortFieldIndex", WT_U32, sort_field_index),
-  F(wire_b_notetype, "fieldNames", WT_STRS, field_names),
-  LIST(wire_b_notetype, "templates", templates, ntemplates, s_b_template));
+    F(wire_b_notetype, "id", WT_I64, id), F(wire_b_notetype, "name", WT_STR, name),
+    F(wire_b_notetype, "kind", WT_STR, kind), F(wire_b_notetype, "sortFieldIndex", WT_U32, sort_field_index),
+    F(wire_b_notetype, "fieldNames", WT_STRS, field_names),
+    LIST(wire_b_notetype, "templates", templates, ntemplates, s_b_template));
 SCHEMA(s_b_notetypes, wire_b_notetypes, LIST(wire_b_notetypes, "notetypes", notetypes, nnotetypes, s_b_notetype));
 SCHEMA(s_b_notes, wire_b_notes,
-  LIST(wire_b_notes, "notes", notes, nnotes, s_note), F(wire_b_notes, "total", WT_U32, total),
-  F(wire_b_notes, "offset", WT_U32, offset), F(wire_b_notes, "limit", WT_U32, limit));
+    LIST(wire_b_notes, "notes", notes, nnotes, s_note), F(wire_b_notes, "total", WT_U32, total),
+    F(wire_b_notes, "offset", WT_U32, offset), F(wire_b_notes, "limit", WT_U32, limit));
 SCHEMA(s_b_values, wire_b_values, F(wire_b_values, "values", WT_STRS, values));
 SCHEMA(s_b_deck_created, wire_b_deck_created,
-  F(wire_b_deck_created, "deck.id", WT_I64, id), F(wire_b_deck_created, "deck.name", WT_STR, name),
-  F(wire_b_deck_created, "created", WT_BOOL, created));
+    F(wire_b_deck_created, "deck.id", WT_I64, id), F(wire_b_deck_created, "deck.name", WT_STR, name),
+    F(wire_b_deck_created, "created", WT_BOOL, created));
 SCHEMA(s_b_note, wire_b_note, F(wire_b_note, "noteId", WT_I64, note_id), F(wire_b_note, "warning", WT_STR, warning));
 SCHEMA(s_b_notes_added, wire_b_notes_added, LIST(wire_b_notes_added, "results", results, nresults, s_note_result));
 SCHEMA(s_b_note_read, wire_b_note_read,
-  F(wire_b_note_read, "id", WT_I64, id), F(wire_b_note_read, "notetypeId", WT_I64, notetype_id),
-  F(wire_b_note_read, "fields", WT_STRS, fields), F(wire_b_note_read, "tags", WT_STRS, tags));
+    F(wire_b_note_read, "id", WT_I64, id), F(wire_b_note_read, "notetypeId", WT_I64, notetype_id),
+    F(wire_b_note_read, "fields", WT_STRS, fields), F(wire_b_note_read, "tags", WT_STRS, tags));
 SCHEMA(s_b_note_removed, wire_b_note_removed,
-  F(wire_b_note_removed, "noteId", WT_I64, note_id), F(wire_b_note_removed, "cardsRemoved", WT_U32, cards_removed));
+    F(wire_b_note_removed, "noteId", WT_I64, note_id), F(wire_b_note_removed, "cardsRemoved", WT_U32, cards_removed));
 SCHEMA(s_b_deck_summary, wire_b_deck_summary,
-  F(wire_b_deck_summary, "id", WT_I64, id), F(wire_b_deck_summary, "name", WT_STR, name),
-  F(wire_b_deck_summary, "subdecks", WT_U32, subdecks), F(wire_b_deck_summary, "cards", WT_U32, cards),
-  F(wire_b_deck_summary, "notes", WT_U32, notes));
+    F(wire_b_deck_summary, "id", WT_I64, id), F(wire_b_deck_summary, "name", WT_STR, name),
+    F(wire_b_deck_summary, "subdecks", WT_U32, subdecks), F(wire_b_deck_summary, "cards", WT_U32, cards),
+    F(wire_b_deck_summary, "notes", WT_U32, notes));
 SCHEMA(s_b_deck_removed, wire_b_deck_removed,
-  F(wire_b_deck_removed, "id", WT_I64, id), F(wire_b_deck_removed, "name", WT_STR, name),
-  F(wire_b_deck_removed, "decks", WT_U32, decks), F(wire_b_deck_removed, "cards", WT_U32, cards),
-  F(wire_b_deck_removed, "notes", WT_U32, notes));
+    F(wire_b_deck_removed, "id", WT_I64, id), F(wire_b_deck_removed, "name", WT_STR, name),
+    F(wire_b_deck_removed, "decks", WT_U32, decks), F(wire_b_deck_removed, "cards", WT_U32, cards),
+    F(wire_b_deck_removed, "notes", WT_U32, notes));
 SCHEMA(s_b_media_exists, wire_b_media_exists, F(wire_b_media_exists, "exists", WT_BOOL, exists));
 SCHEMA(s_b_media_data, wire_b_media_data,
-  F(wire_b_media_data, "found", WT_BOOL, found), F(wire_b_media_data, "data", WT_BYTES, data));
+    F(wire_b_media_data, "found", WT_BOOL, found), F(wire_b_media_data, "data", WT_BYTES, data));
 SCHEMA(s_b_media_added, wire_b_media_added, F(wire_b_media_added, "filename", WT_STR, filename));
 SCHEMA(s_b_q_media, wire_b_q_media,
-  F(wire_b_q_media, "filename", WT_STR, filename), F(wire_b_q_media, "data", WT_BYTES, data));
+    F(wire_b_q_media, "filename", WT_STR, filename), F(wire_b_q_media, "data", WT_BYTES, data));
 
 static const struct { const char *name; const wire_schema *schema; } KINDS[WK_KINDS] = {
     [WK_ERROR] = {"error", &s_error}, [WK_STATUS] = {"status", &s_status}, [WK_DECKS] = {"decks", &s_decks},

@@ -10,31 +10,31 @@
 /* The collection file does not start with SQLite's header (server/collection/db.c's
  * collection_openable): amgi did not open it, so nothing it does can make it worse. */
 #define MSG_DAMAGED \
-  "The collection file is damaged; amgi did not open it. Anki can restore it from one of its backups."
-#define MSG_LOCKED                                                                    \
-  "Anki is open on this collection and the local bridge is not reachable. "          \
-  "Either close Anki, or turn on the bridge in Anki (Tools > amgi: Bridge status...) " \
-  "and paste its token into Settings."
-#define MSG_BRIDGE_OUTDATED                                                           \
-  "The amgi add-on running in Anki is from a different amgi than this one. "         \
-  "Press Install into Anki again (Settings), then restart Anki."
-#define MSG_BRIDGE_NO_COLLECTION                                                      \
-  "Anki is open with the bridge running, but no profile is loaded yet (the profile picker is showing). " \
-  "Pick a profile in Anki."
+    "The collection file is damaged; amgi did not open it. Anki can restore it from one of its backups."
+#define MSG_LOCKED                                                                       \
+    "Anki is open on this collection and the local bridge is not reachable. "            \
+    "Either close Anki, or turn on the bridge in Anki (Tools > amgi: Bridge status...) " \
+    "and paste its token into Settings."
+#define MSG_BRIDGE_OUTDATED                                                    \
+    "The amgi add-on running in Anki is from a different amgi than this one. " \
+    "Press Install into Anki again (Settings), then restart Anki."
+#define MSG_BRIDGE_NO_COLLECTION                                                                           \
+    "Anki is open with the bridge running, but no profile is loaded yet (the profile picker is showing). " \
+    "Pick a profile in Anki."
 
 /* lib/geminiKey.js */
 #define GEMINI_KEY_PAGE "https://aistudio.google.com/apikey"
-#define MISSING_KEY_MESSAGE                                                                    \
-  "GEMINI_API_KEY is not set, so nothing was generated: get a key at " GEMINI_KEY_PAGE ", add it to " \
-  ".env.local and restart amgi."
+#define MISSING_KEY_MESSAGE                                                                             \
+    "GEMINI_API_KEY is not set, so nothing was generated: get a key at " GEMINI_KEY_PAGE ", add it to " \
+    ".env.local and restart amgi."
 
 /* were src/server/anki/install.js's */
-#define RESTART_MESSAGE                                                                          \
-  "Installed. Restart Anki - it will add the \"amgi Listening\" note type and its files to your " \
-  "collection on the way up."
-#define INSTALLED_MESSAGE                                                                          \
-  "Installed. The \"amgi Listening\" card type is already in your collection, so you can add cards " \
-  "now. Anki picks the add-ons up the next time it starts."
+#define RESTART_MESSAGE                                                                             \
+    "Installed. Restart Anki - it will add the \"amgi Listening\" note type and its files to your " \
+    "collection on the way up."
+#define INSTALLED_MESSAGE                                                                              \
+    "Installed. The \"amgi Listening\" card type is already in your collection, so you can add cards " \
+    "now. Anki picks the add-ons up the next time it starts."
 #define NO_SOURCE_MESSAGE "This copy of amgi has no add-on sources in it, so there is nothing to install from."
 
 /* The amgi note type */

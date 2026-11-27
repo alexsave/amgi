@@ -7,9 +7,9 @@ import path from 'node:path';
 import { sandboxEnv } from '../../../repo/sandbox-home.cjs';
 
 export function freshAnki(python) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'amgi-golden-'));
-  fs.mkdirSync(path.join(dir, 'User 1'));
-  execFileSync(python, ['-c', 'import sys\nfrom anki.collection import Collection\nCollection(sys.argv[1]).close()',
-    path.join(dir, 'User 1', 'collection.anki2')], { env: sandboxEnv() });
-  return dir;
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'amgi-golden-'));
+    fs.mkdirSync(path.join(dir, 'User 1'));
+    execFileSync(python, ['-c', 'import sys\nfrom anki.collection import Collection\nCollection(sys.argv[1]).close()',
+      path.join(dir, 'User 1', 'collection.anki2')], { env: sandboxEnv() });
+    return dir;
 }

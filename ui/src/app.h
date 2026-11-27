@@ -50,7 +50,7 @@ void tmp_text(const char *p, uint32_t len);       /* a one-off text node */
 void attr_tmp(const char *name, const char *p, uint32_t len);
 /* A cd_on handler, defined: static, and either argument may go unused. */
 #define ON_EVENT(name) \
-  static void name(const cd_event_rec *e __attribute__((unused)), void *ctx __attribute__((unused)))
+    static void name(const cd_event_rec *e __attribute__((unused)), void *ctx __attribute__((unused)))
 /* A cd_dirty render, defined: static, ctx unused. A view is a render, drawn from state in the flush that ends the
  * entry, and each module asks for one through a dirty() that guards the ask twice, for two vectors:
  * - dirty() asks only while the owner (screen, editor, dialog) is up: it covers an ask made after the owner went (a
@@ -86,7 +86,7 @@ void ask_as(const text *with, cd_http_fn fn, void *ctx, const char *method, cons
             const void *body);
 /* An answer's handler, defined: static, and ctx may go unused. */
 #define ON_ANSWER(name) \
-  static void name(void *ctx __attribute__((unused)), uint32_t status, const uint8_t *p, uint32_t len)
+    static void name(void *ctx __attribute__((unused)), uint32_t status, const uint8_t *p, uint32_t len)
 /* Inside an answer's handler: read the bytes as kind into out, its lists in held room that lives
  * until the next take into the same holder (so a page of notes can stay on screen). */
 typedef struct { uint8_t *bytes; void *mem; } holder;

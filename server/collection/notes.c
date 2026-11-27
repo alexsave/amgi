@@ -15,7 +15,7 @@
 #define ID_EXPR(table) "(CASE WHEN ?1 IN (SELECT id FROM " table ") THEN (SELECT max(id) + 1 FROM " table ") ELSE ?1 END)"
 
 static const char BASE91[] =
-  "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!#$%&()*+,-./:;<=>?@[]^_`{|}~";
+    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!#$%&()*+,-./:;<=>?@[]^_`{|}~";
 
 /* randomGuid: base 91 of a random 64-bit integer (big-endian from 8 random bytes), never 0. */
 static str random_guid(cx *c) {
@@ -586,9 +586,9 @@ void field_values(cx *c, conn *k, double deck, double notetype, double field, st
 }
 
 /* ---- notetype-write.js ---- */
-#define DEFAULT_LATEX_PRE                                                                     \
-  "\\documentclass[12pt]{article}\n\\special{papersize=3in,5in}\n\\usepackage[utf8]{inputenc}\n" \
-  "\\usepackage{amssymb,amsmath}\n\\pagestyle{empty}\n\\setlength{\\parindent}{0in}\n\\begin{document}\n"
+#define DEFAULT_LATEX_PRE                                                                          \
+    "\\documentclass[12pt]{article}\n\\special{papersize=3in,5in}\n\\usepackage[utf8]{inputenc}\n" \
+    "\\usepackage{amssymb,amsmath}\n\\pagestyle{empty}\n\\setlength{\\parindent}{0in}\n\\begin{document}\n"
 #define DEFAULT_LATEX_POST "\\end{document}"
 
 void spec_validate(cx *c, const col_spec *spec) {

@@ -45,7 +45,7 @@ test('each child gets its own empty HOME, outside the real home, and none of the
 });
 
 const tracked = execFileSync('git', ['ls-files', '-z', '--', ...SCANNED], { cwd: ROOT, encoding: 'utf8' })
-  .split('\0').filter((f) => f && f !== SELF && fs.existsSync(path.join(ROOT, f)));
+    .split('\0').filter((f) => f && f !== SELF && fs.existsSync(path.join(ROOT, f)));
 
 /** Walks every node of an espree tree. */
 function walk(node, visit) {

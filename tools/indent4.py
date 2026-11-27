@@ -10,14 +10,15 @@
 #     line aligned under an opening bracket follows a line that ends in a comma or an operator, and is never judged.
 # Lines inside a /* */ comment, a Python triple-quoted string or a JavaScript template literal are not judged: they are
 # prose, or another program's text (a script a test hands the browser). A C macro's trailing \ is not part of its line.
-# A third rule catches a closing line left behind: a line that starts with }, ) or ] sits on the 4-space grid.
+# A third rule catches a closing line left behind: a line that starts with }, ) or ] sits on the 4-space grid. A fourth
+# catches a continuation stepped 1 to 3 under a line at the margin (a macro body, a call's arguments, a string's parts).
 import re
 import subprocess
 import sys
 
 EXTS = ('.c', '.h', '.js', '.mjs', '.ts', '.py', '.sh', '.css', '.html', '.json', '.yml', '.yaml')
-# Recorded bytes (expect, golden, fixtures, recordings), other repos' trees, and files npm writes.
-SKIP_DIRS = ('third_party', 'node_modules', 'out', 'build', 'results', 'expect', 'golden', 'fixtures', 'recordings')
+# Recorded bytes (expect, fixtures, recordings), other repos' trees, and files npm writes.
+SKIP_DIRS = ('third_party', 'node_modules', 'out', 'build', 'results', 'expect', 'fixtures', 'recordings')
 SKIP_FILES = ('package-lock.json',)
 OPENS = ('{', '(', '[')
 
@@ -57,6 +58,8 @@ def problems(path, text):
             out.append((n, '%d deeper than the line that opens its block (4 is the step)' % (len(ws) - prev[0])))
         elif body[0] in '})]' and len(ws) % 4:
             out.append((n, 'a closing line off the 4-space grid'))
+        elif prev is not None and prev[0] == 0 and 0 < len(ws) < 4:
+            out.append((n, '%d under a line at the margin (a continuation steps 4 too)' % len(ws)))
         if body.startswith('/*') and '*/' not in body:
             in_block = True
             continue

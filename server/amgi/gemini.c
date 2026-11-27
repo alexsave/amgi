@@ -198,7 +198,7 @@ static str enum_name(arena *a, const char *const *names, size_t n, uint64_t v) {
 /* A mismatched wire type on a known field: the bytes are not what we think. */
 typedef struct { arena *a; const char *error; } rd;
 #define WANT(f, w, where) \
-  do { if ((f).wire != (w)) { r->error = where; return -1; } } while (0)
+    do { if ((f).wire != (w)) { r->error = where; return -1; } } while (0)
 
 static int read_part(rd *r, const unsigned char *p, size_t n, gem_part_out *out) {
     size_t at = 0;

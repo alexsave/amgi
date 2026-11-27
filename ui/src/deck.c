@@ -458,7 +458,7 @@ static void row_build(uint32_t i) {
     } else {
         el("span", "note-row-edit note-row-edit-off");
         cd_attr("title", "amgi only edits its own note type");
-        cd_text("—");
+        cd_text("-");
         cd_close();
     }
     cd_id del = el_id("button", 0);

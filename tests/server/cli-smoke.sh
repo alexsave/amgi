@@ -85,7 +85,7 @@ expect 4 - card add --deck Spanish --text "Good morning"
 expect 0 "^deck${tab}[0-9]+${tab}0${tab}Spanish${tab}-${tab}-\$" deck list
 # --from and --to set a deck's pair once, as the explicit choice, and the card goes on in it
 expect 0 "^note${tab}[0-9]+${tab}Where is the station\\?${tab}¿Dónde está la estación\\?${tab}-${tab}-\$" \
-  card add --deck Spanish --front "Where is the station?" --back "¿Dónde está la estación?" --from en --to es
+    card add --deck Spanish --front "Where is the station?" --back "¿Dónde está la estación?" --from en --to es
 expect 0 "^deck${tab}[0-9]+${tab}1${tab}Spanish${tab}en${tab}es\$" deck list
 # the deck's pair decides every card after: another --to or --from is refused and names the deck's own, and adds nothing
 expect 4 - card add --deck Spanish --front a --back b --to ja
