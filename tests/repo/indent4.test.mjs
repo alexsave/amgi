@@ -55,3 +55,15 @@ test('a C macro is judged through its line continuations; #define is not a comme
         ['3: 2 deeper than the line that opens its block (4 is the step)']);
     assert.deepEqual(judged('a.c', '#define G(x) {   \\\n  h(x);          \\\n}\n'), ['2: 2 deeper than the line that opens its block (4 is the step)']);
 });
+
+test('a continuation stepped 1 to 3 under a line at the margin is named; 4 is right', () => {
+    assert.deepEqual(judged('a.c', 'SCHEMA(s_error, wire_error,\n  F(a), F(b));\n'), ['2: 2 under a line at the margin (a continuation steps 4 too)']);
+    assert.deepEqual(judged('a.h', '#define MSG \\\n  "text"\n'), ['2: 2 under a line at the margin (a continuation steps 4 too)']);
+    assert.deepEqual(judged('a.c', 'SCHEMA(s_error, wire_error,\n    F(a), F(b));\n#define MSG \\\n    "text"\n'), []);
+});
+
+test('code under a golden/ folder is judged; only recorded bytes are skipped', () => {
+    const run = spawnSync('python3', ['-I', '-c', `import sys; sys.path.insert(0, ${JSON.stringify(path.dirname(SCRIPT))}); import indent4; print(indent4.in_scope("tests/server/parity/golden/a.mjs"), indent4.in_scope("tests/server/parity/fixtures/a.mjs"))`],
+        { encoding: 'utf8', env: sandboxEnv() });
+    assert.equal(run.stdout.trim(), 'True False', run.stderr);
+});

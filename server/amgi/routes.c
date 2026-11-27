@@ -616,7 +616,7 @@ static void dispatch(cb_ctx *ctx, size_t i, const cb_http_req *req, cb_http_res 
     run(ctx, &ROUTES[i], params, req, res);
 }
 #define THUNK(i) \
-  static void h##i(cb_ctx *ctx, const cb_http_req *req, cb_http_res *res) { dispatch(ctx, i, req, res); }
+    static void h##i(cb_ctx *ctx, const cb_http_req *req, cb_http_res *res) { dispatch(ctx, i, req, res); }
 THUNK(0) THUNK(1) THUNK(2) THUNK(3) THUNK(4) THUNK(5) THUNK(6) THUNK(7) THUNK(8) THUNK(9) THUNK(10)
 THUNK(11) THUNK(12) THUNK(13) THUNK(14) THUNK(15) THUNK(16) THUNK(17) THUNK(18) THUNK(19) THUNK(20) THUNK(21) THUNK(22) THUNK(23) THUNK(24) THUNK(25) THUNK(26)
 _Static_assert(NROUTES == 27, "one cbase handler per route");

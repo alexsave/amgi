@@ -86,8 +86,8 @@ str card_normalize_language_code(arena *a, str language) {
     return js_trim((str){p, low.n});
 }
 #define LOOKUP(table, field, code)                                  \
-  for (size_t i_ = 0; i_ < N(table); i_++)                          \
-    if (str_eq_c((code), table[i_].code)) return table[i_].field;
+    for (size_t i_ = 0; i_ < N(table); i_++)                        \
+        if (str_eq_c((code), table[i_].code)) return table[i_].field;
 static const char *name_of(str code) {
     const lang_entry *l = lang_find(code.p, (uint32_t)code.n);
     return l ? l->english : NULL;
@@ -648,15 +648,15 @@ typedef struct {
 } prop;
 typedef struct { const char *name; const prop *props; size_t n; } format;
 
-#define SENSE_TAG_DESCRIPTION                                                                                          \
-  "Usually empty. Fill it only when the input genuinely has a second, equally everyday meaning that a different card " \
-  "could teach - then two or three words in the learner's own language naming which of those meanings this card "    \
-  "teaches, for example 'calendar day' for 'date'. Never a restatement, summary, topic or tone of the card itself."
+#define SENSE_TAG_DESCRIPTION                                                                                            \
+    "Usually empty. Fill it only when the input genuinely has a second, equally everyday meaning that a different card " \
+    "could teach - then two or three words in the learner's own language naming which of those meanings this card "      \
+    "teaches, for example 'calendar day' for 'date'. Never a restatement, summary, topic or tone of the card itself."
 #define REGISTER_DESCRIPTION "The politeness level the learning-language text actually uses"
-#define SPOKEN_READING_DESCRIPTION                                                                                       \
-  "How the learning-language text must be read aloud, in the learning language's own script (kana for Japanese, "      \
-  "zhuyin/bopomofo for Chinese) - never romanised. Empty unless the writing system leaves the reading open (Japanese, " \
-  "Chinese)."
+#define SPOKEN_READING_DESCRIPTION                                                                                        \
+    "How the learning-language text must be read aloud, in the learning language's own script (kana for Japanese, "       \
+    "zhuyin/bopomofo for Chinese) - never romanised. Empty unless the writing system leaves the reading open (Japanese, " \
+    "Chinese)."
 static const prop GENERATED_PROPS[] = {
     {"known_text", "string", "The known-language side: one natural utterance, no annotation of any kind", NULL, 0},
     {"learning_text", "string", "The learning-language side: one natural utterance in one sense, no annotation of any kind", NULL, 0},
@@ -878,13 +878,13 @@ void card_schema_deck_languages(arena *a, buf *out) {
 }
 
 #define DECK_LANGUAGES_SYSTEM_PROMPT_HEAD                                                                              \
-  "You identify the languages of a flashcard deck for a language-learning app. You are given the deck's name and a "   \
-  "sample of its cards. Say which language the deck teaches (learning) and which language its cards explain it in "    \
-  "(known), each as one of these codes: "
-#define DECK_LANGUAGES_SYSTEM_PROMPT_TAIL                                                                              \
-  ". zh_cn is Mandarin Chinese in simplified characters; zh_hk is Cantonese. Answer \"" NONE_CODE "\" for a field when " \
-  "the deck is not a language deck or when its language is not in the list. Answer confidence \"high\" only when the "  \
-  "cards make both languages plain, and \"low\" otherwise."
+    "You identify the languages of a flashcard deck for a language-learning app. You are given the deck's name and a " \
+    "sample of its cards. Say which language the deck teaches (learning) and which language its cards explain it in "  \
+    "(known), each as one of these codes: "
+#define DECK_LANGUAGES_SYSTEM_PROMPT_TAIL                                                                                  \
+    ". zh_cn is Mandarin Chinese in simplified characters; zh_hk is Cantonese. Answer \"" NONE_CODE "\" for a field when " \
+    "the deck is not a language deck or when its language is not in the list. Answer confidence \"high\" only when the "   \
+    "cards make both languages plain, and \"low\" otherwise."
 const char *card_deck_languages_system(arena *a) {
     buf b = {0};
     buf_c(&b, DECK_LANGUAGES_SYSTEM_PROMPT_HEAD);
@@ -999,20 +999,20 @@ int card_detect_deck_languages(arena *a, str deck_name, const card_sample *notes
 
 /* ---- generateCardAudio ---- */
 #define AUDIO_JUDGE_SYSTEM_PROMPT                                                                                          \
-  "You are a strict quality judge for text-to-speech audio used on language-learning flashcards. You are given the "      \
-  "exact phrase the audio must say and the language it must be spoken in, followed by the audio clip. Listen carefully "  \
-  "and judge whether the clip:\n1. Says exactly the expected phrase - no missing, extra, or different words. Natural "     \
-  "readings (numerals read out as words, expanded abbreviations, spoken or skipped punctuation) are acceptable.\n2. Is "   \
-  "spoken in the expected language with clear, intelligible pronunciation.\n3. When an expected reading is given, uses "  \
-  "that reading. The written form has more than one possible pronunciation, and reading the same characters a "         \
-  "different way is a mismatch even though the words are right.\nJudge only what you actually hear in the audio. "       \
-  "Answer with what you heard and your verdict."
+    "You are a strict quality judge for text-to-speech audio used on language-learning flashcards. You are given the "     \
+    "exact phrase the audio must say and the language it must be spoken in, followed by the audio clip. Listen carefully " \
+    "and judge whether the clip:\n1. Says exactly the expected phrase - no missing, extra, or different words. Natural "   \
+    "readings (numerals read out as words, expanded abbreviations, spoken or skipped punctuation) are acceptable.\n2. Is " \
+    "spoken in the expected language with clear, intelligible pronunciation.\n3. When an expected reading is given, uses " \
+    "that reading. The written form has more than one possible pronunciation, and reading the same characters a "          \
+    "different way is a mismatch even though the words are right.\nJudge only what you actually hear in the audio. "       \
+    "Answer with what you heard and your verdict."
 #define TRANSCRIPT_JUDGE_SYSTEM_PROMPT                                                                                     \
-  "You judge whether an automatic speech transcription plausibly comes from audio of an expected phrase. The "           \
-  "transcriber may normalize punctuation, numerals vs words, spacing, and casing, and for some languages it outputs a "   \
-  "different script or a translation of what was actually said - those still count as a match when the spoken content " \
-  "is plausibly the expected phrase. Count it as a mismatch when the transcription indicates different, missing, or "    \
-  "extra spoken content."
+    "You judge whether an automatic speech transcription plausibly comes from audio of an expected phrase. The "         \
+    "transcriber may normalize punctuation, numerals vs words, spacing, and casing, and for some languages it outputs a " \
+    "different script or a translation of what was actually said - those still count as a match when the spoken content " \
+    "is plausibly the expected phrase. Count it as a mismatch when the transcription indicates different, missing, or "  \
+    "extra spoken content."
 
 static int stops(const gem_err *e) { return e->kind == GE_FATAL || e->kind == GE_DAILY || e->kind == GE_RATE; }
 

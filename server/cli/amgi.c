@@ -84,36 +84,36 @@ enum { RC_OK = 0, RC_FAIL = 1, RC_LOCKED = 2, RC_NOT_FOUND = 3, RC_USAGE = 4, RC
 #define LOCKED_LINE "locked: ask the user to close Anki"
 #define NOT_UP_LINE "amgi is not up: run amgi up first"
 #define NO_KEY_LINE \
-  "gemini: no key, so nothing was generated: run amgi down, then amgi up --key-file PATH (a KEY=VALUE file with GEMINI_API_KEY)"
+    "gemini: no key, so nothing was generated: run amgi down, then amgi up --key-file PATH (a KEY=VALUE file with GEMINI_API_KEY)"
 #define CALL_MS 120000       /* a write may back the collection up first */
 #define GEN_MS 300000        /* a card: Gemini, and the rate gate's longest wait */
 #define UP_WAIT_MS 20000     /* for the server to say it is listening */
 #define DOWN_WAIT_MS 15000   /* for it to drain and exit */
 
 static const char USAGE[] =
-  "usage:\n"
-  "  amgi up [--key-file PATH] [--port N] [--profile NAME]\n"
-  "  amgi down\n"
-  "  amgi status\n"
-  "  amgi install\n"
-  "  amgi deck add NAME [--from KNOWN --to LEARNING]   (the deck's language pair, e.g. --from en --to ko; both or neither)\n"
-  "  amgi deck list\n"
-  "  amgi deck remove NAME [--yes]   (without --yes: what it would remove, and nothing is deleted)\n"
-  "  amgi card add --deck NAME --front TEXT --back TEXT [--from KNOWN --to LEARNING]\n"
-  "  amgi card add --deck NAME --text TEXT [--from KNOWN --to LEARNING] [--no-audio]\n"
-  "  amgi card add --deck NAME --file PATH [--from KNOWN --to LEARNING] [--no-audio]\n"
-  "      (a card of every line of the file, - is stdin: blank lines and [section] lines passed over, a repeated line and a line the\n"
-  "      deck has are skipped; one line a phrase: note, skip REASON PHRASE, fail REASON PHRASE or left REASON PHRASE, then bulk ADDED SKIPPED FAILED NOT_DONE)\n"
-  "      (the deck's languages decide the card: --from and --to only set them on a deck with none, or must be the deck's own)\n"
-  "  amgi card list --deck NAME\n"
-  "  amgi card remove ID [--yes]     (ID is the note ID card list prints; without --yes: what it would remove, and nothing is deleted)\n"
-  "  amgi audio fill --deck NAME [--notetype N --text-field F --audio-field G --side learning|known --form sound|html]\n"
-  "      (the clip of every note of the deck that lacks one, in the deck's languages: with no note type, the amgi Listening notes,\n"
-  "      both sides; --side is whose language the text field is in, --form the reference written, sound is [sound:x], html <audio>)\n"
-  "  amgi starter-audio [--check] [--rerecord] [--only ja,ko] [--model M]   (dev: records the starter deck's clips; needs ffmpeg)\n"
-  "  amgi serve        (the server in the foreground; make start runs it)\n"
-  "exit: 0 ok, 1 other failure, 2 locked (Anki open), 3 not found, 4 usage, 5 Gemini\n"
-  "state: amgi.pid and amgi.log are kept beside this binary, or in the directory AMGI_STATE_DIR names\n";
+    "usage:\n"
+    "  amgi up [--key-file PATH] [--port N] [--profile NAME]\n"
+    "  amgi down\n"
+    "  amgi status\n"
+    "  amgi install\n"
+    "  amgi deck add NAME [--from KNOWN --to LEARNING]   (the deck's language pair, e.g. --from en --to ko; both or neither)\n"
+    "  amgi deck list\n"
+    "  amgi deck remove NAME [--yes]   (without --yes: what it would remove, and nothing is deleted)\n"
+    "  amgi card add --deck NAME --front TEXT --back TEXT [--from KNOWN --to LEARNING]\n"
+    "  amgi card add --deck NAME --text TEXT [--from KNOWN --to LEARNING] [--no-audio]\n"
+    "  amgi card add --deck NAME --file PATH [--from KNOWN --to LEARNING] [--no-audio]\n"
+    "      (a card of every line of the file, - is stdin: blank lines and [section] lines passed over, a repeated line and a line the\n"
+    "      deck has are skipped; one line a phrase: note, skip REASON PHRASE, fail REASON PHRASE or left REASON PHRASE, then bulk ADDED SKIPPED FAILED NOT_DONE)\n"
+    "      (the deck's languages decide the card: --from and --to only set them on a deck with none, or must be the deck's own)\n"
+    "  amgi card list --deck NAME\n"
+    "  amgi card remove ID [--yes]     (ID is the note ID card list prints; without --yes: what it would remove, and nothing is deleted)\n"
+    "  amgi audio fill --deck NAME [--notetype N --text-field F --audio-field G --side learning|known --form sound|html]\n"
+    "      (the clip of every note of the deck that lacks one, in the deck's languages: with no note type, the amgi Listening notes,\n"
+    "      both sides; --side is whose language the text field is in, --form the reference written, sound is [sound:x], html <audio>)\n"
+    "  amgi starter-audio [--check] [--rerecord] [--only ja,ko] [--model M]   (dev: records the starter deck's clips; needs ffmpeg)\n"
+    "  amgi serve        (the server in the foreground; make start runs it)\n"
+    "exit: 0 ok, 1 other failure, 2 locked (Anki open), 3 not found, 4 usage, 5 Gemini\n"
+    "state: amgi.pid and amgi.log are kept beside this binary, or in the directory AMGI_STATE_DIR names\n";
 
 static int usage(const char *why) {
     if (why) fprintf(stderr, "amgi: %s\n", why);

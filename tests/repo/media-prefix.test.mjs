@@ -12,7 +12,7 @@ const OLD = 'plus' + 'audio-';
 
 /** The tracked files, as git lists them (a path git lists that is not on disk, deleted but not committed, is skipped). */
 export const tracked = () => execFileSync('git', ['ls-files', '-z'], { cwd: ROOT, encoding: 'utf8' })
-  .split('\0').filter((f) => f && fs.existsSync(path.join(ROOT, f)));
+    .split('\0').filter((f) => f && fs.existsSync(path.join(ROOT, f)));
 
 test('no tracked file holds the old clip prefix, in its text or in its path', () => {
     const hits = [];

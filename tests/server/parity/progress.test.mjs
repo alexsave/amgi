@@ -14,7 +14,7 @@ const { fakeGemini, quotaExhausted, wavAnswer } = createRequire(import.meta.url)
 
 // wire.h's WP_*, in its order.
 const [WRITING, TARGET_REUSE, TARGET_RECORDING, TARGET_TRANSCRIBING, TARGET_JUDGING, TARGET_STORING,
-  CUE_REUSE, CUE_RECORDING, CUE_TRANSCRIBING, CUE_JUDGING, CUE_STORING] = Array.from({ length: 11 }, (_, i) => i + 1);
+    CUE_REUSE, CUE_RECORDING, CUE_TRANSCRIBING, CUE_JUDGING, CUE_STORING] = Array.from({ length: 11 }, (_, i) => i + 1);
 
 const NO_SLOT = /#define WIRE_NO_SLOT_ERROR "([^"]+)"/.exec(fs.readFileSync(new URL('../../../ui/wire/wire.h', import.meta.url), 'utf8'))[1];
 const DECK = 1794149693370; // the deck the add-on lists, English -> Korean

@@ -91,7 +91,7 @@ test('the build refuses a dependency a card template could not load', () => {
 // template ever stops matching, the deck would export without its loop.
 const UNDERSCORED_REFERENCES = /\[sound:(_[^\]]+)\]|"(_[^"]+)"|'(_[^']+)'|\b(?:src|data)=(_[^ >]+)/g;
 const UNDERSCORED_CSS_IMPORTS =
-  /(?:@import\s+(?:"(_[^"]*.css)"|'(_[^']*.css)'))|(?:url\(\s*(?:"(_[^"]+)"|'(_[^']+)'|(_.+?))\s*\))/gi;
+    /(?:@import\s+(?:"(_[^"]*.css)"|'(_[^']*.css)'))|(?:url\(\s*(?:"(_[^"]+)"|'(_[^']+)'|(_.+?))\s*\))/gi;
 
 const matches = (regex, text) =>
     [...text.matchAll(regex)].map((match) => match.slice(1).find(Boolean)).filter(Boolean);

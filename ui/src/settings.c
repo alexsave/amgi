@@ -80,7 +80,7 @@ static uint32_t nprofiles;
 static int scan_loading, scan_exists = -1, saved_shown, install_running, install_ok = -1;
 static text scan_base, scan_error, install_message, install_dir, save_error;
 static cd_id section, scan_button, scan_text, install_button, install_text, base_input, url_input, token_input, saved_slot,
-  install_block;
+    install_block;
 /* the scan's messages or the profile list, after "Bridge token" and before Save: the scan answers
  * after the screen is drawn, and nothing a person may be aiming at sits below it but Save */
 static cd_region scan_out = {.up = &page_region};
