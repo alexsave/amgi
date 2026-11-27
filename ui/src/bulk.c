@@ -7,6 +7,7 @@
  * stops). Finished cards are written in batches (ten, or every three seconds) so closing the tab
  * cannot cost more than a few, and the deck is refreshed once at the end. */
 #include "app.h"
+#include "../wire/guid.h"
 
 /* CHECKING: the deck's lines are not known yet. QUEUED: no slot yet, the page's or (wait_left) the server's.
  * MAKING: the request is out, at `step`. WAITING: Gemini's limit, until it is asked again. BATCHED: made, its
@@ -26,6 +27,9 @@ typedef struct {
     uint32_t step_wait;                /* seconds left of the server's own wait on Gemini's limit */
     uint32_t wait_timer;               /* the wait before asking again (cd_timer_cb's token, 0: none yet) */
     int same_both, retrying;
+    int made;                          /* its card came back from the server: a failed write is retried alone */
+    char guid[WIRE_GUID_MAX];          /* the note's guid, drawn once, so a write sent again is the same note */
+    uint32_t guid_len;
     int64_t note_id;
     cd_region view;                    /* in the run's view; its chips go with it */
 } row;
@@ -273,7 +277,7 @@ static void write_next(void) {
         if (idx.cue_audio >= 0) f[idx.cue_audio] = (wire_str){r->cue_ref.p ? r->cue_ref.p : "", r->cue_ref.len};
         if (idx.language >= 0) f[idx.language] = (wire_str){langs.learning, zlen(langs.learning)};
         notes[k] = (wire_q_note){deck_id, nt->id, {f, nt->nfields}, {0, 0}, {langs.learning, zlen(langs.learning)},
-                                 idx.target >= 0 ? idx.target : WIRE_ABSENT};
+                                 idx.target >= 0 ? idx.target : WIRE_ABSENT, {r->guid, r->guid_len}};
     }
     wire_q_notes q = {notes, n};
     writing = 1;
@@ -351,6 +355,7 @@ static void attempt_forget(row *r) {
     for (uint32_t k = 0; k < sizeof made / sizeof *made; k++) text_free(made[k]);
     r->step = r->step_take = r->step_takes = r->step_wait = 0;
     r->same_both = 0;
+    r->made = 0;
 }
 static void line_ask(uint32_t i) {
     row *r = &rows[i];
@@ -465,6 +470,7 @@ ON_ANSWER(line_answered) {
         wire_str f = lines_trim(c.front_text), b = lines_trim(c.back_text);
         r->same_both = same(f.p, f.len, b.p, b.len);
         r->status = BATCHED;
+        r->made = 1;
         r->step_wait = 0;
         changed(i);
         queue_write(i);
@@ -646,6 +652,10 @@ void bulk_start(cd_id form_box, int64_t deck, const notetype *type, const lang_p
         rows[i].status = CHECKING;
         rows[i].view.up = &view;
         text_set(&rows[i].line, lines[i].p, lines[i].len);
+        /* Two draws a row, whatever the paste: a guid the server checks against the note already under it, so a
+         * stranger's (the same seed in another tab) only ever costs the note a guid of the collection's own. */
+        uint64_t g = (uint64_t)cd_rand() << 32 | cd_rand();
+        rows[i].guid_len = wire_guid(g, rows[i].guid);
     }
     if (!cd_region_show(&view, 1)) return;
     cd_on_free(0, run_gone, 0);
@@ -689,6 +699,16 @@ void bulk_discard(void) { cd_region_hide(&view); }
 ON_EVENT(retry_pressed) {
     uint32_t i = CTX_INDEX(ctx);
     if (i >= nrows || rows[i].status != BROKEN) return;
+    if (rows[i].made) {
+        /* Its card was made and only its write failed (a write past its time may have gone in after all): the same card
+         * under the same guid, asking Gemini for nothing. */
+        text_free(&rows[i].error);
+        rows[i].status = BATCHED;
+        changed(i);
+        queue_write(i);
+        flush();
+        return;
+    }
     text_free(&daily_cap);
     rows[i].retrying = 1;
     rows[i].budget_ms = 0;

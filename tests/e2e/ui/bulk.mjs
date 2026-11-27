@@ -1,7 +1,7 @@
 // Making cards, end to end, against the project's fake Gemini (node tests/helpers/fake-gemini.js,
 // its limits switched through POST /control) and a fresh copy of the UI fixture (tests/e2e/ui/flows.sh, amgi installed): one line by
 // Enter; a paste of several, a section marker dropped and a line the deck already has skipped; a
-// per-minute limit waited out with its countdown; a failed line and its Retry; the day's cap ending
+// per-minute limit waited out with its countdown; a failed line and its Retry; a write whose answer is lost, and its Retry; the day's cap ending
 // every line still to go. And the steps: each row names the step its card is at, seen in a real run
 // (slowed, one clip misheard), then every label the page has, forced one at a time at two widths.
 //
@@ -76,12 +76,14 @@ const watchdog = setTimeout(async () => {
 }, 540000);
 const pageErrors = [];
 let writes = 0; // POST /api/anki/notes/bulk calls the page made
+let asks = 0; // POST /api/anki/card-text calls the page made
 const net = []; // every /api/ request and answer, by time: what a failed check prints
 const t0 = Date.now();
 let paused = null; // while requests are intercepted: what is done with each
 b.onEvent = (d) => {
     if (d.method === 'Fetch.requestPaused') paused?.(d.params);
     if (d.method === 'Network.requestWillBeSent' && d.params.request.url.endsWith('/api/anki/notes/bulk')) writes++;
+    if (d.method === 'Network.requestWillBeSent' && d.params.request.url.endsWith('/api/anki/card-text')) asks++;
     if (d.method === 'Network.requestWillBeSent' && d.params.request.url.includes('/api/')) {
         net.push(`${Date.now() - t0}ms ${d.params.requestId} ${d.params.request.method} ${d.params.request.url.replace(/^.*\/api\//, '/api/')}`);
     }
@@ -274,6 +276,30 @@ try {
     await shot(b, '33-failed');
     await click(b, '.bulk-run-retry');
     check(await until(b, `!!document.querySelector('.bulk-run-row.is-done') && !document.querySelector('.bulk-run-retry')`, 300), 'Retry makes it');
+
+    // 4b. A write that went in, but whose answer never came (Anki's bridge past the server's 30 seconds): the row says
+    // failed, and its Retry writes the same card again under the same guid, so the deck gains one note, not two, and
+    // Gemini is not asked for the card again.
+    const cards = `Number((document.body.innerText.match(/(\\d+) cards? ·/) || [])[1])`;
+    const had = await b.evaluate(cards);
+    let lost = 0;
+    paused = async ({ requestId }) => {
+        lost++;
+        await b.send('Fetch.failRequest', { requestId, errorReason: 'TimedOut' });
+    };
+    await b.send('Fetch.enable', { patterns: [{ urlPattern: '*/api/anki/notes/bulk', requestStage: 'Response' }] });
+    writes = 0;
+    asks = 0;
+    await typeInto(b, 'lost 8');
+    await enter(b);
+    check(await until(b, `/failed/.test(${head}) && !!document.querySelector('.bulk-run-retry')`, 300), `a write whose answer is lost fails: ${await b.evaluate(states)}`);
+    await b.send('Fetch.disable');
+    paused = null;
+    check(lost === 1 && asks === 1, `the server had the write, and Gemini the card once (${lost} lost, ${asks} asked)`);
+    await click(b, '.bulk-run-retry');
+    check(await until(b, `!!document.querySelector('.bulk-run-row.is-done') && !document.querySelector('.bulk-run-retry')`, 300), 'Retry writes it');
+    check(await until(b, `${cards} === ${had + 1}`, 300), `the deck gains one card, not two (${had} then ${await b.evaluate(cards)})`);
+    check(writes === 2 && asks === 1, `Retry sent the write again and asked Gemini nothing (${writes} writes, ${asks} asked)`);
 
     // 5. The day's cap: every line still to go ends with it.
     await control('daily=1');

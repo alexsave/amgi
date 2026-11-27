@@ -58,7 +58,7 @@ class FakeDispatcher:
         self._record("create_deck", name)
         return {"deck": {"id": 42, "name": name}, "created": True}
 
-    def add_note(self, *, deck_id, notetype_id, fields, tags, language=None, learning_field_index=None):
+    def add_note(self, *, deck_id, notetype_id, fields, tags, language=None, learning_field_index=None, guid=None):
         self._record(
             "add_note",
             deck_id=deck_id,
@@ -67,6 +67,7 @@ class FakeDispatcher:
             tags=tags,
             language=language,
             learning_field_index=learning_field_index,
+            guid=guid,
         )
         return {"noteId": 7, "guid": "abc123", "cardIds": [8]}
 
@@ -438,6 +439,7 @@ class RoutingTests(BridgeServerTestCase):
                         "tags": ["x"],
                         "language": None,
                         "learning_field_index": None,
+                        "guid": None,
                     },
                 )
             ],
@@ -480,7 +482,7 @@ class RoutingTests(BridgeServerTestCase):
         payload = {
             "notes": [
                 {"deckId": 1, "notetypeId": 1, "fields": ["a", "b"]},
-                {"deckId": 1, "notetypeId": 1, "fields": ["c", "d"], "language": "ko", "learningFieldIndex": 1},
+                {"deckId": 1, "notetypeId": 1, "fields": ["c", "d"], "language": "ko", "learningFieldIndex": 1, "guid": "b1V!x~Gz:q"},
             ]
         }
         status, _headers, body = self._request(
@@ -492,9 +494,12 @@ class RoutingTests(BridgeServerTestCase):
         name, args, _kwargs = self.dispatcher.calls[0]
         self.assertEqual(name, "add_notes_bulk")
         notes = args[0]
-        self.assertEqual(notes[0], {"deck_id": 1, "notetype_id": 1, "fields": ["a", "b"], "tags": [], "language": None, "learning_field_index": None})
+        self.assertEqual(
+            notes[0], {"deck_id": 1, "notetype_id": 1, "fields": ["a", "b"], "tags": [], "language": None, "learning_field_index": None, "guid": None}
+        )
         self.assertEqual(notes[1]["language"], "ko")
         self.assertEqual(notes[1]["learning_field_index"], 1)
+        self.assertEqual(notes[1]["guid"], "b1V!x~Gz:q", "the page's guid reaches the add-on, so a write sent again is known")
 
     def test_add_notes_bulk_requires_a_non_empty_notes_array(self):
         status, _headers, body = self._request(

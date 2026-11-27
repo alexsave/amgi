@@ -201,7 +201,7 @@ int amgi_starter_build(arena *a, const amgi_ops *o, str known, str learning, str
         if (idx.target_audio >= 0 && target_clip.n) fields[idx.target_audio] = target_clip;
         static const str TAG = {"amgi-starter", 12};
         col_new_note note = {(double)deck.id, (double)nt->id, fields, nt->nfields, (str *)&TAG, 1, 1, learning, idx.target >= 0,
-                             idx.target};
+                             idx.target, {NULL, 0}};
         col_added r;
         if (ops_add_note(a, o, &note, &r, &e)) return *message = e.message, -1;
         added++;

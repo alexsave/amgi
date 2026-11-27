@@ -27,7 +27,7 @@
 //   deckRemovalSummary <deck>                        ok <id> <name> <subdecks> <cards> <notes>
 //   removeDeck <deck>                                ok <id> <name> <decks> <cards> <notes>
 //   addNote <note>                                   ok <noteId> <guid> [cardIds] <warning|!>
-//     a note: <deckId> <notetypeId> [fields] [tags] <language|!> <learningFieldIndex|!>
+//     a note: <deckId> <notetypeId> [fields] [tags] <language|!> <learningFieldIndex|!> [<guid>]
 //   addNotesBulk <n>, then n lines of <note>         ok <n>, then n lines: ok <noteId> <guid> [cardIds] <warning|!>
 //                                                      or err <message>
 //   updateNote <note> [fields] <language|!> <learningFieldIndex|!>
@@ -101,5 +101,6 @@ export function noteTokens(note) {
     return [
         String(note.deckId), String(note.notetypeId), strs(note.fields), strs(note.tags ?? []),
         enc(note.language), note.learningFieldIndex === undefined ? '!' : String(note.learningFieldIndex),
+        ...(note.guid === undefined ? [] : [enc(note.guid)]),
     ].join(' ');
 }

@@ -134,9 +134,9 @@ test('install state: a null upToDate stays unknown', () => {
 });
 
 test('requests: the server reads back what was written, absent fields left out', () => {
-    const note = { deckId: 1794149693370, notetypeId: 1794149714776, fields: ['a', '', '역', ''], tags: ['x'], language: 'ko', learningFieldIndex: 2 };
+    const note = { deckId: 1794149693370, notetypeId: 1794149714776, fields: ['a', '', '역', ''], tags: ['x'], language: 'ko', learningFieldIndex: 2, guid: 'b1V!x~Gz:q' };
     assert.deepEqual(decode('q_note', encode('q_note', note)), note);
-    const bare = { deckId: 1, notetypeId: 2, fields: [], tags: [], language: '' };
+    const bare = { deckId: 1, notetypeId: 2, fields: [], tags: [], language: '', guid: '' };
     assert.deepEqual(decode('q_note', encode('q_note', bare)), bare); // no learningFieldIndex: none comes back
     const bulk = { notes: [note, { ...note, fields: ['b'] }] };
     assert.deepEqual(decode('q_notes', encode('q_notes', bulk)), bulk);

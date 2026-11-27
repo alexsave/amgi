@@ -952,7 +952,7 @@ static void make_card(card_run *r, wire_str phrase) {
     if (fb.len == bb.len && !memcmp(fb.p, bb.p, fb.len))
         fprintf(stderr, "amgi: warning: both sides came back the same (the model echoed instead of translating): %.*s\n",
                 (int)phrase.len, phrase.p);
-    wire_q_note n = {r->d->id, l->nt->id, {fields, (uint32_t)nf}, {NULL, 0}, r->learning, l->idx.target};
+    wire_q_note n = {r->d->id, l->nt->id, {fields, (uint32_t)nf}, {NULL, 0}, r->learning, l->idx.target, {NULL, 0}};
     answer x;
     if (call(r->a, r->s, "POST", "/api/anki/notes", WK_Q_NOTE, &n, CALL_MS, &x)) return stop_run(r, "not-up", RC_FAIL, phrase);
     const wire_note_added *added = x.status == 200 ? as_kind(r->a, &x, WK_NOTE_ADDED) : NULL;
@@ -1210,7 +1210,7 @@ static int cmd_card(int argc, char **argv) {
     fields[l.idx.cue] = (wire_str){front, (uint32_t)strlen(front)};
     fields[l.idx.target] = (wire_str){back, (uint32_t)strlen(back)};
     if (l.idx.language >= 0) fields[l.idx.language] = learning;
-    wire_q_note n = {d->id, l.nt->id, {fields, (uint32_t)nf}, {NULL, 0}, learning, l.idx.target};
+    wire_q_note n = {d->id, l.nt->id, {fields, (uint32_t)nf}, {NULL, 0}, learning, l.idx.target, {NULL, 0}};
     const wire_note_added *added = send_call(&a, &s, "POST", "/api/anki/notes", WK_Q_NOTE, &n, WK_NOTE_ADDED, CALL_MS, &rc, NULL);
     if (added) rc = each_note(&a, &s, d, &l, added->note_id);
 out:
