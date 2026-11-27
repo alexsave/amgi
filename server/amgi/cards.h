@@ -23,10 +23,6 @@ str card_korean_pronunciation(arena *a, str text);
 /* input_language: "learning" (the input is in the learning language's own script) or NULL (the prompt's both-ways rule) */
 str card_generation_prompt(arena *a, str user_input, str known, str learning, const char *input_language);
 str card_unspeakable_retry_prompt(arena *a, str previous, str rejected, const char *reason);
-/* The response formats' schemas, as google.protobuf.Value bytes (for the request and the tests). */
-void card_schema_generated(buf *out);
-void card_schema_audio_verdict(buf *out);
-void card_schema_transcription_match(buf *out);
 
 /* ---- sideOrder.js ---- */
 typedef struct { str front_text, back_text, spoken_reading; } card_text;

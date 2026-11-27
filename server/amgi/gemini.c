@@ -436,8 +436,6 @@ static cb_h2_channel *g_channel;
 static char g_origin[256], g_hostport[256];
 static gate *g_gate;
 
-void gem_set_gate(gate *g) { g_gate = g; }
-
 int gem_open(char *err, size_t cap) {
     const char *base = getenv("GEMINI_API_BASE");
     if (!base || !*base) base = GEMINI_API_BASE;
@@ -608,7 +606,6 @@ void gem_set_voice_draw(gem_voice_draw draw, void *ud) {
     g_voice_ud = draw ? ud : NULL;
 }
 void gem_set_tts_model(const char *model) { g_tts_model = model && *model ? model : TTS_MODEL; }
-const char *gem_tts_model(void) { return g_tts_model; }
 
 const char *gem_pick_voice(const char *previous) {
     const char *pool[NVOICES];

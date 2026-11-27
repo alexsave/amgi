@@ -174,8 +174,6 @@ static void gone(void *ctx) {
     nfields = 0;
 }
 
-int panel_open_for(int64_t id) { return open_ && note_id == id; }
-
 static void save(void) {
     wire_str *v = cd_alloc((nfields ? nfields : 1) * sizeof *v);
     for (uint32_t i = 0; i < nfields; i++) v[i] = (wire_str){fields[i].p, fields[i].len};

@@ -49,7 +49,6 @@ str utf8_clean(arena *a, str s);    /* s with every invalid sequence replaced, a
 
 /* JavaScript's whitespace (String.prototype.trim, the regexp \s): WhiteSpace and LineTerminator. */
 int js_space(uint32_t cp);
-int unicode_space(uint32_t cp); /* Unicode White_Space, as Rust's trim */
 str js_trim(str s);
 /* String.prototype.toLowerCase (locale-independent, full mappings, final sigma) and normalize('NFC'). */
 str js_lower(arena *a, str s);

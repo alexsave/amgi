@@ -234,7 +234,6 @@ void template_mode_changed(void);
 /* A confirmation in the page (modal.c), in place of window.confirm. */
 void confirm_ask(const char *title, const char *body, uint32_t blen, const char *note, const char *yes,
                  void (*then)(void *), void *ctx);
-void confirm_close(void);
 /* The browser's modal <dialog> for both modals (modal.c, decks.c): showModal makes the rest of the page
  * inert, traps the focus, closes on Escape and gives the focus back; focus is the control that takes it. */
 void dialog_show(cd_id dialog, cd_id focus);
