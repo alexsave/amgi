@@ -37,8 +37,8 @@ export async function launchChrome() {
 /**
  * The drives' one screenshot: shotter(out, name) gives shot(b, file), which writes <out>/<name>-<file>.png
  * and, next to it, the DOM it shows as <name>-<file>.html (the outerHTML of the mount, the body the
- * app was started on, id "amgi" in ui/src/index.html). tests/e2e/ui/parity.sh compares both between a
- * baseline run and a new one, so a change that moves no pixel but changes an element still shows.
+ * app was started on, id "amgi" in ui/src/index.html). The DOM is
+ * there to read beside the picture when a shot looks wrong.
  */
 export function shotter(out, name) {
     return async (b, file) => {
