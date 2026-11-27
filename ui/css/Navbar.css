@@ -1,6 +1,7 @@
 .navbar {
     background-color: #000000;
     padding: 0.75rem;
+    flex-shrink: 0;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -35,37 +36,6 @@
 .navbar-button:hover {
     background: var(--flame-orange);
     color: #000000;
-}
-
-/* Override any global button styles */
-button.action-btn {
-    all: unset;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--dark-surface);
-    color: var(--text-primary);
-    border: none;
-    padding: 4px;
-    width: 32px;
-    height: 32px;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    min-width: 32px;
-    box-sizing: border-box;
-}
-
-button.action-btn:hover {
-    background: var(--dark-surface-hover);
-    color: var(--flame-orange);
-}
-
-button.action-btn svg {
-    width: 20px;
-    height: 20px;
-    stroke: currentColor;
-    fill: none;
 }
 
 .settings-icon {
