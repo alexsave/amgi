@@ -5,6 +5,7 @@
     gap: 1rem;
     background: var(--dark-surface);
     padding: 15px;
+    border: 1px solid var(--border-color);
     border-radius: 6px;
     transition: all 0.2s ease;
     cursor: pointer;
@@ -12,7 +13,13 @@
 
 .deck-item:hover {
     background: var(--dark-surface-hover);
+    border-color: var(--flame-orange);
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.deck-item.selected {
+    background: var(--dark-surface-hover);
+    border-color: var(--flame-orange);
 }
 
 .deck-info {
@@ -22,6 +29,7 @@
 .deck-info h3 {
     color: var(--text-primary);
     margin: 0 0 5px 0;
+    font-size: 1.1rem;
 }
 
 .deck-info small {
@@ -29,4 +37,8 @@
     font-size: 0.9em;
 }
 
- 
+.deck-info p {
+    color: var(--text-secondary);
+    margin: 0;
+    font-size: 0.9em;
+}

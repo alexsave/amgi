@@ -9,12 +9,6 @@
     --border-color: #1E1E1E;
 }
 
-html, body {
-    margin: 0;
-    padding: 0;
-    height: 100%;
-}
-
 .App {
     text-align: center;
     min-height: 100vh;
@@ -22,22 +16,6 @@ html, body {
     color: var(--text-primary);
     display: flex;
     flex-direction: column;
-}
-
-.navbar {
-    background-color: var(--dark-bg);
-    padding: 0.75rem 0.75rem 0 0.75rem;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-shrink: 0;
-}
-
-.navbar-brand {
-    color: var(--flame-orange);
-    font-size: 1.2rem;
-    font-weight: bold;
-    letter-spacing: 0.5px;
 }
 
 .app-container {
@@ -125,11 +103,11 @@ button.action-btn {
     justify-content: center;
     background: var(--dark-surface);
     color: var(--text-primary);
-    border: 1px solid var(--border-color);
+    border: none;
     padding: 4px;
     width: 32px;
     height: 32px;
-    border-radius: 6px;
+    border-radius: 4px;
     cursor: pointer;
     transition: all 0.2s ease;
     min-width: 32px;
@@ -138,7 +116,6 @@ button.action-btn {
 
 button.action-btn:hover {
     background: var(--dark-surface-hover);
-    border-color: var(--flame-orange);
     color: var(--flame-orange);
 }
 
@@ -156,70 +133,6 @@ button.action-btn svg {
     border: 1px solid rgba(255, 68, 68, 0.3);
     border-radius: 4px;
     margin-bottom: 0.75rem;
-}
-
-.deck-management {
-    margin-bottom: 2rem;
-    text-align: left;
-}
-
-.deck-list {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    overflow-y: auto;
-    margin-bottom: 1rem;
-}
-
-.deck-actions {
-    display: flex;
-    gap: 10px;
-    justify-content: flex-start;
-}
-
-.deck-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0.75rem;
-    background-color: var(--dark-surface);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.deck-item:hover {
-    background-color: var(--dark-surface-hover);
-    border-color: var(--flame-orange);
-}
-
-.deck-item.selected {
-    border-color: var(--flame-orange);
-    background-color: var(--dark-surface-hover);
-}
-
-.deck-info h3 {
-    margin: 0;
-    font-size: 1.1rem;
-    color: var(--text-primary);
-}
-
-.deck-info small {
-    color: var(--text-secondary);
-    font-size: 0.9rem;
-}
-
-.deck-cards-header {
-    position: relative;
-}
-
-.deck-content {
-    display: flex;
-    flex-direction: column;
-}
-
-.deck-cards-list {
 }
 
 .back-btn {
@@ -241,23 +154,4 @@ button.action-btn svg {
 .back-btn:hover {
     background-color: var(--dark-surface-hover);
     color: var(--flame-orange);
-}
-
-/* Add smooth scrollbar for deck list */
-.deck-list::-webkit-scrollbar {
-    width: 8px;
-}
-
-.deck-list::-webkit-scrollbar-track {
-    background: var(--dark-surface);
-    border-radius: 4px;
-}
-
-.deck-list::-webkit-scrollbar-thumb {
-    background: var(--border-color);
-    border-radius: 4px;
-}
-
-.deck-list::-webkit-scrollbar-thumb:hover {
-    background: var(--flame-orange);
 }

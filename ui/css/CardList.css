@@ -7,6 +7,7 @@
 }
 
 .deck-cards-header {
+    position: relative;
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
@@ -49,14 +50,6 @@
     gap: 2rem;
 }
 
-.deck-actions {
-    display: flex;
-    justify-content: flex-end;
-}
-
-.deck-cards-list {
-}
-
 .deck-cards-list h3 {
     margin: 0 0 1rem 0;
     color: var(--text-primary);
@@ -87,12 +80,7 @@
         align-self: flex-start;
         margin-bottom: 0.5rem;
     }
-
-  
-    .deck-actions {
-        justify-content: center;
-    }
-} 
+}
 
 /* The deck screen, laid out the way the mockup settled: left-aligned header
    carrying what the deck IS, one composer, then the cards as a list rather
