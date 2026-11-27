@@ -59,7 +59,11 @@ const enter = async (b) => {
 };
 const head = `document.querySelector('.bulk-run-head')?.textContent`;
 const states = `[...document.querySelectorAll('.bulk-run-row')].map(r => r.className.replace('bulk-run-row is-', '') + ':' + r.querySelector('.bulk-run-text').textContent).join(' | ')`;
+// The box is disabled while the deck's languages are still being found ("Finding this deck's languages…"), and text typed
+// into it then goes nowhere, as it would for a person: type once it takes text.
 const typeInto = async (b, text) => {
+    check(await until(b, `!!document.querySelector('#amgiCardInput') && !document.querySelector('#amgiCardInput').disabled`, 300),
+        'the box takes text');
     await click(b, '#amgiCardInput');
     await b.send('Input.insertText', { text });
 };
@@ -72,10 +76,17 @@ const watchdog = setTimeout(async () => {
 }, 540000);
 const pageErrors = [];
 let writes = 0; // POST /api/anki/notes/bulk calls the page made
+const net = []; // every /api/ request and answer, by time: what a failed check prints
+const t0 = Date.now();
 let paused = null; // while requests are intercepted: what is done with each
 b.onEvent = (d) => {
     if (d.method === 'Fetch.requestPaused') paused?.(d.params);
     if (d.method === 'Network.requestWillBeSent' && d.params.request.url.endsWith('/api/anki/notes/bulk')) writes++;
+    if (d.method === 'Network.requestWillBeSent' && d.params.request.url.includes('/api/')) {
+        net.push(`${Date.now() - t0}ms ${d.params.requestId} ${d.params.request.method} ${d.params.request.url.replace(/^.*\/api\//, '/api/')}`);
+    }
+    if (d.method === 'Network.responseReceived' && d.params.response.url.includes('/api/')) net.push(`${Date.now() - t0}ms ${d.params.requestId} -> ${d.params.response.status}`);
+    if (d.method === 'Page.frameNavigated' && !d.params.frame.parentId) net.push(`${Date.now() - t0}ms navigated ${d.params.frame.url}`);
     if (d.method === 'Runtime.exceptionThrown') pageErrors.push(d.params.exceptionDetails.exception?.description || d.params.exceptionDetails.text);
     if (d.method === 'Runtime.consoleAPICalled' && d.params.type === 'error') pageErrors.push(d.params.args.map((a) => a.value ?? a.description).join(' '));
 };
@@ -83,6 +94,7 @@ try {
     await control('perMinute=1000&daily=0');
     await b.send('Emulation.setDeviceMetricsOverride', DESKTOP);
     await b.send('Network.enable');
+    await b.send('Page.enable');
     await seed(b, base, { baseDir: ankiDir, collection, profile: 'User 1' });
     await goto(b, `${base}/decks`);
     await until(b, `document.querySelectorAll('.deck-item').length === 8`, 150);
@@ -98,6 +110,10 @@ try {
     check(await until(b, `document.querySelectorAll('.note-rows > li').length === 4 && document.querySelector('#amgiCardInput').value === ''`, 150), 'the list has it and the box is empty');
     check(await b.evaluate(`document.querySelectorAll('.bulk-run-row.is-done .audio-chip').length === 2`), 'its row carries both clips');
     await sleep(300);
+    // The page as the checks above left it, still: the card in the list and its run on screen.
+    const kept = await b.evaluate(`document.querySelectorAll('.note-rows > li').length === 4 && !!document.querySelector('.bulk-run-head')`);
+    check(kept, 'and keeps them until the next thing is typed');
+    if (!kept) console.log(net.join('\n'));
     await shot(b, '30-one-card');
 
     // 2. A paste: the marker dropped, a repeated line made once, the deck's own lines skipped on

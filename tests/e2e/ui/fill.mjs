@@ -266,6 +266,9 @@ try {
     check((await b.evaluate(line)).startsWith('3 cards have no audio'), `three to fill (${await b.evaluate(line)})`);
     await pressButton('Fill');
     check(await until(b, `/waiting \\d+s for the rate limit/.test(${line})`, 300), `the limit is waited out with a countdown (${await b.evaluate(line)})`);
+    // On a server of its own (e2e.sh), whose rate gate has met no refusal before this one, the wait comes at the same note
+    // every time (the second, in three runs of the whole suite); on the server bulk used, it moved with what bulk met.
+    check(/^Filling audio 2 of 3/.test(await b.evaluate(line)), `the wait comes at the same note on every run (${await b.evaluate(line)})`);
     const w1 = Number((await b.evaluate(line)).match(/waiting (\d+)s/)[1]);
     await sleep(2200);
     const w2 = Number((await b.evaluate(line)).match(/waiting (\d+)s/)[1]);

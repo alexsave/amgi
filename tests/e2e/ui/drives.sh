@@ -8,19 +8,21 @@
 # state; it needs ANKI_PYTHON_BIN and ANKI_FIXTURE_APKG, as the e2e-ui skill sets them). Prints each drive's checks and failures; exits 1
 # when any failed.
 #
-#   tests/e2e/ui/drives.sh <name> <app url> <no-key app url> <fake-gemini app url> <fake gemini url> <shots dir>
+#   tests/e2e/ui/drives.sh <name> <app url> <no-key app url> <fake-gemini app url> <fake gemini url> <shots dir> \
+#       [<fill's fake-gemini app url> <fill's fake gemini url>]
 #
 # AMGI_E2E_WORK sets the folder the drives copy the fixture into (default <repo>/.e2e/drives). A screen can
-# show that path (the Anki folder), so parity runs set it: both runs show the same paths.
+# show that path (the Anki folder), so two runs that set it to the same folder show the same paths.
 #
 # The three app servers differ only in their Gemini key: one with any key (the screens), one with
 # none (the starter deck is offered), one pointed at the fake (node tests/helpers/fake-gemini.js
 # <port>, whose limits the bulk drive switches). Start the fake and its server fresh before a run:
-# the fake's "broken line" fails once, and a server's rate gate remembers the limits it met.
+# the fake's "broken line" fails once, and a server's rate gate remembers the limits it met. So the
+# fill drive takes a pair of its own when given one (e2e.sh gives it), and meets no limit bulk met.
 set -uo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 root="$(cd "$here/../../.." && pwd)"
-name="$1" app="$2" keyless="$3" faked="$4" gemini="$5" shots="$6"
+name="$1" app="$2" keyless="$3" faked="$4" gemini="$5" shots="$6" faked_fill="${7:-$4}" gemini_fill="${8:-$5}"
 # One place for both apps (gitignored), so a path a screen shows is the same in both shots.
 work="${AMGI_E2E_WORK:-$root/.e2e/drives}"
 mkdir -p "$work"
@@ -49,7 +51,7 @@ run edit "$app" "$name" "$(fresh edit installed)" "$shots"
 run deckdelete "$app" "$name" "$(fresh deckdelete installed)" "$shots"
 run bulk "$faked" "$gemini" "$name" "$(fresh bulk installed)" "$shots"
 run languages "$faked" "$gemini" "$name" "$(fresh languages installed)" "$shots"
-run fill "$faked" "$gemini" "$name" "$(fresh fill installed)" "$shots"
+run fill "$faked_fill" "$gemini_fill" "$name" "$(fresh fill installed)" "$shots"
 run limits "$app" "$name" "$(fresh limits installed)" "$shots"
 run states "$app" "$name" "$work" "$shots"
 exit $failed
