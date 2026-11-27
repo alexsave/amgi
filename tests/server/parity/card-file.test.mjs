@@ -363,4 +363,7 @@ test('a clip heard wrong is recorded again, and the log names the retake: each t
     const retakes = log.split('\n').filter((l) => / INFO {2}audio: retake 2 of 3 for "/.test(l));
     assert.equal(retakes.length, 1, `one retake in the log:\n${log.split('\n').filter((l) => /audio/.test(l)).join('\n')}`);
     assert.match(retakes[0], /\((en|ko)\): judge heard: /, 'with its language and the judge\'s reason');
+    const sent = (model) => log.split('\n').filter((l) => l.endsWith(` INFO  gemini: request to ${model}`)).length;
+    assert.equal(sent('gemini-3.8-flash-tts'), r.fake.of('speech').length, 'one log line for every voice request sent');
+    assert.equal(sent('gemini-3.8-flash') + sent('gemini-3.8-flash-tts'), r.fake.requests.length, 'and for every request');
 });

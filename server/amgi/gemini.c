@@ -533,6 +533,9 @@ int gem_generate(arena *a, progress *p, const char *model, const gem_request *re
         }
         cb_h2_field meta = {"x-goog-api-key", key, 14, strlen(key), true};
         cb_grpc_reply_free(&r);
+        /* One line for every request sent, refused or not: the log's count, set against the day's limit Google names
+         * when it refuses, shows where the requests go. */
+        CB_INFO("gemini", "request to %s", model);
         int call = cb_grpc_unary(g_channel, GENERATE_CONTENT_PATH, &meta, 1, body.p, body.n, REQUEST_TIMEOUT_MS, 0, &r);
         if (call != 0) {
             str why = call == CB_E_IO ? no_answer(a, &r) : str_c(ar_dup(a, r.resp.err, strlen(r.resp.err)));
