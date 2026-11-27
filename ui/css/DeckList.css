@@ -227,30 +227,6 @@
     cursor: not-allowed;
 }
 
-.starter-deck-option {
-    background: var(--dark-bg);
-    border: 1px solid var(--border-color);
-    color: var(--text-primary);
-    font-size: 0.95rem;
-    font-family: inherit;
-    line-height: 1.4;
-    transition: all 0.2s ease;
-}
-
-.starter-deck-option:hover:not(:disabled) {
-    background: var(--dark-surface-hover);
-    border-color: var(--flame-orange);
-}
-
-.starter-deck-option:disabled {
-    opacity: 0.6;
-}
-
-.starter-deck-list {
-    max-height: 55vh;
-    overflow-y: auto;
-}
-
 .empty-deck-state {
     display: flex;
     flex-direction: column;
@@ -277,8 +253,4 @@
     border-color: var(--flame-orange);
     color: var(--flame-orange);
 } 
-.deck-list-loading {
-    padding: 32px 0;
-    text-align: center;
-    color: var(--text-secondary);
-}
+

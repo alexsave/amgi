@@ -29,47 +29,4 @@
     font-size: 0.9em;
 }
 
-.deck-item-actions {
-    display: flex;
-    flex-shrink: 0;
-    gap: 8px;
-    opacity: 0.6;
-    transition: opacity 0.2s ease;
-}
-
-.deck-item:hover .deck-item-actions {
-    opacity: 1;
-}
-
-.icon-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: transparent;
-    color: var(--text-primary);
-    border: none;
-    padding: 6px;
-    width: 32px;
-    height: 32px;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.icon-btn:hover {
-    background: var(--dark-surface-hover);
-    color: var(--flame-orange);
-}
-
-/* Card state colors */
-.learning-count {
-    color: #e11d48; /* Red for learning cards */
-}
-
-.new-count {
-    color: #3b82f6; /* Blue for new cards */
-}
-
-.review-count {
-    color: #22c55e; /* Green for review cards */
-} 
+ 
