@@ -1,12 +1,11 @@
-# Integration tests for bridge_ops.py against a REAL anki.collection.Collection
-# - the same style test_core_collection.py uses, and for the same reason:
+# Integration tests for bridge_ops.py against a REAL anki.collection.Collection:
 # these functions have no aqt import, so the pure `anki` package (no Qt) is
 # enough to exercise every mutation exactly as Anki's own engine performs it.
 #
-# NOT wired into `npm test` - see README.md, "Testing", for why and how to
-# run this manually. Short version:
+# `npm test` runs this with the Python tests/anki-python.sh finds. SampleDeckTests
+# also needs a real shared deck:
 #
-#   AMGI_SAMPLE_APKG=/path/to/a/real.apkg anki/addon/amgi_bridge/anki-test-env/bin/python -m unittest discover -s tests/anki/addon -p test_bridge_ops.py -v
+#   AMGI_SAMPLE_APKG=/path/to/a/real.apkg "$(tests/anki-python.sh)" -m unittest discover -s tests/anki/addon -p test_bridge_ops.py -v
 
 from __future__ import annotations
 
@@ -571,8 +570,7 @@ SAMPLE_DECK = os.environ.get("AMGI_SAMPLE_APKG")
 
 @unittest.skipUnless(SAMPLE_DECK, "set AMGI_SAMPLE_APKG to a real .apkg to run this")
 class SampleDeckTests(BridgeOpsTestCase):
-    """The same real, 333-note shared deck test_core_collection.py's
-    SampleDeckTests uses, exercised through bridge_ops.py's read paths -
+    """A real shared deck, exercised through bridge_ops.py's read paths -
     proving pagination and note-type listing against a deck nobody
     hand-built for this test suite."""
 

@@ -9,15 +9,9 @@
 # against the real thing, and asserts on what the COLLECTION says afterwards
 # rather than on what was called.
 #
-# NOT wired into `npm test`, same as test_core_collection.py: the `anki` pip
-# package is a large Rust-backed wheel this repo does not otherwise depend on.
-# Run it manually with a Python that has `anki` installed:
+# `npm test` runs this with the Python tests/anki-python.sh finds; alone:
 #
-#   python -m venv anki-test-env && anki-test-env/bin/pip install anki
-#   anki/addon/amgi_bridge/anki-test-env/bin/python -m unittest discover -s tests/anki/addon -p test_notetype_collection.py -v
-#
-# The `cd` matters - see test_core_collection.py's own note on the namespace
-# collision between this repo's anki/ directory and the real anki package.
+#   "$(tests/anki-python.sh)" -m unittest discover -s tests/anki/addon -p test_notetype_collection.py -v
 
 from __future__ import annotations
 
@@ -31,10 +25,9 @@ sys.path.insert(0, os.path.normpath(os.path.join(os.path.dirname(os.path.abspath
 
 import notetype  # noqa: E402
 
-# `npm test` runs this directory with a plain python3 that has no `anki` in
-# it, so the import cannot be unconditional - an ImportError at module scope
-# is a hard failure for the whole discovery run, not a skip. Same pattern as
-# test_core_collection.py, for the same reason.
+# A Python with no `anki` in it can run this directory too, so the import
+# cannot be unconditional - an ImportError at module scope
+# is a hard failure for the whole discovery run, not a skip.
 try:
     from anki.collection import Collection
 except ModuleNotFoundError:  # pragma: no cover - environment-dependent

@@ -31,5 +31,5 @@ No plan has been written for it yet.
 
 ## CI
 
-There is no `.github/workflows/` yet.
-On every PR it should run `npm ci`, `npm run lint`, `npm run build`, `npm test` and `node tests/e2e/anki/drive.js`.
+`.github/workflows/test.yml` runs `make test` and `make lint` on every PR.
+It should also run `node tests/e2e/anki/drive.js`.

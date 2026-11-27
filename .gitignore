@@ -1,11 +1,7 @@
 # dependencies
 node_modules/
 
-# Next.js
-/.next
-
-# testing
-/coverage
+# the browser drives' fixture, shots and logs
 /.e2e
 
 # the Anki card script, built by make -C anki from anki/src
