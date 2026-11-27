@@ -6,8 +6,7 @@
  *   n  normalizeForComparison(text, language)
  *   s  spokenForm(text)
  *   a  readingIsAmbiguous(language): "1" or "0"
- * Built by those tests themselves (make -C server build/golden_cards with APP_PROGS extended on the
- * command line), so no shared build file changes. */
+ * Built by those tests themselves (make -C server build/golden_cards; it is in server/Makefile's APP_PROGS). */
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>

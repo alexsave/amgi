@@ -82,7 +82,7 @@ async function check(label, response, expectedStatus) {
     await check('no token at all', await get('/status', {}), 401);
     await check('wrong token', await get('/status', { [TOKEN_HEADER]: 'not-the-token' }), 401);
     await check(
-        'correct token, no Origin header (the Node bridge client\'s own shape - see bridgeClient.js)',
+        'correct token, no Origin header (the server\'s bridge client\'s own shape - see server/collection/bridge.c)',
         await get('/status', { [TOKEN_HEADER]: TOKEN }),
         200,
     );

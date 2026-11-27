@@ -34,7 +34,6 @@ from aqt.utils import showWarning, tooltip
 from .bridge_dispatch import AqtBridgeDispatcher
 from .bridge_server import BridgeServer
 from .dialogs import BridgeStatusDialog
-from .deck_index import repair_deck_index
 from .notetype import AssetsMissing, assets_dir_for, ensure_notetype
 
 DEFAULT_BRIDGE_PORT = 8798
@@ -64,18 +63,6 @@ def _install_notetype() -> None:
     reviewing depends on it having succeeded - a collection with no amgi note
     type is simply a collection they cannot use amgi cards in yet.
     """
-    # Before anything else, and regardless of whether the note type needs
-    # touching: rebuild the deck-name index, which amgi's own direct writer
-    # leaves in the wrong order every time it creates or renames a deck while
-    # Anki is closed. See deck_index.py for why that happens and why the
-    # repair cannot live in the writer. A deck this has not been run against
-    # can show a card count in the deck list and still answer "you have
-    # finished this deck for now" when you open it.
-    try:
-        repair_deck_index(mw.col)
-    except Exception as error:  # noqa: BLE001 - same reasoning as below
-        tooltip(f"amgi could not rebuild the deck index: {error}")
-
     assets = assets_dir_for(os.path.dirname(os.path.abspath(__file__)))
     try:
         result = ensure_notetype(mw.col, assets)

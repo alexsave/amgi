@@ -3,12 +3,10 @@
 // 2^64), counts that are negative or huge, and the session commands (open, probe, transport) in
 // orders the runner never sends, such as a probe that finds no bridge, or a transport refused for a
 // file that is not a database, followed by direct commands on the collection opened before it. The
-// process must answer and exit 0, with nothing on stderr but cbase's log lines (run it with
-// AMGI_COLLECTION_IMPL=server/build/asan/collection_cli to have ASan and UBSan judge every line).
-// The lines come from one seeded source, so a failure replays.
-//
-// Needs the C core (AMGI_COLLECTION_IMPL); skips with a sentence without it. The CLI is the runner's
-// side of the protocol, so this goes with it at L4.
+// process must answer and exit 0, with nothing on stderr but cbase's log lines. npm test runs it on
+// server/build/collection_cli; AMGI_COLLECTION_IMPL=server/build/asan/collection_cli (make -C server
+// build/asan/collection_cli) has ASan and UBSan judge every line. The lines come from one seeded
+// source, so a failure replays.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
@@ -18,11 +16,11 @@ import path from 'node:path';
 import { sandboxEnv } from '../../repo/sandbox-home.cjs';
 import { createRequire } from 'node:module';
 import { enc } from './protocol.mjs';
+import { implCommand } from './impl-process.mjs';
 
 const require = createRequire(import.meta.url);
 const { createRandom } = require('../../helpers/random.js');
 
-const IMPL = process.env.AMGI_COLLECTION_IMPL;
 const ROOT = path.resolve(import.meta.dirname, '..', '..', '..');
 const SEED = 20261108;
 
@@ -75,7 +73,7 @@ function lines(collection, junk) {
     return out;
 }
 
-test('the C CLI answers hostile protocol lines without a fault', { skip: IMPL ? false : 'needs the C core (AMGI_COLLECTION_IMPL)' }, () => {
+test('the C CLI answers hostile protocol lines without a fault', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'amgi-cli-fuzz-'));
     const collection = path.join(dir, 'collection.anki2');
     fs.copyFileSync(path.join(ROOT, 'tests', 'server', 'parity', 'fixtures', 'schema18', 'collection.anki2'), collection);
@@ -88,7 +86,7 @@ test('the C CLI answers hostile protocol lines without a fault', { skip: IMPL ? 
     const cwd = path.join(dir, 'a', 'b');
     fs.mkdirSync(cwd, { recursive: true });
     const input = `${lines(collection, junk).join('\n')}\nquit\n`;
-    const run = spawnSync(path.resolve(ROOT, IMPL), [], {
+    const run = spawnSync(path.resolve(ROOT, implCommand()[0]), [], {
         cwd, env: sandboxEnv({ ASAN_OPTIONS: process.env.ASAN_OPTIONS, UBSAN_OPTIONS: process.env.UBSAN_OPTIONS }), input, encoding: 'utf8', timeout: 240000, maxBuffer: 64 * 1024 * 1024 });
     fs.rmSync(dir, { recursive: true, force: true });
     assert.equal(run.error, undefined, `the CLI ran (${run.error})`);

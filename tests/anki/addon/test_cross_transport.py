@@ -12,7 +12,7 @@
 # Needs both a working `anki` Python install (ANKI_PYTHON_BIN, or a plain
 # python3 with anki on PATH; see test_bridge_ops.py) and the C core's CLI,
 # server/build/collection_cli (make -C server). Skips cleanly, like every
-# other test in this suite, when either is missing - see README.md, "Testing".
+# other test in this suite, when either is missing.
 
 from __future__ import annotations
 
