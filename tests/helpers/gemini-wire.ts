@@ -472,50 +472,6 @@ export function unframe(body: Uint8Array): Uint8Array[] {
     return messages;
 }
 
-/** google.rpc.Code, by number. */
-export const GRPC_CODES = [
-    'OK', 'CANCELLED', 'UNKNOWN', 'INVALID_ARGUMENT', 'DEADLINE_EXCEEDED', 'NOT_FOUND', 'ALREADY_EXISTS',
-    'PERMISSION_DENIED', 'RESOURCE_EXHAUSTED', 'FAILED_PRECONDITION', 'ABORTED', 'OUT_OF_RANGE',
-    'UNIMPLEMENTED', 'INTERNAL', 'UNAVAILABLE', 'DATA_LOSS', 'UNAUTHENTICATED',
-] as const;
-
-export const RESOURCE_EXHAUSTED = 8;
-
-/**
- * The codes a retry cannot fix: those google.rpc.Code maps to an HTTP 4xx
- * (code.proto's own table). The REST client treated every 4xx but 429 as
- * fatal and every 5xx as retryable; this keeps exactly that split.
- */
-export const FATAL_CODES = new Set([1, 3, 5, 6, 7, 9, 10, 11, 16]);
-
-/** What a google.rpc.Status's details say about quotas, already decoded. */
-export interface StatusDetails {
-    violations: Array<{ quotaId?: string; quotaMetric?: string; quotaValue?: number }>;
-    /** RetryInfo's retry_delay in milliseconds, when one was sent. */
-    retryDelayMs: number | null;
-}
-
-/** grpc-status-details-bin (base64 of a google.rpc.Status) -> the quota details amgi reads. */
-export function statusDetails(detailsBin: string | undefined): StatusDetails {
-    const result: StatusDetails = { violations: [], retryDelayMs: null };
-    if (!detailsBin) return result;
-    let status: Message;
-    try {
-        status = decode(Status, Buffer.from(detailsBin, 'base64'));
-    } catch {
-        return result;
-    }
-    for (const any of status.details ?? []) {
-        if (any.typeUrl === `${TYPE_URL_PREFIX}QuotaFailure`) {
-            result.violations.push(...(decode(QuotaFailure, any.value).violations ?? []));
-        } else if (any.typeUrl === `${TYPE_URL_PREFIX}RetryInfo`) {
-            const delay = decode(RetryInfo, any.value).retryDelay ?? {};
-            result.retryDelayMs = Math.ceil((delay.seconds ?? 0) * 1000 + (delay.nanos ?? 0) / 1e6);
-        }
-    }
-    return result;
-}
-
 /** A google.rpc.Status with typed details, as grpc-status-details-bin carries it (for fakes and tests). */
 export function encodeStatus(status: { code: number; message?: string; details?: Array<{ type: 'QuotaFailure' | 'RetryInfo' | 'ErrorInfo'; value: Message }> }): string {
     const descriptors = { QuotaFailure, RetryInfo, ErrorInfo };
