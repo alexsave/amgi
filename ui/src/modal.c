@@ -83,7 +83,3 @@ void confirm_ask(const char *title, const char *body, uint32_t blen, const char 
     cd_region_end(&box);
     dialog_show(dialog, yes_button); /* the action is the default: Enter takes it */
 }
-
-void confirm_close(void) {
-    if (box.shown) dialog_close(dialog);
-}

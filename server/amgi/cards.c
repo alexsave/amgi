@@ -733,10 +733,6 @@ static void schema_of(const format *f, buf *out) {
     gv_struct_of(out, &top);
     buf_free(&props), buf_free(&top), buf_free(&v), buf_free(&items), buf_free(&item);
 }
-void card_schema_generated(buf *out) { schema_of(&GENERATED_CARD_FORMAT, out); }
-void card_schema_audio_verdict(buf *out) { schema_of(&AUDIO_VERDICT_FORMAT, out); }
-void card_schema_transcription_match(buf *out) { schema_of(&TRANSCRIPTION_MATCH_FORMAT, out); }
-
 /* ---- readStructured ---- */
 /* A string from the quarantine is WTF-8: a lone surrogate written out by Node is U+FFFD. */
 static str usv(arena *a, str s) {

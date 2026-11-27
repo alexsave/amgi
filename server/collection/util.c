@@ -208,13 +208,6 @@ int js_space(uint32_t c) {
            c == 0xfeff;
 }
 
-/* Rust's char::is_whitespace, which str::trim uses: Unicode's White_Space property (JavaScript's \s
- * without U+FEFF, and with U+0085). Spelled out, not asked of ICU, as it is a fixed list of 25. */
-int unicode_space(uint32_t c) {
-    return (c >= 0x09 && c <= 0x0d) || c == 0x20 || c == 0x85 || c == 0xa0 || c == 0x1680 || (c >= 0x2000 && c <= 0x200a) ||
-           c == 0x2028 || c == 0x2029 || c == 0x202f || c == 0x205f || c == 0x3000;
-}
-
 str js_trim(str s) {
     size_t start = 0, end = s.n;
     while (start < end) {

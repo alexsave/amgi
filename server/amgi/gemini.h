@@ -75,20 +75,17 @@ void gem_close(void);
 /* createGeminiClient's generateContent: through the gate, one unary call, the quota and status
  * rules. 0 and *out, or -1 with *e. p hears of every wait on the gate. */
 int gem_generate(arena *a, progress *p, const char *model, const gem_request *req, gem_response *out, gem_err *e);
-/* For tests: the gate the client asks (the process's by default). */
-void gem_set_gate(gate *g);
 
 /* ---- speech (geminiSpeech.ts) ---- */
 /* The one draw every voice pick makes (one uint32 per pick): the process's own source by default; a tool that wants the same
  * voice for the same clip on every run seeds a generator of its own and hands its draw here (NULL: the process's again).
- * The speech model is TTS_MODEL unless a tool names another (gem_tts_model says which one a call uses). */
+ * The speech model is TTS_MODEL unless a tool names another. */
 /* The two named speech models: the runtime one, and the lighter one the starter clips are recorded with. */
 #define GEM_TTS_MODEL "gemini-3.8-flash-tts"
 #define GEM_TTS_LITE_MODEL "gemini-3.8-flash-lite-tts"
 typedef uint32_t (*gem_voice_draw)(void *ud);
 void gem_set_voice_draw(gem_voice_draw draw, void *ud);
 void gem_set_tts_model(const char *model);
-const char *gem_tts_model(void);
 /* pickVoice: drawn from the pool, never the previous attempt's (NULL for none). */
 const char *gem_pick_voice(const char *previous);
 /* synthesize: one clip as a whole WAV file. */
