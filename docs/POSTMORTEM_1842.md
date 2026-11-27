@@ -65,7 +65,7 @@ Three follow-ups from the investigation are still open (section 7).
 - 21:24: cdom reruns the 18:42 sequence with real Anki 26.09 on a copied profile: "Anki locked" while open, and after Anki's close the file is whole (57 pages, 0 zero, 91 notes, 182 cards).
 - After that: Alex's own re-test on the copy: "seems to work!"; then his "go" (times not recorded).
 - 21:46 to 21:51: amgi's verify-c-backend.sh on 693b49c from a fresh clone: green on every product step (one script expectation wrong, see 5.7).
-- 21:53:46: Alex merges #35 (amgi main aa67fb5); an agent merge was blocked by the harness permission check.
+- 21:53:46: Alex merges #35 (amgi main e03a36e); an agent merge was blocked by the harness permission check.
 
 ## 3. Root cause and contributing factors
 
@@ -152,7 +152,7 @@ Friction: the owner's corrections on wording and scope, the incident, a one-hour
 
 | # | Action | Owner | Status |
 |---|---|---|---|
-| 1 | Never open a collection with a `-wal` or `-shm` beside it; re-check after the open | foolish | Done: dbf48a1, in amgi main via #35 (aa67fb5) |
+| 1 | Never open a collection with a `-wal` or `-shm` beside it; re-check after the open | foolish | Done: dbf48a1, in amgi main via #35 (e03a36e) |
 | 2 | Never open a file without a SQLite header; show "damaged" in the UI | foolish | Done: dbf48a1 and #35 |
 | 3 | Never checkpoint, enforced by `test/no-checkpoint.test.mjs` | amgi | Done: #41's commits, in main via #35 |
 | 4 | A fresh backup before the automatic install write | foolish | Done: 1bd5cff, in main via #35 |

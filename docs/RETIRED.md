@@ -18,7 +18,7 @@ The other 3 (cdom-30-one-card, cdom-64-fill-wait, cdom-64-fill-wait-phone) diffe
 Those 3 were never in the allow list: the gate was flaky on them.
 
 **Why it went:** no script, package.json entry or CI step ran it once the port was done, and compare.mjs needed sharp, which nothing installs.
-Last at commit 5e521b0.
+Last at commit b02a931.
 
 ## The C port's planning docs (docs/AMGI_STAGE1_ROUTES.md, docs/C_PORT_FILEMAP.md)
 
@@ -26,7 +26,7 @@ Last at commit 5e521b0.
 README.md's "The app's API" section now describes the routes the C server serves.
 
 **C_PORT_FILEMAP.md** mapped each Node file to its C counterpart for the review of the L1 port.
-Everything it listed as not yet ported (transport.js, bridgeClient.js, install.js) was ported later, and the Node files it mapped were deleted at L4 (cab61f4).
+Everything it listed as not yet ported (transport.js, bridgeClient.js, install.js) was ported later, and the Node files it mapped were deleted at L4 (acf9bf6).
 
 **Why they went:** every path in them was gone and nothing linked to them.
 
