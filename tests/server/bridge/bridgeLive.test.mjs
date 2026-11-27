@@ -166,6 +166,23 @@ maybe(`the bridge protocol against the real add-on server and a real collection`
         await assert.rejects(ops.addNote({ deckId: made.deck.id, notetypeId: basic.id, fields: ['only one'], tags: [] }), said(400));
     });
 
+    // The add-on's CollectionOp goes on after the server's 30 seconds are up, so a bulk write the server called failed may
+    // be in the collection; the page sends it again under the guid it drew, and the add-on answers with the note already
+    // there rather than adding it twice. A guid on some other note is a stranger's: the new note keeps Anki's own.
+    test('a note sent again under its guid is the one already there; a stranger\'s guid is not', async () => {
+        const deck = (await ops.createDeck('Guid')).deck;
+        const basic = (await ops.listNotetypes()).find((n) => n.name === 'Basic');
+        const apple = { deckId: deck.id, notetypeId: basic.id, fields: ['apple', '사과'], tags: [], guid: 'amgiGuid1' };
+        const [first] = await ops.addNotesBulk([apple]);
+        const [again] = await ops.addNotesBulk([apple]);
+        assert.equal(first.ok, true);
+        assert.equal(again.noteId, first.noteId, 'the same note');
+        const [other] = await ops.addNotesBulk([{ ...apple, fields: ['pear', '배'] }]);
+        assert.equal(other.ok, true);
+        assert.notEqual(other.noteId, first.noteId, 'a note of its own');
+        assert.equal(await ops.countNotesInDeck(deck.id), 2, 'and their guids are checked below, as Anki reads them');
+    });
+
     test('what the bridge wrote is in the collection, as Anki reads it', async () => {
         await bridge.stop();
         bridge = null;
@@ -174,11 +191,13 @@ names = sorted(d.name for d in col.decks.all_names_and_ids())
 print("|".join(names))
 print(col.media.have("live-clip.wav"))
 print(len(col.find_notes("")))
+print("|".join(sorted(col.get_note(n).fields[0] + "=" + str(col.get_note(n).guid == "amgiGuid1") for n in col.find_notes("deck:Guid"))))
 `);
-        const [names, media, notes] = out.trim().split('\n');
-        assert.equal(names, 'Default|한국어|한국어::여행 2');
+        const [names, media, notes, guids] = out.trim().split('\n');
+        assert.equal(names, 'Default|Guid|한국어|한국어::여행 2');
         assert.equal(media, 'True');
-        assert.equal(notes, '2', 'the three added, less the one removed; the Existing note went with its deck');
+        assert.equal(notes, '4', 'the three added, less the one removed, and the two under a guid; the Existing note went with its deck');
+        assert.equal(guids, 'apple=True|pear=False', 'the note sent with its guid has it; the stranger has one of its own');
         bridge = startBridge(collectionPath);
         base = await bridge.ready;
     });

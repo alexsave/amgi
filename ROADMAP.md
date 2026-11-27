@@ -33,13 +33,3 @@ No plan has been written for it yet.
 
 `.github/workflows/test.yml` runs `make test` and `make lint` on every PR.
 It should also run `node tests/e2e/anki/drive.js`.
-
-## A bulk write that outlasts its timeout can be added twice
-
-The deck page writes a paste's cards in batches of up to 10 (`ui/src/bulk.c`, `FLUSH_SIZE`), one `POST /notes/bulk` each.
-With Anki open, the server hands a batch to the add-on with a 30-second budget (`server/collection/bridge.c`, `OPERATION_TIMEOUT_MS`), the same 30 seconds the add-on gives its own operation (`bridge_dispatch.py`, `DEFAULT_TIMEOUT_SECONDS`).
-A batch that runs past that is reported as failed, but Anki's CollectionOp is not cancelled and commits the notes anyway.
-The row then says "failed", and its Retry makes the card again and writes it again, because the check for lines the deck already has runs only when a run starts.
-No one has hit it: it takes a batch slower than 30 seconds.
-The fix: the bulk path makes each note's guid before the first write, and the add-on's `add_notes_bulk` treats a guid already in the collection as that note added.
-Verified against the code on 2026-11-27 (no guid in `ui/wire/wire.c` or `ui/src/bulk.c`, no deduplication in `bridge_ops.py`).

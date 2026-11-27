@@ -175,6 +175,7 @@ def _note_args(entry: dict) -> dict:
         "tags": list(entry.get("tags", [])),
         "language": entry.get("language") or None,
         "learning_field_index": entry.get("learningFieldIndex"),
+        "guid": entry.get("guid") or None,
     }
 
 

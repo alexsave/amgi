@@ -183,6 +183,7 @@ class AqtBridgeDispatcher:
         tags: list,
         language: Optional[str] = None,
         learning_field_index: Optional[int] = None,
+        guid: Optional[str] = None,
     ) -> dict:
         return self._run_write(
             lambda col: bridge_ops.add_note(
@@ -193,6 +194,7 @@ class AqtBridgeDispatcher:
                 tags=tags,
                 language=language,
                 learning_field_index=learning_field_index,
+                guid=guid,
             )
         )
 
