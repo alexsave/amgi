@@ -14,6 +14,10 @@
 .card-form-lead {
     display: flex;
     gap: 0.6rem;
+    align-items: flex-start;
+    /* The tab strip used to provide this gap. With it gone the box sat hard
+       against the deck's own subtitle. */
+    margin-top: 1.1rem;
 }
 
 /* A textarea rather than an input, because one box now serves both a typed
@@ -34,17 +38,6 @@
     box-sizing: border-box;
 }
 
-.card-form-lead {
-    align-items: flex-start;
-    /* The tab strip used to provide this gap. With it gone the box sat hard
-       against the deck's own subtitle. */
-    margin-top: 1.1rem;
-}
-
-.card-form-go {
-    flex: none;
-}
-
 /* On a phone the box takes the whole width and the button goes under it: side by side, the box was
    too narrow for its own one-line placeholder, which it clipped. */
 @media (max-width: 600px) {
@@ -59,6 +52,7 @@
 }
 
 .card-form-go {
+    flex: none;
     font: inherit;
     font-size: 0.9rem;
     font-weight: 600;
