@@ -608,7 +608,7 @@ static void atomic_writes(void) {
                 scalar(path.p, "SELECT mod FROM col") == mod0,
               "schema %d: a note whose cards fail leaves no note, no card and no col.mod change", schema);
         /* In a bulk add the failing note goes and the others stay. */
-        col_new_note batch[3] = {{1, basic, two, 2, NULL, 0, 0, {0}, 0, 0}, rev, {1, basic, two, 2, NULL, 0, 0, {0}, 0, 0}};
+        col_new_note batch[3] = {{1, basic, two, 2, NULL, 0, 0, {0}, 0, 0, {0}}, rev, {1, basic, two, 2, NULL, 0, 0, {0}, 0, 0, {0}}};
         col_added out[3];
         CHECK(col_add_notes(&a, path, batch, 3, out, &e) == 0 && out[0].ok && !out[1].ok && out[2].ok, "schema %d: bulk: the bad note alone fails", schema);
         CHECK(scalar(path.p, "SELECT count(*) FROM notes") == notes0 + 2 && scalar(path.p, "SELECT count(*) FROM cards") == cards0 + 2,
