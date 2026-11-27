@@ -73,13 +73,13 @@ const SAMPLES = {
     b_q_media: { filename: 'clip.wav', data: Buffer.alloc(70000, 7) },
     q_deck_name: { name: '한국어::여행' },
     q_deck_languages: { known: 'en', learning: 'zh_cn' },
-    q_note: { deckId: 1794163006799, notetypeId: 1794095498266, fields: ['a', 'b'], tags: [], language: 'ko', learningFieldIndex: 2 },
+    q_note: { deckId: 1794163006799, notetypeId: 1794095498266, fields: ['a', 'b'], tags: [], language: 'ko', learningFieldIndex: 2, guid: 'b1V!x~Gz:q' },
     q_notes: { notes: [{ deckId: 1, notetypeId: 2, fields: ['x'], tags: ['t'] }, { deckId: 1, notetypeId: 2, fields: [], tags: [], learningFieldIndex: 0 }] },
     q_note_update: { fields: ['x', 'y'], language: '' },
 };
 
-test('the bridge protocol is past the version before a deck\'s languages (b_deck_languages), so an older add-on is refused, not guessed at', () => {
-    assert.equal(BRIDGE_PROTOCOL, 3, 'protocol 3 added the deck pair: the list rows and PUT /decks/:id/languages');
+test('the bridge protocol is past the version before a note\'s guid (q_note), so an older add-on is refused, not guessed at', () => {
+    assert.equal(BRIDGE_PROTOCOL, 4, 'protocol 4 added a note\'s guid to q_note, which POST /notes and /notes/bulk read');
     assert.ok('b_note_read' in KIND && 'b_deck_languages' in KIND);
 });
 
