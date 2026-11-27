@@ -109,7 +109,9 @@ Ask the user before `deck remove --yes` on a deck, or `card remove --yes` on a n
 Give the key only as a file path (`--key-file`, or `CBASE_ENV_FILE`), a `KEY=VALUE` file with `GEMINI_API_KEY`.
 Never read, print or copy the value.
 Without a key `--text` and `--file` exit 5 and `--front/--back` still works.
-A card costs 5 to 7 Gemini requests and the free tier allows 10 a day per model, so a real deck needs billing on the key's project: say so before a long run.
+A card costs 2 voice requests (one more for each retake) and 3 to 5 text requests.
+Each model has its own daily limit, set by the key's tier; when it is reached amgi stops with `dailyCap` and names the limit Google gave.
+The free tier is too small for a real deck, so say before a long run that it needs billing on the key's project.
 
 ## Not working?
 
