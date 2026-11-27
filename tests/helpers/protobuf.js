@@ -38,45 +38,6 @@ function readVarint(buffer, offset) {
     throw new Error('truncated protobuf varint');
 }
 
-/**
- * Walk a message's fields in the order they were written.
- *
- * A field that is not understood still has to be walked past correctly, which
- * is why the fixed-width wire types are skipped rather than rejected. Groups
- * (wire types 3 and 4) were removed from the language long before any of these
- * messages were written, so meeting one means the bytes are not what we think.
- *
- * @yields {{number: number, wireType: number, value: number, bytes: Buffer|null}}
- */
-function* readFields(buffer) {
-    let at = 0;
-    while (at < buffer.length) {
-        const tag = readVarint(buffer, at);
-        const number = Math.floor(tag.value / 8);
-        const wireType = tag.value % 8;
-        at = tag.next;
-
-        if (wireType === WIRE_VARINT) {
-            const field = readVarint(buffer, at);
-            at = field.next;
-            yield { number, wireType, value: field.value, bytes: null };
-        } else if (wireType === WIRE_LENGTH) {
-            const length = readVarint(buffer, at);
-            const end = length.next + length.value;
-            if (end > buffer.length) throw new Error('truncated protobuf field');
-            yield { number, wireType, value: 0, bytes: buffer.subarray(length.next, end) };
-            at = end;
-        } else if (wireType === WIRE_FIXED64 || wireType === WIRE_FIXED32) {
-            const width = wireType === WIRE_FIXED64 ? 8 : 4;
-            if (at + width > buffer.length) throw new Error('truncated protobuf field');
-            yield { number, wireType, value: 0, bytes: buffer.subarray(at, at + width) };
-            at += width;
-        } else {
-            throw new Error(`unsupported protobuf wire type ${wireType}`);
-        }
-    }
-}
-
 /** Advance past a varint without decoding it - see readFieldsLenient. */
 function skipVarint(buffer, offset) {
     let at = offset;
@@ -85,18 +46,17 @@ function skipVarint(buffer, offset) {
 }
 
 /**
- * Like readFields, but a varint field number that is not in `wanted` is
- * skipped rather than decoded into a JS number.
+ * Walk a message's fields in the order they were written, skipping without
+ * decoding any varint field whose number is not in `wanted`.
  *
- * readFields (and readVarint underneath it) refuses a varint that cannot be
- * represented exactly as a double, which is the right thing for the small
- * field numbers, lengths and counters this module was first written for -
- * but a real message can legitimately carry a 64-bit value in a field a
- * caller has no interest in (Anki's Notetype.Template.Config.id, for
- * instance, an arbitrary random id nothing here ever reads). Skipping those
- * without decoding them means a message like that can still be read for the
- * one or two fields a caller does want, instead of failing on a field it was
- * never going to look at.
+ * readVarint refuses a varint that cannot be represented exactly as a
+ * double, which is right for the small field numbers, lengths and counters
+ * this module reads - but a real message can legitimately carry a 64-bit
+ * value in a field a caller has no interest in (Anki's
+ * Notetype.Template.Config.id, for instance, an arbitrary random id nothing
+ * here ever reads). Skipping those without decoding them means a message
+ * like that can still be read for the one or two fields a caller does want,
+ * instead of failing on a field it was never going to look at.
  */
 function* readFieldsLenient(buffer, wanted) {
     let at = 0;
@@ -169,7 +129,6 @@ module.exports = {
     WIRE_FIXED64,
     WIRE_LENGTH,
     WIRE_VARINT,
-    readFields,
     readFieldsLenient,
     readVarint,
     writeBytesField,

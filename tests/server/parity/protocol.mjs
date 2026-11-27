@@ -103,14 +103,3 @@ export function noteTokens(note) {
         enc(note.language), note.learningFieldIndex === undefined ? '!' : String(note.learningFieldIndex),
     ].join(' ');
 }
-
-/** Tokens of a note, back to the object addNote takes. */
-export function noteOf(tokens) {
-    const [deckId, notetypeId, fields, tags, language, lfi] = tokens;
-    const note = {
-        deckId: Number(deckId), notetypeId: Number(notetypeId), fields: items(fields).map(dec), tags: items(tags).map(dec),
-    };
-    if (language !== '!') note.language = dec(language);
-    if (lfi !== '!') note.learningFieldIndex = Number(lfi);
-    return note;
-}
