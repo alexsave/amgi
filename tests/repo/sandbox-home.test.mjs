@@ -157,7 +157,7 @@ test('the e2e shell tools run in a sandbox, and e2e.sh gives each server and the
         assert.match(fs.readFileSync(path.join(ROOT, f), 'utf8'), /^\. "\$here\/sandbox-home\.sh"$/m, `${f} sources sandbox-home.sh`);
     }
     const starts = fs.readFileSync(path.join(ROOT, 'tests/e2e/ui/e2e.sh'), 'utf8').split('\n').filter((l) => /^start /.test(l));
-    assert.equal(starts.length, 4);
+    assert.equal(starts.length, 6, 'the fake and three servers, and the fill drive\'s own fake and server');
     for (const l of starts) assert.match(l, / env "HOME=\$\(fresh_home\)" /, l);
     const fixture = fs.readFileSync(path.join(ROOT, 'tests/e2e/ui/fixture.sh'), 'utf8');
     assert.match(fixture, /^env "HOME=\$\(fresh_home\)" "\$ANKI_PYTHON_BIN" /m, 'fixture.sh runs the anki library under its own HOME');

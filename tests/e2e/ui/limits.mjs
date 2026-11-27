@@ -145,6 +145,8 @@ try {
         let long = lines.join('\n');
         while (bytes(long) > 65537) long = long.slice(0, -1);
         check(bytes(long) === 65537, `the long paste is 65537 bytes (${bytes(long)})`);
+        // Disabled while the deck's languages are still being found, when a paste goes nowhere: paste once it takes text.
+        check(await until(b, `!!document.querySelector('#amgiCardInput') && !document.querySelector('#amgiCardInput').disabled`), 'the box takes text');
         await click(b, '#amgiCardInput');
         await paste(b, long);
         const formErr = await until(b, text('.card-form-error'));

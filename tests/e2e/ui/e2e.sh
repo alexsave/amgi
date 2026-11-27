@@ -42,7 +42,11 @@ start gemini GEMINI_API_BASE= env "HOME=$(fresh_home)" node tests/helpers/fake-g
 start app "$listening" env "HOME=$(fresh_home)" CBASE_LISTEN=127.0.0.1:0 GEMINI_API_KEY=offline-dummy GEMINI_API_BASE=http://127.0.0.1:9 "${server[@]}"
 start keyless "$listening" env "HOME=$(fresh_home)" CBASE_LISTEN=127.0.0.1:0 GEMINI_API_KEY= "${server[@]}"
 start faked "$listening" env "HOME=$(fresh_home)" CBASE_LISTEN=127.0.0.1:0 GEMINI_API_KEY=fake "GEMINI_API_BASE=$gemini" "${server[@]}"
-tests/e2e/ui/drives.sh cdom "$app" "$keyless" "$faked" "$gemini" "$shots"
+# The fill drive's own fake and server: the server's rate gate keeps what Google's refusals said (a cap, a wait), so on
+# the server the bulk drive used, how far a fill gets before its wait would follow the refusals bulk met before it.
+start gemini_fill GEMINI_API_BASE= env "HOME=$(fresh_home)" node tests/helpers/fake-gemini.js 0
+start faked_fill "$listening" env "HOME=$(fresh_home)" CBASE_LISTEN=127.0.0.1:0 GEMINI_API_KEY=fake "GEMINI_API_BASE=$gemini_fill" "${server[@]}"
+tests/e2e/ui/drives.sh cdom "$app" "$keyless" "$faked" "$gemini" "$shots" "$faked_fill" "$gemini_fill"
 failed=$?
 # Incident 18:42: the page loaded twice while Anki holds the collection after its own backup dropped
 # its lock (a server and a temp HOME of its own; the build above already ran).
