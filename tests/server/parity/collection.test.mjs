@@ -489,6 +489,28 @@ for (const schema of ['18', '11']) {
             }
         });
 
+        // A bulk write sent again (its answer came after the client's time, so the page's Retry sends it once more) under the
+        // guid the page drew for it: the note already there is the answer, and nothing is added twice. A guid some other note
+        // has is a stranger's, and the new note gets one of the collection's own.
+        test('a note sent again under its guid is the one already there; a stranger\'s guid is not', async () => {
+            const rows = (answer) => answer.split('\n').slice(1).map((l) => l.split(' '));
+            await session(schema, async (t) => {
+                const deck = firstId(await t.cmd(`createDeck ${enc('Guid')}`));
+                const mid = (await notetypeIds(t.impl)).Basic;
+                const apple = note(deck, mid, ['apple', '사과'], { guid: 'amgiGuid1' });
+                const [first] = rows(await t.cmd('addNotesBulk 1', [apple]));
+                const [again] = rows(await t.cmd('addNotesBulk 1', [apple]));
+                assert.equal(first[0], 'ok');
+                assert.deepEqual(again.slice(0, 4), first.slice(0, 4), 'the same note, guid and cards');
+                assert.equal(dec(first[2]), 'amgiGuid1', 'under the guid it was sent with');
+                const [other] = rows(await t.cmd('addNotesBulk 1', [note(deck, mid, ['pear', '배'], { guid: 'amgiGuid1' })]));
+                assert.equal(other[0], 'ok');
+                assert.notEqual(other[1], first[1], 'a note of its own');
+                assert.notEqual(dec(other[2]), 'amgiGuid1', 'under a guid of its own');
+                assert.match(await t.cmd(`countNotesInDeck ${deck}`), /^ok 2$/);
+            });
+        });
+
         test('a change Anki makes between two of ours takes a second backup, and only then', { skip: !anki && 'needs ANKI_PYTHON_BIN' }, async () => {
             const s = await session(schema, async (t) => {
                 await t.cmd(`createDeck ${enc('Ours 1')}`);

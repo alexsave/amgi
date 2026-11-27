@@ -34,7 +34,7 @@ all: $(OUT)/app.wasm $(OUT)/index.html $(OUT)/app.css $(OUT)/wire.wasm $(OUT)/wi
 
 # The module as cdom.mk links it, before the size pass.
 APP_WASM := $(OUT)/raw/app.wasm
-APP_SRC := $(sort $(wildcard src/*.c)) wire/wire.c wire/lang.c wire/lines.c
+APP_SRC := $(sort $(wildcard src/*.c)) wire/wire.c wire/lang.c wire/lines.c wire/guid.c
 APP_MODULES := net store audio url
 APP_CFLAGS := $(WARN)
 APP_LDFLAGS := -Wl,--strip-all

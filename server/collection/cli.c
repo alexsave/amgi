@@ -143,6 +143,7 @@ static void put_added(buf *b, const col_added *r) {
 static col_new_note note_of(arena *a, str *t, size_t n) {
     col_new_note note = {0};
     if (n < 6) return note;
+    if (n > 6 && !(t[6].n == 1 && t[6].p[0] == '!')) note.guid = dec(a, t[6]);
     note.deck_id = num(t[0]);
     note.notetype_id = num(t[1]);
     note.fields = strs_of(a, t[2], &note.nfields);

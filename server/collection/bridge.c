@@ -421,6 +421,7 @@ static wire_q_note q_note_of(cx *c, const col_new_note *n) {
     q.tags = to_wss(c, n->tags, n->ntags);
     q.language = to_ws(n->has_language ? n->language : S(""));
     q.learning_field_index = n->has_learning_field && isfinite(n->learning_field) ? (int32_t)n->learning_field : WIRE_ABSENT;
+    q.guid = to_ws(n->guid);
     return q;
 }
 

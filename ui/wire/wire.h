@@ -31,8 +31,9 @@
 /* The bridge protocol's version. 1 is the first binary one; the add-on that spoke JSON sent none. 2 added
  * GET /notes/:id (b_note_read). 3 added a deck's language pair: the list's rows carry it
  * (b_deck_listed) and PUT /decks/:id/languages sets it (q_deck_languages, b_deck_languages).
+ * 4 added a note's guid to q_note, so a bulk write sent again after a timeout adds nothing twice.
  * Change it with any change to a b_* kind or to a request kind the bridge reads. */
-#define WIRE_BRIDGE_PROTOCOL 3u
+#define WIRE_BRIDGE_PROTOCOL 4u
 /* The prefix of every clip amgi names (amgi_media_name in server/amgi/web.c). The one owner: wire_py.c writes it into
  * the add-on's wire_schema.py, so no other file spells it. */
 #define AMGI_MEDIA_PREFIX "amgi-"
@@ -154,7 +155,10 @@ typedef struct { wire_str name; } wire_q_deck_name;
 typedef struct { wire_str known, learning; } wire_q_deck_languages;
 typedef struct { wire_str base_dir_override; } wire_q_install;
 typedef struct { wire_str known, learning, name; } wire_q_starter;
-typedef struct { int64_t deck_id, notetype_id; wire_strs fields, tags; wire_str language; int32_t learning_field_index; } wire_q_note;
+/* guid: the note's Anki guid, made by the asker so a write sent again (a retry after a timeout) is known for the same one;
+ * "" for one the collection makes. A guid already in the collection on a note of the same type and fields is that note,
+ * answered as added; on any other note it is a stranger's, and the new note gets a guid of the collection's own. */
+typedef struct { int64_t deck_id, notetype_id; wire_strs fields, tags; wire_str language; int32_t learning_field_index; wire_str guid; } wire_q_note;
 typedef struct { wire_q_note *notes; uint32_t nnotes; } wire_q_notes;
 typedef struct { wire_strs fields; wire_str language; int32_t learning_field_index; } wire_q_note_update;
 /* The card's languages are the deck's: the server reads the deck's stored pair, so a request names the deck and no languages. */

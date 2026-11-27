@@ -107,6 +107,7 @@ static col_new_note new_note(arena *a, const wire_q_note *n) {
     c.language = amgi_str(n->language);
     c.has_learning_field = n->learning_field_index != WIRE_ABSENT;
     c.learning_field = n->learning_field_index;
+    c.guid = amgi_str(n->guid);
     return c;
 }
 

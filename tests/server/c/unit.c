@@ -361,7 +361,7 @@ static void *add_one(void *arg) {
     adder *ad = arg;
     arena a = {0};
     str fields[] = {S("parallel"), S("x")};
-    col_new_note note = {1, 0, fields, 2, NULL, 0, 0, {0}, 0, 0};
+    col_new_note note = {1, 0, fields, 2, NULL, 0, 0, {0}, 0, 0, {0}};
     col_notetype *nts;
     size_t n;
     col_err e;
@@ -601,7 +601,7 @@ static void atomic_writes(void) {
         int64_t notes0 = scalar(path.p, "SELECT count(*) FROM notes"), cards0 = scalar(path.p, "SELECT count(*) FROM cards");
         int64_t mod0 = scalar(path.p, "SELECT mod FROM col");
         str two[] = {S("front"), S("back")};
-        col_new_note rev = {1, reversed, two, 2, NULL, 0, 0, {0}, 0, 0};
+        col_new_note rev = {1, reversed, two, 2, NULL, 0, 0, {0}, 0, 0, {0}};
         col_added r;
         CHECK(col_add_note(&a, path, &rev, &r, &e) < 0, "schema %d: the second card is refused", schema);
         CHECK(scalar(path.p, "SELECT count(*) FROM notes") == notes0 && scalar(path.p, "SELECT count(*) FROM cards") == cards0 &&

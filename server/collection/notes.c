@@ -5,6 +5,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "guid.h"
+
 #include "core.h"
 #include "rng.h"
 
@@ -14,10 +16,7 @@
  * rslib/src/storage/card/add_card.sql, and the base-91 alphabet of rslib/src/notes/mod.rs. */
 #define ID_EXPR(table) "(CASE WHEN ?1 IN (SELECT id FROM " table ") THEN (SELECT max(id) + 1 FROM " table ") ELSE ?1 END)"
 
-static const char BASE91[] =
-    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!#$%&()*+,-./:;<=>?@[]^_`{|}~";
-
-/* randomGuid: base 91 of a random 64-bit integer (big-endian from 8 random bytes), never 0. */
+/* randomGuid: base 91 (wire_guid) of a random 64-bit integer (big-endian from 8 random bytes), never 0. */
 static str random_guid(cx *c) {
     uint64_t n = 0;
     while (n == 0) {
@@ -25,14 +24,9 @@ static str random_guid(cx *c) {
         rng_bytes(b, 8);
         for (int i = 0; i < 8; i++) n = n << 8 | b[i];
     }
-    char tmp[16];
-    int k = 15;
-    tmp[k] = 0;
-    while (n > 0) {
-        tmp[--k] = BASE91[n % 91];
-        n /= 91;
-    }
-    return str_c(ar_dup(c->a, tmp + k, (size_t)(15 - k)));
+    char out[WIRE_GUID_MAX];
+    uint32_t len = wire_guid(n, out);
+    return str_c(ar_dup(c->a, out, len));
 }
 
 /* notetype-write.js randomId: 48 random bits, big-endian, from 6 random bytes. */
@@ -311,6 +305,52 @@ static void field_count_error(cx *c, const col_notetype *nt, size_t got) {
     cx_throw(c, NULL, 0, "note type \"%.*s\" has %zu fields, got %zu", (int)nt->name.n, nt->name.p, nt->nfields, got);
 }
 
+/* The note already under the asker's guid, when it is this write's: the same note type and the same fields, as a write sent
+ * again after a timeout finds the one that went in. Fills out as note_insert would, and says 1; 0 when there is none. */
+static int existing_note(cx *c, conn *k, const col_new_note *note, str flds, col_added *out) {
+    sqlite3_stmt *st = q_prep(c, k, "SELECT id, mid, flds FROM notes WHERE guid = ?");
+    q_text(st, 1, note->guid);
+    if (!q_step(c, k, st)) {
+        q_done(st);
+        return 0;
+    }
+    int64_t id = sqlite3_column_int64(st, 0), mid = sqlite3_column_int64(st, 1);
+    const void *f = sqlite3_column_blob(st, 2);
+    size_t fn = (size_t)sqlite3_column_bytes(st, 2);
+    int same = (double)mid == note->notetype_id && fn == flds.n && (!fn || memcmp(f, flds.p, fn) == 0);
+    q_done(st);
+    if (!same) return 0;
+    size_t n = 0, cap = 4;
+    int64_t *cards = ar_alloc(c->a, cap * sizeof *cards);
+    st = q_prep(c, k, "SELECT id FROM cards WHERE nid = ? ORDER BY ord");
+    q_int(st, 1, id);
+    while (q_step(c, k, st)) {
+        if (n == cap) {
+            int64_t *more = ar_alloc(c->a, cap * 2 * sizeof *more);
+            memcpy(more, cards, n * sizeof *cards);
+            cards = more, cap *= 2;
+        }
+        cards[n++] = sqlite3_column_int64(st, 0);
+    }
+    q_done(st);
+    memset(out, 0, sizeof *out);
+    out->ok = 1;
+    out->note_id = id;
+    out->guid = note->guid;
+    out->card_ids = cards;
+    out->ncards = n;
+    return 1;
+}
+
+/* A guid some other note has: the asker's draw met a stranger's, so the new note takes one of the collection's own. */
+static int guid_taken(cx *c, conn *k, str guid) {
+    sqlite3_stmt *st = q_prep(c, k, "SELECT 1 FROM notes WHERE guid = ?");
+    q_text(st, 1, guid);
+    int taken = q_step(c, k, st);
+    q_done(st);
+    return taken;
+}
+
 void note_insert(cx *c, conn *k, const col_notetype *nts, size_t nnt, const col_new_note *note, col_added *out) {
     str *fields = anki_fields(c, note->fields, note->nfields);
     const col_notetype *nt = find_notetype(nts, nnt, note->notetype_id);
@@ -322,8 +362,14 @@ void note_insert(cx *c, conn *k, const col_notetype *nts, size_t nnt, const col_
     str warning = romanization_warning(c, nt, fields, note->nfields, note->has_language, note->language,
                                        note->has_learning_field, note->learning_field);
     double now = floor((double)now_ms() / 1000);
-    str guid = random_guid(c);
     str flds = join_fields(c, fields, note->nfields);
+    str guid = note->guid.n ? note->guid : random_guid(c);
+    if (note->guid.n && existing_note(c, k, note, flds, out)) {
+        out->has_warning = warning.p != NULL;
+        out->warning = warning;
+        return;
+    }
+    if (note->guid.n && guid_taken(c, k, guid)) guid = random_guid(c);
     str sort_src = nt->sort_field >= 0 && (size_t)nt->sort_field < note->nfields ? fields[nt->sort_field] : S("");
     str sort_text = strip_html_preserving_media(c, sort_src);
     int64_t csum = field_checksum(c, strip_html_preserving_media(c, note->nfields ? fields[0] : S("")));

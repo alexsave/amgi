@@ -271,9 +271,13 @@ def add_notes_bulk(col: "Collection", notes: Sequence[dict]) -> OpResult:
                 tags=note.get("tags", ()),
                 language=note.get("language"),
                 learning_field_index=note.get("learning_field_index"),
+                guid=note.get("guid"),
             )
             results.append({"ok": True, **op_result.payload})
-            changes = op_result.changes
+            # A note found already there (its guid, a write sent again) changed nothing: its empty
+            # OpChanges never stands in for a real add's.
+            if changes is None or op_result.changes.note:
+                changes = op_result.changes
         except Exception as error:  # noqa: BLE001 - reported per note, batch continues
             results.append({"ok": False, "error": str(error)})
 
@@ -367,6 +371,7 @@ def add_note(
     tags: Sequence[str] = (),
     language: Optional[str] = None,
     learning_field_index: Optional[int] = None,
+    guid: Optional[str] = None,
 ) -> OpResult:
     """Add a note to `deck_id`, letting Anki generate whatever cards its note
     type's templates (or cloze numbers) call for - `col.add_note` does that
@@ -377,6 +382,14 @@ def add_note(
     `language`/`learning_field_index` are optional and only feed the
     romanisation guard (see _romanization_warning) - omitting either just
     means nothing is checked, same as before this guard existed.
+
+    `guid` is the asker's, so a write sent again (amgi's server retrying a
+    bulk write whose answer came after its 30 seconds, while this one's
+    CollectionOp went on and committed) adds nothing twice: a note already
+    under that guid with this note type and these fields is this write's,
+    answered as added, with no change made. A guid on any other note is a
+    stranger's draw, and the new note keeps the one Anki gives it, as the
+    server's own writer does (server/collection/notes.c).
     """
     notetype = col.models.get(notetype_id)
     if notetype is None:
@@ -385,11 +398,26 @@ def add_note(
     if len(fields) != len(field_names):
         raise ValueError(f'note type "{notetype["name"]}" has {len(field_names)} fields, got {len(fields)}')
 
+    warning = _romanization_warning(field_names, fields, language, learning_field_index)
+    if guid:
+        existing_id = col.db.scalar("select id from notes where guid = ?", guid)
+        if existing_id:
+            existing = col.get_note(existing_id)
+            if existing.mid == notetype_id and list(existing.fields) == list(fields):
+                from anki.collection import OpChanges
+
+                payload = {"noteId": existing.id, "guid": existing.guid, "cardIds": [c.id for c in existing.cards()]}
+                if warning:
+                    payload["warning"] = warning
+                return OpResult(payload=payload, changes=OpChanges())
+
     note = col.new_note(notetype)
     for index, value in enumerate(fields):
         note.fields[index] = value
     if tags:
         note.tags = list(tags)
+    if guid and not col.db.scalar("select 1 from notes where guid = ?", guid):
+        note.guid = guid
 
     # col.add_note() returns OpChangesWithCount, not a bare OpChanges (unlike
     # col.update_note() below) - its own .changes field is the real OpChanges
@@ -400,7 +428,6 @@ def add_note(
     # right after every successful add - the note was written correctly, only
     # the live refresh blew up.
     changes = col.add_note(note, deck_id).changes
-    warning = _romanization_warning(field_names, fields, language, learning_field_index)
     payload = {"noteId": note.id, "guid": note.guid, "cardIds": [c.id for c in note.cards()]}
     if warning:
         payload["warning"] = warning

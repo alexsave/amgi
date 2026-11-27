@@ -62,6 +62,7 @@ typedef struct {
     str language;
     int has_learning_field;
     double learning_field;
+    str guid; /* the asker's (wire_q_note's guid), or empty for one the collection makes */
 } col_new_note;
 typedef struct {
     int ok;     /* addNotesBulk: this note went in; else error says why */

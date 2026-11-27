@@ -54,10 +54,10 @@ WARN := -Wall -Wextra -Werror -Wshadow -Wvla -std=gnu11 -D_GNU_SOURCE -D_DARWIN_
 
 COL_SRC := collection/util.c collection/rng.c collection/db.c collection/backup.c collection/text.c collection/pb.c \
   collection/decks.c collection/notes.c collection/media.c collection/direct.c json/anki_json.c json/model_answer.c \
-  ../ui/wire/lang.c ../ui/wire/lines.c
+  ../ui/wire/lang.c ../ui/wire/lines.c ../ui/wire/guid.c
 # The bridge client and resolveTransport: the half that speaks HTTP, through cbase's client.
 BRIDGE_SRC := collection/bridge.c collection/transport.c collection/wire_host.c ../ui/wire/wire.c
-COL_HDR := $(wildcard collection/*.h json/*.h) ../ui/wire/wire.h ../ui/wire/lang.h ../ui/wire/lines.h
+COL_HDR := $(wildcard collection/*.h json/*.h) ../ui/wire/wire.h ../ui/wire/lang.h ../ui/wire/lines.h ../ui/wire/guid.h
 # The amgi app's own code (server/amgi/amgi.h): its routes, install, the starter deck, the rate gate and
 # Gemini. A product library like the core, for the same reason: it reads numbers as JavaScript does.
 AMGI_SRC := $(sort $(wildcard amgi/*.c))

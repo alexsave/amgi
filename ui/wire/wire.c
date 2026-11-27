@@ -135,7 +135,8 @@ SCHEMA(s_q_starter, wire_q_starter,
 SCHEMA(s_q_note, wire_q_note,
     F(wire_q_note, "deckId", WT_I64, deck_id), F(wire_q_note, "notetypeId", WT_I64, notetype_id),
     F(wire_q_note, "fields", WT_STRS, fields), F(wire_q_note, "tags", WT_STRS, tags),
-    F(wire_q_note, "language", WT_STR, language), F(wire_q_note, "learningFieldIndex", WT_I32, learning_field_index));
+    F(wire_q_note, "language", WT_STR, language), F(wire_q_note, "learningFieldIndex", WT_I32, learning_field_index),
+    F(wire_q_note, "guid", WT_STR, guid));
 SCHEMA(s_q_notes, wire_q_notes, LIST(wire_q_notes, "notes", notes, nnotes, s_q_note));
 SCHEMA(s_q_note_update, wire_q_note_update,
     F(wire_q_note_update, "fields", WT_STRS, fields), F(wire_q_note_update, "language", WT_STR, language),
